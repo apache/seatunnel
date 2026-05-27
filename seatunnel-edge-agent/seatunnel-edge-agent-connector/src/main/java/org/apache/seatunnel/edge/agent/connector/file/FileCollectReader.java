@@ -113,100 +113,115 @@ public class FileCollectReader implements EdgeInputReader {
         List<EdgeEvent> records = new ArrayList<>();
         long now = System.currentTimeMillis();
 
-        // Periodic discovery of new files
-        if (now - lastDiscoveryMs >= config.getGlobScanIntervalMs()) {
-            lastDiscoveryMs = now;
-            discoverNewFiles();
-        }
+        // Periodically scan glob patterns for newly appeared files
+        discoverNewFiles(now);
 
-        // Close inactive cursors
+        // Release file handles that have been idle too long
         closeInactiveCursors(now);
 
-        // Read from each active cursor
+        // Read lines from each tracked file and assemble into events
+        readFromActiveCursors(records, maxRecords);
+
+        // Flush multiline buffers that have been waiting longer than the idle timeout
+        flushIdleAssemblers(records, maxRecords, now);
+
+        return records;
+    }
+
+    private void readFromActiveCursors(List<EdgeEvent> records, int maxRecords) throws Exception {
         Iterator<Map.Entry<Path, FileTailCursor>> it = activeCursors.entrySet().iterator();
         while (it.hasNext() && records.size() < maxRecords) {
             Map.Entry<Path, FileTailCursor> entry = it.next();
             Path filePath = entry.getKey();
             FileTailCursor cursor = entry.getValue();
-            String filePathStr = filePath.toAbsolutePath().toString();
-
             try {
-                while (records.size() < maxRecords) {
-                    String line = cursor.readLine();
-                    if (line == null) {
-                        // EOF: reopen on rotation, otherwise move to next file
-                        if (cursor.hasRotated()) {
-                            LOG.warn("File rotated: {}", filePath);
-                            clearFileState(filePath, "file rotated");
-                            cursor.reopen();
-                            lineCounters.put(filePath, 0L);
-                            continue;
-                        }
-                        break;
-                    }
-
-                    long lineNum = lineCounters.merge(filePath, 1L, Long::sum);
-                    long ts = System.currentTimeMillis();
-
-                    MultilineAssembler.LineElement element =
-                            new MultilineAssembler.LineElement(
-                                    line, filePathStr, lineNum, cursor.offset(), ts);
-
-                    if (config.isMultilineEnabled()) {
-                        MultilineAssembler assembler = getOrCreateAssembler(filePath);
-                        List<MultilineAssembler.LineElement> event = assembler.addLine(element);
-                        if (event != null && !event.isEmpty()) {
-                            CollectedRecord record = outputFormatter.format(event, config.getId());
-                            records.add(toEvent(record));
-                        }
-                    } else {
-                        List<MultilineAssembler.LineElement> singleEvent =
-                                Collections.singletonList(element);
-                        CollectedRecord record =
-                                outputFormatter.format(singleEvent, config.getId());
-                        records.add(toEvent(record));
-                    }
-                }
-
+                readLines(filePath, cursor, records, maxRecords);
             } catch (Exception e) {
-                if (config.isSkipOnError()) {
-                    LOG.error("IO error reading {}, skipping", filePath, e);
-                    clearFileState(filePath, "read error skipped");
-                    globResolver.forget(filePath);
-                    try {
-                        cursor.close();
-                    } catch (Exception ignored) {
-                    }
-                    it.remove();
-                } else {
-                    throw e;
-                }
+                handleReadException(e, filePath, cursor, it);
             }
         }
+    }
 
-        // Timeout-based flush: check each per-file assembler for idle timeout
-        if (config.isMultilineEnabled()
-                && config.getMultilineFlushIdleTimeoutMs() > 0
-                && records.size() < maxRecords) {
-            for (MultilineAssembler assembler : multilineAssemblers.values()) {
-                if (records.size() >= maxRecords) {
-                    break;
-                }
-                if (assembler.hasPending()) {
-                    long bufferAge = now - assembler.getBufferFirstTimestamp();
-                    if (bufferAge >= config.getMultilineFlushIdleTimeoutMs()) {
-                        List<MultilineAssembler.LineElement> remaining = assembler.flush();
-                        if (!remaining.isEmpty()) {
-                            CollectedRecord record =
-                                    outputFormatter.format(remaining, config.getId());
-                            records.add(toEvent(record));
-                        }
+    private void flushIdleAssemblers(List<EdgeEvent> records, int maxRecords, long now) {
+        if (!config.isMultilineEnabled() || config.getMultilineFlushIdleTimeoutMs() <= 0) {
+            return;
+        }
+        for (MultilineAssembler assembler : multilineAssemblers.values()) {
+            if (records.size() >= maxRecords) {
+                break;
+            }
+            if (assembler.hasPending()) {
+                long bufferAge = now - assembler.getBufferFirstTimestamp();
+                if (bufferAge >= config.getMultilineFlushIdleTimeoutMs()) {
+                    List<MultilineAssembler.LineElement> remaining = assembler.flush();
+                    if (!remaining.isEmpty()) {
+                        records.add(toEvent(outputFormatter.format(remaining, config.getId())));
                     }
                 }
             }
         }
+    }
 
-        return records;
+    private void readLines(
+            Path filePath, FileTailCursor cursor, List<EdgeEvent> records, int maxRecords)
+            throws Exception {
+        String filePathStr = filePath.toAbsolutePath().toString();
+        while (records.size() < maxRecords) {
+            String line = cursor.readLine();
+            if (line == null) {
+                if (cursor.hasRotated()) {
+                    LOG.warn("File rotated: {}", filePath);
+                    clearFileState(filePath, "file rotated");
+                    cursor.reopen();
+                    lineCounters.put(filePath, 0L);
+                    continue;
+                }
+                break;
+            }
+            emitLine(filePath, filePathStr, cursor, line, records);
+        }
+    }
+
+    private void emitLine(
+            Path filePath,
+            String filePathStr,
+            FileTailCursor cursor,
+            String line,
+            List<EdgeEvent> records) {
+        long lineNum = lineCounters.merge(filePath, 1L, Long::sum);
+        long ts = System.currentTimeMillis();
+        MultilineAssembler.LineElement element =
+                new MultilineAssembler.LineElement(line, filePathStr, lineNum, cursor.offset(), ts);
+
+        if (config.isMultilineEnabled()) {
+            MultilineAssembler assembler = getOrCreateAssembler(filePath);
+            List<MultilineAssembler.LineElement> event = assembler.addLine(element);
+            if (event != null && !event.isEmpty()) {
+                records.add(toEvent(outputFormatter.format(event, config.getId())));
+            }
+        } else {
+            records.add(
+                    toEvent(
+                            outputFormatter.format(
+                                    Collections.singletonList(element), config.getId())));
+        }
+    }
+
+    private void handleReadException(
+            Exception e, Path filePath, FileTailCursor cursor, Iterator<?> cursorIterator)
+            throws Exception {
+        if (config.isSkipOnError()) {
+            LOG.error("IO error reading {}, skipping", filePath, e);
+            clearFileState(filePath, "read error skipped");
+            globResolver.forget(filePath);
+            try {
+                cursor.close();
+            } catch (Exception ignored) {
+            }
+            cursorIterator.remove();
+        } else {
+            throw e;
+        }
     }
 
     @Override
@@ -233,7 +248,11 @@ public class FileCollectReader implements EdgeInputReader {
         activeCursors.clear();
     }
 
-    private void discoverNewFiles() {
+    private void discoverNewFiles(long now) {
+        if (now - lastDiscoveryMs < config.getGlobScanIntervalMs()) {
+            return;
+        }
+        lastDiscoveryMs = now;
         try {
             List<Path> newFiles = globResolver.resolveNew();
             for (Path file : newFiles) {
