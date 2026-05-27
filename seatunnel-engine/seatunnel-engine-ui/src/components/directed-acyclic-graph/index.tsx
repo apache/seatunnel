@@ -334,24 +334,6 @@ export default defineComponent({
         graph.resetCells(cells)
       }
 
-      // 显示节点状态
-      const showNodeStatus = async (statusList: NodeStatus[][]) => {
-        const status = statusList[Math.floor(Math.random() * statusList.length)]
-        status?.forEach((item) => {
-          const { id, status } = item
-          const node = graph.getCellById(`node-${id}`)
-          const data = node.getData() as NodeStatus
-          node.setData({
-            ...data,
-            status
-          })
-        })
-        if (!status) return
-        setTimeout(() => {
-          showNodeStatus(statusList)
-        }, 5000)
-      }
-
       setTimeout(() => {
         init()
         graph.centerContent()

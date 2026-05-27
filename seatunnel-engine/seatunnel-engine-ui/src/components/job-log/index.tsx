@@ -17,7 +17,7 @@
 
 import { getJobLogs } from '@/service/job-log'
 import type { JobLog } from '@/service/job-log/types'
-import { NCollapse, NCollapseItem, NSpace } from 'naive-ui'
+import { NCollapse, NCollapseItem } from 'naive-ui'
 import { defineComponent, ref } from 'vue'
 
 export default defineComponent({
