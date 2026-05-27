@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
-
-import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteBatchIdAllocator;
-import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteSchemaBootstrap;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

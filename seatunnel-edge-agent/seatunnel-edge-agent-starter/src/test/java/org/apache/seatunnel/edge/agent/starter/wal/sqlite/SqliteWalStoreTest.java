@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
-import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteWalStore;
+import org.apache.seatunnel.edge.agent.starter.wal.WalRecord;
+import org.apache.seatunnel.edge.agent.starter.wal.WalRecordStatus;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;

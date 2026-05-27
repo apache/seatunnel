@@ -15,48 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
-import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.connector.EdgeSourcePosition;
-import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteWalStore;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Map;
 
-public class SqliteAgentRuntimeStoreTest {
+public class SqliteSourcePositionStoreTest {
 
     @TempDir Path tempDir;
 
     @Test
-    void walStoreSharesWalAndPositionOnSingleConnection() throws Exception {
-        Path dbPath = tempDir.resolve("agent.db");
-        try (SqliteWalStore store = new SqliteWalStore(dbPath)) {
+    void saveAndLoadPositionRoundTrip() throws Exception {
+        Path dbPath = tempDir.resolve("positions.db");
+        try (SqliteSourcePositionStore store = new SqliteSourcePositionStore(dbPath)) {
             EdgeSourcePosition position =
                     EdgeSourcePosition.builder()
                             .sourceId("src-1")
                             .partition("file:/tmp/a.log")
                             .offset(42L)
+                            .updatedAt(1_000L)
                             .build();
-            store.sourcePositionStore().save(position);
+            store.save(position);
 
-            long id =
-                    store.append(
-                            EdgeEvent.builder()
-                                    .sourceId("src-1")
-                                    .payload("{\"x\":1}".getBytes(StandardCharsets.UTF_8))
-                                    .eventTime(1L)
-                                    .build());
+            EdgeSourcePosition loaded = store.load("src-1", "file:/tmp/a.log");
+            Assertions.assertNotNull(loaded);
+            Assertions.assertEquals(42L, loaded.getOffset());
+            Assertions.assertEquals(1_000L, loaded.getUpdatedAt());
 
-            Map<String, EdgeSourcePosition> loaded =
-                    store.sourcePositionStore().loadBySource("src-1");
-            Assertions.assertEquals(42L, loaded.get("file:/tmp/a.log").getOffset());
-            Assertions.assertEquals(1L, id);
+            Map<String, EdgeSourcePosition> bySource = store.loadBySource("src-1");
+            Assertions.assertEquals(1, bySource.size());
+            Assertions.assertEquals(42L, bySource.get("file:/tmp/a.log").getOffset());
         }
     }
 }
