@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { defineComponent, ref } from 'vue'
-import { NDataTable, NLayout, NLayoutContent } from 'naive-ui'
+import { defineComponent, getCurrentInstance, h, ref } from 'vue'
+import { useMessage, NDataTable } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type { DataTableColumns } from 'naive-ui'
+import { NButton } from 'naive-ui'
+import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
 import { managerService } from '@/service/manager'
 import type { Monitor } from '@/service/manager/types'
 import { useRoute } from 'vue-router'
@@ -37,6 +39,7 @@ export default defineComponent({
     fetch()
 
     function createColumns(): DataTableColumns<Monitor> {
+      const view = (row: Monitor) => {}
       return [
         {
           title: 'Host',

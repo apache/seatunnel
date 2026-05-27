@@ -20,30 +20,19 @@ package org.apache.seatunnel.common.utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+
 public class ReflectionUtilsTest {
 
     @Test
-    public void testInvoke() {
+    public void testInvoke() throws MalformedURLException {
         ReflectionUtils.invoke(new String[] {}, "toString");
 
-        ChildInvoker invoker = new ChildInvoker();
-        ReflectionUtils.invoke(invoker, "setValue", "test");
-        Assertions.assertEquals("test", ((ParentInvoker) invoker).getValue());
+        URLClassLoader classLoader =
+                new URLClassLoader(new URL[] {}, Thread.currentThread().getContextClassLoader());
+        ReflectionUtils.invoke(classLoader, "addURL", new URL("file:///test"));
+        Assertions.assertArrayEquals(classLoader.getURLs(), new URL[] {new URL("file:///test")});
     }
-
-    private static class ParentInvoker {
-
-        private String value;
-
-        @SuppressWarnings("unused")
-        private void setValue(String value) {
-            this.value = value;
-        }
-
-        private String getValue() {
-            return value;
-        }
-    }
-
-    private static class ChildInvoker extends ParentInvoker {}
 }
