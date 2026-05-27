@@ -58,7 +58,9 @@ public class FileCollectReaderBehaviorTest {
         map.put(FileCollectOptions.READ_FROM_BEGINNING.key(), false);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             Assertions.assertTrue(reader.poll(10).isEmpty());
@@ -110,7 +112,9 @@ public class FileCollectReaderBehaviorTest {
         map.put(FileCollectOptions.READ_FROM_BEGINNING.key(), true);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             Assertions.assertTrue(reader.poll(10).isEmpty());
@@ -139,7 +143,9 @@ public class FileCollectReaderBehaviorTest {
         map.put(FileCollectOptions.READ_FROM_BEGINNING.key(), true);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             List<EdgeEvent> events = reader.poll(10);

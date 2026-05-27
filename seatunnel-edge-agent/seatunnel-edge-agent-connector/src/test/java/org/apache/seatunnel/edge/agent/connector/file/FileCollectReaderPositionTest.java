@@ -113,7 +113,8 @@ public class FileCollectReaderPositionTest {
         FileCollectConfig config = configFor(logFile);
         Assertions.assertFalse(config.isReadFromBeginning());
 
-        FileCollectReader reader = new FileCollectReader(config, null);
+        FileCollectReader reader =
+                new FileCollectReader(config, new MapSourcePositionStore(Collections.emptyMap()));
         reader.open();
         try {
             Assertions.assertTrue(reader.poll(10).isEmpty());
@@ -123,14 +124,16 @@ public class FileCollectReaderPositionTest {
     }
 
     @Test
-    void openWithNullStoreReadsFromBeginningWhenEnabled() throws Exception {
+    void openWithEmptyStoreReadsFromBeginningWhenEnabled() throws Exception {
         Path logFile = tempDir.resolve("a.log");
         Files.write(logFile, "line1\nline2\n".getBytes(StandardCharsets.UTF_8));
 
         Map<String, Object> map = baseConfigMap(logFile);
         map.put(FileCollectOptions.READ_FROM_BEGINNING.key(), true);
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new MapSourcePositionStore(Collections.emptyMap()));
         reader.open();
         try {
             Assertions.assertEquals(2, reader.poll(10).size());

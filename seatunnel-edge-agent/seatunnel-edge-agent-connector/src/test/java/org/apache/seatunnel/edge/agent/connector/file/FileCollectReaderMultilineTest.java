@@ -59,7 +59,9 @@ public class FileCollectReaderMultilineTest {
         map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 60000L);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             // First poll: no boundary seen yet, buffer holds 3 lines but nothing emitted
@@ -107,7 +109,9 @@ public class FileCollectReaderMultilineTest {
         map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 50L);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             // First poll buffers the lines, may or may not flush depending on timing
@@ -146,7 +150,9 @@ public class FileCollectReaderMultilineTest {
         map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 60000L);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             // Poll with maxRecords=2 — only 2 events can be emitted
@@ -194,7 +200,9 @@ public class FileCollectReaderMultilineTest {
         map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 60000L);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
         try {
             List<EdgeEvent> events = reader.poll(128);
@@ -229,7 +237,9 @@ public class FileCollectReaderMultilineTest {
         map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 60000L);
 
         FileCollectReader reader =
-                new FileCollectReader(FileCollectConfig.from(ReadonlyConfig.fromMap(map)), null);
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
         reader.open();
 
         // Poll without triggering flush (no boundary, no timeout)
