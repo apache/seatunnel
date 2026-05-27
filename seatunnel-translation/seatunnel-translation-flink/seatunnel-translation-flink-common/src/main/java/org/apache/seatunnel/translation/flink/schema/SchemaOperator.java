@@ -44,19 +44,12 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Operator placed after the source to handle schema evolution.
@@ -71,11 +64,6 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Per checkpoint cycle, at most ONE schema change is applied. If multiple DDLs arrive between
  * two checkpoints, they are processed across successive checkpoint cycles.
- *
- * <p>Flink 1.13 cannot continue checkpointing after some source subtasks have finished. When high
- * parallelism CDC jobs hit that condition, pending schema changes would otherwise stay blocked
- * forever. A lightweight fallback timer detects the checkpoint stall and re-enters the task thread
- * through Flink's processing-time service so the deferred DDL can still be applied safely.
  */
 @Slf4j
 public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
@@ -84,7 +72,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private static final int MAX_BUFFERED_RECORDS = 100000;
     private static final long SCHEMA_CHANGE_TIMEOUT_MS = 300_000L;
     private static final int CHECKPOINT_WAIT_ROUNDS = 1;
-    private static final long CHECKPOINT_STALL_TIMEOUT_MS = 15_000L;
 
     private final Map<TableIdentifier, CatalogTable> localSchemaState;
     private String jobId;
@@ -95,10 +82,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private transient Queue<BufferedRecord> pendingQueue;
     private volatile boolean schemaChangePending = false;
     private long firstSeenCheckpointId = -1L;
-    private transient ScheduledExecutorService fallbackScheduler;
-    private transient volatile ScheduledFuture<?> pendingFallbackFuture;
-    private volatile long lastCheckpointCompletedMs = -1L;
-    private volatile boolean fallbackTimerFired = false;
 
     private transient ListState<SchemaStateEntry> localSchemaStateStore;
     private transient ListState<Long> lastProcessedEventTimeState;
@@ -124,13 +107,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             this.pendingQueue = new LinkedList<>();
         }
         this.coordinator = LocalSchemaCoordinator.getInstance(this.jobId);
-        this.fallbackScheduler =
-                Executors.newSingleThreadScheduledExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "schema-fallback-timer-" + jobId);
-                            thread.setDaemon(true);
-                            return thread;
-                        });
 
         log.info(
                 "SchemaOperator opened for job: {}, schemaChangePending: {}, pendingQueue size: {}",
@@ -149,16 +125,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
-        if (fallbackTimerFired) {
-            handleFallbackTimerOnTaskThread();
-        }
-
         // detect schema change events
         if ("__SCHEMA_CHANGE_EVENT__".equals(element.getTableId())
                 && element.getOptions() != null) {
             Object object = element.getOptions().get("schema_change_event");
             if (object instanceof SchemaChangeEvent) {
-                handleSchemaChangeDetected((SchemaChangeEvent) object, streamRecord.getTimestamp());
+                handleSchemaChangeDetected((SchemaChangeEvent) object);
                 return;
             }
         }
@@ -172,7 +144,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         output.collect(streamRecord);
     }
 
-    private void handleSchemaChangeDetected(SchemaChangeEvent event, long timestamp) {
+    private void handleSchemaChangeDetected(SchemaChangeEvent event) {
         List<SchemaChangeType> supportedTypes = source.supports();
         if (supportedTypes == null || supportedTypes.isEmpty()) {
             log.info("Source does not support any schema change types, skipping");
@@ -195,7 +167,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
         pendingQueue.add(BufferedRecord.schemaChange(event));
         schemaChangePending = true;
-        scheduleFallbackTimer();
     }
 
     private void enqueueDataRecord(SeaTunnelRow row, long timestamp) {
@@ -240,7 +211,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         super.notifyCheckpointComplete(checkpointId);
-        lastCheckpointCompletedMs = System.currentTimeMillis();
 
         if (!schemaChangePending || pendingQueue.isEmpty()) {
             return;
@@ -290,101 +260,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 tableId,
                 eventTime);
 
-        applyNextPendingSchemaChange(false);
-    }
-
-    private void handleFallbackTimerOnTaskThread() throws InterruptedException {
-        fallbackTimerFired = false;
-
-        if (!schemaChangePending || pendingQueue.isEmpty()) {
-            return;
-        }
-
-        if (lastCheckpointCompletedMs > 0
-                && System.currentTimeMillis() - lastCheckpointCompletedMs
-                        < CHECKPOINT_STALL_TIMEOUT_MS) {
-            scheduleFallbackTimer();
-            return;
-        }
-
-        log.warn(
-                "No checkpoint completed within {}ms while schema change is pending. "
-                        + "Applying deferred DDL via fallback timer.",
-                CHECKPOINT_STALL_TIMEOUT_MS);
-
-        BufferedRecord head = advancePastDataRecords();
-        if (head == null) {
-            return;
-        }
-
-        applyNextPendingSchemaChange(true);
-    }
-
-    private void scheduleFallbackTimer() {
-        if (fallbackScheduler == null || fallbackScheduler.isShutdown()) {
-            return;
-        }
-        ScheduledFuture<?> existing = pendingFallbackFuture;
-        if (existing != null && !existing.isDone()) {
-            return;
-        }
-        pendingFallbackFuture =
-                fallbackScheduler.schedule(
-                        () -> {
-                            fallbackTimerFired = true;
-                            registerProcessingTimeCallback();
-                        },
-                        CHECKPOINT_STALL_TIMEOUT_MS,
-                        TimeUnit.MILLISECONDS);
-    }
-
-    private void registerProcessingTimeCallback() {
-        try {
-            Object processingTimeService = getProcessingTimeService();
-            Method getCurrentTimeMethod = null;
-            Method registerMethod = null;
-            Class<?> callbackClass = null;
-
-            for (Method method : processingTimeService.getClass().getMethods()) {
-                if ("getCurrentProcessingTime".equals(method.getName())
-                        && method.getParameterTypes().length == 0) {
-                    getCurrentTimeMethod = method;
-                } else if ("registerTimer".equals(method.getName())
-                        && method.getParameterTypes().length == 2
-                        && method.getParameterTypes()[0] == long.class) {
-                    registerMethod = method;
-                    callbackClass = method.getParameterTypes()[1];
-                }
-            }
-
-            if (getCurrentTimeMethod == null || registerMethod == null || callbackClass == null) {
-                log.warn(
-                        "Could not find required ProcessingTimeService methods, "
-                                + "falling back to flag-based handling.");
-                return;
-            }
-
-            getCurrentTimeMethod.setAccessible(true);
-            registerMethod.setAccessible(true);
-            long now = (long) getCurrentTimeMethod.invoke(processingTimeService);
-
-            InvocationHandler handler =
-                    (proxy, method, args) -> {
-                        if ("onProcessingTime".equals(method.getName())) {
-                            handleFallbackTimerOnTaskThread();
-                        }
-                        return null;
-                    };
-            Object callbackProxy =
-                    Proxy.newProxyInstance(
-                            callbackClass.getClassLoader(),
-                            new Class<?>[] {callbackClass},
-                            handler);
-
-            registerMethod.invoke(processingTimeService, now + 1, callbackProxy);
-        } catch (Exception e) {
-            log.warn("Failed to register processing time callback for fallback timer", e);
-        }
+        applyNextPendingSchemaChange();
     }
 
     private BufferedRecord advancePastDataRecords() {
@@ -401,8 +277,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         return head;
     }
 
-    private void applyNextPendingSchemaChange(boolean emitFlushSignalAfterDrain)
-            throws InterruptedException {
+    private void applyNextPendingSchemaChange() throws InterruptedException {
         BufferedRecord head = pendingQueue.peek();
         if (head == null || !head.isSchemaChange) {
             return;
@@ -419,7 +294,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                     lastProcessedEventTime);
             pendingQueue.poll();
             firstSeenCheckpointId = -1L;
-            drainDataUntilNextSchemaChange(emitFlushSignalAfterDrain);
+            drainDataUntilNextSchemaChange();
             return;
         }
 
@@ -449,7 +324,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         }
         lastProcessedEventTime = eventTime;
 
-        drainDataUntilNextSchemaChange(emitFlushSignalAfterDrain);
+        drainDataUntilNextSchemaChange();
 
         log.info(
                 "Schema change for table {} (epoch {}) processing complete. pendingQueue remaining: {}",
@@ -458,7 +333,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 pendingQueue.size());
     }
 
-    private void drainDataUntilNextSchemaChange(boolean emitFlushSignalAfterDrain) {
+    private void drainDataUntilNextSchemaChange() {
         int released = 0;
         while (!pendingQueue.isEmpty()) {
             BufferedRecord record = pendingQueue.peek();
@@ -468,7 +343,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                         "Released {} buffered data records. Another schema change pending, "
                                 + "waiting for next checkpoint.",
                         released);
-                scheduleFallbackTimer();
                 return;
             }
             pendingQueue.poll();
@@ -479,18 +353,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         // queue is empty
         schemaChangePending = false;
         log.info("Released {} buffered data records. Normal data flow resumed.", released);
-        if (emitFlushSignalAfterDrain) {
-            sendFlushSignalToDownstream();
-        }
-    }
-
-    private void sendFlushSignalToDownstream() {
-        SeaTunnelRow flushRow = new SeaTunnelRow(0);
-        Map<String, Object> options = new HashMap<>();
-        options.put("flush_signal", true);
-        flushRow.setOptions(options);
-        output.collect(new StreamRecord<>(flushRow));
-        log.info("Sent flush signal to downstream sink after schema change completion.");
     }
 
     @Override
@@ -634,9 +496,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     @Override
     public void close() throws Exception {
-        if (fallbackScheduler != null && !fallbackScheduler.isShutdown()) {
-            fallbackScheduler.shutdownNow();
-        }
         super.close();
     }
 

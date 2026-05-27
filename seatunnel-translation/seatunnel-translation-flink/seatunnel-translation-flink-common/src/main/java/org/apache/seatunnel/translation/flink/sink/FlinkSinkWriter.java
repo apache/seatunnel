@@ -70,8 +70,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private long checkpointId;
 
-    private volatile boolean checkpointStalled;
-
     private final SinkCommitter<CommT> sinkCommitter;
 
     private final SinkAggregatedCommitter<CommT, Object> sinkAggregatedCommitter;
@@ -145,15 +143,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         sinkWriteCount.inc();
         sinkWriteBytes.inc(seaTunnelRow.getBytesSize());
         sinkWriterQPS.markEvent();
-
-        if (checkpointStalled) {
-            try {
-                Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
-                immediateCommitIfStalled(commitInfo);
-            } catch (Exception e) {
-                log.warn("Auto-flush after write failed (checkpoint stalled mode)", e);
-            }
-        }
     }
 
     private boolean handleControlMessage(Map<String, Object> options) throws IOException {
@@ -168,36 +157,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             return true;
         }
 
-        if (options.containsKey("flush_signal")) {
-            flushBufferedData();
-            return true;
-        }
-
         return false;
-    }
-
-    private void flushBufferedData() {
-        checkpointStalled = true;
-        try {
-            Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
-            immediateCommitIfStalled(commitInfo);
-            log.info(
-                    "Flushed buffered data in response to flush signal. "
-                            + "Checkpoint-stalled mode enabled: subsequent writes will auto-flush.");
-        } catch (Exception e) {
-            log.warn("Failed to flush buffered data on flush signal", e);
-        }
-    }
-
-    private void immediateCommitIfStalled(Optional<CommT> commitInfo) {
-        if (!commitInfo.isPresent()) {
-            return;
-        }
-        try {
-            commitPreparedData(commitInfo);
-        } catch (Exception e) {
-            log.warn("Failed to immediately commit prepared data (checkpoint-stalled mode)", e);
-        }
     }
 
     private void handleSchemaChangeEvent(
@@ -220,7 +180,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         boolean success = false;
 
         try {
-            flushBeforeSchemaChange(schemaChangeEvent);
             ((SupportSchemaEvolutionSinkWriter) sinkWriter).applySchemaChange(schemaChangeEvent);
             log.info(
                     "FlinkSinkWriter successfully applied SchemaChangeEvent for table: {}",
@@ -242,47 +201,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
                     null);
-        }
-    }
-
-    private void flushBeforeSchemaChange(SchemaChangeEvent schemaChangeEvent) throws IOException {
-        if (sinkCommitter == null && sinkAggregatedCommitter == null) {
-            return;
-        }
-
-        try {
-            Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
-            commitPreparedData(commitInfo);
-            log.info(
-                    "Committed pending sink data before schema change for table: {}",
-                    schemaChangeEvent.tableIdentifier());
-        } catch (Exception e) {
-            throw new IOException(
-                    String.format(
-                            "Failed to commit pending sink data before schema change for table %s",
-                            schemaChangeEvent.tableIdentifier()),
-                    e);
-        }
-    }
-
-    private void commitPreparedData(Optional<CommT> commitInfo) throws Exception {
-        if (!commitInfo.isPresent()) {
-            return;
-        }
-        if (sinkCommitter != null) {
-            sinkCommitter.commit(Collections.singletonList(commitInfo.get()));
-            return;
-        }
-        if (sinkAggregatedCommitter != null) {
-            Object aggregatedCommitInfo =
-                    sinkAggregatedCommitter.combine(Collections.singletonList(commitInfo.get()));
-            List<Object> retryCommitInfos =
-                    sinkAggregatedCommitter.commit(Collections.singletonList(aggregatedCommitInfo));
-            if (!retryCommitInfos.isEmpty()) {
-                log.warn(
-                        "Aggregated committer returned {} retry commit(s).",
-                        retryCommitInfos.size());
-            }
         }
     }
 
@@ -366,14 +284,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void close() throws Exception {
-        try {
-            if (checkpointStalled) {
-                Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
-                immediateCommitIfStalled(commitInfo);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to perform final stalled-mode flush before close", e);
-        }
         sinkWriter.close();
         context.getEventListener().onEvent(new WriterCloseEvent());
         try {

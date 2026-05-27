@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
@@ -63,6 +64,8 @@ import static org.apache.seatunnel.common.constants.JobMode.STREAMING;
 @SuppressWarnings("unchecked,rawtypes")
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
 
+    private static final String SOURCE_KEEP_ALIVE_CONFIG = "schema-changes.source-keep-alive";
+
     public SourceExecuteProcessor(
             List<URL> jarPaths,
             Config envConfig,
@@ -80,11 +83,13 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             SourceTableInfo sourceTableInfo = plugins.get(i);
             SeaTunnelSource internalSource = sourceTableInfo.getSource();
             Config pluginConfig = pluginConfigs.get(i);
-            FlinkSource flinkSource = new FlinkSource<>(internalSource, envConfig);
 
             DataStreamSource<SeaTunnelRow> sourceStream =
                     executionEnvironment.fromSource(
-                            flinkSource,
+                            new FlinkSource<>(
+                                    internalSource,
+                                    enableSourceKeepAliveIfNeeded(
+                                            internalSource, pluginConfig, envConfig)),
                             WatermarkStrategy.noWatermarks(),
                             String.format("%s-Source", internalSource.getPluginName()));
 
@@ -137,6 +142,38 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             }
         }
         return sources;
+    }
+
+    private Config enableSourceKeepAliveIfNeeded(
+            SeaTunnelSource source, Config pluginConfig, Config currentEnvConfig) {
+        boolean isStreaming =
+                currentEnvConfig.hasPath("job.mode")
+                        && STREAMING
+                                .toString()
+                                .equalsIgnoreCase(currentEnvConfig.getString("job.mode"));
+        boolean enableSchemaChange =
+                pluginConfig.hasPath("schema-changes.enabled")
+                        && pluginConfig.getBoolean("schema-changes.enabled");
+        boolean shouldEnableKeepAlive =
+                isStreaming
+                        && enableSchemaChange
+                        && source instanceof SupportSchemaEvolution
+                        && !supportsSinkFunctionFinish();
+        if (!shouldEnableKeepAlive) {
+            return currentEnvConfig;
+        }
+        return currentEnvConfig.withValue(
+                SOURCE_KEEP_ALIVE_CONFIG, ConfigValueFactory.fromAnyRef(true));
+    }
+
+    private boolean supportsSinkFunctionFinish() {
+        for (java.lang.reflect.Method method :
+                org.apache.flink.streaming.api.functions.sink.SinkFunction.class.getMethods()) {
+            if ("finish".equals(method.getName()) && method.getParameterCount() == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

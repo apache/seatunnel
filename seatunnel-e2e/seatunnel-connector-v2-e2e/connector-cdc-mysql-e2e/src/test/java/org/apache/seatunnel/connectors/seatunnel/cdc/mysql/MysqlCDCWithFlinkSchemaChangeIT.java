@@ -167,6 +167,49 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
+    @Order(3)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionCaseMultiParallel(TestContainer container) {
+        resetDatabaseToInitialState();
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_multi_parallel.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertSchemaEvolutionForAddColumns(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+        shopDatabase.setTemplateName("drop_columns").createAndInitialize();
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+        shopDatabase.setTemplateName("change_columns").createAndInitialize();
+        shopDatabase.setTemplateName("modify_columns").createAndInitialize();
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+    }
+
+    @Order(4)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionCaseExactlyOnceMultiParallel(
+            TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_exactly_once_multi_parallel.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+    }
+
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         await().atMost(180000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

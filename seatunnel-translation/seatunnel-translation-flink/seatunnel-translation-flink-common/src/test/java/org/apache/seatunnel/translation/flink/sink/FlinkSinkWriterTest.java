@@ -21,6 +21,10 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,7 +32,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,17 +91,29 @@ class FlinkSinkWriterTest {
     }
 
     @Test
-    void testFlushSignalEnablesImmediateCommitForStalledCheckpoint() throws Exception {
-        RecordingSinkWriter delegate = new RecordingSinkWriter();
+    void testSchemaChangeEventDoesNotForceCommit() throws Exception {
+        SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
         RecordingCommitter committer = new RecordingCommitter();
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
                 new FlinkSinkWriter<>(delegate, 7L, context, committer, null);
 
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "added_col",
+                                org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE,
+                                64L,
+                                true,
+                                null,
+                                null));
+        event.setJobId("job-under-test");
         SeaTunnelRow flushSignal = new SeaTunnelRow(0);
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("flush_signal", true);
+        options.put("schema_change_event", event);
+        options.put("schema_subtask_id", 0L);
         flushSignal.setOptions(options);
         flinkSinkWriter.write(flushSignal, null);
 
@@ -107,15 +122,17 @@ class FlinkSinkWriterTest {
         flinkSinkWriter.write(row, null);
 
         Assertions.assertEquals(1, delegate.writtenRows.size());
-        Assertions.assertEquals(Arrays.asList(7L, 7L), delegate.prepareCommitCalls);
-        Assertions.assertEquals(Arrays.asList("commit-7", "commit-7"), committer.committed);
+        Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
+        Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
+        Assertions.assertEquals(event, delegate.appliedSchemaChanges.get(0));
+        Assertions.assertEquals(Collections.emptyList(), committer.committed);
     }
 
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
 
-        private final List<Long> prepareCommitCalls = new ArrayList<>();
-        private final List<Long> snapshotCalls = new ArrayList<>();
-        private final List<SeaTunnelRow> writtenRows = new ArrayList<>();
+        protected final List<Long> prepareCommitCalls = new ArrayList<>();
+        protected final List<Long> snapshotCalls = new ArrayList<>();
+        protected final List<SeaTunnelRow> writtenRows = new ArrayList<>();
 
         @Override
         public void write(SeaTunnelRow element) throws IOException {
@@ -145,6 +162,19 @@ class FlinkSinkWriterTest {
 
         @Override
         public void close() throws IOException {}
+    }
+
+    private static class SchemaAwareRecordingSinkWriter extends RecordingSinkWriter
+            implements SupportSchemaEvolutionSinkWriter {
+
+        private final List<org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent>
+                appliedSchemaChanges = new ArrayList<>();
+
+        @Override
+        public void applySchemaChange(
+                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+            appliedSchemaChanges.add(event);
+        }
     }
 
     private static class RecordingCommitter implements SinkCommitter<String> {
