@@ -453,4 +453,3 @@ public class ConfigShadeTest {
         }
     }
 }
-    

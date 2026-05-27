@@ -46,10 +46,7 @@ public class AzureKeyVaultConfigShade implements ConfigShade {
         }
 
         if (content.startsWith("${keyvault:azure:") && content.endsWith("}")) {
-            String secretName =
-                    content
-                            .replace("${keyvault:azure:", "")
-                            .replace("}", "");
+            String secretName = content.replace("${keyvault:azure:", "").replace("}", "");
 
             int slashIndex = secretName.lastIndexOf("/");
 
