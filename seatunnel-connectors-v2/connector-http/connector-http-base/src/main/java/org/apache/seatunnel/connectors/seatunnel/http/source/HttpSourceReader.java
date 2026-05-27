@@ -185,15 +185,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private void pollAndCollectBinaryData(Collector<SeaTunnelRow> output) throws Exception {
-        HttpResponse response = executeBinaryRequest();
-        if (response.getCode() >= 200 && response.getCode() <= 207) {
-            BinaryResponseCollector.collect(
-                    response, httpParameter.getUrl(), binaryChunkSize, output);
+        int statusCode =
+                httpClient.executeBinaryStreaming(
+                        this.httpParameter.getUrl(),
+                        this.httpParameter.getMethod().getMethod(),
+                        this.httpParameter.getHeaders(),
+                        this.httpParameter.getParams(),
+                        this.httpParameter.getBody(),
+                        this.httpParameter.isKeepParamsAsForm(),
+                        binaryChunkSize,
+                        httpParameter.getUrl(),
+                        row -> output.collect(new SeaTunnelRow(row)));
+        if (statusCode >= 200 && statusCode <= 207) {
             noMoreElementFlag = true;
         } else {
-            String msg =
-                    String.format(
-                            "http binary request failed, status code:[%s]", response.getCode());
+            String msg = String.format("http binary request failed, status code:[%s]", statusCode);
             throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, msg);
         }
     }

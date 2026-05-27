@@ -207,6 +207,99 @@ public class HttpClientProvider implements AutoCloseable {
     }
 
     /**
+     * Streams binary response directly in chunks without buffering the entire body. The consumer is
+     * called once per chunk with a SeaTunnelRow containing (byte[] data, String filename, long
+     * partIndex).
+     */
+    public int executeBinaryStreaming(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm,
+            long chunkSize,
+            String urlForFilename,
+            java.util.function.Consumer<Object[]> chunkConsumer)
+            throws Exception {
+        HttpRequestBase request =
+                buildRequest(url, method, headers, params, body, keepParamsAsForm);
+        try (CloseableHttpResponse response = retryWithException(request)) {
+            if (response == null
+                    || response.getStatusLine() == null
+                    || response.getStatusLine().getStatusCode() >= 300) {
+                int code =
+                        response != null && response.getStatusLine() != null
+                                ? response.getStatusLine().getStatusCode()
+                                : HttpStatus.SC_INTERNAL_SERVER_ERROR;
+                return code;
+            }
+
+            if (response.getEntity() == null) {
+                return response.getStatusLine().getStatusCode();
+            }
+
+            String contentDisposition = null;
+            if (response.getFirstHeader("Content-Disposition") != null) {
+                contentDisposition = response.getFirstHeader("Content-Disposition").getValue();
+            }
+            String filename =
+                    org.apache.seatunnel.connectors.seatunnel.http.source.FilenameExtractor.extract(
+                            contentDisposition, urlForFilename);
+
+            try (java.io.InputStream in = response.getEntity().getContent()) {
+                byte[] buffer = new byte[(int) chunkSize];
+                long partIndex = 0;
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) > 0) {
+                    byte[] chunk = new byte[bytesRead];
+                    System.arraycopy(buffer, 0, chunk, 0, bytesRead);
+                    chunkConsumer.accept(new Object[] {chunk, filename, partIndex});
+                    partIndex++;
+                }
+            }
+            return response.getStatusLine().getStatusCode();
+        }
+    }
+
+    private HttpRequestBase buildRequest(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm)
+            throws Exception {
+        method = method.toUpperCase(Locale.ROOT);
+        if (HttpGet.METHOD_NAME.equals(method)) {
+            URIBuilder uriBuilder = new URIBuilder(url);
+            addParameters(uriBuilder, params);
+            HttpGet httpGet = new HttpGet(uriBuilder.build());
+            httpGet.setConfig(requestConfig);
+            addHeaders(httpGet, headers);
+            return httpGet;
+        }
+        if (HttpPost.METHOD_NAME.equals(method)) {
+            HttpPost httpPost = new HttpPost(url);
+            httpPost.setConfig(requestConfig);
+            addHeaders(httpPost, headers);
+            if (!Strings.isNullOrEmpty(body)) {
+                httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+            } else {
+                addParameters(httpPost, params);
+            }
+            return httpPost;
+        }
+        // fallback to GET for other methods
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        HttpGet httpGet = new HttpGet(uriBuilder.build());
+        httpGet.setConfig(requestConfig);
+        addHeaders(httpGet, headers);
+        return httpGet;
+    }
+
+    /**
      * Send a get request without request headers and request parameters
      *
      * @param url request address

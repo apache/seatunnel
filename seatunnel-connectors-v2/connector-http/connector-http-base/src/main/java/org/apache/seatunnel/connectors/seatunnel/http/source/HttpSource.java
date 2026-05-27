@@ -191,24 +191,70 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                     format));
             }
         } else {
-            TableIdentifier tableIdentifier =
-                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, TablePath.DEFAULT);
-            TableSchema tableSchema =
-                    TableSchema.builder()
-                            .column(
-                                    PhysicalColumn.of(
-                                            "content", BasicType.STRING_TYPE, 0, false, null, null))
-                            .build();
+            HttpConfig.ResponseFormat format = pluginConfig.get(HttpSourceOptions.FORMAT);
+            if (format == HttpConfig.ResponseFormat.BINARY) {
+                this.binaryMode = true;
+                this.binaryChunkSize = pluginConfig.get(HttpSourceOptions.BINARY_CHUNK_SIZE);
+                TableSchema binarySchema =
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "data",
+                                                PrimitiveByteArrayType.INSTANCE,
+                                                0,
+                                                false,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "relativePath",
+                                                BasicType.STRING_TYPE,
+                                                0,
+                                                false,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "partIndex",
+                                                BasicType.LONG_TYPE,
+                                                0,
+                                                false,
+                                                null,
+                                                null))
+                                .build();
+                this.catalogTable =
+                        CatalogTable.of(
+                                TableIdentifier.of(
+                                        HttpConfig.CONNECTOR_IDENTITY, TablePath.DEFAULT),
+                                binarySchema,
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                null);
+            } else {
+                TableIdentifier tableIdentifier =
+                        TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, TablePath.DEFAULT);
+                TableSchema tableSchema =
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "content",
+                                                BasicType.STRING_TYPE,
+                                                0,
+                                                false,
+                                                null,
+                                                null))
+                                .build();
 
-            this.catalogTable =
-                    CatalogTable.of(
-                            tableIdentifier,
-                            tableSchema,
-                            Collections.emptyMap(),
-                            Collections.emptyList(),
-                            null);
-            this.deserializationSchema =
-                    new SimpleTextDeserializationSchema(catalogTable.getSeaTunnelRowType());
+                this.catalogTable =
+                        CatalogTable.of(
+                                tableIdentifier,
+                                tableSchema,
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                null);
+                this.deserializationSchema =
+                        new SimpleTextDeserializationSchema(catalogTable.getSeaTunnelRowType());
+            }
         }
     }
 
