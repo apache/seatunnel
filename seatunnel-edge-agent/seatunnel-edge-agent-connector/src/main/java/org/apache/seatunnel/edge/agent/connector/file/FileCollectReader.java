@@ -137,6 +137,7 @@ public class FileCollectReader implements EdgeInputReader {
                         // EOF: reopen on rotation, otherwise move to next file
                         if (cursor.hasRotated()) {
                             LOG.warn("File rotated: {}", filePath);
+                            clearFileState(filePath, "file rotated");
                             cursor.reopen();
                             lineCounters.put(filePath, 0L);
                             continue;
@@ -170,6 +171,8 @@ public class FileCollectReader implements EdgeInputReader {
             } catch (Exception e) {
                 if (config.isSkipOnError()) {
                     LOG.error("IO error reading {}, skipping", filePath, e);
+                    clearFileState(filePath, "read error skipped");
+                    globResolver.forget(filePath);
                     try {
                         cursor.close();
                     } catch (Exception ignored) {
@@ -262,15 +265,7 @@ public class FileCollectReader implements EdgeInputReader {
             FileTailCursor cursor = entry.getValue();
             if (nowMs - cursor.lastActivityMs() > config.getCloseInactiveMs()) {
                 LOG.debug("Closing inactive cursor: {}", filePath);
-                MultilineAssembler assembler = multilineAssemblers.remove(filePath);
-                if (assembler != null && assembler.hasPending()) {
-                    List<MultilineAssembler.LineElement> remaining = assembler.flush();
-                    LOG.warn(
-                            "Discarding {} pending multiline line(s) for inactive file {}; "
-                                    + "they will be re-read if the file is rediscovered",
-                            remaining.size(),
-                            filePath);
-                }
+                clearFileState(filePath, "inactive timeout");
                 try {
                     cursor.close();
                 } catch (Exception ignored) {
@@ -279,6 +274,19 @@ public class FileCollectReader implements EdgeInputReader {
                 it.remove();
             }
         }
+    }
+
+    private void clearFileState(Path filePath, String reason) {
+        MultilineAssembler assembler = multilineAssemblers.remove(filePath);
+        if (assembler != null && assembler.hasPending()) {
+            List<MultilineAssembler.LineElement> discarded = assembler.flush();
+            LOG.warn(
+                    "Discarding {} pending multiline line(s) for {} ({})",
+                    discarded.size(),
+                    filePath,
+                    reason);
+        }
+        lineCounters.remove(filePath);
     }
 
     private MultilineAssembler getOrCreateAssembler(Path filePath) {

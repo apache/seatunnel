@@ -484,6 +484,142 @@ public class FileCollectReaderMultilineTest {
         }
     }
 
+    /**
+     * Regression test: when a file rotates (same path, new inode) while multiline buffer has
+     * pending lines, the old buffer must be discarded. The new physical file's first event must NOT
+     * contain content from the old file.
+     */
+    @Test
+    void rotationResetsMultilineBuffer() throws Exception {
+        Path logFile = tempDir.resolve("rotating.log");
+        // Write a partial multiline event (no boundary after it)
+        StringBuilder sb = new StringBuilder();
+        sb.append("2024-01-01 ERROR OldFileException\n");
+        sb.append("\tat com.old.Stack.trace(Old.java:1)\n");
+        sb.append("\tat com.old.Stack.deep(Old.java:2)\n");
+        Files.write(logFile, sb.toString().getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> map = multilineConfigMap(logFile, "^\\d{4}-\\d{2}-\\d{2}", "after");
+        map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 60000L);
+
+        FileCollectReader reader =
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
+        reader.open();
+        try {
+            // First poll: buffer holds 3 lines, no boundary yet → nothing emitted
+            List<EdgeEvent> events = reader.poll(128);
+            Assertions.assertTrue(
+                    events.isEmpty(), "Incomplete multiline event should stay buffered");
+
+            // Simulate rotation: delete and recreate file (produces new inode)
+            Files.delete(logFile);
+            Files.write(
+                    logFile,
+                    ("2024-02-01 INFO NewFileEvent\n" + "2024-02-01 INFO SecondNewEvent\n")
+                            .getBytes(StandardCharsets.UTF_8));
+
+            // Poll again: rotation detected → old buffer discarded, new file read from 0
+            events = reader.poll(128);
+
+            // The first boundary of the new file flushes the first new event
+            Assertions.assertFalse(events.isEmpty(), "Should emit events from the new file");
+            for (EdgeEvent e : events) {
+                String payload = new String(e.getPayload(), StandardCharsets.UTF_8);
+                Assertions.assertFalse(
+                        payload.contains("OldFileException"),
+                        "New file events must not contain old file buffer content");
+                Assertions.assertFalse(
+                        payload.contains("com.old.Stack"),
+                        "New file events must not contain old file stack frames");
+            }
+        } finally {
+            reader.close();
+        }
+    }
+
+    /**
+     * Regression test: when on-error=skip triggers, the file's multiline assembler and discovery
+     * state must be cleaned up so that (a) no stale flush occurs and (b) the file can be
+     * rediscovered on the next glob scan.
+     */
+    @Test
+    void skipOnErrorCleansStateAndAllowsRediscovery() throws Exception {
+        Path logFile = tempDir.resolve("error.log");
+        // Write a partial multiline event, then we'll force an error
+        StringBuilder sb = new StringBuilder();
+        sb.append("2024-01-01 ERROR BeforeError\n");
+        sb.append("\tat com.err.Frame.a(F.java:1)\n");
+        Files.write(logFile, sb.toString().getBytes(StandardCharsets.UTF_8));
+
+        Map<String, Object> map = multilineConfigMap(logFile, "^\\d{4}-\\d{2}-\\d{2}", "after");
+        map.put(FileCollectOptions.MULTILINE_FLUSH_IDLE_TIMEOUT_MS.key(), 50L);
+        map.put(FileCollectOptions.ON_ERROR.key(), "skip");
+        map.put(FileCollectOptions.GLOB_SCAN_INTERVAL_MS.key(), 20L);
+
+        FileCollectReader reader =
+                new FileCollectReader(
+                        FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
+                        new NoOpPositionStore());
+        reader.open();
+        try {
+            // Buffer the partial event
+            reader.poll(128);
+
+            // Delete the file to force IOException on next read
+            Files.delete(logFile);
+
+            // Poll should trigger skip-on-error (IOException reading deleted file)
+            // and clean up assembler state
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(2))
+                    .pollInterval(Duration.ofMillis(10))
+                    .untilAsserted(
+                            () -> {
+                                // keep polling until the error path fires
+                                reader.poll(128);
+                            });
+
+            // Verify no stale flush: poll should return nothing now
+            List<EdgeEvent> staleEvents = reader.poll(128);
+            for (EdgeEvent e : staleEvents) {
+                String payload = new String(e.getPayload(), StandardCharsets.UTF_8);
+                Assertions.assertFalse(
+                        payload.contains("BeforeError"),
+                        "Stale assembler content must not be emitted after skip-on-error");
+            }
+
+            // Recreate the file with new content
+            Files.write(
+                    logFile,
+                    ("2024-03-01 INFO Recovered\n" + "2024-03-01 INFO AfterRecovery\n")
+                            .getBytes(StandardCharsets.UTF_8));
+
+            // Wait for rediscovery via glob scan and verify new content is collected
+            List<EdgeEvent> recovered =
+                    Awaitility.await()
+                            .atMost(Duration.ofSeconds(3))
+                            .pollInterval(Duration.ofMillis(20))
+                            .until(() -> reader.poll(128), list -> !list.isEmpty());
+
+            boolean foundRecovered = false;
+            for (EdgeEvent e : recovered) {
+                String payload = new String(e.getPayload(), StandardCharsets.UTF_8);
+                if (payload.contains("Recovered")) {
+                    foundRecovered = true;
+                }
+                Assertions.assertFalse(
+                        payload.contains("BeforeError"),
+                        "Rediscovered file must not contain old assembler content");
+            }
+            Assertions.assertTrue(
+                    foundRecovered, "File must be rediscovered after skip-on-error cleanup");
+        } finally {
+            reader.close();
+        }
+    }
+
     private static Map<String, Object> multilineConfigMap(
             Path logFile, String pattern, String match) {
         Map<String, Object> map = new HashMap<>();
