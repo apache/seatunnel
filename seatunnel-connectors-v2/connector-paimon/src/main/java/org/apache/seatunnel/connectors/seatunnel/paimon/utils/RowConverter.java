@@ -58,6 +58,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -338,7 +339,9 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     InternalRow row =
                             rowData.getRow(i, ((SeaTunnelRowType) rowType).getTotalFields());
-                    objects[i] = convert(row, (SeaTunnelRowType) rowType, tableSchema);
+                    TableSchema nestedSchema =
+                            extractNestedSchema(tableSchema.fields().get(i).type());
+                    objects[i] = convert(row, (SeaTunnelRowType) rowType, nestedSchema);
                     break;
                 default:
                     throw CommonError.unsupportedDataType(
@@ -500,6 +503,18 @@ public class RowConverter {
             }
         }
         return binaryRow;
+    }
+
+    private static TableSchema extractNestedSchema(DataType nestedType) {
+        RowType nestedRowType = (RowType) nestedType;
+        return new TableSchema(
+                0,
+                nestedRowType.getFields(),
+                nestedRowType.getFieldCount(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                null);
     }
 
     private static void checkCanWriteWithSchema(

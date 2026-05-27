@@ -39,6 +39,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcTrinoIT extends AbstractJdbcIT {
@@ -106,21 +109,17 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
 
         this.connection = driver.connect(jdbcUrl, props);
 
-        // maybe the TRINO  server is still initializing
-        int tryTimes = 5;
-        for (int i = 0; i < tryTimes; i++) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeQuery(" select 1 ");
-                break;
-            } catch (SQLException ignored) {
-                log.info("the Trino server is still initializing. wait it ");
-            }
-            try {
-                Thread.sleep(15 * 1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement statement = connection.createStatement()) {
+                                statement.execute(
+                                        "CREATE TABLE IF NOT EXISTS memory.default._readiness_probe (id INTEGER)");
+                            }
+                        });
     }
 
     @Override

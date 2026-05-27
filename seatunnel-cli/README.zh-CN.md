@@ -101,6 +101,9 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 # export AWS_SECRET_ACCESS_KEY=...
 ```
 
+当 Bedrock 流式 Converse 响应返回 Claude `reasoningContent` blocks 时，
+Bedrock provider 会在 assistant 历史中保留并回传。
+
 #### 方案 B：Anthropic API
 
 ```bash
@@ -111,6 +114,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-4-5-20251001
 ```
+
+当 API 返回 Claude thinking blocks 时，Anthropic provider 会在 assistant 历史中保留并回传
+`thinking`、`signature` 和 `redacted_thinking`。
 
 #### 方案 C：OpenAI API
 
@@ -124,6 +130,9 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 
 # 兼容 API 的自定义端点（Azure OpenAI、本地模型等）
 # export OPENAI_BASE_URL=https://your-endpoint.openai.azure.com/
+
+# 对需要 reasoning_content 回放的兼容推理模型保持开启
+# export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
 ### SEATUNNEL_HOME
@@ -173,6 +182,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `ANTHROPIC_API_KEY` | Anthropic 必需 | -- | Anthropic API 密钥 |
 | `OPENAI_API_KEY` | OpenAI 必需 | -- | OpenAI API 密钥 |
 | `OPENAI_BASE_URL` | 否 | -- | OpenAI 兼容 API 的自定义端点 |
+| `OPENAI_ECHO_REASONING_CONTENT` | 否 | `true` | 为 DeepSeek、GLM 思考模式等 OpenAI 兼容推理模型保留并回传 `reasoning_content` |
 | `ANTHROPIC_MODEL` | 否 | 提供商默认值 | 覆盖主模型 ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | 否 | 提供商默认值 | 覆盖快速模型 ID |
 | `OPENAI_MODEL` | 否 | `gpt-4o` | OpenAI 提供商的主模型 |
