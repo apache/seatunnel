@@ -134,6 +134,7 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       engine: ${{ steps.filter.outputs.engine }}
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
+      edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
       docs: ${{ steps.filter.outputs.docs }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
@@ -195,7 +196,13 @@ jobs:
           echo "engine-e2e=$true_or_false" >> $GITHUB_OUTPUT
           echo "engine-e2e_files=$file_list" >> $GITHUB_OUTPUT
           
-          api_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-translation/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
+          edge_agent_e2e_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-e2e/seatunnel-edge-agent-e2e/**"`
+          true_or_false=${edge_agent_e2e_files%%$'\n'*}
+          file_list=${edge_agent_e2e_files#*$'\n'}
+          echo "edge-agent-e2e=$true_or_false" >> $GITHUB_OUTPUT
+          echo "edge-agent-e2e_files=$file_list" >> $GITHUB_OUTPUT
+          
+          api_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-translation/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**" "seatunnel-edge-agent/**"`
           true_or_false=${api_files%%$'\n'*}
           file_list=${api_files#*$'\n'}
           if [[ $repository_owner == 'apache' ]];then
@@ -237,6 +244,15 @@ jobs:
         run: |
           update_files='${{ steps.filter.outputs.engine-e2e_files }}'
           modules=`python tools/update_modules_check/update_modules_check.py engine-e2e "$update_files"`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+
+      - name: Check Edge Agent E2E Update
+        id: edge-agent-e2e-modules
+        if: ${{ steps.filter.outputs.edge-agent-e2e == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.edge-agent-e2e_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py edge-agent-e2e "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -702,6 +718,31 @@ jobs:
       - name: run seatunnel zeta integration test
         run: |
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  edge-agent-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || needs.changes.outputs.edge-agent-e2e == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-edge-agent-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run seatunnel edge agent integration test
+        run: |
+          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 

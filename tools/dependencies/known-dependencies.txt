@@ -15,6 +15,7 @@ jackson-annotations-2.15.4.jar
 jackson-core-2.15.4.jar
 jackson-databind-2.15.4.jar
 jackson-dataformat-properties-2.15.4.jar
+jackson-dataformat-yaml-2.15.4.jar
 jackson-datatype-jsr310-2.15.4.jar
 jcl-over-slf4j-1.7.36.jar
 jcommander-1.81.jar
@@ -128,3 +129,7 @@ netty-common-4.1.118.Final.jar
 netty-handler-4.1.118.Final.jar
 netty-resolver-4.1.118.Final.jar
 eventstream-1.0.1.jar
+java-diff-utils-4.12.jar
+jline-3.22.0.jar
+snakeyaml-1.30.jar
+sqlite-jdbc-3.39.3.0.jar
