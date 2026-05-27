@@ -26,6 +26,7 @@ import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentConfigLoader;
 import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentResolvedConfig;
 import org.apache.seatunnel.edge.agent.starter.wal.WalRecord;
 import org.apache.seatunnel.edge.agent.starter.wal.WalRecordStatus;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
 import org.apache.seatunnel.edge.agent.starter.wal.mem.MemWalStore;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransport;
 import org.apache.seatunnel.edge.agent.transport.serialize.RawPayloadSerializer;
@@ -41,6 +42,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EdgeAgentRuntimeSchedulerTest {
@@ -64,7 +66,7 @@ public class EdgeAgentRuntimeSchedulerTest {
                                         .build())
                         .build());
         FakeSourcePositionStore positionStore = new FakeSourcePositionStore();
-        AssertableWalStore walStore = new AssertableWalStore(positionStore);
+        FakeWalStore walStore = new FakeWalStore(positionStore);
         FakeTransport transport = new FakeTransport();
 
         AgentRuntimeConfig config = loadRuntimeConfigWithBulkSize(tempDir.resolve("wal.db"), 1);
@@ -94,7 +96,7 @@ public class EdgeAgentRuntimeSchedulerTest {
                         .payload("x".getBytes(StandardCharsets.UTF_8))
                         .eventTime(1L)
                         .build());
-        AssertableWalStore walStore = new AssertableWalStore();
+        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport();
         transport.failNextSend = true;
 
@@ -205,7 +207,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         EdgeAgentRuntimeContext ctx =
                 new EdgeAgentRuntimeContext(
                         reader,
-                        new AssertableWalStore(),
+                        new FakeWalStore(),
                         transport,
                         new RawPayloadSerializer(),
                         new AtomicBoolean(true));
@@ -219,7 +221,7 @@ public class EdgeAgentRuntimeSchedulerTest {
     void bufferDoesNotFlushBelowBatchSize() throws Exception {
         FakeReader reader = new FakeReader();
         reader.events.add(event("a"));
-        AssertableWalStore walStore = new AssertableWalStore();
+        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport();
 
         AgentRuntimeConfig config = loadRuntimeConfigWithBulkSize(tempDir.resolve("wal.db"), 3);
@@ -250,7 +252,7 @@ public class EdgeAgentRuntimeSchedulerTest {
     void bufferFlushesOnTimeout() throws Exception {
         FakeReader reader = new FakeReader();
         reader.events.add(event("timeout-event"));
-        AssertableWalStore walStore = new AssertableWalStore();
+        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport();
 
         AgentRuntimeConfig config =
@@ -283,7 +285,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         reader.events.add(eventWithPosition("e2", "/a.log", 200));
         reader.events.add(eventWithPosition("e3", "/b.log", 50));
         FakeSourcePositionStore positionStore = new FakeSourcePositionStore();
-        AssertableWalStore walStore = new AssertableWalStore(positionStore);
+        FakeWalStore walStore = new FakeWalStore(positionStore);
         FakeTransport transport = new FakeTransport();
 
         AgentRuntimeConfig config = loadRuntimeConfigWithBulkSize(tempDir.resolve("wal.db"), 3);
@@ -309,7 +311,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         reader.events.add(event("ok"));
         reader.events.add(event("fail"));
         reader.events.add(event("skip"));
-        AssertableWalStore walStore = new AssertableWalStore();
+        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport();
         transport.failAtSendCount = 2;
 
@@ -333,7 +335,7 @@ public class EdgeAgentRuntimeSchedulerTest {
     void closeFlushesRemainingBufferToWal() throws Exception {
         FakeReader reader = new FakeReader();
         reader.events.add(event("buffered"));
-        AssertableWalStore walStore = new AssertableWalStore();
+        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport();
 
         AgentRuntimeConfig config = loadRuntimeConfigWithBulkSize(tempDir.resolve("wal.db"), 100);
@@ -364,7 +366,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         EdgeAgentRuntimeContext ctx =
                 new EdgeAgentRuntimeContext(
                         reader,
-                        new AssertableWalStore(positionStore),
+                        new FakeWalStore(positionStore),
                         transport,
                         new RawPayloadSerializer(),
                         new AtomicBoolean(true));
@@ -386,7 +388,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         EdgeAgentRuntimeContext ctx =
                 new EdgeAgentRuntimeContext(
                         reader,
-                        new AssertableWalStore(),
+                        new FakeWalStore(),
                         transport,
                         new RawPayloadSerializer(),
                         new AtomicBoolean(true));
@@ -406,7 +408,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         EdgeAgentRuntimeContext ctx =
                 new EdgeAgentRuntimeContext(
                         reader,
-                        new AssertableWalStore(positionStore),
+                        new FakeWalStore(positionStore),
                         transport,
                         new RawPayloadSerializer(),
                         new AtomicBoolean(true));
@@ -596,18 +598,18 @@ public class EdgeAgentRuntimeSchedulerTest {
         }
     }
 
-    private static final class AssertableWalStore extends MemWalStore {
+    private static final class FakeWalStore implements WalStore {
         private final EdgeSourcePositionStore posStore;
         private final List<Long> appendedIds = new ArrayList<>();
         private final List<Long> ackedIds = new ArrayList<>();
         private final List<WalRecord> pending = new ArrayList<>();
         private long nextId = 1;
 
-        AssertableWalStore() {
+        FakeWalStore() {
             this(new FakeSourcePositionStore());
         }
 
-        AssertableWalStore(EdgeSourcePositionStore posStore) {
+        FakeWalStore(EdgeSourcePositionStore posStore) {
             this.posStore = posStore;
         }
 
@@ -640,8 +642,28 @@ public class EdgeAgentRuntimeSchedulerTest {
         }
 
         @Override
+        public int markExceededAsDead(int maxAttempts, int maxRecords) {
+            return 0;
+        }
+
+        @Override
         public void ack(long recordId) {
             ackedIds.add(recordId);
+        }
+
+        @Override
+        public int resurrectSending(int maxRecords) {
+            return 0;
+        }
+
+        @Override
+        public int resurrectSending(int maxRecords, long staleThresholdMs) {
+            return 0;
+        }
+
+        @Override
+        public int cleanupAcked(long retentionMs, int maxRecords) {
+            return 0;
         }
     }
 
@@ -654,7 +676,7 @@ public class EdgeAgentRuntimeSchedulerTest {
         }
 
         @Override
-        public java.util.Map<String, EdgeSourcePosition> loadBySource(String sourceId) {
+        public Map<String, EdgeSourcePosition> loadBySource(String sourceId) {
             return Collections.emptyMap();
         }
 
