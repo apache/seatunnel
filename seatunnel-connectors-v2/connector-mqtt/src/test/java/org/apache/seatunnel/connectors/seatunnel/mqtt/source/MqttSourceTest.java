@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.mqtt.exception.MqttConnectorException;
 
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 class MqttSourceTest {
 
@@ -103,6 +106,55 @@ class MqttSourceTest {
         Assertions.assertEquals(
                 source.getProducedCatalogTables().get(0).getTablePath().toString(),
                 collector.record.getTableId());
+    }
+
+    @Test
+    void testReaderFailsWhenReconnectTimeoutExceeded() throws Exception {
+        Map<String, Object> config = baseConfig();
+        config.put("reconnect_timeout", 1);
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(config));
+        MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(config));
+        AtomicLong currentTimeMillis = new AtomicLong(0L);
+        MqttSourceReader reader =
+                new MqttSourceReader(
+                        sourceConfig,
+                        source.getProducedCatalogTables().get(0),
+                        currentTimeMillis::get);
+
+        RuntimeException cause = new RuntimeException("broker unavailable");
+        reader.connectionLost(cause);
+        currentTimeMillis.set(1001L);
+
+        Assertions.assertThrows(
+                MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+    }
+
+    @Test
+    void testReaderFailsWhenResubscribeAfterReconnectFails() throws Exception {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(baseConfig()));
+        MqttSourceReader reader =
+                new MqttSourceReader(
+                        sourceConfig,
+                        source.getProducedCatalogTables().get(0),
+                        System::currentTimeMillis);
+
+        try (org.mockito.MockedConstruction<MqttClient> mocked =
+                Mockito.mockConstruction(MqttClient.class)) {
+            reader.open();
+            MqttClient mockClient = mocked.constructed().get(0);
+            Mockito.doThrow(new MqttException(MqttException.REASON_CODE_CLIENT_EXCEPTION))
+                    .when(mockClient)
+                    .subscribe("users", 1);
+
+            reader.connectionLost(new RuntimeException("connection lost"));
+
+            Assertions.assertThrows(
+                    MqttConnectorException.class,
+                    () -> reader.connectComplete(true, "tcp://localhost:1883"));
+            Assertions.assertThrows(
+                    MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+        }
     }
 
     @Test

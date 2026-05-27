@@ -25,6 +25,8 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 如需使用 MQTT 持久会话，请设置 `clean_session=false` 并配置稳定的 `client_id`。当 `clean_session=false` 时，Source 在关闭时只断开连接，不会取消订阅，因此 broker 可以根据 MQTT 会话语义保留订阅。
 
+Source 使用 MQTT 自动重连。如果 client 断开连接的时间超过 `reconnect_timeout`，Source task 会失败，以避免静默停止摄取。
+
 :::
 
 ## 选项
@@ -43,6 +45,7 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 | clean_session     | boolean | 否  | true |
 | connection_timeout | int    | 否  | 30   |
 | keep_alive_interval | int   | 否  | 60   |
+| reconnect_timeout | int     | 否  | 120  |
 | max_queue_size    | int     | 否  | 1000 |
 | common-options    |         | 否  | -    |
 
@@ -114,6 +117,10 @@ MQTT 连接建立超时时间，单位为秒。
 ### keep_alive_interval [int]
 
 MQTT keep alive 间隔，单位为秒。
+
+### reconnect_timeout [int]
+
+等待 MQTT 自动重连的最长时间，单位为秒。如果 MQTT client 断开连接的时间超过该超时时间，`pollNext()` 会使 Source task 失败，避免无限期静默等待。
 
 ### max_queue_size [int]
 

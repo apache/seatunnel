@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         implements MqttCallbackExtended {
@@ -55,13 +56,24 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
     private final CatalogTable catalogTable;
     private final BlockingQueue<byte[]> messageQueue;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final LongSupplier currentTimeMillis;
 
     private MqttClient mqttClient;
     private volatile Throwable receiveException;
+    private volatile long disconnectedSinceMs = -1L;
+    private volatile Throwable disconnectCause;
 
     public MqttSourceReader(MqttSourceConfig sourceConfig, CatalogTable catalogTable) {
+        this(sourceConfig, catalogTable, System::currentTimeMillis);
+    }
+
+    MqttSourceReader(
+            MqttSourceConfig sourceConfig,
+            CatalogTable catalogTable,
+            LongSupplier currentTimeMillis) {
         this.sourceConfig = sourceConfig;
         this.catalogTable = catalogTable;
+        this.currentTimeMillis = currentTimeMillis;
         this.messageQueue = new LinkedBlockingQueue<>(sourceConfig.getMaxQueueSize());
         this.deserializationSchema = createDeserializationSchema(sourceConfig, catalogTable);
     }
@@ -76,7 +88,7 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                             new MemoryPersistence());
             this.mqttClient.setCallback(this);
             this.mqttClient.connect(buildConnectOptions(sourceConfig));
-            this.mqttClient.subscribe(sourceConfig.getTopic(), sourceConfig.getQos());
+            subscribeTopic();
             LOG.info(
                     "MQTT source reader [{}] subscribed to topic [{}]",
                     sourceConfig.getClientId(),
@@ -92,12 +104,8 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (receiveException != null) {
-            throw new MqttConnectorException(
-                    MqttConnectorErrorCode.RECEIVE_FAILED,
-                    "Failed to receive MQTT source messages",
-                    receiveException);
-        }
+        checkReceiveException();
+        checkReconnectTimeout();
 
         byte[] payload = messageQueue.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         if (payload == null) {
@@ -136,7 +144,12 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     @Override
     public void connectionLost(Throwable cause) {
-        LOG.warn("MQTT source connection lost, auto-reconnect will attempt recovery", cause);
+        disconnectedSinceMs = currentTimeMillis.getAsLong();
+        disconnectCause = cause;
+        LOG.warn(
+                "MQTT source connection lost for client [{}], auto-reconnect will attempt recovery",
+                sourceConfig.getClientId(),
+                cause);
     }
 
     @Override
@@ -145,7 +158,9 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
             return;
         }
         try {
-            mqttClient.subscribe(sourceConfig.getTopic(), sourceConfig.getQos());
+            subscribeTopic();
+            disconnectedSinceMs = -1L;
+            disconnectCause = null;
             LOG.info(
                     "MQTT source reader [{}] resubscribed to topic [{}] after reconnect to [{}]",
                     sourceConfig.getClientId(),
@@ -157,6 +172,8 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                     MqttConnectorErrorCode.RECEIVE_FAILED,
                     "Failed to resubscribe MQTT source client ["
                             + sourceConfig.getClientId()
+                            + "] to topic ["
+                            + sourceConfig.getTopic()
                             + "] after reconnect",
                     e);
         }
@@ -191,6 +208,50 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
         // Source-only client — outbound delivery acknowledgements are not expected.
+    }
+
+    void subscribeTopic() throws MqttException {
+        mqttClient.subscribe(sourceConfig.getTopic(), sourceConfig.getQos());
+    }
+
+    private void checkReceiveException() {
+        if (receiveException == null) {
+            return;
+        }
+        throw new MqttConnectorException(
+                MqttConnectorErrorCode.RECEIVE_FAILED,
+                "Failed to receive MQTT source messages from topic ["
+                        + sourceConfig.getTopic()
+                        + "] with client ["
+                        + sourceConfig.getClientId()
+                        + "]",
+                receiveException);
+    }
+
+    private void checkReconnectTimeout() {
+        long disconnectedAt = disconnectedSinceMs;
+        if (disconnectedAt < 0) {
+            return;
+        }
+        long elapsedMs = currentTimeMillis.getAsLong() - disconnectedAt;
+        long timeoutMs = TimeUnit.SECONDS.toMillis(sourceConfig.getReconnectTimeout());
+        if (elapsedMs < timeoutMs) {
+            return;
+        }
+
+        MqttConnectorException exception =
+                new MqttConnectorException(
+                        MqttConnectorErrorCode.RECEIVE_FAILED,
+                        "MQTT source client ["
+                                + sourceConfig.getClientId()
+                                + "] remained disconnected from topic ["
+                                + sourceConfig.getTopic()
+                                + "] for more than reconnect_timeout="
+                                + sourceConfig.getReconnectTimeout()
+                                + " seconds",
+                        disconnectCause);
+        receiveException = exception;
+        throw exception;
     }
 
     private static MqttConnectOptions buildConnectOptions(MqttSourceConfig sourceConfig) {

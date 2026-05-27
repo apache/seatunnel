@@ -36,6 +36,7 @@ public class MqttSourceConfig {
     private final boolean cleanSession;
     private final int connectionTimeout;
     private final int keepAliveInterval;
+    private final int reconnectTimeout;
     private final int maxQueueSize;
 
     public MqttSourceConfig(ReadonlyConfig config) {
@@ -49,6 +50,7 @@ public class MqttSourceConfig {
         this.cleanSession = config.get(MqttSourceOptions.CLEAN_SESSION);
         this.connectionTimeout = config.get(MqttSourceOptions.CONNECTION_TIMEOUT);
         this.keepAliveInterval = config.get(MqttSourceOptions.KEEP_ALIVE_INTERVAL);
+        this.reconnectTimeout = config.get(MqttSourceOptions.RECONNECT_TIMEOUT);
         this.maxQueueSize = config.get(MqttSourceOptions.MAX_QUEUE_SIZE);
 
         String configuredClientId = config.get(MqttSourceOptions.CLIENT_ID);
@@ -70,6 +72,10 @@ public class MqttSourceConfig {
         }
         if (!"json".equalsIgnoreCase(format) && !"text".equalsIgnoreCase(format)) {
             throw new IllegalArgumentException("Unsupported MQTT source format: " + format);
+        }
+        if (reconnectTimeout <= 0) {
+            throw new IllegalArgumentException(
+                    "reconnect_timeout must be greater than 0, got: " + reconnectTimeout);
         }
         if (maxQueueSize <= 0) {
             throw new IllegalArgumentException(
@@ -123,6 +129,10 @@ public class MqttSourceConfig {
 
     public int getKeepAliveInterval() {
         return keepAliveInterval;
+    }
+
+    public int getReconnectTimeout() {
+        return reconnectTimeout;
     }
 
     public int getMaxQueueSize() {

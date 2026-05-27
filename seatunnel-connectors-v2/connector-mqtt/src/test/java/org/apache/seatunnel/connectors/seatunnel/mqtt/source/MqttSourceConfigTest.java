@@ -41,6 +41,7 @@ class MqttSourceConfigTest {
         Assertions.assertTrue(sourceConfig.isCleanSession());
         Assertions.assertEquals(30, sourceConfig.getConnectionTimeout());
         Assertions.assertEquals(60, sourceConfig.getKeepAliveInterval());
+        Assertions.assertEquals(120, sourceConfig.getReconnectTimeout());
         Assertions.assertEquals(1000, sourceConfig.getMaxQueueSize());
     }
 
@@ -56,6 +57,7 @@ class MqttSourceConfigTest {
         config.put("clean_session", false);
         config.put("connection_timeout", 10);
         config.put("keep_alive_interval", 20);
+        config.put("reconnect_timeout", 30);
         config.put("max_queue_size", 200);
 
         MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(config));
@@ -69,6 +71,7 @@ class MqttSourceConfigTest {
         Assertions.assertFalse(sourceConfig.isCleanSession());
         Assertions.assertEquals(10, sourceConfig.getConnectionTimeout());
         Assertions.assertEquals(20, sourceConfig.getKeepAliveInterval());
+        Assertions.assertEquals(30, sourceConfig.getReconnectTimeout());
         Assertions.assertEquals(200, sourceConfig.getMaxQueueSize());
     }
 
@@ -86,6 +89,16 @@ class MqttSourceConfigTest {
     void testNegativeQosFails() {
         Map<String, Object> config = baseConfig();
         config.put("qos", -1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
+    }
+
+    @Test
+    void testNonPositiveReconnectTimeoutFails() {
+        Map<String, Object> config = baseConfig();
+        config.put("reconnect_timeout", 0);
 
         Assertions.assertThrows(
                 IllegalArgumentException.class,

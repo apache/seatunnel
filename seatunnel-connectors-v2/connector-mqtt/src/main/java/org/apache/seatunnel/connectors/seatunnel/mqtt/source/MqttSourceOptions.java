@@ -92,6 +92,13 @@ public class MqttSourceOptions {
                     .defaultValue(60)
                     .withDescription("MQTT keep alive interval in seconds");
 
+    public static final Option<Integer> RECONNECT_TIMEOUT =
+            Options.key("reconnect_timeout")
+                    .intType()
+                    .defaultValue(120)
+                    .withDescription(
+                            "Maximum seconds to wait for MQTT auto-reconnect before failing the source");
+
     public static final Option<Integer> MAX_QUEUE_SIZE =
             Options.key("max_queue_size")
                     .intType()

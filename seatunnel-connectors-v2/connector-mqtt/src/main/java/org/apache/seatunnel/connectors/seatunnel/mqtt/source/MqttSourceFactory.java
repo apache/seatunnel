@@ -55,6 +55,7 @@ public class MqttSourceFactory implements TableSourceFactory {
                         MqttSourceOptions.CLEAN_SESSION,
                         MqttSourceOptions.CONNECTION_TIMEOUT,
                         MqttSourceOptions.KEEP_ALIVE_INTERVAL,
+                        MqttSourceOptions.RECONNECT_TIMEOUT,
                         MqttSourceOptions.MAX_QUEUE_SIZE)
                 .build();
     }

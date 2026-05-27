@@ -25,6 +25,8 @@ The `qos` option controls MQTT broker-client delivery only. It is not integrated
 
 For persistent MQTT sessions, set `clean_session=false` and configure a stable `client_id`. When `clean_session=false`, the source disconnects without unsubscribing during close, so the broker can retain the subscription according to MQTT session semantics.
 
+The source uses MQTT auto-reconnect. If the client remains disconnected longer than `reconnect_timeout`, the source task fails to avoid a silent ingestion stall.
+
 :::
 
 ## Options
@@ -43,6 +45,7 @@ For persistent MQTT sessions, set `clean_session=false` and configure a stable `
 | clean_session       | boolean | no       | true          |
 | connection_timeout  | int     | no       | 30            |
 | keep_alive_interval | int     | no       | 60            |
+| reconnect_timeout   | int     | no       | 120           |
 | max_queue_size      | int     | no       | 1000          |
 | common-options      |         | no       | -             |
 
@@ -114,6 +117,10 @@ The MQTT connection establishment timeout in seconds.
 ### keep_alive_interval [int]
 
 The MQTT keep alive interval in seconds.
+
+### reconnect_timeout [int]
+
+Maximum seconds to wait for MQTT auto-reconnect before failing the source. If the MQTT client remains disconnected longer than this timeout, `pollNext()` fails the source task instead of silently waiting forever.
 
 ### max_queue_size [int]
 
