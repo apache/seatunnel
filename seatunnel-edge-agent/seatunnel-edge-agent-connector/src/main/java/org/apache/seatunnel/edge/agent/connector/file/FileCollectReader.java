@@ -56,7 +56,8 @@ public class FileCollectReader implements EdgeInputReader {
     private final EdgeSourcePositionStore sourcePositionStore;
 
     private GlobPathResolver globResolver;
-    private MultilineAssembler multilineAssembler;
+    private final Map<Path, MultilineAssembler> multilineAssemblers = new HashMap<>();
+    private MultilineAssembler.MatchMode multilineMatchMode;
     private OutputFormatter outputFormatter;
     private final Map<Path, FileTailCursor> activeCursors = new LinkedHashMap<>();
     private long lastDiscoveryMs;
@@ -82,16 +83,10 @@ public class FileCollectReader implements EdgeInputReader {
         this.globResolver = new GlobPathResolver(config.getPaths());
 
         if (config.isMultilineEnabled()) {
-            MultilineAssembler.MatchMode mode =
+            this.multilineMatchMode =
                     "before".equalsIgnoreCase(config.getMultilineMatch())
                             ? MultilineAssembler.MatchMode.BEFORE
                             : MultilineAssembler.MatchMode.AFTER;
-            this.multilineAssembler =
-                    new MultilineAssembler(
-                            config.getMultilinePattern(),
-                            mode,
-                            config.isMultilineNegate(),
-                            config.getMultilineMaxLines());
         }
 
         if (config.isJsonOutput()) {
@@ -156,15 +151,14 @@ public class FileCollectReader implements EdgeInputReader {
                             new MultilineAssembler.LineElement(
                                     line, filePathStr, lineNum, cursor.offset(), ts);
 
-                    if (multilineAssembler != null) {
-                        List<MultilineAssembler.LineElement> event =
-                                multilineAssembler.addLine(element);
+                    if (config.isMultilineEnabled()) {
+                        MultilineAssembler assembler = getOrCreateAssembler(filePath);
+                        List<MultilineAssembler.LineElement> event = assembler.addLine(element);
                         if (event != null && !event.isEmpty()) {
                             CollectedRecord record = outputFormatter.format(event, config.getId());
                             records.add(toEvent(record));
                         }
                     } else {
-                        // Single-line mode: each line is an event
                         List<MultilineAssembler.LineElement> singleEvent =
                                 Collections.singletonList(element);
                         CollectedRecord record =
@@ -187,17 +181,24 @@ public class FileCollectReader implements EdgeInputReader {
             }
         }
 
-        // Timeout-based flush: only flush if buffer has been idle longer than the threshold
-        if (multilineAssembler != null
-                && multilineAssembler.hasPending()
+        // Timeout-based flush: check each per-file assembler for idle timeout
+        if (config.isMultilineEnabled()
+                && config.getMultilineFlushIdleTimeoutMs() > 0
                 && records.size() < maxRecords) {
-            long bufferAge = now - multilineAssembler.getBufferFirstTimestamp();
-            if (config.getMultilineFlushIdleTimeoutMs() > 0
-                    && bufferAge >= config.getMultilineFlushIdleTimeoutMs()) {
-                List<MultilineAssembler.LineElement> remaining = multilineAssembler.flush();
-                if (!remaining.isEmpty()) {
-                    CollectedRecord record = outputFormatter.format(remaining, config.getId());
-                    records.add(toEvent(record));
+            for (MultilineAssembler assembler : multilineAssemblers.values()) {
+                if (records.size() >= maxRecords) {
+                    break;
+                }
+                if (assembler.hasPending()) {
+                    long bufferAge = now - assembler.getBufferFirstTimestamp();
+                    if (bufferAge >= config.getMultilineFlushIdleTimeoutMs()) {
+                        List<MultilineAssembler.LineElement> remaining = assembler.flush();
+                        if (!remaining.isEmpty()) {
+                            CollectedRecord record =
+                                    outputFormatter.format(remaining, config.getId());
+                            records.add(toEvent(record));
+                        }
+                    }
                 }
             }
         }
@@ -207,13 +208,18 @@ public class FileCollectReader implements EdgeInputReader {
 
     @Override
     public void close() throws Exception {
-        if (multilineAssembler != null && multilineAssembler.hasPending()) {
-            List<MultilineAssembler.LineElement> remaining = multilineAssembler.flush();
-            LOG.warn(
-                    "Multiline buffer had {} pending line(s) at close; "
-                            + "they will be re-read from saved offset on next restart",
-                    remaining.size());
+        for (Map.Entry<Path, MultilineAssembler> entry : multilineAssemblers.entrySet()) {
+            MultilineAssembler assembler = entry.getValue();
+            if (assembler.hasPending()) {
+                List<MultilineAssembler.LineElement> remaining = assembler.flush();
+                LOG.warn(
+                        "Multiline buffer for {} had {} pending line(s) at close; "
+                                + "they will be re-read from saved offset on next restart",
+                        entry.getKey(),
+                        remaining.size());
+            }
         }
+        multilineAssemblers.clear();
         for (FileTailCursor cursor : activeCursors.values()) {
             try {
                 cursor.close();
@@ -252,17 +258,38 @@ public class FileCollectReader implements EdgeInputReader {
         Iterator<Map.Entry<Path, FileTailCursor>> it = activeCursors.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Path, FileTailCursor> entry = it.next();
+            Path filePath = entry.getKey();
             FileTailCursor cursor = entry.getValue();
             if (nowMs - cursor.lastActivityMs() > config.getCloseInactiveMs()) {
-                LOG.debug("Closing inactive cursor: {}", entry.getKey());
+                LOG.debug("Closing inactive cursor: {}", filePath);
+                MultilineAssembler assembler = multilineAssemblers.remove(filePath);
+                if (assembler != null && assembler.hasPending()) {
+                    List<MultilineAssembler.LineElement> remaining = assembler.flush();
+                    LOG.warn(
+                            "Discarding {} pending multiline line(s) for inactive file {}; "
+                                    + "they will be re-read if the file is rediscovered",
+                            remaining.size(),
+                            filePath);
+                }
                 try {
                     cursor.close();
                 } catch (Exception ignored) {
                 }
-                globResolver.forget(entry.getKey());
+                globResolver.forget(filePath);
                 it.remove();
             }
         }
+    }
+
+    private MultilineAssembler getOrCreateAssembler(Path filePath) {
+        return multilineAssemblers.computeIfAbsent(
+                filePath,
+                k ->
+                        new MultilineAssembler(
+                                config.getMultilinePattern(),
+                                multilineMatchMode,
+                                config.isMultilineNegate(),
+                                config.getMultilineMaxLines()));
     }
 
     private FileTailCursor openCursor(Path file, EdgeSourcePosition pos) throws IOException {
