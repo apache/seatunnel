@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeSourcePosition;
 import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;

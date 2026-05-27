@@ -20,8 +20,8 @@ package org.apache.seatunnel.edge.agent.starter.command;
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.starter.command.db.DbCommandArgs;
 import org.apache.seatunnel.edge.agent.starter.command.db.EdgeAgentDbCommand;
-import org.apache.seatunnel.edge.agent.starter.wal.SqliteWalStore;
 import org.apache.seatunnel.edge.agent.starter.wal.WalRecordStatus;
+import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteWalStore;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;

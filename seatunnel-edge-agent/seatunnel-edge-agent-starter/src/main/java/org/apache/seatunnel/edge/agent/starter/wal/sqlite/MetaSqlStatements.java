@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
-public class AgentMetaSqlStatements {
+public class MetaSqlStatements {
 
     private static final String META_TABLE = "edge_agent_meta";
 

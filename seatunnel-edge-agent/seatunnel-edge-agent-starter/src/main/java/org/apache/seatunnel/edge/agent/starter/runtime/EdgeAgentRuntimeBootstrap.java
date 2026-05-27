@@ -61,7 +61,7 @@ public class EdgeAgentRuntimeBootstrap implements AutoCloseable {
     }
 
     /**
-     * Stops the scheduler if started; otherwise closes reader, transport, and SQLite runtime.
+     * Stops the scheduler if started; otherwise closes reader, transport, and runtime store.
      *
      * @throws Exception first close failure among reader, transport, or stores
      */
@@ -77,13 +77,6 @@ public class EdgeAgentRuntimeBootstrap implements AutoCloseable {
     }
 
     private void closePersistence() throws Exception {
-        if (ctx.getSqliteRuntime() != null) {
-            ctx.getSqliteRuntime().close();
-            return;
-        }
         ctx.getWalStore().close();
-        if (ctx.getSourcePositionStore() instanceof AutoCloseable) {
-            ((AutoCloseable) ctx.getSourcePositionStore()).close();
-        }
     }
 }

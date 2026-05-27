@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReaderFactory;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStoreFactory;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransportFactory;
 
 import java.util.Objects;
@@ -40,6 +41,11 @@ final class EdgeAgentFactoryValidation {
             throws Exception {
         validateWithFactory(
                 classLoader, outputConfig, outputType, EdgeCollectorTransportFactory.class);
+    }
+
+    static void validateStore(ClassLoader classLoader, ReadonlyConfig queueConfig, String storeType)
+            throws Exception {
+        validateWithFactory(classLoader, queueConfig, storeType, WalStoreFactory.class);
     }
 
     private static <T extends Factory> void validateWithFactory(

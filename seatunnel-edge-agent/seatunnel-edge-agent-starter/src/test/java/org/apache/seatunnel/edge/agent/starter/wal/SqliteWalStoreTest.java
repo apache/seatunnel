@@ -18,6 +18,7 @@
 package org.apache.seatunnel.edge.agent.starter.wal;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
+import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteWalStore;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;

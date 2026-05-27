@@ -86,4 +86,33 @@ public class EdgeAgentRuntimeOptionRulesTest {
         Assertions.assertEquals(EdgeDeliveryGuarantee.BEST_EFFORT, runtime.getDeliveryGuarantee());
         Assertions.assertEquals("agent-1", runtime.getAgentId());
     }
+
+    @Test
+    void nonDeliveryGuaranteeParsedCorrectly() {
+        Assertions.assertEquals(EdgeDeliveryGuarantee.NON, EdgeDeliveryGuarantee.from("NON"));
+        Assertions.assertEquals(EdgeDeliveryGuarantee.NON, EdgeDeliveryGuarantee.from("non"));
+        Assertions.assertEquals(EdgeDeliveryGuarantee.NON, EdgeDeliveryGuarantee.from("NONE"));
+        Assertions.assertEquals(EdgeDeliveryGuarantee.NON, EdgeDeliveryGuarantee.from("none"));
+    }
+
+    @Test
+    void nonDeliveryGuaranteeMapsToMemFactory() {
+        Map<String, Object> agent = new HashMap<>();
+        agent.put(EdgeAgentRuntimeOptions.AGENT_ID.key(), "agent-non");
+        agent.put(EdgeAgentRuntimeOptions.DELIVERY_GUARANTEE.key(), "NON");
+        AgentRuntimeConfig runtime =
+                AgentRuntimeConfig.compose(
+                        AgentSectionConfig.from(ReadonlyConfig.fromMap(agent)),
+                        QueueConfig.from(ReadonlyConfig.fromMap(Collections.emptyMap())),
+                        AgentSchedulerConfig.from(ReadonlyConfig.fromMap(Collections.emptyMap())),
+                        RetryConfig.from(ReadonlyConfig.fromMap(Collections.emptyMap())));
+        Assertions.assertEquals(EdgeDeliveryGuarantee.NON, runtime.getDeliveryGuarantee());
+        Assertions.assertEquals("mem", runtime.getDeliveryGuarantee().storeFactoryId());
+    }
+
+    @Test
+    void unsupportedDeliveryGuaranteeThrows() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> EdgeDeliveryGuarantee.from("EXACTLY_ONCE"));
+    }
 }

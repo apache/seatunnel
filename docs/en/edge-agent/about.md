@@ -5,7 +5,7 @@ title: About
 
 # About Edge Agent
 
-Edge Agent is the operational surface for SeaTunnel Edge Agent — a lightweight collector on edge hosts where source data is only reachable locally (log files, host-local paths, and similar). The agent buffers outbound records in a SQLite WAL and forwards batches to a running SeaTunnel job through the EdgeSocket line protocol.
+Edge Agent is the operational surface for SeaTunnel Edge Agent — a lightweight collector on edge hosts where source data is only reachable locally (log files, host-local paths, and similar). The agent buffers outbound records in WAL and forwards batches to a running SeaTunnel job through the EdgeSocket line protocol.
 
 Edge Agent is not a replacement for SeaTunnel Engine. Typical topology:
 
@@ -32,7 +32,7 @@ Edge Agent is not a replacement for SeaTunnel Engine. Typical topology:
 
 | Term | Definition |
 |------|------------|
-| WAL | The local SQLite outbound queue durability mechanism in Edge Agent, used to persist and retry outbound records until RECEIVED. |
+| WAL | The local WAL outbound queue durability mechanism in Edge Agent, used to persist and retry outbound records until RECEIVED. |
 | BEST_EFFORT | Delivery behavior in this release: persist to local WAL and retry until RECEIVED; duplicate delivery can occur. |
 | WAL row states | PENDING (ready), SENDING (in-flight), ACKED (acknowledged), DEAD (retry limit exceeded). |
 | Engine response codes | ACK, AUTH_FAILED, REJECTED, RECEIVED, RETRY, QUEUE_FULL, DECRYPT_FAILED. |

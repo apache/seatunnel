@@ -35,17 +35,18 @@ public class EdgeAgentRuntimeOptions {
                     .stringType()
                     .defaultValue("BEST_EFFORT")
                     .withDescription(
-                            "Agent-wide outbound delivery mode. Default BEST_EFFORT. Only BEST_EFFORT"
-                                    + " is supported in this release: local SQLite WAL with retry"
-                                    + " until RECEIVED; the same row may be sent more than once"
-                                    + " (downstream should be idempotent).");
+                            "Agent-wide outbound delivery mode. Default BEST_EFFORT."
+                                    + " BEST_EFFORT: local WAL with retry until RECEIVED;"
+                                    + " the same row may be sent more than once (downstream should"
+                                    + " be idempotent). NON: no WAL, no persistence; events are"
+                                    + " sent directly from memory and dropped on failure.");
 
     public static final Option<String> QUEUE_SQLITE_PATH =
             Options.key("sqlite-path")
                     .stringType()
                     .defaultValue("data/wal.db")
                     .withDescription(
-                            "Path to the SQLite WAL database file. Default: data/wal.db (parent"
+                            "Path to the WAL database file. Default: data/wal.db (parent"
                                     + " directory data/ is created automatically; relative to"
                                     + " agent working directory).");
 

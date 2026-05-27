@@ -71,7 +71,7 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
         this.ctx = ctx;
         this.reader = ctx.getReader();
         this.walStore = ctx.getWalStore();
-        this.sourcePositionStore = ctx.getSourcePositionStore();
+        this.sourcePositionStore = ctx.getWalStore().sourcePositionStore();
         this.transport = ctx.getTransport();
         this.payloadSerializer = ctx.getPayloadSerializer();
         this.maxPollRecords = config.getMaxPollRecords();
@@ -88,10 +88,10 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
     }
 
     /**
-     * Main loop: resurrect stale sends, cleanup acked rows, poll input, flush to WAL, and send.
+     * Main loop: poll input, flush/send, and manage WAL lifecycle.
      *
-     * <p>Flushes any remaining in-memory buffer in a {@code finally} block before return. Exits
-     * when {@code running} becomes false (shutdown hook or test).
+     * <p>Each iteration resurrects stale SENDING rows, marks exceeded rows as DEAD, and cleans up
+     * ACKED rows. For the in-memory {@code MemWalStore} these calls are no-ops.
      *
      * @param running shared termination flag
      * @throws Exception on WAL, transport, or reader failures
@@ -118,11 +118,6 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
         }
     }
 
-    /**
-     * Flushes the pending buffer and closes reader, transport, and persistence.
-     *
-     * @throws Exception first error among close steps
-     */
     @Override
     public void close() throws Exception {
         flushBufferToWal();
@@ -140,7 +135,7 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
             }
         }
         try {
-            closePersistence();
+            walStore.close();
         } catch (Exception ex) {
             if (closeException == null) {
                 closeException = ex;
@@ -152,10 +147,9 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
     }
 
     /**
-     * Executes one scheduler iteration (poll, optional WAL flush, send claimed rows).
+     * Executes one scheduler iteration: poll → flush buffer to WAL → send claimed records.
      *
-     * <p>Exposed for unit tests. Returns {@code true} when progress was made (input received, rows
-     * appended, or batches sent).
+     * <p>Exposed for unit tests.
      *
      * @return whether the iteration did useful work
      * @throws Exception on reader, WAL, or transport errors
@@ -165,8 +159,6 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
     }
 
     boolean runOnce(long now) throws Exception {
-        flushBufferIfTimedOut(now);
-
         List<EdgeEvent> events = reader.poll(maxPollRecords);
         if (!events.isEmpty()) {
             if (pendingBuffer.isEmpty()) {
@@ -175,11 +167,11 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
             pendingBuffer.addAll(events);
         }
 
+        flushBufferIfTimedOut(now);
         int appended = 0;
         if (pendingBuffer.size() >= batchBulkMaxSize) {
             appended = flushBufferToWal();
         }
-
         int sent = sendClaimedRecords();
         return appended > 0 || sent > 0 || !events.isEmpty();
     }
@@ -245,19 +237,8 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
     }
 
     private void saveSourcePositionIfPresent(EdgeEvent event) throws Exception {
-        if (sourcePositionStore != null && event.getSourcePosition() != null) {
+        if (event.getSourcePosition() != null) {
             sourcePositionStore.save(event.getSourcePosition());
-        }
-    }
-
-    private void closePersistence() throws Exception {
-        if (ctx.getSqliteRuntime() != null) {
-            ctx.getSqliteRuntime().close();
-            return;
-        }
-        walStore.close();
-        if (sourcePositionStore instanceof AutoCloseable) {
-            ((AutoCloseable) sourcePositionStore).close();
         }
     }
 

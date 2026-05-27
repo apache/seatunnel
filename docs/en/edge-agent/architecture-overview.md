@@ -22,7 +22,7 @@ In many production networks, the Zeta cluster cannot directly access edge-local 
 SeaTunnel Edge Agent is designed with:
 
 1. Independent deployment: packaging and lifecycle are decoupled from engine workers; the agent runs as an independent process on edge hosts. See [Edge Agent — Deployment Guide](./deployment-guide.md) for install layout.
-2. Durable outbound buffering: SQLite-backed outbound queue with explicit state transitions.
+2. Durable outbound buffering: WAL-backed outbound queue with explicit state transitions.
 3. Protocol alignment with Zeta: reuse the EdgeSocket line protocol (`__AUTH__` / `__BATCH__` → RECEIVED); see [EdgeSocket source connector](../connectors/source/EdgeSocket.md).
 4. Simple operations: YAML configuration and predictable scheduler loop; operational detail lives in [Edge Agent](./about.md).
 5. Clear boundaries: sending path and delivery semantics are explicitly bounded for stable operations and extensibility.
@@ -33,7 +33,7 @@ SeaTunnel Edge Agent is designed with:
 |--------|------------|------------------|
 | Runtime location | Edge host process | Cluster coordinator and worker tasks |
 | Input access | Local files on the edge host (glob paths, including log files) | Connector-reachable systems (databases, messaging, object storage, etc.) |
-| Durability and state | Local SQLite outbound queue and input position store | Checkpointing, job state, and task-level recovery |
+| Durability and state | Local WAL outbound queue and input position store | Checkpointing, job state, and task-level recovery |
 | Network role | Dials Engine EdgeSocket ingress endpoint | Exposes ingress and orchestrates internal task execution |
 | Primary role | Edge data ingest and forwarding | End-to-end data integration and pipeline execution |
 
@@ -58,8 +58,8 @@ To keep architecture decisions explicit, treat these boundaries as stable contra
 │  │                    Edge Agent process                     │  │
 │  │  Input collector ──► Scheduler & batching                 │  │
 │  │         │              │                                  │  │
-│  │         │              ├──► Outbound queue (SQLite)       │  │
-│  │         └──► Input position store (SQLite)                │  │
+│  │         │              ├──► Outbound queue (WAL)           │  │
+│  │         └──► Input position store (local persistence)    │  │
 │  │                            │                              │  │
 │  │                            └──► Transport client          │  │
 │  └───────────────────────────────────────────────────────────┘  │
@@ -72,7 +72,7 @@ To keep architecture decisions explicit, treat these boundaries as stable contra
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Trust boundary: the agent trusts local filesystem access and its own SQLite stores. The engine trusts the configured output.token on `__AUTH__`. There is no automatic cluster endpoint discovery; output.endpoint is configured statically.
+Trust boundary: the agent trusts local filesystem access and its own local persistent stores. The engine trusts the configured output.token on `__AUTH__`. There is no automatic cluster endpoint discovery; output.endpoint is configured statically.
 
 ### 2.2 Data Plane
 
@@ -170,11 +170,11 @@ SENDING
 
 resurrect periodically moves SENDING rows back to PENDING so a crash between claim and ACK does not strand data. retry.max-attempts stops claiming rows that exceeded the limit; markExceededAsDead moves them to DEAD.
 
-File positions are persisted when events are appended to the outbound queue (same flush as WAL insert), not when the engine acknowledges a batch. Recovery relies on SQLite WAL rows plus saved input positions.
+File positions are persisted when events are appended to the outbound queue (same flush as WAL insert), not when the engine acknowledges a batch. Recovery relies on WAL rows plus saved input positions.
 
 ## 4. Outbound Queue and Input Positions
 
-The agent maintains two separate SQLite persistence concerns:
+The agent maintains two separate local persistence concerns:
 
 | Store | Purpose | Updated when | Recovery after restart |
 |-------|---------|--------------|------------------------|
@@ -183,7 +183,7 @@ The agent maintains two separate SQLite persistence concerns:
 
 Keeping them separate avoids coupling “what was sent to the network” with “where to read next on disk.” A network outage should not reset file tail positions; conversely, advancing a file cursor must not imply the remote pipeline has committed data.
 
-The agent persists outbound records and position records in local SQLite: outbound records drive retryable sends, and position records support resume recovery.
+The agent persists outbound records and position records in local persistent storage: outbound records drive retryable sends, and position records support resume recovery.
 
 ## 5. Network and EdgeSocket Contract
 
@@ -250,21 +250,28 @@ Current runtime behavior:
 
 ### 6.2 Delivery mode
 
-When agent.delivery-guarantee is not configured, it defaults to BEST_EFFORT; this release supports only BEST_EFFORT.
+When agent.delivery-guarantee is not configured, it defaults to BEST_EFFORT.
 
-What BEST_EFFORT means in practice:
+#### BEST_EFFORT (default)
 
-- The agent keeps a local SQLite outbound queue and retries until the engine returns RECEIVED (or the row is marked DEAD after retry.max-attempts).
+- The agent keeps a local WAL outbound queue and retries until the engine returns RECEIVED (or the row is marked DEAD after retry.max-attempts).
 - The same WAL row may be sent more than once after failures, crashes between claim and ACK, resurrectSending, or operator db wal-retry-dead.
 - The agent does not send `__COMMIT__`; durability ends at engine RECEIVED for a batch.
 
 Design for downstream: treat the output boundary as may deliver duplicates — use idempotent sinks or deduplication keys when you need strict uniqueness. See [Configuration — agent](./configuration.md#agent).
 
+#### NON
+
+- No WAL or source position persistence — the agent runs completely stateless.
+- Events are read from input, batched in memory, and sent directly via transport. On send failure, the event is dropped with a warning log.
+- On restart, file reading resumes based on input configuration (e.g. `read-from-beginning`), not saved positions. Previously sent data may be re-read and re-sent.
+- `queue.*` and `retry.*` configuration sections are ignored in NON mode.
+
 ### 6.3 Boundary with Engine Checkpointing
 
 | Concern | Edge Agent | SeaTunnel Engine |
 |---------|------------|------------------|
-| Durability until ingest ACK | SQLite outbound queue | — |
+| Durability until ingest ACK | WAL-backed outbound queue | — |
 | Pipeline exactly-once / checkpoint | — | Checkpoint mechanism on tasks |
 | Commit cursor to agent | Not used (`__COMMIT__` not sent) | — |
 

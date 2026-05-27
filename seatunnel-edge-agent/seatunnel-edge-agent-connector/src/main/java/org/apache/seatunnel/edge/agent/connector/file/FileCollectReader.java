@@ -54,7 +54,6 @@ public class FileCollectReader implements EdgeInputReader {
     private final FileCollectConfig config;
     private final Charset charset;
     private final EdgeSourcePositionStore sourcePositionStore;
-    private final Map<String, EdgeSourcePosition> savedPositions = new HashMap<>();
 
     private GlobPathResolver globResolver;
     private MultilineAssembler multilineAssembler;
@@ -77,14 +76,11 @@ public class FileCollectReader implements EdgeInputReader {
 
     @Override
     public void open() throws Exception {
-        if (sourcePositionStore != null) {
-            savedPositions.putAll(sourcePositionStore.loadBySource(config.getId()));
-        }
+        Map<String, EdgeSourcePosition> initialPositions =
+                sourcePositionStore.loadBySource(config.getId());
 
-        // 1. Create GlobPathResolver from config.getPaths()
         this.globResolver = new GlobPathResolver(config.getPaths());
 
-        // 2. Create MultilineAssembler if multiline enabled
         if (config.isMultilineEnabled()) {
             MultilineAssembler.MatchMode mode =
                     "before".equalsIgnoreCase(config.getMultilineMatch())
@@ -98,18 +94,16 @@ public class FileCollectReader implements EdgeInputReader {
                             config.getMultilineMaxLines());
         }
 
-        // 3. Create OutputFormatter based on config
         if (config.isJsonOutput()) {
             this.outputFormatter = new JsonOutputFormatter();
         } else {
             this.outputFormatter = new LineOutputFormatter();
         }
 
-        // 4. Resolve glob and create cursors with saved positions
         List<Path> files = globResolver.resolveAll();
         for (Path file : files) {
             String pathStr = file.toAbsolutePath().toString();
-            EdgeSourcePosition pos = savedPositions.get(pathStr);
+            EdgeSourcePosition pos = initialPositions.get(pathStr);
 
             FileTailCursor cursor = openCursor(file, pos);
             activeCursors.put(file, cursor);
@@ -290,13 +284,7 @@ public class FileCollectReader implements EdgeInputReader {
     }
 
     private EdgeSourcePosition resolvePosition(String pathStr) throws Exception {
-        if (sourcePositionStore != null) {
-            EdgeSourcePosition stored = sourcePositionStore.load(config.getId(), pathStr);
-            if (stored != null) {
-                return stored;
-            }
-        }
-        return savedPositions.get(pathStr);
+        return sourcePositionStore.load(config.getId(), pathStr);
     }
 
     private static long restoredLineNumber(EdgeSourcePosition pos) {
@@ -328,7 +316,6 @@ public class FileCollectReader implements EdgeInputReader {
                         .updatedAt(System.currentTimeMillis())
                         .metadata(metadata)
                         .build();
-        savedPositions.put(record.getFilePath(), position);
         return EdgeEvent.builder()
                 .sourceId(record.getSourceId())
                 .payload(record.getPayload().getBytes(StandardCharsets.UTF_8))

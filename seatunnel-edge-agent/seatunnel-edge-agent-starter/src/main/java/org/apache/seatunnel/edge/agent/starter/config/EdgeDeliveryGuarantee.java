@@ -20,9 +20,24 @@ package org.apache.seatunnel.edge.agent.starter.config;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Outbound delivery mode configured on the agent (validation only in this release). */
+/** Outbound delivery mode configured on the agent. */
 public enum EdgeDeliveryGuarantee {
-    BEST_EFFORT;
+    BEST_EFFORT("sqlite"),
+    NON("mem");
+
+    private final String storeFactoryId;
+
+    EdgeDeliveryGuarantee(String storeFactoryId) {
+        this.storeFactoryId = storeFactoryId;
+    }
+
+    /**
+     * Returns the SPI factory identifier used to discover the matching {@link
+     * org.apache.seatunnel.edge.agent.starter.wal.WalStoreFactory}.
+     */
+    public String storeFactoryId() {
+        return storeFactoryId;
+    }
 
     public static EdgeDeliveryGuarantee from(String value) {
         if (value == null || value.trim().isEmpty()) {
@@ -32,11 +47,14 @@ public enum EdgeDeliveryGuarantee {
         if (Objects.equals(BEST_EFFORT.name(), normalized)) {
             return BEST_EFFORT;
         }
+        if (Objects.equals(NON.name(), normalized) || Objects.equals("NONE", normalized)) {
+            return NON;
+        }
         throw new IllegalArgumentException(
                 "Unsupported agent.delivery-guarantee: "
                         + value
-                        + ". Supported in this release: BEST_EFFORT (aliases: best-effort,"
-                        + " best_effort).");
+                        + ". Supported: BEST_EFFORT (aliases: best-effort, best_effort),"
+                        + " NON (aliases: non, none).");
     }
 
     public static void validateSupported(String value) {

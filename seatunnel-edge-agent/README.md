@@ -1,6 +1,6 @@
 # SeaTunnel Edge Agent
 
-Lightweight edge-side collector: reads local sources, buffers outbound data in SQLite WAL, and forwards batches to SeaTunnel Engine via the EdgeSocket line protocol. **User guides and `agent.yaml` reference live in the docs site** — avoid duplicating them here.
+Lightweight edge-side collector: reads local sources, buffers outbound data in WAL, and forwards batches to SeaTunnel Engine via the EdgeSocket line protocol. **User guides and `agent.yaml` reference live in the docs site** — avoid duplicating them here.
 
 ## Modules
 
@@ -8,7 +8,7 @@ Lightweight edge-side collector: reads local sources, buffers outbound data in S
 |------|------|
 | `seatunnel-edge-agent-connector/` | `EdgeInputReader` SPI (`file` collector) |
 | `seatunnel-edge-agent-transport/` | `EdgeCollectorTransport` SPI (EdgeSocket / console), payload encoding |
-| `seatunnel-edge-agent-starter/` | Config, runtime, scheduler, SQLite WAL and source positions |
+| `seatunnel-edge-agent-starter/` | Config, runtime, scheduler, WAL and source positions |
 | `bin/` | `seatunnel-edge-agent.sh` / `.cmd` — `start` \| `stop` \| `status` \| `db` |
 | `config/` | Sample [`agent.yaml`](config/agent.yaml), `log4j2.properties` |
 

@@ -22,7 +22,7 @@ title: 架构概览
 SeaTunnel Edge Agent 遵循以下目标：
 
 1. 独立部署：打包与生命周期与引擎 worker 解耦，在边缘主机上以独立进程运行。安装布局见 [Edge Agent — 部署指南](./deployment-guide.md)。
-2. 出站持久化：基于 SQLite 的出站队列，具备明确的状态流转。
+2. 出站持久化：基于 WAL 的出站队列，具备明确的状态流转。
 3. 协议与 Zeta 对齐：复用 EdgeSocket 行协议（`__AUTH__` / `__BATCH__` → RECEIVED）；详见 [EdgeSocket Source](../connectors/source/EdgeSocket.md)。
 4. 运维简单：YAML 配置与可预测的调度循环；运维细节集中在 [Edge Agent](./about.md)。
 5. 边界清晰：发送链路与投递语义边界明确，便于稳定运维与扩展实现。
@@ -33,7 +33,7 @@ SeaTunnel Edge Agent 遵循以下目标：
 |------|------------|-------------------|
 | 运行位置 | 边缘主机独立进程 | 集群内协调节点与 worker task |
 | 输入访问 | 边缘本地文件（glob 路径，含日志文件） | 连接器生态可达的数据源（数据库、消息系统、对象存储等） |
-| 持久化与状态 | 本地 SQLite 出站队列与输入位点存储 | Checkpoint、作业状态与任务容错恢复 |
+| 持久化与状态 | 本地 WAL 出站队列与输入位点存储 | Checkpoint、作业状态与任务容错恢复 |
 | 网络角色 | 主动连接 Engine EdgeSocket 接入端口 | 对外提供作业接入与内部任务调度执行 |
 | 主要职责 | Edge Agent 采集 + 转发 | 端到端数据集成与计算编排执行 |
 
@@ -58,8 +58,8 @@ SeaTunnel Edge Agent 遵循以下目标：
 │  │                    Edge Agent 进程                          │  │
 │  │  输入采集器 ──► 调度与批处理                                │  │
 │  │         │              │                                 │  │
-│  │         │              ├──► 出站队列（SQLite）            │  │
-│  │         └──► 输入位点存储（SQLite）                        │  │
+│  │         │              ├──► 出站队列（WAL）                │  │
+│  │         └──► 输入位点存储（本地持久化）                    │  │
 │  │                            │                              │  │
 │  │                            └──► 传输客户端                │  │
 │  └───────────────────────────────────────────────────────────┘  │
@@ -72,7 +72,7 @@ SeaTunnel Edge Agent 遵循以下目标：
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-信任边界：Agent 信任本地文件系统访问及自身 SQLite 存储；引擎通过 `__AUTH__` 校验配置的 output.token。不做集群端点自动发现，output.endpoint 为静态配置。
+信任边界：Agent 信任本地文件系统访问及自身本地持久化存储；引擎通过 `__AUTH__` 校验配置的 output.token。不做集群端点自动发现，output.endpoint 为静态配置。
 
 ### 2.2 数据面
 
@@ -170,11 +170,11 @@ SENDING
 
 resurrect 定期将 SENDING 行恢复为 PENDING，避免在「认领」与「ACK」之间崩溃导致数据悬挂。超过 retry.max-attempts 的行不再被认领；markExceededAsDead 将其标为 DEAD。
 
-文件位点在事件写入出站队列（与 WAL append 同一 flush）时持久化，而非引擎 ACK 批次之后。恢复依赖 SQLite WAL 行与已保存的输入位点。
+文件位点在事件写入出站队列（与 WAL append 同一 flush）时持久化，而非引擎 ACK 批次之后。恢复依赖 WAL 行与已保存的输入位点。
 
 ## 4. 出站队列与输入位点
 
-Agent 维护 两条独立的 SQLite 持久化路径：
+Agent 维护 两条独立的持久化路径：
 
 | 存储 | 用途 | 更新时机 | 重启后恢复 |
 |------|------|----------|------------|
@@ -183,7 +183,7 @@ Agent 维护 两条独立的 SQLite 持久化路径：
 
 二者分离，避免把「网络上是否已送达」与「磁盘上下次读哪里」绑在一起。网络中断不应重置文件尾读位置；反之，推进文件游标也不代表远端管道已提交。
 
-Agent 将出站记录与位点信息持久化到本地 SQLite：出站记录用于发送重试，位点信息用于续读恢复。
+Agent 将出站记录与位点信息写入本地持久化存储：出站记录用于发送重试，位点信息用于续读恢复。
 
 ## 5. 网络与 EdgeSocket 契约
 
@@ -250,21 +250,28 @@ sequenceDiagram
 
 ### 6.2 投递模式
 
-agent.delivery-guarantee 未配置时默认 BEST_EFFORT，且本版本仅支持 BEST_EFFORT。
+agent.delivery-guarantee 未配置时默认 BEST_EFFORT。
 
-BEST_EFFORT 的实际行为：
+#### BEST_EFFORT（默认）
 
-- Agent 使用 本地 SQLite 出站队列，在引擎返回 RECEIVED 前 自动重试（或超过 retry.max-attempts 后标为 DEAD）。
-- 同一 WAL 行可能因发送失败、claim 与 ACK 之间崩溃、resurrectSending 或运维 db wal-retry-dead 而 多次发送。
+- Agent 使用本地 WAL 出站队列，在引擎返回 RECEIVED 前自动重试（或超过 retry.max-attempts 后标为 DEAD）。
+- 同一 WAL 行可能因发送失败、claim 与 ACK 之间崩溃、resurrectSending 或运维 db wal-retry-dead 而多次发送。
 - Agent 不发送 `__COMMIT__`；耐久性在引擎对批次 RECEIVED 时结束。
 
-下游设计： 按 可能重复投递 处理输出边界；需要严格唯一性时使用幂等 Sink 或去重键。见 [配置说明 — agent](./configuration.md#agent)。
+下游设计：按可能重复投递处理输出边界；需要严格唯一性时使用幂等 Sink 或去重键。见 [配置说明 — agent](./configuration.md#agent)。
+
+#### NON
+
+- 不使用 WAL 和位点持久化，Agent 完全无状态运行。
+- 事件从 input 读取后在内存中批处理，直接通过 transport 发送。发送失败时丢弃该事件，记录 warn 日志。
+- 重启后根据 input 配置（如 `read-from-beginning`）决定读取起点，不恢复已保存位点。已发送的数据可能被重新读取和重发。
+- NON 模式下 `queue.*` 和 `retry.*` 配置被忽略。
 
 ### 6.3 与引擎 Checkpoint 的边界
 
 | 关注点 | Edge Agent | SeaTunnel Engine |
 |--------|------------|------------------|
-| 直至接入 ACK 的耐久 | SQLite 出站队列 | — |
+| 直至接入 ACK 的耐久 | 本地 WAL 出站队列 | — |
 | 管道 exactly-once / checkpoint | — | Task checkpoint 机制 |
 | 向 Agent 回传提交游标 | 不使用（不发送 `__COMMIT__`） | — |
 

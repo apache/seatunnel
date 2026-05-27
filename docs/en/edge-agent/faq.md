@@ -28,7 +28,7 @@ input.id. Positions live in edge_agent_source_position, keyed by source_id (= in
 ### What must I keep when migrating or upgrading?
 
 1. edge-agent.id (especially input.id)
-2. The SQLite file at queue.sqlite-path, plus -wal and -shm sibling files (do not copy only the main file)
+2. The WAL database file at queue.sqlite-path, plus -wal and -shm sibling files (do not copy only the main file)
 
 For migration or upgrade, you must keep config/agent.yaml (IDs can be omitted there if already recorded in the identity file).
 
@@ -44,9 +44,9 @@ Use separate install roots (or separate edge-agent.id and queue.sqlite-path). Do
 
 Launcher environment variable; default $EDGE_AGENT_HOME/edge-agent.id. See [Operations — Environment variables](operations.md#environment-variables).
 
-## SQLite persistence
+## WAL persistence
 
-Default path, on-disk files (data, -wal, -shm), and what each table stores: [Configuration — SQLite persistence files](configuration.md#sqlite-persistence-files). Console mode still uses this database.
+Default path, on-disk files (data, -wal, -shm), and what each table stores: [Configuration — WAL persistence files](configuration.md#sqlite-persistence-files). Console mode still uses this database.
 
 ### What does WAL status DEAD mean?
 

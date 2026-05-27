@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
+
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
+import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
+import org.apache.seatunnel.edge.agent.starter.wal.WalRecord;
+import org.apache.seatunnel.edge.agent.starter.wal.WalRecordStatus;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,20 +40,29 @@ public class SqliteWalStore implements WalStore {
 
     private final Connection connection;
     private final boolean closeConnection;
+    private final SqliteSourcePositionStore sourcePositionStore;
 
+    @VisibleForTesting
     public SqliteWalStore(Path sqlitePath) throws SQLException {
         Path prepared = SqliteSchemaBootstrap.prepareSqlitePath(sqlitePath);
         Connection connection =
-                java.sql.DriverManager.getConnection("jdbc:sqlite:" + prepared.toAbsolutePath());
+                DriverManager.getConnection("jdbc:sqlite:" + prepared.toAbsolutePath());
         SqliteSchemaBootstrap.applyConnectionPragmas(connection);
         SqliteSchemaBootstrap.initRuntimeSchema(connection);
         this.connection = connection;
         this.closeConnection = true;
+        this.sourcePositionStore = new SqliteSourcePositionStore(connection, false);
     }
 
     public SqliteWalStore(Connection connection, boolean closeConnection) {
         this.connection = Objects.requireNonNull(connection, "connection");
         this.closeConnection = closeConnection;
+        this.sourcePositionStore = new SqliteSourcePositionStore(connection, false);
+    }
+
+    @Override
+    public EdgeSourcePositionStore sourcePositionStore() {
+        return sourcePositionStore;
     }
 
     @Override

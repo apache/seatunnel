@@ -75,7 +75,7 @@ compression、encryption 仅在 packet-mode: PACKET 时生效。RAW 模式下 YA
 
 :::note
 
-Agent 不发送 `__COMMIT__`，耐久性以本地 SQLite 出站队列直至收到 RECEIVED 为准。
+Agent 不发送 `__COMMIT__`，耐久性以本地 WAL 出站队列直至收到 RECEIVED 为准。
 
 :::
 

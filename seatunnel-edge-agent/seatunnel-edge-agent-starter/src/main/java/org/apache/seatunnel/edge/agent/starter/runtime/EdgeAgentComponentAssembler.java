@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReader;
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReaderFactory;
 import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentResolvedConfig;
-import org.apache.seatunnel.edge.agent.starter.wal.SqliteAgentRuntimeStore;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
 import org.apache.seatunnel.edge.agent.starter.wal.WalStoreFactory;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransport;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransportFactory;
@@ -33,10 +33,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class EdgeAgentComponentAssembler {
 
     /**
-     * Discovers input/output SPI plugins and wires SQLite WAL, reader, transport, and serializer.
+     * Discovers input/output/store SPI plugins and wires reader, transport, and serializer.
      *
-     * <p>Called once per process start before {@code EdgeAgentRuntimeBootstrap.start()}. Opens a
-     * shared {@link SqliteAgentRuntimeStore} for WAL and source positions.
+     * <p>Called once per process start before {@code EdgeAgentRuntimeBootstrap.start()}. The {@link
+     * WalStoreFactory} is discovered by {@link
+     * org.apache.seatunnel.edge.agent.starter.config.EdgeDeliveryGuarantee#storeFactoryId()} (e.g.
+     * {@code sqlite}, {@code mem}), following the same SPI pattern as input and output factories.
      *
      * @param resolved output of {@code EdgeAgentConfigLoader.load}
      * @param workDir base directory for relative {@code queue.sqlite-path}
@@ -49,14 +51,16 @@ public class EdgeAgentComponentAssembler {
             throws Exception {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-        String sqlitePath = resolved.getRuntimeConfig().getSqlitePath();
-        SqliteAgentRuntimeStore sqliteRuntime = WalStoreFactory.openRuntime(sqlitePath, workDir);
+        WalStoreFactory storeFactory =
+                FactoryUtil.discoverFactory(
+                        classLoader, WalStoreFactory.class, resolved.getStoreType());
+        WalStore walStore = storeFactory.create(resolved.getRuntimeConfig(), workDir);
 
         EdgeInputReaderFactory inputFactory =
                 FactoryUtil.discoverFactory(
                         classLoader, EdgeInputReaderFactory.class, resolved.getInputType());
         EdgeInputReader reader =
-                inputFactory.create(resolved.getInputConfig(), sqliteRuntime.sourcePositionStore());
+                inputFactory.create(resolved.getInputConfig(), walStore.sourcePositionStore());
 
         EdgeCollectorTransportFactory outputFactory =
                 FactoryUtil.discoverFactory(
@@ -65,7 +69,6 @@ public class EdgeAgentComponentAssembler {
         PayloadSerializer payloadSerializer =
                 outputFactory.payloadSerializer(resolved.getOutputConfig());
 
-        return new EdgeAgentRuntimeContext(
-                reader, sqliteRuntime, transport, payloadSerializer, running);
+        return new EdgeAgentRuntimeContext(reader, walStore, transport, payloadSerializer, running);
     }
 }

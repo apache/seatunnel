@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-final class SqliteSchemaBootstrap {
+public final class SqliteSchemaBootstrap {
 
-    static Path prepareSqlitePath(Path sqlitePath) {
+    public static Path prepareSqlitePath(Path sqlitePath) {
         Path parent = sqlitePath.getParent();
         if (parent != null) {
             parent.toFile().mkdirs();
@@ -32,14 +32,14 @@ final class SqliteSchemaBootstrap {
         return sqlitePath;
     }
 
-    static void applyConnectionPragmas(Connection connection) throws SQLException {
+    public static void applyConnectionPragmas(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA journal_mode=WAL");
             statement.execute("PRAGMA synchronous=NORMAL");
         }
     }
 
-    static void initWalSchema(Connection connection) throws SQLException {
+    public static void initWalSchema(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute(WalSqlStatements.CREATE_TABLE);
             statement.execute(WalSqlStatements.CREATE_INDEX_STATUS_ID);
@@ -48,7 +48,7 @@ final class SqliteSchemaBootstrap {
         migrateWalBatchIdColumn(connection);
     }
 
-    static void migrateWalBatchIdColumn(Connection connection) throws SQLException {
+    public static void migrateWalBatchIdColumn(Connection connection) throws SQLException {
         if (hasWalColumn(connection)) {
             return;
         }
@@ -72,19 +72,19 @@ final class SqliteSchemaBootstrap {
         return false;
     }
 
-    static void initSourcePositionSchema(Connection connection) throws SQLException {
+    public static void initSourcePositionSchema(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute(SourcePositionSqlStatements.CREATE_TABLE);
         }
     }
 
-    static void initMetaSchema(Connection connection) throws SQLException {
+    public static void initMetaSchema(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(AgentMetaSqlStatements.CREATE_TABLE);
+            statement.execute(MetaSqlStatements.CREATE_TABLE);
         }
     }
 
-    static void initRuntimeSchema(Connection connection) throws SQLException {
+    public static void initRuntimeSchema(Connection connection) throws SQLException {
         applyConnectionPragmas(connection);
         initWalSchema(connection);
         initSourcePositionSchema(connection);

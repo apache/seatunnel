@@ -5,7 +5,7 @@ title: 部署指南
 
 # Edge Agent 部署指南
 
-在边缘主机安装并运行 Edge Agent：每个安装根目录一个常驻进程，读取本地 input、经 SQLite WAL 缓冲出站数据，并向配置的 EdgeSocket 端点发送批次。
+在边缘主机安装并运行 Edge Agent：每个安装根目录一个常驻进程，读取本地 input、经 WAL 缓冲出站数据，并向配置的 EdgeSocket 端点发送批次。
 
 没有 Agent 集群管理器；通过 每台边缘主机（或每个数据域）一个 Agent 水平扩展，各自使用独立的 agent.yaml 与 WAL 路径。Engine 侧接入独立：部署含 [EdgeSocket](../connectors/source/EdgeSocket.md) Source 的作业，监听地址与 Agent output.endpoint 一致。
 

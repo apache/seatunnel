@@ -18,10 +18,17 @@
 package org.apache.seatunnel.edge.agent.starter.wal;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
+import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
 
 import java.util.List;
 
 public interface WalStore extends AutoCloseable {
+
+    /**
+     * Returns the source-position store associated with this WAL store, or {@code null} if position
+     * tracking is not supported.
+     */
+    EdgeSourcePositionStore sourcePositionStore();
 
     /**
      * Persists one outbound event and assigns a monotonic row id.

@@ -42,7 +42,17 @@ public class EdgeAgentRuntime {
     public static void start(Path agentYamlPath) throws Exception {
         try (EdgeAgentRuntimeSession session =
                 bootstrapSession(agentYamlPath, Paths.get("").toAbsolutePath())) {
-            logBootstrapReady(session.getResolved());
+            EdgeAgentResolvedConfig resolved = session.getResolved();
+            LOG.info(
+                    "BOOTSTRAP_READY edge-agent started agentId={}, inputId={}, outputId={},"
+                            + " inputType={}, outputType={}, deliveryGuarantee={}",
+                    resolved.getAgentId(),
+                    resolved.getInputId(),
+                    resolved.getOutputId(),
+                    resolved.getInputType(),
+                    resolved.getOutputType(),
+                    resolved.getRuntimeConfig().getDeliveryGuarantee());
+
             session.getBootstrap().start();
         }
     }
@@ -68,17 +78,5 @@ public class EdgeAgentRuntime {
                                     LOG.info("Shutdown signal received; stopping edge agent.");
                                 },
                                 "edge-agent-shutdown"));
-    }
-
-    private static void logBootstrapReady(EdgeAgentResolvedConfig resolved) {
-        LOG.debug("WAL sqlite path: {}", resolved.getRuntimeConfig().getSqlitePath());
-        LOG.info(
-                "BOOTSTRAP_READY edge-agent started agentId={}, inputId={}, outputId={},"
-                        + " inputType={}, outputType={}",
-                resolved.getAgentId(),
-                resolved.getInputId(),
-                resolved.getOutputId(),
-                resolved.getInputType(),
-                resolved.getOutputType());
     }
 }

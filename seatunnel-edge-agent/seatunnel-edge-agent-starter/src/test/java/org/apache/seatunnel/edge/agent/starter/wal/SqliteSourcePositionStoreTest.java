@@ -18,6 +18,7 @@
 package org.apache.seatunnel.edge.agent.starter.wal;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeSourcePosition;
+import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteSourcePositionStore;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

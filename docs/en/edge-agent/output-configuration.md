@@ -75,7 +75,7 @@ After auth, each batch uses `__BATCH__:<batchId>:<payload>`. Common engine repli
 
 :::note
 
-The agent does not send `__COMMIT__`. Durability relies on the local SQLite outbound queue until RECEIVED.
+The agent does not send `__COMMIT__`. Durability relies on the local WAL outbound queue until RECEIVED.
 
 :::
 

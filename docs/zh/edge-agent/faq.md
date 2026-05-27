@@ -23,12 +23,12 @@ title: 常见问题
 
 ### 故障重启后，靠哪个 ID 续读文件位点？
 
-input.id。位点存在 SQLite 的 edge_agent_source_position 表中，按 source_id（= input.id）和文件路径查找。agent.id、output.id 不参与位点查询。
+input.id。位点存在 WAL 数据库的 edge_agent_source_position 表中，按 source_id（= input.id）和文件路径查找。agent.id、output.id 不参与位点查询。
 
 ### 迁移或升级时要保留什么？
 
 1. edge-agent.id（保住逻辑 ID，尤其是 input.id）
-2. queue.sqlite-path 指向的 SQLite 库文件，以及同目录下的 -wal、-shm 伴生文件（不要只拷主库文件）
+2. queue.sqlite-path 指向的 WAL 数据库文件，以及同目录下的 -wal、-shm 伴生文件（不要只拷主库文件）
 
 迁移或升级时必须保留：config/agent.yaml（若 ID 已在身份文件中，可不在 YAML 里重复写）。
 
@@ -44,9 +44,9 @@ input.id。位点存在 SQLite 的 edge_agent_source_position 表中，按 sourc
 
 启动脚本环境变量，默认 $EDGE_AGENT_HOME/edge-agent.id。见 [运维 — 环境变量](operations.md#环境变量)。
 
-## SQLite 持久化
+## WAL 持久化
 
-默认路径、磁盘文件（data、-wal、-shm）及表内数据说明见[配置说明 — SQLite 持久化文件](configuration.md#sqlite-持久化文件)。console 模式仍会使用该库。
+默认路径、磁盘文件（data、-wal、-shm）及表内数据说明见[配置说明 — WAL 持久化文件](configuration.md#sqlite-持久化文件)。console 模式仍会使用该库。
 
 ### WAL 状态 DEAD 是什么意思？
 

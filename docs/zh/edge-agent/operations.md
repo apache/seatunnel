@@ -21,7 +21,7 @@ sh bin/seatunnel-edge-agent.sh stop
 # 查看进程状态
 sh bin/seatunnel-edge-agent.sh status
 
-# SQLite WAL / 位点运维
+# WAL / 位点运维
 sh bin/seatunnel-edge-agent.sh db [子命令]
 
 # 帮助

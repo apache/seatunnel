@@ -35,7 +35,7 @@ agent.yaml 仅使用顶层配置块：agent、input、queue、retry、output。�
 | 配置项                  | 类型     | 必填  | 默认值           | 说明                                                                                                                                                                             |
 | -------------------- | ------ | --- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | id                 | string | 否   | 自动生成          | Agent 实例标识（日志、运维）。自动生成见 [身份文件](#身份文件edge-agentid)。                                                                                                                             |
-| delivery-guarantee | string | 否   | BEST_EFFORT | 出站投递模式。本版本仅支持 BEST_EFFORT（别名：best-effort、best_effort）。未成功送达的数据会持久化并自动重试，同一记录在 output 侧可能出现多次，请为下游设计幂等消费。详见 [投递模式](./architecture-overview.md#62-投递模式)。 |
+| delivery-guarantee | string | 否   | BEST_EFFORT | 出站投递模式。BEST_EFFORT（别名：best-effort、best_effort）：本地 WAL 持久化重试，同一记录可能多次送达，下游需幂等。NON（别名：non、none）：无 WAL、无持久化，事件从内存直接发送，失败即丢弃；完全无状态，不依赖本地持久化。详见 [投递模式](./architecture-overview.md#62-投递模式)。 |
 | idle-sleep-ms      | long    | 否   | 200         | 调度循环无进展时的休眠（毫秒）。必须 > 0。                           |
 | bulk-max-size      | integer | 否   | 256         | 内存中待写入 WAL 的事件达到该条数时 flush。                        |
 | flush-interval-ms  | long    | 否   | 1000        | 缓冲区非空后超过该毫秒数则 flush 到 WAL。 |
@@ -46,6 +46,15 @@ agent.yaml 仅使用顶层配置块：agent、input、queue、retry、output。�
 - 本地 WAL 持久化，并在 Engine 返回 RECEIVED 前自动重试（或超过 max-attempts 后标为 DEAD）。
 - 发送失败、崩溃、resurrectSending 等可能导致同一 WAL 行多次发送。
 - 需要严格去重时，请在 Sink 或业务层使用幂等键。
+
+:::
+
+:::tip 关于 NON
+
+- 不使用 WAL 和位点持久化，完全无状态运行，不在磁盘创建持久化文件。
+- 事件从内存直接发送；发送失败时丢弃该事件。
+- 重启后根据 input 配置（如 read-from-beginning）决定读取起点，不恢复已保存位点。
+- NON 模式下 `queue.*` 和 `retry.*` 配置被忽略。
 
 :::
 
@@ -104,12 +113,12 @@ agent.yaml 仅使用顶层配置块：agent、input、queue、retry、output。�
 
 ## queue
 
-SQLite WAL 出站缓冲及写入 WAL 前的内存批处理。
+WAL 出站缓冲及写入 WAL 前的内存批处理。
 
 
 | 配置项                     | 类型      | 必填  | 默认值           | 说明                                                                      |
 | ----------------------- | ------- | --- | ------------- | ----------------------------------------------------------------------- |
-| sqlite-path           | string  | 否   | data/wal.db | SQLite 数据库文件路径（WAL + 位点）。父目录 data/ 会自动创建。相对路径相对进程工作目录（脚本启动时一般为安装根目录）。 |
+| sqlite-path           | string  | 否   | data/wal.db | WAL 数据库文件路径（WAL + 位点）。父目录 data/ 会自动创建。相对路径相对进程工作目录（脚本启动时一般为安装根目录）。 |
 | poll-batch-size       | integer | 否   | 128         | 每轮调度从 WAL claim 的最大行数；同时限制该轮输入轮询批量。                                     |
 | cleanup-batch-size    | integer | 否   | 128         | 每次清理最多删除的 ACKED 行数。                                                     |
 | acked-retention-ms    | long    | 否   | 0           | ACKED 行保留时长（毫秒）；0 表示清理时尽快删除（受 batch 限制）。                              |
@@ -117,9 +126,9 @@ SQLite WAL 出站缓冲及写入 WAL 前的内存批处理。
 | resurrect-interval-ms | long    | 否   | 60000       | 恢复扫描间隔（毫秒），同时作为 SENDING 行的过期阈值。必须 > 0。 |
 
 
-### SQLite 持久化文件
+### WAL 持久化文件
 
-:::note SQLite 文件说明
+:::note WAL 文件说明
 
 sqlite-path 指向单个数据库文件路径（不是目录）。默认 data/wal.db 位于安装根 data/ 下，WAL 模式下同目录还有 -wal、-shm 伴生文件。
 
@@ -205,7 +214,7 @@ output.id=<uuid>
 
 :::caution
 
-迁移或升级时请保留 edge-agent.id 与 SQLite 库文件（默认 data/wal.db 及伴生文件）。若丢失且 YAML 未配置 input.id，会生成新 ID，已有位点不再适用。
+迁移或升级时请保留 edge-agent.id 与 WAL 数据库文件（默认 data/wal.db 及伴生文件）。若丢失且 YAML 未配置 input.id，会生成新 ID，已有位点不再适用。
 
 :::
 

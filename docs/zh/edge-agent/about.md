@@ -5,7 +5,7 @@ title: 关于 Edge Agent
 
 # Edge Agent 简介
 
-Edge Agent 是 SeaTunnel Edge Agent 的运维与部署文档入口：在仅能本机访问数据源的边缘主机上采集数据，经 SQLite WAL 缓冲后，通过 EdgeSocket 行协议发送到正在运行的 SeaTunnel 作业。
+Edge Agent 是 SeaTunnel Edge Agent 的运维与部署文档入口：在仅能本机访问数据源的边缘主机上采集数据，经 WAL 缓冲后，通过 EdgeSocket 行协议发送到正在运行的 SeaTunnel 作业。
 
 Edge Agent 不能替代 SeaTunnel Engine。典型拓扑如下：
 
@@ -32,7 +32,7 @@ Edge Agent 不能替代 SeaTunnel Engine。典型拓扑如下：
 
 | 术语 | 定义 |
 |------|------|
-| WAL | Edge Agent 本地 SQLite 的出站队列持久化机制，用于在收到 RECEIVED 前保存并重试出站记录。 |
+| WAL | Edge Agent 本地 WAL 出站队列持久化机制，用于在收到 RECEIVED 前保存并重试出站记录。 |
 | BEST_EFFORT | 当前版本的投递语义：写入本地 WAL 并在收到 RECEIVED 前重试，可能重复投递。 |
 | WAL 行状态 | PENDING（待发送）、SENDING（发送中）、ACKED（已确认）、DEAD（超过重试上限）。 |
 | Engine 响应码 | ACK、AUTH_FAILED、REJECTED、RECEIVED、RETRY、QUEUE_FULL、DECRYPT_FAILED。 |

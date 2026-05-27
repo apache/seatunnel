@@ -21,7 +21,7 @@ sh bin/seatunnel-edge-agent.sh stop
 # Check process status
 sh bin/seatunnel-edge-agent.sh status
 
-# SQLite WAL / source-position operations
+# WAL / source-position operations
 sh bin/seatunnel-edge-agent.sh db [subcommand]
 
 # Help

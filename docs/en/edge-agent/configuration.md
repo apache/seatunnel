@@ -35,7 +35,7 @@ Process-wide settings.
 | Key                  | Type   | Required | Default       | Description                                                                                                                                                                                                                                                                                                                                                |
 | -------------------- | ------ | -------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | id                 | string | No       | auto          | Agent instance identity (logs, ops). Auto: see [Identity file](#identity-file-edge-agentid).                                                                                                                                                                                                                                                               |
-| delivery-guarantee | string | No       | BEST_EFFORT | Outbound delivery mode. Only BEST_EFFORT is supported in this release (aliases: best-effort, best_effort). Unacknowledged sends are persisted and retried, so the same record may reach output more than once—design downstream consumers to be idempotent. Details: [Delivery mode](./architecture-overview.md#62-delivery-mode). |
+| delivery-guarantee | string | No       | BEST_EFFORT | Outbound delivery mode. BEST_EFFORT (aliases: best-effort, best_effort): durable local WAL with retry; the same record may reach output more than once — design downstream consumers to be idempotent. NON (aliases: non, none): no WAL, no persistence; events are sent directly from memory and dropped on failure; completely stateless, no local persistence dependency. Details: [Delivery mode](./architecture-overview.md#62-delivery-mode). |
 | idle-sleep-ms      | long    | No       | 200         | Sleep (ms) when a scheduler loop iteration makes no progress. Must be > 0.       |
 | bulk-max-size      | integer | No       | 256         | Flush in-memory reader buffer to WAL when this many events are pending.           |
 | flush-interval-ms  | long    | No       | 1000        | Flush in-memory reader buffer to WAL after this many ms since the buffer became non-empty. |
@@ -46,6 +46,15 @@ Process-wide settings.
 - Durable local WAL with automatic retry until the engine returns RECEIVED (or the row becomes DEAD).
 - The same WAL row may be sent more than once after failures, crashes, or resurrectSending.
 - Use idempotent sinks or deduplication keys when you need strict uniqueness.
+
+:::
+
+:::tip About NON
+
+- No WAL or source position persistence — completely stateless, no persistence files created on disk.
+- Events are sent directly from memory; send failures cause the event to be dropped.
+- On restart, file reading resumes based on input configuration (read-from-beginning), not saved positions.
+- `queue.*` and `retry.*` settings are ignored in NON mode.
 
 :::
 
@@ -104,12 +113,12 @@ Use this nested block when you need to override overlapping top-level fields; it
 
 ## queue
 
-SQLite WAL outbound buffer and in-process batching before WAL append.
+WAL outbound buffer and in-process batching before WAL append.
 
 
 | Key                     | Type    | Required | Default       | Description                                                                                                                                                                                                                    |
 | ----------------------- | ------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| sqlite-path           | string  | No       | data/wal.db | Path to the SQLite database file (WAL + source positions). Parent directory data/ is created automatically. Relative paths resolve from the agent working directory (install root when using bin/seatunnel-edge-agent.sh). |
+| sqlite-path           | string  | No       | data/wal.db | Path to the WAL database file (WAL + source positions). Parent directory data/ is created automatically. Relative paths resolve from the agent working directory (install root when using bin/seatunnel-edge-agent.sh). |
 | poll-batch-size       | integer | No       | 128         | Max WAL rows claimed per scheduler iteration; also caps the input poll batch size for that iteration.                                                                                                                          |
 | cleanup-batch-size    | integer | No       | 128         | Max ACKED WAL rows deleted per cleanup pass.                                                                                                                                                                                   |
 | acked-retention-ms    | long    | No       | 0           | Retain ACKED rows for this many ms before cleanup; 0 means delete as soon as cleanup runs (subject to batch size).                                                                                                           |
@@ -117,9 +126,9 @@ SQLite WAL outbound buffer and in-process batching before WAL append.
 | resurrect-interval-ms | long    | No       | 60000       | Interval (ms) between resurrection passes; doubles as the staleness threshold for SENDING rows. Must be > 0. |
 
 
-### SQLite persistence files
+### WAL persistence files
 
-:::note SQLite file details
+:::note WAL file details
 
 sqlite-path is a single database file path (not a directory). Default data/wal.db under install root data/, with -wal and -shm sidecars in the same directory.
 
@@ -207,7 +216,7 @@ output.id=<uuid>
 
 :::caution
 
-Keep edge-agent.id and SQLite files (default data/wal.db and sidecars) when migrating or upgrading. If lost and input.id is not set in YAML, a new ID is generated and existing positions no longer apply.
+Keep edge-agent.id and WAL database files (default data/wal.db and sidecars) when migrating or upgrading. If lost and input.id is not set in YAML, a new ID is generated and existing positions no longer apply.
 
 :::
 

@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.edge.agent.starter.runtime;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReader;
-import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
-import org.apache.seatunnel.edge.agent.starter.wal.SqliteAgentRuntimeStore;
 import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransport;
 import org.apache.seatunnel.edge.agent.transport.serialize.PayloadSerializer;
@@ -35,40 +31,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class EdgeAgentRuntimeContext {
 
     private final EdgeInputReader reader;
-    private final SqliteAgentRuntimeStore sqliteRuntime;
     private final WalStore walStore;
-    private final EdgeSourcePositionStore sourcePositionStore;
     private final EdgeCollectorTransport transport;
     private final PayloadSerializer payloadSerializer;
     private final AtomicBoolean running;
 
     public EdgeAgentRuntimeContext(
             EdgeInputReader reader,
-            SqliteAgentRuntimeStore sqliteRuntime,
-            EdgeCollectorTransport transport,
-            PayloadSerializer payloadSerializer,
-            AtomicBoolean running) {
-        this.reader = Objects.requireNonNull(reader, "reader");
-        this.sqliteRuntime = Objects.requireNonNull(sqliteRuntime, "sqliteRuntime");
-        this.walStore = sqliteRuntime.walStore();
-        this.sourcePositionStore = sqliteRuntime.sourcePositionStore();
-        this.transport = Objects.requireNonNull(transport, "transport");
-        this.payloadSerializer = Objects.requireNonNull(payloadSerializer, "payloadSerializer");
-        this.running = running != null ? running : new AtomicBoolean(true);
-    }
-
-    @VisibleForTesting
-    public EdgeAgentRuntimeContext(
-            EdgeInputReader reader,
             WalStore walStore,
-            EdgeSourcePositionStore sourcePositionStore,
             EdgeCollectorTransport transport,
             PayloadSerializer payloadSerializer,
             AtomicBoolean running) {
         this.reader = Objects.requireNonNull(reader, "reader");
-        this.sqliteRuntime = null;
         this.walStore = Objects.requireNonNull(walStore, "walStore");
-        this.sourcePositionStore = sourcePositionStore;
         this.transport = Objects.requireNonNull(transport, "transport");
         this.payloadSerializer = Objects.requireNonNull(payloadSerializer, "payloadSerializer");
         this.running = running != null ? running : new AtomicBoolean(true);

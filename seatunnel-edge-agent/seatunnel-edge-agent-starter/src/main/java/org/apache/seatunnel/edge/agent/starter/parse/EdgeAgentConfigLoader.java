@@ -78,6 +78,8 @@ public class EdgeAgentConfigLoader {
                 EdgeAgentTypeResolver.withOutputType(rawOutputConfig, outputType);
 
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        String storeType = runtimeConfig.getDeliveryGuarantee().storeFactoryId();
+        EdgeAgentFactoryValidation.validateStore(classLoader, queueConfig, storeType);
         EdgeAgentFactoryValidation.validateInput(classLoader, inputConfig, inputType);
         EdgeAgentFactoryValidation.validateOutput(classLoader, outputConfig, outputType);
 

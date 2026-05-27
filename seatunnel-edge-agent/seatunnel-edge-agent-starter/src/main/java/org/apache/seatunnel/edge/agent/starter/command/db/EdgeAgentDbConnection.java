@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.edge.agent.starter.command.db;
 
-import org.apache.seatunnel.edge.agent.starter.wal.WalStoreFactory;
+import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteSchemaBootstrap;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,8 +37,7 @@ public class EdgeAgentDbConnection implements AutoCloseable {
         if (!Files.isRegularFile(sqlitePath)) {
             throw new SQLException("SQLite database file not found: " + sqlitePath);
         }
-        // Apply migrations (batch_id column, meta table) before read-only queries.
-        WalStoreFactory.openMaintenanceConnection(sqlitePath).close();
+        openMaintenanceConnection(sqlitePath).close();
         Connection connection =
                 DriverManager.getConnection(
                         "jdbc:sqlite:" + sqlitePath.toAbsolutePath().normalize());
@@ -49,7 +48,16 @@ public class EdgeAgentDbConnection implements AutoCloseable {
     }
 
     public static EdgeAgentDbConnection openReadWrite(Path sqlitePath) throws SQLException {
-        return new EdgeAgentDbConnection(WalStoreFactory.openMaintenanceConnection(sqlitePath));
+        return new EdgeAgentDbConnection(openMaintenanceConnection(sqlitePath));
+    }
+
+    private static Connection openMaintenanceConnection(Path sqlitePath) throws SQLException {
+        Path prepared = SqliteSchemaBootstrap.prepareSqlitePath(sqlitePath);
+        Connection connection =
+                DriverManager.getConnection("jdbc:sqlite:" + prepared.toAbsolutePath());
+        SqliteSchemaBootstrap.applyConnectionPragmas(connection);
+        SqliteSchemaBootstrap.initRuntimeSchema(connection);
+        return connection;
     }
 
     public Connection getConnection() {

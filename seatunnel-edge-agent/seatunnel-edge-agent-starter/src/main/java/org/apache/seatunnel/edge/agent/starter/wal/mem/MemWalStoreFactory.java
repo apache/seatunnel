@@ -15,14 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.mem;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.edge.agent.starter.config.AgentRuntimeConfig;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
+import org.apache.seatunnel.edge.agent.starter.wal.WalStoreFactory;
+
+import com.google.auto.service.AutoService;
 
 import java.nio.file.Path;
 
-public interface WalStoreFactory extends Factory {
+@AutoService(Factory.class)
+public class MemWalStoreFactory implements WalStoreFactory {
 
-    WalStore create(AgentRuntimeConfig config, Path workDir) throws Exception;
+    @Override
+    public String factoryIdentifier() {
+        return "mem";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().build();
+    }
+
+    @Override
+    public WalStore create(AgentRuntimeConfig config, Path workDir) {
+        return new MemWalStore();
+    }
 }

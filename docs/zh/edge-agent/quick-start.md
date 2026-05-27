@@ -33,7 +33,7 @@ cd "$EDGE_AGENT_HOME"
 
 - 边缘主机已安装 Java 8 或 11，并设置 JAVA_HOME。
 - 不需要 SeaTunnel Engine，也不需要 EdgeSocket 网络连通。
-- 安装根目录可写（默认 SQLite 文件 data、日志、edge-agent.id）。
+- 安装根目录可写（默认持久化文件 data、日志、edge-agent.id）。
 
 ### 配置 Agent
 
@@ -79,7 +79,7 @@ echo '{"event":"world","ts":2}' >> /tmp/edge-agent-quickstart.log
 
 :::
 
-仍会生成 edge-agent.id 与 data/ 目录下的 SQLite 文件（wal.db、wal.db-wal、wal.db-shm），与是否连接 Engine 无关。说明见[配置说明 — SQLite 持久化文件](configuration.md#sqlite-持久化文件)。
+仍会生成 edge-agent.id 与 data/ 目录下的 WAL 持久化文件（wal.db、wal.db-wal、wal.db-shm），与是否连接 Engine 无关。说明见[配置说明 — WAL 持久化文件](configuration.md#sqlite-持久化文件)。
 
 ### 停止
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.edge.agent.starter.wal;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.connector.EdgeSourcePosition;
+import org.apache.seatunnel.edge.agent.starter.wal.sqlite.SqliteWalStore;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,20 +34,19 @@ public class SqliteAgentRuntimeStoreTest {
     @TempDir Path tempDir;
 
     @Test
-    void openRuntimeSharesWalAndPositionOnSingleConnection() throws Exception {
+    void walStoreSharesWalAndPositionOnSingleConnection() throws Exception {
         Path dbPath = tempDir.resolve("agent.db");
-        try (SqliteAgentRuntimeStore runtime = SqliteAgentRuntimeStore.open(dbPath)) {
-            WalStore walStore = runtime.walStore();
+        try (SqliteWalStore store = new SqliteWalStore(dbPath)) {
             EdgeSourcePosition position =
                     EdgeSourcePosition.builder()
                             .sourceId("src-1")
                             .partition("file:/tmp/a.log")
                             .offset(42L)
                             .build();
-            runtime.sourcePositionStore().save(position);
+            store.sourcePositionStore().save(position);
 
             long id =
-                    walStore.append(
+                    store.append(
                             EdgeEvent.builder()
                                     .sourceId("src-1")
                                     .payload("{\"x\":1}".getBytes(StandardCharsets.UTF_8))
@@ -54,7 +54,7 @@ public class SqliteAgentRuntimeStoreTest {
                                     .build());
 
             Map<String, EdgeSourcePosition> loaded =
-                    runtime.sourcePositionStore().loadBySource("src-1");
+                    store.sourcePositionStore().loadBySource("src-1");
             Assertions.assertEquals(42L, loaded.get("file:/tmp/a.log").getOffset());
             Assertions.assertEquals(1L, id);
         }

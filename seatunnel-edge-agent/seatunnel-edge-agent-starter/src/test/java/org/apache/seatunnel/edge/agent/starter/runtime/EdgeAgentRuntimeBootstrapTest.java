@@ -19,13 +19,10 @@ package org.apache.seatunnel.edge.agent.starter.runtime;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReader;
-import org.apache.seatunnel.edge.agent.connector.EdgeSourcePosition;
-import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
 import org.apache.seatunnel.edge.agent.starter.config.AgentRuntimeConfig;
 import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentConfigLoader;
 import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentResolvedConfig;
-import org.apache.seatunnel.edge.agent.starter.wal.WalRecord;
-import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
+import org.apache.seatunnel.edge.agent.starter.wal.mem.MemWalStore;
 import org.apache.seatunnel.edge.agent.transport.EdgeCollectorTransport;
 import org.apache.seatunnel.edge.agent.transport.serialize.RawPayloadSerializer;
 
@@ -40,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EdgeAgentRuntimeBootstrapTest {
@@ -52,19 +48,12 @@ public class EdgeAgentRuntimeBootstrapTest {
         AtomicBoolean running = new AtomicBoolean(true);
         List<String> openOrder = new ArrayList<>();
         OrderTrackingReader reader = new OrderTrackingReader(running, openOrder);
-        FakeSourcePositionStore sourcePositionStore = new FakeSourcePositionStore();
-        FakeWalStore walStore = new FakeWalStore();
         FakeTransport transport = new FakeTransport(openOrder);
 
         AgentRuntimeConfig config = loadRuntimeConfig(tempDir.resolve("wal.db"));
         EdgeAgentRuntimeContext ctx =
                 new EdgeAgentRuntimeContext(
-                        reader,
-                        walStore,
-                        sourcePositionStore,
-                        transport,
-                        new RawPayloadSerializer(),
-                        running);
+                        reader, new MemWalStore(), transport, new RawPayloadSerializer(), running);
         EdgeAgentRuntimeBootstrap bootstrap = EdgeAgentRuntimeBootstrap.create(config, ctx);
 
         bootstrap.start();
@@ -107,58 +96,6 @@ public class EdgeAgentRuntimeBootstrapTest {
         public List<EdgeEvent> poll(int maxRecords) {
             running.set(false);
             return Collections.emptyList();
-        }
-    }
-
-    private static final class FakeSourcePositionStore implements EdgeSourcePositionStore {
-
-        @Override
-        public EdgeSourcePosition load(String sourceId, String partition) {
-            return null;
-        }
-
-        @Override
-        public Map<String, EdgeSourcePosition> loadBySource(String sourceId) {
-            return Collections.emptyMap();
-        }
-
-        @Override
-        public void save(EdgeSourcePosition position) {}
-    }
-
-    private static final class FakeWalStore implements WalStore {
-
-        @Override
-        public long append(EdgeEvent event) {
-            return 0;
-        }
-
-        @Override
-        public List<WalRecord> claimPending(int maxRecords, int maxAttempts) {
-            return Collections.emptyList();
-        }
-
-        @Override
-        public int markExceededAsDead(int maxAttempts, int maxRecords) {
-            return 0;
-        }
-
-        @Override
-        public void ack(long recordId) {}
-
-        @Override
-        public int resurrectSending(int maxRecords) {
-            return 0;
-        }
-
-        @Override
-        public int resurrectSending(int maxRecords, long staleThresholdMs) {
-            return 0;
-        }
-
-        @Override
-        public int cleanupAcked(long retentionMs, int maxRecords) {
-            return 0;
         }
     }
 

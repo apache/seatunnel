@@ -5,7 +5,7 @@ title: Deployment Guide
 
 # Edge Agent Deployment Guide
 
-Install and run Edge Agent on an edge host: one long-lived process per install root that reads local input, buffers outbound data in SQLite WAL, and pushes batches to a configured EdgeSocket endpoint.
+Install and run Edge Agent on an edge host: one long-lived process per install root that reads local input, buffers outbound data in WAL, and pushes batches to a configured EdgeSocket endpoint.
 
 There is no Edge Agent cluster manager. Scale out by deploying one agent per edge host (or per data domain on a host), each with its own agent.yaml and WAL path. Engine-side ingestion is separate: run a SeaTunnel job whose source is [EdgeSocket](../connectors/source/EdgeSocket.md) and whose listen address matches output.endpoint.
 

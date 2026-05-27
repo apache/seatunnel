@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.edge.agent.starter.wal;
+package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -38,9 +38,9 @@ public class SqliteBatchIdAllocator {
             throw new SQLException("Failed to initialize next_batch_id in edge_agent_meta");
         }
         try (PreparedStatement statement =
-                connection.prepareStatement(AgentMetaSqlStatements.UPDATE_VALUE)) {
+                connection.prepareStatement(MetaSqlStatements.UPDATE_VALUE)) {
             statement.setLong(1, current + 1);
-            statement.setString(2, AgentMetaSqlStatements.KEY_NEXT_BATCH_ID);
+            statement.setString(2, MetaSqlStatements.KEY_NEXT_BATCH_ID);
             if (statement.executeUpdate() != 1) {
                 throw new SQLException("Failed to advance next_batch_id");
             }
@@ -54,15 +54,15 @@ public class SqliteBatchIdAllocator {
 
     public static void seedMetaFromWal(Connection connection) throws SQLException {
         try (PreparedStatement statement =
-                connection.prepareStatement(AgentMetaSqlStatements.SEED_NEXT_BATCH_ID_FROM_WAL)) {
+                connection.prepareStatement(MetaSqlStatements.SEED_NEXT_BATCH_ID_FROM_WAL)) {
             statement.executeUpdate();
         }
     }
 
     private static Long readNextBatchId(Connection connection) throws SQLException {
         try (PreparedStatement statement =
-                connection.prepareStatement(AgentMetaSqlStatements.SELECT_VALUE)) {
-            statement.setString(1, AgentMetaSqlStatements.KEY_NEXT_BATCH_ID);
+                connection.prepareStatement(MetaSqlStatements.SELECT_VALUE)) {
+            statement.setString(1, MetaSqlStatements.KEY_NEXT_BATCH_ID);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     return resultSet.getLong(1);

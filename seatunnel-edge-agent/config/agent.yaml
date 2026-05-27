@@ -24,7 +24,7 @@
 # Identity and scheduler tuning. Safe to leave entirely commented out.
 agent:
   # id: auto
-  # delivery-guarantee: BEST_EFFORT
+  # delivery-guarantee: BEST_EFFORT   # BEST_EFFORT: WAL + retry; NON: no WAL, stateless, drop on failure
   # idle-sleep-ms: 200
   # bulk-max-size: 256
   # flush-interval-ms: 1000
@@ -53,6 +53,7 @@ input:
 
 # ========================= Queue (WAL persistence) ===========================
 # SQLite WAL buffer. Defaults are safe for most deployments.
+# Ignored when delivery-guarantee is NON.
 # queue:
 #   sqlite-path: data/wal.db
 #   poll-batch-size: 128
@@ -63,6 +64,7 @@ input:
 
 # ========================= Retry =============================================
 # WAL row send retry policy. Defaults handle most failure scenarios.
+# Ignored when delivery-guarantee is NON.
 # retry:
 #   max-attempts: 16
 #   backoff-ms: 250

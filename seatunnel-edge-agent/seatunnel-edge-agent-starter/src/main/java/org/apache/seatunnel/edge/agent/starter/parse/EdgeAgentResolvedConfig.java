@@ -52,6 +52,10 @@ public class EdgeAgentResolvedConfig {
         return runtimeConfig.getAgentId();
     }
 
+    public String getStoreType() {
+        return runtimeConfig.getDeliveryGuarantee().storeFactoryId();
+    }
+
     public String getInputId() {
         return yaml.getInput() != null ? yaml.getInput().getId() : null;
     }

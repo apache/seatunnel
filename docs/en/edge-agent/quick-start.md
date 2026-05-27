@@ -33,7 +33,7 @@ The install root contains bin/, config/, and starter/.
 
 - Java 8 or 11 on the edge host, with JAVA_HOME set.
 - No SeaTunnel Engine and no EdgeSocket connectivity required.
-- Writable install root (default SQLite data/wal.db, logs, edge-agent.id).
+- Writable install root (default WAL data/wal.db, logs, edge-agent.id).
 
 ### Configure the agent
 
@@ -79,7 +79,7 @@ Search log/edge-agent.log for EDGE_CONSOLE_OUTPUT (console writes via the app lo
 
 :::
 
-The agent still creates edge-agent.id and the SQLite files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — SQLite persistence files](configuration.md#sqlite-persistence-files).
+The agent still creates edge-agent.id and the WAL persistence files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — WAL persistence files](configuration.md#sqlite-persistence-files).
 
 ### Stop
 

@@ -47,7 +47,7 @@ paths 为 glob 模式或具体文件路径的列表。采集器会：
 
 :::note
 
-位点保存在与出站队列相同的 SQLite 库中，重启后从上次持久化偏移继续（与 WAL append 同步，不以 Engine ACK 为准）。
+位点保存在与出站队列相同的 WAL 数据库中，重启后从上次持久化偏移继续（与 WAL append 同步，不以 Engine ACK 为准）。
 
 :::
 

@@ -17,6 +17,7 @@
 
 agent:
   id: edge-agent-example
+  delivery-guarantee: non
 input:
   id: file-input
   type: file
