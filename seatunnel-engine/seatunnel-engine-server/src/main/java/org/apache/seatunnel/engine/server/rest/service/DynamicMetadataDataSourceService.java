@@ -47,15 +47,7 @@ public class DynamicMetadataDataSourceService extends BaseService {
     public static final String UPDATE_TIME = "updateTime";
     private static final String MASKED_VALUE = "******";
     private static final Set<String> SENSITIVE_KEYS =
-            new HashSet<>(
-                    Arrays.asList(
-                            "password",
-                            "passwd",
-                            "pwd",
-                            "secret",
-                            "token",
-                            "access_key",
-                            "secret_key"));
+            new HashSet<>(Arrays.asList("password", "secret_key"));
 
     public DynamicMetadataDataSourceService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);

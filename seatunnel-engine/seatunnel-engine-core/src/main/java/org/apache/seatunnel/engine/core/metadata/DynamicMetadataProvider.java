@@ -100,7 +100,7 @@ public class DynamicMetadataProvider implements MetadataProvider {
         }
 
         String storedConnectorType = dataSource.getConnectorType();
-        if (!connectorIdentifier.equalsIgnoreCase(storedConnectorType)) {
+        if (!connectorIdentifier.equals(storedConnectorType)) {
             throw new MetadataProviderException(
                     String.format(
                             "Connector type mismatch. Expected '%s' but datasource '%s' has type '%s'",
