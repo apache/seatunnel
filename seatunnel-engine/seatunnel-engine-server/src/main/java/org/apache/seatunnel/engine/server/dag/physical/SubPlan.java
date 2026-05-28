@@ -307,6 +307,8 @@ public class SubPlan {
         try {
             RetryUtils.retryWithException(
                     () -> {
+                        jobMaster.enqueuePipelineCleanupIfNeeded(
+                                getPipelineLocation(), pipelineStatus);
                         jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
                         try {
                             jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
@@ -340,6 +342,13 @@ public class SubPlan {
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+            if (current == null) {
+                log.warn(
+                        "{} current state is null, skip transition to {}",
+                        pipelineFullName,
+                        targetState);
+                return;
+            }
             log.debug(
                     String.format(
                             "Try to update the %s state from %s to %s",
@@ -367,7 +376,9 @@ public class SubPlan {
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(finalTargetState);
-                        runningJobStateIMap.set(pipelineLocation, finalTargetState);
+                        if (runningJobStateIMap.get(pipelineLocation) != null) {
+                            runningJobStateIMap.set(pipelineLocation, finalTargetState);
+                        }
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -396,6 +407,12 @@ public class SubPlan {
         }
     }
 
+    public void forceStopPipeline() {
+        jobMaster.neverNeedRestore();
+        coordinatorVertexList.forEach(PhysicalVertex::forceStop);
+        physicalVertexList.forEach(PhysicalVertex::forceStop);
+    }
+
     private void cancelCheckpointCoordinator() {
         if (jobMaster.getCheckpointManager() != null) {
             jobMaster.getCheckpointManager().cancelCheckpoint(pipelineId).join();
@@ -418,6 +435,13 @@ public class SubPlan {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    pipelineFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
     }
@@ -500,6 +524,22 @@ public class SubPlan {
                     e);
             makePipelineFailing(e);
             startSubPlanStateProcess();
+        }
+    }
+
+    public void stopPipelineWithCheckpointFallback() {
+        if (jobMaster.getCheckpointManager() == null) {
+            forceStopPipeline();
+            return;
+        }
+        if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+            forcePipelineFinish();
+        } else {
+            log.warn(
+                    "Failed to stop the pipeline gracefully. Falling back to forced stop: {}",
+                    pipelineFullName);
+            cancelCheckpointCoordinator();
+            forceStopPipeline();
         }
     }
 

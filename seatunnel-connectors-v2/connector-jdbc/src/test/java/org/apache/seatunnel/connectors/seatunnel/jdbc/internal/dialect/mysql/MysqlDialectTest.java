@@ -17,20 +17,46 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.security.MessageDigest;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.CRC32;
 
 @Slf4j
 public class MysqlDialectTest {
+
+    @Test
+    public void testValidateStringRangeSplitAcceptsPrintableAsciiPunctuation() throws Exception {
+        MysqlDialect dialect = new MysqlDialect();
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("test_db", "test_table")).build();
+
+        StringRangeSplitDecision decision =
+                dialect.validateStringRangeSplit(
+                        mockConnection("utf8mb4_bin", Arrays.asList("AA/01", "AB.CD", "ID~99")),
+                        table,
+                        "id",
+                        3);
+
+        Assertions.assertTrue(decision.isSafe());
+    }
 
     @Test
     public void testHashDistributionMD5vsCRC32WithSnowflakeIds() {
@@ -187,5 +213,84 @@ public class MysqlDialectTest {
         }
 
         return Math.sqrt(sumSquaredDiff / partitions);
+    }
+
+    private Connection mockConnection(String collation, List<String> samples) {
+        return (Connection)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        Connection.class.getClassLoader(),
+                        new Class<?>[] {Connection.class},
+                        (proxy, method, args) -> {
+                            switch (method.getName()) {
+                                case "prepareStatement":
+                                    return mockPreparedStatement(collation);
+                                case "createStatement":
+                                    return mockStatement(samples);
+                                default:
+                                    return defaultValue(method.getReturnType());
+                            }
+                        });
+    }
+
+    private PreparedStatement mockPreparedStatement(String collation) {
+        return (PreparedStatement)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        PreparedStatement.class.getClassLoader(),
+                        new Class<?>[] {PreparedStatement.class},
+                        (proxy, method, args) -> {
+                            if ("executeQuery".equals(method.getName())) {
+                                return mockResultSet(Arrays.asList(collation));
+                            }
+                            return defaultValue(method.getReturnType());
+                        });
+    }
+
+    private Statement mockStatement(List<String> samples) {
+        return (Statement)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        Statement.class.getClassLoader(),
+                        new Class<?>[] {Statement.class},
+                        (proxy, method, args) -> {
+                            if ("executeQuery".equals(method.getName())) {
+                                return mockResultSet(samples);
+                            }
+                            return defaultValue(method.getReturnType());
+                        });
+    }
+
+    private ResultSet mockResultSet(List<String> values) {
+        Iterator<String> iterator = values.iterator();
+        String[] current = new String[1];
+        return (ResultSet)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        ResultSet.class.getClassLoader(),
+                        new Class<?>[] {ResultSet.class},
+                        (proxy, method, args) -> {
+                            switch (method.getName()) {
+                                case "next":
+                                    if (iterator.hasNext()) {
+                                        current[0] = iterator.next();
+                                        return true;
+                                    }
+                                    return false;
+                                case "getString":
+                                    return current[0];
+                                default:
+                                    return defaultValue(method.getReturnType());
+                            }
+                        });
+    }
+
+    private Object defaultValue(Class<?> returnType) {
+        if (!returnType.isPrimitive()) {
+            return null;
+        }
+        if (boolean.class.equals(returnType)) {
+            return false;
+        }
+        if (void.class.equals(returnType)) {
+            return null;
+        }
+        return 0;
     }
 }

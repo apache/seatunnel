@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义的分片](../../introduction/concepts/connector-v2-features.md)
 

@@ -99,3 +99,4 @@ connector-cdc-opengauss
 connector-sensorsdata
 connector-hugegraph
 connector-lance
+connector-mqtt

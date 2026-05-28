@@ -175,7 +175,13 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
+        LocalDate baseDate = LocalDate.of(2024, 1, 1);
+        LocalTime baseTime = LocalTime.of(9, 0, 0);
+        LocalDateTime baseDateTime = LocalDateTime.of(2024, 1, 1, 9, 0, 0);
         for (int i = 0; i < 100; i++) {
+            LocalDate rowDate = baseDate.plusDays(i);
+            LocalTime rowTime = baseTime.plusSeconds(i);
+            LocalDateTime rowDateTime = baseDateTime.plusSeconds(i);
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -193,12 +199,12 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
-                                Date.valueOf(LocalDate.now()),
-                                Time.valueOf(LocalTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                Time.valueOf(LocalTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
+                                Date.valueOf(rowDate),
+                                Time.valueOf(rowTime),
+                                Timestamp.valueOf(rowDateTime),
+                                Timestamp.valueOf(rowDateTime),
+                                Time.valueOf(rowTime),
+                                Timestamp.valueOf(rowDateTime),
                                 null,
                                 null,
                                 null,

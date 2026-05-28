@@ -53,17 +53,17 @@ public class VerticaDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         return Optional.empty();
     }
 
     @Override
     public Optional<String> getUpsertStatementByTableSchema(
-            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
+            String database, String tableName, TableSchema tableSchema, String[] pkNames) {
         String[] fieldNames = tableSchema.getFieldNames();
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .collect(Collectors.toList());
         // Vertica JDBC currently requires explicitly specifying the data type
         String valuesBinding =
@@ -85,7 +85,7 @@ public class VerticaDialect implements JdbcDialect {
 
         String usingClause = String.format("SELECT %s ", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 fieldName ->
                                         String.format(

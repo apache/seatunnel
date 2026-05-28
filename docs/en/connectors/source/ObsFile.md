@@ -237,6 +237,15 @@ schema {
 > - `parent_id`: ID of the parent element
 > - `child_ids`: Comma-separated list of child element IDs
 >
+> When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+> - `source_uri`: Source file path or URI
+> - `document_id`: Stable document identifier derived from `source_uri`
+> - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+> - `chunk_index`: One-based chunk order in the parsed document
+> - `content_hash`: SHA-256 hash of the emitted `text` value
+>
+> The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+>
 > Note: Markdown format only supports reading, not writing.
 
 #### <span id="schema"> schema  </span>

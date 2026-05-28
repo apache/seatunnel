@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -51,6 +50,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
     private transient volatile Exception flushException;
+    private transient long lastFlushTimeMs;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -72,6 +72,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
+        lastFlushTimeMs = System.currentTimeMillis();
     }
 
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
@@ -101,8 +102,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         try {
             addToBatch(record);
             batchCount++;
-            if (jdbcConnectionConfig.getBatchSize() > 0
-                    && batchCount >= jdbcConnectionConfig.getBatchSize()) {
+            if (batchCount > 0 && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
                 flush();
             }
         } catch (Exception e) {
@@ -118,13 +118,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
-        if (flushException != null) {
-            LOG.warn(
-                    String.format(
-                            "An exception occurred during the previous flush process %s, skipping this flush",
-                            ExceptionUtils.getMessage(flushException)));
-            return;
-        }
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -135,6 +128,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             try {
                 attemptFlush();
                 batchCount = 0;
+                lastFlushTimeMs = System.currentTimeMillis();
                 break;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
@@ -176,30 +170,47 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public synchronized void close() {
         if (!closed) {
             closed = true;
-
-            if (batchCount > 0) {
-                try {
-                    flush();
-                } catch (Exception e) {
-                    LOG.warn("Writing records to JDBC failed.", e);
-                    flushException =
-                            new JdbcConnectorException(
-                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                    "Writing records to JDBC failed.",
-                                    e);
-                }
-            }
-
-            try {
-                if (jdbcStatementExecutor != null) {
-                    jdbcStatementExecutor.closeStatements();
-                }
-            } catch (SQLException | JdbcConnectorException e) {
-                LOG.warn("Close JDBC writer failed.", e);
-            }
+            flushBufferedRecords();
+            closeStatements();
         }
         connectionProvider.closeConnection();
         checkFlushException();
+    }
+
+    private void flushBufferedRecords() {
+        if (batchCount > 0) {
+            try {
+                flush();
+            } catch (Exception e) {
+                LOG.warn("Writing records to JDBC failed.", e);
+                flushException =
+                        new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Writing records to JDBC failed.",
+                                e);
+            }
+        }
+    }
+
+    public void closeStatements() {
+        try {
+            if (jdbcStatementExecutor != null) {
+                jdbcStatementExecutor.closeStatements();
+            }
+        } catch (SQLException | JdbcConnectorException e) {
+            LOG.warn("Close JDBC writer failed.", e);
+        }
+    }
+
+    private boolean isOverMaxBatchSizeLimit() {
+        return jdbcConnectionConfig.getBatchSize() > 0
+                && batchCount >= jdbcConnectionConfig.getBatchSize();
+    }
+
+    private boolean isOverMaxBatchIntervalLimit() {
+        long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
+        return batchIntervalMs > 0
+                && (System.currentTimeMillis() - lastFlushTimeMs) >= batchIntervalMs;
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {

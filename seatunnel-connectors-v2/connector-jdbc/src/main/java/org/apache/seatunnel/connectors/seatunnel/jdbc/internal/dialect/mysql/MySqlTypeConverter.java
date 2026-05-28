@@ -42,57 +42,57 @@ import lombok.extern.slf4j.Slf4j;
 public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlType>> {
 
     // ============================data types=====================
-    static final String MYSQL_NULL = "NULL";
-    static final String MYSQL_BIT = "BIT";
-    static final String MYSQL_BIT_UNSIGNED = "BIT UNSIGNED";
+    public static final String MYSQL_NULL = "NULL";
+    public static final String MYSQL_BIT = "BIT";
+    public static final String MYSQL_BIT_UNSIGNED = "BIT UNSIGNED";
 
     // -------------------------number----------------------------
-    static final String MYSQL_TINYINT = "TINYINT";
-    static final String MYSQL_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
-    static final String MYSQL_SMALLINT = "SMALLINT";
-    static final String MYSQL_SMALLINT_UNSIGNED = "SMALLINT UNSIGNED";
-    static final String MYSQL_MEDIUMINT = "MEDIUMINT";
-    static final String MYSQL_MEDIUMINT_UNSIGNED = "MEDIUMINT UNSIGNED";
-    static final String MYSQL_INT = "INT";
-    static final String MYSQL_INT_UNSIGNED = "INT UNSIGNED";
-    static final String MYSQL_INTEGER = "INTEGER";
-    static final String MYSQL_INTEGER_UNSIGNED = "INTEGER UNSIGNED";
-    static final String MYSQL_BIGINT = "BIGINT";
-    static final String MYSQL_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
-    static final String MYSQL_DECIMAL = "DECIMAL";
-    static final String MYSQL_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
-    static final String MYSQL_FLOAT = "FLOAT";
-    static final String MYSQL_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
-    static final String MYSQL_DOUBLE = "DOUBLE";
-    static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
+    public static final String MYSQL_TINYINT = "TINYINT";
+    public static final String MYSQL_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
+    public static final String MYSQL_SMALLINT = "SMALLINT";
+    public static final String MYSQL_SMALLINT_UNSIGNED = "SMALLINT UNSIGNED";
+    public static final String MYSQL_MEDIUMINT = "MEDIUMINT";
+    public static final String MYSQL_MEDIUMINT_UNSIGNED = "MEDIUMINT UNSIGNED";
+    public static final String MYSQL_INT = "INT";
+    public static final String MYSQL_INT_UNSIGNED = "INT UNSIGNED";
+    public static final String MYSQL_INTEGER = "INTEGER";
+    public static final String MYSQL_INTEGER_UNSIGNED = "INTEGER UNSIGNED";
+    public static final String MYSQL_BIGINT = "BIGINT";
+    public static final String MYSQL_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
+    public static final String MYSQL_DECIMAL = "DECIMAL";
+    public static final String MYSQL_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
+    public static final String MYSQL_FLOAT = "FLOAT";
+    public static final String MYSQL_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
+    public static final String MYSQL_DOUBLE = "DOUBLE";
+    public static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
 
     // -------------------------string----------------------------
     public static final String MYSQL_CHAR = "CHAR";
     public static final String MYSQL_VARCHAR = "VARCHAR";
-    static final String MYSQL_TINYTEXT = "TINYTEXT";
-    static final String MYSQL_MEDIUMTEXT = "MEDIUMTEXT";
-    static final String MYSQL_TEXT = "TEXT";
-    static final String MYSQL_LONGTEXT = "LONGTEXT";
-    static final String MYSQL_JSON = "JSON";
-    static final String MYSQL_ENUM = "ENUM";
-    static final String MYSQL_SET = "SET";
+    public static final String MYSQL_TINYTEXT = "TINYTEXT";
+    public static final String MYSQL_MEDIUMTEXT = "MEDIUMTEXT";
+    public static final String MYSQL_TEXT = "TEXT";
+    public static final String MYSQL_LONGTEXT = "LONGTEXT";
+    public static final String MYSQL_JSON = "JSON";
+    public static final String MYSQL_ENUM = "ENUM";
+    public static final String MYSQL_SET = "SET";
 
     // ------------------------------time-------------------------
-    static final String MYSQL_DATE = "DATE";
+    public static final String MYSQL_DATE = "DATE";
     public static final String MYSQL_DATETIME = "DATETIME";
     public static final String MYSQL_TIME = "TIME";
     public static final String MYSQL_TIMESTAMP = "TIMESTAMP";
-    static final String MYSQL_YEAR = "YEAR";
-    static final String MYSQL_YEAR_UNSIGNED = "YEAR UNSIGNED";
+    public static final String MYSQL_YEAR = "YEAR";
+    public static final String MYSQL_YEAR_UNSIGNED = "YEAR UNSIGNED";
 
     // ------------------------------blob-------------------------
-    static final String MYSQL_TINYBLOB = "TINYBLOB";
-    static final String MYSQL_MEDIUMBLOB = "MEDIUMBLOB";
-    static final String MYSQL_BLOB = "BLOB";
-    static final String MYSQL_LONGBLOB = "LONGBLOB";
-    static final String MYSQL_BINARY = "BINARY";
-    static final String MYSQL_VARBINARY = "VARBINARY";
-    static final String MYSQL_GEOMETRY = "GEOMETRY";
+    public static final String MYSQL_TINYBLOB = "TINYBLOB";
+    public static final String MYSQL_MEDIUMBLOB = "MEDIUMBLOB";
+    public static final String MYSQL_BLOB = "BLOB";
+    public static final String MYSQL_LONGBLOB = "LONGBLOB";
+    public static final String MYSQL_BINARY = "BINARY";
+    public static final String MYSQL_VARBINARY = "VARBINARY";
+    public static final String MYSQL_GEOMETRY = "GEOMETRY";
 
     public static final int DEFAULT_PRECISION = 38;
     public static final int MAX_PRECISION = 65;

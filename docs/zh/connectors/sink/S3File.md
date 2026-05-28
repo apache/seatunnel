@@ -367,13 +367,13 @@ source {
     }
   }
 # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的源插件列表，
-# 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+# 请访问 https://seatunnel.apache.org/docs/connectors/source
 source {
 }
 
 transform {
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transform-v2
+  # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -401,7 +401,7 @@ sink {
       }
   }
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的接收插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

@@ -21,12 +21,15 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,6 +49,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
@@ -241,6 +246,75 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testSftpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/text/sftp_binary_update_distcp_continuous.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readSftpFile(
+                                                SFTP_CONTAINER_HOME
+                                                        + "/tmp/seatunnel/continuous/dst/test1.bin")));
+
+        long firstMtimeSeconds =
+                getSftpFileMtimeSeconds(
+                        SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
+        Thread.sleep(2500);
+        long secondMtimeSeconds =
+                getSftpFileMtimeSeconds(
+                        SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Continuous discovery should skip unchanged files in update mode.");
+
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test2.bin", "def");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "def",
+                                        readSftpFile(
+                                                SFTP_CONTAINER_HOME
+                                                        + "/tmp/seatunnel/continuous/dst/test2.bin")));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -293,6 +367,26 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "chmod -R 777 " + SFTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
     }
 
+    private void resetContinuousTestPath() throws IOException, InterruptedException {
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+        Container.ExecResult mkdirResult =
+                sftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/continuous/src "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/continuous/dst "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/continuous/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        sftpContainer.execInContainer(
+                "sh",
+                "-c",
+                "chmod -R 777 " + SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous || true");
+    }
+
     private void putSftpFile(String containerPath, String content)
             throws IOException, InterruptedException {
         String command =
@@ -314,6 +408,14 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 sftpContainer.execInContainer("sh", "-c", "cat '" + containerPath + "'");
         Assertions.assertEquals(0, catResult.getExitCode(), catResult.getStderr());
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
+
+    private long getSftpFileMtimeSeconds(String containerPath)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                sftpContainer.execInContainer("sh", "-c", "stat -c %Y '" + containerPath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
     }
 
     @SneakyThrows

@@ -72,9 +72,9 @@ curl http://127.0.0.1:5801/running-jobs
 curl http://127.0.0.1:5801/system-monitoring-information
 ```
 
-After that you can submit your job by [rest-api-v2](../../seatunnel-engine/rest-api-v2.md)
+After that you can submit your job by [rest-api-v2](../../engines/zeta/rest-api-v2.md)
 
 ## What's More
 
-For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2/source) to find all sources and sinks SeaTunnel supported.
-Or see [deployment](../../seatunnel-engine/deployment.md) if you want to submit your application in another kind of your engine cluster.
+For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connectors/source) to find all sources and sinks SeaTunnel supported.
+Or see [deployment](../../engines/zeta/deployment.md) if you want to submit your application in another kind of your engine cluster.

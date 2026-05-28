@@ -27,6 +27,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
 import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -34,20 +35,31 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+@Slf4j
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
 
     private IMapStorage mapStorage;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
-
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
-        this.mapStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                IMapStorageFactory.class,
-                                (String) initMap.get("type"))
-                        .create(initMap);
+        String storageType = (String) initMap.get("type");
+        try {
+            this.mapStorage =
+                    FactoryUtil.discoverFactory(
+                                    Thread.currentThread().getContextClassLoader(),
+                                    IMapStorageFactory.class,
+                                    storageType)
+                            .create(initMap);
+        } catch (RuntimeException e) {
+            log.error(
+                    "Failed to initialize IMap storage for map '{}', type='{}'. "
+                            + "Cluster state will NOT be persisted.",
+                    mapName,
+                    storageType,
+                    e);
+            throw e;
+        }
     }
 
     @Override

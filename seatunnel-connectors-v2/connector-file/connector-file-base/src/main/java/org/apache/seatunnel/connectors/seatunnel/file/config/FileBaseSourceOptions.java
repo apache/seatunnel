@@ -21,12 +21,40 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
+
+    public static final Option<FileDiscoveryMode> DISCOVERY_MODE =
+            Options.key("discovery_mode")
+                    .singleChoice(
+                            FileDiscoveryMode.class,
+                            Arrays.asList(FileDiscoveryMode.ONCE, FileDiscoveryMode.CONTINUOUS))
+                    .defaultValue(FileDiscoveryMode.ONCE)
+                    .withDescription(
+                            "File discovery mode. Supported values: once (default), continuous. "
+                                    + "When set to continuous, the source keeps scanning the path and processes new/changed files at runtime.");
+
+    public static final Option<Duration> SCAN_INTERVAL =
+            Options.key("scan_interval")
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(10))
+                    .withDescription(
+                            "Scan interval for discovery_mode=continuous. Recommended shorthand format is 10S; ISO-8601 format PT10S is also supported. Default is 10S.");
+
+    public static final Option<FileStartMode> START_MODE =
+            Options.key("start_mode")
+                    .singleChoice(
+                            FileStartMode.class,
+                            Arrays.asList(FileStartMode.EARLIEST, FileStartMode.LATEST))
+                    .defaultValue(FileStartMode.EARLIEST)
+                    .withDescription(
+                            "Start mode for discovery_mode=continuous. Supported values: earliest (default), latest. "
+                                    + "earliest reads existing files on startup; latest only processes files modified after the job starts.");
 
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
@@ -79,6 +107,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .listType()
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
+
+    public static final Option<Boolean> MARKDOWN_RAG_METADATA_ENABLED =
+            Options.key("markdown_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading markdown files. "
+                                    + "Only valid when file_format_type is markdown.");
 
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")

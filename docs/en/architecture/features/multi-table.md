@@ -741,15 +741,15 @@ if (table.getWriteRate() > threshold) {
 - [CatalogTable and Metadata](../api-design/catalog-table.md)
 - [Sink Architecture](../api-design/sink-architecture.md)
 - [DAG Execution](../engine/dag-execution.md)
-- [Schema Evolution](../../introduction/concepts/schema-evolution.md)
+- [Schema Evolution](../../introduction/configuration/schema-evolution.md)
 
 ## 14. References
 
 ### Key Source Files
 
-- [MultiTableSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/MultiTableSink.java)
-- [SinkIdentifier.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkIdentifier.java)
-- [TablePath.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TablePath.java)
+- [MultiTableSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/MultiTableSink.java)
+- [SinkIdentifier.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/SinkIdentifier.java)
+- [TablePath.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TablePath.java)
 
 ### Example Implementations
 

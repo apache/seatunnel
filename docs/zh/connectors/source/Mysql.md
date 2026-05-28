@@ -204,7 +204,7 @@ source{
 
 transform {
     # 如果您想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2/sql
+    # 请访问 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {

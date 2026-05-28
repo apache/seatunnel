@@ -100,10 +100,6 @@ public class ConfigBuilder {
     }
 
     public static Config of(@NonNull Map<String, Object> objectMap) {
-        return of(objectMap, false);
-    }
-
-    public static Config of(@NonNull Map<String, Object> objectMap, boolean isEncrypt) {
         log.info("Loading config file from objectMap");
         Config config =
                 ConfigFactory.parseMap(objectMap)
@@ -111,9 +107,6 @@ public class ConfigBuilder {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        if (!isEncrypt) {
-            config = ConfigShadeUtils.decryptConfig(config);
-        }
         log.info(
                 "Parsed config file: \n{}",
                 mapToString(

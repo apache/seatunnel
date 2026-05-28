@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -289,8 +290,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      * @param transactionId transaction id
      */
     public void abortPrepare(String transactionId) {
+        String transactionDir = getTransactionDir(transactionId);
         try {
-            hadoopFileSystemProxy.deleteFile(getTransactionDir(transactionId));
+            hadoopFileSystemProxy.deleteFile(transactionDir);
+            cleanupTransactionParentDirectories(transactionDir);
         } catch (IOException e) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
@@ -298,6 +301,27 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                             + transactionId
                             + " error, delete transaction directory failed",
                     e);
+        }
+    }
+
+    private void cleanupTransactionParentDirectories(String transactionDir) {
+        Path uuidDir = new Path(transactionDir).getParent();
+        if (uuidDir == null) {
+            return;
+        }
+        Path jobDir = uuidDir.getParent();
+        if (jobDir == null) {
+            return;
+        }
+        cleanupEmptyDirectory(uuidDir);
+        cleanupEmptyDirectory(jobDir);
+    }
+
+    private void cleanupEmptyDirectory(Path directory) {
+        try {
+            hadoopFileSystemProxy.deleteEmptyDirectory(directory.toString());
+        } catch (IOException e) {
+            log.warn("Failed to clean empty transaction parent directory: {}", directory, e);
         }
     }
 

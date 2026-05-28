@@ -49,7 +49,6 @@ import ChangeLog from '../changelog/connector-hive.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
 | overwrite                             | boolean | 否  | false          |
 | data_save_mode                        | enum    | 否  | APPEND_DATA    |
-
 | schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | 否  | -              |
 | common-options                        |         | 否  | -              |
