@@ -31,7 +31,7 @@ The examples below use Minikube, but the same manifests can be adapted to manage
 
 | Area | What to verify |
 | --- | --- |
-| Image registry | Push the SeaTunnel image to a registry reachable by the cluster, such as ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, VCR, or the internal OpenShift registry. Update `image` and `imagePullSecrets` when the image is private. |
+| Image registry | Push the SeaTunnel image to a registry reachable by the cluster, such as ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or the internal OpenShift registry. Update `image` and `imagePullSecrets` when the image is private. |
 | Namespace and access | Create a dedicated namespace for SeaTunnel and bind the required ServiceAccount, Role, and RoleBinding there. OpenShift deployments may also need a SecurityContextConstraint compatible with the container user. |
 | Config and secrets | Keep non-sensitive SeaTunnel configuration in ConfigMaps and mount credentials through Secrets or the cloud provider's secret integration. Avoid putting connector credentials directly into the job ConfigMap. |
 | Connector packaging | Package commonly used connectors in the image for repeatable deployments, or mount connector libraries from a PersistentVolume or object-storage backed init step when connector sets change frequently. |

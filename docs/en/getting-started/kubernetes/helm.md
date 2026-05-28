@@ -49,7 +49,7 @@ helm install seatunnel . -n <your namespace> -f values-eks.yaml
 
 Common managed-cluster values to review include:
 
-- image repository and `imagePullSecrets` for ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, VCR, or an OpenShift internal registry
+- image repository and `imagePullSecrets` for ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or an OpenShift internal registry
 - ServiceAccount, RBAC, and OpenShift SecurityContextConstraint requirements for the target namespace
 - Service or Ingress annotations for the provider load balancer, subnet, certificate, and internal/external exposure model
 - object storage or PersistentVolume settings for checkpoint and state paths
