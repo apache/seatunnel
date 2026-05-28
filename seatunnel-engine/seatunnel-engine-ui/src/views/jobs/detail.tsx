@@ -31,7 +31,6 @@ import { useRoute } from 'vue-router'
 import type { Job, Vertex } from '@/service/job/types'
 import { useI18n } from 'vue-i18n'
 import { getRemainTime } from '@/utils/time'
-import { parse } from 'date-fns'
 import DAG, { type DagEdgeInfo } from '@/components/directed-acyclic-graph'
 import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
@@ -62,7 +61,7 @@ export default defineComponent({
       const res = await getJobInfo(jobId)
       Object.assign(job, res)
       clearInterval(timer)
-      const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
+      const d = new Date(res.createTime.replace(' ', 'T'))
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
       if (isTerminalState(job.jobStatus)) {
         clearTimeout(fetchTimer)
