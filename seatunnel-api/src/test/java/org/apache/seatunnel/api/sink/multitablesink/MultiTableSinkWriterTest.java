@@ -45,7 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiTableSinkWriterTest {
@@ -386,6 +389,36 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRunnableDoesNotHoldLockWhileWaitingForRows() throws Exception {
+        BlockingPollQueue queue = new BlockingPollQueue();
+        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
+        tableIdWriterMap.put("test.table", new RecordingSinkWriter(false));
+        MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
+        Thread worker = new Thread(runnable);
+        worker.start();
+
+        Assertions.assertTrue(queue.awaitPollStarted());
+        FutureTask<Boolean> lockProbe =
+                new FutureTask<>(
+                        () -> {
+                            synchronized (runnable) {
+                                return true;
+                            }
+                        });
+        Thread lockProbeThread = new Thread(lockProbe);
+        lockProbeThread.start();
+
+        try {
+            Assertions.assertTrue(lockProbe.get(200, TimeUnit.MILLISECONDS));
+        } finally {
+            queue.releasePoll();
+            worker.interrupt();
+            worker.join(1000);
+            lockProbeThread.join(1000);
+        }
+    }
+
+    @Test
     public void testSingleWriterAcceptsNullTableId() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
@@ -578,6 +611,28 @@ public class MultiTableSinkWriterTest {
             if (requiredLock != null && !Thread.holdsLock(requiredLock)) {
                 throw new AssertionError("table writer map must be read under runnable lock");
             }
+        }
+    }
+
+    static class BlockingPollQueue extends LinkedBlockingQueue<SeaTunnelRow> {
+        private static final long serialVersionUID = 1L;
+
+        private final CountDownLatch pollStarted = new CountDownLatch(1);
+        private final CountDownLatch releasePoll = new CountDownLatch(1);
+
+        @Override
+        public SeaTunnelRow poll(long timeout, TimeUnit unit) throws InterruptedException {
+            pollStarted.countDown();
+            releasePoll.await();
+            return null;
+        }
+
+        boolean awaitPollStarted() throws InterruptedException {
+            return pollStarted.await(1, TimeUnit.SECONDS);
+        }
+
+        void releasePoll() {
+            releasePoll.countDown();
         }
     }
 

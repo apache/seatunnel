@@ -78,21 +78,21 @@ public class MultiTableWriterRunnable implements Runnable {
             SeaTunnelRow row = null;
             TableFailure tableFailure = null;
             try {
+                row = queue.poll(100, TimeUnit.MILLISECONDS);
+                if (row == null) {
+                    continue;
+                }
+                processingRow = true;
+                // control rows used for schema evolution / coordination
+                // are represented as SeaTunnelRow with zero fields (arity == 0)
+                if (row.getArity() == 0) {
+                    log.debug(
+                            "Skip control SeaTunnelRow with zero arity in MultiTableWriterRunnable: {}",
+                            row);
+                    processingRow = false;
+                    continue;
+                }
                 synchronized (this) {
-                    row = queue.poll(100, TimeUnit.MILLISECONDS);
-                    if (row == null) {
-                        continue;
-                    }
-                    processingRow = true;
-                    // control rows used for schema evolution / coordination
-                    // are represented as SeaTunnelRow with zero fields (arity == 0)
-                    if (row.getArity() == 0) {
-                        log.debug(
-                                "Skip control SeaTunnelRow with zero arity in MultiTableWriterRunnable: {}",
-                                row);
-                        processingRow = false;
-                        continue;
-                    }
                     SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
                     if (writer == null) {
                         // Single-table jobs may still emit rewritten/non-canonical table ids.
