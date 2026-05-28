@@ -136,7 +136,7 @@ public class SqlServerConnection extends JdbcConnection {
                     + " ddl_lsn,"
                     + " ddl_time"
                     + " FROM [#db].cdc.ddl_history"
-                    + " WHERE ddl_lsn > ? AND ddl_lsn <= ?"
+                    + " WHERE ddl_lsn >= ? AND ddl_lsn <= ?"
                     + " ORDER BY ddl_lsn ASC";
     private static final String OPENING_QUOTING_CHARACTER = "[";
     private static final String CLOSING_QUOTING_CHARACTER = "]";
