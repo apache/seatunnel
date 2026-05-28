@@ -25,6 +25,8 @@ import org.apache.seatunnel.edge.agent.connector.config.FileCollectOptions;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -490,6 +492,9 @@ public class FileCollectReaderMultilineTest {
      * contain content from the old file.
      */
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Unix-style rotation (delete open file) is not possible on Windows")
     void rotationResetsMultilineBuffer() throws Exception {
         Path logFile = tempDir.resolve("rotating.log");
         // Write a partial multiline event (no boundary after it)
@@ -545,6 +550,9 @@ public class FileCollectReaderMultilineTest {
      * rediscovered on the next glob scan.
      */
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Cannot delete a file while it is held open on Windows")
     void skipOnErrorCleansStateAndAllowsRediscovery() throws Exception {
         Path logFile = tempDir.resolve("error.log");
         // Write a partial multiline event, then we'll force an error
