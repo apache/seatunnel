@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -57,8 +56,6 @@ public class ElasticsearchSourceSplitEnumerator
     private final List<ElasticsearchConfig> elasticsearchConfigs;
 
     private volatile boolean shouldEnumerate;
-
-    private final Map<String, String> sharedPitIds = new HashMap<>();
 
     public ElasticsearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
@@ -157,28 +154,13 @@ public class ElasticsearchSourceSplitEnumerator
                 log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
                 sliceMax = 1;
             }
-            boolean useSharedPit =
-                    SearchApiTypeEnum.PIT.equals(elasticsearchConfig.getSearchApiType())
-                            && sliceMax > 1;
             for (IndexDocsCount indexDocsCount : indexDocsCounts) {
                 String indexName = indexDocsCount.getIndex();
-                String sharedPitId = null;
-                if (useSharedPit) {
-                    sharedPitId =
-                            sharedPitIds.computeIfAbsent(
-                                    indexName,
-                                    key ->
-                                            esRestClient.createPointInTime(
-                                                    key, elasticsearchConfig.getPitKeepAlive()));
-                }
                 for (int sliceId = 0; sliceId < sliceMax; sliceId++) {
                     ElasticsearchConfig cloneCfg = elasticsearchConfig.clone();
                     cloneCfg.setIndex(indexName);
                     cloneCfg.setSliceId(sliceId);
                     cloneCfg.setSliceMax(sliceMax);
-                    if (sharedPitId != null) {
-                        cloneCfg.setPitId(sharedPitId);
-                    }
                     String splitId = sliceMax > 1 ? indexName + "#" + sliceId : indexName;
                     splits.add(new ElasticsearchSourceSplit(splitId, cloneCfg));
                 }
@@ -189,16 +171,6 @@ public class ElasticsearchSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (!sharedPitIds.isEmpty()) {
-            for (String pitId : sharedPitIds.values()) {
-                try {
-                    esRestClient.deletePointInTime(pitId);
-                } catch (Exception e) {
-                    log.warn("Failed to delete Point-in-Time with ID: {}", pitId, e);
-                }
-            }
-            sharedPitIds.clear();
-        }
         esRestClient.close();
     }
 

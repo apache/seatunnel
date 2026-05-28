@@ -436,6 +436,18 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testElasticsearchWithPITSliceQueued(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_pit_slice_queued.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> sinkData = readSinkDataWithSchema("st_index_pit_slice_queued");
+        // slice_max(4) > parallelism(2) forces queued splits on each reader
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
     public void testElasticsearchWithScrollSlice(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
