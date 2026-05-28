@@ -409,6 +409,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains("DestroyJavaVM")
                 || s.contains("main-query-state-checker")
                 || s.contains("Keep-Alive-SocketCleaner")
+                // SeaTunnel REST service thread, owned by the test container lifecycle.
+                || s.startsWith("Connector-Scheduler-")
                 || s.contains("process reaper")
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
@@ -431,7 +433,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // MySQL JDBC driver abandoned connection cleanup thread
                 || s.startsWith("mysql-cj-abandoned-connection-cleanup")
                 // Error sink worker threads
-                || s.startsWith("seatunnel-error-sink-");
+                || s.startsWith("seatunnel-error-sink-")
+                // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
+                // it may outlive the job and cause the E2E thread-leak check to fail.
+                || s.startsWith("qtp");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

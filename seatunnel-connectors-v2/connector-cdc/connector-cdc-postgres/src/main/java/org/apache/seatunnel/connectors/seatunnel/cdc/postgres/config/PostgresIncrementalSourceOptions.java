@@ -48,4 +48,15 @@ public class PostgresIncrementalSourceOptions extends JdbcSourceOptions {
                     .listType()
                     .noDefaultValue()
                     .withDescription("Schema name of the database to monitor.");
+
+    public static final Option<Boolean> REQUIRE_REPLICA_IDENTITY_FULL =
+            Options.key("require-replica-identity-full")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Require the table to have REPLICA IDENTITY FULL. "
+                                    + "When set to false, allows tables with other replica identity settings, "
+                                    + "but UPDATE/DELETE events may not contain the previous state. "
+                                    + "This should only be used for append-only tables (e.g., outbox pattern). "
+                                    + "Default is true for backward compatibility.");
 }
