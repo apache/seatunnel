@@ -420,7 +420,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 ErrorHandlerConfigUtil.buildStageConfig(
                         seaTunnelTask.getEnvOptions(),
                         StageType.SINK,
-                        seaTunnelTask.getTaskLocation().getJobId());
+                        getJobIdOrDefault(seaTunnelTask));
         this.stageErrorConfig = stageConfig;
         if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
             return;
@@ -450,7 +450,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     ErrorHandlerConfigUtil.buildStageConfig(
                             seaTunnelTask.getEnvOptions(),
                             StageType.SINK,
-                            seaTunnelTask.getTaskLocation().getJobId());
+                            getJobIdOrDefault(seaTunnelTask));
             stageErrorConfig = stageConfig;
         }
         if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
@@ -482,6 +482,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
 
         this.writer = new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
+    }
+
+    private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {
+        TaskLocation taskLocation = seaTunnelTask.getTaskLocation();
+        return taskLocation == null ? -1L : taskLocation.getJobId();
     }
 
     @SuppressWarnings("unchecked")

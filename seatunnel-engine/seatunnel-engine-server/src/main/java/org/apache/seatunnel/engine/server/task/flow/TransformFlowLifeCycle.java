@@ -305,9 +305,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
         StageErrorConfig stageConfig =
                 ErrorHandlerConfigUtil.buildStageConfig(
-                        envOptions,
-                        StageType.TRANSFORM,
-                        seaTunnelTask.getTaskLocation().getJobId());
+                        envOptions, StageType.TRANSFORM, getJobIdOrDefault(seaTunnelTask));
 
         if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
             return;
@@ -331,6 +329,12 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                                 (SeaTunnelMapTransform<T>) t, handler, classifier));
             }
         }
+    }
+
+    private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {
+        return seaTunnelTask.getTaskLocation() == null
+                ? -1L
+                : seaTunnelTask.getTaskLocation().getJobId();
     }
 
     @SuppressWarnings("unchecked")
