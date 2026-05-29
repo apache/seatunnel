@@ -256,19 +256,214 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             Group group, Type parquetType, int fieldIndex, SeaTunnelDataType<?> fieldType) {
         GroupType groupType = parquetType.asGroupType();
         LogicalTypeAnnotation logicalTypeAnnotation = groupType.getLogicalTypeAnnotation();
-        if (logicalTypeAnnotation != null) {
-            throw CommonError.convertToSeaTunnelTypeError(
-                    PARQUET, parquetType.toString(), parquetType.getName());
+        if (logicalTypeAnnotation == null) {
+            SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
+            Group childGroup = group.getGroup(fieldIndex, 0);
+            Object[] objects = new Object[rowType.getTotalFields()];
+            for (int i = 0; i < rowType.getTotalFields(); i++) {
+                objects[i] =
+                        resolveGroupObject(
+                                childGroup, groupType.getType(i), i, rowType.getFieldType(i));
+            }
+            return new SeaTunnelRow(objects);
         }
-        SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
-        Group childGroup = group.getGroup(fieldIndex, 0);
-        Object[] objects = new Object[rowType.getTotalFields()];
-        for (int i = 0; i < rowType.getTotalFields(); i++) {
-            objects[i] =
-                    resolveGroupObject(
-                            childGroup, groupType.getType(i), i, rowType.getFieldType(i));
+        OriginalType originalType = logicalTypeAnnotation.toOriginalType();
+        if (originalType == OriginalType.LIST) {
+            return readList(group, groupType, fieldIndex, fieldType);
         }
-        return new SeaTunnelRow(objects);
+        if (originalType == OriginalType.MAP) {
+            return readMap(group, groupType, fieldIndex, fieldType);
+        }
+        throw CommonError.convertToSeaTunnelTypeError(
+                PARQUET, parquetType.toString(), parquetType.getName());
+    }
+
+    /**
+     * Reads a LIST field from a Parquet Group using the native Group API. Handles both the standard
+     * 3-level LIST encoding (group → repeated list → element) and the legacy 2-level encoding
+     * (group → repeated element directly).
+     */
+    private Object readList(
+            Group group,
+            GroupType parentGroupType,
+            int listFieldIndex,
+            SeaTunnelDataType<?> fieldType) {
+        // Check if the LIST field is present
+        if (group.getFieldRepetitionCount(listFieldIndex) == 0) {
+            return new Object[0];
+        }
+
+        ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
+        SeaTunnelDataType<?> elementType = arrayType.getElementType();
+        Group listGroup = group.getGroup(listFieldIndex, 0);
+        GroupType listGroupType = parentGroupType.getType(listFieldIndex).asGroupType();
+
+        Type repeatedType = listGroupType.getType(0);
+        // Number of repeated elements within the LIST group
+        int numElements = listGroup.getFieldRepetitionCount(0);
+
+        // Determine 3-level vs 2-level LIST encoding.
+        // 3-level: LIST group → REPEATED group (1 field) → element
+        // 2-level: LIST group → REPEATED element directly (legacy)
+        boolean isThreeLevel = false;
+        if (!repeatedType.isPrimitive()) {
+            GroupType repeatedGroupType = repeatedType.asGroupType();
+            LogicalTypeAnnotation repeatedAnnotation = repeatedGroupType.getLogicalTypeAnnotation();
+            if (repeatedAnnotation == null
+                    || (repeatedAnnotation.toOriginalType() != OriginalType.LIST
+                            && repeatedAnnotation.toOriginalType() != OriginalType.MAP)) {
+                if (repeatedGroupType.getFieldCount() == 1) {
+                    isThreeLevel = true;
+                }
+            }
+        }
+
+        List<Object> result = new ArrayList<>(numElements);
+        if (isThreeLevel) {
+            read3LevelList(
+                    listGroup, listGroupType, repeatedType, numElements, elementType, result);
+        } else {
+            read2LevelList(
+                    listGroup, repeatedType, numElements, elementType, listGroupType, result);
+        }
+        return result.toArray(new Object[0]);
+    }
+
+    /**
+     * Reads elements from a 3-level encoded Parquet LIST. Structure: listGroup → REPEATED wrapper
+     * (field 0) → actual element (field 0 within wrapper).
+     */
+    private void read3LevelList(
+            Group listGroup,
+            GroupType listGroupType,
+            Type repeatedType,
+            int numElements,
+            SeaTunnelDataType<?> elementType,
+            List<Object> result) {
+        Type elementTypeInParquet = repeatedType.asGroupType().getType(0);
+        for (int i = 0; i < numElements; i++) {
+            Group repeatedInstance = listGroup.getGroup(0, i);
+            if (repeatedInstance.getFieldRepetitionCount(0) == 0) {
+                result.add(null);
+            } else {
+                result.add(
+                        resolveGroupObject(repeatedInstance, elementTypeInParquet, 0, elementType));
+            }
+        }
+    }
+
+    /**
+     * Reads elements from a 2-level encoded Parquet LIST (legacy). Structure: listGroup → REPEATED
+     * element directly at field index 0, with each instance accessed by repetition index.
+     */
+    private void read2LevelList(
+            Group listGroup,
+            Type repeatedType,
+            int numElements,
+            SeaTunnelDataType<?> elementType,
+            GroupType listGroupType,
+            List<Object> result) {
+        if (repeatedType.isPrimitive()) {
+            // 2-level LIST with primitive repeated elements: read each instance by index
+            PrimitiveType primitiveElementType = repeatedType.asPrimitiveType();
+            for (int i = 0; i < numElements; i++) {
+                result.add(readPrimitiveGroupObjectByIndex(listGroup, primitiveElementType, 0, i));
+            }
+        } else {
+            // 2-level LIST with group repeated elements (e.g., LIST of ROW)
+            GroupType elementGroupType = repeatedType.asGroupType();
+            LogicalTypeAnnotation elemAnnotation = elementGroupType.getLogicalTypeAnnotation();
+            if (elemAnnotation != null) {
+                throw CommonError.convertToSeaTunnelTypeError(
+                        PARQUET,
+                        "2-level LIST with annotated group element",
+                        listGroupType.getName());
+            }
+            SeaTunnelRowType rowType = (SeaTunnelRowType) elementType;
+            for (int i = 0; i < numElements; i++) {
+                Group elementGroup = listGroup.getGroup(0, i);
+                Object[] objects = new Object[rowType.getTotalFields()];
+                for (int j = 0; j < rowType.getTotalFields(); j++) {
+                    objects[j] =
+                            resolveGroupObject(
+                                    elementGroup,
+                                    elementGroupType.getType(j),
+                                    j,
+                                    rowType.getFieldType(j));
+                }
+                result.add(new SeaTunnelRow(objects));
+            }
+        }
+    }
+
+    /**
+     * Reads a single primitive value from a Parquet Group at the given field index and repetition
+     * index. This is needed for 2-level LIST encoding where repeated primitive elements are
+     * accessed by repetition index.
+     */
+    private Object readPrimitiveGroupObjectByIndex(
+            Group group, PrimitiveType parquetType, int fieldIndex, int repetitionIndex) {
+        switch (parquetType.getPrimitiveTypeName()) {
+            case BOOLEAN:
+                return group.getBoolean(fieldIndex, repetitionIndex);
+            case INT32:
+                if (parquetType.getOriginalType() == OriginalType.DATE) {
+                    return LocalDate.ofEpochDay(group.getInteger(fieldIndex, repetitionIndex));
+                }
+                return group.getInteger(fieldIndex, repetitionIndex);
+            case INT64:
+                return group.getLong(fieldIndex, repetitionIndex);
+            case INT96:
+                return int96ToLocalDateTime(group.getInt96(fieldIndex, repetitionIndex));
+            case FLOAT:
+                return group.getFloat(fieldIndex, repetitionIndex);
+            case DOUBLE:
+                return group.getDouble(fieldIndex, repetitionIndex);
+            case BINARY:
+                return readBinaryGroupObject(
+                        group.getBinary(fieldIndex, repetitionIndex), parquetType);
+            case FIXED_LEN_BYTE_ARRAY:
+                return readFixedLenByteArrayGroupObject(
+                        group.getBinary(fieldIndex, repetitionIndex), parquetType);
+            default:
+                throw CommonError.convertToSeaTunnelTypeError(
+                        PARQUET, parquetType.toString(), parquetType.getName());
+        }
+    }
+
+    /**
+     * Reads a MAP field from a Parquet Group using the native Group API. Parquet MAP structure:
+     * mapGroup → repeated key_value (field 0) → {key (field 0), value (field 1)}
+     */
+    private Object readMap(
+            Group group,
+            GroupType parentGroupType,
+            int mapFieldIndex,
+            SeaTunnelDataType<?> fieldType) {
+        MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
+        SeaTunnelDataType<?> keyType = mapType.getKeyType();
+        SeaTunnelDataType<?> valueType = mapType.getValueType();
+
+        if (group.getFieldRepetitionCount(mapFieldIndex) == 0) {
+            return new HashMap<>();
+        }
+
+        Group mapGroup = group.getGroup(mapFieldIndex, 0);
+        GroupType mapGroupType = parentGroupType.getType(mapFieldIndex).asGroupType();
+        GroupType keyValueGroupType = mapGroupType.getType(0).asGroupType();
+
+        int numEntries = mapGroup.getFieldRepetitionCount(0);
+        Map<Object, Object> result = new HashMap<>();
+        for (int i = 0; i < numEntries; i++) {
+            Group keyValue = mapGroup.getGroup(0, i);
+            Object key = resolveGroupObject(keyValue, keyValueGroupType.getType(0), 0, keyType);
+            Object value = null;
+            if (keyValue.getFieldRepetitionCount(1) > 0) {
+                value = resolveGroupObject(keyValue, keyValueGroupType.getType(1), 1, valueType);
+            }
+            result.put(key, value);
+        }
+        return result;
     }
 
     private Object readPrimitiveGroupObject(

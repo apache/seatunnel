@@ -270,6 +270,38 @@ public class ParquetReadStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
+    public void testParquetReadColumnNameNotCompatibleWithAvroWithList() throws Exception {
+        NativeParquetWriterWithAvroIncompatibleColumnAndList.generateTestData();
+        try {
+            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            parquetReadStrategy.init(localConf);
+            SeaTunnelRowType rowType =
+                    parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                            NativeParquetWriterWithAvroIncompatibleColumnAndList.DATA_FILE_PATH);
+            Assertions.assertEquals("job_blue-collar", rowType.getFieldName(1));
+            Assertions.assertEquals("skill-tags", rowType.getFieldName(2));
+
+            TestCollector testCollector = new TestCollector();
+            parquetReadStrategy.read(
+                    NativeParquetWriterWithAvroIncompatibleColumnAndList.DATA_FILE_PATH,
+                    "",
+                    testCollector);
+            Assertions.assertEquals(1, testCollector.getRows().size());
+            SeaTunnelRow row = testCollector.getRows().get(0);
+            Assertions.assertEquals(1, row.getField(0));
+            Assertions.assertEquals("engineer", row.getField(1));
+            String[] tags = (String[]) row.getField(2);
+            Assertions.assertEquals(2, tags.length);
+            Assertions.assertEquals("java", tags[0]);
+            Assertions.assertEquals("python", tags[1]);
+        } finally {
+            NativeParquetWriterWithAvroIncompatibleColumnAndList.deleteFile();
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
     public void testParquetWithUserConfigRowType() throws Exception {
         AutoGenerateParquetData.generateTestData();
         String path = AutoGenerateParquetData.DATA_FILE_PATH;
@@ -990,6 +1022,58 @@ public class ParquetReadStrategyTest {
                 Group record = new SimpleGroup(schema);
                 record.add("id", 1);
                 record.add("job_blue-collar", "engineer");
+                writer.write(record);
+            }
+        }
+
+        private static void deleteFile() {
+            File parquetFile = new File(DATA_FILE_PATH);
+            if (parquetFile.exists()) {
+                parquetFile.delete();
+            }
+            File checksumFile = new File(DATA_FILE_PATH + ".crc");
+            if (checksumFile.exists()) {
+                checksumFile.delete();
+            }
+        }
+    }
+
+    public static class NativeParquetWriterWithAvroIncompatibleColumnAndList {
+
+        public static final String DATA_FILE_PATH =
+                "/tmp/data_invalid_avro_column_with_list.parquet";
+
+        public static MessageType createSchema() {
+            return Types.buildMessage()
+                    .required(INT32)
+                    .named("id")
+                    .required(BINARY)
+                    .as(LogicalTypeAnnotation.stringType())
+                    .named("job_blue-collar")
+                    .optionalList()
+                    .element(BINARY.as(LogicalTypeAnnotation.stringType()))
+                    .named("skill-tags")
+                    .named("User");
+        }
+
+        public static void generateTestData() throws IOException {
+            deleteFile();
+            MessageType schema = createSchema();
+            Configuration conf = new Configuration();
+            GroupWriteSupport.setSchema(schema, conf);
+
+            Path file = new Path(DATA_FILE_PATH);
+            try (ParquetWriter<Group> writer =
+                    ExampleParquetWriter.builder(file)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build()) {
+                Group record = new SimpleGroup(schema);
+                record.add("id", 1);
+                record.add("job_blue-collar", "engineer");
+                Group listGroup = record.addGroup("skill-tags");
+                listGroup.addGroup(0).append("element", "java");
+                listGroup.addGroup(0).append("element", "python");
                 writer.write(record);
             }
         }
