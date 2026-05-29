@@ -171,21 +171,22 @@ public class ConfigValidator {
             }
         }
 
-        validateValueConstraints(rule);
-    }
-
-    private void validateValueConstraints(OptionRule rule) {
         for (Condition<?> constraint : rule.getValueConstraints()) {
-            if (shouldValidate(constraint, rule)) {
-                if (!validate(constraint)) {
-                    throw new OptionValidationException(
-                            "Option validation failed: %s", constraint.toString());
-                }
-            }
+            validate(constraint, rule);
         }
     }
 
-    private boolean shouldValidate(Condition<?> condition, OptionRule rule) {
+    void validate(Condition<?> constraint, OptionRule rule) {
+        if (!isConstraintApplicable(constraint, rule)) {
+            return;
+        }
+        if (!validate(constraint)) {
+            throw new OptionValidationException(
+                    "Option validation failed: %s", constraint.toString());
+        }
+    }
+
+    private boolean isConstraintApplicable(Condition<?> condition, OptionRule rule) {
         Option<?> option = condition.getOption();
         if (hasOption(option)) {
             return true;
