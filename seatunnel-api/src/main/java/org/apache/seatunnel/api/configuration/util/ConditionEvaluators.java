@@ -217,6 +217,9 @@ public final class ConditionEvaluators {
             throw new OptionValidationException("Cannot compare null values in numeric comparison");
         }
         if (a instanceof Number && b instanceof Number) {
+            if (a instanceof Long || b instanceof Long) {
+                return Long.compare(((Number) a).longValue(), ((Number) b).longValue());
+            }
             return Double.compare(((Number) a).doubleValue(), ((Number) b).doubleValue());
         }
         if (a instanceof Comparable && b instanceof Comparable) {

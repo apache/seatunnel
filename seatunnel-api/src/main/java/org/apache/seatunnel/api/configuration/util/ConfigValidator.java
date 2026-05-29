@@ -125,8 +125,26 @@ public class ConfigValidator {
             for (ConditionRule conditionRule : rule.getConditionRules()) {
                 keys.addAll(collectDeclaredKeys(conditionRule.getOptionRule()));
             }
+            for (Condition<?> constraint : rule.getValueConstraints()) {
+                collectConditionKeys(keys, constraint);
+            }
         }
         return keys;
+    }
+
+    private static void collectConditionKeys(Set<String> keys, Condition<?> condition) {
+        if (condition == null) {
+            return;
+        }
+        keys.add(condition.getOption().key());
+        keys.addAll(condition.getOption().getFallbackKeys());
+        if (condition.getCompareOption() != null) {
+            keys.add(condition.getCompareOption().key());
+            keys.addAll(condition.getCompareOption().getFallbackKeys());
+        }
+        if (condition.hasNext()) {
+            collectConditionKeys(keys, condition.getNext());
+        }
     }
 
     private static void collectKeys(Set<String> keys, List<? extends Option<?>> options) {

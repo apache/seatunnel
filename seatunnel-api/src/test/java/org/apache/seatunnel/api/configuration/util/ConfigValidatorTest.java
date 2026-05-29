@@ -1361,4 +1361,95 @@ public class ConfigValidatorTest {
                 IllegalArgumentException.class,
                 () -> new Condition<>(PORT, ConditionOperator.GREATER_THAN, null, null));
     }
+
+    @Test
+    public void testUnknownKeysDoesNotRejectValueConstraintOptions() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, Condition.greaterOrEqual(PORT, 1))
+                        .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"));
+    }
+
+    @Test
+    public void testUnknownKeysRejectsUndeclaredKey() {
+        OptionRule rule =
+                OptionRule.builder().required(PORT, Condition.greaterOrEqual(PORT, 1)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        config.put("typo_key", "oops");
+
+        assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"));
+    }
+
+    @Test
+    public void testUnknownKeysRecognizesChainedConditionOptions() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                PORT,
+                                Condition.greaterOrEqual(PORT, 1)
+                                        .and(Condition.lessOrEqual(PORT, 65535)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 443);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"));
+    }
+
+    @Test
+    public void testLargeTimestampComparisonPrecision() {
+        long tsA = (1L << 53) + 1;
+        long tsB = (1L << 53) + 2;
+
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), tsA);
+        config.put(END_TS.key(), tsB);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), tsB);
+        config.put(END_TS.key(), tsA);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testLargeLongLiteralComparison() {
+        long bigValue = Long.MAX_VALUE - 1;
+
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, Condition.lessThan(START_TS, Long.MAX_VALUE))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), bigValue);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), Long.MAX_VALUE);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
 }
