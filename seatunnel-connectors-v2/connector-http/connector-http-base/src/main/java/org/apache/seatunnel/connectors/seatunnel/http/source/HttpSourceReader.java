@@ -136,6 +136,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.rawBody = httpParameter.getBody();
         this.binaryMode = binaryMode;
         this.binaryChunkSize = binaryChunkSize;
+
+        if (binaryMode && pageInfo != null) {
+            throw new HttpConnectorException(
+                    HttpConnectorErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Binary mode does not support pagination. "
+                            + "Please remove pagination configuration or use text mode.");
+        }
     }
 
     @Override

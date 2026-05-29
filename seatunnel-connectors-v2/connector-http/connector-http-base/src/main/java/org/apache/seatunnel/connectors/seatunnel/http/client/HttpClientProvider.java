@@ -187,6 +187,9 @@ public class HttpClientProvider implements AutoCloseable {
             return getResponseBinary(httpGet);
         }
         if (HttpPost.METHOD_NAME.equals(method)) {
+            if (keepParamsAsForm) {
+                return doPostBinary(url, headers, params, body);
+            }
             HttpPost httpPost = new HttpPost(url);
             httpPost.setConfig(requestConfig);
             addHeaders(httpPost, headers);
@@ -204,6 +207,35 @@ public class HttpClientProvider implements AutoCloseable {
         httpGet.setConfig(requestConfig);
         addHeaders(httpGet, headers);
         return getResponseBinary(httpGet);
+    }
+
+    private HttpResponse doPostBinary(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        if (!Strings.isNullOrEmpty(body)) {
+            bodyMap =
+                    ConfigFactory.parseString(body).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2));
+        }
+        if (MapUtils.isNotEmpty(params)) {
+            headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+            headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+        }
+        if (MapUtils.isEmpty(bodyMap)) {
+            bodyMap = new HashMap<>();
+        }
+        bodyMap.putAll(params);
+        URIBuilder uriBuilder = new URIBuilder(url);
+        HttpPost httpPost = new HttpPost(uriBuilder.build());
+        httpPost.setConfig(requestConfig);
+        addHeaders(httpPost, headers);
+        addBody(httpPost, bodyMap);
+        return getResponseBinary(httpPost);
     }
 
     /**
@@ -282,11 +314,34 @@ public class HttpClientProvider implements AutoCloseable {
         if (HttpPost.METHOD_NAME.equals(method)) {
             HttpPost httpPost = new HttpPost(url);
             httpPost.setConfig(requestConfig);
-            addHeaders(httpPost, headers);
-            if (!Strings.isNullOrEmpty(body)) {
-                httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+            if (keepParamsAsForm) {
+                Map<String, Object> bodyMap = new HashMap<>();
+                if (!Strings.isNullOrEmpty(body)) {
+                    bodyMap =
+                            ConfigFactory.parseString(body).entrySet().stream()
+                                    .collect(
+                                            Collectors.toMap(
+                                                    Map.Entry::getKey,
+                                                    entry -> entry.getValue().unwrapped(),
+                                                    (v1, v2) -> v2));
+                }
+                if (MapUtils.isNotEmpty(params)) {
+                    headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+                    headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+                }
+                if (MapUtils.isEmpty(bodyMap)) {
+                    bodyMap = new HashMap<>();
+                }
+                bodyMap.putAll(params);
+                addHeaders(httpPost, headers);
+                addBody(httpPost, bodyMap);
             } else {
-                addParameters(httpPost, params);
+                addHeaders(httpPost, headers);
+                if (!Strings.isNullOrEmpty(body)) {
+                    httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+                } else {
+                    addParameters(httpPost, params);
+                }
             }
             return httpPost;
         }
