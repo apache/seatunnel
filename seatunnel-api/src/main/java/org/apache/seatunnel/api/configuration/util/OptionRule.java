@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 /**
  * Validation rule for {@link Option}.
  *
- * <p>The option rule is typically built in one of the following pattern:
+ * <p>The option rule is typically built in one of the following patterns:
  *
  * <pre>{@code
  * // simple rule
@@ -52,17 +52,25 @@ import java.util.stream.Collectors;
  *     .build();
  *
  * // complex conditional rule
- * // moot expression
  * Expression expression = Expression.of(TOPIC_DISCOVERY_INTERVAL, 200)
  *     .and(Expression.of(Condition.of(CURSOR_STARTUP_MODE, StartMode.EARLIEST)
  *         .or(CURSOR_STARTUP_MODE, StartMode.LATEST)))
- *     .or(Expression.of(Condition.of(TOPIC_DISCOVERY_INTERVAL, 100)))
+ *     .or(Expression.of(Condition.of(TOPIC_DISCOVERY_INTERVAL, 100)));
  *
  * OptionRule complexRule = OptionRule.builder()
  *     .optional(POLL_TIMEOUT, POLL_INTERVAL, CURSOR_STARTUP_MODE)
  *     .required(CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
  *     .exclusive(TOPIC_PATTERN, TOPIC)
  *     .conditional(expression, CURSOR_RESET_MODE)
+ *     .build();
+ *
+ * // value constraints — attach Condition to required / optional / conditional
+ * OptionRule constrainedRule = OptionRule.builder()
+ *     .required(PORT, Condition.greaterThan(PORT, 0))
+ *     .optional(TIMEOUT, Condition.range(TIMEOUT, 1000, 60000))
+ *     .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+ *     .conditional(MODE, StartMode.TIMESTAMP,
+ *         Condition.greaterThan(TIMESTAMP_VALUE, 0))
  *     .build();
  * }</pre>
  */
