@@ -30,10 +30,10 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -132,7 +132,7 @@ public class ConfigValidator {
     private static void collectKeys(Set<String> keys, List<? extends Option<?>> options) {
         for (Option<?> option : options) {
             keys.add(option.key());
-            option.getFallbackKeys().forEach(keys::add);
+            keys.addAll(option.getFallbackKeys());
         }
     }
 
@@ -170,6 +170,33 @@ public class ConfigValidator {
                 validate(conditionRule.getOptionRule(), conditionRule.getExpression());
             }
         }
+
+        validateValueConstraints(rule);
+    }
+
+    private void validateValueConstraints(OptionRule rule) {
+        for (Condition<?> constraint : rule.getValueConstraints()) {
+            if (shouldValidate(constraint, rule)) {
+                if (!validate(constraint)) {
+                    throw new OptionValidationException(
+                            "Option validation failed: %s", constraint.toString());
+                }
+            }
+        }
+    }
+
+    private boolean shouldValidate(Condition<?> condition, OptionRule rule) {
+        Option<?> option = condition.getOption();
+        if (hasOption(option)) {
+            return true;
+        }
+        for (RequiredOption requiredOption : rule.getRequiredOptions()) {
+            if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions
+                    && requiredOption.getOptions().contains(option)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void validateSingleChoice(Option option) {
@@ -178,21 +205,23 @@ public class ConfigValidator {
         if (CollectionUtils.isEmpty(optionValues)) {
             throw new OptionValidationException(
                     "These options(%s) are SingleChoiceOption, the optionValues must not be null.",
-                    getOptionKeys(Arrays.asList(singleChoiceOption)));
+                    getOptionKeys(Collections.singletonList(singleChoiceOption)));
         }
 
         Object o = singleChoiceOption.defaultValue();
         if (o != null && !optionValues.contains(o)) {
             throw new OptionValidationException(
                     "These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues(%s).",
-                    getOptionKeys(Arrays.asList(singleChoiceOption)), o, optionValues);
+                    getOptionKeys(Collections.singletonList(singleChoiceOption)), o, optionValues);
         }
 
         Object value = config.get(option);
         if (value != null && !optionValues.contains(value)) {
             throw new OptionValidationException(
                     "These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues(%s).",
-                    getOptionKeys(Arrays.asList(singleChoiceOption)), value, optionValues);
+                    getOptionKeys(Collections.singletonList(singleChoiceOption)),
+                    value,
+                    optionValues);
         }
     }
 
@@ -291,11 +320,9 @@ public class ConfigValidator {
                     "There are unconfigured options, these options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
                     getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
         }
-        if (count > 1) {
-            throw new OptionValidationException(
-                    "These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                    getOptionKeys(presentOptions));
-        }
+        throw new OptionValidationException(
+                "These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
+                getOptionKeys(presentOptions));
     }
 
     void validate(RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
@@ -328,9 +355,7 @@ public class ConfigValidator {
     }
 
     private <T> boolean validate(Condition<T> condition) {
-        Option<T> option = condition.getOption();
-
-        boolean match = Objects.equals(condition.getExpectValue(), config.get(option));
+        boolean match = ConditionEvaluators.evaluate(condition, config);
         if (!condition.hasNext()) {
             return match;
         }

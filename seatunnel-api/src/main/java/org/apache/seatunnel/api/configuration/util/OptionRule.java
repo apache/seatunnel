@@ -86,13 +86,24 @@ public class OptionRule {
 
     private final List<ConditionRule> conditionRules;
 
+    private final List<Condition<?>> valueConstraints;
+
     OptionRule(
             List<Option<?>> optionalOptions,
             List<RequiredOption> requiredOptions,
             List<ConditionRule> conditionRules) {
+        this(optionalOptions, requiredOptions, conditionRules, Collections.emptyList());
+    }
+
+    OptionRule(
+            List<Option<?>> optionalOptions,
+            List<RequiredOption> requiredOptions,
+            List<ConditionRule> conditionRules,
+            List<Condition<?>> valueConstraints) {
         this.optionalOptions = optionalOptions;
         this.requiredOptions = requiredOptions;
         this.conditionRules = conditionRules;
+        this.valueConstraints = valueConstraints;
     }
 
     public List<Option<?>> getOptionalOptions() {
@@ -107,10 +118,15 @@ public class OptionRule {
         return conditionRules;
     }
 
+    public List<Condition<?>> getValueConstraints() {
+        return valueConstraints;
+    }
+
     private boolean hasOptions() {
         return !(optionalOptions.isEmpty()
                 && requiredOptions.isEmpty()
-                && conditionRules.isEmpty());
+                && conditionRules.isEmpty()
+                && valueConstraints.isEmpty());
     }
 
     @Override
@@ -124,12 +140,13 @@ public class OptionRule {
         OptionRule that = (OptionRule) o;
         return Objects.equals(optionalOptions, that.optionalOptions)
                 && Objects.equals(requiredOptions, that.requiredOptions)
-                && Objects.equals(conditionRules, that.conditionRules);
+                && Objects.equals(conditionRules, that.conditionRules)
+                && Objects.equals(valueConstraints, that.valueConstraints);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(optionalOptions, requiredOptions, conditionRules);
+        return Objects.hash(optionalOptions, requiredOptions, conditionRules, valueConstraints);
     }
 
     public static OptionRule.Builder builder() {
@@ -141,6 +158,7 @@ public class OptionRule {
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
         private final Map<Expression, OptionRule> conditionRulesMap = new HashMap<>();
+        private final List<Condition<?>> valueConstraints = new ArrayList<>();
 
         private Builder() {}
 
@@ -194,7 +212,6 @@ public class OptionRule {
                                 conditionalOption.key()));
             }
 
-            /** Each parameter can only be controlled by one other parameter */
             Expression expression =
                     expectValues.stream()
                             .map(v -> Expression.of(Condition.of(conditionalOption, v)))
@@ -215,7 +232,6 @@ public class OptionRule {
                 @NonNull Option<?>... requiredOptions) {
             verifyConditionalExists(conditionalOption);
 
-            /** Each parameter can only be controlled by one other parameter */
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
             RequiredOption.ConditionalRequiredOptions conditionalRequiredOption =
                     RequiredOption.ConditionalRequiredOptions.of(
@@ -281,12 +297,142 @@ public class OptionRule {
                     conditionalOptionRule);
         }
 
+        /** Absolutely required option with value constraints (at least one condition). */
+        public Builder required(
+                @NonNull Option<?> option,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            RequiredOption.AbsolutelyRequiredOptions requiredOption =
+                    RequiredOption.AbsolutelyRequiredOptions.of(option);
+            verifyRequiredOptionDuplicate(requiredOption);
+            this.requiredOptions.add(requiredOption);
+            this.valueConstraints.add(firstCondition);
+            Collections.addAll(this.valueConstraints, moreConditions);
+            return this;
+        }
+
+        /**
+         * Multiple absolutely required options with value constraints. The first Condition
+         * parameter is explicit (non-varargs) so that {@code required(opt1, opt2)} still
+         * unambiguously resolves to {@link #required(Option[])}.
+         */
+        public Builder required(
+                @NonNull Option<?> option1,
+                @NonNull Option<?> option2,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            RequiredOption.AbsolutelyRequiredOptions requiredOption =
+                    RequiredOption.AbsolutelyRequiredOptions.of(option1, option2);
+            verifyRequiredOptionDuplicate(requiredOption);
+            this.requiredOptions.add(requiredOption);
+            this.valueConstraints.add(firstCondition);
+            Collections.addAll(this.valueConstraints, moreConditions);
+            return this;
+        }
+
+        /** Optional option with value constraints (at least one condition). */
+        public Builder optional(
+                @NonNull Option<?> option,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            verifyOptionOptionsDuplicate(option, "OptionsOption");
+            this.optionalOptions.add(option);
+            this.valueConstraints.add(firstCondition);
+            Collections.addAll(this.valueConstraints, moreConditions);
+            return this;
+        }
+
+        /** Multiple optional options with value constraints. */
+        public Builder optional(
+                @NonNull Option<?> option1,
+                @NonNull Option<?> option2,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            verifyOptionOptionsDuplicate(option1, "OptionsOption");
+            verifyOptionOptionsDuplicate(option2, "OptionsOption");
+            this.optionalOptions.add(option1);
+            this.optionalOptions.add(option2);
+            this.valueConstraints.add(firstCondition);
+            Collections.addAll(this.valueConstraints, moreConditions);
+            return this;
+        }
+
+        /**
+         * Conditional value constraints: when {@code conditionalOption == expectValue}, the given
+         * conditions must hold.
+         */
+        public <T> Builder conditional(
+                @NonNull Option<T> conditionalOption,
+                @NonNull T expectValue,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            verifyConditionalExists(conditionalOption);
+            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            List<Condition<?>> allConditions = new ArrayList<>();
+            allConditions.add(firstCondition);
+            Collections.addAll(allConditions, moreConditions);
+            mergeConditionalRule(expression, Collections.emptyList(), allConditions);
+            return this;
+        }
+
+        /**
+         * Conditional multi-field: when {@code conditionalOption == expectValue}, the given options
+         * are conditionally required and the conditions must hold.
+         */
+        public <T> Builder conditional(
+                @NonNull Option<T> conditionalOption,
+                @NonNull T expectValue,
+                @NonNull Option<?> requiredOption1,
+                @NonNull Option<?> requiredOption2,
+                @NonNull Condition<?> firstCondition,
+                @NonNull Condition<?>... moreConditions) {
+            verifyConditionalExists(conditionalOption);
+            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
+            List<Condition<?>> allConditions = new ArrayList<>();
+            allConditions.add(firstCondition);
+            Collections.addAll(allConditions, moreConditions);
+            List<RequiredOption> reqList = new ArrayList<>();
+            reqList.add(
+                    RequiredOption.AbsolutelyRequiredOptions.of(requiredOption1, requiredOption2));
+            mergeConditionalRule(expression, reqList, allConditions);
+            return this;
+        }
+
+        private void mergeConditionalRule(
+                Expression expression,
+                List<RequiredOption> newRequired,
+                List<Condition<?>> newConditions) {
+            if (conditionRulesMap.containsKey(expression)) {
+                OptionRule existing = conditionRulesMap.get(expression);
+                List<RequiredOption> mergedReq = new ArrayList<>(existing.getRequiredOptions());
+                mergedReq.addAll(newRequired);
+                List<Condition<?>> mergedCond = new ArrayList<>(existing.getValueConstraints());
+                mergedCond.addAll(newConditions);
+                conditionRulesMap.put(
+                        expression,
+                        new OptionRule(
+                                existing.getOptionalOptions(),
+                                mergedReq,
+                                existing.getConditionRules(),
+                                mergedCond));
+            } else {
+                conditionRulesMap.put(
+                        expression,
+                        new OptionRule(
+                                Collections.emptyList(),
+                                newRequired,
+                                Collections.emptyList(),
+                                newConditions));
+            }
+        }
+
         public OptionRule build() {
             List<ConditionRule> conditionRuleList =
                     conditionRulesMap.entrySet().stream()
                             .map(e -> new ConditionRule(e.getKey(), e.getValue()))
                             .collect(Collectors.toList());
-            return new OptionRule(optionalOptions, requiredOptions, conditionRuleList);
+            return new OptionRule(
+                    optionalOptions, requiredOptions, conditionRuleList, valueConstraints);
         }
 
         private void verifyRequiredOptionDefaultValue(@NonNull Option<?> option) {
