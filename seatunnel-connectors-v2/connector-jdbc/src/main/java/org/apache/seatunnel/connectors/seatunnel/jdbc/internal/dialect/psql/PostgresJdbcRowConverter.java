@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
@@ -159,6 +160,20 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 case TIMESTAMP_TZ:
                     // Enhanced PostgreSQL TIMESTAMP_TZ handling
                     fields[fieldIndex] = getPostgresOffsetDateTime(rs, resultSetIndex);
+                    break;
+                case FLOAT_VECTOR:
+                    String vectorStr = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
+                    if (vectorStr != null) {
+                        vectorStr = vectorStr.replace("[", "").replace("]", "");
+                        String[] parts = vectorStr.split(",");
+                        Float[] floats = new Float[parts.length];
+                        for (int i = 0; i < parts.length; i++) {
+                            floats[i] = Float.parseFloat(parts[i].trim());
+                        }
+                        fields[fieldIndex] = VectorUtils.toByteBuffer(floats);
+                    } else {
+                        fields[fieldIndex] = null;
+                    }
                     break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
@@ -301,6 +316,31 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 statementIndex,
                                 resolveSourceType(
                                         rowType, fieldIndex, databaseTableSchema, sourceTypes));
+                        break;
+                    case FLOAT_VECTOR:
+                        Object vectorValue = row.getField(fieldIndex);
+                        if (vectorValue == null) {
+                            statement.setObject(statementIndex, null);
+                        } else if (vectorValue instanceof java.nio.ByteBuffer) {
+                            java.nio.ByteBuffer byteBuffer = (java.nio.ByteBuffer) vectorValue;
+                            Float[] floatArray = VectorUtils.toFloatArray(byteBuffer);
+                            StringBuilder vectorBuilder = new StringBuilder("[");
+                            for (int i = 0; i < floatArray.length; i++) {
+                                if (i > 0) {
+                                    vectorBuilder.append(",");
+                                }
+                                vectorBuilder.append(floatArray[i]);
+                            }
+                            vectorBuilder.append("]");
+                            PGobject vectorObject = new PGobject();
+                            vectorObject.setType("vector");
+                            vectorObject.setValue(vectorBuilder.toString());
+                            statement.setObject(statementIndex, vectorObject);
+                        } else {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                    "Unexpected vector value type: " + vectorValue.getClass().getName());
+                        }
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

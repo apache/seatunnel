@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -931,5 +932,63 @@ public class PostgresTypeConverterTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, column2.getDataType());
         Assertions.assertNull(column2.getColumnLength());
         Assertions.assertEquals(typeDefine2.getColumnType(), column2.getSourceType());
+    }
+
+    @Test
+    public void testConvertVector() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("embedding")
+                        .columnType("vector(1536)")
+                        .dataType("vector")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals("vector", column.getSourceType());
+        Assertions.assertEquals(1536, column.getScale());
+    }
+
+    @Test
+    public void testConvertVectorWithoutDimension() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("embedding")
+                        .columnType("vector")
+                        .dataType("vector")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals("vector", column.getSourceType());
+    }
+
+    @Test
+    public void testReconvertFloatVector() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("embedding")
+                        .dataType(VectorType.VECTOR_FLOAT_TYPE)
+                        .scale(768)
+                        .build();
+
+        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals("vector(768)", typeDefine.getColumnType());
+        Assertions.assertEquals("vector", typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertFloatVectorWithoutDimension() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("embedding")
+                        .dataType(VectorType.VECTOR_FLOAT_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals("vector", typeDefine.getColumnType());
+        Assertions.assertEquals("vector", typeDefine.getDataType());
     }
 }
