@@ -155,6 +155,12 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
+    modules_arr.remove("connector-http-e2e")
+    modules_arr.remove("connector-hbase-e2e")
+    modules_arr.remove("connector-mongodb-e2e")
+    modules_arr.remove("connector-cdc-mysql-e2e")
+    modules_arr.remove("connector-elasticsearch-e2e")
+    modules_arr.remove("connector-clickhouse-e2e")
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:
@@ -200,6 +206,20 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-file-sftp-e2e")
     if "connector-redis-e2e" in module_list:
         module_list.remove("connector-redis-e2e")
+    if "connector-sensorsdata-e2e" in module_list:
+        module_list.remove("connector-sensorsdata-e2e")
+    if "connector-http-e2e" in module_list:
+        module_list.remove("connector-http-e2e")
+    if "connector-hbase-e2e" in module_list:
+        module_list.remove("connector-hbase-e2e")
+    if "connector-mongodb-e2e" in module_list:
+        module_list.remove("connector-mongodb-e2e")
+    if "connector-cdc-mysql-e2e" in module_list:
+        module_list.remove("connector-cdc-mysql-e2e")
+    if "connector-elasticsearch-e2e" in module_list:
+        module_list.remove("connector-elasticsearch-e2e")
+    if "connector-clickhouse-e2e" in module_list:
+        module_list.remove("connector-clickhouse-e2e")
     if "connector-seatunnel-e2e-base" in module_list:
         module_list.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in module_list:
