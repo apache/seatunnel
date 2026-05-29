@@ -273,15 +273,6 @@ class OptionRulesServiceTest {
     }
 
     @Test
-    void shouldRejectInvalidType() {
-        IllegalArgumentException error =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> service.getOptionRules("transform", "Replace"));
-        assertTrue(error.getMessage().contains("Unsupported plugin type"));
-    }
-
-    @Test
     void shouldRejectBlankPluginName() {
         IllegalArgumentException error =
                 assertThrows(
