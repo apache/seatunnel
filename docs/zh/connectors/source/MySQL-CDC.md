@@ -370,6 +370,53 @@ sink {
 }
 ```
 
+## 常见问题
+
+### MySQL CDC 需要哪些权限？
+
+MySQL 用户需要以下权限：
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+同时需要在 `my.cnf` / `my.ini` 中开启 binlog：
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### SeaTunnel 能从 MySQL 从库读取 CDC 数据吗？
+
+可以。SeaTunnel 通过订阅 binlog 工作，从库也有 binlog 流。将 SeaTunnel 指向从库可以减轻主库压力。需确保从库开启了 binlog，并在配置中设置 `log_slave_updates = ON`。
+
+### MySQL CDC 是否支持无主键表？
+
+不支持。MySQL CDC 需要主键。没有主键时，SeaTunnel 无法确定应更新或删除下游的哪一行，会导致数据不一致。
+
+### 全量快照阶段如何工作？何时切换为增量读取？
+
+首次启动时，SeaTunnel 对已配置的表做一次一致性全量快照。快照完成后，自动从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失任何变更事件。
+
+### MySQL CDC 是否支持 DDL 传播？
+
+有限支持。当设置 `schema_change_enabled = true` 时，可以传播 `ADD COLUMN` 等 DDL 变更。删除列或重命名表可能需要对受影响的表重新做全量快照。
+
+### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
+
+每个 CDC 任务必须使用唯一的 `server-id` 或不重叠的范围。重复的 `server-id` 会导致 MySQL 服务器断开其中一个客户端连接。建议为每个任务分配独立的范围，例如一个任务用 `5400-5600`，另一个用 `5601-5800`。
+
+### 初始快照为什么很慢？
+
+快照速度取决于表的大小、JDBC fetch size 以及网络带宽。可以通过调整 `scan.incremental.snapshot.chunk.size` 和 `scan.incremental.snapshot.chunk.key-column` 来提升并行度。对于不需要历史数据的大表，可以将 `startup.mode` 设为 `"latest-offset"` 跳过快照。
+
+### 如何处理时区和字符集问题？
+
+将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
+
 ## 更新日志
 
 <ChangeLog />

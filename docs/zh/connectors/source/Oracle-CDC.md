@@ -366,6 +366,64 @@ source {
 
 > 必须与 kafka 连接器 sink 配合使用，详情请参阅 [兼容 debezium 格式](../formats/cdc-compatible-debezium-json.md)
 
+## 常见问题
+
+### Oracle CDC 需要哪些数据库权限？
+
+LogMiner 用户需要以下权限：
+
+```sql
+GRANT CREATE SESSION TO logminer_user;
+GRANT SET CONTAINER TO logminer_user;
+GRANT SELECT ON V_$DATABASE TO logminer_user;
+GRANT FLASHBACK ANY TABLE TO logminer_user;
+GRANT SELECT ANY TABLE TO logminer_user;
+GRANT SELECT_CATALOG_ROLE TO logminer_user;
+GRANT EXECUTE_CATALOG_ROLE TO logminer_user;
+GRANT SELECT ANY TRANSACTION TO logminer_user;
+GRANT LOGMINING TO logminer_user;
+GRANT CREATE TABLE TO logminer_user;
+GRANT LOCK ANY TABLE TO logminer_user;
+GRANT CREATE SEQUENCE TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+GRANT SELECT ON V_$LOG TO logminer_user;
+GRANT SELECT ON V_$LOG_HISTORY TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_LOGS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_CONTENTS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_PARAMETERS TO logminer_user;
+GRANT SELECT ON V_$LOGFILE TO logminer_user;
+GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
+GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
+GRANT SELECT ON V_$TRANSACTION TO logminer_user;
+```
+
+同时，需要在数据库和表级别开启附加日志：
+
+```sql
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
+ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+### Oracle CDC 是否支持多租户（CDB/PDB）数据库？
+
+支持。将 `database-names` 设置为 CDB 名称，并将 JDBC URL 指向 CDB 根容器。用户必须是公共用户（以 `C##` 为前缀），且需在所有容器中以 `CONTAINER = ALL` 方式授予上述权限。
+
+### Oracle CDC 是否支持无主键表？
+
+默认情况下，Oracle CDC 需要主键。如果表中存在合适的唯一列，可通过 `table-names-config` 中的 `primaryKeys` 字段指定自定义主键列。
+
+### 如何提升 LogMiner 性能？
+
+- 仅对所需的表和列启用附加日志，以减少重做日志量。
+- 在高吞吐量环境中，使用 `log.mining.strategy = online_catalog`（持续挖掘模式）可以获得更好的性能。
+- 增大 `log.mining.batch.size.max` 以减少 LogMiner 会话次数。
+- 确保重做日志文件足够大，避免频繁的日志切换。
+
+### 支持哪些 Oracle 版本？
+
+Oracle CDC 支持 Oracle Database 11g、12c、19c 和 21c。对于 12c 及更高版本的多租户配置，需使用 CDB 根连接和公共用户。
+
 ## 更新日志
 
 <ChangeLog />

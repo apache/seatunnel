@@ -527,6 +527,67 @@ sink {
 }
 ```
 
+## FAQ
+
+### Does Doris Sink support automatic table creation?
+
+Yes. Use the `schema_save_mode` parameter to control table creation behavior:
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist; skips if the table already exists.
+- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table does not exist.
+- `IGNORE`: Skips all table creation logic.
+
+SeaTunnel maps SeaTunnel data types to Doris column types automatically when creating tables.
+
+### How does exactly-once work with Doris Sink?
+
+Doris Sink uses Stream Load with two-phase commit (2PC) for exactly-once semantics:
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting.
+
+### Why do I get a "Label already exists" error?
+
+Doris uses Stream Load labels to detect and reject duplicate submissions. If a job is restarted with 2PC enabled, the same label prefix may be reused. To resolve:
+
+- Include a timestamp or unique token in `sink.label-prefix` to ensure uniqueness across restarts.
+- Abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
+
+### Does Doris Sink support DELETE propagation from CDC sources?
+
+Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC sources (e.g., MySQL CDC) to Doris. This requires the target table to use the Unique Key model in Doris.
+
+### Are Doris column names case-sensitive?
+
+Doris column names are case-insensitive by default. If the upstream data has mixed-case field names, verify they map correctly to Doris column names. Use the `column_mapping` option if a mismatch exists.
+
+### What data format does Doris Stream Load use?
+
+Doris Sink uses JSON format for Stream Load by default. Configure it explicitly if needed:
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+CSV format is also supported but requires careful delimiter configuration.
+
 ## Changelog
 
 <ChangeLog />

@@ -367,6 +367,64 @@ source {
 
 > Must be used with kafka connector sink, see [compatible debezium format](../formats/cdc-compatible-debezium-json.md) for details
 
+## FAQ
+
+### What Oracle permissions are required for CDC?
+
+The LogMiner user needs the following privileges:
+
+```sql
+GRANT CREATE SESSION TO logminer_user;
+GRANT SET CONTAINER TO logminer_user;
+GRANT SELECT ON V_$DATABASE TO logminer_user;
+GRANT FLASHBACK ANY TABLE TO logminer_user;
+GRANT SELECT ANY TABLE TO logminer_user;
+GRANT SELECT_CATALOG_ROLE TO logminer_user;
+GRANT EXECUTE_CATALOG_ROLE TO logminer_user;
+GRANT SELECT ANY TRANSACTION TO logminer_user;
+GRANT LOGMINING TO logminer_user;
+GRANT CREATE TABLE TO logminer_user;
+GRANT LOCK ANY TABLE TO logminer_user;
+GRANT CREATE SEQUENCE TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+GRANT SELECT ON V_$LOG TO logminer_user;
+GRANT SELECT ON V_$LOG_HISTORY TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_LOGS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_CONTENTS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_PARAMETERS TO logminer_user;
+GRANT SELECT ON V_$LOGFILE TO logminer_user;
+GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
+GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
+GRANT SELECT ON V_$TRANSACTION TO logminer_user;
+```
+
+Also enable supplemental logging at the database and table level:
+
+```sql
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
+ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+### Does Oracle CDC support multi-tenant (CDB/PDB) databases?
+
+Yes. Set `database-names` to the CDB name and configure the JDBC URL to point to the CDB root. The user must be a common user (prefixed with `C##`) with the above privileges granted in all containers (`CONTAINER = ALL`).
+
+### Does Oracle CDC support tables without primary keys?
+
+By default, Oracle CDC requires primary keys. You can specify a custom primary key column via `table-names-config` with the `primaryKeys` field if the table has a suitable unique column.
+
+### How do I improve LogMiner performance?
+
+- Enable supplemental logging only for the required tables and columns to reduce redo log volume.
+- Use `log.mining.strategy = online_catalog` (continuous mining) for better performance in high-throughput environments.
+- Increase `log.mining.batch.size.max` to reduce the number of LogMiner sessions.
+- Ensure redo log file sizes are large enough to avoid frequent log switches.
+
+### Which Oracle versions are supported?
+
+Oracle CDC is supported on Oracle Database 11g, 12c, 19c, and 21c. For 12c and later multi-tenant configurations, use the CDB root connection with a common user.
+
 ## Changelog
 
 <ChangeLog />

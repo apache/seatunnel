@@ -389,6 +389,54 @@ sink {
 }
 ```
 
+## FAQ
+
+### Does StarRocks Sink support automatic table creation?
+
+Yes. Use `schema_save_mode` to control table creation behavior:
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist.
+- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table is missing.
+- `IGNORE`: Skips all table creation logic.
+
+SeaTunnel infers StarRocks column types from the upstream schema automatically.
+
+### Does StarRocks Sink support upsert and DELETE operations?
+
+Yes. Enable upsert and DELETE propagation by setting `enable_upsert_delete = true`. This requires the target StarRocks table to use the **Primary Key** model. DELETE events from CDC sources are propagated correctly when this option is enabled.
+
+### How does exactly-once work with StarRocks Sink?
+
+StarRocks Sink supports exactly-once semantics through Stream Load with label-based deduplication. Configure a unique label prefix:
+
+```hocon
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks-fe:8030"]
+    base-url = "jdbc:mysql://starrocks-fe:9030/"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+Ensure `sink.label-prefix` is unique to avoid duplicate label conflicts across job restarts.
+
+### Are StarRocks column names case-sensitive?
+
+StarRocks column names are case-insensitive by default. Verify that upstream field names align with the target StarRocks column names to avoid unintended mapping issues.
+
+### What is the difference between `nodeUrls` and `base-url`?
+
+- `nodeUrls`: HTTP addresses of the StarRocks FE nodes, used for Stream Load data ingestion.
+- `base-url`: JDBC URL pointing to a StarRocks FE node, used for DDL operations such as table creation and schema inspection.
+
+Both parameters are required when automatic table creation is enabled.
+
 ## Changelog
 
 <ChangeLog />

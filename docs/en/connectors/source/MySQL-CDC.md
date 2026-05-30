@@ -372,6 +372,53 @@ sink {
 }
 ```
 
+## FAQ
+
+### What MySQL permissions are required for CDC?
+
+The MySQL user must have the following privileges:
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+Also enable binary logging in `my.cnf` / `my.ini`:
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### Can SeaTunnel read CDC from a MySQL replica?
+
+Yes. SeaTunnel subscribes to MySQL binary logs, which are also streamed to replicas. You can point SeaTunnel at a replica to offload the primary. Ensure the replica has binary logging enabled and `log_slave_updates = ON` set in its configuration.
+
+### Does MySQL CDC support tables without primary keys?
+
+No. MySQL CDC requires primary keys. Without a primary key, SeaTunnel cannot determine which specific row to update or delete when a change event arrives, which would lead to data inconsistency downstream.
+
+### How does the full snapshot phase work, and when does it switch to incremental reading?
+
+On first startup, SeaTunnel takes a consistent full snapshot of the configured tables. After the snapshot completes, it automatically switches to reading binlog from the position recorded at the beginning of the snapshot, ensuring no events are lost during the transition.
+
+### Does MySQL CDC support DDL propagation?
+
+SeaTunnel MySQL CDC has limited DDL support. Schema changes such as `ADD COLUMN` can be propagated when `schema_change_enabled = true`. Dropping columns or renaming tables may require a full re-snapshot of the affected table.
+
+### How do I avoid `server-id` conflicts when running multiple CDC jobs?
+
+Each CDC job must use a unique `server-id` or a non-overlapping range. Duplicate `server-id` values cause the MySQL server to disconnect one of the clients. Assign distinct ranges, for example `5400-5600` for one job and `5601-5800` for another.
+
+### Why is the initial snapshot very slow?
+
+Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune `scan.incremental.snapshot.chunk.size` and `scan.incremental.snapshot.chunk.key-column` to improve parallelism. For very large tables where historical data is not needed, set `startup.mode = "latest-offset"` to skip the snapshot entirely.
+
+### How do I handle timezone and character set issues?
+
+Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/Shanghai"`. For character set issues, append `characterEncoding=UTF-8&useUnicode=true` to the JDBC connection URL.
+
 ## Changelog
 
 <ChangeLog />

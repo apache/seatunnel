@@ -347,6 +347,34 @@ sink {
 
 After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data tables `multi_sink_table1` and `multi_sink_table2` is 100 for each. 
 
+## FAQ
+
+### Does ClickHouse Sink support automatic table creation?
+
+Yes. Use `schema_save_mode` to control table creation behavior:
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist.
+- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table is missing.
+- `IGNORE`: Skips all table creation logic.
+
+When auto-creating tables, SeaTunnel uses the `MergeTree` engine by default. Use `create_table_engine`, `create_table_order_by_keys`, and `create_table_partition_by_fields` to customize the DDL.
+
+### How do I tune batch write performance?
+
+ClickHouse performs best when records are inserted in large batches. Tune the following parameters:
+
+- `batch_size`: Number of rows per batch (default: `1000`). Increase to `10000`–`100000` for high-throughput scenarios.
+- `batch_interval_ms`: Maximum wait time (milliseconds) before flushing an incomplete batch to ClickHouse.
+
+### What ClickHouse data types are supported?
+
+SeaTunnel maps to ClickHouse types including `Int8/16/32/64`, `UInt8/16/32/64`, `Float32/64`, `Decimal`, `String`, `FixedString`, `Date`, `DateTime`, `Array`, `Map`, and `Nullable` variants. Complex nested types may require a field transform before writing.
+
+### Why do I get a "Table doesn't exist" error?
+
+If `schema_save_mode` is not set or is set to `ERROR_WHEN_SCHEMA_NOT_EXIST` (the default), SeaTunnel will fail if the target table does not exist. Switch to `CREATE_SCHEMA_WHEN_NOT_EXIST` or create the ClickHouse table manually before starting the job.
+
 ## Changelog
 
 <ChangeLog />

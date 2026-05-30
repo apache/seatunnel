@@ -192,6 +192,39 @@ source {
 }
 ```
 
+## FAQ
+
+### What PostgreSQL permissions are required for CDC?
+
+The CDC user must have the `REPLICATION` role and `SELECT` access to the monitored tables:
+
+```sql
+CREATE USER replication_user REPLICATION LOGIN PASSWORD 'password';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
+```
+
+Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.conf` to allow the replication connection.
+
+### Which logical decoding plugins are supported?
+
+SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
+
+### Can SeaTunnel read CDC from a PostgreSQL standby?
+
+PostgreSQL logical replication slots must be created and consumed on the primary server. SeaTunnel cannot read a logical replication slot directly from a standby. Point the CDC connector at the primary instance.
+
+### Does PostgreSQL CDC support tables without primary keys?
+
+By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
+
+### How are replication slots managed?
+
+SeaTunnel creates a replication slot on startup if one does not already exist. Unused replication slots hold WAL segments on disk, which can cause unbounded disk usage growth. Ensure slots are dropped when a CDC job is permanently decommissioned. Use `drop.slot.on.close` to control whether SeaTunnel drops the slot when the job stops.
+
+### Why does PostgreSQL CDC fall behind?
+
+Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
 ## Changelog
 
 <ChangeLog />

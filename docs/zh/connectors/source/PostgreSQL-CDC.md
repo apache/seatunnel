@@ -190,6 +190,39 @@ source {
 }
 ```
 
+## 常见问题
+
+### PostgreSQL CDC 需要哪些权限？
+
+CDC 用户需要具备 `REPLICATION` 角色以及对监控表的 `SELECT` 权限：
+
+```sql
+CREATE USER replication_user REPLICATION LOGIN PASSWORD 'password';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
+```
+
+同时需要在 `postgresql.conf` 中设置 `wal_level = logical`，并在 `pg_hba.conf` 中添加允许该用户复制连接的条目。
+
+### 支持哪些逻辑解码插件？
+
+SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
+
+### SeaTunnel 能从 PostgreSQL 备库读取 CDC 数据吗？
+
+不能。PostgreSQL 逻辑复制槽必须在主库上创建和消费，SeaTunnel 无法直接从备库读取逻辑复制槽，需将 CDC 连接器指向主库实例。
+
+### PostgreSQL CDC 是否支持无主键表？
+
+默认需要主键。如果表有可作为唯一标识的列，可以通过 `table-names-config` 中的 `primaryKeys` 字段自定义主键。
+
+### 复制槽如何管理？
+
+SeaTunnel 在启动时若不存在则自动创建复制槽。未使用的复制槽会持续占用磁盘上的 WAL 段，导致磁盘无限增长。当 CDC 任务永久停用时，务必手动删除复制槽。可通过 `drop.slot.on.close` 参数控制 SeaTunnel 停止时是否自动删除复制槽。
+
+### PostgreSQL CDC 为什么会滞后？
+
+滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
 ## 变更日志
 
 <ChangeLog />
