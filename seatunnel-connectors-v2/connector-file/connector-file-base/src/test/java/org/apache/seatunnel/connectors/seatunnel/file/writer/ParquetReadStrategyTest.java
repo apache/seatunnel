@@ -1051,7 +1051,8 @@ public class ParquetReadStrategyTest {
                     .as(LogicalTypeAnnotation.stringType())
                     .named("job_blue-collar")
                     .optionalList()
-                    .element(BINARY.as(LogicalTypeAnnotation.stringType()))
+                    .element(BINARY)
+                    .as(LogicalTypeAnnotation.stringType())
                     .named("skill-tags")
                     .named("User");
         }
