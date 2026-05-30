@@ -243,7 +243,7 @@ CDC Source
 
 这取决于具体连接器。MySQL-CDC 在部分配置下支持动态发现新表，但为新表添加 Transform
 仍需重启流水线。建议使用 `stop-with-savepoint` 将数据丢失降至最低（参见
-[REST API 作业生命周期手册](../engines/zeta/rest-api-job-lifecycle.md)）。
+[REST API v2 参考文档](../engines/zeta/rest-api-v2.md)）。
 
 ---
 
@@ -252,5 +252,6 @@ CDC Source
 - [TableMerge Transform 参考](table-merge.md)
 - [TableRename Transform 参考](table-rename.md)
 - [transform-multi-table 参考](transform-multi-table.md)
-- [CDC 生产实战手册](../connectors/cdc-production-cookbook.md)
-- [REST API 作业生命周期手册](../engines/zeta/rest-api-job-lifecycle.md)
+- [多表能力概览](../architecture/features/multi-table.md)
+- [CDC 流水线架构](../architecture/cdc-pipeline-architecture.md)
+- [REST API v2 参考文档](../engines/zeta/rest-api-v2.md)

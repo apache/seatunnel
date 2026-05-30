@@ -251,7 +251,7 @@ matches them via `source_table_name` or `table_match_regex`.
 
 This depends on the connector. MySQL-CDC supports dynamic table discovery in some configurations,
 but adding a transform for a new table requires a pipeline restart. Use `stop-with-savepoint`
-to minimise data loss (see [REST API Job Lifecycle Cookbook](../engines/zeta/rest-api-job-lifecycle.md)).
+to minimise data loss (see [REST API v2 Reference](../engines/zeta/rest-api-v2.md)).
 
 ---
 
@@ -260,5 +260,6 @@ to minimise data loss (see [REST API Job Lifecycle Cookbook](../engines/zeta/res
 - [TableMerge Transform Reference](table-merge.md)
 - [TableRename Transform Reference](table-rename.md)
 - [transform-multi-table Reference](transform-multi-table.md)
-- [CDC Production Cookbook](../connectors/cdc-production-cookbook.md)
-- [REST API Job Lifecycle Cookbook](../engines/zeta/rest-api-job-lifecycle.md)
+- [Multi-Table Architecture Overview](../architecture/features/multi-table.md)
+- [CDC Pipeline Architecture](../architecture/cdc-pipeline-architecture.md)
+- [REST API v2 Reference](../engines/zeta/rest-api-v2.md)
