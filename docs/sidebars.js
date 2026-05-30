@@ -288,6 +288,7 @@ const sidebars = {
                             ]
                         },
                         "engines/zeta/checkpoint-storage",
+                        "engines/zeta/state-storage-and-recovery",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
