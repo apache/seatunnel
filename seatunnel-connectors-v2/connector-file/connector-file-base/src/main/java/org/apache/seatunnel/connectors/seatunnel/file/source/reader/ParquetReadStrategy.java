@@ -296,7 +296,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
         SeaTunnelDataType<?> elementType = arrayType.getElementType();
         Group listGroup = group.getGroup(listFieldIndex, 0);
-        GroupType listGroupType = parentGroupType.getType(listFieldIndex).asGroupType();
+        GroupType listGroupType = parentGroupType;
 
         Type repeatedType = listGroupType.getType(0);
         // Number of repeated elements within the LIST group
@@ -326,7 +326,50 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             read2LevelList(
                     listGroup, repeatedType, numElements, elementType, listGroupType, result);
         }
-        return result.toArray(new Object[0]);
+        return convertListResult(result, elementType);
+    }
+
+    private Object convertListResult(List<Object> result, SeaTunnelDataType<?> elementType) {
+        switch (elementType.getSqlType()) {
+            case STRING:
+                return result.toArray(TYPE_ARRAY_STRING);
+            case BOOLEAN:
+                return result.toArray(TYPE_ARRAY_BOOLEAN);
+            case TINYINT:
+                return result.toArray(TYPE_ARRAY_BYTE);
+            case SMALLINT:
+                return result.toArray(TYPE_ARRAY_SHORT);
+            case INT:
+                return result.toArray(TYPE_ARRAY_INTEGER);
+            case BIGINT:
+                return result.toArray(TYPE_ARRAY_LONG);
+            case FLOAT:
+                return result.toArray(TYPE_ARRAY_FLOAT);
+            case DOUBLE:
+                return result.toArray(TYPE_ARRAY_DOUBLE);
+            case DECIMAL:
+                return result.toArray(TYPE_ARRAY_BIG_DECIMAL);
+            case DATE:
+                return result.toArray(TYPE_ARRAY_LOCAL_DATE);
+            case TIMESTAMP:
+                return result.toArray(TYPE_ARRAY_LOCAL_DATETIME);
+            case BYTES:
+                byte[][] bytesArray = new byte[result.size()][];
+                for (int i = 0; i < result.size(); i++) {
+                    Object element = result.get(i);
+                    if (element instanceof ByteBuffer) {
+                        ByteBuffer buffer = (ByteBuffer) element;
+                        byte[] bytes = new byte[buffer.remaining()];
+                        buffer.get(bytes, 0, bytes.length);
+                        bytesArray[i] = bytes;
+                    } else if (element instanceof byte[]) {
+                        bytesArray[i] = (byte[]) element;
+                    }
+                }
+                return bytesArray;
+            default:
+                return result.toArray(new Object[0]);
+        }
     }
 
     /**
