@@ -1,14 +1,20 @@
 package org.apache.seatunnel.azuredataexplorer.config;
 
-import lombok.Builder;
-import lombok.Getter;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import static org.apache.seatunnel.api.options.table.TableIdentifierOptions.TABLE;
-import static org.apache.seatunnel.azuredataexplorer.config
-        .AzureDataExplorerSinkOptions.*;
+import lombok.Builder;
+import lombok.Getter;
 
-/** Immutable config value object used by both sink and source. */
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.CLIENT_ID;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.CLIENT_SECRET;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.FLUSH_INTERVAL_MS;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.INGESTION_MAPPING_REFERENCE;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.INGESTION_TYPE;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.TABLE;
+import static org.apache.seatunnel.azuredataexplorer.config.AzureDataExplorerSinkOptions.TENANT_ID;
+
+/** Immutable config value object used by the sink. */
 @Getter
 @Builder
 public class AzureDataExplorerConfig {

@@ -3,7 +3,6 @@ package org.apache.seatunnel.azuredataexplorer.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum AzureDataExplorerErrorCode implements SeaTunnelErrorCode {
-
     INGESTION_FAILED("ADX-01", "Failed to ingest data into Azure Data Explorer"),
     QUERY_FAILED("ADX-02", "Failed to execute KQL query against Azure Data Explorer"),
     CONNECTION_FAILED("ADX-03", "Failed to connect to Azure Data Explorer cluster"),
@@ -18,6 +17,13 @@ public enum AzureDataExplorerErrorCode implements SeaTunnelErrorCode {
         this.description = description;
     }
 
-    @Override public String getCode() { return code; }
-    @Override public String getDescription() { return description; }
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
 }
