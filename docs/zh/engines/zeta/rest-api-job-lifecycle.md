@@ -354,5 +354,5 @@ curl http://<any-node>:8080/hazelcast/rest/cluster | \
 - [REST API v2 参考文档](rest-api-v2.md)
 - [REST API v1 参考文档](rest-api-v1.md)
 - [安全配置](security.md)
-- [状态存储与恢复](state-storage-and-recovery.md)
-- [CDC 生产实战手册](../../connectors/cdc-production-cookbook.md)
+- [Checkpoint 存储](checkpoint-storage.md)
+- [CDC 流水线架构](../../architecture/cdc-pipeline-architecture.md)

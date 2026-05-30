@@ -358,5 +358,5 @@ curl http://<any-node>:8080/hazelcast/rest/cluster | \
 - [REST API v2 Reference](rest-api-v2.md)
 - [REST API v1 Reference](rest-api-v1.md)
 - [Security Configuration](security.md)
-- [State Storage and Recovery](state-storage-and-recovery.md)
-- [CDC Production Cookbook](../../connectors/cdc-production-cookbook.md)
+- [Checkpoint Storage](checkpoint-storage.md)
+- [CDC Pipeline Architecture](../../architecture/cdc-pipeline-architecture.md)
