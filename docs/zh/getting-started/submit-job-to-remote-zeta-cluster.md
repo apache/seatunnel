@@ -67,11 +67,11 @@ curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": { "job.name": "test", "job.mode": "BATCH" },
-    "source": [{ "plugin_name": "FakeSource", "result_table_name": "fake",
+    "source": [{ "plugin_name": "FakeSource", "plugin_output": "fake",
                  "row.num": 10,
                  "schema": { "fields": { "id": "int", "name": "string" } } }],
     "transform": [],
-    "sink": [{ "plugin_name": "Console", "source_table_name": ["fake"] }]
+    "sink": [{ "plugin_name": "Console", "plugin_input": ["fake"] }]
   }'
 ```
 
