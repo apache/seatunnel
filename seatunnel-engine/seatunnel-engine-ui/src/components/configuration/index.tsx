@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { NDescriptions, NDescriptionsItem } from 'naive-ui'
+import { NCard, NDescriptions, NDescriptionsItem, NSpace } from 'naive-ui'
 import { defineComponent, type PropType } from 'vue'
 
 export default defineComponent({

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NLayout, NLayoutContent } from 'naive-ui'
+import { defineComponent, getCurrentInstance, h, ref } from 'vue'
+import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
 import RunningJobs from '@/views/jobs/running-jobs'
 import FinishedJobs from '@/views/jobs/finished-jobs'
 
