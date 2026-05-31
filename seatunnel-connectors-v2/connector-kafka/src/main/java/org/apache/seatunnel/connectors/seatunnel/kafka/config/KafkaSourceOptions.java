@@ -44,8 +44,11 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
     public static final Option<Integer> READER_CACHE_QUEUE_SIZE =
             Options.key("reader_cache_queue_size")
                     .intType()
-                    .defaultValue(1024)
-                    .withDescription("The size of reader queue.");
+                    .defaultValue(2)
+                    .withDescription(
+                            "The capacity of the fetcher-to-reader element queue. "
+                                    + "Each element is one consumer.poll() batch, not a single message. "
+                                    + "Actual buffered messages ≈ this value × max.poll.records.");
 
     public static final Option<Boolean> COMMIT_ON_CHECKPOINT =
             Options.key("commit_on_checkpoint")

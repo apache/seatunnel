@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -42,6 +44,7 @@ import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -78,10 +81,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
@@ -608,6 +613,54 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testShutdownDoesNotInterruptCoordinatorCleanupThread() throws Exception {
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testShutdownDoesNotInterruptCoordinatorCleanupThread"));
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            await().atMost(20000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            server.getCoordinatorService().isCoordinatorActive()));
+
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            BlockingEventProcessor blockingEventProcessor = new BlockingEventProcessor();
+            ReflectionUtils.setField(coordinatorService, "eventProcessor", blockingEventProcessor);
+
+            ScheduledExecutorService masterActiveListener =
+                    (ScheduledExecutorService)
+                            ReflectionUtils.getField(coordinatorService, "masterActiveListener")
+                                    .orElseThrow(
+                                            () ->
+                                                    new AssertionError(
+                                                            "masterActiveListener not found"));
+
+            Future<?> clearFuture =
+                    masterActiveListener.submit(coordinatorService::clearCoordinatorService);
+            Assertions.assertTrue(blockingEventProcessor.awaitCloseStarted(5, TimeUnit.SECONDS));
+
+            Thread shutdownThread =
+                    new Thread(coordinatorService::shutdown, "coordinator-service-shutdown-test");
+            shutdownThread.start();
+
+            blockingEventProcessor.releaseClose();
+
+            shutdownThread.join(TimeUnit.SECONDS.toMillis(20));
+            Assertions.assertFalse(shutdownThread.isAlive());
+            clearFuture.get(20, TimeUnit.SECONDS);
+
+            Assertions.assertEquals(1, blockingEventProcessor.getCloseCount());
+            Assertions.assertFalse(blockingEventProcessor.wasInterrupted());
+        } finally {
+            instance.shutdown();
+        }
+    }
+
+    @Test
     public void testInvocationFutureUseCompletableFutureExecutor() {
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
@@ -639,6 +692,44 @@ public class CoordinatorServiceTest {
                 .join();
 
         instance.shutdown();
+    }
+
+    private static final class BlockingEventProcessor implements EventProcessor {
+        private final CountDownLatch closeStarted = new CountDownLatch(1);
+        private final CountDownLatch releaseClose = new CountDownLatch(1);
+        private final AtomicBoolean interrupted = new AtomicBoolean(false);
+        private final AtomicInteger closeCount = new AtomicInteger(0);
+
+        @Override
+        public void process(Event event) {}
+
+        @Override
+        public void close() {
+            closeCount.incrementAndGet();
+            closeStarted.countDown();
+            try {
+                releaseClose.await();
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        boolean awaitCloseStarted(long timeout, TimeUnit unit) throws InterruptedException {
+            return closeStarted.await(timeout, unit);
+        }
+
+        void releaseClose() {
+            releaseClose.countDown();
+        }
+
+        int getCloseCount() {
+            return closeCount.get();
+        }
+
+        boolean wasInterrupted() {
+            return interrupted.get();
+        }
     }
 
     @Test
@@ -944,22 +1035,29 @@ public class CoordinatorServiceTest {
 
     @Test
     void testGetPendingJobInfo() {
-        JobInformation jobInformation =
-                submitJob(
-                        "CoordinatorServiceTest_testGetPendingJobInfo",
-                        "batch_fake_to_console.conf",
-                        "test_get_pending_job_info");
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            Long jobId = 70001L;
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(null);
 
-        CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        Long jobId = jobInformation.jobId;
+            JobDAGInfo pendingJobDAGInfo = new JobDAGInfo();
+            pendingJobDAGInfo.setJobId(jobId);
+            JobMaster jobMaster =
+                    enqueueMockPendingJob(coordinatorService, jobId, new CountDownLatch(1));
+            Mockito.when(jobMaster.getJobDAGInfo()).thenReturn(pendingJobDAGInfo);
 
-        Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
 
-        JobDAGInfo jobDAGInfo =
-                Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
-        Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
-
-        jobInformation.coordinatorServiceTest.shutdown();
+            JobDAGInfo jobDAGInfo =
+                    Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+            Assertions.assertSame(pendingJobDAGInfo, jobDAGInfo);
+            Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+        } finally {
+            coordinatorService.shutdown();
+        }
     }
 
     @Test

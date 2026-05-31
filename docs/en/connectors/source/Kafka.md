@@ -59,12 +59,29 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
-| reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
+| reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
 | is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.
 
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
 > `start_mode` and consumer-group offsets are only used for the first startup or for newly
 > discovered partitions that do not have checkpointed state yet.
+
+### reader_cache_queue_size
+
+The maximum number of poll-result batches that the connector buffers between the fetcher thread and the reader thread.
+
+:::tip
+
+Each element in the queue is one complete `consumer.poll()` result, which may contain up to `max.poll.records` (default 500) messages.
+When back-pressure occurs downstream, the queue may fill up, and the upper bound of messages held in memory is `reader_cache_queue_size × max.poll.records`.
+
+:::
+
+:::caution
+
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+
+:::
 
 ### debezium_record_table_filter
 

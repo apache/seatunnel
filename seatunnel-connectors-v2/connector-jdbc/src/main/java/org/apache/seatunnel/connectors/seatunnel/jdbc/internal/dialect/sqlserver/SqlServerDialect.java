@@ -292,7 +292,7 @@ public class SqlServerDialect implements JdbcDialect {
         String sourceDialectName = event.getSourceDialectName();
         boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
-        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        String columnType = resolveColumnType(sameCatalog, column, typeDefine);
 
         // Build the SQL statement that add the column
         StringBuilder sqlBuilder =
@@ -310,8 +310,22 @@ public class SqlServerDialect implements JdbcDialect {
         }
 
         if (!column.isNullable()) {
-            // Handle null constraints
-            sqlBuilder.append(" NOT NULL");
+            if (column.getDefaultValue() != null) {
+                // A DEFAULT is present — SQL Server can populate existing rows, so NOT NULL is
+                // safe.
+                sqlBuilder.append(" NOT NULL");
+            } else {
+                // SQL Server forbids adding a NOT NULL column without a DEFAULT to a non-empty
+                // table.
+                // Add as NULL so that existing rows are not affected; subsequent CDC UPDATE events
+                // will fill in the actual values for those rows.
+                log.warn(
+                        "Column '{}' in table {} is NOT NULL but has no DEFAULT; adding as NULL "
+                                + "to allow addition to a non-empty table.",
+                        column.getName(),
+                        tablePath.getFullName());
+                sqlBuilder.append(" NULL");
+            }
         }
 
         ddlSQL.add(sqlBuilder.toString());
@@ -331,16 +345,13 @@ public class SqlServerDialect implements JdbcDialect {
         List<String> ddlSQL = new ArrayList<>();
         if (event.getOldColumn() != null
                 && !(event.getColumn().getName().equals(event.getOldColumn()))) {
+            String renameObject = buildRenameColumnObject(tablePath, event.getOldColumn());
             StringBuilder sqlBuilder =
                     new StringBuilder()
-                            .append("EXEC sp_rename ")
-                            .append(
-                                    String.format(
-                                            "'%s.%s.%s.%s', ",
-                                            tablePath.getDatabaseName(),
-                                            tablePath.getSchemaName(),
-                                            tablePath.getTableName(),
-                                            event.getOldColumn()))
+                            .append("EXEC ")
+                            .append(buildRenameProcedure(tablePath))
+                            .append(" ")
+                            .append(String.format("'%s', ", renameObject))
                             .append(String.format("'%s', 'COLUMN';", event.getColumn().getName()));
             ddlSQL.add(sqlBuilder.toString());
         }
@@ -363,7 +374,7 @@ public class SqlServerDialect implements JdbcDialect {
         String sourceDialectName = event.getSourceDialectName();
         boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
         BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
-        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        String columnType = resolveColumnType(sameCatalog, column, typeDefine);
         List<String> ddlSQL = new ArrayList<>();
         // Handle field default constraints.
         if (column.getDefaultValue() != null) {
@@ -521,15 +532,55 @@ public class SqlServerDialect implements JdbcDialect {
 
     private boolean columnIsNullable(Connection connection, TablePath tablePath, String column)
             throws SQLException {
+        // Prefix with the target database name so the query works even when the JDBC connection
+        // is connected to a different database (e.g. master with no databaseName in the URL).
+        String databaseName = tablePath.getDatabaseName();
+        String infoSchemaPrefix =
+                StringUtils.isNotBlank(databaseName)
+                        ? quoteDatabaseIdentifier(databaseName) + ".INFORMATION_SCHEMA"
+                        : "INFORMATION_SCHEMA";
         String selectColumnSQL =
                 String.format(
-                        "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE %s AND COLUMN_NAME = '%s';",
-                        buildCommonWhereClause(tablePath), column);
+                        "SELECT IS_NULLABLE FROM %s.COLUMNS WHERE %s AND COLUMN_NAME = '%s';",
+                        infoSchemaPrefix, buildCommonWhereClause(tablePath), column);
         try (Statement statement = connection.createStatement()) {
             ResultSet rs = statement.executeQuery(selectColumnSQL);
-            rs.next();
+            if (!rs.next()) {
+                // Column not found — default to non-nullable to avoid incorrectly appending
+                // NULL to an ALTER COLUMN statement for a column that doesn't allow nulls.
+                log.warn(
+                        "Column '{}' not found in {}.COLUMNS for table {}; assuming NOT NULL",
+                        column,
+                        infoSchemaPrefix,
+                        tablePath.getFullName());
+                return false;
+            }
             return rs.getString("IS_NULLABLE").equals("YES");
         }
+    }
+
+    /**
+     * Returns the SQL column type string to use in DDL statements.
+     *
+     * <p>When source and sink are the same catalog (SQL Server to SQL Server) we prefer the
+     * original {@code sourceType} because it already carries the full type expression (e.g. {@code
+     * varchar(255)}). However, when the CDC schema-change path produces a column whose {@code
+     * sourceType} is a bare type name without length/precision (e.g. {@code varchar} instead of
+     * {@code varchar(255)}), SQL Server rejects the resulting DDL statement. In that case we fall
+     * back to {@code typeDefine.getColumnType()}, which is always fully qualified.
+     */
+    private String resolveColumnType(
+            boolean sameCatalog, Column column, BasicTypeDefine typeDefine) {
+        if (!sameCatalog) {
+            return typeDefine.getColumnType();
+        }
+        String sourceType = column.getSourceType();
+        if (StringUtils.isBlank(sourceType) || !sourceType.contains("(")) {
+            // Bare type name (no length/precision); use the fully-qualified type from
+            // the type converter to avoid SQL Server DDL syntax errors.
+            return typeDefine.getColumnType();
+        }
+        return sourceType;
     }
 
     private StringBuilder buildAlterTablePrefix(TablePath tablePath) {
@@ -540,5 +591,22 @@ public class SqlServerDialect implements JdbcDialect {
         return String.format(
                 "TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
                 tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    private String buildRenameColumnObject(TablePath tablePath, String oldColumn) {
+        List<String> objectParts = new ArrayList<>();
+        if (StringUtils.isNotBlank(tablePath.getSchemaName())) {
+            objectParts.add(tablePath.getSchemaName());
+        }
+        objectParts.add(tablePath.getTableName());
+        objectParts.add(oldColumn);
+        return String.join(".", objectParts);
+    }
+
+    private String buildRenameProcedure(TablePath tablePath) {
+        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+            return quoteDatabaseIdentifier(tablePath.getDatabaseName()) + ".sys.sp_rename";
+        }
+        return "sp_rename";
     }
 }
