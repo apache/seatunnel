@@ -111,6 +111,12 @@ public class BinlogOffset extends Offset {
         return longOffsetValue(offset, TIMESTAMP_KEY);
     }
 
+    public boolean isTimestampOffset() {
+        return offset.containsKey(TIMESTAMP_KEY)
+                && !offset.containsKey(BINLOG_FILENAME_OFFSET_KEY)
+                && !offset.containsKey(BINLOG_POSITION_OFFSET_KEY);
+    }
+
     public Long getServerId() {
         return longOffsetValue(offset, SERVER_ID_KEY);
     }
