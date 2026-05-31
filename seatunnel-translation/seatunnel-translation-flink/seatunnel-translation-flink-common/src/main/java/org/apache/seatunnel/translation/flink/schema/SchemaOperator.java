@@ -293,6 +293,19 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         applyNextPendingSchemaChange();
     }
 
+    /**
+     * Handles fallback timer firing on the task thread (Flink 1.13 checkpoint stall workaround).
+     *
+     * <p>IMPORTANT: This method still respects the checkpoint-completion safety fence. The DDL is
+     * only applied if at least one checkpoint has completed after the schema event was detected
+     * ({@code firstSeenCheckpointId >= 0}). This ensures XA transactions from the earlier
+     * checkpoint cycle have finished before ALTER TABLE runs.
+     *
+     * <p>If no checkpoint has completed yet, we reschedule the fallback timer and wait. The
+     * fallback only kicks in when checkpoints stall AFTER the first post-DDL checkpoint has
+     * completed, which is the scenario in Flink 1.13 high-parallelism CDC jobs where some source
+     * subtasks finish before others.
+     */
     private void handleFallbackTimerOnTaskThread() throws InterruptedException {
         fallbackTimerFired = false;
 
@@ -307,16 +320,30 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
-        log.warn(
-                "No checkpoint completed within {}ms while schema change is pending. "
-                        + "Applying deferred DDL via fallback timer. Note: data committed via "
-                        + "normal Flink checkpoint lifecycle may be delayed until checkpoints resume.",
-                CHECKPOINT_STALL_TIMEOUT_MS);
-
         BufferedRecord head = advancePastDataRecords();
         if (head == null) {
             return;
         }
+
+        if (firstSeenCheckpointId < 0) {
+            log.info(
+                    "Fallback timer fired but no checkpoint has completed after schema event "
+                            + "for table {} (epoch {}). Rescheduling fallback to preserve "
+                            + "checkpoint-completion safety fence.",
+                    head.schemaEvent.tableIdentifier(),
+                    head.schemaEvent.getCreatedTime());
+            scheduleFallbackTimer();
+            return;
+        }
+
+        log.warn(
+                "Checkpoint stall detected after first post-DDL checkpoint {}. "
+                        + "Applying deferred DDL for table {} (epoch {}) via fallback timer. "
+                        + "Note: data committed via normal Flink checkpoint lifecycle may be "
+                        + "delayed until checkpoints resume.",
+                firstSeenCheckpointId,
+                head.schemaEvent.tableIdentifier(),
+                head.schemaEvent.getCreatedTime());
 
         applyNextPendingSchemaChange();
     }

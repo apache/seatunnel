@@ -177,7 +177,7 @@ public class SchemaOperatorTest {
     }
 
     @Test
-    void testFallbackTimerAppliesSchemaChangeWithoutFlushSignal() throws Exception {
+    void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
         LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
         Mockito.when(
                         coordinator.requestSchemaChange(
@@ -193,9 +193,38 @@ public class SchemaOperatorTest {
         context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
         context.operator.processElement(new StreamRecord<>(row, 401L));
 
+        // Fallback timer fires but no checkpoint has completed yet (firstSeenCheckpointId < 0).
+        // The fallback should NOT apply DDL — it must reschedule itself to preserve the
+        // checkpoint-completion safety fence that protects against XA/MDL conflicts.
         invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
 
-        // Should emit schema broadcast and buffered data, but NO flush_signal
+        assertTrue(context.output.records.isEmpty());
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+        assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Now complete the first checkpoint to set firstSeenCheckpointId.
+        context.operator.notifyCheckpointComplete(40L);
+
+        assertTrue(context.output.records.isEmpty());
+        assertEquals(40L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Simulate checkpoint stall: set lastCheckpointCompletedMs to a time in the past
+        // (older than CHECKPOINT_STALL_TIMEOUT_MS = 15_000L). This simulates Flink 1.13
+        // high-parallelism CDC jobs where checkpoints stop after some source subtasks finish.
+        setField(
+                context.operator,
+                "lastCheckpointCompletedMs",
+                System.currentTimeMillis() - 20_000L);
+
+        // Fallback timer fires again. Now firstSeenCheckpointId >= 0 and stall detected,
+        // so the DDL can be applied (checkpoint safety fence is respected since at least one
+        // checkpoint completed after the DDL was detected).
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
         assertEquals(2, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
         assertEquals(row, context.output.records.get(1).getValue());
