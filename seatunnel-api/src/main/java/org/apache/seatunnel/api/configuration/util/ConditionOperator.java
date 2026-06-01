@@ -17,67 +17,51 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@AllArgsConstructor
+@Getter
 public enum ConditionOperator {
-    EQUAL("==", Category.EQUALITY, Arity.BINARY, Source.LITERAL, "=="),
-    NOT_EQUAL("!=", Category.EQUALITY, Arity.BINARY, Source.LITERAL, "!="),
 
-    GREATER_THAN(">", Category.NUMERIC, Arity.BINARY, Source.LITERAL, ">"),
-    GREATER_OR_EQUAL(">=", Category.NUMERIC, Arity.BINARY, Source.LITERAL, ">="),
-    LESS_THAN("<", Category.NUMERIC, Arity.BINARY, Source.LITERAL, "<"),
-    LESS_OR_EQUAL("<=", Category.NUMERIC, Arity.BINARY, Source.LITERAL, "<="),
+    // ==================== Equality ====================
 
-    NOT_BLANK("is not blank", Category.STRING, Arity.UNARY, Source.LITERAL, null),
-    STARTS_WITH("starts with", Category.STRING, Arity.BINARY, Source.LITERAL, "starts with"),
-    STARTS_WITH_IGNORE_CASE(
-            "starts with (ignore case)",
-            Category.STRING,
-            Arity.BINARY,
-            Source.LITERAL,
-            "starts with (ignore case)"),
-    CONTAINS("contains", Category.STRING, Arity.BINARY, Source.LITERAL, "contains"),
-    MATCHES("matches", Category.STRING, Arity.BINARY, Source.LITERAL, "matches"),
-    UPPER_CASE("is uppercase", Category.STRING, Arity.UNARY, Source.LITERAL, null),
-    LOWER_CASE("is lowercase", Category.STRING, Arity.UNARY, Source.LITERAL, null),
-    ENDS_WITH("ends with", Category.STRING, Arity.BINARY, Source.LITERAL, "ends with"),
-    ENDS_WITH_IGNORE_CASE(
-            "ends with (ignore case)",
-            Category.STRING,
-            Arity.BINARY,
-            Source.LITERAL,
-            "ends with (ignore case)"),
+    EQUAL("==", Category.EQUALITY, Arity.BINARY, Source.LITERAL),
+    NOT_EQUAL("!=", Category.EQUALITY, Arity.BINARY, Source.LITERAL),
 
-    LENGTH_EQUAL("length ==", Category.STRING_LENGTH, Arity.BINARY, Source.LITERAL, "length =="),
-    LENGTH_GREATER_OR_EQUAL(
-            "length >=", Category.STRING_LENGTH, Arity.BINARY, Source.LITERAL, "length >="),
-    LENGTH_LESS_OR_EQUAL(
-            "length <=", Category.STRING_LENGTH, Arity.BINARY, Source.LITERAL, "length <="),
+    // ==================== Numeric (literal) ====================
 
-    NOT_EMPTY("is not empty", Category.COLLECTION, Arity.UNARY, Source.LITERAL, null),
-    COLLECTION_UNIQUE(
-            "has unique elements", Category.COLLECTION, Arity.UNARY, Source.LITERAL, null),
-    COLLECTION_SIZE_EQUAL(
-            "size ==", Category.COLLECTION_SIZE, Arity.BINARY, Source.LITERAL, "size =="),
-    COLLECTION_SIZE_GREATER_OR_EQUAL(
-            "size >=", Category.COLLECTION_SIZE, Arity.BINARY, Source.LITERAL, "size >="),
-    COLLECTION_SIZE_LESS_OR_EQUAL(
-            "size <=", Category.COLLECTION_SIZE, Arity.BINARY, Source.LITERAL, "size <="),
+    GREATER_THAN(">", Category.NUMERIC, Arity.BINARY, Source.LITERAL),
+    GREATER_OR_EQUAL(">=", Category.NUMERIC, Arity.BINARY, Source.LITERAL),
+    LESS_THAN("<", Category.NUMERIC, Arity.BINARY, Source.LITERAL),
+    LESS_OR_EQUAL("<=", Category.NUMERIC, Arity.BINARY, Source.LITERAL),
 
-    FIELD_LESS_THAN("< [field]", Category.NUMERIC, Arity.BINARY, Source.FIELD, "<"),
-    FIELD_LESS_OR_EQUAL("<= [field]", Category.NUMERIC, Arity.BINARY, Source.FIELD, "<="),
-    FIELD_GREATER_THAN("> [field]", Category.NUMERIC, Arity.BINARY, Source.FIELD, ">"),
-    FIELD_GREATER_OR_EQUAL(">= [field]", Category.NUMERIC, Arity.BINARY, Source.FIELD, ">="),
-    FIELD_EQUAL("== [field]", Category.EQUALITY, Arity.BINARY, Source.FIELD, "=="),
-    FIELD_NOT_EQUAL("!= [field]", Category.EQUALITY, Arity.BINARY, Source.FIELD, "!="),
-    FIELD_SIZE_EQUAL(
-            "size == [field]", Category.COLLECTION_SIZE, Arity.BINARY, Source.FIELD, "size ==");
+    // ==================== String ====================
+
+    NOT_BLANK("is not blank", Category.STRING, Arity.UNARY, Source.LITERAL),
+    STARTS_WITH("starts with", Category.STRING, Arity.BINARY, Source.LITERAL),
+    CONTAINS("contains", Category.STRING, Arity.BINARY, Source.LITERAL),
+    MATCHES("matches", Category.STRING, Arity.BINARY, Source.LITERAL),
+    UPPER_CASE("is uppercase", Category.STRING, Arity.UNARY, Source.LITERAL),
+    LOWER_CASE("is lowercase", Category.STRING, Arity.UNARY, Source.LITERAL),
+
+    // ==================== Collection ====================
+
+    NOT_EMPTY("is not empty", Category.COLLECTION, Arity.UNARY, Source.LITERAL),
+    COLLECTION_UNIQUE("has unique elements", Category.COLLECTION, Arity.UNARY, Source.LITERAL),
+
+    // ==================== Cross-field comparison ====================
+
+    FIELD_LESS_THAN("<", Category.NUMERIC, Arity.BINARY, Source.FIELD),
+    FIELD_LESS_OR_EQUAL("<=", Category.NUMERIC, Arity.BINARY, Source.FIELD),
+    FIELD_GREATER_THAN(">", Category.NUMERIC, Arity.BINARY, Source.FIELD),
+    FIELD_GREATER_OR_EQUAL(">=", Category.NUMERIC, Arity.BINARY, Source.FIELD);
 
     public enum Category {
         EQUALITY,
         NUMERIC,
         STRING,
-        STRING_LENGTH,
-        COLLECTION,
-        COLLECTION_SIZE
+        COLLECTION
     }
 
     public enum Arity {
@@ -94,34 +78,4 @@ public enum ConditionOperator {
     private final Category category;
     private final Arity arity;
     private final Source source;
-    private final String displaySymbol;
-
-    ConditionOperator(
-            String symbol, Category category, Arity arity, Source source, String displaySymbol) {
-        this.symbol = symbol;
-        this.category = category;
-        this.arity = arity;
-        this.source = source;
-        this.displaySymbol = displaySymbol;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public Category getCategory() {
-        return category;
-    }
-
-    public Arity getArity() {
-        return arity;
-    }
-
-    public Source getSource() {
-        return source;
-    }
-
-    public String getDisplaySymbol() {
-        return displaySymbol;
-    }
 }

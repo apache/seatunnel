@@ -111,8 +111,8 @@ Beyond structural rules (required, exclusive, etc.), options can carry **value-l
 ```java
 OptionRule.builder()
         .required(PORT,
-                Condition.greaterOrEqual(PORT, 1)
-                        .and(Condition.lessOrEqual(PORT, 65535)))
+                Conditions.greaterOrEqual(PORT, 1)
+                        .and(Conditions.lessOrEqual(PORT, 65535)))
         .build();
 ```
 
@@ -120,7 +120,7 @@ OptionRule.builder()
 
 ```java
 OptionRule.builder()
-        .required(HOST, Condition.notBlank(HOST))
+        .required(HOST, Conditions.notBlank(HOST))
         .optional(DB_NAME, Condition.upperCase(DB_NAME))
         .build();
 ```
@@ -139,8 +139,8 @@ OptionRule.builder()
 ```java
 OptionRule.builder()
         .required(TABLES,
-                Condition.notEmpty(TABLES)
-                        .and(Condition.unique(TABLES)))
+                Conditions.notEmpty(TABLES)
+                        .and(Conditions.unique(TABLES)))
         .build();
 ```
 
@@ -259,8 +259,8 @@ Port numbers, batch sizes, ratios, and similar numeric fields often have valid r
 
 ```java
 .required(PORT,
-        Condition.greaterOrEqual(PORT, 1)
-                .and(Condition.lessOrEqual(PORT, 65535)))
+        Conditions.greaterOrEqual(PORT, 1)
+                .and(Conditions.lessOrEqual(PORT, 65535)))
 ```
 
 ### String format and content
@@ -268,9 +268,9 @@ Port numbers, batch sizes, ratios, and similar numeric fields often have valid r
 Host names that must not be blank, identifiers that must be uppercase, or endpoints that must match a pattern.
 
 ```java
-.required(HOST, Condition.notBlank(HOST))
+.required(HOST, Conditions.notBlank(HOST))
 .required(DATABASE, Condition.upperCase(DATABASE))
-.required(ENDPOINT, Condition.matches(ENDPOINT, "^[^:]+:\\d+$"))
+.required(ENDPOINT, Conditions.matches(ENDPOINT, "^[^:]+:\\d+$"))
 ```
 
 ### Cross-field comparison
@@ -288,8 +288,8 @@ Lists that must not be empty, or whose elements must be unique.
 
 ```java
 .required(TABLES,
-        Condition.notEmpty(TABLES)
-                .and(Condition.unique(TABLES)))
+        Conditions.notEmpty(TABLES)
+                .and(Conditions.unique(TABLES)))
 ```
 
 ### Compound constraints
@@ -298,8 +298,8 @@ Multiple conditions combined with `.and(...)` or `.or(...)`.
 
 ```java
 .required(RATIO,
-        Condition.greaterThan(RATIO, 0.0)
-                .and(Condition.lessOrEqual(RATIO, 1.0)))
+        Conditions.greaterThan(RATIO, 0.0)
+                .and(Conditions.lessOrEqual(RATIO, 1.0)))
 ```
 
 ## Why It Matters For Operators

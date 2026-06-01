@@ -134,6 +134,8 @@ Please refer [security](security.md)
           "expectValue": 1,
           "compareOperator": ">=",
           "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
           "operator": null,
           "next": null
         }
@@ -148,8 +150,9 @@ Please refer [security](security.md)
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
-- `optionRule.valueConstraints` exposes value-level validation rules (e.g. numeric ranges, string patterns, cross-field comparisons). Each entry contains a human-readable `expression` string and a structured `conditionTree`. The array is empty or `null` when the connector does not define value constraints.
-- In `conditionTree`, `compareOperator` (e.g. `>=`, `<`, `>`) and `compareOption` are present for numeric and cross-field comparisons. For equality checks and non-comparison conditions these fields are `null`.
+- `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
+- Within `conditionTree`, the `compareOperator` field (e.g. `>=`, `<`, `>`) and `compareOption` field are populated for numeric and cross-field comparisons. For equality checks and other non-comparison conditions, these fields are `null`.
+- The `conditionOperator` field provides a stable, machine-readable operator identifier (e.g. `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`), while `conditionOperatorCategory` indicates the operator's category (e.g. `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`). These two fields are designed for programmatic consumption by frontend applications and automation tools.
 
 </details>
 

@@ -30,6 +30,12 @@
   }
   ```
 
+- **破坏性变更：`Condition.of(option, null)` 不再允许**
+  - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
+  - **变更说明**：`Condition` 构造器新增校验：二元字面量操作符（如 `EQUAL`、`NOT_EQUAL`、`GREATER_THAN` 等）的 `expectValue` 不能为 null。此前 `Condition.of(option, null)` 会被静默接受，现在会在构造时抛出 `IllegalArgumentException`。
+  - **影响**：主仓库中没有任何生产代码使用 `Condition.of(option, null)`，实际影响为零。但如果自定义或第三方连接器代码依赖了这一用法，则需要修改。
+  - **迁移指南**：如需检测某个 option 是否缺省或未配置，请使用 `Condition.notBlank(option)`（针对字符串类型）或在 `OptionRule.Builder` 层面使用 `optional(...)` 来处理缺失情况，而不是将 `null` 作为期望值传入。
+
 ### 配置变更
 
 ### 连接器变更

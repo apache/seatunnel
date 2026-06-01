@@ -189,33 +189,66 @@ public class ConfigValidator {
             }
         }
 
+        List<Condition<?>> failedConstraints = new ArrayList<>();
         for (Condition<?> constraint : rule.getValueConstraints()) {
-            validate(constraint, rule);
-        }
-    }
-
-    void validate(Condition<?> constraint, OptionRule rule) {
-        if (!isConstraintApplicable(constraint, rule)) {
-            return;
-        }
-        if (!validate(constraint)) {
-            throw new OptionValidationException(
-                    "Option validation failed: %s", constraint.toString());
-        }
-    }
-
-    private boolean isConstraintApplicable(Condition<?> condition, OptionRule rule) {
-        Option<?> option = condition.getOption();
-        if (hasOption(option)) {
-            return true;
-        }
-        for (RequiredOption requiredOption : rule.getRequiredOptions()) {
-            if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions
-                    && requiredOption.getOptions().contains(option)) {
-                return true;
+            if (isConstraintApplicable(constraint, rule) && !validate(constraint)) {
+                failedConstraints.add(constraint);
             }
         }
-        return false;
+        if (!failedConstraints.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(
+                    String.format(
+                            "Option validation failed (%d error%s):",
+                            failedConstraints.size(), failedConstraints.size() > 1 ? "s" : ""));
+            for (int i = 0; i < failedConstraints.size(); i++) {
+                Condition<?> c = failedConstraints.get(i);
+                sb.append(
+                        String.format(
+                                "\n  [%d] option: %s\n      constraint: %s",
+                                i + 1, c.getOption().key(), c.toString()));
+            }
+            throw new OptionValidationException(sb.toString());
+        }
+    }
+
+    /**
+     * Determines whether a value constraint should be evaluated. Walks the entire condition chain
+     * (including compareOption for cross-field operators) and collects all referenced options.
+     *
+     * <p>If any referenced option is absolutely required, the constraint is always applicable. For
+     * optional constraints, ALL referenced options must be present — this prevents false-positive
+     * violations when only a subset of cross-field options is provided.
+     */
+    private boolean isConstraintApplicable(Condition<?> condition, OptionRule rule) {
+        Set<Option<?>> allOptions = collectAllConditionOptions(condition);
+        for (Option<?> opt : allOptions) {
+            for (RequiredOption requiredOption : rule.getRequiredOptions()) {
+                if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions
+                        && requiredOption.getOptions().contains(opt)) {
+                    return true;
+                }
+            }
+        }
+        for (Option<?> opt : allOptions) {
+            if (!hasOption(opt)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Set<Option<?>> collectAllConditionOptions(Condition<?> condition) {
+        Set<Option<?>> options = new HashSet<>();
+        Condition<?> cur = condition;
+        while (cur != null) {
+            options.add(cur.getOption());
+            if (cur.getCompareOption() != null) {
+                options.add(cur.getCompareOption());
+            }
+            cur = cur.hasNext() ? cur.getNext() : null;
+        }
+        return options;
     }
 
     void validateSingleChoice(Option option) {

@@ -33,6 +33,22 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
+import static org.apache.seatunnel.api.configuration.util.Conditions.contains;
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqualField;
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThanField;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqualField;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessThanField;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lowerCase;
+import static org.apache.seatunnel.api.configuration.util.Conditions.matches;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notEmpty;
+import static org.apache.seatunnel.api.configuration.util.Conditions.startsWith;
+import static org.apache.seatunnel.api.configuration.util.Conditions.unique;
+import static org.apache.seatunnel.api.configuration.util.Conditions.upperCase;
 import static org.apache.seatunnel.api.configuration.util.OptionRuleTest.TEST_PORTS;
 import static org.apache.seatunnel.api.configuration.util.OptionRuleTest.TEST_TIMESTAMP;
 import static org.apache.seatunnel.api.configuration.util.OptionRuleTest.TEST_TOPIC;
@@ -446,13 +462,15 @@ public class ConfigValidatorTest {
                     .defaultValue("default")
                     .withDescription("file name expression");
 
+    public static final Option<String> MODE =
+            Options.key("mode").stringType().defaultValue("batch").withDescription("run mode");
+
     public static final Option<List<String>> TAGS =
             Options.key("tags").listType().noDefaultValue().withDescription("tag list");
 
     @Test
     public void testGreaterThanValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(PORT, Condition.greaterThan(PORT, 0)).build();
+        OptionRule rule = OptionRule.builder().required(PORT, greaterThan(PORT, 0)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(PORT.key(), 8080);
@@ -467,8 +485,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testGreaterOrEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(PORT, Condition.greaterOrEqual(PORT, 0)).build();
+        OptionRule rule = OptionRule.builder().required(PORT, greaterOrEqual(PORT, 0)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(PORT.key(), 0);
@@ -485,10 +502,7 @@ public class ConfigValidatorTest {
     public void testRangeValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(
-                                PORT,
-                                Condition.greaterOrEqual(PORT, 1)
-                                        .and(Condition.lessOrEqual(PORT, 65535)))
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -512,10 +526,7 @@ public class ConfigValidatorTest {
     public void testHalfOpenIntervalValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(
-                                RATIO,
-                                Condition.greaterThan(RATIO, 0.0)
-                                        .and(Condition.lessOrEqual(RATIO, 1.0)))
+                        .required(RATIO, greaterThan(RATIO, 0.0).and(lessOrEqual(RATIO, 1.0)))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -534,7 +545,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testNotBlankValidation() {
-        OptionRule rule = OptionRule.builder().required(HOST, Condition.notBlank(HOST)).build();
+        OptionRule rule = OptionRule.builder().required(HOST, notBlank(HOST)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(HOST.key(), "localhost");
@@ -551,7 +562,7 @@ public class ConfigValidatorTest {
     public void testStartsWithValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(ENDPOINT, Condition.startsWith(ENDPOINT, "jdbc:databend://"))
+                        .required(ENDPOINT, startsWith(ENDPOINT, "jdbc:databend://"))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -563,30 +574,10 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testStartsWithIgnoreCaseValidation() {
-        Option<String> WHERE =
-                Options.key("where").stringType().noDefaultValue().withDescription("where clause");
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(WHERE, Condition.startsWithIgnoreCase(WHERE, "where"))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(WHERE.key(), "WHERE id > 10");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(WHERE.key(), "where name = 'test'");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(WHERE.key(), "SELECT * FROM t");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
     public void testContainsValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .optional(FILE_EXPR, Condition.contains(FILE_EXPR, "#{transactionId}"))
+                        .optional(FILE_EXPR, contains(FILE_EXPR, "#{transactionId}"))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -600,9 +591,7 @@ public class ConfigValidatorTest {
     @Test
     public void testMatchesValidation() {
         OptionRule rule =
-                OptionRule.builder()
-                        .required(ENDPOINT, Condition.matches(ENDPOINT, "^[^:]+:\\d+$"))
-                        .build();
+                OptionRule.builder().required(ENDPOINT, matches(ENDPOINT, "^[^:]+:\\d+$")).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(ENDPOINT.key(), "localhost:8080");
@@ -614,8 +603,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testUpperCaseValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(DB_NAME, Condition.upperCase(DB_NAME)).build();
+        OptionRule rule = OptionRule.builder().required(DB_NAME, upperCase(DB_NAME)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(DB_NAME.key(), "ORACLE_DB");
@@ -627,8 +615,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testLowerCaseValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(DB_NAME, Condition.lowerCase(DB_NAME)).build();
+        OptionRule rule = OptionRule.builder().required(DB_NAME, lowerCase(DB_NAME)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(DB_NAME.key(), "my_database");
@@ -639,25 +626,10 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testLengthEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(DELIMITER, Condition.lengthEqual(DELIMITER, 1))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(DELIMITER.key(), ",");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(DELIMITER.key(), "||");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
     public void testCrossFieldComparison() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -678,7 +650,7 @@ public class ConfigValidatorTest {
     public void testCrossFieldLessOrEqual() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(START_TS, END_TS, Condition.lessOrEqualField(START_TS, END_TS))
+                        .required(START_TS, END_TS, lessOrEqualField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -697,7 +669,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testNotEmptyCollectionValidation() {
-        OptionRule rule = OptionRule.builder().required(TAGS, Condition.notEmpty(TAGS)).build();
+        OptionRule rule = OptionRule.builder().required(TAGS, notEmpty(TAGS)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(TAGS.key(), Arrays.asList("tag1", "tag2"));
@@ -709,7 +681,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testUniqueCollectionValidation() {
-        OptionRule rule = OptionRule.builder().required(TAGS, Condition.unique(TAGS)).build();
+        OptionRule rule = OptionRule.builder().required(TAGS, unique(TAGS)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
@@ -723,7 +695,7 @@ public class ConfigValidatorTest {
     public void testOrChainAtLeastOneNotBlank() {
         OptionRule rule =
                 OptionRule.builder()
-                        .optional(HOST, Condition.notBlank(HOST).or(Condition.notBlank(ENDPOINT)))
+                        .optional(HOST, notBlank(HOST).or(notBlank(ENDPOINT)))
                         .optional(ENDPOINT)
                         .build();
 
@@ -744,9 +716,7 @@ public class ConfigValidatorTest {
     @Test
     public void testValidationSkippedForAbsentOptional() {
         OptionRule rule =
-                OptionRule.builder()
-                        .optional(ENDPOINT, Condition.matches(ENDPOINT, "^[^:]+:\\d+$"))
-                        .build();
+                OptionRule.builder().optional(ENDPOINT, matches(ENDPOINT, "^[^:]+:\\d+$")).build();
 
         Map<String, Object> config = new HashMap<>();
         Assertions.assertDoesNotThrow(() -> validate(config, rule));
@@ -754,28 +724,23 @@ public class ConfigValidatorTest {
 
     @Test
     public void testConditionToString() {
-        assertEquals("'port' > 0", Condition.greaterThan(PORT, 0).toString());
+        assertEquals("'port' > 0", greaterThan(PORT, 0).toString());
         assertEquals(
                 "'port' >= 1 && 'port' <= 65535",
-                Condition.greaterOrEqual(PORT, 1)
-                        .and(Condition.lessOrEqual(PORT, 65535))
-                        .toString());
-        assertEquals("'host' is not blank", Condition.notBlank(HOST).toString());
-        assertEquals("'start_ts' < 'end_ts'", Condition.lessThanField(START_TS, END_TS).toString());
-        assertEquals("'db_name' is uppercase", Condition.upperCase(DB_NAME).toString());
-        assertEquals("'tags' has unique elements", Condition.unique(TAGS).toString());
+                greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)).toString());
+        assertEquals("'host' is not blank", notBlank(HOST).toString());
+        assertEquals("'start_ts' < 'end_ts'", lessThanField(START_TS, END_TS).toString());
+        assertEquals("'db_name' is uppercase", upperCase(DB_NAME).toString());
+        assertEquals("'tags' has unique elements", unique(TAGS).toString());
     }
 
     @Test
     public void testMultipleValidationRules() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(
-                                PORT,
-                                Condition.greaterOrEqual(PORT, 1)
-                                        .and(Condition.lessOrEqual(PORT, 65535)))
-                        .required(HOST, Condition.notBlank(HOST))
-                        .required(DB_NAME, Condition.upperCase(DB_NAME))
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
+                        .required(HOST, notBlank(HOST))
+                        .required(DB_NAME, upperCase(DB_NAME))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -819,158 +784,11 @@ public class ConfigValidatorTest {
         assertThrows(OptionValidationException.class, () -> validate(config, rule));
     }
 
-    // ==================== New Operator Tests ====================
-
-    @Test
-    public void testEndsWithValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(ENDPOINT, Condition.endsWith(ENDPOINT, "/v0"))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(ENDPOINT.key(), "https://api.airtable.com/v0");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(ENDPOINT.key(), "https://api.airtable.com/v1");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testEndsWithIgnoreCaseValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(ENDPOINT, Condition.endsWithIgnoreCase(ENDPOINT, ".csv"))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(ENDPOINT.key(), "data.CSV");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(ENDPOINT.key(), "data.csv");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(ENDPOINT.key(), "data.json");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testCollectionSizeEqual() {
-        OptionRule rule = OptionRule.builder().required(TAGS, Condition.sizeEqual(TAGS, 3)).build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testCollectionSizeFixedOne() {
-        OptionRule rule = OptionRule.builder().required(TAGS, Condition.sizeEqual(TAGS, 1)).build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Collections.singletonList("only_one"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    public static final Option<List<String>> COLLECTIONS =
-            Options.key("collections")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("collection list");
-
-    @Test
-    public void testFieldSizeEqual() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(TAGS, COLLECTIONS, Condition.sizeEqualField(TAGS, COLLECTIONS))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
-        config.put(COLLECTIONS.key(), Arrays.asList("x", "y", "z"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(COLLECTIONS.key(), Arrays.asList("x", "y"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    public static final Option<String> SCHEMA_TABLE =
-            Options.key("schema_table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("schema table name");
-
-    public static final Option<String> COLLECTION_NAME =
-            Options.key("collection_name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("collection name");
-
-    @Test
-    public void testFieldEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(
-                                SCHEMA_TABLE,
-                                COLLECTION_NAME,
-                                Condition.equalField(SCHEMA_TABLE, COLLECTION_NAME))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(SCHEMA_TABLE.key(), "db.users");
-        config.put(COLLECTION_NAME.key(), "db.users");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(COLLECTION_NAME.key(), "db.orders");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testFieldNotEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(
-                                SCHEMA_TABLE,
-                                COLLECTION_NAME,
-                                Condition.notEqualField(SCHEMA_TABLE, COLLECTION_NAME))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(SCHEMA_TABLE.key(), "source_db");
-        config.put(COLLECTION_NAME.key(), "target_db");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(COLLECTION_NAME.key(), "source_db");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testNewOperatorToString() {
-        assertEquals("'endpoint' ends with /v0", Condition.endsWith(ENDPOINT, "/v0").toString());
-        assertEquals("'tags' size == 3", Condition.sizeEqual(TAGS, 3).toString());
-        assertEquals(
-                "'tags' size == 'collections'",
-                Condition.sizeEqualField(TAGS, COLLECTIONS).toString());
-        assertEquals(
-                "'schema_table' == 'collection_name'",
-                Condition.equalField(SCHEMA_TABLE, COLLECTION_NAME).toString());
-        assertEquals(
-                "'schema_table' != 'collection_name'",
-                Condition.notEqualField(SCHEMA_TABLE, COLLECTION_NAME).toString());
-    }
-
     // ==================== Missing Operator Coverage ====================
 
     @Test
     public void testLessThanValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(PORT, Condition.lessThan(PORT, 100)).build();
+        OptionRule rule = OptionRule.builder().required(PORT, lessThan(PORT, 100)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(PORT.key(), 50);
@@ -987,96 +805,10 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testLengthGreaterOrEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(HOST, Condition.lengthGreaterOrEqual(HOST, 3))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(HOST.key(), "abc");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(HOST.key(), "localhost");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(HOST.key(), "ab");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testLengthLessOrEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(DELIMITER, Condition.lengthLessOrEqual(DELIMITER, 2))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(DELIMITER.key(), ",");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(DELIMITER.key(), "||");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(DELIMITER.key(), "|||");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testLengthRangeValidation() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(
-                                HOST,
-                                Condition.lengthGreaterOrEqual(HOST, 1)
-                                        .and(Condition.lengthLessOrEqual(HOST, 255)))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(HOST.key(), "a");
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(HOST.key(), "");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testCollectionSizeGreaterOrEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(TAGS, Condition.sizeGreaterOrEqual(TAGS, 2)).build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a", "b"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Collections.singletonList("a"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testCollectionSizeLessOrEqualValidation() {
-        OptionRule rule =
-                OptionRule.builder().required(TAGS, Condition.sizeLessOrEqual(TAGS, 3)).build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c", "d"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
     public void testFieldGreaterThanValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(END_TS, START_TS, Condition.greaterThanField(END_TS, START_TS))
+                        .required(END_TS, START_TS, greaterThanField(END_TS, START_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1097,7 +829,7 @@ public class ConfigValidatorTest {
     public void testFieldGreaterOrEqualValidation() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(END_TS, START_TS, Condition.greaterOrEqualField(END_TS, START_TS))
+                        .required(END_TS, START_TS, greaterOrEqualField(END_TS, START_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1124,7 +856,7 @@ public class ConfigValidatorTest {
                         .conditional(
                                 TEST_MODE,
                                 OptionTest.TestMode.TIMESTAMP,
-                                Condition.greaterThan(TEST_TIMESTAMP, 0L))
+                                greaterThan(TEST_TIMESTAMP, 0L))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1151,11 +883,7 @@ public class ConfigValidatorTest {
                 OptionRule.builder()
                         .optional(ENABLE_TX)
                         .conditional(
-                                ENABLE_TX,
-                                true,
-                                START_TS,
-                                END_TS,
-                                Condition.lessThanField(START_TS, END_TS))
+                                ENABLE_TX, true, START_TS, END_TS, lessThanField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1174,8 +902,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testOptionalWithValueConstraint() {
-        OptionRule rule =
-                OptionRule.builder().optional(PORT, Condition.greaterOrEqual(PORT, 1)).build();
+        OptionRule rule = OptionRule.builder().optional(PORT, greaterOrEqual(PORT, 1)).build();
 
         Map<String, Object> config = new HashMap<>();
         Assertions.assertDoesNotThrow(() -> validate(config, rule));
@@ -1191,7 +918,7 @@ public class ConfigValidatorTest {
     public void testOptionalWithMultiFieldConstraint() {
         OptionRule rule =
                 OptionRule.builder()
-                        .optional(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1206,14 +933,10 @@ public class ConfigValidatorTest {
         assertThrows(OptionValidationException.class, () -> validate(config, rule));
     }
 
-    // ==================== Condition Chain Coverage ====================
-
     @Test
     public void testNotEmptyAndUniqueChain() {
         OptionRule rule =
-                OptionRule.builder()
-                        .required(TAGS, Condition.notEmpty(TAGS).and(Condition.unique(TAGS)))
-                        .build();
+                OptionRule.builder().required(TAGS, notEmpty(TAGS).and(unique(TAGS))).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
@@ -1226,119 +949,49 @@ public class ConfigValidatorTest {
         assertThrows(OptionValidationException.class, () -> validate(config, rule));
     }
 
-    @Test
-    public void testCollectionSizeRangeChain() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(
-                                TAGS,
-                                Condition.sizeGreaterOrEqual(TAGS, 1)
-                                        .and(Condition.sizeLessOrEqual(TAGS, 5)))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c", "d", "e"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Collections.emptyList());
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("1", "2", "3", "4", "5", "6"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
-    @Test
-    public void testMultipleConditionsVarargs() {
-        OptionRule rule =
-                OptionRule.builder()
-                        .required(
-                                TAGS,
-                                Condition.notEmpty(TAGS),
-                                Condition.unique(TAGS),
-                                Condition.sizeLessOrEqual(TAGS, 10))
-                        .build();
-
-        Map<String, Object> config = new HashMap<>();
-        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
-        Assertions.assertDoesNotThrow(() -> validate(config, rule));
-
-        config.put(TAGS.key(), Collections.emptyList());
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-
-        config.put(TAGS.key(), Arrays.asList("a", "a"));
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
-    }
-
     // ==================== toString Coverage for All Operators ====================
 
     @Test
     public void testAllOperatorToString() {
-        assertEquals("'port' < 100", Condition.lessThan(PORT, 100).toString());
-        assertEquals("'port' <= 100", Condition.lessOrEqual(PORT, 100).toString());
-        assertEquals("'port' > 0", Condition.greaterThan(PORT, 0).toString());
-        assertEquals("'port' >= 0", Condition.greaterOrEqual(PORT, 0).toString());
-        assertEquals("'host' is not blank", Condition.notBlank(HOST).toString());
-        assertEquals(
-                "'endpoint' starts with jdbc:", Condition.startsWith(ENDPOINT, "jdbc:").toString());
-        assertEquals(
-                "'endpoint' starts with (ignore case) jdbc:",
-                Condition.startsWithIgnoreCase(ENDPOINT, "jdbc:").toString());
-        assertEquals("'endpoint' ends with .csv", Condition.endsWith(ENDPOINT, ".csv").toString());
-        assertEquals(
-                "'endpoint' ends with (ignore case) .csv",
-                Condition.endsWithIgnoreCase(ENDPOINT, ".csv").toString());
-        assertEquals("'endpoint' contains ://", Condition.contains(ENDPOINT, "://").toString());
-        assertEquals("'endpoint' matches ^\\d+$", Condition.matches(ENDPOINT, "^\\d+$").toString());
-        assertEquals("'db_name' is uppercase", Condition.upperCase(DB_NAME).toString());
-        assertEquals("'db_name' is lowercase", Condition.lowerCase(DB_NAME).toString());
-        assertEquals("'delimiter' length == 1", Condition.lengthEqual(DELIMITER, 1).toString());
-        assertEquals("'host' length >= 3", Condition.lengthGreaterOrEqual(HOST, 3).toString());
-        assertEquals("'host' length <= 255", Condition.lengthLessOrEqual(HOST, 255).toString());
-        assertEquals("'tags' is not empty", Condition.notEmpty(TAGS).toString());
-        assertEquals("'tags' has unique elements", Condition.unique(TAGS).toString());
-        assertEquals("'tags' size == 3", Condition.sizeEqual(TAGS, 3).toString());
-        assertEquals("'tags' size >= 1", Condition.sizeGreaterOrEqual(TAGS, 1).toString());
-        assertEquals("'tags' size <= 10", Condition.sizeLessOrEqual(TAGS, 10).toString());
-        assertEquals("'start_ts' < 'end_ts'", Condition.lessThanField(START_TS, END_TS).toString());
-        assertEquals(
-                "'start_ts' <= 'end_ts'", Condition.lessOrEqualField(START_TS, END_TS).toString());
-        assertEquals(
-                "'end_ts' > 'start_ts'", Condition.greaterThanField(END_TS, START_TS).toString());
-        assertEquals(
-                "'end_ts' >= 'start_ts'",
-                Condition.greaterOrEqualField(END_TS, START_TS).toString());
-        assertEquals(
-                "'schema_table' == 'collection_name'",
-                Condition.equalField(SCHEMA_TABLE, COLLECTION_NAME).toString());
-        assertEquals(
-                "'schema_table' != 'collection_name'",
-                Condition.notEqualField(SCHEMA_TABLE, COLLECTION_NAME).toString());
-        assertEquals(
-                "'tags' size == 'collections'",
-                Condition.sizeEqualField(TAGS, COLLECTIONS).toString());
+        // Core operators
+        assertEquals("'port' < 100", lessThan(PORT, 100).toString());
+        assertEquals("'port' <= 100", lessOrEqual(PORT, 100).toString());
+        assertEquals("'port' > 0", greaterThan(PORT, 0).toString());
+        assertEquals("'port' >= 0", greaterOrEqual(PORT, 0).toString());
+        assertEquals("'host' is not blank", notBlank(HOST).toString());
+        assertEquals("'endpoint' starts with jdbc:", startsWith(ENDPOINT, "jdbc:").toString());
+        assertEquals("'endpoint' matches ^\\d+$", matches(ENDPOINT, "^\\d+$").toString());
+        assertEquals("'tags' is not empty", notEmpty(TAGS).toString());
+        assertEquals("'tags' has unique elements", unique(TAGS).toString());
+
+        // Extended operators
+        assertEquals("'endpoint' contains ://", contains(ENDPOINT, "://").toString());
+        assertEquals("'db_name' is uppercase", upperCase(DB_NAME).toString());
+        assertEquals("'db_name' is lowercase", lowerCase(DB_NAME).toString());
+        assertEquals("'start_ts' < 'end_ts'", lessThanField(START_TS, END_TS).toString());
+        assertEquals("'start_ts' <= 'end_ts'", lessOrEqualField(START_TS, END_TS).toString());
+        assertEquals("'end_ts' > 'start_ts'", greaterThanField(END_TS, START_TS).toString());
+        assertEquals("'end_ts' >= 'start_ts'", greaterOrEqualField(END_TS, START_TS).toString());
     }
 
     @Test
     public void testCircularConditionChainDetected() {
-        Condition<Integer> a = Condition.greaterThan(PORT, 0);
+        Condition<Integer> a = greaterThan(PORT, 0);
         assertThrows(IllegalArgumentException.class, () -> a.and(a));
     }
 
     @Test
     public void testCircularConditionChainIndirect() {
-        Condition<Integer> a = Condition.greaterThan(PORT, 0);
-        Condition<Integer> b = Condition.lessThan(PORT, 100);
+        Condition<Integer> a = greaterThan(PORT, 0);
+        Condition<Integer> b = lessThan(PORT, 100);
         a.and(b);
         assertThrows(IllegalArgumentException.class, () -> b.and(a));
     }
 
     @Test
     public void testCircularConditionChainDuplicateAppend() {
-        Condition<Integer> a = Condition.greaterThan(PORT, 0);
-        Condition<Integer> b = Condition.lessThan(PORT, 100);
+        Condition<Integer> a = greaterThan(PORT, 0);
+        Condition<Integer> b = lessThan(PORT, 100);
         a.and(b);
         assertThrows(IllegalArgumentException.class, () -> a.and(b));
     }
@@ -1366,8 +1019,8 @@ public class ConfigValidatorTest {
     public void testUnknownKeysDoesNotRejectValueConstraintOptions() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(PORT, Condition.greaterOrEqual(PORT, 1))
-                        .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .required(PORT, greaterOrEqual(PORT, 1))
+                        .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1383,8 +1036,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testUnknownKeysRejectsUndeclaredKey() {
-        OptionRule rule =
-                OptionRule.builder().required(PORT, Condition.greaterOrEqual(PORT, 1)).build();
+        OptionRule rule = OptionRule.builder().required(PORT, greaterOrEqual(PORT, 1)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(PORT.key(), 8080);
@@ -1401,10 +1053,7 @@ public class ConfigValidatorTest {
     public void testUnknownKeysRecognizesChainedConditionOptions() {
         OptionRule rule =
                 OptionRule.builder()
-                        .required(
-                                PORT,
-                                Condition.greaterOrEqual(PORT, 1)
-                                        .and(Condition.lessOrEqual(PORT, 65535)))
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1423,7 +1072,7 @@ public class ConfigValidatorTest {
 
         OptionRule rule =
                 OptionRule.builder()
-                        .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+                        .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
                         .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -1441,9 +1090,7 @@ public class ConfigValidatorTest {
         long bigValue = Long.MAX_VALUE - 1;
 
         OptionRule rule =
-                OptionRule.builder()
-                        .required(START_TS, Condition.lessThan(START_TS, Long.MAX_VALUE))
-                        .build();
+                OptionRule.builder().required(START_TS, lessThan(START_TS, Long.MAX_VALUE)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(START_TS.key(), bigValue);
@@ -1451,5 +1098,664 @@ public class ConfigValidatorTest {
 
         config.put(START_TS.key(), Long.MAX_VALUE);
         assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testOptionalCrossFieldOnlyStartPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOptionalCrossFieldOnlyEndPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOrChainNumericNullWithStringFallback() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        // PORT absent, HOST present -> or chain should pass
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "localhost");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // PORT present and valid, HOST absent -> pass
+        config.clear();
+        config.put(PORT.key(), 8080);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // PORT present but invalid, HOST present -> or chain second branch saves it
+        config.clear();
+        config.put(PORT.key(), 0);
+        config.put(HOST.key(), "localhost");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // PORT present but invalid, HOST blank -> both branches fail
+        config.clear();
+        config.put(PORT.key(), 0);
+        config.put(HOST.key(), "");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testOrChainAllOptionalAllAbsent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testNumericTypeMismatchIntVsLong() {
+        OptionRule rule =
+                OptionRule.builder().required(START_TS, greaterThan(START_TS, 0L)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), 0L);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testNumericTypeMismatchDoubleVsInt() {
+        OptionRule rule = OptionRule.builder().required(RATIO, lessOrEqual(RATIO, 100.0)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        // Integer in config vs Double in constraint (parser may return Integer for whole numbers)
+        config.put(RATIO.key(), 50);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(RATIO.key(), 100);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // Double in config vs Double in constraint (fractional values)
+        config.put(RATIO.key(), 50.5);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(RATIO.key(), 100.0);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(RATIO.key(), 100.1);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        // Integer exceeding constraint
+        config.put(RATIO.key(), 101);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testConditionalNestedValueConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(
+                                MODE, "stream", START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        // Mode is "stream", both timestamps present and valid
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // Mode is "stream", timestamps violate constraint
+        config.put(START_TS.key(), 300L);
+        config.put(END_TS.key(), 100L);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        // Mode is not "stream", constraint should not apply
+        config.clear();
+        config.put(MODE.key(), "batch");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testConditionWithNullExpectValueThrows() {
+        assertThrows(IllegalArgumentException.class, () -> Condition.of(HOST, null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Condition.of(HOST, ConditionOperator.NOT_EQUAL, null));
+        assertThrows(IllegalArgumentException.class, () -> greaterThan(PORT, null));
+        assertThrows(IllegalArgumentException.class, () -> startsWith(HOST, null));
+    }
+
+    // ==================== Supplementary Operator & Edge-case Coverage ====================
+
+    @Test
+    public void testEqualOperatorValidation() {
+        OptionRule rule =
+                OptionRule.builder().required(HOST, Condition.of(HOST, "expected_host")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "expected_host");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(HOST.key(), "other_host");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testLessOrEqualValidationStandalone() {
+        OptionRule rule = OptionRule.builder().required(PORT, lessOrEqual(PORT, 1024)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 1024);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 80);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 1025);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testNotEqualToString() {
+        assertEquals(
+                "'host' != blocked",
+                Condition.of(HOST, ConditionOperator.NOT_EQUAL, "blocked").toString());
+    }
+
+    @Test
+    public void testEqualToString() {
+        assertEquals("'host' == localhost", Condition.of(HOST, "localhost").toString());
+    }
+
+    @Test
+    public void testAndChainShortCircuit() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 100)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        config.put(PORT.key(), 50);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 101);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testOrChainShortCircuitFirstTrue() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(HOST, notBlank(HOST).or(notBlank(ENDPOINT)))
+                        .optional(ENDPOINT)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "valid-host");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOrChainShortCircuitFirstFalseSecondTrue() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(HOST, notBlank(HOST).or(notBlank(ENDPOINT)))
+                        .optional(ENDPOINT)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "");
+        config.put(ENDPOINT.key(), "valid-endpoint");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOptionalWithDefaultValueAndConstraint() {
+        OptionRule rule = OptionRule.builder().optional(FILE_EXPR, notBlank(FILE_EXPR)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(FILE_EXPR.key(), "my_file.csv");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(FILE_EXPR.key(), "   ");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testThreeArgConditionFactory() {
+        Condition<Integer> cond = Condition.of(PORT, ConditionOperator.GREATER_THAN, 0);
+        OptionRule rule = OptionRule.builder().required(PORT, cond).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 10);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 0);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testUnknownKeysWithFallbackKeys() {
+        Option<String> hostWithFallback =
+                Options.key("host")
+                        .stringType()
+                        .noDefaultValue()
+                        .withFallbackKeys("hostname")
+                        .withDescription("host");
+
+        OptionRule rule =
+                OptionRule.builder().required(hostWithFallback, notBlank(hostWithFallback)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("hostname", "localhost");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"));
+    }
+
+    @Test
+    public void testRequiredCrossFieldBothEqual() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, END_TS, lessOrEqualField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 500L);
+        config.put(END_TS.key(), 500L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testAndChainToString() {
+        assertEquals(
+                "'port' >= 1 && 'port' <= 65535",
+                greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)).toString());
+    }
+
+    @Test
+    public void testOrChainToString() {
+        assertEquals(
+                "'host' is not blank || 'endpoint' is not blank",
+                notBlank(HOST).or(notBlank(ENDPOINT)).toString());
+    }
+
+    @Test
+    public void testMixedAndOrChainToString() {
+        assertEquals(
+                "('port' >= 1 && 'port' <= 65535) || 'host' is not blank",
+                greaterOrEqual(PORT, 1)
+                        .and(lessOrEqual(PORT, 65535))
+                        .or(notBlank(HOST))
+                        .toString());
+    }
+
+    @Test
+    public void testOptionalCrossFieldBothPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), 300L);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testOptionalCrossFieldNonePresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testLongThreeNodeAndChain() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                PORT,
+                                greaterOrEqual(PORT, 1)
+                                        .and(lessOrEqual(PORT, 65535))
+                                        .and(Condition.of(PORT, ConditionOperator.NOT_EQUAL, 22)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 22);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        config.put(PORT.key(), 0);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testCollectionNotEmptyWithNonCollectionValue() {
+        OptionRule rule = OptionRule.builder().required(TAGS, notEmpty(TAGS)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TAGS.key(), "not_a_list");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testCollectionUniqueWithNonCollectionValue() {
+        OptionRule rule = OptionRule.builder().required(TAGS, unique(TAGS)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TAGS.key(), "not_a_list");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testNotBlankWithNonStringValue() {
+        OptionRule rule = OptionRule.builder().required(HOST, notBlank(HOST)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), 12345);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testStartsWithNonMatch() {
+        OptionRule rule =
+                OptionRule.builder().required(ENDPOINT, startsWith(ENDPOINT, "https://")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(ENDPOINT.key(), "http://example.com");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        config.put(ENDPOINT.key(), "https://example.com");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testMatchesNonMatch() {
+        OptionRule rule = OptionRule.builder().required(HOST, matches(HOST, "^[a-z]+$")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "localhost");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(HOST.key(), "Local-Host");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    // ==================== isConstraintApplicable — partial optional coverage ====================
+
+    @Test
+    public void testOptionalCrossFieldOnlyStartPresentNoFalsePositive() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 999L);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "partial cross-field must not cause false-positive");
+    }
+
+    @Test
+    public void testOptionalCrossFieldOnlyEndPresentNoFalsePositive() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(END_TS.key(), 999L);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "partial cross-field must not cause false-positive");
+    }
+
+    @Test
+    public void testOptionalSingleFieldAbsentSkipsConstraint() {
+        OptionRule rule = OptionRule.builder().optional(PORT, greaterOrEqual(PORT, 1)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "absent optional should skip constraint");
+    }
+
+    @Test
+    public void testOptionalSingleFieldPresentEnforcesConstraint() {
+        OptionRule rule = OptionRule.builder().optional(PORT, greaterOrEqual(PORT, 1)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "present optional should enforce constraint");
+    }
+
+    @Test
+    public void testOrChainPartialAbsentSkipsConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "OR chain with one side absent should skip when other side absent");
+    }
+
+    @Test
+    public void testOrChainBothPresentFirstFails() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        config.put(HOST.key(), "localhost");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "OR chain should pass when second branch succeeds");
+    }
+
+    @Test
+    public void testOrChainBothPresentBothFail() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        config.put(HOST.key(), "   ");
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "OR chain should fail when both branches fail");
+    }
+
+    @Test
+    public void testRequiredCrossFieldOneAbsentFailsRequired() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "required cross-field should fail when one option is absent");
+    }
+
+    // ==================== Error message quality & aggregation ====================
+
+    @Test
+    public void testSingleConstraintErrorMessageContainsActualValue() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), -1);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("option: port"), "should contain option label");
+        Assertions.assertTrue(msg.contains("constraint:"), "should contain constraint label");
+        Assertions.assertTrue(msg.contains(">= 1"), "should contain constraint expression");
+    }
+
+    @Test
+    public void testMultipleConstraintErrorsAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1))
+                        .required(HOST, notBlank(HOST))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), -1);
+        config.put(HOST.key(), "   ");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"), "should report 2 errors");
+        Assertions.assertTrue(msg.contains("[1] option: port"), "should have numbered port");
+        Assertions.assertTrue(msg.contains("[2] option: host"), "should have numbered host");
+    }
+
+    @Test
+    public void testThreeConstraintErrorsAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
+                        .required(HOST, notBlank(HOST))
+                        .required(ENDPOINT, matches(ENDPOINT, "^[^:]+:\\d+$"))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 99999);
+        config.put(HOST.key(), "");
+        config.put(ENDPOINT.key(), "no-port-here");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("3 errors"), "should report 3 errors");
+        Assertions.assertTrue(msg.contains("[1] option: port"));
+        Assertions.assertTrue(msg.contains("[2] option: host"));
+        Assertions.assertTrue(msg.contains("[3] option: endpoint"));
+    }
+
+    @Test
+    public void testMixedNumericStringCollectionErrors() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(RATIO, greaterThan(RATIO, 0.0).and(lessOrEqual(RATIO, 1.0)))
+                        .required(DB_NAME, notBlank(DB_NAME))
+                        .required(TAGS, notEmpty(TAGS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(RATIO.key(), -0.5);
+        config.put(DB_NAME.key(), "  ");
+        config.put(TAGS.key(), Collections.emptyList());
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("3 errors"), "should report 3 errors");
+        Assertions.assertTrue(msg.contains("option: ratio"));
+        Assertions.assertTrue(msg.contains("option: db_name"));
+        Assertions.assertTrue(msg.contains("option: tags"));
+    }
+
+    @Test
+    public void testCrossFieldAndLiteralErrorsAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .required(PORT, greaterOrEqual(PORT, 1))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 2000L);
+        config.put(END_TS.key(), 1000L);
+        config.put(PORT.key(), 0);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"), "should report 2 errors");
+        Assertions.assertTrue(msg.contains("option: start_ts"));
+        Assertions.assertTrue(msg.contains("option: port"));
+    }
+
+    @Test
+    public void testPassingConstraintsNoAggregation() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 65535)))
+                        .required(HOST, notBlank(HOST))
+                        .required(TAGS, notEmpty(TAGS).and(unique(TAGS)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        config.put(HOST.key(), "localhost");
+        config.put(TAGS.key(), Arrays.asList("a", "b", "c"));
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testSingleErrorNoPlural() {
+        OptionRule rule = OptionRule.builder().required(PORT, greaterOrEqual(PORT, 1)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("1 error)"), "single error should not be plural");
+        Assertions.assertFalse(msg.contains("1 errors"), "should not say '1 errors'");
     }
 }

@@ -46,9 +46,22 @@ public final class ConditionEvaluators {
             throw new OptionValidationException(
                     "Condition for option '%s' has a null operator", condition.getOption().key());
         }
-        Object value = config.get(condition.getOption());
-        Evaluator evaluator = REGISTRY.get(operator);
-        return evaluator.evaluate(value, condition, config);
+        try {
+            Object value = config.get(condition.getOption());
+            Evaluator evaluator = REGISTRY.get(operator);
+            return evaluator.evaluate(value, condition, config);
+        } catch (OptionValidationException e) {
+            String innerMsg = extractInnerMessage(e);
+            throw new OptionValidationException(
+                    "Failed to evaluate constraint '%s' on option '%s': %s",
+                    condition.toString(), condition.getOption().key(), innerMsg);
+        }
+    }
+
+    private static String extractInnerMessage(OptionValidationException e) {
+        String msg = e.getMessage();
+        int idx = msg.indexOf(" - ");
+        return idx >= 0 ? msg.substring(idx + 3) : msg;
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -59,19 +72,19 @@ public final class ConditionEvaluators {
         m.put(ConditionOperator.EQUAL, (v, c, cfg) -> Objects.equals(c.getExpectValue(), v));
         m.put(ConditionOperator.NOT_EQUAL, (v, c, cfg) -> !Objects.equals(c.getExpectValue(), v));
 
-        // Numeric
+        // Numeric (null value -> false, preserving or() short-circuit)
         m.put(
                 ConditionOperator.GREATER_THAN,
-                (v, c, cfg) -> compareNumbers(v, c.getExpectValue()) > 0);
+                (v, c, cfg) -> v != null && compareNumbers(v, c.getExpectValue()) > 0);
         m.put(
                 ConditionOperator.GREATER_OR_EQUAL,
-                (v, c, cfg) -> compareNumbers(v, c.getExpectValue()) >= 0);
+                (v, c, cfg) -> v != null && compareNumbers(v, c.getExpectValue()) >= 0);
         m.put(
                 ConditionOperator.LESS_THAN,
-                (v, c, cfg) -> compareNumbers(v, c.getExpectValue()) < 0);
+                (v, c, cfg) -> v != null && compareNumbers(v, c.getExpectValue()) < 0);
         m.put(
                 ConditionOperator.LESS_OR_EQUAL,
-                (v, c, cfg) -> compareNumbers(v, c.getExpectValue()) <= 0);
+                (v, c, cfg) -> v != null && compareNumbers(v, c.getExpectValue()) <= 0);
 
         // String
         m.put(
@@ -82,14 +95,6 @@ public final class ConditionEvaluators {
                 (v, c, cfg) ->
                         v instanceof String
                                 && ((String) v).startsWith(String.valueOf(c.getExpectValue())));
-        m.put(
-                ConditionOperator.STARTS_WITH_IGNORE_CASE,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v)
-                                        .toLowerCase()
-                                        .startsWith(
-                                                String.valueOf(c.getExpectValue()).toLowerCase()));
         m.put(
                 ConditionOperator.CONTAINS,
                 (v, c, cfg) ->
@@ -107,41 +112,6 @@ public final class ConditionEvaluators {
                 ConditionOperator.LOWER_CASE,
                 (v, c, cfg) -> v instanceof String && v.equals(((String) v).toLowerCase()));
 
-        // String length
-        m.put(
-                ConditionOperator.LENGTH_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v).length()
-                                        == ((Number) c.getExpectValue()).intValue());
-        m.put(
-                ConditionOperator.LENGTH_GREATER_OR_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v).length()
-                                        >= ((Number) c.getExpectValue()).intValue());
-        m.put(
-                ConditionOperator.LENGTH_LESS_OR_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v).length()
-                                        <= ((Number) c.getExpectValue()).intValue());
-
-        // String suffix
-        m.put(
-                ConditionOperator.ENDS_WITH,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v).endsWith(String.valueOf(c.getExpectValue())));
-        m.put(
-                ConditionOperator.ENDS_WITH_IGNORE_CASE,
-                (v, c, cfg) ->
-                        v instanceof String
-                                && ((String) v)
-                                        .toLowerCase()
-                                        .endsWith(
-                                                String.valueOf(c.getExpectValue()).toLowerCase()));
-
         // Collection
         m.put(
                 ConditionOperator.NOT_EMPTY,
@@ -155,52 +125,39 @@ public final class ConditionEvaluators {
                     }
                     return false;
                 });
-        m.put(
-                ConditionOperator.COLLECTION_SIZE_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof Collection
-                                && ((Collection) v).size()
-                                        == ((Number) c.getExpectValue()).intValue());
-        m.put(
-                ConditionOperator.COLLECTION_SIZE_GREATER_OR_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof Collection
-                                && ((Collection) v).size()
-                                        >= ((Number) c.getExpectValue()).intValue());
-        m.put(
-                ConditionOperator.COLLECTION_SIZE_LESS_OR_EQUAL,
-                (v, c, cfg) ->
-                        v instanceof Collection
-                                && ((Collection) v).size()
-                                        <= ((Number) c.getExpectValue()).intValue());
 
-        // Cross-field
+        // Cross-field (null on either side -> false, preserving or() short-circuit)
         m.put(
                 ConditionOperator.FIELD_LESS_THAN,
-                (v, c, cfg) -> compareNumbers(v, cfg.get(c.getCompareOption())) < 0);
+                (v, c, cfg) -> {
+                    if (v == null) return false;
+                    Object other = cfg.get(c.getCompareOption());
+                    if (other == null) return false;
+                    return compareNumbers(v, other) < 0;
+                });
         m.put(
                 ConditionOperator.FIELD_LESS_OR_EQUAL,
-                (v, c, cfg) -> compareNumbers(v, cfg.get(c.getCompareOption())) <= 0);
+                (v, c, cfg) -> {
+                    if (v == null) return false;
+                    Object other = cfg.get(c.getCompareOption());
+                    if (other == null) return false;
+                    return compareNumbers(v, other) <= 0;
+                });
         m.put(
                 ConditionOperator.FIELD_GREATER_THAN,
-                (v, c, cfg) -> compareNumbers(v, cfg.get(c.getCompareOption())) > 0);
+                (v, c, cfg) -> {
+                    if (v == null) return false;
+                    Object other = cfg.get(c.getCompareOption());
+                    if (other == null) return false;
+                    return compareNumbers(v, other) > 0;
+                });
         m.put(
                 ConditionOperator.FIELD_GREATER_OR_EQUAL,
-                (v, c, cfg) -> compareNumbers(v, cfg.get(c.getCompareOption())) >= 0);
-        m.put(
-                ConditionOperator.FIELD_EQUAL,
-                (v, c, cfg) -> Objects.equals(v, cfg.get(c.getCompareOption())));
-        m.put(
-                ConditionOperator.FIELD_NOT_EQUAL,
-                (v, c, cfg) -> !Objects.equals(v, cfg.get(c.getCompareOption())));
-        m.put(
-                ConditionOperator.FIELD_SIZE_EQUAL,
                 (v, c, cfg) -> {
+                    if (v == null) return false;
                     Object other = cfg.get(c.getCompareOption());
-                    if (v instanceof Collection && other instanceof Collection) {
-                        return ((Collection) v).size() == ((Collection) other).size();
-                    }
-                    return false;
+                    if (other == null) return false;
+                    return compareNumbers(v, other) >= 0;
                 });
 
         for (ConditionOperator op : ConditionOperator.values()) {
@@ -215,7 +172,8 @@ public final class ConditionEvaluators {
     @SuppressWarnings({"rawtypes"})
     static int compareNumbers(Object a, Object b) {
         if (a == null || b == null) {
-            throw new OptionValidationException("Cannot compare null values in numeric comparison");
+            throw new OptionValidationException(
+                    "Cannot compare null values in numeric comparison: left=%s, right=%s", a, b);
         }
         if (a instanceof Number && b instanceof Number) {
             return compareNumberValues((Number) a, (Number) b);
@@ -224,34 +182,24 @@ public final class ConditionEvaluators {
             return ((Comparable) a).compareTo(b);
         }
         throw new OptionValidationException(
-                "Cannot compare non-numeric values of type %s and %s",
-                a.getClass().getName(), b.getClass().getName());
+                "Cannot compare values of type %s(%s) and %s(%s)",
+                a.getClass().getSimpleName(), a, b.getClass().getSimpleName(), b);
     }
 
     private static int compareNumberValues(Number a, Number b) {
-        if (a instanceof Long && b instanceof Long) {
-            return Long.compare((Long) a, (Long) b);
+        if (a instanceof BigDecimal || b instanceof BigDecimal) {
+            BigDecimal bdA =
+                    a instanceof BigDecimal ? (BigDecimal) a : new BigDecimal(a.toString());
+            BigDecimal bdB =
+                    b instanceof BigDecimal ? (BigDecimal) b : new BigDecimal(b.toString());
+            return bdA.compareTo(bdB);
         }
-        if (a instanceof Integer && b instanceof Integer) {
-            return Integer.compare((Integer) a, (Integer) b);
+        if (a instanceof Double
+                || a instanceof Float
+                || b instanceof Double
+                || b instanceof Float) {
+            return Double.compare(a.doubleValue(), b.doubleValue());
         }
-        if (a instanceof Short && b instanceof Short) {
-            return Short.compare((Short) a, (Short) b);
-        }
-        if (a instanceof Byte && b instanceof Byte) {
-            return Byte.compare((Byte) a, (Byte) b);
-        }
-        if (a instanceof Double && b instanceof Double) {
-            return Double.compare((Double) a, (Double) b);
-        }
-        if (a instanceof Float && b instanceof Float) {
-            return Float.compare((Float) a, (Float) b);
-        }
-        if (a instanceof BigDecimal && b instanceof BigDecimal) {
-            return ((BigDecimal) a).compareTo((BigDecimal) b);
-        }
-        throw new OptionValidationException(
-                "Numeric type mismatch: cannot compare %s with %s, both sides of a numeric condition must be the same type",
-                a.getClass().getSimpleName(), b.getClass().getSimpleName());
+        return Long.compare(a.longValue(), b.longValue());
     }
 }

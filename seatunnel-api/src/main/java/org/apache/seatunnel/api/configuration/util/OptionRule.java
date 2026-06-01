@@ -66,13 +66,13 @@ import java.util.stream.Collectors;
  *
  * // value constraints — attach Condition to required / optional / conditional
  * OptionRule constrainedRule = OptionRule.builder()
- *     .required(PORT, Condition.greaterOrEqual(PORT, 1)
- *         .and(Condition.lessOrEqual(PORT, 65535)))
- *     .optional(TIMEOUT, Condition.greaterOrEqual(TIMEOUT, 1000)
- *         .and(Condition.lessOrEqual(TIMEOUT, 60000)))
- *     .required(START_TS, END_TS, Condition.lessThanField(START_TS, END_TS))
+ *     .required(PORT, Conditions.greaterOrEqual(PORT, 1)
+ *         .and(Conditions.lessOrEqual(PORT, 65535)))
+ *     .optional(TIMEOUT, Conditions.greaterOrEqual(TIMEOUT, 1000)
+ *         .and(Conditions.lessOrEqual(TIMEOUT, 60000)))
+ *     .required(START_TS, END_TS, Conditions.lessThanField(START_TS, END_TS))
  *     .conditional(MODE, StartMode.TIMESTAMP,
- *         Condition.greaterThan(TIMESTAMP_VALUE, 0))
+ *         Conditions.greaterThan(TIMESTAMP_VALUE, 0))
  *     .build();
  * }</pre>
  */

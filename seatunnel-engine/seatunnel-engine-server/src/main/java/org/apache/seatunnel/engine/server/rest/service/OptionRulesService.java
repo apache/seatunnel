@@ -280,11 +280,15 @@ public class OptionRulesService extends BaseService {
                 condition.getCompareOption() != null
                         ? toOptionMetadata(condition.getCompareOption())
                         : null;
+        String conditionOperator = (op != null) ? op.name() : null;
+        String conditionOperatorCategory = (op != null) ? op.getCategory().name() : null;
         return new OptionRuleResponse.ConditionNode(
                 toOptionMetadata(condition.getOption()),
                 condition.getExpectValue(),
                 compareOperatorSymbol,
                 compareOptionMeta,
+                conditionOperator,
+                conditionOperatorCategory,
                 toLogicalOperator(condition.and()),
                 toConditionNode(condition.getNext()));
     }

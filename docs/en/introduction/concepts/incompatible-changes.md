@@ -31,6 +31,12 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: `Condition.of(option, null)` no longer allowed**
+  - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
+  - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
+  - **Impact**: No production code in the main repository uses `Condition.of(option, null)`, so the practical impact is zero. However, any custom or third-party connector code that relied on this pattern will need to be updated.
+  - **Migration Guide**: If you need to check whether an option is absent or unset, use `Condition.notBlank(option)` (for strings) or handle the absence at the `OptionRule.Builder` level with `optional(...)` instead of passing `null` as the expected value.
+
 ### Configuration Changes
 
 ### Connector Changes

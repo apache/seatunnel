@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
-import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
 
@@ -299,9 +299,9 @@ class OptionRulesServiceTest {
                 OptionRule.builder()
                         .required(
                                 port,
-                                Condition.greaterOrEqual(port, 1)
-                                        .and(Condition.lessOrEqual(port, 65535)))
-                        .required(host, Condition.notBlank(host))
+                                Conditions.greaterOrEqual(port, 1)
+                                        .and(Conditions.lessOrEqual(port, 65535)))
+                        .required(host, Conditions.notBlank(host))
                         .build();
 
         OptionRuleResponse response =
@@ -338,7 +338,7 @@ class OptionRulesServiceTest {
 
         OptionRule optionRule =
                 OptionRule.builder()
-                        .required(startTs, endTs, Condition.lessThanField(startTs, endTs))
+                        .required(startTs, endTs, Conditions.lessThanField(startTs, endTs))
                         .build();
 
         OptionRuleResponse response =
@@ -355,7 +355,7 @@ class OptionRulesServiceTest {
 
         OptionRuleResponse.ConditionNode tree = constraint.getConditionTree();
         assertNotNull(tree);
-        assertEquals("< [field]", tree.getCompareOperator());
+        assertEquals("<", tree.getCompareOperator());
         assertNotNull(tree.getCompareOption());
         assertEquals("end_ts", tree.getCompareOption().getKey());
     }

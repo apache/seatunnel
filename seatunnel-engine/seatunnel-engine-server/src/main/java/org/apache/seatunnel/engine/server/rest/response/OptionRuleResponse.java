@@ -162,6 +162,8 @@ public class OptionRuleResponse {
         private final Object expectValue;
         private final String compareOperator;
         private final OptionMetadata compareOption;
+        private final String conditionOperator;
+        private final String conditionOperatorCategory;
         private final LogicalOperator operator;
         private final ConditionNode next;
 
@@ -170,7 +172,7 @@ public class OptionRuleResponse {
                 Object expectValue,
                 LogicalOperator operator,
                 ConditionNode next) {
-            this(option, expectValue, null, null, operator, next);
+            this(option, expectValue, null, null, null, null, operator, next);
         }
 
         public ConditionNode(
@@ -178,12 +180,16 @@ public class OptionRuleResponse {
                 Object expectValue,
                 String compareOperator,
                 OptionMetadata compareOption,
+                String conditionOperator,
+                String conditionOperatorCategory,
                 LogicalOperator operator,
                 ConditionNode next) {
             this.option = option;
             this.expectValue = expectValue;
             this.compareOperator = compareOperator;
             this.compareOption = compareOption;
+            this.conditionOperator = conditionOperator;
+            this.conditionOperatorCategory = conditionOperatorCategory;
             this.operator = operator;
             this.next = next;
         }

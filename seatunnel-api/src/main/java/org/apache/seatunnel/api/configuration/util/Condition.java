@@ -71,131 +71,6 @@ public class Condition<T> {
         return new Condition<>(option, op, expectValue, null);
     }
 
-    // ==================== Numeric comparison ====================
-
-    public static <T> Condition<T> greaterThan(Option<T> option, T value) {
-        return new Condition<>(option, ConditionOperator.GREATER_THAN, value, null);
-    }
-
-    public static <T> Condition<T> greaterOrEqual(Option<T> option, T value) {
-        return new Condition<>(option, ConditionOperator.GREATER_OR_EQUAL, value, null);
-    }
-
-    public static <T> Condition<T> lessThan(Option<T> option, T value) {
-        return new Condition<>(option, ConditionOperator.LESS_THAN, value, null);
-    }
-
-    public static <T> Condition<T> lessOrEqual(Option<T> option, T value) {
-        return new Condition<>(option, ConditionOperator.LESS_OR_EQUAL, value, null);
-    }
-
-    // ==================== String validation ====================
-
-    public static <T> Condition<T> notBlank(Option<T> option) {
-        return new Condition<>(option, ConditionOperator.NOT_BLANK, null, null);
-    }
-
-    public static <T> Condition<T> startsWith(Option<T> option, T prefix) {
-        return new Condition<>(option, ConditionOperator.STARTS_WITH, prefix, null);
-    }
-
-    public static Condition<String> startsWithIgnoreCase(Option<String> option, String prefix) {
-        return new Condition<>(option, ConditionOperator.STARTS_WITH_IGNORE_CASE, prefix, null);
-    }
-
-    public static <T> Condition<T> contains(Option<T> option, T substring) {
-        return new Condition<>(option, ConditionOperator.CONTAINS, substring, null);
-    }
-
-    public static <T> Condition<T> matches(Option<T> option, T regex) {
-        return new Condition<>(option, ConditionOperator.MATCHES, regex, null);
-    }
-
-    public static <T> Condition<T> upperCase(Option<T> option) {
-        return new Condition<>(option, ConditionOperator.UPPER_CASE, null, null);
-    }
-
-    public static <T> Condition<T> lowerCase(Option<T> option) {
-        return new Condition<>(option, ConditionOperator.LOWER_CASE, null, null);
-    }
-
-    // ==================== String length ====================
-
-    public static Condition<String> lengthEqual(Option<String> option, int length) {
-        return new Condition(option, ConditionOperator.LENGTH_EQUAL, length, null);
-    }
-
-    public static Condition<String> lengthGreaterOrEqual(Option<String> option, int length) {
-        return new Condition(option, ConditionOperator.LENGTH_GREATER_OR_EQUAL, length, null);
-    }
-
-    public static Condition<String> lengthLessOrEqual(Option<String> option, int length) {
-        return new Condition(option, ConditionOperator.LENGTH_LESS_OR_EQUAL, length, null);
-    }
-
-    // ==================== String suffix ====================
-
-    public static <T> Condition<T> endsWith(Option<T> option, T suffix) {
-        return new Condition<>(option, ConditionOperator.ENDS_WITH, suffix, null);
-    }
-
-    public static Condition<String> endsWithIgnoreCase(Option<String> option, String suffix) {
-        return new Condition<>(option, ConditionOperator.ENDS_WITH_IGNORE_CASE, suffix, null);
-    }
-
-    // ==================== Collection validation ====================
-
-    public static <T> Condition<T> notEmpty(Option<T> option) {
-        return new Condition<>(option, ConditionOperator.NOT_EMPTY, null, null);
-    }
-
-    public static <T> Condition<T> unique(Option<T> option) {
-        return new Condition<>(option, ConditionOperator.COLLECTION_UNIQUE, null, null);
-    }
-
-    public static <T> Condition<T> sizeEqual(Option<T> option, int size) {
-        return new Condition(option, ConditionOperator.COLLECTION_SIZE_EQUAL, size, null);
-    }
-
-    public static <T> Condition<T> sizeGreaterOrEqual(Option<T> option, int size) {
-        return new Condition(
-                option, ConditionOperator.COLLECTION_SIZE_GREATER_OR_EQUAL, size, null);
-    }
-
-    public static <T> Condition<T> sizeLessOrEqual(Option<T> option, int size) {
-        return new Condition(option, ConditionOperator.COLLECTION_SIZE_LESS_OR_EQUAL, size, null);
-    }
-
-    // ==================== Cross-field comparison ====================
-
-    public static <T> Condition<T> lessThanField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_LESS_THAN, null, other);
-    }
-
-    public static <T> Condition<T> lessOrEqualField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_LESS_OR_EQUAL, null, other);
-    }
-
-    public static <T> Condition<T> greaterThanField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_GREATER_THAN, null, other);
-    }
-
-    public static <T> Condition<T> greaterOrEqualField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_GREATER_OR_EQUAL, null, other);
-    }
-
-    public static <T> Condition<T> equalField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_EQUAL, null, other);
-    }
-
-    public static <T> Condition<T> notEqualField(Option<T> option, Option<T> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_NOT_EQUAL, null, other);
-    }
-
-    public static <T> Condition<T> sizeEqualField(Option<T> option, Option<?> other) {
-        return new Condition<>(option, ConditionOperator.FIELD_SIZE_EQUAL, null, other);
-    }
-
     // ==================== Chain operations (existing API, unchanged) ====================
 
     public <E> Condition<T> and(Option<E> option, E expectValue) {
@@ -217,7 +92,6 @@ public class Condition<T> {
     }
 
     private void addCondition(boolean and, Condition<?> next) {
-        // Check: next chain must not contain any node already in this chain
         Condition<?> cur = next;
         while (cur != null) {
             Condition<?> self = this;
@@ -340,11 +214,11 @@ public class Condition<T> {
         String key = "'" + cond.option.key() + "'";
 
         if (op.getSource() == ConditionOperator.Source.FIELD) {
-            return key + " " + op.getDisplaySymbol() + " '" + cond.compareOption.key() + "'";
+            return key + " " + op.getSymbol() + " '" + cond.compareOption.key() + "'";
         }
         if (op.getArity() == ConditionOperator.Arity.UNARY) {
             return key + " " + op.getSymbol();
         }
-        return key + " " + op.getDisplaySymbol() + " " + cond.expectValue;
+        return key + " " + op.getSymbol() + " " + cond.expectValue;
     }
 }

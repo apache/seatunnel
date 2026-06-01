@@ -111,8 +111,8 @@ public OptionRule optionRule() {
 ```java
 OptionRule.builder()
         .required(PORT,
-                Condition.greaterOrEqual(PORT, 1)
-                        .and(Condition.lessOrEqual(PORT, 65535)))
+                Conditions.greaterOrEqual(PORT, 1)
+                        .and(Conditions.lessOrEqual(PORT, 65535)))
         .build();
 ```
 
@@ -120,7 +120,7 @@ OptionRule.builder()
 
 ```java
 OptionRule.builder()
-        .required(HOST, Condition.notBlank(HOST))
+        .required(HOST, Conditions.notBlank(HOST))
         .optional(DB_NAME, Condition.upperCase(DB_NAME))
         .build();
 ```
@@ -139,8 +139,8 @@ OptionRule.builder()
 ```java
 OptionRule.builder()
         .required(TABLES,
-                Condition.notEmpty(TABLES)
-                        .and(Condition.unique(TABLES)))
+                Conditions.notEmpty(TABLES)
+                        .and(Conditions.unique(TABLES)))
         .build();
 ```
 
@@ -259,8 +259,8 @@ public void prepare(Config pluginConfig) {
 
 ```java
 .required(PORT,
-        Condition.greaterOrEqual(PORT, 1)
-                .and(Condition.lessOrEqual(PORT, 65535)))
+        Conditions.greaterOrEqual(PORT, 1)
+                .and(Conditions.lessOrEqual(PORT, 65535)))
 ```
 
 ### 字符串格式与内容
@@ -268,9 +268,9 @@ public void prepare(Config pluginConfig) {
 字段不能为空白、标识符必须全大写、或需要匹配特定格式。
 
 ```java
-.required(HOST, Condition.notBlank(HOST))
+.required(HOST, Conditions.notBlank(HOST))
 .required(DATABASE, Condition.upperCase(DATABASE))
-.required(ENDPOINT, Condition.matches(ENDPOINT, "^[^:]+:\\d+$"))
+.required(ENDPOINT, Conditions.matches(ENDPOINT, "^[^:]+:\\d+$"))
 ```
 
 ### 跨字段比较
@@ -288,8 +288,8 @@ public void prepare(Config pluginConfig) {
 
 ```java
 .required(TABLES,
-        Condition.notEmpty(TABLES)
-                .and(Condition.unique(TABLES)))
+        Conditions.notEmpty(TABLES)
+                .and(Conditions.unique(TABLES)))
 ```
 
 ### 复合约束
@@ -298,8 +298,8 @@ public void prepare(Config pluginConfig) {
 
 ```java
 .required(RATIO,
-        Condition.greaterThan(RATIO, 0.0)
-                .and(Condition.lessOrEqual(RATIO, 1.0)))
+        Conditions.greaterThan(RATIO, 0.0)
+                .and(Conditions.lessOrEqual(RATIO, 1.0)))
 ```
 
 ## 为什么这对运维也重要
