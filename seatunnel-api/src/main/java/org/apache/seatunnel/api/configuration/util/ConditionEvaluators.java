@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -217,19 +218,40 @@ public final class ConditionEvaluators {
             throw new OptionValidationException("Cannot compare null values in numeric comparison");
         }
         if (a instanceof Number && b instanceof Number) {
-            if (a instanceof Double
-                    || b instanceof Double
-                    || a instanceof Float
-                    || b instanceof Float) {
-                return Double.compare(((Number) a).doubleValue(), ((Number) b).doubleValue());
-            }
-            return Long.compare(((Number) a).longValue(), ((Number) b).longValue());
+            return compareNumberValues((Number) a, (Number) b);
         }
         if (a instanceof Comparable && b instanceof Comparable) {
             return ((Comparable) a).compareTo(b);
         }
         throw new OptionValidationException(
-                "Cannot compare values of type %s and %s",
+                "Cannot compare non-numeric values of type %s and %s",
                 a.getClass().getName(), b.getClass().getName());
+    }
+
+    private static int compareNumberValues(Number a, Number b) {
+        if (a instanceof Long && b instanceof Long) {
+            return Long.compare((Long) a, (Long) b);
+        }
+        if (a instanceof Integer && b instanceof Integer) {
+            return Integer.compare((Integer) a, (Integer) b);
+        }
+        if (a instanceof Short && b instanceof Short) {
+            return Short.compare((Short) a, (Short) b);
+        }
+        if (a instanceof Byte && b instanceof Byte) {
+            return Byte.compare((Byte) a, (Byte) b);
+        }
+        if (a instanceof Double && b instanceof Double) {
+            return Double.compare((Double) a, (Double) b);
+        }
+        if (a instanceof Float && b instanceof Float) {
+            return Float.compare((Float) a, (Float) b);
+        }
+        if (a instanceof BigDecimal && b instanceof BigDecimal) {
+            return ((BigDecimal) a).compareTo((BigDecimal) b);
+        }
+        throw new OptionValidationException(
+                "Numeric type mismatch: cannot compare %s with %s, both sides of a numeric condition must be the same type",
+                a.getClass().getSimpleName(), b.getClass().getSimpleName());
     }
 }
