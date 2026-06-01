@@ -174,7 +174,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.stainTraceInvalidPayloadTotal =
                 metricsContext.counter(StainTraceConstants.METRIC_INVALID_PAYLOAD_TOTAL);
         this.flushSignalSinkSuccessTotal =
-                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
+                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_SUCCESS_TOTAL);
         this.flushSignalSinkFailureTotal =
                 metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
     }
