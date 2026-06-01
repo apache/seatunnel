@@ -53,12 +53,17 @@ import redis.clients.jedis.JedisCluster;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -515,10 +520,43 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     }
 
     private String getDockerHostIp() {
-        String host =
-                new GenericContainer<>(DockerImageName.parse(redisContainerInfo.getImageName()))
-                        .getHost();
-        // Redis 7.4+ requires a valid IPv4/IPv6 address for cluster-announce-ip
-        return "localhost".equals(host) ? "127.0.0.1" : host;
+        String fallback = null;
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
+                    continue;
+                }
+
+                String name = ni.getName();
+                if (name.startsWith("utun")
+                        || name.startsWith("tun")
+                        || name.startsWith("tap")
+                        || name.startsWith("ppp")
+                        || name.startsWith("docker")
+                        || name.startsWith("br-")
+                        || name.startsWith("veth")
+                        || name.startsWith("vmnet")
+                        || name.startsWith("virbr")) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> addrs = ni.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress addr = addrs.nextElement();
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                        String ip = addr.getHostAddress();
+                        if ("en0".equals(name) || "eth0".equals(name) || "wlan0".equals(name)) {
+                            return ip;
+                        }
+                        fallback = ip;
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            log.warn("Failed to enumerate network interfaces", e);
+        }
+        return fallback != null ? fallback : "127.0.0.1";
     }
 }
