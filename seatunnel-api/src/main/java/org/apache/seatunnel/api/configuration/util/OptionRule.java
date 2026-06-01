@@ -310,14 +310,14 @@ public class OptionRule {
         /** Absolutely required option with value constraints (at least one condition). */
         public Builder required(
                 @NonNull Option<?> option,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             RequiredOption.AbsolutelyRequiredOptions requiredOption =
                     RequiredOption.AbsolutelyRequiredOptions.of(option);
             verifyRequiredOptionDuplicate(requiredOption);
             this.requiredOptions.add(requiredOption);
-            this.valueConstraints.add(firstCondition);
-            Collections.addAll(this.valueConstraints, moreConditions);
+            this.valueConstraints.add(condition1);
+            Collections.addAll(this.valueConstraints, conditions);
             return this;
         }
 
@@ -329,26 +329,26 @@ public class OptionRule {
         public Builder required(
                 @NonNull Option<?> option1,
                 @NonNull Option<?> option2,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             RequiredOption.AbsolutelyRequiredOptions requiredOption =
                     RequiredOption.AbsolutelyRequiredOptions.of(option1, option2);
             verifyRequiredOptionDuplicate(requiredOption);
             this.requiredOptions.add(requiredOption);
-            this.valueConstraints.add(firstCondition);
-            Collections.addAll(this.valueConstraints, moreConditions);
+            this.valueConstraints.add(condition1);
+            Collections.addAll(this.valueConstraints, conditions);
             return this;
         }
 
         /** Optional option with value constraints (at least one condition). */
         public Builder optional(
                 @NonNull Option<?> option,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             verifyOptionOptionsDuplicate(option, "OptionsOption");
             this.optionalOptions.add(option);
-            this.valueConstraints.add(firstCondition);
-            Collections.addAll(this.valueConstraints, moreConditions);
+            this.valueConstraints.add(condition1);
+            Collections.addAll(this.valueConstraints, conditions);
             return this;
         }
 
@@ -356,14 +356,14 @@ public class OptionRule {
         public Builder optional(
                 @NonNull Option<?> option1,
                 @NonNull Option<?> option2,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             verifyOptionOptionsDuplicate(option1, "OptionsOption");
             verifyOptionOptionsDuplicate(option2, "OptionsOption");
             this.optionalOptions.add(option1);
             this.optionalOptions.add(option2);
-            this.valueConstraints.add(firstCondition);
-            Collections.addAll(this.valueConstraints, moreConditions);
+            this.valueConstraints.add(condition1);
+            Collections.addAll(this.valueConstraints, conditions);
             return this;
         }
 
@@ -374,13 +374,13 @@ public class OptionRule {
         public <T> Builder conditional(
                 @NonNull Option<T> conditionalOption,
                 @NonNull T expectValue,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
             List<Condition<?>> allConditions = new ArrayList<>();
-            allConditions.add(firstCondition);
-            Collections.addAll(allConditions, moreConditions);
+            allConditions.add(condition1);
+            Collections.addAll(allConditions, conditions);
             mergeConditionalRule(expression, Collections.emptyList(), allConditions);
             return this;
         }
@@ -392,18 +392,17 @@ public class OptionRule {
         public <T> Builder conditional(
                 @NonNull Option<T> conditionalOption,
                 @NonNull T expectValue,
-                @NonNull Option<?> requiredOption1,
-                @NonNull Option<?> requiredOption2,
-                @NonNull Condition<?> firstCondition,
-                @NonNull Condition<?>... moreConditions) {
+                @NonNull Option<?> option1,
+                @NonNull Option<?> option2,
+                @NonNull Condition<?> condition1,
+                @NonNull Condition<?>... conditions) {
             verifyConditionalExists(conditionalOption);
             Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
             List<Condition<?>> allConditions = new ArrayList<>();
-            allConditions.add(firstCondition);
-            Collections.addAll(allConditions, moreConditions);
+            allConditions.add(condition1);
+            Collections.addAll(allConditions, conditions);
             List<RequiredOption> reqList = new ArrayList<>();
-            reqList.add(
-                    RequiredOption.AbsolutelyRequiredOptions.of(requiredOption1, requiredOption2));
+            reqList.add(RequiredOption.AbsolutelyRequiredOptions.of(option1, option2));
             mergeConditionalRule(expression, reqList, allConditions);
             return this;
         }
