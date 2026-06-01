@@ -35,6 +35,7 @@ import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
@@ -81,6 +82,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Counter stainTraceSamplesGeneratedTotal;
     private final Counter stainTraceEntriesTruncatedTotal;
     private final StainTraceSampler stainTraceSampler;
+    private final Counter flushSignalTotal;
     private final LongSupplier currentTimeMillisSupplier;
 
     public SeaTunnelSourceCollector(
@@ -191,6 +193,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         this.stainTraceEntriesTruncatedTotal =
                 metricsContext.counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
         this.stainTraceMaxEntriesPerTrace = engineConfig.getStainTraceMaxEntriesPerTrace();
+        this.flushSignalTotal =
+                metricsContext.counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
 
         // Compute effective stain trace settings.
         // When taskEnvOption is null (test / legacy path): engine config alone controls tracing.
@@ -354,6 +358,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
      */
     public void sendFlushSignal(long jobId, long taskId) throws IOException {
         sendRecordToNext(new Record<>(FlushSignal.of(jobId, taskId)));
+        flushSignalTotal.inc();
     }
 
     /** Creates the first stain trace payload for a sampled row before it leaves the source task. */

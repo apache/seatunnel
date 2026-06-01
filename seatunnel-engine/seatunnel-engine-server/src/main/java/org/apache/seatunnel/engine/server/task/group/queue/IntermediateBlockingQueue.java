@@ -45,12 +45,9 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
     private final Counter intermediateQueueSize;
     private final Counter putBlockedNs;
     private volatile Counter stainTraceEntriesTruncatedTotal;
+    private volatile Counter flushSignalQueueSuccessTotal;
 
-    private volatile Counter flushSignalTotal;
-
-    private volatile Counter flushSignalSuccessTotal;
-
-    private volatile Counter flushSignalFailureTotal;
+    private volatile Counter flushSignalQueueFailureTotal;
 
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -139,9 +136,6 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
                 return false;
             }
-            if (stage == StainTraceStage.QUEUE_OUT) {
-                getFlushSignalSuccessTotal().inc();
-            }
             consumer.accept(record);
         } else {
             if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
@@ -172,9 +166,10 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             return false;
         }
         boolean offered = function.apply(record);
-        getFlushSignalTotal().inc();
-        if (!offered) {
-            getFlushSignalFailureTotal().inc();
+        if (offered) {
+            getFlushSignalQueueSuccessTotal().inc();
+        } else {
+            getFlushSignalQueueFailureTotal().inc();
         }
 
         return offered;
@@ -211,47 +206,35 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         return stainTraceMaxEntriesPerTrace;
     }
 
-    public Counter getFlushSignalTotal() {
-        if (flushSignalTotal == null) {
+    public Counter getFlushSignalQueueFailureTotal() {
+        if (flushSignalQueueFailureTotal == null) {
             synchronized (this) {
-                if (flushSignalTotal == null) {
-                    flushSignalTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
-                }
-            }
-        }
-        return stainTraceEntriesTruncatedTotal;
-    }
-
-    public Counter getFlushSignalSuccessTotal() {
-        if (flushSignalSuccessTotal == null) {
-            synchronized (this) {
-                if (flushSignalSuccessTotal == null) {
-                    flushSignalSuccessTotal =
+                if (flushSignalQueueFailureTotal == null) {
+                    flushSignalQueueFailureTotal =
                             getRunningTask()
                                     .getMetricsContext()
                                     .counter(
-                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
+                                            FlushSignalConstants
+                                                    .METRIC_FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
                 }
             }
         }
-        return flushSignalSuccessTotal;
+        return flushSignalQueueFailureTotal;
     }
 
-    public Counter getFlushSignalFailureTotal() {
-        if (flushSignalFailureTotal == null) {
+    public Counter getFlushSignalQueueSuccessTotal() {
+        if (flushSignalQueueSuccessTotal == null) {
             synchronized (this) {
-                if (flushSignalFailureTotal == null) {
-                    flushSignalFailureTotal =
+                if (flushSignalQueueSuccessTotal == null) {
+                    flushSignalQueueSuccessTotal =
                             getRunningTask()
                                     .getMetricsContext()
                                     .counter(
-                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
+                                            FlushSignalConstants
+                                                    .METRIC_FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
                 }
             }
         }
-        return flushSignalFailureTotal;
+        return flushSignalQueueSuccessTotal;
     }
 }

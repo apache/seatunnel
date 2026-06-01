@@ -52,7 +52,7 @@ public class RecordEventProducer {
                     intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
-            publishRecord(record, ringBuffer);
+            publishRecord(record, ringBuffer, intermediateQueueFlowLifeCycle);
         } else if (record.getData() instanceof Signal) {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;
@@ -78,10 +78,12 @@ public class RecordEventProducer {
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
             IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
-        boolean published = ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
-        intermediateQueueFlowLifeCycle.getFlushSignalTotal().inc();
-        if (!published) {
-            intermediateQueueFlowLifeCycle.getFlushSignalFailureTotal().inc();
+        boolean tryPublishEvent =
+                ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
+        if (tryPublishEvent) {
+            intermediateQueueFlowLifeCycle.getFlushSignalQueueSuccessTotal().inc();
+        } else {
+            intermediateQueueFlowLifeCycle.getFlushSignalQueueFailureTotal().inc();
         }
     }
 

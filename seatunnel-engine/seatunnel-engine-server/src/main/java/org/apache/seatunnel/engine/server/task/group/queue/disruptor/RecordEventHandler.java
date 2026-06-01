@@ -93,9 +93,6 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                             intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
                 }
             }
-            if (record.getData() instanceof Signal) {
-                intermediateQueueFlowLifeCycle.getFlushSignalSuccessTotal().inc();
-            }
 
             collector.collect(record);
             totalQueueSize.dec();

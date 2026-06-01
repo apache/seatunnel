@@ -37,11 +37,9 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
 
     private volatile Counter stainTraceEntriesTruncatedTotal;
 
-    private volatile Counter flushSignalTotal;
+    private volatile Counter flushSignalQueueSuccessTotal;
 
-    private volatile Counter flushSignalSuccessTotal;
-
-    private volatile Counter flushSignalFailureTotal;
+    private volatile Counter flushSignalQueueFailureTotal;
 
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -105,47 +103,35 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
         return stainTraceMaxEntriesPerTrace;
     }
 
-    public Counter getFlushSignalTotal() {
-        if (flushSignalTotal == null) {
+    public Counter getFlushSignalQueueFailureTotal() {
+        if (flushSignalQueueFailureTotal == null) {
             synchronized (this) {
-                if (flushSignalTotal == null) {
-                    flushSignalTotal =
-                            runningTask
-                                    .getMetricsContext()
-                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
-                }
-            }
-        }
-        return stainTraceEntriesTruncatedTotal;
-    }
-
-    public Counter getFlushSignalSuccessTotal() {
-        if (flushSignalSuccessTotal == null) {
-            synchronized (this) {
-                if (flushSignalSuccessTotal == null) {
-                    flushSignalSuccessTotal =
+                if (flushSignalQueueFailureTotal == null) {
+                    flushSignalQueueFailureTotal =
                             runningTask
                                     .getMetricsContext()
                                     .counter(
-                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
+                                            FlushSignalConstants
+                                                    .METRIC_FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
                 }
             }
         }
-        return flushSignalSuccessTotal;
+        return flushSignalQueueFailureTotal;
     }
 
-    public Counter getFlushSignalFailureTotal() {
-        if (flushSignalFailureTotal == null) {
+    public Counter getFlushSignalQueueSuccessTotal() {
+        if (flushSignalQueueSuccessTotal == null) {
             synchronized (this) {
-                if (flushSignalFailureTotal == null) {
-                    flushSignalFailureTotal =
+                if (flushSignalQueueSuccessTotal == null) {
+                    flushSignalQueueSuccessTotal =
                             runningTask
                                     .getMetricsContext()
                                     .counter(
-                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
+                                            FlushSignalConstants
+                                                    .METRIC_FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
                 }
             }
         }
-        return flushSignalFailureTotal;
+        return flushSignalQueueSuccessTotal;
     }
 }

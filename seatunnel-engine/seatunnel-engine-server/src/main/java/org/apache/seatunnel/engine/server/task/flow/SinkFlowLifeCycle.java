@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
@@ -302,7 +303,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 Signal signal = (Signal) record.getData();
                 if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
-                    writerContext.getFlushAction().run();
+                    try {
+                        writerContext.getFlushAction().run();
+                        metricsContext
+                                .counter(
+                                        FlushSignalConstants.METRIC_FLUSH_SIGNAL_SINK_SUCCESS_TOTAL)
+                                .inc();
+                    } catch (Exception e) {
+                        metricsContext
+                                .counter(
+                                        FlushSignalConstants.METRIC_FLUSH_SIGNAL_SINK_FAILURE_TOTAL)
+                                .inc();
+                        throw new RuntimeException(e);
+                    }
                 }
             } else {
                 if (prepareClose) {
