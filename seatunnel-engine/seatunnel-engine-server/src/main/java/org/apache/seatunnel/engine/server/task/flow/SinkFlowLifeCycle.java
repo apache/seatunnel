@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.event.StainTraceEvent;
@@ -43,7 +44,6 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
@@ -125,6 +125,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
+    private final Counter flushSignalSinkSuccessTotal;
+    private final Counter flushSignalSinkFailureTotal;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -171,6 +173,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         metricsContext, PluginType.SINK, isMulti, sinkTables);
         this.stainTraceInvalidPayloadTotal =
                 metricsContext.counter(StainTraceConstants.METRIC_INVALID_PAYLOAD_TOTAL);
+        this.flushSignalSinkSuccessTotal =
+                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
+        this.flushSignalSinkFailureTotal =
+                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
     }
 
     @Override
@@ -305,15 +311,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
                     try {
                         writerContext.getFlushAction().run();
-                        metricsContext
-                                .counter(
-                                        FlushSignalConstants.METRIC_FLUSH_SIGNAL_SINK_SUCCESS_TOTAL)
-                                .inc();
+                        flushSignalSinkSuccessTotal.inc();
                     } catch (Exception e) {
-                        metricsContext
-                                .counter(
-                                        FlushSignalConstants.METRIC_FLUSH_SIGNAL_SINK_FAILURE_TOTAL)
-                                .inc();
+                        flushSignalSinkFailureTotal.inc();
                         throw new RuntimeException(e);
                     }
                 }

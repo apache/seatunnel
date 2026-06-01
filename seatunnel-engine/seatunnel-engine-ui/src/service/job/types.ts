@@ -34,6 +34,11 @@ export interface Metrics {
   SourceReceivedCount: string
   SourceReceivedQPS: string
   SinkWriteBytes: string
+  FlushSignalTotal: string
+  FlushSignalQueueSuccessTotal: string
+  FlushSignalQueueFailureTotal: string
+  FlushSignalSinkSuccessTotal: string
+  FlushSignalSinkFailureTotal: string
   TableSourceReceivedBytes: Record<Path, string>
   TableSourceReceivedCount: Record<Path, string>
   TableSourceReceivedQPS: Record<Path, string>

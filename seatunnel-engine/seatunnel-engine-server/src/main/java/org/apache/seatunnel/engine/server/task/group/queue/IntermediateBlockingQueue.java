@@ -45,9 +45,12 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
     private final Counter intermediateQueueSize;
     private final Counter putBlockedNs;
     private volatile Counter stainTraceEntriesTruncatedTotal;
-    private volatile Counter flushSignalQueueSuccessTotal;
 
-    private volatile Counter flushSignalQueueFailureTotal;
+    private volatile Counter flushSignalTotal;
+
+    private volatile Counter flushSignalSuccessTotal;
+
+    private volatile Counter flushSignalFailureTotal;
 
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -166,10 +169,9 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             return false;
         }
         boolean offered = function.apply(record);
-        if (offered) {
-            getFlushSignalQueueSuccessTotal().inc();
-        } else {
-            getFlushSignalQueueFailureTotal().inc();
+        getFlushSignalTotal().inc();
+        if (!offered) {
+            getFlushSignalFailureTotal().inc();
         }
 
         return offered;
@@ -206,35 +208,45 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         return stainTraceMaxEntriesPerTrace;
     }
 
-    public Counter getFlushSignalQueueFailureTotal() {
-        if (flushSignalQueueFailureTotal == null) {
+    public Counter getFlushSignalTotal() {
+        if (flushSignalTotal == null) {
             synchronized (this) {
-                if (flushSignalQueueFailureTotal == null) {
-                    flushSignalQueueFailureTotal =
+                if (flushSignalTotal == null) {
+                    flushSignalTotal =
                             getRunningTask()
                                     .getMetricsContext()
-                                    .counter(
-                                            FlushSignalConstants
-                                                    .METRIC_FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
+                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
                 }
             }
         }
-        return flushSignalQueueFailureTotal;
+        return flushSignalTotal;
     }
 
-    public Counter getFlushSignalQueueSuccessTotal() {
-        if (flushSignalQueueSuccessTotal == null) {
+    public Counter getFlushSignalSuccessTotal() {
+        if (flushSignalSuccessTotal == null) {
             synchronized (this) {
-                if (flushSignalQueueSuccessTotal == null) {
-                    flushSignalQueueSuccessTotal =
+                if (flushSignalSuccessTotal == null) {
+                    flushSignalSuccessTotal =
                             getRunningTask()
                                     .getMetricsContext()
-                                    .counter(
-                                            FlushSignalConstants
-                                                    .METRIC_FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
                 }
             }
         }
-        return flushSignalQueueSuccessTotal;
+        return flushSignalSuccessTotal;
+    }
+
+    public Counter getFlushSignalFailureTotal() {
+        if (flushSignalFailureTotal == null) {
+            synchronized (this) {
+                if (flushSignalFailureTotal == null) {
+                    flushSignalFailureTotal =
+                            getRunningTask()
+                                    .getMetricsContext()
+                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
+                }
+            }
+        }
+        return flushSignalFailureTotal;
     }
 }

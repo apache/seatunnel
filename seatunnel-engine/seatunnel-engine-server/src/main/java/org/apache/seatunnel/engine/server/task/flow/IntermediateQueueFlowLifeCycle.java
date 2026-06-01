@@ -21,12 +21,14 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
 
 /** Bridges an intermediate queue between upstream producers and downstream collectors. */
 public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>>
@@ -34,12 +36,10 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
         implements OneInputFlowLifeCycle<Record<?>>, OneOutputFlowLifeCycle<Record<?>> {
 
     private final AbstractIntermediateQueue<?> queue;
+    private final Counter flushSignalQueueSuccessTotal;
+    private final Counter flushSignalQueueFailureTotal;
 
     private volatile Counter stainTraceEntriesTruncatedTotal;
-
-    private volatile Counter flushSignalQueueSuccessTotal;
-
-    private volatile Counter flushSignalQueueFailureTotal;
 
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -49,6 +49,10 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
             AbstractIntermediateQueue<?> queue) {
         super(runningTask, completableFuture);
         this.queue = queue;
+        this.flushSignalQueueSuccessTotal =
+                runningTask.getMetricsContext().counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+        this.flushSignalQueueFailureTotal =
+                runningTask.getMetricsContext().counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
         queue.setIntermediateQueueFlowLifeCycle(this);
         queue.setRunningTask(runningTask);
     }
@@ -104,34 +108,10 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
     }
 
     public Counter getFlushSignalQueueFailureTotal() {
-        if (flushSignalQueueFailureTotal == null) {
-            synchronized (this) {
-                if (flushSignalQueueFailureTotal == null) {
-                    flushSignalQueueFailureTotal =
-                            runningTask
-                                    .getMetricsContext()
-                                    .counter(
-                                            FlushSignalConstants
-                                                    .METRIC_FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
-                }
-            }
-        }
         return flushSignalQueueFailureTotal;
     }
 
     public Counter getFlushSignalQueueSuccessTotal() {
-        if (flushSignalQueueSuccessTotal == null) {
-            synchronized (this) {
-                if (flushSignalQueueSuccessTotal == null) {
-                    flushSignalQueueSuccessTotal =
-                            runningTask
-                                    .getMetricsContext()
-                                    .counter(
-                                            FlushSignalConstants
-                                                    .METRIC_FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
-                }
-            }
-        }
         return flushSignalQueueSuccessTotal;
     }
 }
