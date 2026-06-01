@@ -181,6 +181,11 @@ public class ElasticsearchSource
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
+        int sliceMax = readonlyConfig.get(ElasticsearchSourceOptions.SLICE_MAX);
+        if (SearchTypeEnum.SQL.equals(searchType) && sliceMax > 1) {
+            log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
+            sliceMax = 1;
+        }
 
         long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
         int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
@@ -208,6 +213,7 @@ public class ElasticsearchSource
 
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
+        elasticsearchConfig.setSliceMax(sliceMax);
         return elasticsearchConfig;
     }
 

@@ -50,7 +50,8 @@ import ChangeLog from '../changelog/connector-http.md';
 | pageing.cursor_field          | String  | 否       | -           | 此参数用于指定请求参数中的游标字段名称。                                                                                       |
 | pageing.cursor_response_field | String  | 否       | -           | 此参数指定从中检索游标的响应字段。                                                                                            |
 | content_field                  | String  | 否       | -           | 此参数可以获取一些 json 数据。如果您只需要 'book' 部分的数据，配置 `content_field = "$.store.book.*"`。                                              |
-| format                        | String  | 否       | text        | 上游数据的格式，目前仅支持 `json` `text`，默认为 `text`。                                                                                                      |
+| format                        | String  | 否       | text        | 上游数据的格式，支持 `json` `text` `binary`，默认为 `text`。当设置为 `binary` 时，响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。                                     |
+| binary_chunk_size             | Long    | 否       | 10485760    | 当 `format = binary` 时的分片大小（字节）。大文件会被拆分为多行。默认 10MB。仅在 BATCH 模式下生效。                                                                             |
 | method                        | String  | 否       | get         | Http 请求方法，仅支持 GET、POST 方法。                                                                                                                              |
 | headers                       | Map     | 否       | -           | Http 头信息。                                                                                                                                                                     |
 | params                        | Map     | 否       | -           | Http 参数。                                                                                                                                                                      |
@@ -179,6 +180,40 @@ schema {
 |                         content                          |
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
+
+当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式。
+
+示例：通过 HTTP 下载文件并写入 LocalFileSink：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Http {
+    url = "http://example.com/files/report.pdf"
+    method = "GET"
+    format = "binary"
+    binary_chunk_size = 10485760  # 每个分片 10MB
+    schema = {
+      fields {
+        data = bytes
+        relativePath = string
+        partIndex = long
+      }
+    }
+  }
+}
+
+sink {
+  LocalFile {
+    path = "/tmp/download"
+    file_format = "binary"
+  }
+}
+```
 
 ### keep_params_as_form
 为了兼容旧版本的 http。

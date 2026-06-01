@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -1063,26 +1064,28 @@ public class CoordinatorServiceTest {
 
     @Test
     void testGetPendingJobInfo() {
-        setConfigFile("seatunnel_fixed_slots.yaml");
-        JobInformation jobInformation =
-                submitJob(
-                        "CoordinatorServiceTest_testGetPendingJobInfo",
-                        "batch_slot_not_enough.conf",
-                        "test_get_pending_job_info");
-
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
         try {
-            CoordinatorService coordinatorService = jobInformation.coordinatorService;
-            Long jobId = jobInformation.jobId;
+            Long jobId = 70001L;
+            JobHistoryService jobHistoryService = Mockito.mock(JobHistoryService.class);
+            ReflectionUtils.setField(coordinatorService, "jobHistoryService", jobHistoryService);
+            Mockito.when(jobHistoryService.getJobDAGInfo(jobId)).thenReturn(null);
+
+            JobDAGInfo pendingJobDAGInfo = new JobDAGInfo();
+            pendingJobDAGInfo.setJobId(jobId);
+            JobMaster jobMaster =
+                    enqueueMockPendingJob(coordinatorService, jobId, new CountDownLatch(1));
+            Mockito.when(jobMaster.getJobDAGInfo()).thenReturn(pendingJobDAGInfo);
 
             Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
 
             JobDAGInfo jobDAGInfo =
                     Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+            Assertions.assertSame(pendingJobDAGInfo, jobDAGInfo);
             Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
         } finally {
-            jobInformation.coordinatorService.clearCoordinatorService();
-            jobInformation.coordinatorServiceTest.shutdown();
-            setDefaultConfigFile();
+            coordinatorService.shutdown();
         }
     }
 
