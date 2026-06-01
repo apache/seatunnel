@@ -19,9 +19,15 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import lombok.Getter;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
+@Getter
 public class Condition<T> {
+
     private final Option<T> option;
     private final T expectValue;
     private final ConditionOperator operator;
@@ -61,8 +67,6 @@ public class Condition<T> {
         this.compareOption = compareOption;
     }
 
-    // ==================== Equality (backward-compatible) ====================
-
     public static <T> Condition<T> of(Option<T> option, T expectValue) {
         return new Condition<>(option, expectValue);
     }
@@ -70,8 +74,6 @@ public class Condition<T> {
     public static <T> Condition<T> of(Option<T> option, ConditionOperator op, T expectValue) {
         return new Condition<>(option, op, expectValue, null);
     }
-
-    // ==================== Chain operations (existing API, unchanged) ====================
 
     public <E> Condition<T> and(Option<E> option, E expectValue) {
         return and(of(option, expectValue));
@@ -125,37 +127,13 @@ public class Condition<T> {
         return hasNext() ? this.next.getTailCondition() : this;
     }
 
-    // ==================== Accessors ====================
-
     public boolean hasNext() {
         return this.next != null;
-    }
-
-    public Condition<?> getNext() {
-        return this.next;
-    }
-
-    public Option<T> getOption() {
-        return option;
-    }
-
-    public T getExpectValue() {
-        return expectValue;
-    }
-
-    public ConditionOperator getOperator() {
-        return operator;
-    }
-
-    public Option<?> getCompareOption() {
-        return compareOption;
     }
 
     public Boolean and() {
         return this.and;
     }
-
-    // ==================== equals / hashCode ====================
 
     @Override
     public boolean equals(Object obj) {
@@ -185,28 +163,56 @@ public class Condition<T> {
                 this.next);
     }
 
-    // ==================== toString ====================
-
+    /**
+     * Renders this condition chain as a human-readable string using AND-first precedence grouping,
+     * consistent with the evaluation semantics in {@code ConfigValidator}.
+     *
+     * <p>Multi-node AND segments are wrapped in parentheses when mixed with OR: {@code A || (B &&
+     * C)} rather than {@code (A || B) && C}.
+     */
     @Override
     public String toString() {
+        List<String> orSegments = new ArrayList<>();
+        List<Integer> orSegmentSizes = new ArrayList<>();
         Condition<?> cur = this;
-        StringBuilder builder = new StringBuilder();
-        boolean bracket = false;
-        do {
-            builder.append(conditionToString(cur));
-            if (bracket) {
-                builder = new StringBuilder(String.format("(%s)", builder));
-                bracket = false;
-            }
-            if (cur.hasNext()) {
-                if (cur.next.hasNext() && !cur.and.equals(cur.next.and)) {
-                    bracket = true;
+        while (cur != null) {
+            StringBuilder segment = new StringBuilder();
+            int count = 0;
+            while (cur != null) {
+                if (count > 0) {
+                    segment.append(" && ");
                 }
-                builder.append(cur.and ? " && " : " || ");
+                segment.append(conditionToString(cur));
+                count++;
+                if (!cur.hasNext()) {
+                    cur = null;
+                    break;
+                }
+                if (Boolean.TRUE.equals(cur.and)) {
+                    cur = cur.next;
+                } else {
+                    cur = cur.next;
+                    break;
+                }
             }
-            cur = cur.next;
-        } while (cur != null);
-        return builder.toString();
+            orSegments.add(segment.toString());
+            orSegmentSizes.add(count);
+        }
+        if (orSegments.size() == 1) {
+            return orSegments.get(0);
+        }
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < orSegments.size(); i++) {
+            if (i > 0) {
+                result.append(" || ");
+            }
+            if (orSegmentSizes.get(i) > 1) {
+                result.append("(").append(orSegments.get(i)).append(")");
+            } else {
+                result.append(orSegments.get(i));
+            }
+        }
+        return result.toString();
     }
 
     private static String conditionToString(Condition<?> cond) {

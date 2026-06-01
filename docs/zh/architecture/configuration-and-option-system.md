@@ -104,79 +104,33 @@ public OptionRule optionRule() {
 
 ### 值约束（`Condition`）
 
-除了结构性规则（必填、互斥等），配置项还可以携带**值级别约束**，运行时会在作业启动前进行校验。`Condition` API 提供了一种流式方式，在 `OptionRule.builder()` 中附加这些约束。
+除了结构性规则（必填、互斥等），配置项还可以携带**值级别约束**，运行时会在作业启动前进行校验。`Condition` API 提供了一种流式方式，在 `OptionRule.builder()` 中附加这些约束。具体用法参见下方 [OptionRule 模式编码指南](#optionrule-模式编码指南)。
 
-**数值范围约束：**
+可用的操作符（均通过 `Conditions` 工厂类调用）：
 
-```java
-OptionRule.builder()
-        .required(PORT,
-                Conditions.greaterOrEqual(PORT, 1)
-                        .and(Conditions.lessOrEqual(PORT, 65535)))
-        .build();
-```
-
-**字符串约束：**
-
-```java
-OptionRule.builder()
-        .required(HOST, Conditions.notBlank(HOST))
-        .optional(DB_NAME, Condition.upperCase(DB_NAME))
-        .build();
-```
-
-**跨字段比较：**
-
-```java
-OptionRule.builder()
-        .required(START_TS, END_TS,
-                Condition.lessThanField(START_TS, END_TS))
-        .build();
-```
-
-**集合约束：**
-
-```java
-OptionRule.builder()
-        .required(TABLES,
-                Conditions.notEmpty(TABLES)
-                        .and(Conditions.unique(TABLES)))
-        .build();
-```
-
-可用的操作符：
-
-| 类别 | 操作符 | 说明 |
-|------|--------|------|
-| 数值 | `greaterThan` | 值 > 阈值 |
-| 数值 | `greaterOrEqual` | 值 >= 阈值 |
-| 数值 | `lessThan` | 值 < 阈值 |
-| 数值 | `lessOrEqual` | 值 <= 阈值 |
-| 字符串 | `notBlank` | 字符串非空且不全为空白字符 |
-| 字符串 | `startsWith` | 字符串以指定前缀开头 |
-| 字符串 | `endsWith` | 字符串以指定后缀结尾 |
-| 字符串 | `contains` | 字符串包含指定子串 |
-| 字符串 | `matches` | 字符串匹配正则表达式 |
-| 字符串 | `upperCase` | 字符串全部大写 |
-| 字符串 | `lowerCase` | 字符串全部小写 |
-| 字符串长度 | `lengthEqual` | 字符串长度 == n |
-| 字符串长度 | `lengthGreaterOrEqual` | 字符串长度 >= n |
-| 字符串长度 | `lengthLessOrEqual` | 字符串长度 <= n |
-| 集合 | `notEmpty` | 集合非空 |
-| 集合 | `unique` | 集合元素无重复 |
-| 集合 | `sizeEqual` | 集合大小 == n |
-| 集合 | `sizeGreaterOrEqual` | 集合大小 >= n |
-| 集合 | `sizeLessOrEqual` | 集合大小 <= n |
-| 跨字段 | `lessThanField` | 值 < 另一个配置项的值 |
-| 跨字段 | `lessOrEqualField` | 值 <= 另一个配置项的值 |
-| 跨字段 | `greaterThanField` | 值 > 另一个配置项的值 |
-| 跨字段 | `greaterOrEqualField` | 值 >= 另一个配置项的值 |
-| 跨字段 | `fieldEqual` | 值 == 另一个配置项的值 |
-| 跨字段 | `fieldNotEqual` | 值 != 另一个配置项的值 |
-| 跨字段 | `fieldSizeEqual` | 集合大小 == 另一个集合的大小 |
+| 类别 | 方法 | 说明 |
+|------|------|------|
+| 相等性 | `Condition.of(option, value)` | 值 == 期望值（兼容旧 API） |
+| 相等性 | `Condition.of(option, NOT_EQUAL, value)` | 值 != 期望值 |
+| 数值 | `greaterThan(option, threshold)` | 值 > 阈值 |
+| 数值 | `greaterOrEqual(option, threshold)` | 值 >= 阈值 |
+| 数值 | `lessThan(option, threshold)` | 值 < 阈值 |
+| 数值 | `lessOrEqual(option, threshold)` | 值 <= 阈值 |
+| 字符串 | `notBlank(option)` | 字符串非空且不全为空白字符 |
+| 字符串 | `startsWith(option, prefix)` | 字符串以指定前缀开头 |
+| 字符串 | `contains(option, substring)` | 字符串包含指定子串 |
+| 字符串 | `matches(option, regex)` | 字符串匹配正则表达式 |
+| 字符串 | `upperCase(option)` | 字符串全部大写 |
+| 字符串 | `lowerCase(option)` | 字符串全部小写 |
+| 集合 | `notEmpty(option)` | 集合非空 |
+| 集合 | `unique(option)` | 集合元素无重复 |
+| 跨字段 | `lessThanField(option, other)` | 值 < 另一个配置项的值 |
+| 跨字段 | `lessOrEqualField(option, other)` | 值 <= 另一个配置项的值 |
+| 跨字段 | `greaterThanField(option, other)` | 值 > 另一个配置项的值 |
+| 跨字段 | `greaterOrEqualField(option, other)` | 值 >= 另一个配置项的值 |
 
 :::tip
-多个条件可以通过 `.and(...)` 或 `.or(...)` 链式组合成复合约束。
+多个条件可以通过 `.and(...)` 或 `.or(...)` 链式组合成复合约束。AND 优先级高于 OR，因此 `A.or(B).and(C)` 等价于 `A || (B && C)`。
 :::
 
 ### `ReadonlyConfig`
@@ -203,7 +157,34 @@ public void prepare(Config pluginConfig) {
 5. 运行时通过 `ReadonlyConfig` 获取已解析参数。
 6. 同一套元数据还可以通过 REST 暴露给 UI 或自动化系统。
 
-校验失败时，`OptionValidationException` 会被抛出，异常消息中包含约束表达式和涉及的配置项 key。
+校验失败时，`OptionValidationException` 会被抛出，携带结构化的错误消息。详见下方 [校验错误消息](#校验错误消息) 章节。
+
+## 校验错误消息
+
+选项校验错误以 `OptionValidationException` 抛出，它是 `SeaTunnelRuntimeException` 的子类，携带错误码 `API-02`。消息始终以下列前缀开头：
+
+```
+ErrorCode:[API-02], ErrorDescription:[Option item validate failed]
+```
+
+选项值与结构校验（必填、成组、互斥、条件、值约束）的错误统一聚合为编号列表。每条记录使用一致的三行格式，带 `type` 标签（`required` / `bundled` / `exclusive` / `conditional` / `value`）以便识别分类。结构性错误排在前面，若某个必填项缺失，其值约束会自动跳过以避免冗余。
+
+```
+ErrorCode:[API-02], ErrorDescription:[Option item validate failed] -
+Option validation failed (4 errors):
+  [1] option: 'host'
+      type: required
+      constraint: required option is not configured
+  [2] options: 'username', 'password'
+      type: bundled
+      constraint: bundled options must be present or absent together (present: ['username'], absent: ['password'])
+  [3] option: port
+      type: value
+      constraint: 'port' >= 1
+  [4] option: start_ts
+      type: value
+      constraint: 'start_ts' < 'end_ts'
+```
 
 ## OptionRule 模式编码指南
 
@@ -269,7 +250,7 @@ public void prepare(Config pluginConfig) {
 
 ```java
 .required(HOST, Conditions.notBlank(HOST))
-.required(DATABASE, Condition.upperCase(DATABASE))
+.required(DATABASE, Conditions.upperCase(DATABASE))
 .required(ENDPOINT, Conditions.matches(ENDPOINT, "^[^:]+:\\d+$"))
 ```
 
@@ -279,7 +260,7 @@ public void prepare(Config pluginConfig) {
 
 ```java
 .required(START_TS, END_TS,
-        Condition.lessThanField(START_TS, END_TS))
+        Conditions.lessThanField(START_TS, END_TS))
 ```
 
 ### 集合约束
@@ -292,14 +273,66 @@ public void prepare(Config pluginConfig) {
                 .and(Conditions.unique(TABLES)))
 ```
 
-### 复合约束
+### AND 复合约束
 
-多个条件通过 `.and(...)` 或 `.or(...)` 链式组合。
+多个条件通过 `.and(...)` 组合，所有条件必须同时满足。
 
 ```java
 .required(RATIO,
         Conditions.greaterThan(RATIO, 0.0)
                 .and(Conditions.lessOrEqual(RATIO, 1.0)))
+```
+
+### OR 链 — 至少一个分支通过
+
+当用户可以通过满足多个选项中的任意一个来通过约束时，使用 `.or(...)`。只要有一个分支成功，整个约束即通过。
+
+```java
+// HOST 或 ENDPOINT 至少有一个非空
+.optional(HOST, Conditions.notBlank(HOST).or(Conditions.notBlank(ENDPOINT)))
+.optional(ENDPOINT)
+```
+
+### 混合 AND / OR 链
+
+AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适用于一个简单条件作为更严格复合检查的备选。
+
+```java
+// HOST 非空即可，或者 PORT 在 [1, 65535] 范围内
+.optional(HOST,
+        Conditions.notBlank(HOST)
+                .or(Conditions.greaterOrEqual(PORT, 1)
+                        .and(Conditions.lessOrEqual(PORT, 65535))))
+.optional(PORT)
+```
+
+### 条件必填 + 值约束
+
+条件必填项除了判断是否存在，还可以附加值约束。约束仅在触发条件满足时才会执行。
+
+```java
+// 当 START_MODE == TIMESTAMP 时，START_TIMESTAMP 必须存在且 > 0
+.conditional(START_MODE, StartMode.TIMESTAMP,
+        Conditions.greaterThan(START_TIMESTAMP, 0L))
+```
+
+### 可选项 + 值约束
+
+可选字段在用户提供时必须满足约束；若字段缺失则跳过校验。
+
+```java
+.optional(BATCH_SIZE,
+        Conditions.greaterOrEqual(BATCH_SIZE, 1)
+                .and(Conditions.lessOrEqual(BATCH_SIZE, 10000)))
+```
+
+### 可选跨字段约束
+
+两个可选字段同时提供时，它们的值必须满足跨字段规则。若任一字段缺失则跳过校验。
+
+```java
+.optional(START_TS, END_TS,
+        Conditions.lessThanField(START_TS, END_TS))
 ```
 
 ## 为什么这对运维也重要

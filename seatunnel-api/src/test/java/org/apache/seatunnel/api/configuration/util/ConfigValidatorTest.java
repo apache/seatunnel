@@ -106,14 +106,15 @@ public class ConfigValidatorTest {
 
         // absent
         config.put(TEST_PORTS.key(), "[9090]");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("1 error)"));
+        Assertions.assertTrue(msg.contains("[1] option: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("constraint: required option is not configured"));
 
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('password') are required.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("[1] option: 'password'"));
+        Assertions.assertTrue(msg.contains("constraint: required option is not configured"));
 
         // all present
         config.put(KEY_PASSWORD.key(), "saitou");
@@ -131,12 +132,13 @@ public class ConfigValidatorTest {
 
         // case2: some present
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('username', 'password') are bundled, must be present or absent together."
-                        + " The options present are: 'username'. The options absent are 'password'.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("[1] options: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("bundled options must be present or absent together"));
+        Assertions.assertTrue(msg.contains("present: ['username']"));
+        Assertions.assertTrue(msg.contains("absent: ['password']"));
 
-        // case2: all present
+        // case3: all present
         config.put(KEY_PASSWORD.key(), "saitou");
         Assertions.assertDoesNotThrow(executable);
     }
@@ -148,10 +150,10 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('option.topic-pattern', 'option.topic') are mutually exclusive,"
-                        + " allowing only one set(\"[] for a set\") of options to be configured.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("'option.topic-pattern', 'option.topic'"));
+        Assertions.assertTrue(
+                msg.contains("exactly one option must be set, but none are configured"));
 
         // only one present
         config.put(TEST_TOPIC_PATTERN.key(), "asuka");
@@ -159,10 +161,8 @@ public class ConfigValidatorTest {
 
         // present > 1
         config.put(TEST_TOPIC.key(), "[\"saitou\"]");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('option.topic-pattern', 'option.topic') are mutually exclusive, "
-                        + "allowing only one set(\"[] for a set\") of options to be configured.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("mutually exclusive, but multiple are set"));
     }
 
     @Test
@@ -174,10 +174,10 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('bearer-token', 'kerberos-ticket') are mutually exclusive,"
-                        + " allowing only one set(\"[] for a set\") of options to be configured.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("'bearer-token', 'kerberos-ticket'"));
+        Assertions.assertTrue(
+                msg.contains("exactly one option must be set, but none are configured"));
 
         // set one
         config.put(KEY_BEARER_TOKEN.key(), "ashulin");
@@ -185,10 +185,8 @@ public class ConfigValidatorTest {
 
         // all set
         config.put(KEY_KERBEROS_TICKET.key(), "zongwen");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('bearer-token', 'kerberos-ticket') are mutually exclusive,"
-                        + " allowing only one set(\"[] for a set\") of options to be configured.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("mutually exclusive, but multiple are set"));
     }
 
     @Test
@@ -206,10 +204,10 @@ public class ConfigValidatorTest {
 
         // Expression match, and required options absent
         config.put(TEST_MODE.key(), "timestamp");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required"
-                        + " because ['option.mode' == TIMESTAMP] is true.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'option.timestamp'"));
+        Assertions.assertTrue(
+                msg.contains("required because ['option.mode' == TIMESTAMP] is true"));
 
         // Expression match, and required options all present
         config.put(TEST_TIMESTAMP.key(), "564231238596789");
@@ -235,10 +233,9 @@ public class ConfigValidatorTest {
 
         // Expression match, and required options absent
         config.put(KEY_USERNAME.key(), "ashulin");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required"
-                        + " because ['username' == ashulin] is true.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'option.timestamp'"));
+        Assertions.assertTrue(msg.contains("required because ['username' == ashulin] is true"));
 
         // Expression match, and required options all present
         config.put(TEST_TIMESTAMP.key(), "564231238596789");
@@ -265,17 +262,19 @@ public class ConfigValidatorTest {
 
         // 'username' == ashulin, and required options absent
         config.put(KEY_USERNAME.key(), "ashulin");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required"
-                        + " because ['username' == ashulin || 'username' == asuka] is true.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'option.timestamp'"));
+        Assertions.assertTrue(
+                msg.contains(
+                        "required because ['username' == ashulin || 'username' == asuka] is true"));
 
         // 'username' == asuka, and required options absent
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required"
-                        + " because ['username' == ashulin || 'username' == asuka] is true.",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'option.timestamp'"));
+        Assertions.assertTrue(
+                msg.contains(
+                        "required because ['username' == ashulin || 'username' == asuka] is true"));
 
         // Expression match, and required options all present
         config.put(TEST_TIMESTAMP.key(), "564231238596789");
@@ -347,9 +346,11 @@ public class ConfigValidatorTest {
 
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "A");
         executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A].",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(
+                msg.contains("required option is not configured when ['single_choice_test' == A]"));
 
         config.put(KEY_USERNAME.key(), "root");
         config.put(KEY_PASSWORD.key(), "111");
@@ -358,9 +359,11 @@ public class ConfigValidatorTest {
 
         config.put(KEY_USERNAME.key(), "admin");
         executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('test_key') are required when ['username' == admin].",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'test_key'"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(
+                msg.contains("required option is not configured when ['username' == admin]"));
 
         config.put(test_key.key(), "111");
         executable = () -> validate(config, optionRule);
@@ -413,15 +416,21 @@ public class ConfigValidatorTest {
         config.put(KEY_KERBEROS_TICKET.key(), "A");
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "B");
         Executable executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A || 'single_choice_test' == B].",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        String msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(
+                msg.contains(
+                        "required option is not configured when ['single_choice_test' == A || 'single_choice_test' == B]"));
 
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "B");
         executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A || 'single_choice_test' == B].",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        msg = assertThrows(OptionValidationException.class, executable).getMessage();
+        Assertions.assertTrue(msg.contains("option: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(
+                msg.contains(
+                        "required option is not configured when ['single_choice_test' == A || 'single_choice_test' == B]"));
     }
 
     // ==================== Validation Rule Tests ====================
@@ -1466,30 +1475,36 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testCollectionNotEmptyWithNonCollectionValue() {
+    public void testCollectionNotEmptyWithScalarValue() {
         OptionRule rule = OptionRule.builder().required(TAGS, notEmpty(TAGS)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(TAGS.key(), "not_a_list");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "ReadonlyConfig normalizes scalar to single-element list, which is non-empty");
     }
 
     @Test
-    public void testCollectionUniqueWithNonCollectionValue() {
+    public void testCollectionUniqueWithScalarValue() {
         OptionRule rule = OptionRule.builder().required(TAGS, unique(TAGS)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(TAGS.key(), "not_a_list");
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "ReadonlyConfig normalizes scalar to single-element list, which is unique");
     }
 
     @Test
-    public void testNotBlankWithNonStringValue() {
+    public void testNotBlankWithNumericValue() {
         OptionRule rule = OptionRule.builder().required(HOST, notBlank(HOST)).build();
 
         Map<String, Object> config = new HashMap<>();
         config.put(HOST.key(), 12345);
-        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "ReadonlyConfig converts integer to string '12345', which is not blank");
     }
 
     @Test
@@ -1567,7 +1582,7 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testOrChainPartialAbsentSkipsConstraint() {
+    public void testOrChainFirstSegmentValidSecondAbsent() {
         OptionRule rule =
                 OptionRule.builder()
                         .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
@@ -1577,8 +1592,82 @@ public class ConfigValidatorTest {
         Map<String, Object> config = new HashMap<>();
         config.put(PORT.key(), 8080);
         Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "first OR segment present and valid -> pass");
+    }
+
+    @Test
+    public void testOrChainFirstSegmentInvalidSecondAbsentFails() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        assertThrows(
+                OptionValidationException.class,
                 () -> validate(config, rule),
-                "OR chain with one side absent should skip when other side absent");
+                "first OR segment invalid + second absent -> fail");
+    }
+
+    @Test
+    public void testOrChainFirstAbsentSecondPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "localhost");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "first OR segment absent + second present and valid -> pass");
+    }
+
+    @Test
+    public void testOrChainFirstAbsentSecondInvalidFails() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(PORT, greaterOrEqual(PORT, 1).or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "   ");
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "first OR segment absent + second present but invalid -> fail");
+    }
+
+    @Test
+    public void testOrChainCrossFieldOrLiteral() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                START_TS,
+                                END_TS,
+                                lessThanField(START_TS, END_TS).or(greaterOrEqual(START_TS, 0L)))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "cross-field OR absent + literal segment valid -> pass");
+
+        config.put(START_TS.key(), -1L);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "cross-field OR absent + literal segment invalid -> fail");
+
+        config.put(START_TS.key(), 200L);
+        config.put(END_TS.key(), 300L);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "cross-field segment present and valid -> pass");
     }
 
     @Test
@@ -1757,5 +1846,700 @@ public class ConfigValidatorTest {
         String msg = ex.getMessage();
         Assertions.assertTrue(msg.contains("1 error)"), "single error should not be plural");
         Assertions.assertFalse(msg.contains("1 errors"), "should not say '1 errors'");
+    }
+
+    @Test
+    public void testUnknownKeysWithConditionalValueConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(MODE, "stream", greaterThan(START_TS, 0L))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(START_TS.key(), 100L);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"),
+                "conditional value constraint option should be in declared keys");
+    }
+
+    @Test
+    public void testUnknownKeysWithConditionalMultiFieldConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(ENABLE_TX)
+                        .conditional(
+                                ENABLE_TX, true, START_TS, END_TS, lessThanField(START_TS, END_TS))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(ENABLE_TX.key(), true);
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"),
+                "conditional multi-field constraint options should be in declared keys");
+    }
+
+    @Test
+    public void testUnknownKeysWithOrChainMultipleOptions() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(HOST, notBlank(HOST).or(notBlank(ENDPOINT)))
+                        .optional(ENDPOINT)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "localhost");
+        config.put(ENDPOINT.key(), "my-endpoint");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), rule, "TestConnector"),
+                "OR chain options should all be in declared keys");
+    }
+
+    // ==================== Additional OR / AND chain edge cases ====================
+
+    @Test
+    public void testThreeWayOrChain() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(HOST, notBlank(HOST).or(notBlank(ENDPOINT)).or(notBlank(DB_NAME)))
+                        .optional(ENDPOINT)
+                        .optional(DB_NAME)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(DB_NAME.key(), "mydb");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "third OR segment present and valid -> pass");
+
+        config.clear();
+        config.put(HOST.key(), "");
+        config.put(ENDPOINT.key(), "");
+        config.put(DB_NAME.key(), "");
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "all three OR branches blank -> fail");
+
+        config.clear();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule), "all three absent -> skip");
+    }
+
+    @Test
+    public void testAndOrMixedChainAndBindsTighter() {
+        // A.and(B).or(C) evaluates as (A && B) || C — AND has higher precedence than OR
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                START_TS,
+                                END_TS,
+                                lessThanField(START_TS, END_TS)
+                                        .and(greaterOrEqual(START_TS, 0L))
+                                        .or(notBlank(HOST)))
+                        .optional(HOST)
+                        .build();
+
+        // (A && B) = true -> pass
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // (A && B) both fail, C = true -> OR rescues
+        config.clear();
+        config.put(START_TS.key(), 300L);
+        config.put(END_TS.key(), 100L);
+        config.put(HOST.key(), "fallback");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "AND group fails but OR fallback rescues");
+
+        // Only HOST present and valid -> C alone passes via OR
+        config.clear();
+        config.put(HOST.key(), "fallback");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "only OR fallback present and valid -> pass");
+
+        // (A && B) fail, C blank -> both OR branches fail
+        config.clear();
+        config.put(START_TS.key(), 300L);
+        config.put(END_TS.key(), 100L);
+        config.put(HOST.key(), "");
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "AND group fails + OR fallback blank -> fail");
+
+        // All absent -> constraint skipped
+        config.clear();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testMultipleVarargsConstraints() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1), lessOrEqual(PORT, 65535))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 8080);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(PORT.key(), 0);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        config.put(PORT.key(), 70000);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testConditionalValueOnlyConstraintSkipsWhenTargetAbsent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(MODE, "stream", greaterThan(START_TS, 0L))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "value-only conditional with target absent -> constraint skipped by design");
+    }
+
+    @Test
+    public void testConditionalValueOnlyConstraintEnforcesWhenTargetPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(MODE, "stream", greaterThan(START_TS, 0L))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(START_TS.key(), 100L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), 0L);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testEmptyStringTreatedAsPresent() {
+        OptionRule rule = OptionRule.builder().optional(HOST, notBlank(HOST)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "");
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "empty string is present but blank -> constraint should fail");
+    }
+
+    @Test
+    public void testRequiredPrimaryWithAbsentOptionalCompareField() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, lessThanField(START_TS, END_TS))
+                        .optional(END_TS)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "required primary -> constraint applicable; compare field null -> evaluator returns false -> fail");
+    }
+
+    @Test
+    public void testRequiredPrimaryWithCompareFieldBothPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(START_TS, lessThanField(START_TS, END_TS))
+                        .optional(END_TS)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOrThenAndChainEvaluation() {
+        // A.or(B).and(C) evaluates as A || (B && C)
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                PORT,
+                                notBlank(HOST)
+                                        .or(greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 100))))
+                        .required(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "localhost");
+        config.put(PORT.key(), 200);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "A (notBlank HOST) true -> OR short-circuits, (B && C) skipped");
+
+        config.put(HOST.key(), "");
+        config.put(PORT.key(), 50);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "A false, (B && C) = (50>=1 && 50<=100) = true -> pass");
+
+        config.put(HOST.key(), "");
+        config.put(PORT.key(), 200);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "A false, (B && C) = (200>=1 && 200<=100) = false -> fail");
+    }
+
+    @Test
+    public void testInvalidRegexPatternThrowsPatternSyntaxException() {
+        OptionRule rule = OptionRule.builder().required(HOST, matches(HOST, "[invalid")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "test");
+        assertThrows(
+                java.util.regex.PatternSyntaxException.class,
+                () -> validate(config, rule),
+                "invalid regex escapes as PatternSyntaxException from String.matches()");
+    }
+
+    @Test
+    public void testNullOptionRejected() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Condition.of(null, "value"),
+                "null option should throw IAE");
+    }
+
+    @Test
+    public void testCircularChainViaOr() {
+        Condition<Integer> a = greaterThan(PORT, 0);
+        Condition<String> b = notBlank(HOST);
+        a.or(b);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> b.or(a),
+                "circular chain via or() should be detected");
+    }
+
+    @Test
+    public void testUpperCaseEmptyString() {
+        OptionRule rule = OptionRule.builder().required(DB_NAME, upperCase(DB_NAME)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(DB_NAME.key(), "");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "empty string equals its uppercase form");
+    }
+
+    @Test
+    public void testLowerCaseEmptyString() {
+        OptionRule rule = OptionRule.builder().required(DB_NAME, lowerCase(DB_NAME)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(DB_NAME.key(), "");
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule), "empty string equals its lowercase form");
+    }
+
+    @Test
+    public void testStructuralAndConstraintErrorsAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(PORT, greaterOrEqual(PORT, 1))
+                        .required(HOST, notBlank(HOST))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"), "should aggregate both errors");
+        Assertions.assertTrue(
+                msg.contains("[1] option: 'host'"), "structural error for host should come first");
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(
+                msg.contains("required option is not configured"),
+                "should describe the structural rule");
+        Assertions.assertTrue(
+                msg.contains("[2] option: port"), "constraint error for port should come second");
+        Assertions.assertTrue(msg.contains("type: value"));
+        Assertions.assertTrue(msg.contains("'port' >= 1"), "should include constraint expression");
+        Assertions.assertFalse(
+                msg.contains("[3]"),
+                "host constraint should be suppressed since host is structurally absent");
+    }
+
+    @Test
+    public void testMergedConditionalConstraints() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(MODE)
+                        .conditional(MODE, "stream", greaterThan(START_TS, 0L))
+                        .conditional(MODE, "stream", greaterThan(END_TS, 0L))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(START_TS.key(), 0L);
+        config.put(END_TS.key(), 0L);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertTrue(
+                ex.getMessage().contains("2 errors"),
+                "merged conditional constraints should aggregate both failures");
+    }
+
+    @Test
+    public void testConstraintErrorMessageHasErrorCodePrefix() {
+        OptionRule rule = OptionRule.builder().required(PORT, greaterOrEqual(PORT, 1)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(PORT.key(), 0);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertTrue(
+                ex.getMessage().startsWith("ErrorCode:[API-02]"),
+                "constraint error should carry standard ErrorCode prefix");
+    }
+
+    @Test
+    public void testThreeWayOrChainToString() {
+        assertEquals(
+                "'host' is not blank || 'endpoint' is not blank || 'db_name' is not blank",
+                notBlank(HOST).or(notBlank(ENDPOINT)).or(notBlank(DB_NAME)).toString());
+    }
+
+    @Test
+    public void testOrThenAndChainToString() {
+        // AND-first precedence grouping, consistent with evaluation semantics:
+        // notBlank(HOST) -or-> greaterOrEqual(PORT,1) -and-> lessOrEqual(PORT,100)
+        // evaluates as: HOST || (PORT>=1 && PORT<=100)
+        assertEquals(
+                "'host' is not blank || ('port' >= 1 && 'port' <= 100)",
+                notBlank(HOST).or(greaterOrEqual(PORT, 1).and(lessOrEqual(PORT, 100))).toString());
+    }
+
+    @Test
+    public void testContainsEmptySubstring() {
+        OptionRule rule = OptionRule.builder().required(HOST, contains(HOST, "")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "anything");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(HOST.key(), "");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testStartsWithEmptyPrefix() {
+        OptionRule rule = OptionRule.builder().required(ENDPOINT, startsWith(ENDPOINT, "")).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(ENDPOINT.key(), "anything");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(ENDPOINT.key(), "");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testUpperCaseWithDigitsAndSpecialChars() {
+        OptionRule rule = OptionRule.builder().required(DB_NAME, upperCase(DB_NAME)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(DB_NAME.key(), "ABC123");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "DB_NAME_01");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "ABC-123_OK");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "Abc123");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testLowerCaseWithDigitsAndSpecialChars() {
+        OptionRule rule = OptionRule.builder().required(DB_NAME, lowerCase(DB_NAME)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(DB_NAME.key(), "abc123");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "db_name_01");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "abc-123_ok");
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        config.put(DB_NAME.key(), "Abc123");
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testUniqueEmptyCollection() {
+        OptionRule rule = OptionRule.builder().required(TAGS, unique(TAGS)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TAGS.key(), Collections.emptyList());
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testUniqueSingleElement() {
+        OptionRule rule = OptionRule.builder().required(TAGS, unique(TAGS)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TAGS.key(), Collections.singletonList("only"));
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testNotEmptySingleElement() {
+        OptionRule rule = OptionRule.builder().required(TAGS, notEmpty(TAGS)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TAGS.key(), Collections.singletonList("one"));
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testRequiredMissingErrorFormat() {
+        OptionRule rule = OptionRule.builder().required(HOST).build();
+
+        Map<String, Object> config = new HashMap<>();
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"));
+        Assertions.assertTrue(msg.contains("[1] option: 'host'"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(msg.contains("constraint: required option is not configured"));
+    }
+
+    @Test
+    public void testBundledErrorFormat() {
+        OptionRule rule = OptionRule.builder().bundled(KEY_USERNAME, KEY_PASSWORD).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_USERNAME.key(), "admin");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"));
+        Assertions.assertTrue(msg.contains("[1] options: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("type: bundled"));
+        Assertions.assertTrue(
+                msg.contains("constraint: bundled options must be present or absent together"));
+        Assertions.assertTrue(msg.contains("present: ['username']"));
+        Assertions.assertTrue(msg.contains("absent: ['password']"));
+    }
+
+    @Test
+    public void testExclusiveNoneSetErrorFormat() {
+        OptionRule rule = OptionRule.builder().exclusive(KEY_USERNAME, KEY_BEARER_TOKEN).build();
+
+        Map<String, Object> config = new HashMap<>();
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"));
+        Assertions.assertTrue(msg.contains("[1] options: 'username', 'bearer-token'"));
+        Assertions.assertTrue(msg.contains("type: exclusive"));
+        Assertions.assertTrue(
+                msg.contains(
+                        "constraint: exactly one option must be set, but none are configured"));
+    }
+
+    @Test
+    public void testExclusiveMultipleSetErrorFormat() {
+        OptionRule rule = OptionRule.builder().exclusive(KEY_USERNAME, KEY_BEARER_TOKEN).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_USERNAME.key(), "admin");
+        config.put(KEY_BEARER_TOKEN.key(), "token123");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"));
+        Assertions.assertTrue(msg.contains("type: exclusive"));
+        Assertions.assertTrue(msg.contains("mutually exclusive, but multiple are set"));
+    }
+
+    @Test
+    public void testConditionalMissingErrorFormat() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(TEST_MODE)
+                        .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TEST_MODE.key(), "timestamp");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"));
+        Assertions.assertTrue(msg.contains("[1] option: 'option.timestamp'"));
+        Assertions.assertTrue(msg.contains("type: conditional"));
+        Assertions.assertTrue(
+                msg.contains("constraint: required because ['option.mode' == TIMESTAMP] is true"));
+    }
+
+    @Test
+    public void testMultipleStructuralErrorsAggregated() {
+        OptionRule rule =
+                OptionRule.builder().required(HOST).required(PORT).required(DB_NAME).build();
+
+        Map<String, Object> config = new HashMap<>();
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("3 errors"), "should report all 3 missing");
+        Assertions.assertTrue(msg.contains("[1] option: 'host'"));
+        Assertions.assertTrue(msg.contains("[2] option: 'port'"));
+        Assertions.assertTrue(msg.contains("[3] option: 'db_name'"));
+    }
+
+    @Test
+    public void testBundledAndConstraintAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .bundled(KEY_USERNAME, KEY_PASSWORD)
+                        .required(PORT, greaterOrEqual(PORT, 1))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_USERNAME.key(), "admin");
+        config.put(PORT.key(), 0);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"));
+        Assertions.assertTrue(msg.contains("[1] options: 'username', 'password'"));
+        Assertions.assertTrue(msg.contains("bundled"));
+        Assertions.assertTrue(msg.contains("[2] option: port"));
+        Assertions.assertTrue(msg.contains("'port' >= 1"));
+    }
+
+    @Test
+    public void testExclusiveAndRequiredAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .exclusive(KEY_USERNAME, KEY_BEARER_TOKEN)
+                        .required(HOST)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_USERNAME.key(), "admin");
+        config.put(KEY_BEARER_TOKEN.key(), "token");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"));
+        Assertions.assertTrue(msg.contains("mutually exclusive"));
+        Assertions.assertTrue(msg.contains("required option is not configured"));
+    }
+
+    @Test
+    public void testAbsentRequiredSuppressesValueConstraint() {
+        OptionRule rule = OptionRule.builder().required(HOST, notBlank(HOST)).build();
+
+        Map<String, Object> config = new HashMap<>();
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("1 error)"), "should only report 1 error");
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertTrue(msg.contains("required option is not configured"));
+        Assertions.assertFalse(
+                msg.contains("type: value"),
+                "value constraint should be suppressed for absent required option");
+    }
+
+    @Test
+    public void testAllStructuralTypesAggregated() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(HOST)
+                        .bundled(KEY_USERNAME, KEY_PASSWORD)
+                        .exclusive(KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_USERNAME.key(), "admin");
+        config.put(KEY_BEARER_TOKEN.key(), "token");
+        config.put(KEY_KERBEROS_TICKET.key(), "ticket");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("3 errors"));
+        Assertions.assertTrue(msg.contains("required option is not configured"));
+        Assertions.assertTrue(msg.contains("bundled"));
+        Assertions.assertTrue(msg.contains("mutually exclusive"));
+    }
+
+    @Test
+    public void testConditionalAbsentSuppressesValueConstraint() {
+        OptionRule nestedRule =
+                OptionRule.builder()
+                        .required(TEST_TIMESTAMP, greaterThan(TEST_TIMESTAMP, 0L))
+                        .build();
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(TEST_MODE)
+                        .conditionalRule(TEST_MODE, OptionTest.TestMode.TIMESTAMP, nestedRule)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(TEST_MODE.key(), "timestamp");
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("1 error)"));
+        Assertions.assertTrue(msg.contains("type: required"));
+        Assertions.assertFalse(
+                msg.contains("> 0"),
+                "value constraint should be suppressed for absent conditional option");
+    }
+
+    @Test
+    public void testErrorCodePrefixInUnifiedFormat() {
+        OptionRule rule = OptionRule.builder().required(HOST).build();
+
+        Map<String, Object> config = new HashMap<>();
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        Assertions.assertTrue(
+                ex.getMessage().startsWith("ErrorCode:[API-02]"),
+                "unified format should still carry standard ErrorCode prefix");
     }
 }

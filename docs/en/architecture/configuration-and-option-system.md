@@ -104,79 +104,33 @@ public OptionRule optionRule() {
 
 ### Value Constraints (`Condition`)
 
-Beyond structural rules (required, exclusive, etc.), options can carry **value-level constraints** that the runtime validates before a job starts. The `Condition` API provides a fluent way to attach these constraints inside `OptionRule.builder()`.
+Beyond structural rules (required, exclusive, etc.), options can carry **value-level constraints** that the runtime validates before a job starts. The `Condition` API provides a fluent way to attach these constraints inside `OptionRule.builder()`. See the [OptionRule Pattern Guide](#optionrule-pattern-guide) below for usage examples.
 
-**Numeric range constraints:**
+Available operators (all accessed via the `Conditions` factory class):
 
-```java
-OptionRule.builder()
-        .required(PORT,
-                Conditions.greaterOrEqual(PORT, 1)
-                        .and(Conditions.lessOrEqual(PORT, 65535)))
-        .build();
-```
-
-**String constraints:**
-
-```java
-OptionRule.builder()
-        .required(HOST, Conditions.notBlank(HOST))
-        .optional(DB_NAME, Condition.upperCase(DB_NAME))
-        .build();
-```
-
-**Cross-field comparison:**
-
-```java
-OptionRule.builder()
-        .required(START_TS, END_TS,
-                Condition.lessThanField(START_TS, END_TS))
-        .build();
-```
-
-**Collection constraints:**
-
-```java
-OptionRule.builder()
-        .required(TABLES,
-                Conditions.notEmpty(TABLES)
-                        .and(Conditions.unique(TABLES)))
-        .build();
-```
-
-Available operators:
-
-| Category | Operator | Description |
-|----------|----------|-------------|
-| Numeric | `greaterThan` | value > threshold |
-| Numeric | `greaterOrEqual` | value >= threshold |
-| Numeric | `lessThan` | value < threshold |
-| Numeric | `lessOrEqual` | value <= threshold |
-| String | `notBlank` | string is not empty or whitespace-only |
-| String | `startsWith` | string starts with a given prefix |
-| String | `endsWith` | string ends with a given suffix |
-| String | `contains` | string contains a given substring |
-| String | `matches` | string matches a regular expression |
-| String | `upperCase` | string is all uppercase |
-| String | `lowerCase` | string is all lowercase |
-| String length | `lengthEqual` | string length == n |
-| String length | `lengthGreaterOrEqual` | string length >= n |
-| String length | `lengthLessOrEqual` | string length <= n |
-| Collection | `notEmpty` | collection is not empty |
-| Collection | `unique` | collection has no duplicate elements |
-| Collection | `sizeEqual` | collection size == n |
-| Collection | `sizeGreaterOrEqual` | collection size >= n |
-| Collection | `sizeLessOrEqual` | collection size <= n |
-| Cross-field | `lessThanField` | value < another option's value |
-| Cross-field | `lessOrEqualField` | value <= another option's value |
-| Cross-field | `greaterThanField` | value > another option's value |
-| Cross-field | `greaterOrEqualField` | value >= another option's value |
-| Cross-field | `fieldEqual` | value == another option's value |
-| Cross-field | `fieldNotEqual` | value != another option's value |
-| Cross-field | `fieldSizeEqual` | collection size == another collection's size |
+| Category | Method | Description |
+|----------|--------|-------------|
+| Equality | `Condition.of(option, value)` | value == expected (legacy API) |
+| Equality | `Condition.of(option, NOT_EQUAL, value)` | value != expected |
+| Numeric | `greaterThan(option, threshold)` | value > threshold |
+| Numeric | `greaterOrEqual(option, threshold)` | value >= threshold |
+| Numeric | `lessThan(option, threshold)` | value < threshold |
+| Numeric | `lessOrEqual(option, threshold)` | value <= threshold |
+| String | `notBlank(option)` | string is not empty or whitespace-only |
+| String | `startsWith(option, prefix)` | string starts with a given prefix |
+| String | `contains(option, substring)` | string contains a given substring |
+| String | `matches(option, regex)` | string matches a regular expression |
+| String | `upperCase(option)` | string is all uppercase |
+| String | `lowerCase(option)` | string is all lowercase |
+| Collection | `notEmpty(option)` | collection is not empty |
+| Collection | `unique(option)` | collection has no duplicate elements |
+| Cross-field | `lessThanField(option, other)` | value < another option's value |
+| Cross-field | `lessOrEqualField(option, other)` | value <= another option's value |
+| Cross-field | `greaterThanField(option, other)` | value > another option's value |
+| Cross-field | `greaterOrEqualField(option, other)` | value >= another option's value |
 
 :::tip
-Multiple conditions can be chained with `.and(...)` or `.or(...)` to form compound constraints.
+Multiple conditions can be chained with `.and(...)` or `.or(...)` to form compound constraints. AND binds tighter than OR, so `A.or(B).and(C)` evaluates as `A || (B && C)`.
 :::
 
 ### `ReadonlyConfig`
@@ -203,7 +157,34 @@ At a high level, configuration flows through the system like this:
 5. The resolved values are exposed to the runtime through `ReadonlyConfig`.
 6. The same metadata can also be exposed through REST for UI rendering and automation.
 
-When validation fails, `OptionValidationException` is thrown with a message that includes the constraint expression and the option key involved.
+When validation fails, `OptionValidationException` is thrown with a structured error message. See the [Validation Error Messages](#validation-error-messages) section below for details.
+
+## Validation Error Messages
+
+Option validation errors are thrown as `OptionValidationException`, a subclass of `SeaTunnelRuntimeException`, carrying the error code `API-02`. The message always begins with:
+
+```
+ErrorCode:[API-02], ErrorDescription:[Option item validate failed]
+```
+
+Structural (required, bundled, exclusive, conditional) and value constraint errors are aggregated into a single numbered list. Each entry follows a consistent three-line format with a `type` label (`required` / `bundled` / `exclusive` / `conditional` / `value`) for easy identification. Structural errors come first. If a required option is absent, its value constraint is automatically suppressed to avoid redundant noise.
+
+```
+ErrorCode:[API-02], ErrorDescription:[Option item validate failed] -
+Option validation failed (4 errors):
+  [1] option: 'host'
+      type: required
+      constraint: required option is not configured
+  [2] options: 'username', 'password'
+      type: bundled
+      constraint: bundled options must be present or absent together (present: ['username'], absent: ['password'])
+  [3] option: port
+      type: value
+      constraint: 'port' >= 1
+  [4] option: start_ts
+      type: value
+      constraint: 'start_ts' < 'end_ts'
+```
 
 ## OptionRule Pattern Guide
 
@@ -269,7 +250,7 @@ Host names that must not be blank, identifiers that must be uppercase, or endpoi
 
 ```java
 .required(HOST, Conditions.notBlank(HOST))
-.required(DATABASE, Condition.upperCase(DATABASE))
+.required(DATABASE, Conditions.upperCase(DATABASE))
 .required(ENDPOINT, Conditions.matches(ENDPOINT, "^[^:]+:\\d+$"))
 ```
 
@@ -279,7 +260,7 @@ When the value of one option must be smaller or larger than another.
 
 ```java
 .required(START_TS, END_TS,
-        Condition.lessThanField(START_TS, END_TS))
+        Conditions.lessThanField(START_TS, END_TS))
 ```
 
 ### Collection constraints
@@ -292,14 +273,66 @@ Lists that must not be empty, or whose elements must be unique.
                 .and(Conditions.unique(TABLES)))
 ```
 
-### Compound constraints
+### Compound constraints with AND
 
-Multiple conditions combined with `.and(...)` or `.or(...)`.
+Multiple conditions combined with `.and(...)`. All conditions must hold.
 
 ```java
 .required(RATIO,
         Conditions.greaterThan(RATIO, 0.0)
                 .and(Conditions.lessOrEqual(RATIO, 1.0)))
+```
+
+### OR chain — at least one alternative must pass
+
+When the user can satisfy the constraint through any one of several options, use `.or(...)`. The constraint passes as long as at least one branch succeeds.
+
+```java
+// At least one of HOST or ENDPOINT must be non-blank
+.optional(HOST, Conditions.notBlank(HOST).or(Conditions.notBlank(ENDPOINT)))
+.optional(ENDPOINT)
+```
+
+### Mixed AND / OR chain
+
+AND binds tighter than OR, so `A.or(B.and(C))` evaluates as `A || (B && C)`. This is useful when one simple condition can serve as a fallback for a stricter compound check.
+
+```java
+// Valid if HOST is non-blank, OR if PORT is within range [1, 65535]
+.optional(HOST,
+        Conditions.notBlank(HOST)
+                .or(Conditions.greaterOrEqual(PORT, 1)
+                        .and(Conditions.lessOrEqual(PORT, 65535))))
+.optional(PORT)
+```
+
+### Conditional required with value constraint
+
+When a conditional option also needs value validation, pass the constraint as the last argument. The constraint is only enforced when the trigger condition is met.
+
+```java
+// When START_MODE == TIMESTAMP, START_TIMESTAMP is required and must be > 0
+.conditional(START_MODE, StartMode.TIMESTAMP,
+        Conditions.greaterThan(START_TIMESTAMP, 0L))
+```
+
+### Optional with value constraint
+
+An optional field that, when present, must satisfy a constraint. If the field is absent, the constraint is skipped entirely.
+
+```java
+.optional(BATCH_SIZE,
+        Conditions.greaterOrEqual(BATCH_SIZE, 1)
+                .and(Conditions.lessOrEqual(BATCH_SIZE, 10000)))
+```
+
+### Optional cross-field constraint
+
+When two optional fields are provided together, their values must satisfy a cross-field rule. If either field is absent, the constraint is skipped.
+
+```java
+.optional(START_TS, END_TS,
+        Conditions.lessThanField(START_TS, END_TS))
 ```
 
 ## Why It Matters For Operators
