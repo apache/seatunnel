@@ -17,11 +17,21 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.protocol.RequestContent;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
 
 /** util to build http client. */
 public class HttpUtil {
@@ -34,9 +44,46 @@ public class HttpUtil {
                                     return true;
                                 }
                             })
-                    .addInterceptorLast(new RequestContent(true));;
+                    .addInterceptorLast(new RequestContent(true));
 
     public CloseableHttpClient getHttpClient() {
         return httpClientBuilder.build();
+    }
+
+    public static CloseableHttpResponse executeWithRedirectTracking(
+            CloseableHttpClient httpClient,
+            HttpUriRequest request,
+            String requestUrl,
+            boolean directToBe,
+            boolean enable2PC,
+            String requestStage)
+            throws IOException {
+        HttpClientContext context = HttpClientContext.create();
+        try {
+            return httpClient.execute(request, context);
+        } catch (IOException e) {
+            String redirectLocation = resolveLastRedirectLocation(context);
+            if (redirectLocation != null) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                        DorisRedirectExceptionBuilder.buildFollowUpFailure(
+                                requestUrl,
+                                redirectLocation,
+                                directToBe,
+                                enable2PC,
+                                requestStage,
+                                e.getMessage()),
+                        e);
+            }
+            throw e;
+        }
+    }
+
+    private static String resolveLastRedirectLocation(HttpClientContext context) {
+        List<URI> redirectLocations = context.getRedirectLocations();
+        if (redirectLocations == null || redirectLocations.isEmpty()) {
+            return null;
+        }
+        return redirectLocations.get(redirectLocations.size() - 1).toString();
     }
 }

@@ -45,58 +45,44 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Data
 @Slf4j
 public class RedisParameters implements Serializable {
+    // Connection configuration fields
     private String host;
     private Integer port;
     private String auth = "";
     private int dbNum;
     private String user = "";
-    private String keysPattern;
+    private RedisBaseOptions.RedisMode mode;
+    private List<String> redisNodes = Collections.emptyList();
+    private int redisVersion;
+
+    // These parameters are also required in RedisSinkWriter
     private String keyField;
     private RedisDataType redisDataType;
-    private RedisBaseOptions.RedisMode mode;
-    private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
-    private Boolean readKeyEnabled;
-    private String singleFieldName;
-    private String keyFieldName;
-    private List<String> redisNodes = Collections.emptyList();
-    private long expire = RedisSinkOptions.EXPIRE.defaultValue();
     private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
+    private String fieldDelimiter;
+    private RedisBaseOptions.Format format;
+
+    // Sink-specific fields
+    private long expire = RedisSinkOptions.EXPIRE.defaultValue();
     private Boolean supportCustomKey;
     private String valueField;
     private String hashKeyField;
     private String hashValueField;
-    private String fieldDelimiter;
-    private RedisBaseOptions.Format format;
 
-    private int redisVersion;
-
-    public void buildWithConfig(ReadonlyConfig config) {
+    /**
+     * Build connection-only configuration from ReadonlyConfig. This method only parses
+     * connection-related parameters and is intended for Source side where data-related parameters
+     * are managed per-table via {@link RedisTableConfig}.
+     *
+     * @param config ReadonlyConfig instance
+     */
+    public void buildConnectionConfig(ReadonlyConfig config) {
         // set host
         this.host = config.get(RedisBaseOptions.HOST);
         // set port
         this.port = config.get(RedisBaseOptions.PORT);
         // set db_num
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
-        // set hash key mode
-        this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
-        // set read with key
-        this.readKeyEnabled = config.get(RedisSourceOptions.READ_KEY_ENABLED);
-        // set single field name
-        if (config.getOptional(RedisSourceOptions.SINGLE_FIELD_NAME).isPresent()) {
-            this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
-        }
-        // set key name
-        if (!config.getOptional(RedisSourceOptions.KEY_FIELD_NAME).isPresent()) {
-            if (config.get(RedisBaseOptions.DATA_TYPE) == RedisDataType.HASH) {
-                this.keyFieldName = "hash_key";
-            } else {
-                this.keyFieldName = "key";
-            }
-        } else {
-            this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
-        }
-        // set expire
-        this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth
         if (config.getOptional(RedisBaseOptions.AUTH).isPresent()) {
             this.auth = config.get(RedisBaseOptions.AUTH);
@@ -111,18 +97,35 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisBaseOptions.NODES).isPresent()) {
             this.redisNodes = config.get(RedisBaseOptions.NODES);
         }
+    }
+
+    /**
+     * Build full configuration from ReadonlyConfig including both connection and data parameters.
+     * This method is used by Sink side which requires data-related parameters (data_type, format,
+     * batch_size, etc.) at the global level.
+     *
+     * @param config ReadonlyConfig instance
+     */
+    public void buildWithConfig(ReadonlyConfig config) {
+        // Connection configuration
+        buildConnectionConfig(config);
+
         // set key
         if (config.getOptional(RedisBaseOptions.KEY).isPresent()) {
             this.keyField = config.get(RedisBaseOptions.KEY);
-        }
-        // set keysPattern
-        if (config.getOptional(RedisBaseOptions.KEY_PATTERN).isPresent()) {
-            this.keysPattern = config.get(RedisBaseOptions.KEY_PATTERN);
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisBaseOptions.BATCH_SIZE);
+        // set format, default json
+        this.format = config.get(RedisBaseOptions.FORMAT);
+        // set field delimiter, only need when format is TEXT
+        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
+
+        // Sink-specific configuration
+        // set expire
+        this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set support custom key
         if (config.getOptional(RedisSinkOptions.SUPPORT_CUSTOM_KEY).isPresent()) {
             this.supportCustomKey = config.get(RedisSinkOptions.SUPPORT_CUSTOM_KEY);
@@ -139,12 +142,6 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisSinkOptions.HASH_VALUE_FIELD).isPresent()) {
             this.hashValueField = config.get(RedisSinkOptions.HASH_VALUE_FIELD);
         }
-
-        // set format, default json
-        this.format = config.get(RedisBaseOptions.FORMAT);
-
-        // set field delimiter, only need when format is TEXT
-        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
     }
 
     public RedisClient buildRedisClient() {

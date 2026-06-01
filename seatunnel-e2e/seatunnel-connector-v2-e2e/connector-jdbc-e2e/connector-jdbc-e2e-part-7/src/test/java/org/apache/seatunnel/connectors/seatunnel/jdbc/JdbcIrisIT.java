@@ -442,7 +442,13 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
+        LocalDate baseDate = LocalDate.of(2024, 1, 1);
+        LocalTime baseTime = LocalTime.of(8, 0, 0);
+        LocalDateTime baseDateTime = LocalDateTime.of(2024, 1, 1, 8, 0, 0);
         for (int i = 1; i <= GEN_ROWS; i++) {
+            LocalDate rowDate = baseDate.plusDays(i);
+            LocalTime rowTime = baseTime.plusSeconds(i);
+            LocalDateTime rowDateTime = baseDateTime.plusSeconds(i);
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -463,9 +469,9 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                                 "*",
                                 String.valueOf(i),
                                 String.valueOf(i),
-                                Date.valueOf(LocalDate.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
+                                Date.valueOf(rowDate),
+                                Timestamp.valueOf(rowDateTime),
+                                Timestamp.valueOf(rowDateTime),
                                 BigDecimal.valueOf(i, 0),
                                 BigDecimal.valueOf(i, 0),
                                 BigDecimal.valueOf(i, 2),
@@ -512,20 +518,20 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                                 "1",
                                 "1",
                                 "1.111",
-                                Time.valueOf(LocalTime.now()),
+                                Time.valueOf(rowTime),
                                 "10".getBytes(),
                                 Double.parseDouble("1.11"),
                                 Long.valueOf(i),
-                                Timestamp.valueOf(LocalDateTime.now()),
+                                Timestamp.valueOf(rowDateTime),
                                 i,
                                 i,
                                 i,
                                 "F4526E29-8B4A-4449-AA90-2A7DF971F221",
                                 String.valueOf(i),
-                                Time.valueOf(LocalTime.now()),
-                                Time.valueOf(LocalTime.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                Timestamp.valueOf(LocalDateTime.now()),
+                                Time.valueOf(rowTime),
+                                Time.valueOf(rowTime),
+                                Timestamp.valueOf(rowDateTime),
+                                Timestamp.valueOf(rowDateTime),
                                 i,
                                 i,
                                 "3E8B5AC7-D63A-4202-83E1-A576EBE11557",

@@ -161,12 +161,6 @@ sink {
 
 one bulk request max try size
 
-### vectorization_fields [array]
-fields to embeddings 
-
-### vector_dimensions [int]
-embeddings dimensions
-
 ### max_batch_size [int]
 
 batch bulk doc max size

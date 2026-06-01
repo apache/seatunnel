@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 
-public class RedisBaseOptions {
+public class RedisBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Redis";
 

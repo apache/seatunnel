@@ -371,6 +371,6 @@ sequenceDiagram
 ### 进一步阅读
 
 - [两阶段提交协议](https://en.wikipedia.org/wiki/Two-phase_commit_protocol)
-- [XA 事务](https://www.oracle.com/java/technologies/xa-transactions.html)
+- [XA 事务](https://en.wikipedia.org/wiki/X/Open_XA)
 - [Kafka 事务](https://kafka.apache.org/documentation/#semantics)
 - [Iceberg 表格式](https://iceberg.apache.org/spec/)

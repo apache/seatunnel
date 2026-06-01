@@ -21,9 +21,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import java.util.Map;
 
+/** Declares the server-side configuration keys that are exposed through `seatunnel.yaml`. */
 public class ServerConfigOptions {
 
     public static final Option<Boolean> CLASSLOADER_CACHE_MODE =
@@ -32,6 +34,69 @@ public class ServerConfigOptions {
                     .defaultValue(true)
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final Option<Boolean> STAIN_TRACE_ENABLED =
+            Options.key("stain-trace-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable stain trace. When enabled, the engine will sample a small number of records and report end-to-end latency breakdown as events.");
+
+    public static final Option<Integer> STAIN_TRACE_SAMPLE_RATE =
+            Options.key("stain-trace-sample-rate")
+                    .intType()
+                    .defaultValue(100000)
+                    .withDescription("Sample 1 record per N records for stain trace.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER =
+            Options.key("stain-trace-max-traces-per-second-per-worker")
+                    .intType()
+                    .defaultValue(50)
+                    .withDescription(
+                            "Maximum number of stain traces generated per second per worker. 0 means disable trace generation.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_ENTRIES_PER_TRACE =
+            Options.key("stain-trace-max-entries-per-trace")
+                    .intType()
+                    .defaultValue(32)
+                    .withDescription("Maximum stage entries recorded per stain trace payload.");
+
+    public static final Option<Boolean> STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS =
+            Options.key("stain-trace-propagate-to-all-splits")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to propagate stain trace payload to all split outputs in transform (e.g. flatMap). "
+                                    + "When enabled, all derived output rows will inherit payload and append TRANSFORM_OUT stage.");
+
+    public static final Option<String> STAIN_TRACE_FILE_BASE_PATH =
+            Options.key("stain-trace-file-base-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Base directory for writing stain trace OTLP JSONL files. "
+                                    + "If not set, local file writing is disabled. "
+                                    + "Should use the same storage root as "
+                                    + "checkpoint.storage.plugin-config.namespace to keep "
+                                    + "engine-level persistent data co-located.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE =
+            Options.key("stain-trace-file-max-events-per-file")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription("Maximum number of trace events per JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_SIZE_MB =
+            Options.key("stain-trace-file-max-size-mb")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Maximum size (MB) of each trace JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS =
+            Options.key("stain-trace-file-flush-interval-seconds")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Flush interval in seconds for the trace file writer.");
 
     /////////////////////////////////////////////////
     // The options for metrics start
@@ -67,11 +132,11 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
-    public static final Option<DataSourceConfig> DATASOURCE =
-            Options.key("datasource")
-                    .type(new TypeReference<DataSourceConfig>() {})
-                    .defaultValue(new DataSourceConfig())
-                    .withDescription("The DataSource Center configuration.");
+    public static final Option<MetadataConfig> METADATA =
+            Options.key("metadata")
+                    .type(new TypeReference<MetadataConfig>() {})
+                    .defaultValue(new MetadataConfig())
+                    .withDescription("The MetaData Center configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
 
@@ -115,6 +180,14 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1440)
                         .withDescription("The expire time of history jobs.time unit minute");
+
+        public static final Option<Long> STATE_CLEANUP_DELAY_MILLIS =
+                Options.key("state-cleanup-delay-ms")
+                        .longType()
+                        .defaultValue(60000L)
+                        .withDescription(
+                                "How long to retain terminal job/pipeline/task state in distributed maps before removing it. "
+                                        + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 

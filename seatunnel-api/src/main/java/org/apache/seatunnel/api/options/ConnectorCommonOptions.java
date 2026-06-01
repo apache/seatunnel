@@ -73,12 +73,12 @@ public class ConnectorCommonOptions
                                     + "the current plug-in processes the data set dataset output by the previous plugin in the configuration file. "
                                     + "When plugin_input is specified, the current plug-in is processing the data set corresponding to this parameter.");
 
-    public static Option<String> DATASOURCE_ID =
-            Options.key("datasource_id")
+    public static Option<String> METADATA_DATASOURCE_ID =
+            Options.key("metadata_datasource_id")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The data source ID for retrieving connection configuration from DataSource Center. "
+                            "The data source ID for retrieving connection configuration from MetaData Center. "
                                     + "When specified, the connector will fetch connection details (e.g., URL, username, password) "
                                     + "from the external metadata service instead of using direct configuration.");
 }
