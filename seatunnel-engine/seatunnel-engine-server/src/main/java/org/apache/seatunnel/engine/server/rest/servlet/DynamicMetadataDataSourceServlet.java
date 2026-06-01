@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.engine.server.rest.service.DynamicMetadataDataSourceService;
 
 import com.hazelcast.internal.json.JsonObject;
@@ -32,9 +33,11 @@ public class DynamicMetadataDataSourceServlet extends BaseServlet {
 
     private final DynamicMetadataDataSourceService metadataDataSourceService;
 
-    public DynamicMetadataDataSourceServlet(NodeEngineImpl nodeEngine) {
+    public DynamicMetadataDataSourceServlet(
+            NodeEngineImpl nodeEngine, MetadataConfig metadataConfig) {
         super(nodeEngine);
-        this.metadataDataSourceService = new DynamicMetadataDataSourceService(nodeEngine);
+        this.metadataDataSourceService =
+                new DynamicMetadataDataSourceService(nodeEngine, metadataConfig);
     }
 
     /**

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataOptions;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
@@ -27,10 +29,14 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.MESSAGE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STATUS;
@@ -46,11 +52,13 @@ public class DynamicMetadataDataSourceService extends BaseService {
     public static final String CREATE_TIME = "createTime";
     public static final String UPDATE_TIME = "updateTime";
     private static final String MASKED_VALUE = "******";
-    private static final Set<String> SENSITIVE_KEYS =
-            new HashSet<>(Arrays.asList("password", "secret_key"));
 
-    public DynamicMetadataDataSourceService(NodeEngineImpl nodeEngine) {
+    private final Set<String> sensitiveKeys;
+
+    public DynamicMetadataDataSourceService(
+            NodeEngineImpl nodeEngine, MetadataConfig metadataConfig) {
         super(nodeEngine);
+        this.sensitiveKeys = parseSensitiveKeys(metadataConfig);
     }
 
     /**
@@ -257,8 +265,29 @@ public class DynamicMetadataDataSourceService extends BaseService {
         return result;
     }
 
-    private boolean isSensitiveKey(String key) {
-        String lowerKey = key.toLowerCase();
-        return SENSITIVE_KEYS.stream().anyMatch(lowerKey::contains);
+    boolean isSensitiveKey(String key) {
+        if (key == null) {
+            return false;
+        }
+        String lowerKey = key.toLowerCase(Locale.ROOT);
+        return sensitiveKeys.stream().anyMatch(lowerKey::contains);
+    }
+
+    private Set<String> parseSensitiveKeys(MetadataConfig metadataConfig) {
+        if (metadataConfig == null || metadataConfig.getProperties() == null) {
+            return new HashSet<>();
+        }
+        String configuredKeys =
+                metadataConfig.getProperties().get(MetadataOptions.SENSITIVE_KEYS.key());
+        if (configuredKeys == null || configuredKeys.trim().isEmpty()) {
+            return new HashSet<>();
+        }
+        Set<String> parsedKeys =
+                Stream.of(configuredKeys.split(","))
+                        .map(String::trim)
+                        .filter(key -> !key.isEmpty())
+                        .map(key -> key.toLowerCase(Locale.ROOT))
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        return parsedKeys.isEmpty() ? new HashSet<>() : Collections.unmodifiableSet(parsedKeys);
     }
 }

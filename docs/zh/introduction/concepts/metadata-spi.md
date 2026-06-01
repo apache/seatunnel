@@ -177,7 +177,13 @@ seatunnel:
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
+        sensitive_keys:
+          - password
+          - secret_key
 ```
+
+`sensitive_keys` 为可选配置，用于定义动态元数据数据源查询响应中需要脱敏的
+datasource property 字段名。未配置时，SeaTunnel 默认不脱敏。
 
 ### 配置选项
 

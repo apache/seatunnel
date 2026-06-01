@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.StringJoiner;
 
 import static com.hazelcast.internal.config.DomConfigHelper.childElements;
 import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
@@ -608,10 +609,22 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 // Parse nested provider properties (e.g., gravitino.uri, gravitino.metalake)
                 for (Node propertyNode : childElements(node)) {
                     String propertyName = cleanNodeName(propertyNode);
-                    metadataConfig.getProperties().put(propertyName, getTextContent(propertyNode));
+                    metadataConfig
+                            .getProperties()
+                            .put(propertyName, getMetadataPropertyValue(propertyNode));
                 }
             }
         }
         return metadataConfig;
+    }
+
+    private String getMetadataPropertyValue(Node propertyNode) {
+        Iterable<Node> childElements = childElements(propertyNode);
+        StringJoiner joiner = new StringJoiner(",");
+        for (Node child : childElements) {
+            joiner.add(getTextContent(child));
+        }
+        String listValue = joiner.toString();
+        return listValue.isEmpty() ? getTextContent(propertyNode) : listValue;
     }
 }

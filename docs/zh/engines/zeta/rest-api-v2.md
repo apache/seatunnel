@@ -71,7 +71,7 @@ seatunnel:
 - 该 API 由 `dynamic` Metadata SPI 提供者使用。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 - `connectorType` 必须与作业中使用的连接器标识匹配，例如 `Jdbc`。
 - 作业通过 `metadata_datasource_id` 引用该数据源时，`properties` 中的配置会被合并到连接器配置中。
-- 查询响应会对密码、token 等敏感字段做脱敏处理。
+- 查询响应会对 `seatunnel.yaml` 中 `metadata.<kind>.sensitive_keys` 配置的敏感字段做脱敏处理。未配置时，默认脱敏 `password` 和 `secret_key`。
 
 </details>
 

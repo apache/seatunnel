@@ -73,7 +73,8 @@ Please refer [security](security.md)
 - This API is used by the `dynamic` Metadata SPI provider. See [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 - `connectorType` must match the connector identifier used in the job, for example `Jdbc`.
 - The values under `properties` are merged into the connector configuration when the job references this datasource by `metadata_datasource_id`.
-- Query responses mask sensitive fields such as passwords and tokens.
+- Query responses mask sensitive fields configured by `metadata.<kind>.sensitive_keys` in
+  `seatunnel.yaml`. When it is not configured, `password` and `secret_key` are masked by default.
 
 </details>
 

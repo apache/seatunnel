@@ -178,7 +178,13 @@ seatunnel:
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
+        sensitive_keys:
+          - password
+          - secret_key
 ```
+
+`sensitive_keys` is optional. It defines the datasource property field names that are masked in
+dynamic metadata datasource query responses. When it is not configured, SeaTunnel does not desensitize by default.
 
 ### Configuration Options
 

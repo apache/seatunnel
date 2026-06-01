@@ -220,7 +220,10 @@ public class JettyService {
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
         ServletHolder metadataDataSourceHolder =
                 isDynamicMetadataEnabled()
-                        ? new ServletHolder(new DynamicMetadataDataSourceServlet(nodeEngine))
+                        ? new ServletHolder(
+                                new DynamicMetadataDataSourceServlet(
+                                        nodeEngine,
+                                        seaTunnelConfig.getEngineConfig().getMetadataConfig()))
                         : null;
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
