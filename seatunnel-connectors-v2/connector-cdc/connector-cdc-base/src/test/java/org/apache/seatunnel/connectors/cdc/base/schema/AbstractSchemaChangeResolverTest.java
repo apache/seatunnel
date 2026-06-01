@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
@@ -51,7 +51,7 @@ public class AbstractSchemaChangeResolverTest {
                     }
 
                     @Override
-                    protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+                    protected List<AlterTableEvent> getAndClearParsedEvents() {
                         return Collections.emptyList();
                     }
 
@@ -83,9 +83,10 @@ public class AbstractSchemaChangeResolverTest {
                         null,
                         null);
 
-        List<AlterTableColumnEvent> events =
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        List<AlterTableEvent> events =
                 resolver.completionEvent(
-                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable));
+                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable), tablePath);
         changeColumnEvent = (AlterTableChangeColumnEvent) events.get(0);
         Assertions.assertEquals("mysql", changeColumnEvent.getSourceDialectName());
         Assertions.assertEquals(BasicType.STRING_TYPE, changeColumnEvent.getColumn().getDataType());
