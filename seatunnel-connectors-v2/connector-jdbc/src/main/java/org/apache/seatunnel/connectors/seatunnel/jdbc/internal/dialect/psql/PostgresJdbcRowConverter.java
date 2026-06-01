@@ -339,7 +339,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         } else {
                             throw new JdbcConnectorException(
                                     CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                                    "Unexpected vector value type: " + vectorValue.getClass().getName());
+                                    "Unexpected vector value type: "
+                                            + vectorValue.getClass().getName());
                         }
                         break;
                     case BYTES:

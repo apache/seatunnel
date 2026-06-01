@@ -253,7 +253,9 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                     String dimStr =
                             typeDefine
                                     .getColumnType()
-                                    .substring("vector(".length(), typeDefine.getColumnType().length() - 1);
+                                    .substring(
+                                            "vector(".length(),
+                                            typeDefine.getColumnType().length() - 1);
                     builder.scale(Integer.parseInt(dimStr));
                 }
                 break;
@@ -409,7 +411,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(PG_BYTEA);
                 break;
             case FLOAT_VECTOR:
-                int vectorDim = column.getScale() != null && column.getScale() > 0 ? column.getScale() : 0;
+                int vectorDim =
+                        column.getScale() != null && column.getScale() > 0 ? column.getScale() : 0;
                 if (vectorDim > 0) {
                     builder.columnType(String.format("%s(%s)", PG_VECTOR, vectorDim));
                 } else {

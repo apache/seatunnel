@@ -49,7 +49,7 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-public class JdbcPostgresPgVectorIT  extends TestSuiteBase implements TestResource {
+public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResource {
 
     private static final String PGVECTOR_IMAGE = "pgvector/pgvector:pg16";
     private static final String PG_DRIVER_JAR =
@@ -93,7 +93,8 @@ public class JdbcPostgresPgVectorIT  extends TestSuiteBase implements TestResour
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases("pgvector")
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PGVECTOR_IMAGE)));
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(PGVECTOR_IMAGE)));
         Startables.deepStart(Stream.of(PGVECTOR_CONTAINER)).join();
         log.info("PgVector container started");
         Class.forName(PGVECTOR_CONTAINER.getDriverClassName());
@@ -114,16 +115,17 @@ public class JdbcPostgresPgVectorIT  extends TestSuiteBase implements TestResour
         Assertions.assertEquals(0, execResult.getExitCode(), "pgvector job run failed");
 
         List<List<Object>> src =
-                querySql("select id, name, embedding::text from pgvector_e2e_source_table order by id");
+                querySql(
+                        "select id, name, embedding::text from pgvector_e2e_source_table order by id");
         List<List<Object>> dst =
-                querySql("select id, name, embedding::text from pgvector_e2e_sink_table order by id");
+                querySql(
+                        "select id, name, embedding::text from pgvector_e2e_sink_table order by id");
         Assertions.assertFalse(src.isEmpty());
         Assertions.assertEquals(src.size(), dst.size());
         for (int i = 0; i < src.size(); i++) {
             Assertions.assertEquals(src.get(i).get(0), dst.get(i).get(0));
             Assertions.assertEquals(src.get(i).get(1), dst.get(i).get(1));
-            assertVectorEquals(
-                    src.get(i).get(2).toString(), dst.get(i).get(2).toString());
+            assertVectorEquals(src.get(i).get(2).toString(), dst.get(i).get(2).toString());
         }
         log.info("pgvector e2e test completed");
     }
