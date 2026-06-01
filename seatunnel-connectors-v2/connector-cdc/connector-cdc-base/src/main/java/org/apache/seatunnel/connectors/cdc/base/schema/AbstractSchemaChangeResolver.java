@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
@@ -87,9 +89,32 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.setCurrentSchema(tablePath.getSchemaName());
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
-        List<AlterTableColumnEvent> parsedEvents = getAndClearParsedEvents();
-        parsedEvents = completionEvent(parsedEvents, catalogTables);
+        List<AlterTableEvent> parsedEvents = getAndClearParsedEvents();
+        parsedEvents = completionEvent(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
+
+        if (parsedEvents.isEmpty()) {
+            return null;
+        }
+
+        // If there's a single table-level comment event, return it directly
+        if (parsedEvents.size() == 1 && parsedEvents.get(0) instanceof AlterTableCommentEvent) {
+            AlterTableCommentEvent commentEvent = (AlterTableCommentEvent) parsedEvents.get(0);
+            commentEvent.setStatement(ddl);
+            return commentEvent;
+        }
+
+        // Filter column events for AlterTableColumnsEvent
+        List<AlterTableColumnEvent> columnEvents =
+                parsedEvents.stream()
+                        .filter(e -> e instanceof AlterTableColumnEvent)
+                        .map(e -> (AlterTableColumnEvent) e)
+                        .collect(Collectors.toList());
+
+        if (columnEvents.isEmpty()) {
+            return null;
+        }
+
         AlterTableColumnsEvent alterTableColumnsEvent =
                 new AlterTableColumnsEvent(
                         TableIdentifier.of(
@@ -97,70 +122,87 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                                 tablePath.getDatabaseName(),
                                 tablePath.getSchemaName(),
                                 tablePath.getTableName()),
-                        parsedEvents);
+                        columnEvents);
         alterTableColumnsEvent.setStatement(ddl);
         alterTableColumnsEvent.setSourceDialectName(getSourceDialectName());
-        return parsedEvents.isEmpty() ? null : alterTableColumnsEvent;
+        return alterTableColumnsEvent;
     }
 
-    List<AlterTableColumnEvent> completionEvent(
-            List<AlterTableColumnEvent> events, List<CatalogTable> catalogTables) {
+    List<AlterTableEvent> completionEvent(
+            List<AlterTableEvent> events, List<CatalogTable> catalogTables, TablePath tablePath) {
         return events.stream()
                 .map(
-                        columnEvent -> {
-                            columnEvent.setSourceDialectName(getSourceDialectName());
+                        event -> {
+                            event.setSourceDialectName(getSourceDialectName());
                             if (catalogTables == null || catalogTables.isEmpty()) {
-                                return columnEvent;
-                            }
-                            if (!(columnEvent instanceof AlterTableChangeColumnEvent)) {
-                                return columnEvent;
+                                return event;
                             }
 
-                            AlterTableChangeColumnEvent changeColumnEvent =
-                                    (AlterTableChangeColumnEvent) columnEvent;
-                            if (changeColumnEvent.getColumn().getDataType() != null) {
-                                return columnEvent;
-                            }
                             CatalogTable table =
                                     catalogTables.stream()
                                             .filter(
                                                     catalogTable ->
                                                             catalogTable
                                                                     .getTablePath()
-                                                                    .equals(
-                                                                            columnEvent
-                                                                                    .getTablePath()))
+                                                                    .equals(tablePath))
                                             .findFirst()
                                             .orElse(null);
-                            if (table != null) {
-                                Column oldColumn =
-                                        table.getTableSchema()
-                                                .getColumn(changeColumnEvent.getOldColumn());
-                                Column newColumn =
-                                        oldColumn.rename(changeColumnEvent.getColumn().getName());
-                                AlterTableChangeColumnEvent newEvent =
-                                        new AlterTableChangeColumnEvent(
-                                                changeColumnEvent.getTableIdentifier(),
-                                                changeColumnEvent.getOldColumn(),
-                                                newColumn,
-                                                changeColumnEvent.isFirst(),
-                                                changeColumnEvent.getAfterColumn());
-                                newEvent.setSourceDialectName(getSourceDialectName());
-                                return newEvent;
-                            } else {
-                                log.warn(
-                                        "Ignoring rename column {} type completion for table {}",
-                                        changeColumnEvent.getOldColumn(),
-                                        changeColumnEvent.getTablePath());
+
+                            // Handle table comment event - fill in old comment
+                            if (event instanceof AlterTableCommentEvent) {
+                                AlterTableCommentEvent commentEvent =
+                                        (AlterTableCommentEvent) event;
+                                if (table != null && commentEvent.getOldComment() == null) {
+                                    String oldComment = table.getComment();
+                                    AlterTableCommentEvent newEvent =
+                                            AlterTableCommentEvent.of(
+                                                    commentEvent.getTableIdentifier(),
+                                                    oldComment,
+                                                    commentEvent.getNewComment());
+                                    newEvent.setSourceDialectName(getSourceDialectName());
+                                    return newEvent;
+                                }
+                                return event;
                             }
-                            return columnEvent;
+
+                            // Handle column change event - complete type info
+                            if (event instanceof AlterTableChangeColumnEvent) {
+                                AlterTableChangeColumnEvent changeColumnEvent =
+                                        (AlterTableChangeColumnEvent) event;
+                                if (changeColumnEvent.getColumn().getDataType() != null) {
+                                    return event;
+                                }
+                                if (table != null) {
+                                    Column oldColumn =
+                                            table.getTableSchema()
+                                                    .getColumn(changeColumnEvent.getOldColumn());
+                                    Column newColumn =
+                                            oldColumn.rename(
+                                                    changeColumnEvent.getColumn().getName());
+                                    AlterTableChangeColumnEvent newEvent =
+                                            new AlterTableChangeColumnEvent(
+                                                    changeColumnEvent.getTableIdentifier(),
+                                                    changeColumnEvent.getOldColumn(),
+                                                    newColumn,
+                                                    changeColumnEvent.isFirst(),
+                                                    changeColumnEvent.getAfterColumn());
+                                    newEvent.setSourceDialectName(getSourceDialectName());
+                                    return newEvent;
+                                } else {
+                                    log.warn(
+                                            "Ignoring rename column {} type completion for table {}",
+                                            changeColumnEvent.getOldColumn(),
+                                            changeColumnEvent.getTablePath());
+                                }
+                            }
+                            return event;
                         })
                 .collect(Collectors.toList());
     }
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);
 
-    protected abstract List<AlterTableColumnEvent> getAndClearParsedEvents();
+    protected abstract List<AlterTableEvent> getAndClearParsedEvents();
 
     protected abstract String getSourceDialectName();
 }

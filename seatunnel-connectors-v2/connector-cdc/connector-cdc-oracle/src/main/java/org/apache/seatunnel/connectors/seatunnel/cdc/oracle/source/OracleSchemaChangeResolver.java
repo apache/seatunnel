@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResolver;
@@ -40,7 +40,7 @@ public class OracleSchemaChangeResolver extends AbstractSchemaChangeResolver {
     }
 
     @Override
-    protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+    protected List<AlterTableEvent> getAndClearParsedEvents() {
         return ((CustomOracleAntlrDdlParser) ddlParser).getAndClearParsedEvents();
     }
 
