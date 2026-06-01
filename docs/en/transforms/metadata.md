@@ -33,12 +33,31 @@ The Metadata transform plugin is used to extract metadata information from data 
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
+## Knowledge Sync Metadata Fields
+
+Knowledge Sync pipelines can use the following metadata keys to carry document and chunk identity before lifecycle sinks or sink partition routing. These keys are logical row metadata keys. They become real physical columns only after they are projected by the `Metadata` transform.
+
+| Metadata Key | Canonical Physical Field | Output Type | Description |
+|:---:|:---:|:---:|:---|
+| DocumentId | `document_id` | string | Stable document identity. |
+| DocumentHash | `document_hash` | string | Stable document version or content hash. |
+| SourceUri | `source_uri` | string | Original source URI or path. |
+| SourceVersion | `source_version` | string | Source-side version, etag, revision, or similar marker. |
+| SourceModifiedAt | `source_modified_at` | long | Source modified time in epoch milliseconds. |
+| MimeType | `mime_type` | string | Source MIME type. |
+| Deleted | `deleted` | boolean | Whether the document is a deletion marker. |
+| ChunkId | `chunk_id` | string | Stable chunk identity. |
+| ChunkHash | `chunk_hash` | string | Stable chunk content hash. |
+| ChunkIndex | `chunk_index` | int | Zero-based chunk index in the document. |
+
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
+5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields` and declared in the input table metadata schema. If the target physical field already exists, the transform fails instead of overwriting it.
+6. **Markdown RAG compatibility**: This change does not rename existing Markdown RAG physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`, and it does not change the current `chunk_id` or `content_hash` generation formulas.
 
 ## Options
 
@@ -75,6 +94,28 @@ metadata_fields {
 - The left side must be a supported metadata Key (see table above), and is strictly case-sensitive
 - The right side is a custom output field name, which cannot duplicate existing field names
 - You can select only the metadata fields you need, not all of them must be configured
+
+### Knowledge Sync Projection Example
+
+Project Knowledge Sync logical metadata keys into canonical physical columns before a sink validates routing fields or lifecycle keys.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "knowledge_chunks"
+    plugin_output = "knowledge_chunks_with_meta"
+    metadata_fields = {
+      DocumentId = "document_id"
+      DocumentHash = "document_hash"
+      ChunkId = "chunk_id"
+      ChunkHash = "chunk_hash"
+      ChunkIndex = "chunk_index"
+    }
+  }
+}
+```
+
+After this transform, downstream sinks can validate `document_id`, `chunk_id`, and `chunk_hash` as regular physical fields in the input schema.
 
 ## Complete Examples
 

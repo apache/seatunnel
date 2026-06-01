@@ -33,12 +33,31 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
+## Knowledge Sync 元数据字段
+
+Knowledge Sync 流程可以使用下面的元数据 Key 在 lifecycle sink 或 sink 分区路由之前携带文档和 chunk 身份信息。这些 Key 是逻辑行元数据，只有通过 `Metadata` 转换显式投影后，才会成为真实的物理列。
+
+| 元数据 Key | 标准物理字段名 | 输出类型 | 说明 |
+|:---:|:---:|:---:|:---|
+| DocumentId | `document_id` | string | 稳定的文档标识。 |
+| DocumentHash | `document_hash` | string | 稳定的文档版本或内容哈希。 |
+| SourceUri | `source_uri` | string | 原始来源 URI 或路径。 |
+| SourceVersion | `source_version` | string | 来源侧版本、etag、revision 等版本标记。 |
+| SourceModifiedAt | `source_modified_at` | long | 来源修改时间，epoch 毫秒。 |
+| MimeType | `mime_type` | string | 来源 MIME 类型。 |
+| Deleted | `deleted` | boolean | 是否为文档删除标记。 |
+| ChunkId | `chunk_id` | string | 稳定的 chunk 标识。 |
+| ChunkHash | `chunk_hash` | string | 稳定的 chunk 内容哈希。 |
+| ChunkIndex | `chunk_index` | int | 文档内从 0 开始的 chunk 序号。 |
+
 ### 重要说明
 
 1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
 2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
+5. **Knowledge Sync 投影需要显式配置**：Knowledge Sync 元数据字段只有在 `metadata_fields` 中配置、并且输入表 metadata schema 中声明了对应 Key 时才会被投影。如果目标物理字段已经存在，转换会失败而不是覆盖原字段。
+6. **兼容 Markdown RAG 物理字段**：本次变更不会重命名已有 Markdown RAG 物理字段，例如 `source_uri`、`document_id`、`chunk_id`、`chunk_index`、`content_hash`，也不会改变当前 `chunk_id` 或 `content_hash` 的生成公式。
 
 ## 配置选项
 
@@ -75,6 +94,28 @@ metadata_fields {
 - 左侧必须是支持的元数据 Key（见上表），且严格区分大小写
 - 右侧是自定义的输出字段名，不能与原有字段重名
 - 可以只选择需要的元数据字段，不必全部配置
+
+### Knowledge Sync 投影示例
+
+在 sink 校验路由字段或 lifecycle key 之前，将 Knowledge Sync 逻辑元数据 Key 投影为标准物理列。
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "knowledge_chunks"
+    plugin_output = "knowledge_chunks_with_meta"
+    metadata_fields = {
+      DocumentId = "document_id"
+      DocumentHash = "document_hash"
+      ChunkId = "chunk_id"
+      ChunkHash = "chunk_hash"
+      ChunkIndex = "chunk_index"
+    }
+  }
+}
+```
+
+完成该转换后，下游 sink 可以把 `document_id`、`chunk_id`、`chunk_hash` 当作输入 schema 中的普通物理字段进行校验。
 
 ## 完整示例
 

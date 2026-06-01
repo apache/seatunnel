@@ -44,6 +44,9 @@ public class MetadataUtil {
                 .filter(CommonOptions::isSupportMetadataTrans)
                 .map(CommonOptions::getName)
                 .forEach(METADATA_FIELDS::add);
+        Stream.of(KnowledgeSyncMetadataField.values())
+                .map(KnowledgeSyncMetadataField::getName)
+                .forEach(METADATA_FIELDS::add);
     }
 
     public static void setDelay(SeaTunnelRow row, Long delay) {
