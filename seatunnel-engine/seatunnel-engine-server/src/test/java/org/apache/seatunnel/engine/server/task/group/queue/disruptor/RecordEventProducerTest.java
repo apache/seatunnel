@@ -17,18 +17,21 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
+import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -38,41 +41,40 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.ProducerType;
 
 import java.util.Collections;
+import java.util.concurrent.LinkedBlockingQueue;
 
 class RecordEventProducerTest {
 
     private static final TaskLocation TASK_LOCATION =
             new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 1L, 1);
 
-    private RingBuffer<RecordEvent> ringBuffer;
-
     @SuppressWarnings("rawtypes")
-    private IntermediateQueueFlowLifeCycle flow;
+    private static IntermediateQueueFlowLifeCycle createFlow(SeaTunnelTask task) {
+        SeaTunnelMetricsContext metricsContext = new SeaTunnelMetricsContext();
+        Mockito.doReturn(TASK_LOCATION).when(task).getTaskLocation();
+        Mockito.doReturn(metricsContext).when(task).getMetricsContext();
+        Mockito.doReturn(1L).when(task).getTaskID();
 
-    @BeforeEach
-    void setUp() {
-        ringBuffer =
-                RingBuffer.create(
-                        ProducerType.SINGLE, RecordEvent::new, 4, new YieldingWaitStrategy());
+        IntermediateBlockingQueue blockingQueue =
+                new IntermediateBlockingQueue(
+                        new LinkedBlockingQueue<>(),
+                        new ThreadSafeCounter("qsize"),
+                        metricsContext);
 
-        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
-        Mockito.when(task.getTaskLocation()).thenReturn(TASK_LOCATION);
+        return new IntermediateQueueFlowLifeCycle(task, new CompletableFuture<>(), blockingQueue);
+    }
 
-        flow = Mockito.mock(IntermediateQueueFlowLifeCycle.class);
-        final boolean[] prepareClose = {false};
-        Mockito.when(flow.getRunningTask()).thenReturn(task);
-        Mockito.when(flow.getPrepareClose()).thenAnswer(inv -> prepareClose[0]);
-        Mockito.doAnswer(
-                        inv -> {
-                            prepareClose[0] = inv.getArgument(0);
-                            return null;
-                        })
-                .when(flow)
-                .setPrepareClose(Mockito.anyBoolean());
+    private static RingBuffer<RecordEvent> createRingBuffer() {
+        return RingBuffer.create(
+                ProducerType.SINGLE, RecordEvent::new, 4, new YieldingWaitStrategy());
     }
 
     @Test
     void signalIsPublishedWhenCapacityAvailable() {
+        RingBuffer<RecordEvent> ringBuffer = createRingBuffer();
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        IntermediateQueueFlowLifeCycle flow = createFlow(task);
+
         long seqBefore = ringBuffer.getCursor();
 
         RecordEventProducer.onData(new Record<>(FlushSignal.of(1L, 42L)), ringBuffer, flow);
@@ -80,14 +82,18 @@ class RecordEventProducerTest {
         long seqAfter = ringBuffer.getCursor();
         Assertions.assertEquals(seqBefore + 1, seqAfter, "signal should advance cursor by 1");
         RecordEvent event = ringBuffer.get(seqAfter);
-        Assertions.assertTrue(
-                event.getRecord().getData() instanceof FlushSignal,
+        Assertions.assertInstanceOf(
+                FlushSignal.class,
+                event.getRecord().getData(),
                 "published event must carry FlushSignal");
     }
 
     @Test
     void signalIsDroppedSilentlyWhenRingBufferIsFull() {
-        // Pin a gating sequence at -1 so the ring buffer tracks available capacity correctly.
+        RingBuffer<RecordEvent> ringBuffer = createRingBuffer();
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        IntermediateQueueFlowLifeCycle flow = createFlow(task);
+
         Sequence gatingSeq = new Sequence(-1L);
         ringBuffer.addGatingSequences(gatingSeq);
         for (int i = 0; i < 4; i++) {
@@ -110,6 +116,10 @@ class RecordEventProducerTest {
 
     @Test
     void dataRecordIsDroppedInPrepareCloseAndNotPublished() {
+        RingBuffer<RecordEvent> ringBuffer = createRingBuffer();
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        IntermediateQueueFlowLifeCycle flow = createFlow(task);
+
         flow.setPrepareClose(true);
         long cursorBefore = ringBuffer.getCursor();
 
@@ -124,6 +134,10 @@ class RecordEventProducerTest {
 
     @Test
     void barrierIsAlwaysPublishedAndFlipsPrepareCloseForFinalCheckpoint() {
+        RingBuffer<RecordEvent> ringBuffer = createRingBuffer();
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        IntermediateQueueFlowLifeCycle flow = createFlow(task);
+
         CheckpointBarrier closeBarrier =
                 new CheckpointBarrier(
                         1L,
@@ -134,7 +148,7 @@ class RecordEventProducerTest {
 
         RecordEventProducer.onData(new Record<>(closeBarrier), ringBuffer, flow);
 
-        Mockito.verify(flow).setPrepareClose(true);
-        Mockito.verify(flow.getRunningTask()).ack(closeBarrier);
+        Assertions.assertTrue(flow.getPrepareClose(), "prepareClose should be true after barrier");
+        Mockito.verify(task).ack(closeBarrier);
     }
 }
