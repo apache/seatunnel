@@ -133,13 +133,17 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private void createRedisCluster() {
         try {
-            String hostIp = getDockerHostIp();
             StringBuilder clusterCreateCmd =
                     new StringBuilder(
                             "redis-cli --cluster create --cluster-replicas 0 --cluster-yes ");
 
-            for (int port : REDIS_PORTS) {
-                clusterCreateCmd.append(hostIp).append(":").append(port).append(" ");
+            for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+                clusterCreateCmd
+                        .append("redis-cluster-")
+                        .append(i)
+                        .append(":")
+                        .append(REDIS_PORTS[i])
+                        .append(" ");
             }
 
             clusterCreateCmd.append("-a ").append(redisContainerInfo.getPassword());
@@ -511,7 +515,10 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     }
 
     private String getDockerHostIp() {
-        return new GenericContainer<>(DockerImageName.parse(redisContainerInfo.getImageName()))
-                .getHost();
+        String host =
+                new GenericContainer<>(DockerImageName.parse(redisContainerInfo.getImageName()))
+                        .getHost();
+        // Redis 7.4+ requires a valid IPv4/IPv6 address for cluster-announce-ip
+        return "localhost".equals(host) ? "127.0.0.1" : host;
     }
 }
