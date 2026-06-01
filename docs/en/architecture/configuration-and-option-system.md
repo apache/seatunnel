@@ -192,6 +192,18 @@ Validation logic declared in `optionRule()` runs at job submission time, produce
 
 The following patterns cover common scenarios. Each one shows the recommended declarative form inside `OptionRule.builder()`.
 
+Quick reference:
+
+| Scenario | Recommended API |
+|----------|------------------|
+| Always required fields | `.required(opt...)` |
+| Exactly one in a set | `.exclusive(opt...)` |
+| All-or-none group | `.bundled(opt...)` |
+| Required only when trigger matches | `.conditional(trigger, value, requiredOpt...)` |
+| Validate value only when trigger matches | `.conditional(trigger, value, condition...)` |
+| Optional field with value check when present | `.optional(opt, condition...)` |
+| Cross-field comparisons | `Conditions.lessThanField/greaterThanField(...)` |
+
 ### Required fields
 
 Some fields must always be present. A job that omits them should be rejected at submission.
@@ -218,19 +230,29 @@ A group of options that only make sense together. Either all of them are set or 
 
 ### Conditional required options driven by an enum
 
-When an enum option takes a specific value, additional fields become required.
+When an enum option takes a specific value, additional fields become required. The method signature is:
+
+```
+.conditional(triggerOption, triggerValue, requiredOption...)
+```
+
+Meaning: when the user sets `triggerOption` to `triggerValue`, all listed `requiredOption` fields become mandatory.
 
 ```java
+// When START_MODE = TIMESTAMP, START_MODE_TIMESTAMP becomes required
 .conditional(START_MODE, StartMode.TIMESTAMP, START_MODE_TIMESTAMP)
+// When START_MODE = SPECIFIC_OFFSETS, START_MODE_OFFSETS becomes required
 .conditional(START_MODE, StartMode.SPECIFIC_OFFSETS, START_MODE_OFFSETS)
 ```
 
 ### Conditional required options driven by a boolean
 
-A boolean toggle that activates different sets of required fields depending on its value.
+Same pattern as enum-driven, but the trigger value is a boolean.
 
 ```java
+// When IS_EXACTLY_ONCE = true, XA_DATA_SOURCE_CLASS and TRANSACTION_TIMEOUT become required
 .conditional(IS_EXACTLY_ONCE, true, XA_DATA_SOURCE_CLASS, TRANSACTION_TIMEOUT)
+// When IS_EXACTLY_ONCE = false, MAX_RETRIES becomes required
 .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
 ```
 
@@ -306,12 +328,27 @@ AND binds tighter than OR, so `A.or(B.and(C))` evaluates as `A || (B && C)`. Thi
 .optional(PORT)
 ```
 
-### Conditional required with value constraint
+### Conditional required vs conditional value constraint
 
-When a conditional option also needs value validation, pass the constraint as the last argument. The constraint is only enforced when the trigger condition is met.
+:::tip
+
+These two forms look similar but mean different things:
+
+- `conditional(trigger, value, option...)` makes options conditionally required.
+- `conditional(trigger, value, condition...)` only validates values when the target option is present; it does not make that option required.
+
+:::
 
 ```java
-// When START_MODE == TIMESTAMP, START_TIMESTAMP is required and must be > 0
+// A) Conditionally required field
+.conditional(START_MODE, StartMode.TIMESTAMP, START_TIMESTAMP)
+
+// B) Optional field with conditional value validation
+.conditional(START_MODE, StartMode.TIMESTAMP,
+        Conditions.greaterThan(START_TIMESTAMP, 0L))
+
+// C) Required + value constraint (combine A and B)
+.conditional(START_MODE, StartMode.TIMESTAMP, START_TIMESTAMP)
 .conditional(START_MODE, StartMode.TIMESTAMP,
         Conditions.greaterThan(START_TIMESTAMP, 0L))
 ```

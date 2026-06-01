@@ -32,7 +32,7 @@ SeaTunnel 通过以下几个核心构件把这三件事连接起来：
 
 - key
 - type
-- 默认值
+- 默认值（如适用）
 - 描述
 
 它是 SeaTunnel 配置契约中最小、最基础的单元。
@@ -104,7 +104,7 @@ public OptionRule optionRule() {
 
 ### 值约束（`Condition`）
 
-除了结构性规则（必填、互斥等），配置项还可以携带**值级别约束**，运行时会在作业启动前进行校验。`Condition` API 提供了一种流式方式，在 `OptionRule.builder()` 中附加这些约束。具体用法参见下方 [OptionRule 模式编码指南](#optionrule-模式编码指南)。
+除了结构性规则（必填、互斥等），配置项还可以携带**值级别约束**，运行时会在作业启动前进行校验。`Condition` API 提供了一种流式方式，在 `OptionRule.builder()` 中附加这些约束。具体用法参见下方 [OptionRule 使用模式指南](#optionrule-使用模式指南)。
 
 可用的操作符（均通过 `Conditions` 工厂类调用）：
 
@@ -186,11 +186,23 @@ Option validation failed (4 errors):
       constraint: 'start_ts' < 'end_ts'
 ```
 
-## OptionRule 模式编码指南
+## OptionRule 使用模式指南
 
 在 `optionRule()` 中声明的校验逻辑会在作业提交时执行，产出统一格式的错误消息，且自动暴露给 REST API 和 Web UI。如果把校验写在 Config 构造器或 Writer/Reader 中，失败时机会推迟到任务调度之后，工具侧也无法感知这些约束。
 
 以下按常见场景列出推荐的声明式写法，均在 `OptionRule.builder()` 中使用。
+
+速查表：
+
+| 场景 | 推荐 API |
+|------|----------|
+| 始终必填字段 | `.required(opt...)` |
+| 多选一（且仅一个） | `.exclusive(opt...)` |
+| 成组全有或全无 | `.bundled(opt...)` |
+| 条件触发的必填字段 | `.conditional(trigger, value, requiredOpt...)` |
+| 条件触发的值校验 | `.conditional(trigger, value, condition...)` |
+| 可选字段（提供时校验） | `.optional(opt, condition...)` |
+| 跨字段比较 | `Conditions.lessThanField/greaterThanField(...)` |
 
 ### 必填字段
 
@@ -218,19 +230,29 @@ Option validation failed (4 errors):
 
 ### 条件必填（枚举驱动）
 
-当某个枚举字段取特定值时，另一些字段才变为必填。
+当某个枚举字段取特定值时，另一些字段才变为必填。方法签名为：
+
+```
+.conditional(触发字段, 触发值, 必填字段...)
+```
+
+含义：当用户把「触发字段」设为「触发值」时，后面列出的字段自动变为必填。
 
 ```java
+// 当 START_MODE = TIMESTAMP 时，必须提供 START_MODE_TIMESTAMP
 .conditional(START_MODE, StartMode.TIMESTAMP, START_MODE_TIMESTAMP)
+// 当 START_MODE = SPECIFIC_OFFSETS 时，必须提供 START_MODE_OFFSETS
 .conditional(START_MODE, StartMode.SPECIFIC_OFFSETS, START_MODE_OFFSETS)
 ```
 
 ### 条件必填（布尔驱动）
 
-布尔开关控制不同的必填字段集合。
+与枚举驱动相同，只是触发值是布尔值。
 
 ```java
+// 当 IS_EXACTLY_ONCE = true 时，XA_DATA_SOURCE_CLASS 和 TRANSACTION_TIMEOUT 变为必填
 .conditional(IS_EXACTLY_ONCE, true, XA_DATA_SOURCE_CLASS, TRANSACTION_TIMEOUT)
+// 当 IS_EXACTLY_ONCE = false 时，MAX_RETRIES 变为必填
 .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
 ```
 
@@ -306,12 +328,27 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 .optional(PORT)
 ```
 
-### 条件必填 + 值约束
+### 条件必填与条件值约束（区别很重要）
 
-条件必填项除了判断是否存在，还可以附加值约束。约束仅在触发条件满足时才会执行。
+:::tip
+
+这两种写法外观接近，但语义不同：
+
+- `conditional(trigger, value, option...)`：把字段声明为条件必填。
+- `conditional(trigger, value, condition...)`：只做条件值校验；若目标字段缺失，不会因此报“缺失必填”。
+
+:::
 
 ```java
-// 当 START_MODE == TIMESTAMP 时，START_TIMESTAMP 必须存在且 > 0
+// A) 条件必填
+.conditional(START_MODE, StartMode.TIMESTAMP, START_TIMESTAMP)
+
+// B) 条件值校验（不等价于必填）
+.conditional(START_MODE, StartMode.TIMESTAMP,
+        Conditions.greaterThan(START_TIMESTAMP, 0L))
+
+// C) 同时要求“必填 + 值约束”（A + B 组合）
+.conditional(START_MODE, StartMode.TIMESTAMP, START_TIMESTAMP)
 .conditional(START_MODE, StartMode.TIMESTAMP,
         Conditions.greaterThan(START_TIMESTAMP, 0L))
 ```
