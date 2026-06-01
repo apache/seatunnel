@@ -77,7 +77,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
 | paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
 | paimon.table.non-primary-key | Boolean | false    | -                            | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
-| branch                       | 字符串  | 否    | main                         | 要写入数据的Paimon表分支名称。如果指定的分支不存在，将抛出异常。                                                                 |
+| branch                       | 字符串  | 否    | main                         | 要写入数据的Paimon表分支名称。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
 
 ## 批模式下的checkpoint
 
