@@ -48,7 +48,7 @@ Please refer [security](security.md)
 
 > |  name  |   type   | data type |                            description                             |
 > |--------|----------|-----------|--------------------------------------------------------------------|
-> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | type   | required | string    | plugin type, supports `source`, `sink` and `transform`             |
 > | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
 
 #### Responses
@@ -118,7 +118,27 @@ Please refer [security](security.md)
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -128,6 +148,8 @@ Please refer [security](security.md)
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- `optionRule.valueConstraints` exposes value-level validation rules (e.g. numeric ranges, string patterns, cross-field comparisons). Each entry contains a human-readable `expression` string and a structured `conditionTree`. The array is empty or `null` when the connector does not define value constraints.
+- In `conditionTree`, `compareOperator` (e.g. `>=`, `<`, `>`) and `compareOption` are present for numeric and cross-field comparisons. For equality checks and non-comparison conditions these fields are `null`.
 
 </details>
 

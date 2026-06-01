@@ -46,7 +46,7 @@ seatunnel:
 
 > |  参数名称  | 是否必传 | 参数类型 |                   参数描述                    |
 > |--------|------|------|-----------------------------------------|
-> | type   | 是    | string | 插件类型，当前支持 `source` 和 `sink`        |
+> | type   | 是    | string | 插件类型，支持 `source`、`sink` 和 `transform` |
 > | plugin | 是    | string | connector 的 factory identifier，例如 `FakeSource` 或 `Console` |
 
 #### 响应
@@ -116,7 +116,27 @@ seatunnel:
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -126,6 +146,8 @@ seatunnel:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- `optionRule.valueConstraints` 暴露值级别的校验规则（如数值范围、字符串模式、跨字段比较）。每个条目包含可读的 `expression` 字符串和结构化的 `conditionTree`。当 connector 未定义值约束时，该数组为空或 `null`。
+- 在 `conditionTree` 中，`compareOperator`（如 `>=`、`<`、`>`）和 `compareOption` 用于数值比较和跨字段比较；对于等值检查和非比较类条件，这两个字段为 `null`。
 
 </details>
 

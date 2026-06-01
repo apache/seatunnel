@@ -217,10 +217,13 @@ public final class ConditionEvaluators {
             throw new OptionValidationException("Cannot compare null values in numeric comparison");
         }
         if (a instanceof Number && b instanceof Number) {
-            if (a instanceof Long || b instanceof Long) {
-                return Long.compare(((Number) a).longValue(), ((Number) b).longValue());
+            if (a instanceof Double
+                    || b instanceof Double
+                    || a instanceof Float
+                    || b instanceof Float) {
+                return Double.compare(((Number) a).doubleValue(), ((Number) b).doubleValue());
             }
-            return Double.compare(((Number) a).doubleValue(), ((Number) b).doubleValue());
+            return Long.compare(((Number) a).longValue(), ((Number) b).longValue());
         }
         if (a instanceof Comparable && b instanceof Comparable) {
             return ((Comparable) a).compareTo(b);

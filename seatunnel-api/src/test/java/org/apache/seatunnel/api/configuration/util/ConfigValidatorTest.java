@@ -1452,4 +1452,46 @@ public class ConfigValidatorTest {
         config.put(START_TS.key(), Long.MAX_VALUE);
         assertThrows(OptionValidationException.class, () -> validate(config, rule));
     }
+
+    @Test
+    public void testCompareNumbersLongVsDouble() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1L, 1.5) < 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(2L, 1.5) > 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(1L, 1.0));
+    }
+
+    @Test
+    public void testCompareNumbers_FloatVsLong() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(2.7f, 2L) > 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1.3f, 2L) < 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(3.0f, 3L));
+    }
+
+    @Test
+    public void testCompareNumbersIntegerVsDouble() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1, 1.5) < 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(2, 1.5) > 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(1, 1.0));
+    }
+
+    @Test
+    public void testCompareNumbersFloatVsDouble() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1.0f, 1.5) < 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(2.0f, 1.5) > 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(1.0f, 1.0));
+    }
+
+    @Test
+    public void testCompareNumbersIntegerVsLong() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1, 2L) < 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(3, 2L) > 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(5, 5L));
+    }
+
+    @Test
+    public void testCompareNumbersIntegerVsFloat() {
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(1, 1.5f) < 0);
+        Assertions.assertTrue(ConditionEvaluators.compareNumbers(2, 1.5f) > 0);
+        Assertions.assertEquals(0, ConditionEvaluators.compareNumbers(1, 1.0f));
+    }
 }
