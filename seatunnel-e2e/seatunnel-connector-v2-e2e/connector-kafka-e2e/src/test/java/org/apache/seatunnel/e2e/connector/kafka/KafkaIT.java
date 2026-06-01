@@ -109,6 +109,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -138,6 +139,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     private KafkaContainer kafkaContainer;
 
     private List<ConsumerRecord<String, String>> nativeData;
+
+    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     @BeforeAll
     @Override
@@ -270,6 +274,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
+        if (!dynamicTopics.isEmpty()) {
+            try (AdminClient adminClient = createKafkaAdmin()) {
+                adminClient.deleteTopics(dynamicTopics).all().get();
+                log.info("Deleted {} dynamic test topics", dynamicTopics.size());
+            } catch (Exception e) {
+                log.warn("Failed to delete dynamic test topics: {}", e.getMessage());
+            }
+        }
         if (producer != null) {
             producer.close();
         }
@@ -1592,7 +1604,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        final String jobId = "18696753645413";
+        final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -2042,6 +2054,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         topic.configs(Collections.singletonMap("retention.ms", "-1"));
         try (AdminClient adminClient = createKafkaAdmin()) {
             adminClient.createTopics(Collections.singletonList(topic)).all().get();
+            dynamicTopics.add(topicName);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(
