@@ -257,10 +257,6 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                                             "vector(".length(),
                                             typeDefine.getColumnType().length() - 1);
                     builder.scale(Integer.parseInt(dimStr));
-                } else if (typeDefine.getPrecision() != null && typeDefine.getPrecision() > 0) {
-                    // Fallback: if columnType is just "vector" without dimension,
-                    // use precision (from JDBC metadata typmod) as the dimension.
-                    builder.scale(typeDefine.getPrecision().intValue());
                 }
                 break;
             case PG_BYTEA:

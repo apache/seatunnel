@@ -337,6 +337,26 @@ public class CatalogUtils {
 
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata,
+            JdbcDialectTypeMapper typeMapper,
+            String sqlQuery,
+            Connection connection)
+            throws SQLException {
+        return getCatalogTable(
+                metadata,
+                (BiFunction<ResultSetMetaData, Integer, Column>)
+                        (resultSetMetaData, index) -> {
+                            try {
+                                return typeMapper.mappingColumn(
+                                        resultSetMetaData, index, connection);
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                        },
+                sqlQuery);
+    }
+
+    public static CatalogTable getCatalogTable(
+            ResultSetMetaData metadata,
             BiFunction<ResultSetMetaData, Integer, Column> columnConverter,
             String sqlQuery)
             throws SQLException {
