@@ -176,6 +176,18 @@ public class SchemaOperatorTest {
         assertTrue(pendingQueue.peek().isSchemaChange);
     }
 
+    /**
+     * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
+     * checkpoint-completion safety fence even when called from a stall-detection timer.
+     *
+     * <p>The test invokes the handler directly (as if a processing-time timer fired) to keep the
+     * unit test independent of Flink's timer infrastructure. In production, the handler is called
+     * by {@link SchemaOperator13#scheduleFallbackTimer()} via {@code
+     * ProcessingTimeService.registerTimer}.
+     *
+     * <p>The base {@link SchemaOperator#scheduleFallbackTimer()} is a no-op; this test verifies
+     * only the handler logic, not the scheduling mechanism.
+     */
     @Test
     void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
         LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
@@ -193,9 +205,9 @@ public class SchemaOperatorTest {
         context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
         context.operator.processElement(new StreamRecord<>(row, 401L));
 
-        // Fallback timer fires but no checkpoint has completed yet (firstSeenCheckpointId < 0).
-        // The fallback should NOT apply DDL — it must reschedule itself to preserve the
-        // checkpoint-completion safety fence that protects against XA/MDL conflicts.
+        // Simulate timer firing before any checkpoint has completed (firstSeenCheckpointId < 0).
+        // The handler must NOT apply the DDL — it must call scheduleFallbackTimer() to wait for
+        // the checkpoint-completion safety fence (guards XA/MDL conflicts).
         invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
 
         assertTrue(context.output.records.isEmpty());
@@ -204,7 +216,8 @@ public class SchemaOperatorTest {
         assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
         Mockito.verifyNoInteractions(coordinator);
 
-        // Now complete the first checkpoint to set firstSeenCheckpointId.
+        // Complete the first post-DDL checkpoint — sets firstSeenCheckpointId, not yet safe to
+        // apply (need one additional round, so notifyCheckpointComplete stops here).
         context.operator.notifyCheckpointComplete(40L);
 
         assertTrue(context.output.records.isEmpty());
@@ -212,17 +225,16 @@ public class SchemaOperatorTest {
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
         Mockito.verifyNoInteractions(coordinator);
 
-        // Simulate checkpoint stall: set lastCheckpointCompletedMs to a time in the past
-        // (older than CHECKPOINT_STALL_TIMEOUT_MS = 15_000L). This simulates Flink 1.13
-        // high-parallelism CDC jobs where checkpoints stop after some source subtasks finish.
+        // Simulate checkpoint stall: move lastCheckpointCompletedMs into the past beyond
+        // CHECKPOINT_STALL_TIMEOUT_MS (15 s). This mirrors the Flink 1.13 behaviour where
+        // high-parallelism CDC jobs stop checkpointing after some source subtasks finish.
         setField(
                 context.operator,
                 "lastCheckpointCompletedMs",
                 System.currentTimeMillis() - 20_000L);
 
-        // Fallback timer fires again. Now firstSeenCheckpointId >= 0 and stall detected,
-        // so the DDL can be applied (checkpoint safety fence is respected since at least one
-        // checkpoint completed after the DDL was detected).
+        // Simulate timer firing again. firstSeenCheckpointId >= 0 and checkpoint has stalled,
+        // so the safety fence is satisfied — the DDL can now be applied.
         invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
 
         assertEquals(2, context.output.records.size());

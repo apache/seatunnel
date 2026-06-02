@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,24 +44,17 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Operator placed after the source to handle schema evolution.
  *
- * <p>schema change events are NOT processed synchronously in {@link #processElement}. Instead, they
+ * <p>Schema change events are NOT processed synchronously in {@link #processElement}. Instead, they
  * are buffered and deferred until an additional checkpoint cycle has completed after the first
  * checkpoint that observed the pending DDL. This wait ensures that when the sink executes ALTER
  * TABLE, all XA transactions from prior checkpoint cycles have been fully committed by the {@code
@@ -72,10 +65,12 @@ import java.util.concurrent.TimeUnit;
  * <p>Per checkpoint cycle, at most ONE schema change is applied. If multiple DDLs arrive between
  * two checkpoints, they are processed across successive checkpoint cycles.
  *
- * <p>Flink 1.13 cannot continue checkpointing after some source subtasks have finished. When high
- * parallelism CDC jobs hit that condition, pending schema changes would otherwise stay blocked
- * forever. A lightweight fallback timer detects the checkpoint stall and re-enters the task thread
- * through Flink's processing-time service so the deferred DDL can still be applied safely.
+ * <p>Flink 1.13 cannot continue checkpointing after some source subtasks have finished. When
+ * high-parallelism CDC jobs hit that condition, pending schema changes would otherwise stay blocked
+ * forever. Subclasses may override {@link #scheduleFallbackTimer()} to register a version-specific
+ * timer that detects the stall and re-enters the task thread via {@link
+ * #handleFallbackTimerOnTaskThread()} so the deferred DDL can still be applied safely. The base
+ * implementation is a no-op, keeping the common module free of version-specific overhead.
  */
 @Slf4j
 public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
@@ -84,10 +79,15 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private static final int MAX_BUFFERED_RECORDS = 100000;
     private static final long SCHEMA_CHANGE_TIMEOUT_MS = 300_000L;
     private static final int CHECKPOINT_WAIT_ROUNDS = 1;
-    private static final long CHECKPOINT_STALL_TIMEOUT_MS = 15_000L;
+
+    /** Exposed to subclasses so version-specific fallback timers can use the same threshold. */
+    protected static final long CHECKPOINT_STALL_TIMEOUT_MS = 15_000L;
 
     private final Map<TableIdentifier, CatalogTable> localSchemaState;
-    private String jobId;
+
+    /** Exposed to subclasses for logging only. */
+    protected String jobId;
+
     private final SupportSchemaEvolution source;
     private final Config pluginConfig;
     private volatile Long lastProcessedEventTime;
@@ -95,10 +95,13 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private transient Queue<BufferedRecord> pendingQueue;
     private volatile boolean schemaChangePending = false;
     private long firstSeenCheckpointId = -1L;
-    private transient ScheduledExecutorService fallbackScheduler;
-    private transient volatile ScheduledFuture<?> pendingFallbackFuture;
-    private volatile long lastCheckpointCompletedMs = -1L;
-    private volatile boolean fallbackTimerFired = false;
+
+    /**
+     * Timestamp of the most recently completed checkpoint. Updated in {@link
+     * #notifyCheckpointComplete} and read by {@link #handleFallbackTimerOnTaskThread} to detect
+     * whether checkpoints have stalled.
+     */
+    protected volatile long lastCheckpointCompletedMs = -1L;
 
     private transient ListState<SchemaStateEntry> localSchemaStateStore;
     private transient ListState<Long> lastProcessedEventTimeState;
@@ -124,13 +127,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             this.pendingQueue = new LinkedList<>();
         }
         this.coordinator = LocalSchemaCoordinator.getInstance(this.jobId);
-        this.fallbackScheduler =
-                Executors.newSingleThreadScheduledExecutor(
-                        runnable -> {
-                            Thread thread = new Thread(runnable, "schema-fallback-timer-" + jobId);
-                            thread.setDaemon(true);
-                            return thread;
-                        });
 
         log.info(
                 "SchemaOperator opened for job: {}, schemaChangePending: {}, pendingQueue size: {}",
@@ -147,10 +143,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         if (!isSchemaEvolutionEnabled(pluginConfig)) {
             output.collect(streamRecord);
             return;
-        }
-
-        if (fallbackTimerFired) {
-            handleFallbackTimerOnTaskThread();
         }
 
         // detect schema change events
@@ -227,12 +219,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
      * ensure safety:
      *
      * <ul>
-     *   <li><b>first time seeing the DDL: record {@link #firstSeenCheckpointId} but do NOT
-     *       broadcast the DDL yet. At this point the {@code FlinkGlobalCommitter} may still be
-     *       running {@code XA COMMIT} for this checkpoint's prepared transactions, holding MDL
-     *       locks on the sink table.
-     *   <li><b>{@code checkpointId >= firstSeenCheckpointId + CHECKPOINT_WAIT_ROUNDS} : the XA
-     *       COMMIT from the earlier checkpoint cycle is guaranteed to have finished (at least one
+     *   <li>First time seeing the DDL: record {@link #firstSeenCheckpointId} but do NOT broadcast
+     *       the DDL yet. At this point the {@code FlinkGlobalCommitter} may still be running {@code
+     *       XA COMMIT} for this checkpoint's prepared transactions, holding MDL locks on the sink
+     *       table.
+     *   <li>{@code checkpointId >= firstSeenCheckpointId + CHECKPOINT_WAIT_ROUNDS}: the XA COMMIT
+     *       from the earlier checkpoint cycle is guaranteed to have finished (at least one
      *       additional checkpoint cycle has completed, which implies the committer ran). The sink's
      *       ALTER TABLE will not encounter MDL lock, it is now safe to broadcast the DDL.
      * </ul>
@@ -294,21 +286,17 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     }
 
     /**
-     * Handles fallback timer firing on the task thread (Flink 1.13 checkpoint stall workaround).
+     * Handles a checkpoint-stall fallback on the task thread. Must be called from the Flink task
+     * thread (e.g. via {@code ProcessingTimeService.registerTimer} callback) to keep {@code
+     * output.collect} and operator state accesses thread-safe.
      *
-     * <p>IMPORTANT: This method still respects the checkpoint-completion safety fence. The DDL is
-     * only applied if at least one checkpoint has completed after the schema event was detected
-     * ({@code firstSeenCheckpointId >= 0}). This ensures XA transactions from the earlier
-     * checkpoint cycle have finished before ALTER TABLE runs.
-     *
-     * <p>If no checkpoint has completed yet, we reschedule the fallback timer and wait. The
-     * fallback only kicks in when checkpoints stall AFTER the first post-DDL checkpoint has
-     * completed, which is the scenario in Flink 1.13 high-parallelism CDC jobs where some source
-     * subtasks finish before others.
+     * <p>Safety fence: the DDL is applied only when at least one checkpoint has already completed
+     * after the schema event ({@code firstSeenCheckpointId >= 0}). This preserves the guarantee
+     * that XA transactions from the earlier checkpoint cycle have finished before ALTER TABLE runs.
+     * If that fence has not been crossed yet, the fallback reschedules itself by calling {@link
+     * #scheduleFallbackTimer()} and returns without applying anything.
      */
-    private void handleFallbackTimerOnTaskThread() throws InterruptedException {
-        fallbackTimerFired = false;
-
+    protected void handleFallbackTimerOnTaskThread() throws InterruptedException {
         if (!schemaChangePending || pendingQueue.isEmpty()) {
             return;
         }
@@ -348,71 +336,16 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         applyNextPendingSchemaChange();
     }
 
-    private void scheduleFallbackTimer() {
-        if (fallbackScheduler == null || fallbackScheduler.isShutdown()) {
-            return;
-        }
-        ScheduledFuture<?> existing = pendingFallbackFuture;
-        if (existing != null && !existing.isDone()) {
-            return;
-        }
-        pendingFallbackFuture =
-                fallbackScheduler.schedule(
-                        () -> {
-                            fallbackTimerFired = true;
-                            registerProcessingTimeCallback();
-                        },
-                        CHECKPOINT_STALL_TIMEOUT_MS,
-                        TimeUnit.MILLISECONDS);
-    }
-
-    private void registerProcessingTimeCallback() {
-        try {
-            Object processingTimeService = getProcessingTimeService();
-            Method getCurrentTimeMethod = null;
-            Method registerMethod = null;
-            Class<?> callbackClass = null;
-
-            for (Method method : processingTimeService.getClass().getMethods()) {
-                if ("getCurrentProcessingTime".equals(method.getName())
-                        && method.getParameterTypes().length == 0) {
-                    getCurrentTimeMethod = method;
-                } else if ("registerTimer".equals(method.getName())
-                        && method.getParameterTypes().length == 2
-                        && method.getParameterTypes()[0] == long.class) {
-                    registerMethod = method;
-                    callbackClass = method.getParameterTypes()[1];
-                }
-            }
-
-            if (getCurrentTimeMethod == null || registerMethod == null || callbackClass == null) {
-                log.warn(
-                        "Could not find required ProcessingTimeService methods, "
-                                + "falling back to flag-based handling.");
-                return;
-            }
-
-            getCurrentTimeMethod.setAccessible(true);
-            registerMethod.setAccessible(true);
-            long now = (long) getCurrentTimeMethod.invoke(processingTimeService);
-
-            InvocationHandler handler =
-                    (proxy, method, args) -> {
-                        if ("onProcessingTime".equals(method.getName())) {
-                            handleFallbackTimerOnTaskThread();
-                        }
-                        return null;
-                    };
-            Object callbackProxy =
-                    Proxy.newProxyInstance(
-                            callbackClass.getClassLoader(),
-                            new Class<?>[] {callbackClass},
-                            handler);
-
-            registerMethod.invoke(processingTimeService, now + 1, callbackProxy);
-        } catch (Exception e) {
-            log.warn("Failed to register processing time callback for fallback timer", e);
-        }
+    /**
+     * Schedules a fallback timer that will call {@link #handleFallbackTimerOnTaskThread()} if
+     * checkpoints stall before the pending schema change can be applied.
+     *
+     * <p>The base implementation is a no-op: version-specific subclasses (e.g. {@code
+     * SchemaOperator13}) override this to register a timer via {@code ProcessingTimeService},
+     * keeping the common module free of version-specific timer infrastructure and reflection.
+     */
+    protected void scheduleFallbackTimer() {
+        // no-op by default; overridden in version-specific subclasses
     }
 
     private BufferedRecord advancePastDataRecords() {
@@ -645,14 +578,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         options.put("schema_change_broadcast", schemaChangeEvent);
         broadcastRow.setOptions(options);
         output.collect(new StreamRecord<>(broadcastRow));
-    }
-
-    @Override
-    public void close() throws Exception {
-        if (fallbackScheduler != null && !fallbackScheduler.isShutdown()) {
-            fallbackScheduler.shutdownNow();
-        }
-        super.close();
     }
 
     static class BufferedRecord {

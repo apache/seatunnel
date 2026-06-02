@@ -239,6 +239,14 @@ public class LocalSchemaCoordinator {
         // Schema changes (DDL) are database-level operations that only need to execute once.
         // Due to Flink's partitioning, only one subtask receives the schema change event,
         // so we only need 1 ACK to confirm the DDL was applied successfully.
+        //
+        // Precondition: sink subtasks that do NOT receive the schema-change event directly
+        // (because Flink's partitioning routed it elsewhere) must have their local schema
+        // view refreshed through BroadcastSchemaSinkOperator's broadcast/state path.
+        // If that broadcast path is incomplete, those subtasks will silently apply the old
+        // schema to new-format rows — a data-corruption risk. Any change to the broadcast
+        // path must preserve this invariant, and a multi-table (≥2 tables, parallelism ≥2)
+        // E2E test should guard it so regressions are caught immediately.
         int expectedAcks = 1;
         log.info(
                 "Requesting schema change for table {} (epoch {}). Waiting for at least {} of {} "
