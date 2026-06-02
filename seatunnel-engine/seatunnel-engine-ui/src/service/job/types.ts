@@ -25,6 +25,10 @@ export interface Edge {
   inputVertexId: string
   targetVertexId: string
 }
+export type MetricMapKey = {
+  [K in keyof Metrics]: Metrics[K] extends Record<string, string> ? K : never
+}[keyof Metrics]
+
 export interface Metrics {
   SinkWriteCount: string
   SinkWriteBytesPerSeconds: string
