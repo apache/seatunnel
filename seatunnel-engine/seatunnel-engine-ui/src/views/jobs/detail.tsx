@@ -104,7 +104,7 @@ export default defineComponent({
     })
     const formatNumber = (val: number): number | string => {
       if (Number.isInteger(val)) return val
-      return Math.round(val * 100) / 100
+      return val.toFixed(2)
     }
     const sourceCell = (
       row: Vertex,
