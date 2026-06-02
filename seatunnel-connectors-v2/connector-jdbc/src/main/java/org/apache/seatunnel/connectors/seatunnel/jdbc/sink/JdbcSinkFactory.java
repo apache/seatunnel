@@ -187,7 +187,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         sinkConfig.getJdbcConnectionConfig().getDialect(),
-                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue(),
+                        sinkConfig.getJdbcConnectionConfig());
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),

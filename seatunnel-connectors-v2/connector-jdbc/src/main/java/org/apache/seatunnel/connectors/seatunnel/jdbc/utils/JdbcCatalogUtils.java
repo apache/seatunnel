@@ -74,7 +74,8 @@ public class JdbcCatalogUtils {
                 JdbcDialectLoader.load(
                         jdbcConnectionConfig.getUrl(),
                         jdbcConnectionConfig.getDialect(),
-                        jdbcConnectionConfig.getCompatibleMode());
+                        jdbcConnectionConfig.getCompatibleMode(),
+                        jdbcConnectionConfig);
         Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect);
         if (catalog.isPresent()) {
             try (AbstractJdbcCatalog jdbcCatalog = (AbstractJdbcCatalog) catalog.get()) {
@@ -449,6 +450,7 @@ public class JdbcCatalogUtils {
         catalogConfig.put(JdbcCommonOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
         catalogConfig.put(
                 JdbcCommonOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
+        catalogConfig.put(JdbcCommonOptions.DRIVER.key(), config.getDriverName());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 

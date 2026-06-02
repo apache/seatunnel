@@ -83,7 +83,8 @@ Read external data source data through JDBC.
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> 1. If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> 2. When Kingbase starts in MySQL compatibility mode, existing Kingbase connector configurations can be reused directly. The system automatically connects to the database and dynamically obtains its compatibility mode (compatibleMode) when building KingbaseDialect and KingbaseCatalog.
 
 ## Task Example
 
