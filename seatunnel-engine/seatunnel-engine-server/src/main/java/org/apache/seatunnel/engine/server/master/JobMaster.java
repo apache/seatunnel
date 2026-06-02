@@ -21,6 +21,9 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
@@ -613,9 +616,48 @@ public class JobMaster {
                 }
             }
         } else if (sink instanceof MultiTableSink) {
-            Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
-            for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                handleSaveMode(seaTunnelSink, isStartWithSavePoint);
+            MultiTableSink multiTableSink = (MultiTableSink) sink;
+            Map<TablePath, SeaTunnelSink> sinks = multiTableSink.getSinks();
+            if (!multiTableSink.getFailurePolicy().continueOtherTables()) {
+                for (SeaTunnelSink seaTunnelSink : sinks.values()) {
+                    handleSaveMode(seaTunnelSink, isStartWithSavePoint);
+                }
+                return;
+            }
+
+            List<MultiTableFailedTable> failedTables = new ArrayList<>();
+            for (Map.Entry<TablePath, SeaTunnelSink> entry : new ArrayList<>(sinks.entrySet())) {
+                try {
+                    handleSaveMode(entry.getValue(), isStartWithSavePoint);
+                } catch (RuntimeException error) {
+                    MultiTableFailedTable failedTable =
+                            MultiTableFailureHelper.buildFailedTable(
+                                    entry.getKey().getFullName(),
+                                    MultiTableFailurePhase.SAVE_MODE,
+                                    entry.getValue().getPluginName(),
+                                    error);
+                    failedTables.add(failedTable);
+                    LOGGER.warning(
+                            "Skip failed sink table during cluster save mode: "
+                                    + MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                            error);
+                }
+            }
+            if (failedTables.isEmpty()) {
+                return;
+            }
+
+            failedTables.forEach(
+                    failedTable ->
+                            multiTableSink.removeSink(TablePath.of(failedTable.getTablePath())));
+            multiTableSink.registerInitialFailedTables(failedTables);
+            if (multiTableSink.getSinks().isEmpty()) {
+                throw new SeaTunnelRuntimeException(
+                        HANDLE_SAVE_MODE_FAILED,
+                        new IllegalStateException(
+                                MultiTableFailureHelper.formatFailedTableSummary(
+                                        "All candidate sink tables were skipped during cluster save mode.",
+                                        failedTables)));
             }
         }
     }
