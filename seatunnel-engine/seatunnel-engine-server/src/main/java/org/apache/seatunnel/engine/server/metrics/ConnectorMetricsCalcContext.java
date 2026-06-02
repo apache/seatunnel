@@ -177,7 +177,7 @@ public class ConnectorMetricsCalcContext {
     public void updateMetrics(Object data, String tableId) {
         count.inc();
         QPS.markEvent();
-        if (data instanceof SeaTunnelRgow) {
+        if (data instanceof SeaTunnelRow) {
             SeaTunnelRow row = (SeaTunnelRow) data;
             long rowBytes = row.getBytesSize();
             bytes.inc(rowBytes);

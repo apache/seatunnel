@@ -102,6 +102,26 @@ export default defineComponent({
     const tableData = computed(() => {
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
     })
+<<<<<<< HEAD
+=======
+    const extractVertexId = (vertexName: string): string => {
+      const match = vertexName.match(/((?:Sink|Source)\[\d+\])/)
+      return match ? match[1] : vertexName
+    }
+    const resolveMetricValue = (
+      metricsMap: Record<string, string> | undefined,
+      vertexId: string,
+      path: string
+    ): number => {
+      if (!metricsMap) return 0
+      const prefixedKey = `${vertexId}.${path}`
+      if (prefixedKey in metricsMap) return Number(metricsMap[prefixedKey]) || 0
+      if (path in metricsMap) return Number(metricsMap[path]) || 0
+      const matched = Object.keys(metricsMap).find(k => k.endsWith(path) && k.includes(vertexId))
+        ?? Object.keys(metricsMap).find(k => k.endsWith(path))
+      return matched ? (Number(metricsMap[matched]) || 0) : 0
+    }
+>>>>>>> 0a916c5c3 ([Fix][Zeta] fix engine-ui nan)
     const sourceCell = (
       row: Vertex,
       key:
@@ -111,10 +131,15 @@ export default defineComponent({
         | 'TableSourceReceivedBytesPerSeconds'
     ) => {
       if (row.type === 'source') {
+<<<<<<< HEAD
         return row.tablePaths.reduce(
           (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
           0
         )
+=======
+        const vertexId = extractVertexId(row.vertexName)
+        return row.tablePaths.reduce((s, path) => s + resolveMetricValue(job.metrics?.[key], vertexId, path), 0)
+>>>>>>> 0a916c5c3 ([Fix][Zeta] fix engine-ui nan)
       }
       return 0
     }
@@ -128,10 +153,15 @@ export default defineComponent({
         | 'TableSinkWriteBytesPerSeconds'
     ) => {
       if (row.type === 'sink') {
+<<<<<<< HEAD
         return row.tablePaths.reduce(
           (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
           0
         )
+=======
+        const vertexId = extractVertexId(row.vertexName)
+        return row.tablePaths.reduce((s, path) => s + resolveMetricValue(job.metrics?.[key], vertexId, path), 0)
+>>>>>>> 0a916c5c3 ([Fix][Zeta] fix engine-ui nan)
       }
       return 0
     }
