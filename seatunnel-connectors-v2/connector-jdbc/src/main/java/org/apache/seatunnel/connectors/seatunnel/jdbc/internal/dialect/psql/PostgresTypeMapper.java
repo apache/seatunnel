@@ -39,10 +39,18 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
 
+        // Preserve vector dimension: JDBC metadata may return "vector" without
+        // dimension, but precision can carry the dimension from pgvector typmod.
+        // Construct columnType as "vector(N)" so downstream converters preserve it.
+        String columnType = nativeType;
+        if (PostgresTypeConverter.PG_VECTOR.equals(nativeType) && precision > 0) {
+            columnType = nativeType + "(" + precision + ")";
+        }
+
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
                         .name(columnName)
-                        .columnType(nativeType)
+                        .columnType(columnType)
                         .dataType(nativeType)
                         .nullable(isNullable == ResultSetMetaData.columnNullable)
                         .length((long) precision)

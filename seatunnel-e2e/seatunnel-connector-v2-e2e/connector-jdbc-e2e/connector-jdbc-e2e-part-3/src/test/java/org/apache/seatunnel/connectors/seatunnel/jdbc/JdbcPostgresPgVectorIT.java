@@ -74,6 +74,13 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
                     + "  name VARCHAR(255),\n"
                     + "  embedding vector(3)\n"
                     + ")";
+    private static final String PGVECTOR_AUTO_CREATE_SOURCE_DDL =
+            "CREATE EXTENSION IF NOT EXISTS vector;\n"
+                    + "CREATE TABLE IF NOT EXISTS pgvector_e2e_auto_create_source_table (\n"
+                    + "  id SERIAL PRIMARY KEY,\n"
+                    + "  name VARCHAR(255),\n"
+                    + "  embedding vector(3)\n"
+                    + ")";
 
     private PostgreSQLContainer<?> PGVECTOR_CONTAINER;
 
@@ -136,6 +143,56 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
         log.info("pgvector e2e test completed");
     }
 
+    /**
+     * Tests the auto-create sink path: sink table is NOT pre-created, so SeaTunnel must infer the
+     * schema from the source query (including vector dimension) and generate the sink DDL
+     * automatically. This validates that vector(N) dimensions survive the full query-source ->
+     * auto-create-sink pipeline.
+     */
+    @TestTemplate
+    public void testPgVectorAutoCreateSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_postgres_pgvector_auto_create_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "pgvector auto-create job run failed");
+
+        // Verify data was written correctly
+        List<List<Object>> src =
+                querySql(
+                        "select id, name, embedding::text from pgvector_e2e_auto_create_source_table order by id");
+        List<List<Object>> dst =
+                querySql(
+                        "select id, name, embedding::text from pgvector_e2e_auto_create_sink_table order by id");
+        Assertions.assertFalse(src.isEmpty());
+        Assertions.assertEquals(src.size(), dst.size());
+        for (int i = 0; i < src.size(); i++) {
+            Assertions.assertEquals(src.get(i).get(0), dst.get(i).get(0));
+            Assertions.assertEquals(src.get(i).get(1), dst.get(i).get(1));
+            assertVectorEquals(src.get(i).get(2).toString(), dst.get(i).get(2).toString());
+        }
+
+        // Verify the sink table was created with the correct vector dimension
+        List<List<Object>> columns =
+                querySql(
+                        "SELECT column_name, data_type FROM information_schema.columns "
+                                + "WHERE table_name = 'pgvector_e2e_auto_create_sink_table' AND column_name = 'embedding'");
+        Assertions.assertFalse(
+                columns.isEmpty(), "embedding column should exist in auto-created sink table");
+        // Note: information_schema.data_type may show "USER-DEFINED" for vector,
+        // so we also check via pg_attribute to confirm the dimension
+        List<List<Object>> vectorInfo =
+                querySql(
+                        "SELECT format_type(atttypid, atttypmod) FROM pg_attribute "
+                                + "WHERE attrelid = 'pgvector_e2e_auto_create_sink_table'::regclass AND attname = 'embedding'");
+        Assertions.assertFalse(
+                vectorInfo.isEmpty(), "embedding column should exist in pg_attribute");
+        String fullType = vectorInfo.get(0).get(0).toString();
+        Assertions.assertTrue(
+                fullType.startsWith("vector(") && fullType.endsWith(")"),
+                "Expected vector(N) type but got: " + fullType);
+        log.info("pgvector auto-create e2e test completed, sink column type: {}", fullType);
+    }
+
     private void assertVectorEquals(String expected, String actual) {
         double[] expectedArr = parseVector(expected);
         double[] actualArr = parseVector(actual);
@@ -163,6 +220,13 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
             statement.execute(PGVECTOR_SINK_DDL);
             statement.execute(
                     "INSERT INTO pgvector_e2e_source_table (name, embedding) VALUES "
+                            + "('item1', '[0.1,0.2,0.3]'), "
+                            + "('item2', '[0.4,0.5,0.6]'), "
+                            + "('item3', '[0.7,0.8,0.9]')");
+            // Auto-create test: only create source table (no sink table)
+            statement.execute(PGVECTOR_AUTO_CREATE_SOURCE_DDL);
+            statement.execute(
+                    "INSERT INTO pgvector_e2e_auto_create_source_table (name, embedding) VALUES "
                             + "('item1', '[0.1,0.2,0.3]'), "
                             + "('item2', '[0.4,0.5,0.6]'), "
                             + "('item3', '[0.7,0.8,0.9]')");
