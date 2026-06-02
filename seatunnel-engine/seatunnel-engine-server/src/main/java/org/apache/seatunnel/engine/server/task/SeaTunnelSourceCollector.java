@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_TOTAL;
 
 /** Collects source output records, forwards schema changes, and seeds stain trace payloads. */
@@ -84,6 +86,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Counter stainTraceEntriesTruncatedTotal;
     private final StainTraceSampler stainTraceSampler;
     private final Counter flushSignalTotal;
+    private final Meter flushSignalQPS;
     private final LongSupplier currentTimeMillisSupplier;
 
     public SeaTunnelSourceCollector(
@@ -195,6 +198,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 metricsContext.counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
         this.stainTraceMaxEntriesPerTrace = engineConfig.getStainTraceMaxEntriesPerTrace();
         this.flushSignalTotal = metricsContext.counter(FLUSH_SIGNAL_TOTAL);
+        this.flushSignalQPS = metricsContext.meter(FLUSH_SIGNAL_QPS);
 
         // Compute effective stain trace settings.
         // When taskEnvOption is null (test / legacy path): engine config alone controls tracing.
@@ -359,6 +363,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void sendFlushSignal(long jobId, long taskId) throws IOException {
         sendRecordToNext(new Record<>(FlushSignal.of(jobId, taskId)));
         flushSignalTotal.inc();
+        flushSignalQPS.markEvent();
     }
 
     /** Creates the first stain trace payload for a sampled row before it leaves the source task. */

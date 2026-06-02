@@ -82,4 +82,6 @@ public final class MetricNames {
     public static final String FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL = "FlushSignalQueueFailureTotal";
     public static final String FLUSH_SIGNAL_SINK_SUCCESS_TOTAL = "FlushSignalSinkSuccessTotal";
     public static final String FLUSH_SIGNAL_SINK_FAILURE_TOTAL = "FlushSignalSinkFailureTotal";
+    public static final String FLUSH_SIGNAL_QPS = "FlushSignalQPS";
+    public static final String FLUSH_SIGNAL_SINK_QPS = "FlushSignalSinkQPS";
 }

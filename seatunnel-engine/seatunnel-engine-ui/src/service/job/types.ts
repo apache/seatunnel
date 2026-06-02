@@ -39,6 +39,13 @@ export interface Metrics {
   FlushSignalQueueFailureTotal: string
   FlushSignalSinkSuccessTotal: string
   FlushSignalSinkFailureTotal: string
+  FlushSignalQPSPerVertex: Record<Path, string>
+  FlushSignalSinkQPSPerVertex: Record<Path, string>
+  FlushSignalTotalPerVertex: Record<Path, string>
+  FlushSignalQueueSuccessTotalPerVertex: Record<Path, string>
+  FlushSignalQueueFailureTotalPerVertex: Record<Path, string>
+  FlushSignalSinkSuccessTotalPerVertex: Record<Path, string>
+  FlushSignalSinkFailureTotalPerVertex: Record<Path, string>
   TableSourceReceivedBytes: Record<Path, string>
   TableSourceReceivedCount: Record<Path, string>
   TableSourceReceivedQPS: Record<Path, string>

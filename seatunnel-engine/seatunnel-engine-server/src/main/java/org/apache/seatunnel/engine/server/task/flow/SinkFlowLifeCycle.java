@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
@@ -127,6 +128,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private final Counter stainTraceInvalidPayloadTotal;
     private final Counter flushSignalSinkSuccessTotal;
     private final Counter flushSignalSinkFailureTotal;
+    private final Meter flushSignalSinkQPS;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -177,6 +179,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_SUCCESS_TOTAL);
         this.flushSignalSinkFailureTotal =
                 metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
+        this.flushSignalSinkQPS = metricsContext.meter(MetricNames.FLUSH_SIGNAL_SINK_QPS);
     }
 
     @Override
@@ -312,6 +315,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     try {
                         writerContext.getFlushAction().run();
                         flushSignalSinkSuccessTotal.inc();
+                        flushSignalSinkQPS.markEvent();
                     } catch (Exception e) {
                         flushSignalSinkFailureTotal.inc();
                         throw new RuntimeException(e);
