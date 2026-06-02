@@ -138,15 +138,16 @@ public class MultiTableSink
                 sinkWritersContext.put(id, context);
             }
         }
-        MultiTableSinkWriter writer =new MultiTableSinkWriter(
-                writers,
-                replicaNum,
-                sinkWritersContext,
-                failurePolicy,
-                getJobMode(),
-                initialFailedTables,
-                tableRetryTimes,
-                tableRetryIntervalSeconds);
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        writers,
+                        replicaNum,
+                        sinkWritersContext,
+                        failurePolicy,
+                        getJobMode(),
+                        initialFailedTables,
+                        tableRetryTimes,
+                        tableRetryIntervalSeconds);
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
