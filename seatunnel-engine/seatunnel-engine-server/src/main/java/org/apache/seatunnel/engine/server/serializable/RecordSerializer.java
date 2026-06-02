@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.serializable;
 
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;

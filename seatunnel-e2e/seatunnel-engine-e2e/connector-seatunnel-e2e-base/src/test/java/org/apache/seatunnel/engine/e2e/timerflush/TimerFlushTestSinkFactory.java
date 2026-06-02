@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.e2e.timerflush;
 
-import java.io.IOException;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
-public interface FlowLifeCycle {
+public class TimerFlushTestSinkFactory implements TableSinkFactory {
 
-    default void init() throws Exception {}
+    public static final String IDENTIFIER = "TimerFlushTest";
 
-    default void open() throws Exception {}
+    @Override
+    public String factoryIdentifier() {
+        return IDENTIFIER;
+    }
 
-    default void close() throws IOException {}
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().build();
+    }
 
-    default void hook() throws IOException {}
-
-    default void prepareClose() throws IOException {}
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new TimerFlushTestSink();
+    }
 }

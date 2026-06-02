@@ -186,7 +186,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         context.getEventListener().onEvent(new ReaderOpenEvent());
         reader.open();
         register();
-        registerFlushTimer();
     }
 
     /**
@@ -225,6 +224,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         } finally {
             closeFlushTimer();
         }
+    }
+
+    @Override
+    public void hook() throws IOException {
+        startFlushTimer();
     }
 
     /**
@@ -364,7 +368,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
-    private void registerFlushTimer() {
+    private void startFlushTimer() {
         if (flushIntervalMs <= 0) {
             return;
         }

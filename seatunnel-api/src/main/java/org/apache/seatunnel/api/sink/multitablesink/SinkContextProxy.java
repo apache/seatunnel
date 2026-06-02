@@ -25,10 +25,9 @@ import org.apache.seatunnel.common.utils.function.RunnableWithException;
 public class SinkContextProxy implements SinkWriter.Context {
 
     private final int index;
-
     private final int replicaNum;
-
     private final SinkWriter.Context context;
+    private transient volatile RunnableWithException flushAction;
 
     public SinkContextProxy(int index, int replicaNum, SinkWriter.Context context) {
         this.index = index;
@@ -58,11 +57,11 @@ public class SinkContextProxy implements SinkWriter.Context {
 
     @Override
     public void registerFlushAction(RunnableWithException action) {
-        context.registerFlushAction(action);
+        this.flushAction = action;
     }
 
     @Override
     public RunnableWithException getFlushAction() {
-        return context.getFlushAction();
+        return flushAction;
     }
 }

@@ -869,7 +869,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new NamedTaskWrapper(MDCTracer.tracing(callback), "TimerFlush-" + taskLocation);
         ScheduledFuture<?> future =
                 timerFlushWorker.scheduleWithFixedDelay(
-                        namedMdcCallback, 10_000L, intervalMs, TimeUnit.MILLISECONDS);
+                        namedMdcCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
         groupFutures.put(taskLocation, future);
         logger.info(
                 String.format(

@@ -126,18 +126,19 @@ public class MultiTableSink
             SinkWriter.Context context) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
-                String tableIdentifier = tablePath.toString();
-                writers.put(
-                        SinkIdentifier.of(tableIdentifier, index),
-                        sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
-                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
+                SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
+                SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
+                writers.put(id, sink.createWriter(proxy));
+                proxyContexts.put(id, proxy);
+                sinkWritersContext.put(id, context);
             }
         }
-        return new MultiTableSinkWriter(
+        MultiTableSinkWriter writer =new MultiTableSinkWriter(
                 writers,
                 replicaNum,
                 sinkWritersContext,
@@ -146,6 +147,8 @@ public class MultiTableSink
                 initialFailedTables,
                 tableRetryTimes,
                 tableRetryIntervalSeconds);
+        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
+        return writer;
     }
 
     /**
@@ -166,12 +169,14 @@ public class MultiTableSink
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
 
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
+                SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
                 List<?> state =
                         states.stream()
                                 .map(
@@ -181,27 +186,45 @@ public class MultiTableSink
                                 .flatMap(Collection::stream)
                                 .collect(Collectors.toList());
                 if (state.isEmpty()) {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
+                    writers.put(sinkIdentifier, sink.createWriter(proxy));
                 } else {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.restoreWriter(
-                                    new SinkContextProxy(index, replicaNum, context), state));
+                    writers.put(sinkIdentifier, sink.restoreWriter(proxy, state));
                 }
+                proxyContexts.put(sinkIdentifier, proxy);
                 sinkWritersContext.put(sinkIdentifier, context);
             }
         }
-        return new MultiTableSinkWriter(
-                writers,
-                replicaNum,
-                sinkWritersContext,
-                failurePolicy,
-                getJobMode(),
-                initialFailedTables,
-                tableRetryTimes,
-                tableRetryIntervalSeconds);
+        MultiTableSinkWriter writer =
+                new MultiTableSinkWriter(
+                        writers,
+                        replicaNum,
+                        sinkWritersContext,
+                        failurePolicy,
+                        getJobMode(),
+                        initialFailedTables,
+                        tableRetryTimes,
+                        tableRetryIntervalSeconds);
+
+        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
+        return writer;
+    }
+
+    /**
+     * Registers an aggregated flush action on the parent context if any sub-writer registered a
+     * flush action via its {@link SinkContextProxy}.
+     *
+     * <p>The registered action drains all blocking queues and then calls each sub-writer's flush
+     * action under the corresponding lock, ensuring safe execution from the engine timer thread.
+     */
+    private void registerAggregatedFlushIfNeeded(
+            SinkWriter.Context context,
+            MultiTableSinkWriter writer,
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
+        boolean anyFlush =
+                proxyContexts.values().stream().anyMatch(p -> p.getFlushAction() != null);
+        if (anyFlush) {
+            context.registerFlushAction(() -> writer.aggregatedFlush(proxyContexts));
+        }
     }
 
     @Override
