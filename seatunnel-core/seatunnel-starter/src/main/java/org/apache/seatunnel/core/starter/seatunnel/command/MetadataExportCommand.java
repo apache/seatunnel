@@ -424,6 +424,10 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
             node.put("expectValue", String.valueOf(condition.getExpectValue()));
         }
         ConditionOperator op = condition.getOperator();
+        if (op != null) {
+            node.put("conditionOperator", op.name());
+            node.put("conditionOperatorCategory", op.getCategory().name());
+        }
         if (op != null && op != ConditionOperator.EQUAL) {
             node.put("compareOperator", op.getSymbol());
         }

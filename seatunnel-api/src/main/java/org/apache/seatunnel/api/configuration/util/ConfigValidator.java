@@ -243,7 +243,11 @@ public class ConfigValidator {
     /**
      * Determines whether a value constraint should be evaluated.
      *
-     * <p>If any referenced option is absolutely required, the constraint is always applicable.
+     * <p>If the constraint's head option is absolutely required, the constraint is always
+     * applicable. Only the head option (the option the constraint is "about") is checked — compare
+     * fields referenced by cross-field operators do not force applicability. This ensures that
+     * {@code optional(MAX, lessThanField(MAX, START_TS))} correctly skips when MAX is absent, even
+     * if START_TS is required elsewhere.
      *
      * <p>For optional constraints, the chain is split into OR-separated AND segments. Each AND
      * segment requires ALL its options to be present. The constraint is applicable if ANY segment
@@ -256,13 +260,11 @@ public class ConfigValidator {
      * </ul>
      */
     private boolean isConstraintApplicable(Condition<?> condition, OptionRule rule) {
-        Set<Option<?>> allOptions = collectAllConditionOptions(condition);
-        for (Option<?> opt : allOptions) {
-            for (RequiredOption requiredOption : rule.getRequiredOptions()) {
-                if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions
-                        && requiredOption.getOptions().contains(opt)) {
-                    return true;
-                }
+        Option<?> headOption = condition.getOption();
+        for (RequiredOption requiredOption : rule.getRequiredOptions()) {
+            if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions
+                    && requiredOption.getOptions().contains(headOption)) {
+                return true;
             }
         }
         return anyOrSegmentFullyPresent(condition);
@@ -304,19 +306,6 @@ public class ConfigValidator {
             }
         }
         return false;
-    }
-
-    private Set<Option<?>> collectAllConditionOptions(Condition<?> condition) {
-        Set<Option<?>> options = new HashSet<>();
-        Condition<?> cur = condition;
-        while (cur != null) {
-            options.add(cur.getOption());
-            if (cur.getCompareOption() != null) {
-                options.add(cur.getCompareOption());
-            }
-            cur = cur.hasNext() ? cur.getNext() : null;
-        }
-        return options;
     }
 
     void validateSingleChoice(Option option) {

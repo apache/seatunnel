@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Option;
 /**
  * Unified factory for creating {@link Condition} instances.
  *
+ * <p>Usage example:
+ *
  * <pre>{@code
  * static *
  * OptionRule.builder()
@@ -30,6 +32,21 @@ import org.apache.seatunnel.api.configuration.Option;
  *     .required(START_TS, END_TS, lessThanField(START_TS, END_TS))
  *     .build();
  * }</pre>
+ *
+ * <p>Currently supported operators (17 total, 4 categories):
+ *
+ * <ul>
+ *   <li><b>Numeric</b>: {@code greaterThan}, {@code greaterOrEqual}, {@code lessThan}, {@code
+ *       lessOrEqual}
+ *   <li><b>String</b>: {@code notBlank}, {@code startsWith}, {@code contains}, {@code matches},
+ *       {@code upperCase}, {@code lowerCase}
+ *   <li><b>Collection</b>: {@code notEmpty}, {@code unique}
+ *   <li><b>Cross-field</b>: {@code lessThanField}, {@code lessOrEqualField}, {@code
+ *       greaterThanField}, {@code greaterOrEqualField}
+ * </ul>
+ *
+ * <p>Additionally, equality checks are available via {@link Condition#of(Option, Object)} (EQUAL)
+ * and {@link Condition#of(Option, ConditionOperator, Object)} (NOT_EQUAL).
  */
 public final class Conditions {
 

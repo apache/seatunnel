@@ -51,17 +51,10 @@ public final class ConditionEvaluators {
             Evaluator evaluator = REGISTRY.get(operator);
             return evaluator.evaluate(value, condition, config);
         } catch (OptionValidationException e) {
-            String innerMsg = extractInnerMessage(e);
             throw new OptionValidationException(
                     "Failed to evaluate constraint '%s' on option '%s': %s",
-                    condition.toString(), condition.getOption().key(), innerMsg);
+                    condition.toString(), condition.getOption().key(), e.getRawMessage());
         }
-    }
-
-    private static String extractInnerMessage(OptionValidationException e) {
-        String msg = e.getMessage();
-        int idx = msg.indexOf(" - ");
-        return idx >= 0 ? msg.substring(idx + 3) : msg;
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -173,7 +166,8 @@ public final class ConditionEvaluators {
     static int compareNumbers(Object a, Object b) {
         if (a == null || b == null) {
             throw new OptionValidationException(
-                    "Cannot compare null values in numeric comparison: left=%s, right=%s", a, b);
+                    "Cannot compare null values in numeric comparison: leftPresent=%s, rightPresent=%s",
+                    a != null, b != null);
         }
         if (a instanceof Number && b instanceof Number) {
             return compareNumberValues((Number) a, (Number) b);
@@ -182,8 +176,8 @@ public final class ConditionEvaluators {
             return ((Comparable) a).compareTo(b);
         }
         throw new OptionValidationException(
-                "Cannot compare values of type %s(%s) and %s(%s)",
-                a.getClass().getSimpleName(), a, b.getClass().getSimpleName(), b);
+                "Cannot compare values of type %s and %s",
+                a.getClass().getSimpleName(), b.getClass().getSimpleName());
     }
 
     private static int compareNumberValues(Number a, Number b) {

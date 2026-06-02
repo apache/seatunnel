@@ -2078,6 +2078,52 @@ public class ConfigValidatorTest {
     }
 
     @Test
+    public void testOptionalHeadWithRequiredCompareFieldHeadAbsent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, lessThanField(START_TS, END_TS))
+                        .required(END_TS)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(
+                () -> validate(config, rule),
+                "head (START_TS) is optional and absent -> constraint skipped regardless of required compareField");
+    }
+
+    @Test
+    public void testOptionalHeadWithRequiredCompareFieldBothPresent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, lessThanField(START_TS, END_TS))
+                        .required(END_TS)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 100L);
+        config.put(END_TS.key(), 200L);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testOptionalHeadWithRequiredCompareFieldViolation() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(START_TS, lessThanField(START_TS, END_TS))
+                        .required(END_TS)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(START_TS.key(), 300L);
+        config.put(END_TS.key(), 200L);
+        assertThrows(
+                OptionValidationException.class,
+                () -> validate(config, rule),
+                "both present but start > end -> constraint fails");
+    }
+
+    @Test
     public void testOrThenAndChainEvaluation() {
         // A.or(B).and(C) evaluates as A || (B && C)
         OptionRule rule =
