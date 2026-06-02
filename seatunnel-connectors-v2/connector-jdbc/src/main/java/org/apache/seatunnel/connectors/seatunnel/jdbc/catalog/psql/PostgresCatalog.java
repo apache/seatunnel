@@ -237,7 +237,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(
-                defaultConnection, sqlQuery, new PostgresTypeMapper(), defaultConnection);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new PostgresTypeMapper());
     }
 }

@@ -408,7 +408,8 @@ public class CatalogUtils {
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             ResultSetMetaData resultSetMetaData = ps.getMetaData();
-            CatalogTable catalogTable = getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+            CatalogTable catalogTable =
+                    getCatalogTable(resultSetMetaData, typeMapper, sqlQuery, connection);
 
             PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
             if (primaryKey == null) {
