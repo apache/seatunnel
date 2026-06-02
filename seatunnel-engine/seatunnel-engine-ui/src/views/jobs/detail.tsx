@@ -21,9 +21,6 @@ import {
   NDivider,
   NTag,
   NDataTable,
-  NStatistic,
-  NGrid,
-  NGi,
   type DataTableColumns,
   NDrawer,
   NDrawerContent
