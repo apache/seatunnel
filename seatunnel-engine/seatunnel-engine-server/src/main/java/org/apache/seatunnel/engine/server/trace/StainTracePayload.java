@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.trace;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -88,7 +89,11 @@ public final class StainTracePayload {
         }
         byte[] newPayload = Arrays.copyOf(payload, payload.length + ENTRY_LENGTH);
         ByteBuffer buffer = ByteBuffer.wrap(newPayload).order(ByteOrder.BIG_ENDIAN);
-        buffer.position(payload.length);
+        // Cast to Buffer (superclass) so that position(int) resolves to Buffer#position(int)
+        // returning Buffer, which exists on JDK 8. ByteBuffer overrode this method with a
+        // covariant ByteBuffer return type only in JDK 9+; calling the ByteBuffer override on
+        // JDK 8 would throw NoSuchMethodError at runtime.
+        ((Buffer) buffer).position(payload.length);
         buffer.put(stage.getCode());
         buffer.putLong(taskId);
         buffer.putLong(tsMs);
