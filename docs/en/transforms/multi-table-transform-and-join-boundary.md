@@ -33,10 +33,10 @@ MySQL-CDC ──► FieldMapper (orders table)  ──► Kafka Sink (orders top
 
 | Capability | Supported | Notes |
 |---|---|---|
-| Per-table field rename / map | ✅ Yes | Use `FieldMapper` with `source_table_name` |
-| Per-table column filtering | ✅ Yes | Use `Filter` with `source_table_name` |
+| Per-table field rename / map | ✅ Yes | Use `FieldMapper` with `plugin_input` and `table_match_regex` |
+| Per-table column filtering | ✅ Yes | Use `Filter` with `plugin_input` and `table_match_regex` |
 | Per-table type casting | ✅ Yes | Use `FieldMapper` with `define_sink_type` option |
-| Per-table SQL transform (single table) | ✅ Yes | Use `SQL` transform with specific `source_table_name` |
+| Per-table SQL transform (single table) | ✅ Yes | Use `SQL` transform with `plugin_input`; scope it with `table_match_regex` when needed |
 | `TableMerge` — merge multiple tables into one | ✅ Yes | Tables must share compatible schema |
 | `TableRename` — rename tables in the stream | ✅ Yes | Works well for routing to Sink by table name |
 | Row-level filtering (filter by `rowkind`) | ✅ Yes | Use `FilterRowKind` transform |
@@ -45,7 +45,7 @@ MySQL-CDC ──► FieldMapper (orders table)  ──► Kafka Sink (orders top
 | Generating new tables from a JOIN result | ❌ Not supported | Use a dedicated SQL engine |
 | Applying one transform to ALL tables wildcard | ⚠️ Partial | `TableMerge` then single transform; schema must be compatible |
 | Changing schema mid-stream (DDL events) | ⚠️ Limited | Depends on sink; some sinks handle schema evolution; transforms do not |
-| Nested JSON field extraction per table | ✅ Yes | Use `JsonPath` transform with `source_table_name` |
+| Nested JSON field extraction per table | ✅ Yes | Use `JsonPath` transform with `plugin_input` and `table_match_regex` |
 
 ---
 
@@ -61,8 +61,8 @@ input tables must have the same (or compatible) schema. Use it to route all tabl
 ```json
 {
   "plugin_name": "TableMerge",
-  "source_table_name": ["orders_2023", "orders_2024"],
-  "result_table_name": "all_orders",
+  "plugin_input": ["orders_2023", "orders_2024"],
+  "plugin_output": "all_orders",
   "merge_by_field": true
 }
 ```
@@ -78,7 +78,7 @@ from each other — that requires a JOIN.
 A SQL JOIN correlates rows from two different tables based on a key. **SeaTunnel's `SQL`
 transform does NOT support cross-table JOIN inside a multi-table streaming pipeline.**
 
-Attempting to reference two `source_table_name` values in a single SQL transform is not
+Attempting to JOIN records from two upstream tables inside a single SQL transform is not
 supported and will result in a configuration error.
 
 **Recommended alternatives**:
@@ -111,7 +111,8 @@ downstream in a dedicated SQL engine (Flink, Spark, ClickHouse, etc.).
 ## 5. Per-Table Transform Configuration Pattern
 
 When you need different transforms for different tables from the same source, declare separate
-transform blocks with different `source_table_name` values:
+transform blocks that share the same `plugin_input` and use different `table_match_regex`
+rules:
 
 ```json
 {
@@ -122,7 +123,7 @@ transform blocks with different `source_table_name` values:
   "source": [
     {
       "plugin_name": "MySQL-CDC",
-      "result_table_name": "cdc_stream",
+      "plugin_output": "cdc_stream",
       "base-url": "jdbc:mysql://localhost:3306/mydb",
       "username": "cdc_user",
       "password": "password",
@@ -133,15 +134,15 @@ transform blocks with different `source_table_name` values:
   "transform": [
     {
       "plugin_name": "FieldMapper",
-      "source_table_name": ["cdc_stream"],
-      "result_table_name": "orders_mapped",
+      "plugin_input": ["cdc_stream"],
+      "plugin_output": "orders_mapped",
       "field_mapper": { "order_id": "id", "order_amount": "amount" },
       "table_match_regex": "mydb\\.orders"
     },
     {
       "plugin_name": "FieldMapper",
-      "source_table_name": ["cdc_stream"],
-      "result_table_name": "users_mapped",
+      "plugin_input": ["cdc_stream"],
+      "plugin_output": "users_mapped",
       "field_mapper": { "user_id": "id", "user_email": "email" },
       "table_match_regex": "mydb\\.users"
     }
@@ -149,17 +150,17 @@ transform blocks with different `source_table_name` values:
   "sink": [
     {
       "plugin_name": "Kafka",
-      "source_table_name": ["orders_mapped"],
+      "plugin_input": ["orders_mapped"],
       "topic": "orders"
     },
     {
       "plugin_name": "Kafka",
-      "source_table_name": ["users_mapped"],
+      "plugin_input": ["users_mapped"],
       "topic": "users"
     },
     {
       "plugin_name": "Kafka",
-      "source_table_name": ["cdc_stream"],
+      "plugin_input": ["cdc_stream"],
       "topic": "products",
       "table_match_regex": "mydb\\.products"
     }
@@ -178,14 +179,14 @@ apply a single transform:
 "transform": [
   {
     "plugin_name": "TableMerge",
-    "source_table_name": ["cdc_stream"],
-    "result_table_name": "all_events",
+    "plugin_input": ["cdc_stream"],
+    "plugin_output": "all_events",
     "table_match_regex": "mydb\\.(orders|payments|refunds)"
   },
   {
     "plugin_name": "FieldMapper",
-    "source_table_name": ["all_events"],
-    "result_table_name": "all_events_mapped",
+    "plugin_input": ["all_events"],
+    "plugin_output": "all_events_mapped",
     "field_mapper": { "created_at": "event_time", "event_type": "type" }
   }
 ]
@@ -234,8 +235,8 @@ Offload to downstream:
 **Q: Can I apply one transform to ALL tables without specifying each one?**
 
 Not directly. Use `TableMerge` to combine tables with compatible schemas first, then apply a
-single transform to the merged result. If schemas differ, you must list each `source_table_name`
-explicitly.
+single transform to the merged result. If schemas differ, you must use separate transform blocks,
+typically with different `table_match_regex` rules.
 
 **Q: Does the `SQL` transform support `JOIN`?**
 
@@ -245,7 +246,7 @@ JOINs, use an external SQL engine after loading the data into a sink.
 **Q: What happens to tables that are not matched by any transform?**
 
 Unmatched tables continue flowing through the pipeline and can be captured by a Sink that
-matches them via `source_table_name` or `table_match_regex`.
+uses the right `plugin_input` and `table_match_regex`.
 
 **Q: Can I add a new table to an existing CDC pipeline without downtime?**
 
