@@ -53,7 +53,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
     private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
     private static final int MAX_TRACE_PAYLOAD_LENGTH = 8 * 1024;
 
-    private static final byte TYPE_SEATUNNEL_FLUSH_SIGNAL_V1 = 1;
+    private static final byte TYPE_SEATUNNEL_FLUSH_SIGNAL_V1 = 4;
 
     /**
      * Writes checkpoints or rows while filtering oversized stain trace payloads from row options.

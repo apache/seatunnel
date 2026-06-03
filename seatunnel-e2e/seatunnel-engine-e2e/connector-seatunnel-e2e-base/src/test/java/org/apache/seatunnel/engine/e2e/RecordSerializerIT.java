@@ -39,8 +39,6 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -58,9 +56,8 @@ public class RecordSerializerIT {
     @BeforeAll
     static void setUp() {
         String clusterName = TestUtils.getClusterName("RecordSerializerIT_hzSerializationTest");
-        int[] ports = findTwoFreePorts();
-        instance1 = createHazelcastInstance(clusterName, ports[0], ports[1]);
-        instance2 = createHazelcastInstance(clusterName, ports[1], ports[0]);
+        instance1 = createHazelcastInstance(clusterName);
+        instance2 = createHazelcastInstance(clusterName);
         await().atMost(30, TimeUnit.SECONDS)
                 .until(() -> instance1.getCluster().getMembers().size() == 2);
     }
@@ -317,17 +314,15 @@ public class RecordSerializerIT {
         writerMap.remove(key);
     }
 
-    private static HazelcastInstanceImpl createHazelcastInstance(
-            String clusterName, int localPort, int peerPort) {
+    private static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
-        Config hazelcastConfig =
-                Config.loadFromString(buildHazelcastConfig(clusterName, localPort, peerPort));
+        Config hazelcastConfig = Config.loadFromString(buildHazelcastConfig(clusterName));
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
-    private static String buildHazelcastConfig(String clusterName, int localPort, int peerPort) {
+    private static String buildHazelcastConfig(String clusterName) {
         return "hazelcast:\n"
                 + "  cluster-name: "
                 + clusterName
@@ -337,28 +332,10 @@ public class RecordSerializerIT {
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - 127.0.0.1:"
-                + localPort
-                + "\n"
-                + "          - 127.0.0.1:"
-                + peerPort
-                + "\n"
+                + "          - localhost\n"
                 + "    port:\n"
-                + "      auto-increment: false\n"
-                + "      port-count: 1\n"
-                + "      port: "
-                + localPort
-                + "\n";
-    }
-
-    private static int[] findTwoFreePorts() {
-        try (ServerSocket first = new ServerSocket(0);
-                ServerSocket second = new ServerSocket(0)) {
-            first.setReuseAddress(true);
-            second.setReuseAddress(true);
-            return new int[] {first.getLocalPort(), second.getLocalPort()};
-        } catch (IOException e) {
-            throw new RuntimeException("No free Hazelcast ports available", e);
-        }
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: 5901\n";
     }
 }
