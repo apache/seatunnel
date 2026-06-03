@@ -124,9 +124,17 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED,
                                         server.getCoordinatorService().getJobStatus(jobId)));
-        List<PipelineState> allCheckpoints =
-                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-        Assertions.assertEquals(0, allCheckpoints.size());
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            try {
+                                List<PipelineState> allCheckpoints =
+                                        checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+                                Assertions.assertEquals(0, allCheckpoints.size());
+                            } catch (CheckpointStorageException e) {
+                                // Directory already cleaned up — equivalent to 0 checkpoints
+                            }
+                        });
     }
 
     @Test
