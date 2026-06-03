@@ -283,13 +283,15 @@ public class LLMRequestJsonTest {
                             header,
                             resultMap,
                             "$.message.content");
-
-            SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
-            row.setField(0, 1);
-            row.setField(1, "John");
-            List<String> successResult = model.inference(Collections.singletonList(row));
-            Assertions.assertFalse(successResult.isEmpty());
-            model.close();
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
+                row.setField(0, 1);
+                row.setField(1, "John");
+                List<String> successResult = model.inference(Collections.singletonList(row));
+                Assertions.assertFalse(successResult.isEmpty());
+            } finally {
+                model.close();
+            }
         } finally {
             mockWebServer.shutdown();
         }
