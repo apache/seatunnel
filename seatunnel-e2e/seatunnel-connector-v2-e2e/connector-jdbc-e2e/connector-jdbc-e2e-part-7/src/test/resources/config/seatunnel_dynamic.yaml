@@ -43,3 +43,6 @@ seatunnel:
     metadata:
       enabled: true
       kind: dynamic
+      dynamic:
+        sensitive_keys:
+          - password

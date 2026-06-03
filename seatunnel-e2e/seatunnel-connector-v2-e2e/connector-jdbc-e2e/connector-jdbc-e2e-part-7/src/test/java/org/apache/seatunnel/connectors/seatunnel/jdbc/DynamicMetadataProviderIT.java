@@ -44,6 +44,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -96,6 +97,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
 
         copySeaTunnelStarterToContainer(server);
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
 
         // Copy base resources
         server.withCopyFileToContainer(
@@ -161,7 +163,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
             List<Map<String, Object>> datasources = listResponse.jsonPath().getList("$");
             for (Map<String, Object> ds : datasources) {
                 String id = (String) ds.get("metadataDatasourceId");
-                if (id != null && id.startsWith("test_")) {
+                if (id != null) {
                     given().delete(baseUrl + REST_URL_METADATA_DATASOURCE + "/" + id);
                 }
             }
@@ -410,7 +412,17 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                 "test_get_ds", response.jsonPath().getString("metadataDatasourceId"));
         Assertions.assertEquals("Jdbc", response.jsonPath().getString("connectorType"));
         Assertions.assertNotNull(response.jsonPath().get("properties"));
+
+        // Sensitive key should be masked
         Assertions.assertEquals("******", response.jsonPath().getString("properties.password"));
+
+        // Non-sensitive keys should display actual values
+        Assertions.assertEquals(
+                "jdbc:mysql://mysql-e2e:3306/seatunnel",
+                response.jsonPath().getString("properties.url"));
+        Assertions.assertEquals("root", response.jsonPath().getString("properties.user"));
+        Assertions.assertEquals(
+                "com.mysql.cj.jdbc.Driver", response.jsonPath().getString("properties.driver"));
     }
 
     @Test
