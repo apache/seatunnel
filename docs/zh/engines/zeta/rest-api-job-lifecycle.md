@@ -51,7 +51,7 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
   "source": [
     {
       "plugin_name": "MySQL-CDC",
-      "result_table_name": "mysql_cdc_result",
+      "plugin_output": "mysql_cdc_result",
       "base-url": "jdbc:mysql://localhost:3306/mydb",
       "username": "cdc_user",
       "password": "password",
@@ -65,7 +65,7 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
   "sink": [
     {
       "plugin_name": "Console",
-      "source_table_name": ["mysql_cdc_result"]
+      "plugin_input": ["mysql_cdc_result"]
     }
   ]
 }
@@ -82,7 +82,7 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
   "source": [
     {
       "plugin_name": "FakeSource",
-      "result_table_name": "fake",
+      "plugin_output": "fake",
       "row.num": 100,
       "schema": {
         "fields": {
@@ -96,8 +96,8 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
   "transform": [
     {
       "plugin_name": "FieldMapper",
-      "source_table_name": ["fake"],
-      "result_table_name": "after_field_map",
+      "plugin_input": ["fake"],
+      "plugin_output": "after_field_map",
       "field_mapper": {
         "id": "user_id",
         "name": "user_name"
@@ -105,15 +105,15 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
     },
     {
       "plugin_name": "Filter",
-      "source_table_name": ["after_field_map"],
-      "result_table_name": "filtered",
+      "plugin_input": ["after_field_map"],
+      "plugin_output": "filtered",
       "fields": ["user_id", "user_name", "amount"]
     }
   ],
   "sink": [
     {
       "plugin_name": "Console",
-      "source_table_name": ["filtered"]
+      "plugin_input": ["filtered"]
     }
   ]
 }
