@@ -75,7 +75,7 @@ curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
   }'
 ```
 
-### 3.3 挂载作业配置文件到容器
+### 3.3 在容器内执行本地 smoke 测试
 
 ```bash
 docker run -d --name seatunnel \
@@ -87,6 +87,9 @@ docker run -d --name seatunnel \
 docker exec seatunnel \
   /opt/seatunnel/bin/seatunnel.sh --config /jobs/my-job.conf --master local
 ```
+
+该命令仅适用于在容器内做快速本地 smoke 测试。它**不是**向远程 Zeta
+集群提交作业，因为 `--master local` 会在当前容器进程内本地启动作业。
 
 ---
 

@@ -77,7 +77,7 @@ curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
   }'
 ```
 
-### 3.3 Mount a job config file into the container
+### 3.3 Run a quick local smoke test inside the container
 
 ```bash
 docker run -d --name seatunnel \
@@ -89,6 +89,10 @@ docker run -d --name seatunnel \
 docker exec seatunnel \
   /opt/seatunnel/bin/seatunnel.sh --config /jobs/my-job.conf --master local
 ```
+
+This command is useful only for a container-local smoke test. It does **not**
+submit the job to a remote Zeta cluster because `--master local` starts the job
+inside that container process.
 
 ---
 
