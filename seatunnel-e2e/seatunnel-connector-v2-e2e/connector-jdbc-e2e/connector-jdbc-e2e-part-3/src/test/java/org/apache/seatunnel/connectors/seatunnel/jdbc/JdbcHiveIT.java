@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -231,7 +232,8 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                     .username(jdbcCase.getUserName())
                                     .password(jdbcCase.getPassword())
                                     .build(),
-                            Lists.newArrayList(tableConfig));
+                            Lists.newArrayList(tableConfig),
+                            MultiTableFailurePolicy.FAIL_FAST);
             JdbcSourceTable partitionSourceTable = tables.get(partitionTablePath);
             Assertions.assertNotNull(
                     partitionSourceTable,

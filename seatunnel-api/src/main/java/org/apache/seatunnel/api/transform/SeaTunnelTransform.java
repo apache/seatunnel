@@ -52,6 +52,21 @@ public interface SeaTunnelTransform<T>
         return schemaChangeEvent;
     }
 
+    /**
+     * Called by the engine when an upstream transform's produced schema changes (e.g., after a
+     * schema-change event flows through the chain). Allows this transform to re-derive its state
+     * from the new upstream layout instead of applying schema changes to a stale local view.
+     *
+     * <p>Without this, downstream transforms in a chain accumulate divergence: each one applies the
+     * ALTER event locally (appending new cols at end of its own catalog), but the actual data row
+     * from upstream has new cols at the position upstream put them. The result is row-vs-catalog
+     * order divergence that breaks name-based field access (SQL projections, FilterField excludes).
+     *
+     * <p>Default implementation is a no-op for backwards compatibility with transforms that don't
+     * carry upstream-position-dependent state.
+     */
+    default void setInputCatalogTables(List<CatalogTable> inputCatalogTables) {}
+
     /** call it when Transformer completed */
     default void close() {}
 }
