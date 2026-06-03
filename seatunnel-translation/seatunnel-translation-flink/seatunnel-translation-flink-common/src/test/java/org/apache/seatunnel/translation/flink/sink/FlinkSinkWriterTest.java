@@ -19,7 +19,6 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -46,7 +45,7 @@ class FlinkSinkWriterTest {
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
-                new FlinkSinkWriter<>(delegate, 1L, context, null, null);
+                new FlinkSinkWriter<>(delegate, 1L, context);
 
         // first checkpoint
         List<CommitWrapper<String>> commits = flinkSinkWriter.prepareCommit(false);
@@ -79,7 +78,7 @@ class FlinkSinkWriterTest {
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
-                new FlinkSinkWriter<>(delegate, 3L, context, null, null);
+                new FlinkSinkWriter<>(delegate, 3L, context);
 
         // Direct snapshotState should call delegate.snapshotState with checkpointId 3
         List<FlinkWriterState<String>> states = flinkSinkWriter.snapshotState();
@@ -93,11 +92,10 @@ class FlinkSinkWriterTest {
     @Test
     void testSchemaChangeEventDoesNotForceCommit() throws Exception {
         SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
-        RecordingCommitter committer = new RecordingCommitter();
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
-                new FlinkSinkWriter<>(delegate, 7L, context, committer, null);
+                new FlinkSinkWriter<>(delegate, 7L, context);
 
         AlterTableAddColumnEvent event =
                 AlterTableAddColumnEvent.add(
@@ -127,7 +125,6 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
         Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
         Assertions.assertEquals(event, delegate.appliedSchemaChanges.get(0));
-        Assertions.assertEquals(Collections.emptyList(), committer.committed);
     }
 
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
@@ -177,19 +174,6 @@ class FlinkSinkWriterTest {
                 org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
             appliedSchemaChanges.add(event);
         }
-    }
-
-    private static class RecordingCommitter implements SinkCommitter<String> {
-        private final List<String> committed = new ArrayList<>();
-
-        @Override
-        public List<String> commit(List<String> commitInfos) {
-            committed.addAll(commitInfos);
-            return Collections.emptyList();
-        }
-
-        @Override
-        public void abort(List<String> commitInfos) {}
     }
 
     private static class RecordingContext implements SinkWriter.Context {

@@ -22,8 +22,6 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
@@ -70,13 +68,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private long checkpointId;
 
-    private final SinkCommitter<CommT> sinkCommitter;
-
-    private final SinkAggregatedCommitter<CommT, Object> sinkAggregatedCommitter;
-
     private MultiTableResourceManager resourceManager;
-
-    private MultiTableResourceManager aggregatedCommitterResourceManager;
 
     /**
      * Cached writer states produced together with {@link #prepareCommit(boolean)}.
@@ -94,17 +86,10 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
-            org.apache.seatunnel.api.sink.SinkWriter.Context context,
-            SinkCommitter<CommT> sinkCommitter,
-            SinkAggregatedCommitter<CommT, ?> sinkAggregatedCommitter) {
+            org.apache.seatunnel.api.sink.SinkWriter.Context context) {
         this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
-        this.sinkCommitter = sinkCommitter;
-        this.sinkAggregatedCommitter =
-                sinkAggregatedCommitter == null
-                        ? null
-                        : (SinkAggregatedCommitter<CommT, Object>) sinkAggregatedCommitter;
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -113,16 +98,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             resourceManager =
                     ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
             ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
-        }
-        if (this.sinkAggregatedCommitter != null) {
-            this.sinkAggregatedCommitter.init();
-            if (this.sinkAggregatedCommitter instanceof SupportResourceShare) {
-                aggregatedCommitterResourceManager =
-                        ((SupportResourceShare) this.sinkAggregatedCommitter)
-                                .initMultiTableResourceManager(1, 1);
-                ((SupportResourceShare) this.sinkAggregatedCommitter)
-                        .setMultiTableResourceManager(aggregatedCommitterResourceManager, 0);
-            }
         }
     }
 
@@ -292,16 +267,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             }
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
-        }
-        try {
-            if (sinkAggregatedCommitter != null) {
-                sinkAggregatedCommitter.close();
-            }
-            if (aggregatedCommitterResourceManager != null) {
-                aggregatedCommitterResourceManager.close();
-            }
-        } catch (Throwable e) {
-            log.error("close aggregated committer resource error", e);
         }
     }
 }
