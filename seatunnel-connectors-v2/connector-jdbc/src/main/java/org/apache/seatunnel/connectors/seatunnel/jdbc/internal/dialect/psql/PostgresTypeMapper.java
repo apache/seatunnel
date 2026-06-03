@@ -18,27 +18,21 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-@Slf4j
 public class PostgresTypeMapper implements JdbcDialectTypeMapper {
 
-    private static final String VECTOR_DIM_QUERY =
-            "SELECT a.atttypmod FROM pg_attribute a "
-                    + "JOIN pg_class c ON a.attrelid = c.oid "
-                    + "JOIN pg_namespace n ON c.relnamespace = n.oid "
-                    + "WHERE n.nspname = ? AND c.relname = ? AND a.attname = ? AND a.attnum > 0";
+    private static final Pattern FROM_TABLE_PATTERN =
+            Pattern.compile("(?i)\\bFROM\\s+([\\w.\"`]+)");
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
@@ -67,69 +61,105 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     }
 
     /**
-     * Overrides the default to enrich vector columns with their dimension from pg_attribute. JDBC
-     * ResultSetMetaData.getColumnTypeName() returns "vector" without dimension, and getPrecision()
-     * does not carry the vector dimension. This method queries pg_attribute to extract the actual
-     * dimension from the typmod so that auto-create-sink DDL preserves vector(N) correctly.
+     * Overrides the default mapping to resolve vector dimension from pg_attribute when the column
+     * type is {@code vector}. ResultSetMetaData does not carry the dimension for pgvector columns,
+     * so we query {@code format_type(atttypid, atttypmod)} to obtain the full type string (e.g.
+     * "vector(3)").
      */
     @Override
-    public Column mappingColumn(ResultSetMetaData metadata, int colIndex, Connection connection)
+    public Column mappingColumn(
+            ResultSetMetaData metadata, int colIndex, Connection connection, String sqlQuery)
             throws SQLException {
-        Column column = mappingColumn(metadata, colIndex);
+        String nativeType = metadata.getColumnTypeName(colIndex);
 
-        if (column.getDataType() == VectorType.VECTOR_FLOAT_TYPE
-                && (column.getScale() == null || column.getScale() <= 0)
-                && connection != null) {
-            String tableName = metadata.getTableName(colIndex);
-            String schemaName = metadata.getSchemaName(colIndex);
-            String columnName = metadata.getColumnLabel(colIndex);
-
+        if (PostgresTypeConverter.PG_VECTOR.equalsIgnoreCase(nativeType) && connection != null) {
+            String tableName = resolveTableName(metadata, colIndex, sqlQuery);
             if (tableName != null && !tableName.isEmpty()) {
-                int dim =
-                        queryVectorDimension(
-                                connection,
-                                schemaName != null && !schemaName.isEmpty() ? schemaName : "public",
-                                tableName,
-                                columnName);
-                if (dim > 0) {
-                    return PhysicalColumn.builder()
-                            .name(column.getName())
-                            .dataType(column.getDataType())
-                            .sourceType(PostgresTypeConverter.PG_VECTOR + "(" + dim + ")")
-                            .scale(dim)
-                            .nullable(column.isNullable())
-                            .defaultValue(column.getDefaultValue())
-                            .comment(column.getComment())
-                            .build();
+                String columnName = metadata.getColumnLabel(colIndex);
+                String vectorType =
+                        queryVectorTypeFromPgAttribute(connection, tableName, columnName);
+                if (vectorType != null) {
+                    BasicTypeDefine typeDefine =
+                            BasicTypeDefine.builder()
+                                    .name(columnName)
+                                    .columnType(vectorType)
+                                    .dataType(nativeType)
+                                    .sqlType(metadata.getColumnType(colIndex))
+                                    .nullable(
+                                            metadata.isNullable(colIndex)
+                                                    == ResultSetMetaData.columnNullable)
+                                    .length((long) metadata.getPrecision(colIndex))
+                                    .precision((long) metadata.getPrecision(colIndex))
+                                    .scale(metadata.getScale(colIndex))
+                                    .build();
+                    return mappingColumn(typeDefine);
                 }
             }
         }
-        return column;
+
+        return mappingColumn(metadata, colIndex);
     }
 
-    private int queryVectorDimension(
-            Connection connection, String schemaName, String tableName, String columnName) {
-        try (PreparedStatement ps = connection.prepareStatement(VECTOR_DIM_QUERY)) {
-            ps.setString(1, schemaName);
-            ps.setString(2, tableName);
-            ps.setString(3, columnName);
+    /**
+     * Resolves the table name by first checking ResultSetMetaData, then falling back to parsing the
+     * SQL query.
+     */
+    private String resolveTableName(ResultSetMetaData metadata, int colIndex, String sqlQuery) {
+        // Try ResultSetMetaData first — the PostgreSQL JDBC driver often populates this
+        try {
+            String tableName = metadata.getTableName(colIndex);
+            if (tableName != null && !tableName.isEmpty()) {
+                return tableName;
+            }
+        } catch (SQLException ignored) {
+            // driver may not support it
+        }
+
+        // Fall back to parsing FROM clause from the query
+        if (sqlQuery != null) {
+            Matcher matcher = FROM_TABLE_PATTERN.matcher(sqlQuery);
+            if (matcher.find()) {
+                String fullName = matcher.group(1);
+                // Strip any quoting and extract the leaf table name
+                fullName = fullName.replace("\"", "").replace("`", "");
+                int lastDot = fullName.lastIndexOf('.');
+                return lastDot >= 0 ? fullName.substring(lastDot + 1) : fullName;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Queries pg_attribute to get the full vector type string (e.g. "vector(3)") for a specific
+     * column.
+     */
+    private String queryVectorTypeFromPgAttribute(
+            Connection connection, String tableName, String columnName) {
+        String sql =
+                "SELECT format_type(a.atttypid, a.atttypmod) "
+                        + "FROM pg_attribute a "
+                        + "JOIN pg_class c ON a.attrelid = c.oid "
+                        + "WHERE c.relname = ? AND a.attname = ? AND a.attnum > 0";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, tableName);
+            ps.setString(2, columnName);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    int typmod = rs.getInt(1);
-                    // pgvector stores dimension as atttypmod - VARHDRSZ (4)
-                    if (typmod > 4) {
-                        return typmod - 4;
+                    String fullType = rs.getString(1);
+                    if (fullType != null
+                            && fullType.toLowerCase()
+                                    .startsWith(PostgresTypeConverter.PG_VECTOR + "(")) {
+                        return fullType;
                     }
                 }
             }
         } catch (SQLException e) {
-            log.warn(
-                    "Failed to query vector dimension for {}.{}.{}",
-                    schemaName,
+            LOG.debug(
+                    "Failed to query vector type from pg_attribute for {}.{}",
                     tableName,
                     columnName,
                     e);
         }
-        return 0;
+        return null;
     }
 }

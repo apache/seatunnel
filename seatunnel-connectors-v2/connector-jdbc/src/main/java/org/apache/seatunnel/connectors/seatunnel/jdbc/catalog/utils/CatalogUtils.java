@@ -322,24 +322,14 @@ public class CatalogUtils {
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata, JdbcDialectTypeMapper typeMapper, String sqlQuery)
             throws SQLException {
-        return getCatalogTable(
-                metadata,
-                (BiFunction<ResultSetMetaData, Integer, Column>)
-                        (resultSetMetaData, index) -> {
-                            try {
-                                return typeMapper.mappingColumn(resultSetMetaData, index);
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        },
-                sqlQuery);
+        return getCatalogTable(null, metadata, typeMapper, sqlQuery);
     }
 
     public static CatalogTable getCatalogTable(
+            Connection connection,
             ResultSetMetaData metadata,
             JdbcDialectTypeMapper typeMapper,
-            String sqlQuery,
-            Connection connection)
+            String sqlQuery)
             throws SQLException {
         return getCatalogTable(
                 metadata,
@@ -347,7 +337,7 @@ public class CatalogUtils {
                         (resultSetMetaData, index) -> {
                             try {
                                 return typeMapper.mappingColumn(
-                                        resultSetMetaData, index, connection);
+                                        resultSetMetaData, index, connection, sqlQuery);
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
@@ -409,7 +399,7 @@ public class CatalogUtils {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             ResultSetMetaData resultSetMetaData = ps.getMetaData();
             CatalogTable catalogTable =
-                    getCatalogTable(resultSetMetaData, typeMapper, sqlQuery, connection);
+                    getCatalogTable(connection, resultSetMetaData, typeMapper, sqlQuery);
 
             PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
             if (primaryKey == null) {
