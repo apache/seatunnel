@@ -149,11 +149,34 @@ class MqttSourceTest {
 
             reader.connectionLost(new RuntimeException("connection lost"));
 
-            Assertions.assertThrows(
-                    MqttConnectorException.class,
+            Assertions.assertDoesNotThrow(
                     () -> reader.connectComplete(true, "tcp://localhost:1883"));
             Assertions.assertThrows(
                     MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+        }
+    }
+
+    @Test
+    void testReaderCloseForciblyDisconnectsWhenClientIsNotConnected() throws Exception {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(baseConfig()));
+        MqttSourceReader reader =
+                new MqttSourceReader(
+                        sourceConfig,
+                        source.getProducedCatalogTables().get(0),
+                        System::currentTimeMillis);
+
+        try (org.mockito.MockedConstruction<MqttClient> mocked =
+                Mockito.mockConstruction(MqttClient.class)) {
+            reader.open();
+            MqttClient mockClient = mocked.constructed().get(0);
+            Mockito.when(mockClient.isConnected()).thenReturn(false);
+
+            reader.close();
+
+            Mockito.verify(mockClient).disconnectForcibly();
+            Mockito.verify(mockClient).close();
+            Mockito.verify(mockClient, Mockito.never()).disconnect();
         }
     }
 

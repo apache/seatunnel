@@ -134,6 +134,8 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                     mqttClient.unsubscribe(sourceConfig.getTopic());
                 }
                 mqttClient.disconnect();
+            } else {
+                mqttClient.disconnectForcibly();
             }
             mqttClient.close();
             LOG.info("MQTT source reader [{}] closed", sourceConfig.getClientId());
@@ -168,13 +170,12 @@ public class MqttSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
                     serverURI);
         } catch (MqttException e) {
             receiveException = e;
-            throw new MqttConnectorException(
-                    MqttConnectorErrorCode.RECEIVE_FAILED,
-                    "Failed to resubscribe MQTT source client ["
-                            + sourceConfig.getClientId()
-                            + "] to topic ["
-                            + sourceConfig.getTopic()
-                            + "] after reconnect",
+            LOG.error(
+                    "Failed to resubscribe MQTT source reader [{}] to topic [{}] "
+                            + "after reconnect to [{}]",
+                    sourceConfig.getClientId(),
+                    sourceConfig.getTopic(),
+                    serverURI,
                     e);
         }
     }
