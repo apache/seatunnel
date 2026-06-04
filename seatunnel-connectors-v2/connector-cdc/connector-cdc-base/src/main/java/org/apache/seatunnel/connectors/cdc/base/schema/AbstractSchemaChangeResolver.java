@@ -115,6 +115,19 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
             return null;
         }
 
+        // Warn if non-column events (e.g. table comment changes) are present alongside column
+        // events, since only column events can be batched in AlterTableColumnsEvent and the
+        // others will not be propagated for this DDL.
+        long droppedCount = parsedEvents.size() - columnEvents.size();
+        if (droppedCount > 0) {
+            log.warn(
+                    "DDL '{}' produced {} non-column event(s) alongside column events; "
+                            + "only column changes will be propagated. "
+                            + "Non-column events (e.g. table comment changes) in mixed DDL are not yet supported.",
+                    ddl,
+                    droppedCount);
+        }
+
         AlterTableColumnsEvent alterTableColumnsEvent =
                 new AlterTableColumnsEvent(
                         TableIdentifier.of(
