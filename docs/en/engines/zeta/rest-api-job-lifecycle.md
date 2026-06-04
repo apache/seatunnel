@@ -35,7 +35,7 @@ All examples below use `http://<master>:8080`. Replace with your actual master h
 ### 2.1 Submit a job from a config file (JSON body)
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -140,7 +140,7 @@ Save the `jobId` for all subsequent lifecycle operations.
 ### 3.1 Query a single running job
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-job/<jobId>
+curl http://<master>:8080/job-info/<jobId>
 ```
 
 Response fields:
@@ -158,19 +158,22 @@ Response fields:
 ### 3.2 Query all running jobs
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-jobs
+curl "http://<master>:8080/running-jobs?page=1&rows=10"
 ```
 
-### 3.3 Query a finished job
+### 3.3 Query finished jobs
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/finished-job/<jobId>
+curl "http://<master>:8080/finished-jobs/FINISHED?page=1&rows=10"
 ```
+
+Use the `state` path parameter to filter finished jobs, for example `FINISHED`, `FAILED`,
+`CANCELED`, or `SAVEPOINT_DONE`.
 
 ### 3.4 Query job metrics only
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-job-metrics/<jobId>
+curl http://<master>:8080/job-info/<jobId>
 ```
 
 Key metric fields:
@@ -188,7 +191,7 @@ Key metric fields:
 
 ```bash
 # Get the last N lines of a running job's log
-curl "http://<master>:8080/hazelcast/rest/maps/running-job-logs/<jobId>?size=100"
+curl "http://<master>:8080/logs/<jobId>"
 ```
 
 For large deployments where log files are on individual workers, use the worker's REST port
@@ -209,7 +212,7 @@ directly, or configure centralized logging (see [Logging](logging.md)).
 ### 5.1 Graceful stop (no savepoint)
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": false}'
 ```
@@ -217,7 +220,7 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
 ### 5.2 Stop with savepoint
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
@@ -225,16 +228,16 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
 The savepoint path is printed in the job log and returned in the job final state:
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/finished-job/733584788375093248 | \
+curl http://<master>:8080/job-info/733584788375093248 | \
   python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
 ```
 
 ### 5.3 Cancel (force)
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/cancel-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
-  -d '{"jobId": "733584788375093248"}'
+  -d '{"jobId": "733584788375093248", "isStopWithSavePoint": false, "force": true}'
 ```
 
 ---
@@ -246,7 +249,7 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/cancel-job" \
 Submit the job again with the `jobId` parameter to restore from the last successful checkpoint:
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
@@ -266,7 +269,7 @@ directory for that job.
 ### 6.2 Restart from a specific savepoint path
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
@@ -285,25 +288,13 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
 
 ## 7. Authentication and Authorization
 
-When security is enabled (see [Security](security.md)), all REST API calls must include a
-bearer token or basic auth header.
+When basic authentication is enabled (see [Security](security.md)), all REST API calls must
+include the configured username and password.
 
 ### Basic auth example
 
 ```bash
-curl -u admin:password http://<master>:8080/hazelcast/rest/maps/running-jobs
-```
-
-### Bearer token example
-
-```bash
-TOKEN=$(curl -s -X POST http://<master>:8080/hazelcast/rest/maps/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password"}' | \
-  python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
-
-curl -H "Authorization: Bearer $TOKEN" \
-  http://<master>:8080/hazelcast/rest/maps/running-jobs
+curl -u admin:password "http://<master>:8080/running-jobs?page=1&rows=10"
 ```
 
 ---
@@ -313,11 +304,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 ### `job-info` slowness with many finished jobs
 
 When `finished-job-state` IMap grows large (thousands of entries), the
-`/running-jobs` and `/finished-job` endpoints may become slow because they scan all entries.
+`/running-jobs` and `/finished-jobs/:state` endpoints may become slow because they scan all entries.
 
 **Mitigations:**
 1. Reduce `history-job-expire-minutes` to shorten the retention window
-2. Avoid polling finished-job endpoints at high frequency; cache the result in your monitoring layer
+2. Avoid polling finished-jobs endpoints at high frequency; cache the result in your monitoring layer
 3. For dashboards, query specific `jobId` directly instead of listing all jobs
 
 ### Concurrent submission rate
@@ -329,11 +320,11 @@ to avoid overwhelming the master node.
 ### Dynamic port allocation
 
 If `enable-dynamic-port: true`, different master nodes may use different ports. Use the
-master node election API or Hazelcast management center to discover the active master port:
+REST API overview endpoint to inspect the active cluster state from a reachable master:
 
 ```bash
-# Discover master node from any cluster member
-curl http://<any-node>:8080/hazelcast/rest/cluster | \
+# Inspect the cluster state from a reachable master
+curl http://<master>:8080/overview | \
   python3 -c "import sys,json; print(json.load(sys.stdin))"
 ```
 
@@ -345,10 +336,10 @@ curl http://<any-node>:8080/hazelcast/rest/cluster | \
 |---|---|---|
 | `HTTP 404` on any endpoint | REST API not enabled or wrong port | Set `enable-http: true` and check port |
 | `Connection refused` | Master not started or firewall blocking port | Verify master process is running; check firewall |
-| `jobId not found` in running-job | Job has already finished or was never started | Query `finished-job/<jobId>` instead |
+| `jobId not found` in `job-info` | Job has already finished or was never started | Query `/finished-jobs/:state` with the expected final state |
 | Submit returns `400 Bad Request` | Malformed JSON or missing required fields | Validate JSON; check `plugin_name` spelling |
 | `Job already exists with same job.id` | Submitting duplicate `job.id` without stopping first | Cancel or stop the existing job, then resubmit |
-| `Unauthorized 401` | Security enabled but no credentials provided | Include `-u user:pass` or `Authorization` header |
+| `Unauthorized 401` | Basic authentication is enabled but no credentials were provided | Include `-u user:pass` |
 | `Savepoint path not found` | Savepoint was deleted or path is wrong | Check checkpoint storage and provide correct path |
 
 ---

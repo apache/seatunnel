@@ -34,7 +34,7 @@ seatunnel:
 ### 2.1 通过 JSON 提交作业
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -139,7 +139,7 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
 ### 3.1 查询单个运行中作业
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-job/<jobId>
+curl http://<master>:8080/job-info/<jobId>
 ```
 
 响应字段说明：
@@ -157,19 +157,22 @@ curl http://<master>:8080/hazelcast/rest/maps/running-job/<jobId>
 ### 3.2 查询所有运行中作业
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-jobs
+curl "http://<master>:8080/running-jobs?page=1&rows=10"
 ```
 
-### 3.3 查询已完成的作业
+### 3.3 查询已完成的作业列表
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/finished-job/<jobId>
+curl "http://<master>:8080/finished-jobs/FINISHED?page=1&rows=10"
 ```
+
+通过 `state` 路径参数筛选已完成作业，例如 `FINISHED`、`FAILED`、`CANCELED`
+或 `SAVEPOINT_DONE`。
 
 ### 3.4 仅查询作业指标
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/running-job-metrics/<jobId>
+curl http://<master>:8080/job-info/<jobId>
 ```
 
 关键指标字段：
@@ -187,7 +190,7 @@ curl http://<master>:8080/hazelcast/rest/maps/running-job-metrics/<jobId>
 
 ```bash
 # 获取运行中作业的最后 N 行日志
-curl "http://<master>:8080/hazelcast/rest/maps/running-job-logs/<jobId>?size=100"
+curl "http://<master>:8080/logs/<jobId>"
 ```
 
 对于日志文件分散在各 Worker 节点的大规模部署，建议直接访问 Worker 节点的 REST 端口，
@@ -208,7 +211,7 @@ curl "http://<master>:8080/hazelcast/rest/maps/running-job-logs/<jobId>?size=100
 ### 5.1 优雅停止（不创建 Savepoint）
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": false}'
 ```
@@ -216,7 +219,7 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
 ### 5.2 停止并创建 Savepoint
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
   -d '{"jobId": "733584788375093248", "isStopWithSavePoint": true}'
 ```
@@ -224,16 +227,16 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/stop-job" \
 Savepoint 路径会打印在作业日志中，也可通过查询已完成作业获取：
 
 ```bash
-curl http://<master>:8080/hazelcast/rest/maps/finished-job/733584788375093248 | \
+curl http://<master>:8080/job-info/733584788375093248 | \
   python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('savepointPath', 'N/A'))"
 ```
 
 ### 5.3 强制取消
 
 ```bash
-curl -X POST "http://<master>:8080/hazelcast/rest/maps/cancel-job" \
+curl -X POST "http://<master>:8080/stop-job" \
   -H "Content-Type: application/json" \
-  -d '{"jobId": "733584788375093248"}'
+  -d '{"jobId": "733584788375093248", "isStopWithSavePoint": false, "force": true}'
 ```
 
 ---
@@ -245,7 +248,7 @@ curl -X POST "http://<master>:8080/hazelcast/rest/maps/cancel-job" \
 重新提交作业时携带相同的 `job.id`，引擎会自动从该作业的 Checkpoint 目录恢复状态：
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
@@ -262,7 +265,7 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
 ### 6.2 从指定 Savepoint 恢复
 
 ```bash
-curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
@@ -281,25 +284,12 @@ curl -X POST http://<master>:8080/hazelcast/rest/maps/submit-job \
 
 ## 7. 认证与授权
 
-开启安全配置后（参见 [安全配置](security.md)），所有 REST API 请求必须携带 Bearer Token
-或 Basic Auth 凭据。
+开启 Basic Auth 后（参见 [安全配置](security.md)），所有 REST API 请求必须携带配置的用户名和密码。
 
 ### Basic Auth 示例
 
 ```bash
-curl -u admin:password http://<master>:8080/hazelcast/rest/maps/running-jobs
-```
-
-### Bearer Token 示例
-
-```bash
-TOKEN=$(curl -s -X POST http://<master>:8080/hazelcast/rest/maps/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password"}' | \
-  python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
-
-curl -H "Authorization: Bearer $TOKEN" \
-  http://<master>:8080/hazelcast/rest/maps/running-jobs
+curl -u admin:password "http://<master>:8080/running-jobs?page=1&rows=10"
 ```
 
 ---
@@ -308,13 +298,13 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### 已完成作业过多导致 job-info 查询变慢
 
-当 `finished-job-state` IMap 条目增多（数千条）时，`/running-jobs` 和 `/finished-job` 端点
+当 `finished-job-state` IMap 条目增多（数千条）时，`/running-jobs` 和 `/finished-jobs/:state` 端点
 可能变慢，因为它们需要全量扫描所有条目。
 
 **缓解措施：**
 
 1. 缩短 `history-job-expire-minutes`，减少保留窗口
-2. 避免高频轮询 finished-job 端点；在监控层缓存结果
+2. 避免高频轮询 finished-jobs 端点；在监控层缓存结果
 3. 在看板中直接按 `jobId` 查询，而非列出全部作业
 
 ### 并发提交速率
@@ -324,12 +314,12 @@ REST API 在 Hazelcast 执行器池中同步处理提交请求。对于批量提
 
 ### 动态端口分配
 
-若 `enable-dynamic-port: true`，不同 Master 节点可能使用不同端口。可通过 Hazelcast 集群
-发现接口或 Management Center 找到活跃 Master 端口：
+若 `enable-dynamic-port: true`，不同 Master 节点可能使用不同端口。可通过 REST API overview
+端点从可访问的 Master 查看当前集群状态：
 
 ```bash
-# 从任意集群成员发现 Master 节点信息
-curl http://<any-node>:8080/hazelcast/rest/cluster | \
+# 从可访问的 Master 查看集群状态
+curl http://<master>:8080/overview | \
   python3 -c "import sys,json; print(json.load(sys.stdin))"
 ```
 
@@ -341,10 +331,10 @@ curl http://<any-node>:8080/hazelcast/rest/cluster | \
 |---|---|---|
 | 任意端点返回 `HTTP 404` | REST API 未启用或端口不对 | 设置 `enable-http: true` 并检查端口 |
 | `Connection refused` | Master 未启动或防火墙拦截 | 确认 Master 进程在运行；检查防火墙 |
-| running-job 中找不到 `jobId` | 作业已完成或未启动 | 改用 `finished-job/<jobId>` 查询 |
+| `job-info` 中找不到 `jobId` | 作业已完成或未启动 | 按预期终态改用 `/finished-jobs/:state` 查询 |
 | 提交返回 `400 Bad Request` | JSON 格式错误或缺少必填字段 | 验证 JSON；检查 `plugin_name` 拼写 |
 | `Job already exists with same job.id` | 相同 `job.id` 重复提交但未先停止 | 先取消或停止现有作业，再重新提交 |
-| `Unauthorized 401` | 已启用安全配置但未提供凭据 | 添加 `-u user:pass` 或 `Authorization` 请求头 |
+| `Unauthorized 401` | 已启用 Basic Auth 但未提供凭据 | 添加 `-u user:pass` |
 | `Savepoint path not found` | Savepoint 已删除或路径有误 | 检查 Checkpoint 存储，提供正确路径 |
 
 ---
