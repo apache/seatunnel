@@ -26,13 +26,19 @@ The Metadata transform plugin is used to extract metadata information from data 
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
+| SourceTimestamp | long | Time (epoch ms) at which the change was committed in the source database (`source.ts_ms`). | CDC connectors |
+| BinlogFile | string | Binlog filename (e.g. `mysql-bin-changelog.000123`). `null` for snapshot rows. | MySQL-CDC only |
+| BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
+| BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
+| Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
+2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
+4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
 
 ## Options
 

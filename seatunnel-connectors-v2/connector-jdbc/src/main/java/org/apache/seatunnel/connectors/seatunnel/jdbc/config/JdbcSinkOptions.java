@@ -84,6 +84,15 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
 
+    public static final Option<Long> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription(
+                            "Write-triggered flush interval (ms). "
+                                    + "0 = disabled (default). "
+                                    + "When > 0, each writeRecord checks elapsed time and flushes synchronously if exceeded.");
+
     public static final Option<Integer> TRANSACTION_TIMEOUT_SEC =
             Options.key("transaction_timeout_sec")
                     .intType()
@@ -117,6 +126,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
+
+    public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
+            Options.key("oracle_insert_mode")
+                    .enumType(JdbcSinkConfig.OracleInsertMode.class)
+                    .defaultValue(JdbcSinkConfig.OracleInsertMode.CONVENTIONAL)
+                    .withDescription(
+                            "Oracle insert mode. CONVENTIONAL uses normal insert statements. "
+                                    + "APPEND_VALUES adds the Oracle APPEND_VALUES hint for insert-only writes.");
 
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")

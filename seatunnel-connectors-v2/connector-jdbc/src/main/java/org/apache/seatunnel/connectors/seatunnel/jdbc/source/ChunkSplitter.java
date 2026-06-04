@@ -178,6 +178,51 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 null);
     }
 
+    protected StringSplitStrategy resolveStringSplitStrategy(
+            JdbcSourceTable table, String splitKeyName) throws SQLException {
+        StringSplitStrategy requestedStrategy = config.getStringSplitStrategy();
+        if (requestedStrategy == null
+                || (requestedStrategy != StringSplitStrategy.RANGE
+                        && requestedStrategy != StringSplitStrategy.AUTO)) {
+            return requestedStrategy;
+        }
+
+        if (!jdbcDialect.supportStringRangeSplit()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String split strategy %s requires validated range split support, but dialect %s does not support range/auto string split strategy.",
+                            requestedStrategy, jdbcDialect.dialectName()));
+        }
+
+        StringRangeSplitDecision decision =
+                jdbcDialect.validateStringRangeSplit(
+                        getOrEstablishConnection(), table, splitKeyName, 256);
+        if (decision.isSafe()) {
+            return StringSplitStrategy.RANGE;
+        }
+        if (requestedStrategy == StringSplitStrategy.RANGE) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String range split is unsafe for table %s, split column %s: %s",
+                            table.getTablePath(), splitKeyName, decision.getReason()));
+        }
+
+        StringSplitStrategy fallback =
+                jdbcDialect.supportHashSplitter()
+                        ? StringSplitStrategy.HASH
+                        : StringSplitStrategy.NONE;
+        log.warn(
+                "String range split is unsafe for table {}, split column {}. Requested strategy: {}, fallback strategy: {}, reason: {}",
+                table.getTablePath(),
+                splitKeyName,
+                requestedStrategy,
+                fallback,
+                decision.getReason());
+        return fallback;
+    }
+
     protected PreparedStatement createSingleSplitStatement(JdbcSourceSplit split)
             throws SQLException {
         String splitQuery = split.getSplitQuery();

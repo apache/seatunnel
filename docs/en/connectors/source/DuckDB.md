@@ -86,7 +86,7 @@ Read external data source data through JDBC.
 | table_list                   | Array      | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "main.table1"}, {table_path = "main.table2", query = "select * id, name from main.table2"}]```                                                    |
 | where_condition              | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                          |
 | split.size                   | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                        |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                   |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                   |
 
 ## Parallel Reader
 

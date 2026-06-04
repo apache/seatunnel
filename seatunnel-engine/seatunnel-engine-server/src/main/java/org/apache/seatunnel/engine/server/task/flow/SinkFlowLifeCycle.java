@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.event.StainTraceEvent;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -47,6 +49,10 @@ import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowO
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
+import org.apache.seatunnel.engine.server.trace.StainTracePayload;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import com.hazelcast.cluster.Address;
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +73,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
+/** Drives the sink writer lifecycle, checkpointing, and final stain trace event emission. */
 @Slf4j
 public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCommitInfoT, StateT>
         extends ActionFlowLifeCycle
@@ -102,6 +109,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     /** Mapping relationship between upstream TablePath and downstream TablePath. */
     private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
 
+    private final Counter stainTraceEventsReportedTotal;
+    private final Counter stainTraceInvalidPayloadTotal;
+    private volatile Counter stainTraceEntriesTruncatedTotal;
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
+
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
             TaskLocation taskLocation,
@@ -119,6 +131,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
         this.eventListener = new JobEventListener(taskLocation, runningTask.getExecutionContext());
+        this.stainTraceEventsReportedTotal =
+                metricsContext.counter(StainTraceConstants.METRIC_EVENTS_REPORTED_TOTAL);
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
@@ -135,6 +149,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.connectorMetricsCalcContext =
                 new ConnectorMetricsCalcContext(
                         metricsContext, PluginType.SINK, isMulti, sinkTables);
+        this.stainTraceInvalidPayloadTotal =
+                metricsContext.counter(StainTraceConstants.METRIC_INVALID_PAYLOAD_TOTAL);
     }
 
     @Override
@@ -180,6 +196,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    /** Handles barriers for checkpointing and rows for sink writes plus trace event reporting. */
     @Override
     public void received(Record<?> record) {
         try {
@@ -262,17 +279,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 String tableId;
                 writer.write((T) record.getData());
                 if (record.getData() instanceof SeaTunnelRow) {
+                    SeaTunnelRow row = (SeaTunnelRow) record.getData();
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                        if (((SeaTunnelRow) record.getData()).getTableId() == null
-                                || ((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
-                            tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                        if (row.getTableId() == null || row.getTableId().isEmpty()) {
+                            tableId = row.getTableId();
                         } else {
 
-                            TablePath tablePath =
-                                    tablesMaps.get(
-                                            TablePath.of(
-                                                    ((SeaTunnelRow) record.getData())
-                                                            .getTableId()));
+                            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
                             tableId =
                                     tablePath != null
                                             ? tablePath.getFullName()
@@ -291,6 +304,33 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     }
 
                     connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
+
+                    if (StainTraceUtils.hasPayload(row)) {
+                        long nowMs = System.currentTimeMillis();
+                        StainTraceUtils.appendIfPresent(
+                                row,
+                                StainTraceStage.SINK_WRITE_DONE,
+                                runningTask.getTaskID(),
+                                nowMs,
+                                getStainTraceMaxEntriesPerTrace(),
+                                getStainTraceEntriesTruncatedTotal());
+                        byte[] payload = StainTraceUtils.getPayloadOrNull(row);
+                        if (payload != null) {
+                            try {
+                                long traceId = StainTracePayload.readTraceId(payload);
+                                eventListener.onEvent(
+                                        new StainTraceEvent(
+                                                traceId,
+                                                payload,
+                                                taskLocation.getTaskID(),
+                                                tableId));
+                                stainTraceEventsReportedTotal.inc();
+                            } catch (Exception e) {
+                                stainTraceInvalidPayloadTotal.inc();
+                                log.debug("Failed to report stain trace event", e);
+                            }
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -340,5 +380,36 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         } else {
             this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
+    }
+
+    private Counter getStainTraceEntriesTruncatedTotal() {
+        if (stainTraceEntriesTruncatedTotal == null) {
+            synchronized (this) {
+                if (stainTraceEntriesTruncatedTotal == null) {
+                    stainTraceEntriesTruncatedTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    private int getStainTraceMaxEntriesPerTrace() {
+        if (stainTraceMaxEntriesPerTrace < 0) {
+            synchronized (this) {
+                if (stainTraceMaxEntriesPerTrace < 0) {
+                    stainTraceMaxEntriesPerTrace =
+                            runningTask
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .getStainTraceMaxEntriesPerTrace();
+                }
+            }
+        }
+        return stainTraceMaxEntriesPerTrace;
     }
 }

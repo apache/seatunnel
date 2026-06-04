@@ -766,7 +766,7 @@ When we can't get the job info, the response will be:
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/concepts/config-encryption-decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 #### Body
 

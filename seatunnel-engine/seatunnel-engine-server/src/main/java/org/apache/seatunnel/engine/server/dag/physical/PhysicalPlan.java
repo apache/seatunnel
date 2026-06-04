@@ -249,7 +249,9 @@ public class PhysicalPlan {
         RetryUtils.retryWithException(
                 () -> {
                     updateStateTimestamps(targetState);
-                    runningJobStateIMap.set(jobId, targetState);
+                    if (runningJobStateIMap.get(jobId) != null) {
+                        runningJobStateIMap.set(jobId, targetState);
+                    }
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
@@ -265,6 +267,13 @@ public class PhysicalPlan {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    jobFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
     }
@@ -280,6 +289,13 @@ public class PhysicalPlan {
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
+            if (current == null) {
+                log.warn(
+                        "{} current state is null, skip transition to {}",
+                        jobFullName,
+                        targetState);
+                return;
+            }
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
 

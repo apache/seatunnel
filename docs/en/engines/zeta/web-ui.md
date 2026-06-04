@@ -1,5 +1,11 @@
 # Web UI
 
+## Start Here
+
+Use [REST API And Web UI](./rest-api-and-web-ui.md) as the main operations entry point. That page explains when to enable the HTTP service, which REST API pages to read next, and how Web UI fits into day-to-day operations.
+
+This page focuses only on the Web UI screens themselves.
+
 ## Access
 
 Before accessing the web ui we need to enable the http rest api. first you need to configure it in the `seatunnel.yaml` configuration file
@@ -46,3 +52,9 @@ The "Workers" section displays detailed information about all worker nodes in th
 
 The "Master" section provides the status and configuration information of the master node in the SeaTunnel cluster. Users can view the master's address, running status, job scheduling responsibilities, and overall resource allocation within the cluster. This module helps users gain a comprehensive understanding of the cluster's core management components, facilitating cluster configuration optimization and troubleshooting.
 ![master.png](../../../images/ui/master.png)
+
+## Next Steps
+
+- [REST API And Web UI](./rest-api-and-web-ui.md)
+- [REST API V2](./rest-api-v2.md)
+- [Security](./security.md)

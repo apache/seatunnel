@@ -80,6 +80,23 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
 | custom_sql                             | string  | no   | -                            | 自定义 `delete` 数据的 SQL 语句，用于数据写入方式。例如： `delete from ... where ...`                                                                                                                                                  |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
+| krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
+
+## Sink 选项说明
+
+### krb5_path [string]
+
+`krb5.conf` 文件的路径，用于 Kerberos 认证。
+
+### kerberos_principal [string]
+
+Kerberos 认证的 principal。
+
+### kerberos_keytab_path [string]
+
+Kerberos 认证的 keytab 文件路径。
 
 ## 任务示例
 
@@ -207,6 +224,42 @@ sink {
 }
 ```
 
+### Kerberos 认证
+
+以下示例演示了在使用 Hadoop Catalog 和 HDFS 时如何配置 Iceberg Sink 的 Kerberos 认证：
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+说明：
+
+- `krb5_path`：用于 Kerberos 认证的 `krb5.conf` 文件路径。
+- `kerberos_principal`：Kerberos 认证的 principal，格式为 `primary/instance@REALM`。
+- `kerberos_keytab_path`：Kerberos 认证的 keytab 文件路径。
+
 ### Multiple table（多表写入）
 
 #### 示例1
@@ -223,7 +276,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }

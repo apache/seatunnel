@@ -48,7 +48,7 @@ Please refer [security](security.md)
 
 > |  name  |   type   | data type |                            description                             |
 > |--------|----------|-----------|--------------------------------------------------------------------|
-> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | type   | required | string    | plugin type, supports `source`, `sink` and `transform`             |
 > | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
 
 #### Responses
@@ -118,7 +118,29 @@ Please refer [security](security.md)
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -128,6 +150,9 @@ Please refer [security](security.md)
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
+- Within `conditionTree`, the `compareOperator` field (e.g. `>=`, `<`, `>`) and `compareOption` field are populated for numeric and cross-field comparisons. For equality checks and other non-comparison conditions, these fields are `null`.
+- The `conditionOperator` field provides a stable, machine-readable operator identifier (e.g. `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`), while `conditionOperatorCategory` indicates the operator's category (e.g. `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`). These two fields are designed for programmatic consumption by frontend applications and automation tools.
 
 </details>
 
@@ -691,6 +716,8 @@ When we can't get the job info, the response will be:
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
+**Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
+
 #### Body
 
 You can choose json, hocon or sql to pass request body.
@@ -1030,7 +1057,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/concepts/config-encryption-decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 #### Body
 

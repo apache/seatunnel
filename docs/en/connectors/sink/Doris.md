@@ -42,6 +42,8 @@ The internal implementation of Doris sink connector is cached and imported by st
 |              Name              |  Type   | Required |           Default            |                                                                                                                                      Description                                                                                                                                       |
 |--------------------------------|---------|----------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | fenodes                        | String  | Yes      | -                            | `Doris` cluster fenodes address, the format is `"fe_ip:fe_http_port, ..."`                                                                                                                                                                                                             |
+| benodes                        | String  | No       | -                            | `Doris` BE http address list used when `direct_to_be=true`, the format is `"be_ip:be_http_port, ..."`                                                                                                                                                                                   |
+| direct_to_be                   | bool    | No       | false                        | Whether to send stream load write requests directly to `benodes`. This is an opt-in mode and does not change the default FE path.                                                                                                                                                       |
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes query_port                                                                                                                                                                                                                                                             |
 | username                       | String  | Yes      | -                            | `Doris` user username                                                                                                                                                                                                                                                                  |
 | password                       | String  | Yes      | -                            | `Doris` user password                                                                                                                                                                                                                                                                  |
@@ -63,6 +65,19 @@ The internal implementation of Doris sink connector is cached and imported by st
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
 | doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
+
+## Redirect Behavior
+
+By default, Doris sink sends Stream Load requests to the FE nodes configured by `fenodes`.
+
+When `direct_to_be=true`, SeaTunnel uses `benodes` for the Stream Load data write path.
+
+If `sink.enable-2pc=true` at the same time:
+
+- pre-commit data write requests use `benodes`
+- 2PC commit/abort control requests still use `fenodes`
+
+This mixed path keeps the default FE control path while allowing the data path to bypass unstable FE redirect scenarios.
 
 ### schema_save_mode [Enum]
 
@@ -175,6 +190,16 @@ This is because the total amount of data arriving at the end may not exceed the 
 
 Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sink.buffer-size` will have no effect. So only the checkpoint can trigger the commit.
 
+## Troubleshooting 307 Temporary Redirect
+
+If the job fails with `HTTP/1.1 307 Temporary Redirect`, check the following items first:
+
+1. Whether the SeaTunnel worker can reach the redirected Doris BE address
+2. Whether Doris FE is under heavy load, timeout, or Full GC pressure
+3. Whether a proxy, SLB, ingress, or gateway rewrites or blocks the redirect path
+
+If your environment already has reachable Doris BE HTTP addresses, you can configure `benodes` and set `direct_to_be=true` to bypass FE redirect on the data write path.
+
 ## Task Example
 
 ### Simple
@@ -227,6 +252,49 @@ sink {
     sink.label-prefix = "test-cdc"
     sink.enable-2pc = "true"
     sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### Direct To BE
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### Direct To BE With 2PC
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be-2pc"
+    sink.enable-2pc = true
     doris.config {
       format = "json"
       read_json_by_line = "true"

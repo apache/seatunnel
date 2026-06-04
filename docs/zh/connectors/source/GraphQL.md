@@ -107,7 +107,7 @@ HTTP请求参数
 
 ### common options
 
-源插件常用参数，请参考 [Source Common Options](../source-common-options.md) 获取详细信息
+源插件常用参数，请参考 [Source Common Options](../common-options/source-common-options.md) 获取详细信息
 
 ## 示例
 

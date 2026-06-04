@@ -88,6 +88,10 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 
     public static final String DATABASE_NAME = "column_type_test";
     public static final String SCHEMA_NAME = "dbo";
+    public static final String SCHEMA_EVOLUTION_DATABASE_NAME = "schema_change_test";
+    private static final String SCHEMA_EVOLUTION_SOURCE_TABLE = "products";
+    private static final String SCHEMA_EVOLUTION_SINK_TABLE = "products_sink";
+    private static final int INCREMENTAL_MARKER_ID = 1000;
 
     private static final String DISABLE_DB_CDC =
             "IF EXISTS(select 1 from sys.databases where name='#' AND is_cdc_enabled=1)\n"
@@ -161,6 +165,16 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
                     + "  val_udtdecimal\n"
                     + "from %s order by id asc";
+    private static final String SELECT_SCHEMA_EVOLUTION_DATA_SQL =
+            "SELECT * FROM %s ORDER BY id ASC";
+    private static final String SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL =
+            "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, "
+                    + "COALESCE(CAST(CHARACTER_MAXIMUM_LENGTH AS VARCHAR(20)), 'null'), "
+                    + "COALESCE(CAST(NUMERIC_PRECISION AS VARCHAR(20)), 'null'), "
+                    + "COALESCE(CAST(NUMERIC_SCALE AS VARCHAR(20)), 'null') "
+                    + "FROM INFORMATION_SCHEMA.COLUMNS "
+                    + "WHERE TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' "
+                    + "ORDER BY ORDINAL_POSITION";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
             new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest")
@@ -505,6 +519,50 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
      * Executes a JDBC statement using the default jdbc config without autocommitting the
      * connection.
      */
+    private void assertSchemaEvolutionTableStructureAndData(
+            String databaseName, String sourceTable, String sinkTable) {
+        String sourceTablePath = databaseName + "." + SCHEMA_NAME + "." + sourceTable;
+        String sinkTablePath = databaseName + "." + SCHEMA_NAME + "." + sinkTable;
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySql(SELECT_SCHEMA_EVOLUTION_DATA_SQL, sourceTablePath),
+                                        querySql(SELECT_SCHEMA_EVOLUTION_DATA_SQL, sinkTablePath)));
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySql(
+                                                String.format(
+                                                        SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL,
+                                                        databaseName,
+                                                        SCHEMA_NAME,
+                                                        sourceTable)),
+                                        querySql(
+                                                String.format(
+                                                        SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL,
+                                                        databaseName,
+                                                        SCHEMA_NAME,
+                                                        sinkTable))));
+    }
+
+    private void executeSqlFile(String sqlFile) {
+        final String ddlFile = String.format("ddl/%s.sql", sqlFile);
+        final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
+        Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            List<String> statements =
+                    parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
+            for (String stmt : statements) {
+                statement.execute(stmt);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void initializeSqlServerTable(String sqlFile) {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
@@ -515,26 +573,30 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             String ddlContent = String.join("\n", ddlLines);
             String actualDatabaseName = extractDatabaseName(ddlContent);
             dropTestDatabase(connection, actualDatabaseName);
-            final List<String> statements =
-                    Arrays.stream(
-                                    ddlLines.stream()
-                                            .map(String::trim)
-                                            .filter(x -> !x.startsWith("--") && !x.isEmpty())
-                                            .map(
-                                                    x -> {
-                                                        final Matcher m =
-                                                                COMMENT_PATTERN.matcher(x);
-                                                        return m.matches() ? m.group(1) : x;
-                                                    })
-                                            .collect(Collectors.joining("\n"))
-                                            .split(";"))
-                            .collect(Collectors.toList());
+            final List<String> statements = parseStatements(ddlLines);
             for (String stmt : statements) {
                 statement.execute(stmt);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private List<String> parseStatements(List<String> ddlLines) {
+        return Arrays.stream(
+                        ddlLines.stream()
+                                .map(String::trim)
+                                .filter(x -> !x.startsWith("--") && !x.isEmpty())
+                                .map(
+                                        x -> {
+                                            final Matcher m = COMMENT_PATTERN.matcher(x);
+                                            return m.matches() ? m.group(1) : x;
+                                        })
+                                .collect(Collectors.joining("\n"))
+                                .split(";"))
+                .map(String::trim)
+                .filter(x -> !x.isEmpty())
+                .collect(Collectors.toList());
     }
 
     private String extractDatabaseName(String ddlContent) {
@@ -597,8 +659,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -717,6 +780,94 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(selectSql, sourceTable),
                                     querySql(selectSql, sinkTable));
                         });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "This case validates SqlServer CDC schema evolution on the Flink engine & zeta engine.")
+    public void testWithSchemaEvolution(TestContainer container) {
+        initializeSqlServerTable("schema_change_test");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/sqlservercdc_to_sqlserver_with_schema_change.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        waitForSchemaEvolutionIncrementalStarted();
+
+        executeSqlFile("sqlserver_schema_change_add_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_drop_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_rename_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_modify_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+    }
+
+    private void waitForSchemaEvolutionIncrementalStarted() {
+        String sourceTablePath =
+                SCHEMA_EVOLUTION_DATABASE_NAME
+                        + "."
+                        + SCHEMA_NAME
+                        + "."
+                        + SCHEMA_EVOLUTION_SOURCE_TABLE;
+        String sinkTablePath =
+                SCHEMA_EVOLUTION_DATABASE_NAME
+                        + "."
+                        + SCHEMA_NAME
+                        + "."
+                        + SCHEMA_EVOLUTION_SINK_TABLE;
+        executeSql(
+                String.format(
+                        "INSERT INTO %s VALUES (%d, 'incremental-marker', 'ensure-stream-phase', 9.9)",
+                        sourceTablePath, INCREMENTAL_MARKER_ID));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        querySql(
+                                                        String.format(
+                                                                "SELECT COUNT(1) FROM %s WHERE id = %d",
+                                                                sourceTablePath,
+                                                                INCREMENTAL_MARKER_ID))
+                                                .get(0)
+                                                .get(0),
+                                        querySql(
+                                                        String.format(
+                                                                "SELECT COUNT(1) FROM %s WHERE id = %d",
+                                                                sinkTablePath,
+                                                                INCREMENTAL_MARKER_ID))
+                                                .get(0)
+                                                .get(0)));
     }
 
     @TestTemplate

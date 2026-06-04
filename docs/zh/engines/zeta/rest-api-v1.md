@@ -770,7 +770,7 @@ network:
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
-有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/concepts/config-encryption-decryption.md).
+有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/configuration/config-encryption-decryption.md).
 
 #### 请求体
 

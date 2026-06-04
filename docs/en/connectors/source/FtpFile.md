@@ -89,7 +89,6 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_filter_modified_end    | string  | no       | -                           | 
 | quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
-| metalake_type               | string  | no       | gravitino                   |
 
 ### host [string]
 
@@ -282,6 +281,15 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
+When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
 Note: Markdown format only supports reading, not writing.
 
 ### connection_mode [string]
@@ -371,17 +379,15 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
-### metalake_type [string]
-
-The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
-
-For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 
 ### read_columns [list]
 

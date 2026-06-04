@@ -87,6 +87,20 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
     }
 
     @Override
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(
+                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(dateTimeFormat)
+                        .timeFormatter(timeFormat)
+                        .charset(charset)
+                        .build();
+    }
+
+    @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
@@ -97,12 +111,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
-            fsDataOutputStream.write(
-                    serializationSchema.serialize(
-                            seaTunnelRow.copy(
-                                    sinkColumnsIndexInRow.stream()
-                                            .mapToInt(Integer::intValue)
-                                            .toArray())));
+            fsDataOutputStream.write(serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
         }

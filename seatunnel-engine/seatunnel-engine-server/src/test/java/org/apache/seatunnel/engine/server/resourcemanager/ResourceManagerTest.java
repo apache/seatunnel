@@ -161,11 +161,27 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                                 finalResourceManager2
                                         .applyResources(1L, finalResourceProfiles2, null)
                                         .get());
-        Assertions.assertInstanceOf(
-                NoEnoughResourceException.class, exception2.getCause().getCause());
+        Assertions.assertInstanceOf(NoEnoughResourceException.class, exception2.getCause());
         Assertions.assertEquals(
                 "can't apply resource request with retry times: 3",
-                exception2.getCause().getCause().getMessage());
+                exception2.getCause().getMessage());
+    }
+
+    @Test
+    public void testApplyResourcesPreserveCauseForExternalException()
+            throws ExecutionException, InterruptedException {
+        FakeResourceManagerForExternalExceptionTest resourceManager =
+                new FakeResourceManagerForExternalExceptionTest(nodeEngine);
+        List<ResourceProfile> resourceProfiles = new ArrayList<>();
+        resourceProfiles.add(new ResourceProfile());
+        ExecutionException exception =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () -> resourceManager.applyResources(1L, resourceProfiles, null).get());
+        Assertions.assertInstanceOf(NoEnoughResourceException.class, exception.getCause());
+        Assertions.assertInstanceOf(
+                IllegalStateException.class,
+                ((NoEnoughResourceException) exception.getCause()).getCause());
     }
 
     @Test
