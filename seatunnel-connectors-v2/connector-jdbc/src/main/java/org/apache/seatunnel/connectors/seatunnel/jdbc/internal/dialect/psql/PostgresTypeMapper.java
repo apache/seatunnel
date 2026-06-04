@@ -73,15 +73,20 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
         String nativeType = metadata.getColumnTypeName(colIndex);
 
         if (PostgresTypeConverter.PG_VECTOR.equalsIgnoreCase(nativeType) && connection != null) {
-            String tableName = resolveTableName(metadata, colIndex, sqlQuery);
-            if (tableName != null && !tableName.isEmpty()) {
-                String columnName = metadata.getColumnLabel(colIndex);
+            String[] tableInfo = resolveTableInfo(metadata, colIndex, sqlQuery);
+            if (tableInfo != null && tableInfo[1] != null && !tableInfo[1].isEmpty()) {
+                // Use getColumnName (physical column name) for pg_attribute lookup,
+                // as pg_attribute.attname stores the original column name, not the SELECT alias.
+                String physicalColumnName = metadata.getColumnName(colIndex);
                 String vectorType =
-                        queryVectorTypeFromPgAttribute(connection, tableName, columnName);
+                        queryVectorTypeFromPgAttribute(
+                                connection, tableInfo[0], tableInfo[1], physicalColumnName);
                 if (vectorType != null) {
+                    // Use getColumnLabel (SELECT alias or column name) for the output column name
+                    String outputColumnName = metadata.getColumnLabel(colIndex);
                     BasicTypeDefine typeDefine =
                             BasicTypeDefine.builder()
-                                    .name(columnName)
+                                    .name(outputColumnName)
                                     .columnType(vectorType)
                                     .dataType(nativeType)
                                     .sqlType(metadata.getColumnType(colIndex))
@@ -101,15 +106,17 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     }
 
     /**
-     * Resolves the table name by first checking ResultSetMetaData, then falling back to parsing the
-     * SQL query.
+     * Resolves the schema name and table name by first checking ResultSetMetaData, then falling
+     * back to parsing the SQL query. Returns a two-element String array: [schemaName, tableName].
+     * schemaName may be null if it cannot be determined.
      */
-    private String resolveTableName(ResultSetMetaData metadata, int colIndex, String sqlQuery) {
+    private String[] resolveTableInfo(ResultSetMetaData metadata, int colIndex, String sqlQuery) {
         // Try ResultSetMetaData first — the PostgreSQL JDBC driver often populates this
         try {
             String tableName = metadata.getTableName(colIndex);
             if (tableName != null && !tableName.isEmpty()) {
-                return tableName;
+                String schemaName = metadata.getSchemaName(colIndex);
+                return new String[] {schemaName, tableName};
             }
         } catch (SQLException ignored) {
             // driver may not support it
@@ -120,10 +127,16 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             Matcher matcher = FROM_TABLE_PATTERN.matcher(sqlQuery);
             if (matcher.find()) {
                 String fullName = matcher.group(1);
-                // Strip any quoting and extract the leaf table name
+                // Strip any quoting
                 fullName = fullName.replace("\"", "").replace("`", "");
                 int lastDot = fullName.lastIndexOf('.');
-                return lastDot >= 0 ? fullName.substring(lastDot + 1) : fullName;
+                if (lastDot >= 0) {
+                    String schemaName = fullName.substring(0, lastDot);
+                    String tableName = fullName.substring(lastDot + 1);
+                    return new String[] {schemaName, tableName};
+                } else {
+                    return new String[] {null, fullName};
+                }
             }
         }
         return null;
@@ -131,18 +144,21 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
 
     /**
      * Queries pg_attribute to get the full vector type string (e.g. "vector(3)") for a specific
-     * column.
+     * column. Uses pg_namespace to ensure correct schema-scoped matching, avoiding ambiguity when
+     * tables with the same name exist in different schemas.
      */
     private String queryVectorTypeFromPgAttribute(
-            Connection connection, String tableName, String columnName) {
+            Connection connection, String schemaName, String tableName, String columnName) {
         String sql =
                 "SELECT format_type(a.atttypid, a.atttypmod) "
                         + "FROM pg_attribute a "
                         + "JOIN pg_class c ON a.attrelid = c.oid "
-                        + "WHERE c.relname = ? AND a.attname = ? AND a.attnum > 0";
+                        + "JOIN pg_namespace n ON c.relnamespace = n.oid "
+                        + "WHERE c.relname = ? AND n.nspname = COALESCE(NULLIF(?, ''), current_schema()) AND a.attname = ? AND a.attnum > 0";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, tableName);
-            ps.setString(2, columnName);
+            ps.setString(2, schemaName);
+            ps.setString(3, columnName);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String fullType = rs.getString(1);
@@ -155,7 +171,8 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             }
         } catch (SQLException e) {
             LOG.debug(
-                    "Failed to query vector type from pg_attribute for {}.{}",
+                    "Failed to query vector type from pg_attribute for {}.{}.{}",
+                    schemaName,
                     tableName,
                     columnName,
                     e);

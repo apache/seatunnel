@@ -46,6 +46,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -187,9 +189,12 @@ public class JdbcPostgresPgVectorIT extends TestSuiteBase implements TestResourc
         Assertions.assertFalse(
                 vectorInfo.isEmpty(), "embedding column should exist in pg_attribute");
         String fullType = vectorInfo.get(0).get(0).toString();
+        Matcher dimensionMatcher = Pattern.compile("vector\\((\\d+)\\)").matcher(fullType);
         Assertions.assertTrue(
-                fullType.startsWith("vector(") && fullType.endsWith(")"),
-                "Expected vector(N) type but got: " + fullType);
+                dimensionMatcher.matches(), "Expected vector(N) type but got: " + fullType);
+        int dimension = Integer.parseInt(dimensionMatcher.group(1));
+        Assertions.assertEquals(
+                3, dimension, "Expected vector(3) dimension but got vector(" + dimension + ")");
         log.info("pgvector auto-create e2e test completed, sink column type: {}", fullType);
     }
 
