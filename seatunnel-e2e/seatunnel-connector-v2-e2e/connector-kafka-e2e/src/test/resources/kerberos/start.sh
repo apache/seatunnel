@@ -26,7 +26,23 @@ nohup java -Xmx512M -Xms512M -server \
     -Dsun.security.krb5.debug=true org.apache.zookeeper.server.quorum.QuorumPeerMain \
     /etc/kafka/zookeeper.properties &
 
-sleep 5
+ZK_READY=false
+for i in $(seq 1 30); do
+    if nc -z localhost 2181 2>/dev/null; then
+        echo "ZooKeeper is ready after ${i}s"
+        ZK_READY=true
+        break
+    fi
+    sleep 1
+done
+if [ "$ZK_READY" != "true" ]; then
+    echo "ERROR: ZooKeeper failed to start within 30s" >&2
+    exit 1
+fi
+
+echo "Waiting for Kafka config..."
+while [ ! -f /tmp/start_kafka ]; do sleep 0.1; done
+echo "Kafka config received, starting broker..."
 
 nohup java -Xmx1G -Xms1G -server \
     -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 \
@@ -39,6 +55,19 @@ nohup java -Xmx1G -Xms1G -server \
     -Dsun.security.krb5.debug=true -Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf \
     -Djava.security.krb5.conf=/etc/krb5.conf kafka.Kafka /etc/kafka/kafka.properties &
 
-sleep 5
+KAFKA_READY=false
+for i in $(seq 1 60); do
+    if grep -q "started (kafka.server.KafkaServer)" /var/log/kafka/server.log 2>/dev/null; then
+        echo "Kafka broker is ready after ${i}s"
+        KAFKA_READY=true
+        break
+    fi
+    sleep 1
+done
+if [ "$KAFKA_READY" != "true" ]; then
+    echo "ERROR: Kafka broker failed to start within 60s" >&2
+    cat /var/log/kafka/server.log >&2 2>/dev/null
+    exit 1
+fi
 
 tail -f /var/log/kafka/server.log

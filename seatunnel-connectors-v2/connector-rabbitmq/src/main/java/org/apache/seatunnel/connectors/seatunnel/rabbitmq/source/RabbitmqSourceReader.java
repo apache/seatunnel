@@ -17,42 +17,50 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.Envelope;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_REJECTED;
 
+/**
+ * The reader implementation for RabbitMQ. Responsible for fetching messages from one or multiple
+ * RabbitMQ queues, deserializing them using the correct schema, and passing them downstream.
+ */
 @Slf4j
-public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
-    protected final Handover<Delivery> handover;
-
+public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, RabbitmqSplit> {
+    private final BlockingQueue<DeliveryMessage> queue;
     protected final SourceReader.Context context;
     protected transient Channel channel;
     private final boolean usesCorrelationId;
@@ -64,31 +72,59 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     protected final SortedMap<Long, List<Long>> pendingDeliveryTagsToCommit;
     protected final SortedMap<Long, Set<String>> pendingCorrelationIdsToCommit;
 
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private RabbitmqClient rabbitMQClient;
-    private DefaultConsumer consumer;
     private final RabbitmqConfig config;
 
+    // Maps used for Multi-Table routing.
+    // They map the source queue name (split ID) to its specific deserialization schema and table
+    // ID.
+    private final Map<String, DeserializationSchema<SeaTunnelRow>> schemaMap;
+    private final Map<String, String> exactTableIdMap;
+    private final Set<RabbitmqSplit> sourceSplits;
+    private final Map<String, DefaultConsumer> activeConsumers;
+    private volatile boolean noMoreSplitsAssigned = false;
+
+    /**
+     * Constructor for RabbitmqSourceReader.
+     *
+     * @param queueToTableMap map of queue names to their corresponding CatalogTable
+     * @param context source context
+     * @param config rabbitmq config
+     */
     public RabbitmqSourceReader(
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            Map<String, CatalogTable> queueToTableMap,
             SourceReader.Context context,
             RabbitmqConfig config) {
-        this.handover = new Handover<>();
+        this.queue = new LinkedBlockingQueue<>();
         this.pendingDeliveryTagsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.context = context;
-        this.deserializationSchema = deserializationSchema;
         this.config = config;
         this.rabbitMQClient = new RabbitmqClient(config);
         this.channel = rabbitMQClient.getChannel();
         this.usesCorrelationId = config.isUsesCorrelationId();
+
+        this.sourceSplits = ConcurrentHashMap.newKeySet();
+        this.activeConsumers = new ConcurrentHashMap<>();
+
+        this.schemaMap = new HashMap<>();
+        this.exactTableIdMap = new HashMap<>();
+
+        // Initialize schemas and table IDs for all configured queues.
+        // This ensures the reader knows how to parse and route messages from any incoming split.
+        for (Map.Entry<String, CatalogTable> entry : queueToTableMap.entrySet()) {
+            String queueName = entry.getKey();
+            CatalogTable table = entry.getValue();
+
+            this.schemaMap.put(queueName, new JsonDeserializationSchema(table, false, false));
+            this.exactTableIdMap.put(queueName, table.getTableId().toTablePath().toString());
+        }
     }
 
     @Override
     public void open() throws Exception {
         this.correlationIdsProcessedButNotAcknowledged = new HashSet<>();
         this.deliveryTagsProcessedForCurrentSnapshot = new ArrayList<>();
-        consumer = rabbitMQClient.getQueueingConsumer(handover);
 
         if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
             autoAck = false;
@@ -97,104 +133,125 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         } else {
             autoAck = true;
         }
-
-        log.debug("Starting RabbitMQ source with autoAck status: " + autoAck);
-        channel.basicConsume(config.getQueueName(), autoAck, consumer);
     }
 
     @Override
-    public void close() throws IOException {
-        if (rabbitMQClient != null) {
-            rabbitMQClient.close();
-        }
-    }
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        // Poll a message from the internal buffer.
+        // Messages are pushed here asynchronously by the RabbitMQ DefaultConsumers.
+        DeliveryMessage message = queue.poll(5000, TimeUnit.MILLISECONDS);
 
-    @Override
-    public void pollNext(Collector output) throws Exception {
-        Optional<Delivery> deliveryOptional = handover.pollNext();
-        if (deliveryOptional.isPresent()) {
-            Delivery delivery = deliveryOptional.get();
-            AMQP.BasicProperties properties = delivery.getProperties();
-            String correlationId =
-                    Objects.isNull(properties) ? null : properties.getCorrelationId();
-            byte[] body = delivery.getBody();
-            Envelope envelope = delivery.getEnvelope();
-            synchronized (output.getCheckpointLock()) {
-                boolean newMessage =
-                        verifyMessageIdentifier(
-                                properties.getCorrelationId(), envelope.getDeliveryTag());
-                if (!newMessage) {
-                    return;
-                }
-                deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
-                deserializationSchema.deserialize(body, output);
+        if (message != null) {
+            Delivery delivery = message.getDelivery();
+            if (delivery == null || delivery.getEnvelope() == null) {
+                return;
             }
 
-            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                // signal to the source that we have reached the end of the data.
-                // rabbitmq source connector on support streaming mode, this is for test
+            AMQP.BasicProperties properties = delivery.getProperties();
+            String correlationId = (properties != null) ? properties.getCorrelationId() : null;
+
+            synchronized (output.getCheckpointLock()) {
+                // Ensure the message wasn't already processed (idempotency check)
+                if (!verifyMessageIdentifier(
+                        correlationId, delivery.getEnvelope().getDeliveryTag())) {
+                    return;
+                }
+
+                // Record the delivery tag for the current snapshot (to be acked later)
+                deliveryTagsProcessedForCurrentSnapshot.add(
+                        delivery.getEnvelope().getDeliveryTag());
+
+                // Multi-Table Logic: Retrieve the correct schema and table ID based on the queue
+                // name (split ID)
+                DeserializationSchema<SeaTunnelRow> schema = schemaMap.get(message.getSplitId());
+                String exactTableId = exactTableIdMap.get(message.getSplitId());
+
+                if (schema != null && exactTableId != null) {
+                    SeaTunnelRow row = schema.deserialize(delivery.getBody());
+
+                    if (row != null) {
+                        // Tag the row with its specific Table ID to ensure downstream sinks route
+                        // it correctly
+                        row.setTableId(exactTableId);
+                        output.collect(row);
+                    }
+                } else {
+                    String errorMsg =
+                            String.format(
+                                    "Cannot find schema or tableId for queue: %s. "
+                                            + "This queue is not configured in tables_configs. "
+                                            + "Available queues: %s",
+                                    message.getSplitId(), schemaMap.keySet());
+                    log.error(errorMsg);
+                    throw new RabbitmqConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, errorMsg);
+                }
+            }
+        }
+
+        // Bounded mode logic: Stop the job if all splits have been consumed and the queue is empty
+        if (Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreSplitsAssigned) {
+            if (message == null && queue.isEmpty()) {
+                log.info(
+                        "No more splits assigned, queue is empty, and polling timed out. Signaling end of input.");
                 context.signalNoMoreElement();
             }
         }
     }
 
     @Override
-    public List<RabbitmqSplit> snapshotState(long checkpointId) throws Exception {
+    public void addSplits(List<RabbitmqSplit> splits) {
+        // Dynamically start consuming from newly assigned queues (splits)
+        for (RabbitmqSplit split : splits) {
+            log.info("Received split for queue: {}", split.splitId());
+            try {
+                if (activeConsumers.containsKey(split.splitId())) {
+                    log.warn("Consumer for queue {} already exists, skipping", split.splitId());
+                    continue;
+                }
 
-        List<RabbitmqSplit> pendingSplit =
-                Collections.singletonList(
-                        new RabbitmqSplit(
-                                deliveryTagsProcessedForCurrentSnapshot,
-                                correlationIdsProcessedButNotAcknowledged));
-        // perform a snapshot for these splits.
+                // Create a new consumer that feeds messages into the shared internal 'queue'
+                DefaultConsumer consumer =
+                        rabbitMQClient.getQueueingConsumer(queue, split.splitId());
+                rabbitMQClient.setupQueue(split.splitId());
+                channel.basicConsume(split.splitId(), autoAck, consumer);
+                activeConsumers.put(split.splitId(), consumer);
+                sourceSplits.add(split);
+
+                log.info("Started consuming from queue: {}", split.splitId());
+            } catch (IOException e) {
+                throw new RabbitmqConnectorException(
+                        org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception
+                                .RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED,
+                        e);
+            }
+        }
+    }
+
+    @Override
+    public List<RabbitmqSplit> snapshotState(long checkpointId) throws Exception {
         List<Long> deliveryTags =
                 pendingDeliveryTagsToCommit.computeIfAbsent(checkpointId, id -> new ArrayList<>());
         Set<String> correlationIds =
                 pendingCorrelationIdsToCommit.computeIfAbsent(checkpointId, id -> new HashSet<>());
-        // put currentCheckPoint deliveryTags and CorrelationIds.
-        for (RabbitmqSplit split : pendingSplit) {
-            List<Long> currentCheckPointDeliveryTags = split.getDeliveryTags();
-            Set<String> currentCheckPointCorrelationIds = split.getCorrelationIds();
-
-            if (currentCheckPointDeliveryTags != null) {
-                deliveryTags.addAll(currentCheckPointDeliveryTags);
-            }
-            if (currentCheckPointCorrelationIds != null) {
-                correlationIds.addAll(currentCheckPointCorrelationIds);
-            }
-        }
-        // clear for next snapshot
+        deliveryTags.addAll(deliveryTagsProcessedForCurrentSnapshot);
+        correlationIds.addAll(correlationIdsProcessedButNotAcknowledged);
         deliveryTagsProcessedForCurrentSnapshot.clear();
-        return pendingSplit;
-    }
 
-    @Override
-    public void addSplits(List splits) {
-        // do nothing
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-        // do nothing
+        return new ArrayList<>(sourceSplits);
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        log.debug("Committing cursors for checkpoint {}", checkpointId);
         List<Long> pendingDeliveryTags = pendingDeliveryTagsToCommit.remove(checkpointId);
         Set<String> pendingCorrelationIds = pendingCorrelationIdsToCommit.remove(checkpointId);
 
-        if (pendingDeliveryTags == null || pendingCorrelationIds == null) {
-            log.debug(
-                    "pending delivery tags or correlationIds checkpoint {} either do not exist or have already been committed.",
-                    checkpointId);
-            return;
-        }
-
-        if (!autoAck) {
+        if (pendingDeliveryTags != null && !autoAck) {
             acknowledgeDeliveryTags(pendingDeliveryTags);
         }
-        correlationIdsProcessedButNotAcknowledged.removeAll(pendingCorrelationIds);
+        if (pendingCorrelationIds != null) {
+            correlationIdsProcessedButNotAcknowledged.removeAll(pendingCorrelationIds);
+        }
     }
 
     protected void acknowledgeDeliveryTags(List<Long> deliveryTags) {
@@ -208,24 +265,59 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         }
     }
 
+    /**
+     * Verify message identifier.
+     *
+     * @param correlationId correlation id
+     * @param deliveryTag delivery tag
+     * @return true if valid
+     */
     public boolean verifyMessageIdentifier(String correlationId, long deliveryTag) {
-        if (!autoAck) {
-            if (usesCorrelationId) {
-                com.google.common.base.Preconditions.checkNotNull(
-                        correlationId,
-                        "RabbitMQ source was instantiated with usesCorrelationId set to "
-                                + "true yet we couldn't extract the correlation id from it!");
-                if (!correlationIdsProcessedButNotAcknowledged.add(correlationId)) {
-                    // we have already processed this message
-                    try {
-                        channel.basicReject(deliveryTag, false);
-                    } catch (IOException e) {
-                        throw new RabbitmqConnectorException(MESSAGE_ACK_REJECTED, e);
-                    }
-                    return false;
+        if (!autoAck && usesCorrelationId) {
+            if (correlationId == null) {
+                log.warn(
+                        "CorrelationId is missing but required, rejecting message tag: {}",
+                        deliveryTag);
+                try {
+                    channel.basicReject(deliveryTag, false);
+                } catch (IOException e) {
+                    throw new RabbitmqConnectorException(MESSAGE_ACK_REJECTED, e);
                 }
+                return false;
+            }
+            if (!correlationIdsProcessedButNotAcknowledged.add(correlationId)) {
+                try {
+                    channel.basicReject(deliveryTag, false);
+                } catch (IOException e) {
+                    throw new RabbitmqConnectorException(MESSAGE_ACK_REJECTED, e);
+                }
+                return false;
             }
         }
         return true;
+    }
+
+    @Override
+    public void close() throws IOException {
+        for (Map.Entry<String, DefaultConsumer> entry : activeConsumers.entrySet()) {
+            try {
+                if (channel != null && channel.isOpen()) {
+                    channel.basicCancel(entry.getValue().getConsumerTag());
+                }
+            } catch (IOException e) {
+                log.error("Failed to cancel consumer for queue {}", entry.getKey(), e);
+            }
+        }
+        activeConsumers.clear();
+
+        if (rabbitMQClient != null) {
+            rabbitMQClient.close();
+        }
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        log.info("Received handleNoMoreSplits event from Enumerator.");
+        this.noMoreSplitsAssigned = true;
     }
 }

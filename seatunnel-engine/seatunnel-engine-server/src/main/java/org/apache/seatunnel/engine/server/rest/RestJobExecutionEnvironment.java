@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -109,13 +110,16 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                                 + ", cannot start with save point.");
             }
         }
+        MetadataConfig metaDataConfig =
+                seaTunnelServer.getSeaTunnelConfig().getEngineConfig().getMetadataConfig();
         return new MultipleTableJobConfigParser(
                 seaTunnelJobConfig,
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                metaDataConfig);
     }
 
     private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {

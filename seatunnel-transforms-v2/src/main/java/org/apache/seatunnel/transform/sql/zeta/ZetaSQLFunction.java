@@ -225,13 +225,30 @@ public class ZetaSQLFunction {
     private final ZetaSQLFilter zetaSQLFilter;
 
     private final List<ZetaUDF> udfList;
+    private final ZetaUDFContext udfContext;
 
     public ZetaSQLFunction(
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
+        this(inputRowType, zetaSQLType, udfList, null);
+    }
+
+    public ZetaSQLFunction(
+            SeaTunnelRowType inputRowType,
+            ZetaSQLType zetaSQLType,
+            List<ZetaUDF> udfList,
+            ZetaUDFContext udfContext) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
         this.zetaSQLFilter = new ZetaSQLFilter(this, zetaSQLType);
         this.udfList = udfList;
+        this.udfContext = udfContext;
+    }
+
+    public void updateUDFContext(Object[] fields, SeaTunnelRow row) {
+        if (udfContext == null) {
+            return;
+        }
+        udfContext.update(fields, row);
     }
 
     public Object computeForValue(Expression expression, Object[] inputFields) {
@@ -648,6 +665,9 @@ public class ZetaSQLFunction {
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {
+                        if (udf.requiresContext() && udfContext != null) {
+                            return udf.evaluateWithContext(args, udfContext);
+                        }
                         return udf.evaluate(args);
                     }
                 }
@@ -847,6 +867,7 @@ public class ZetaSQLFunction {
             } else if (expression instanceof Function) {
                 List<SeaTunnelRow> next = new ArrayList<>();
                 for (SeaTunnelRow row : seaTunnelRows) {
+                    updateUDFContext(row.getFields(), row);
                     Object splitFieldValue = computeForValue(expression, row.getFields());
                     transformExplodeValue(
                             splitFieldValue,

@@ -18,13 +18,28 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import com.rabbitmq.client.Delivery;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 
-@AllArgsConstructor
-@Setter
+import java.io.Serializable;
+
+/** RabbitMQ delivery message wrapper with split identifier. */
 @Getter
-public final class DeliveryMessage {
+public final class DeliveryMessage implements Serializable {
+
+    /** Identifier of the split (usually the queue name). */
+    private final String splitId;
+
+    /** The actual RabbitMQ delivery data. */
     private final Delivery delivery;
+
+    /**
+     * Constructor for DeliveryMessage.
+     *
+     * @param splitId split identifier
+     * @param delivery RabbitMQ delivery
+     */
+    public DeliveryMessage(final String splitId, final Delivery delivery) {
+        this.splitId = splitId;
+        this.delivery = delivery;
+    }
 }

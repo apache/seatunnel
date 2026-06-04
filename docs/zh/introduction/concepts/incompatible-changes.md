@@ -30,9 +30,54 @@
   }
   ```
 
+- **破坏性变更：`Condition.of(option, null)` 不再允许**
+  - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
+  - **变更说明**：`Condition` 构造器新增校验：二元字面量操作符（如 `EQUAL`、`NOT_EQUAL`、`GREATER_THAN` 等）的 `expectValue` 不能为 null。此前 `Condition.of(option, null)` 会被静默接受，现在会在构造时抛出 `IllegalArgumentException`。
+  - **影响**：主仓库中没有任何生产代码使用 `Condition.of(option, null)`，实际影响为零。但如果自定义或第三方连接器代码依赖了这一用法，则需要修改。
+  - **迁移指南**：如需检测某个 option 是否缺省或未配置，请使用 `Conditions.notBlank(option)`（针对字符串类型）或在 `OptionRule.Builder` 层面使用 `optional(...)` 来处理缺失情况，而不是将 `null` 作为期望值传入。
+
+- **破坏性变更：`OptionValidationException` 消息格式变为结构化聚合**
+  - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.ConfigValidator`
+  - **变更说明**：`ConfigValidator.validate(OptionRule)` 现在会收集所有结构性错误和值约束错误，一次性抛出包含结构化多行消息的 `OptionValidationException`，而非遇到第一个错误就失败。
+
+  **变更前（快速失败，单条错误）**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('host') are required.
+  ```
+
+  **变更后（聚合、结构化）**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Option validation failed (2 errors):
+    [1] option: 'host'
+        type: required
+        constraint: required option is not configured
+    [2] option: 'port'
+        type: value
+        constraint: 'port' >= 1
+  ```
+  - **影响**：通过子字符串匹配（如 `"are required"`）解析异常消息，或假定单行错误格式的代码需要更新。错误码（`API-02`）和代码前缀与消息体之间的 `" - "` 分隔符保持不变。
+  - **迁移指南**：更新对 `OptionValidationException.getMessage()` 的字符串匹配逻辑以适配新的多行编号格式。可使用 `getRawMessage()` 获取不含 `ErrorCode` 前缀的消息体。
+
 ### 配置变更
 
 ### 连接器变更
+
+- **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
+  - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
+  - **变更说明**：当未显式配置 `iceberg.table.primary-keys` 时，`SchemaUtils.toIcebergSchema()`
+    以前会回退使用 CDC 源表的主键。这会静默地将 `identifier-field-ids` 设置到自动创建的 Iceberg
+    表上，激活等值删除语义，导致 append-only CDC 管道中的 INSERT 数据静默丢失
+    （详见 [#10747](https://github.com/apache/seatunnel/issues/10747)）。该回退行为已被移除。
+  - **影响**：使用 `iceberg.table.upsert-mode-enabled=true` 但未显式配置
+    `iceberg.table.primary-keys` 的任务，启动时将抛出 `IllegalArgumentException` 并快速失败。
+    依赖隐式 PK 继承来实现 upsert 语义的任务，需要显式设置 `iceberg.table.primary-keys`。
+  - **迁移指南**：
+    - **Upsert 模式任务**：在 Iceberg sink 配置中添加
+      `iceberg.table.primary-keys = "<主键列名>"`。
+    - **Append-only CDC 任务**：无需任何操作 — 不配置 `iceberg.table.primary-keys`
+      现在会正确使用纯 append writer，不会产生等值删除文件。
+    - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
+      只有 sink 新建的表会改变行为。
 
 ### 转换变更
 

@@ -26,8 +26,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
@@ -71,7 +70,7 @@ public abstract class AbstractStorage implements Storage {
             // Try to load from hadoop_conf_path(The Bucket configuration is typically in
             // core-site.xml)
             Optional<String> hadoopConfPath =
-                    readonlyConfig.getOptional(HiveConfig.HADOOP_CONF_PATH);
+                    readonlyConfig.getOptional(HiveBaseOptions.HADOOP_CONF_PATH);
             if (hadoopConfPath.isPresent()) {
                 HADOOP_CONF_FILES.forEach(
                         confFile -> {
@@ -88,8 +87,8 @@ public abstract class AbstractStorage implements Storage {
                             }
                         });
             }
-            String hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
-            String hdfsSitePath = readonlyConfig.get(HdfsSourceConfigOptions.HDFS_SITE_PATH);
+            String hiveSitePath = readonlyConfig.get(HiveBaseOptions.HIVE_SITE_PATH);
+            String hdfsSitePath = readonlyConfig.get(HiveBaseOptions.HDFS_SITE_PATH);
             if (StringUtils.isNotBlank(hdfsSitePath)) {
                 configuration.addResource(new File(hdfsSitePath).toURI().toURL());
             }
@@ -99,7 +98,7 @@ public abstract class AbstractStorage implements Storage {
             }
             // Try to load from hadoopConf
             Optional<Map<String, String>> hadoopConf =
-                    readonlyConfig.getOptional(HiveConfig.HADOOP_CONF);
+                    readonlyConfig.getOptional(HiveBaseOptions.HADOOP_CONF);
             if (hadoopConf.isPresent()) {
                 hadoopConf.get().forEach((k, v) -> configuration.set(k, v));
             }

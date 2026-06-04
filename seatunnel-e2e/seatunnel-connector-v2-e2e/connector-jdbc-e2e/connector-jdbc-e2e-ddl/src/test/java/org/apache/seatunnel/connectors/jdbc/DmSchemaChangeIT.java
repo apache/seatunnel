@@ -21,7 +21,10 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import java.time.Duration;
 
 public class DmSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
@@ -70,6 +73,9 @@ public class DmSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .withExposedPorts(DM_PORT)
+                        .waitingFor(Wait.forListeningPort())
+                        .withStartupTimeout(Duration.ofMinutes(5))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", DM_PORT, DM_PORT)));
