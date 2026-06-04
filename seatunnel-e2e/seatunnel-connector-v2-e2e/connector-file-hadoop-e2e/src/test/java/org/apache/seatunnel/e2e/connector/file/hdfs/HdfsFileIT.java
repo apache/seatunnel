@@ -295,6 +295,57 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_non_recursive.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        createHdfsDirectories("/continuous/src/subdir");
+        putHdfsFile("/continuous/src/root.bin", "root");
+        putHdfsFile("/continuous/src/subdir/nested.bin", "nested");
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "root", readHdfsFile("/continuous/dst/root.bin")));
+
+        Thread.sleep(3000);
+        Assertions.assertFalse(isHdfsFileExists("/continuous/dst/subdir/nested.bin"));
+
+        org.testcontainers.containers.Container.ExecResult cancelResult =
+                container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        org.testcontainers.containers.Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
     public void testHdfsBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
@@ -411,6 +462,12 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 nameNode.execInContainer("hdfs", "dfs", "-cat", hdfsPath);
         Assertions.assertEquals(0, catResult.getExitCode());
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
+
+    private boolean isHdfsFileExists(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("hdfs", "dfs", "-test", "-f", hdfsPath);
+        return result.getExitCode() == 0;
     }
 
     private long getHdfsFileMtimeSeconds(String hdfsPath) throws IOException, InterruptedException {

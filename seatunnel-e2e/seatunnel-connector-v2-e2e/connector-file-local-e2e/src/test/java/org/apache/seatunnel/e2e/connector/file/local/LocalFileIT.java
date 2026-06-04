@@ -585,6 +585,58 @@ public class LocalFileIT extends TestSuiteBase {
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_non_recursive.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        putLocalFile("/tmp/seatunnel/continuous/src/root.bin", "root");
+        putLocalFile("/tmp/seatunnel/continuous/src/subdir/nested.bin", "nested");
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "root",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/root.bin")));
+
+        Thread.sleep(3000);
+        Assertions.assertFalse(
+                isLocalFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
                     "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
     public void testLocalFileBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
@@ -734,6 +786,12 @@ public class LocalFileIT extends TestSuiteBase {
                 baseContainer.execInContainer("sh", "-c", "cat '" + filePath + "'");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         return result.getStdout() == null ? "" : result.getStdout().trim();
+    }
+
+    private boolean isLocalFileExists(String filePath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer("sh", "-c", "test -f '" + filePath + "'");
+        return result.getExitCode() == 0;
     }
 
     private long getLocalFileMtimeSeconds(String filePath)

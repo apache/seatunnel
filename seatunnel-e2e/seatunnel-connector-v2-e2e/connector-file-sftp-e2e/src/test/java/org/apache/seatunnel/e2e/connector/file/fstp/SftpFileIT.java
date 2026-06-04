@@ -143,8 +143,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
         ContainerUtil.copyFileIntoContainers(
                 "/text/e2e.txt",
-                        "/home/seatunnel/tmp/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
-                        sftpContainer);
+                "/home/seatunnel/tmp/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
+                sftpContainer);
 
         Container.ExecResult chownResult =
                 sftpContainer.execInContainer(
@@ -357,6 +357,65 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testSftpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        try {
+            String jobId = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/sftp_binary_update_distcp_continuous_non_recursive.conf",
+                                            jobId);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/root.bin", "root");
+            putSftpFile(
+                    SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/subdir/nested.bin",
+                    "nested");
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "root",
+                                            readSftpFile(
+                                                    SFTP_CONTAINER_HOME
+                                                            + "/tmp/seatunnel/continuous/dst/root.bin")));
+
+            Thread.sleep(3000);
+            Assertions.assertFalse(
+                    isSftpFileExists(
+                            SFTP_CONTAINER_HOME
+                                    + "/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            Container.ExecResult execResult;
+            try {
+                execResult = jobFuture.get(120, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException("Wait continuous job exit failed.", e);
+            }
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+        }
+    }
+
+    @TestTemplate
     public void testSftpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
@@ -515,6 +574,13 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 sftpContainer.execInContainer("sh", "-c", "cat '" + containerPath + "'");
         Assertions.assertEquals(0, catResult.getExitCode(), catResult.getStderr());
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
+
+    private boolean isSftpFileExists(String containerPath)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                sftpContainer.execInContainer("sh", "-c", "test -f '" + containerPath + "'");
+        return result.getExitCode() == 0;
     }
 
     private void waitUntilContainerTimeAfter(long epochSeconds) {
