@@ -2617,7 +2617,7 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testContainsKey() {
+    public void testMapContainsKey() {
         OptionRule rule =
                 OptionRule.builder()
                         .required(MAP_OPTION, mapContainsKey(MAP_OPTION, "bootstrap.servers"))
@@ -2641,7 +2641,7 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testContainsKeys() {
+    public void testMapContainsKeys() {
         OptionRule rule =
                 OptionRule.builder()
                         .required(
@@ -2672,7 +2672,7 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void testContainsKeyWithNullValue() {
+    public void testMapContainsKeyWithNullValue() {
         OptionRule rule =
                 OptionRule.builder()
                         .required(MAP_OPTION, mapContainsKey(MAP_OPTION, "token"))
