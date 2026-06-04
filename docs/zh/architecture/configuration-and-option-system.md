@@ -124,6 +124,9 @@ public OptionRule optionRule() {
 | 字符串 | `lowerCase(option)` | 字符串全部小写 |
 | 集合 | `notEmpty(option)` | 集合非空 |
 | 集合 | `unique(option)` | 集合元素无重复 |
+| Map | `mapNotEmpty(option)` | Map 非空 |
+| Map | `mapContainsKey(option, key)` | Map 包含指定 key |
+| Map | `mapContainsKeys(option, key1, key2, ...)` | Map 同时包含所有指定 key |
 | 跨字段 | `lessThanField(option, other)` | 值 < 另一个配置项的值 |
 | 跨字段 | `lessOrEqualField(option, other)` | 值 <= 另一个配置项的值 |
 | 跨字段 | `greaterThanField(option, other)` | 值 > 另一个配置项的值 |
@@ -293,6 +296,26 @@ Option validation failed (4 errors):
 .required(TABLES,
         Conditions.notEmpty(TABLES)
                 .and(Conditions.unique(TABLES)))
+```
+
+### Map 约束
+
+Map 必须非空：
+
+```java
+.required(PROPERTIES, Conditions.mapNotEmpty(PROPERTIES))
+```
+
+Map 必须包含指定 key：
+
+```java
+.required(KAFKA_CONFIG, Conditions.mapContainsKey(KAFKA_CONFIG, "bootstrap.servers"))
+```
+
+Map 必须同时包含多个 key：
+
+```java
+.required(JDBC_PROPS, Conditions.mapContainsKeys(JDBC_PROPS, "url", "driver", "user"))
 ```
 
 ### AND 复合约束
