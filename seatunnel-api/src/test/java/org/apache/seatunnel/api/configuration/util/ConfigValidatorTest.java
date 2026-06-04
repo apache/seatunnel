@@ -43,6 +43,9 @@ import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual
 import static org.apache.seatunnel.api.configuration.util.Conditions.lessThan;
 import static org.apache.seatunnel.api.configuration.util.Conditions.lessThanField;
 import static org.apache.seatunnel.api.configuration.util.Conditions.lowerCase;
+import static org.apache.seatunnel.api.configuration.util.Conditions.mapContainsKey;
+import static org.apache.seatunnel.api.configuration.util.Conditions.mapContainsKeys;
+import static org.apache.seatunnel.api.configuration.util.Conditions.mapNotEmpty;
 import static org.apache.seatunnel.api.configuration.util.Conditions.matches;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.api.configuration.util.Conditions.notEmpty;
@@ -2587,5 +2590,130 @@ public class ConfigValidatorTest {
         Assertions.assertTrue(
                 ex.getMessage().startsWith("ErrorCode:[API-02]"),
                 "unified format should still carry standard ErrorCode prefix");
+    }
+
+    private static final Option<Map<String, String>> MAP_OPTION =
+            Options.key("properties").mapType().noDefaultValue().withDescription("test map option");
+
+    @Test
+    public void testMapNotEmpty() {
+        OptionRule rule =
+                OptionRule.builder().required(MAP_OPTION, mapNotEmpty(MAP_OPTION)).build();
+        Map<String, Object> config = new HashMap<>();
+
+        // empty map -> fail
+        config.put(MAP_OPTION.key(), Collections.emptyMap());
+        String msg =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(msg.contains("properties"));
+        Assertions.assertTrue(msg.contains("is not empty"));
+
+        // non-empty map -> pass
+        Map<String, String> props = new HashMap<>();
+        props.put("k1", "v1");
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testContainsKey() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(MAP_OPTION, mapContainsKey(MAP_OPTION, "bootstrap.servers"))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+
+        // map without required key -> fail
+        Map<String, String> props = new HashMap<>();
+        props.put("group.id", "test-group");
+        config.put(MAP_OPTION.key(), props);
+        String msg =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(msg.contains("properties"));
+        Assertions.assertTrue(msg.contains("contains key"));
+
+        // map with required key -> pass
+        props.put("bootstrap.servers", "localhost:9092");
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testContainsKeys() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                MAP_OPTION, mapContainsKeys(MAP_OPTION, "host", "port", "database"))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+
+        // map missing some keys -> fail
+        Map<String, String> props = new HashMap<>();
+        props.put("host", "localhost");
+        props.put("port", "3306");
+        config.put(MAP_OPTION.key(), props);
+        String msg =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule))
+                        .getMessage();
+        Assertions.assertTrue(msg.contains("properties"));
+        Assertions.assertTrue(msg.contains("contains keys"));
+
+        // map with all required keys -> pass
+        props.put("database", "mydb");
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+
+        // map with extra keys beyond required -> still pass
+        props.put("username", "root");
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testContainsKeyWithNullValue() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(MAP_OPTION, mapContainsKey(MAP_OPTION, "token"))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+
+        // non-map value -> fail
+        config.put(MAP_OPTION.key(), "not-a-map");
+        assertThrows(Exception.class, () -> validate(config, rule));
+
+        // map with the key but null value -> still pass (containsKey only checks key presence)
+        Map<String, String> props = new HashMap<>();
+        props.put("token", null);
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testMapNotEmptyAndContainsKeyCombined() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                MAP_OPTION,
+                                mapNotEmpty(MAP_OPTION)
+                                        .and(mapContainsKey(MAP_OPTION, "bootstrap.servers")))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+
+        // empty map -> fail (mapNotEmpty)
+        config.put(MAP_OPTION.key(), Collections.emptyMap());
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        // non-empty map without required key -> fail (containsKey)
+        Map<String, String> props = new HashMap<>();
+        props.put("group.id", "test");
+        config.put(MAP_OPTION.key(), props);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        // non-empty map with required key -> pass
+        props.put("bootstrap.servers", "localhost:9092");
+        config.put(MAP_OPTION.key(), props);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
     }
 }
