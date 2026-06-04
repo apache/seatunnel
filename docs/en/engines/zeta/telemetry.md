@@ -68,6 +68,24 @@ Example PromQL:
 sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 ```
 
+### Engine State Store Logical Metrics
+
+These metrics expose business-aware logical counts for special engine state stores. They are exported by the active
+master only. The metric names remain backend-neutral, while the current implementation still labels them with
+`backend="hazelcast"`.
+
+| MetricName                                               | Type    | Labels                                      | DESCRIPTION                                                           |
+|----------------------------------------------------------|---------|---------------------------------------------|-----------------------------------------------------------------------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**, state store backend.           | Total task metric contexts currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**, state store backend.           | Active top-level partition buckets currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**, state store backend.           | Job count currently tracked in `engine_checkpoint_monitor`.          |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**, state store backend.       | In-progress checkpoint count currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**, state store backend.     | Retained checkpoint history entries currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_finished_job_records                  | Gauge   | **store**, finished job store name. **backend**, state store backend. | Current record count in finished job stores. |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**, finished job store name. **backend**, state store backend. | Total cleanup events observed from finished job store expiration. |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**, state store backend.           | Current tracked connector jar count in `engine_connectorJarRefCounters`. |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**, state store backend.           | Sum of connector jar reference counts in `engine_connectorJarRefCounters`. |
+
 ### Thread Pool Status
 
 | MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |
