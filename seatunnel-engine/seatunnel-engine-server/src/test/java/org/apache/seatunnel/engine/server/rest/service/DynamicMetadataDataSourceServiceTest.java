@@ -46,7 +46,7 @@ public class DynamicMetadataDataSourceServiceTest {
         assertFalse(service.isSensitiveKey("password"));
     }
 
-    /** 加载yaml配置文件，测试多种key的配置方式，比如： sensitive_keys: - password - token, username */
+    /** Loads YAML config and verifies multiple sensitive key formats. */
     @Test
     public void testSensitiveKeysFromYamlConfig() throws Exception {
         String configPath =
