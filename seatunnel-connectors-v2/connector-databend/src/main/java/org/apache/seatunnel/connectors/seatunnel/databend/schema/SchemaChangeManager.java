@@ -66,20 +66,20 @@ public class SchemaChangeManager implements Serializable {
                         String.format(
                                 "%s/%s", databendSinkConfig.getUrl(), tablePath.getDatabaseName()),
                         databendSinkConfig.toProperties())) {
-            if (event instanceof AlterTableColumnsEvent) {
-                for (AlterTableColumnEvent columnEvent :
-                        ((AlterTableColumnsEvent) event).getEvents()) {
-                    applySchemaChange(connection, tablePath, columnEvent);
-                }
-            } else if (event instanceof AlterTableColumnEvent) {
-                applySchemaChange(connection, tablePath, (AlterTableColumnEvent) event);
-            } else if (event instanceof AlterTableCommentEvent
+            if (event instanceof AlterTableCommentEvent
                     || event instanceof AlterColumnCommentEvent) {
                 // Comment-only changes are not supported by Databend sink, safely ignore
                 log.info(
                         "Ignoring comment change event for table {} - Databend sink does not support comment sync: {}",
                         tablePath.getFullName(),
                         event.getClass().getSimpleName());
+            } else if (event instanceof AlterTableColumnsEvent) {
+                for (AlterTableColumnEvent columnEvent :
+                        ((AlterTableColumnsEvent) event).getEvents()) {
+                    applySchemaChange(connection, tablePath, columnEvent);
+                }
+            } else if (event instanceof AlterTableColumnEvent) {
+                applySchemaChange(connection, tablePath, (AlterTableColumnEvent) event);
             } else {
                 throw new SeaTunnelException(
                         "Unsupported schemaChangeEvent: " + event.getClass().getName());

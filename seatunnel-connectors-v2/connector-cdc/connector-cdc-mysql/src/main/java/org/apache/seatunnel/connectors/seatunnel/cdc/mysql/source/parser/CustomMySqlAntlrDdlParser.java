@@ -46,7 +46,7 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
     public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
-        super(false, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
+        super(true, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }
