@@ -318,6 +318,8 @@ public class PhysicalPlan {
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
             updateStateInfo(current, targetState);
+            reportJobStateEvent(targetState);
+
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -396,7 +398,6 @@ public class PhysicalPlan {
             default:
                 throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
         }
-        reportJobStateEvent(jobStatus);
     }
 
     private void reportJobStateEvent(JobStatus jobStatus) {
