@@ -30,15 +30,18 @@ Write Rows to a Apache RocketMQ topic.
 |----------------------|---------|----------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topic                | string  | yes      | -                        | `RocketMQ topic` name.                                                                                                                                              |
 | name.srv.addr        | string  | yes      | -                        | `RocketMQ` name server cluster address.                                                                                                                             |
-| acl.enabled          | Boolean | no       | false                    | false                                                                                                                                                               |
+| acl.enabled          | Boolean | no       | false                    | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                                                               |
 | access.key           | String  | no       |                          | When ACL_ENABLED is true, access key cannot be empty                                                                                                                |
 | secret.key           | String  | no       |                          | When ACL_ENABLED is true, secret key cannot be empty                                                                                                                |
-| producer.group       | String  | no       | SeaTunnel-producer-Group | SeaTunnel-producer-Group                                                                                                                                            |
+| producer.group       | String  | no       | SeaTunnel-Producer-Group | RocketMQ producer group id.                                                                                                                                            |
 | tag                  | String  | no       | -                        | `RocketMQ` message tag.                                                                                                                                             |
 | partition.key.fields | array   | no       | -                        | -                                                                                                                                                                   |
 | format               | String  | no       | json                     | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field_delimiter" option. |
 | field.delimiter      | String  | no       | ,                        | Customize the field delimiter for data format.                                                                                                                      |
 | producer.send.sync   | Boolean | no       | false                    | If true, the message will be sync sent.                                                                                                                             |
+| exactly.once         | Boolean | no       | false                    | If true, the transaction message will be sent.                                                                                                                      |
+| max.message.size     | int     | no       | 4194304                  | Maximum allowed message body size in bytes.                                                                                                                         |
+| send.message.timeout | int     | no       | 3000                     | Timeout for sending messages in milliseconds.                                                                                                                       |
 | common-options       | config  | no       | -                        | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                        |
 
 ### partition.key.fields [array]
@@ -168,7 +171,6 @@ source {
     batch.size = "400"
     consumer.group = "test_topic_group"
     format = "json"
-    format = json
     schema = {
       fields {
         c_map = "map<string, string>"

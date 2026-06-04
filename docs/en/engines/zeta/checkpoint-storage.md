@@ -64,7 +64,7 @@ seatunnel:
         plugin-config:
           namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: oss
-          oss.bucket: your-bucket
+          oss.bucket: oss://your-bucket
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address

@@ -44,6 +44,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
+| batch_interval_ms                         | Long    | 否    | 0                            |
 | is_exactly_once                           | Boolean | 否    | false                        |
 | generate_sink_sql                         | Boolean | 否    | false                        |
 | xa_data_source_class_name                 | String  | 否    | -                            |
@@ -58,6 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
 | use_copy_statement                        | Boolean | 否    | false                        |
+| oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
@@ -81,6 +83,8 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 ### query [string]
 
 使用 sql 语句将上游输入数据写入到数据库。如 `INSERT ...`
+
+当前限制：当 sink 配置了 `query`（自定义写入 SQL）时，JDBC sink 不会执行 save mode 处理。此模式下 `schema_save_mode`、`data_save_mode`、`custom_sql` 不生效。如需使用 save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。
 
 ### compatible_mode [string]
 
@@ -155,6 +159,10 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
 
+### batch_interval_ms [long]
+
+刷新间隔（毫秒）。当设置值大于 0 时，若距上次 flush 的时间超过该间隔，下一次 `writeRecord` 调用将同步触发 flush，即使尚未达到 `batch_size`。默认值为 `0`（禁用）。此为**写入触发**的时间检查，而非后台定时器——若无新记录到达（空闲分区），不会触发基于时间的 flush；缓冲数据将在下一次 `prepareCommit`（checkpoint）或 `close` 时刷出。注意：当 `auto_commit = false` 时，已 flush 的数据在下次 commit（如 checkpoint）之前对其他事务不可见。
+
 ### is_exactly_once [boolean]
 
 是否启用通过XA事务实现的精确一次语义。开启，你还需要设置 `xa_data_source_class_name`
@@ -214,6 +222,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 
 当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行
 
+注意：在 sink 的 `query` 模式下，`custom_sql` 不会执行。这是 JDBC sink 的当前限制。
+
 ### enable_upsert [boolean]
 
 启用通过主键更新插入，如果任务没有key重复数据，设置该参数为 false 可以加快数据导入速度
@@ -224,6 +234,18 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 驱动程序 `org.postgresql.Driver`
 
 注意：不支持 `MAP`、`ARRAY`、`ROW`类型
+
+### oracle_insert_mode [Enum]
+
+Oracle 插入模式。默认值为 `CONVENTIONAL`，保持现有 JDBC insert 行为。
+
+设置为 `APPEND_VALUES` 时，SeaTunnel 会为自动生成的 Oracle insert SQL 添加 `APPEND_VALUES` hint：
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
 
 ### access_key_id [String]
 AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"

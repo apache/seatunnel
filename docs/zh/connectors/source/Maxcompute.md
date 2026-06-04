@@ -20,11 +20,13 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 | 名称           |  类型  | 必需 | 默认值 |
 |----------------|--------|----|---------------|
-| accessId       | string | 是  | -             |
-| accesskey      | string | 是  | -             |
+| accessId       | string | 否  | -             |
+| accesskey      | string | 否  | -             |
+| sts_token      | string | 否  | -             |
 | endpoint       | string | 是  | -             |
 | project        | string | 是  | -             |
 | table_name     | string | 是  | -             |
+| schema_name    | string | 否  | -             |
 | partition_spec | string | 否  | -             |
 | split_row      | int    | 否 | 10000         |
 | read_columns   | Array  | 否 | -             |
@@ -34,11 +36,18 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### accessId [string]
 
-`accessId` 您的 Maxcompute 密钥 Id, 可以从阿里云访问哪个云.
+`accessId` 您的 Maxcompute 密钥 Id.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute 密钥, 可以从阿里云访问哪个云.
+`accesskey` 您的 Maxcompute 密钥.
+
+### sts_token [string]
+
+`sts_token` 您的 MaxCompute STS Token，用于临时认证。 **注意：** 如果提供了 `sts_token`，则必须同时提供 `accessId` 和 `accesskey`。
+
+> **免密认证 (ECS RAM Role, 环境变量等)**
+> 要使用免密认证，只需将 `accessId`、`accesskey` 和 `sts_token` 全部留空不填。连接器将自动回退到阿里云默认凭据链 (DefaultCredentialsProvider) 读取凭证（包括环境变量、系统属性、CLI 配置文件、OIDC 以及 ECS RAM 角色）。
 
 ### endpoint [string]
 
@@ -55,6 +64,16 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ### partition_spec [string]
 
 `partition_spec` Maxcompute分区表的此规范，例如:ds='20220101'.
+
+### schema_name [string]
+
+`schema_name` MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。
+仅当表位于 MaxCompute 项目的**非默认 Schema** 时才需要设置。
+参见 [Schema 相关操作](https://help.aliyun.com/zh/maxcompute/user-guide/schema-related-operations)。
+
+使用 `table_list` 时，每个条目可以单独指定 `schema_name`，会覆盖顶层的值。
+
+默认值：不设置（使用项目默认 Schema）。
 
 ### split_row [int]
 

@@ -140,7 +140,7 @@ public class ClientJobProxy implements Job {
     public void cancelJob() {
         PassiveCompletableFuture<Void> cancelFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-                        SeaTunnelCancelJobCodec.encodeRequest(jobId));
+                        SeaTunnelCancelJobCodec.encodeRequest(jobId, false));
 
         cancelFuture.join();
     }

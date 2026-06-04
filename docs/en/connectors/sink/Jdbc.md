@@ -46,6 +46,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
+| batch_interval_ms                         | Long    | No       | 0                            |
 | is_exactly_once                           | Boolean | No       | false                        |
 | generate_sink_sql                         | Boolean | No       | false                        |
 | xa_data_source_class_name                 | String  | No       | -                            |
@@ -60,6 +61,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
@@ -84,6 +86,8 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 ### query [string]
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
+
+Current limitation: when sink `query` is configured (custom write SQL), JDBC sink does not apply save mode handling. `schema_save_mode`, `data_save_mode`, and `custom_sql` are not executed in this mode. If you need save mode handling, use `generate_sink_sql = true` with `database` and `table`.
 
 ### compatible_mode [string]
 
@@ -157,6 +161,10 @@ The number of retries to submit failed (executeBatch)
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
+### batch_interval_ms [long]
+
+The flush interval in milliseconds. When set to a value greater than 0, if the elapsed time since the last flush exceeds this interval, the next `writeRecord` call will trigger a synchronous flush, even if `batch_size` has not been reached. Default value is `0` (disabled). This is a **write-triggered** time check, not a background timer — if no new records arrive (idle partition), no time-based flush occurs; buffered data is flushed at the next `prepareCommit` (checkpoint) or `close`. Note that when `auto_commit = false`, flushed rows are not visible to other transactions until the next commit (e.g. at checkpoint).
+
 ### is_exactly_once [boolean]
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
@@ -220,6 +228,8 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
+Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
+
 ### enable_upsert [boolean]
 
 Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
@@ -229,6 +239,18 @@ Enable upsert by primary_keys exist, If the task has no key duplicate data, sett
 Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
+
+### oracle_insert_mode [Enum]
+
+Oracle insert mode. The default value is `CONVENTIONAL`, which keeps the existing JDBC insert behavior.
+
+When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to generated insert SQL:
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
 
 ### create_index [boolean]
 
@@ -514,4 +536,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

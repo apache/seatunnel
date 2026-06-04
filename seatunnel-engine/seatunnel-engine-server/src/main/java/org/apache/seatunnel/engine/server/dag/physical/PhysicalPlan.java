@@ -221,14 +221,59 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
+    public void stopJob() {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
+            log.warn("{} is in end state {}, can not be stop", jobFullName, jobStatus);
+            return;
+        }
+
+        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
+            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
+            // the 'CANCELLED' state because it has not yet started running
+            updateJobState(JobStatus.CANCELED);
+            completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
+        } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
+            this.pipelineList.forEach(SubPlan::stopPipelineWithCheckpointFallback);
+        } else {
+            updateJobState(JobStatus.CANCELING);
+            this.pipelineList.forEach(SubPlan::forceStopPipeline);
+        }
+    }
+
     public List<SubPlan> getPipelineList() {
         return pipelineList;
+    }
+
+    private void updateStateInfo(JobStatus current, JobStatus targetState) throws Exception {
+        RetryUtils.retryWithException(
+                () -> {
+                    updateStateTimestamps(targetState);
+                    if (runningJobStateIMap.get(jobId) != null) {
+                        runningJobStateIMap.set(jobId, targetState);
+                    }
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        ExceptionUtil::isOperationNeedRetryException,
+                        Constant.OPERATION_RETRY_SLEEP));
+        log.info(
+                String.format("%s turned from state %s to %s.", jobFullName, current, targetState));
     }
 
     private void updateStateTimestamps(@NonNull JobStatus targetState) {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    jobFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
     }
@@ -244,6 +289,13 @@ public class PhysicalPlan {
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
+            if (current == null) {
+                log.warn(
+                        "{} current state is null, skip transition to {}",
+                        jobFullName,
+                        targetState);
+                return;
+            }
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
 
@@ -261,20 +313,7 @@ public class PhysicalPlan {
 
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
-            RetryUtils.retryWithException(
-                    () -> {
-                        updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(jobId, targetState);
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            ExceptionUtil::isOperationNeedRetryException,
-                            Constant.OPERATION_RETRY_SLEEP));
-            log.info(
-                    String.format(
-                            "%s turned from state %s to %s.", jobFullName, current, targetState));
+            updateStateInfo(current, targetState);
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));

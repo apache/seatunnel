@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.HdfsFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.HdfsFileSourceFactory;
 
@@ -27,7 +29,14 @@ class HdfsFileFactoryTest {
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new HdfsFileSourceFactory()).optionRule());
+        OptionRule optionRule = (new HdfsFileSourceFactory()).optionRule();
+        Assertions.assertNotNull(optionRule);
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.DISCOVERY_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
         Assertions.assertNotNull((new HdfsFileSinkFactory()).optionRule());
     }
 }

@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -48,8 +48,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("dw", "tmp_1");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "ods.tmp_\\d+");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "ods.tmp_\\d+");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         List<TablePath> result = HiveSourceTableDiscovery.discoverTablePaths(config, catalog);
@@ -67,8 +67,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("ods_backup", "t3");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "ods.\\.*");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "ods.\\.*");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         List<TablePath> result = HiveSourceTableDiscovery.discoverTablePaths(config, catalog);
@@ -85,8 +85,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("abc", "t3");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "a.\\.*");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "a.\\.*");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         List<TablePath> result = HiveSourceTableDiscovery.discoverTablePaths(config, catalog);
@@ -103,8 +103,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("b", "t3");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "\\.*.\\.*");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "\\.*.\\.*");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         List<TablePath> result = HiveSourceTableDiscovery.discoverTablePaths(config, catalog);
@@ -121,8 +121,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("ods", "tmp_2");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "ods.tmp_.*");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "ods.tmp_.*");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         Assertions.assertThrows(
@@ -138,8 +138,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("ods", "t1");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "ods.tmp_\\.*");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "ods.tmp_\\.*");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         List<TablePath> result = HiveSourceTableDiscovery.discoverTablePaths(config, catalog);
@@ -154,7 +154,7 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("ods", "t1");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         Assertions.assertThrows(
@@ -168,8 +168,8 @@ class HiveSourceTableDiscoveryTest {
         catalog.addTable("ods", "tmp_1");
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.USE_REGEX.key(), true);
-        configMap.put(HiveOptions.TABLE_NAME.key(), "tmp_\\d+");
+        configMap.put(HiveSourceOptions.USE_REGEX.key(), true);
+        configMap.put(HiveSourceOptions.TABLE_NAME.key(), "tmp_\\d+");
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         Assertions.assertThrows(

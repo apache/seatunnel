@@ -99,6 +99,11 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+        - name: force
+          type: boolean
+          nullable: false
+          since: 2.0
+          doc: ''
     response: {}
 
   - id: 5

@@ -19,18 +19,25 @@ package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+/** Blocking-queue implementation that records queue-stage stain trace entries on buffered rows. */
 public class IntermediateBlockingQueue extends AbstractIntermediateQueue<BlockingQueue<Record<?>>> {
 
     private final Counter intermediateQueueSize;
+    private volatile Counter stainTraceEntriesTruncatedTotal;
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public IntermediateBlockingQueue(
             BlockingQueue<Record<?>> queue, Counter intermediateQueueSize) {
@@ -41,7 +48,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
     @Override
     public void received(Record<?> record) {
         try {
-            handleRecord(record, getIntermediateQueue()::put);
+            handleRecord(record, getIntermediateQueue()::put, StainTraceStage.QUEUE_IN);
             intermediateQueueSize.inc();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -53,7 +60,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         while (true) {
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
             if (record != null) {
-                handleRecord(record, collector::collect);
+                handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
                 intermediateQueueSize.dec();
             } else {
                 break;
@@ -68,6 +75,12 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer)
             throws Exception {
+        handleRecord(record, consumer, null);
+    }
+
+    private void handleRecord(
+            Record<?> record, ConsumerWithException<Record<?>> consumer, StainTraceStage stage)
+            throws Exception {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             getRunningTask().ack(barrier);
@@ -79,7 +92,50 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
                 return;
             }
+            if (stage != null && record.getData() instanceof SeaTunnelRow) {
+                SeaTunnelRow row = (SeaTunnelRow) record.getData();
+                if (StainTraceUtils.hasPayload(row)) {
+                    StainTraceUtils.appendIfPresent(
+                            row,
+                            stage,
+                            getRunningTask().getTaskID(),
+                            System.currentTimeMillis(),
+                            getStainTraceMaxEntriesPerTrace(),
+                            getStainTraceEntriesTruncatedTotal());
+                }
+            }
             consumer.accept(record);
         }
+    }
+
+    private Counter getStainTraceEntriesTruncatedTotal() {
+        if (stainTraceEntriesTruncatedTotal == null) {
+            synchronized (this) {
+                if (stainTraceEntriesTruncatedTotal == null) {
+                    stainTraceEntriesTruncatedTotal =
+                            getRunningTask()
+                                    .getMetricsContext()
+                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    private int getStainTraceMaxEntriesPerTrace() {
+        if (stainTraceMaxEntriesPerTrace < 0) {
+            synchronized (this) {
+                if (stainTraceMaxEntriesPerTrace < 0) {
+                    stainTraceMaxEntriesPerTrace =
+                            getRunningTask()
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .getStainTraceMaxEntriesPerTrace();
+                }
+            }
+        }
+        return stainTraceMaxEntriesPerTrace;
     }
 }

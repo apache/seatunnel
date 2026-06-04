@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
@@ -73,6 +72,7 @@ public class KafkaSourceSplitEnumerator
     private volatile boolean initialized;
     private final Object lock = new Object();
     private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
+    private final Set<TopicPartition> restoringSplits = new HashSet<>();
 
     private boolean isStreamingMode;
     private final boolean isRestored;
@@ -92,21 +92,6 @@ public class KafkaSourceSplitEnumerator
         this.discoveryIntervalMillis = kafkaSourceConfig.getDiscoveryIntervalMillis();
         this.isStreamingMode = isStreamingMode;
         this.isRestored = isRestored;
-
-        if (this.isRestored) {
-            log.info("Task is being restored, forcing start mode to GROUP_OFFSETS for all topics");
-            this.tablePathMetadataMap.forEach(
-                    (tablePath, metadata) -> {
-                        StartMode originalMode = metadata.getStartMode();
-                        if (originalMode != StartMode.GROUP_OFFSETS) {
-                            log.info(
-                                    "Changing start mode from {} to GROUP_OFFSETS for table path: {}",
-                                    originalMode,
-                                    tablePath);
-                            metadata.setStartMode(StartMode.GROUP_OFFSETS);
-                        }
-                    });
-        }
     }
 
     @VisibleForTesting
@@ -115,14 +100,27 @@ public class KafkaSourceSplitEnumerator
             KafkaSourceConfig kafkaSourceConfig,
             Map<TopicPartition, KafkaSourceSplit> pendingSplit,
             Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
-        this.tablePathMetadataMap = new HashMap<>();
+        this(adminClient, kafkaSourceConfig, pendingSplit, assignedSplit, false, false);
+    }
+
+    @VisibleForTesting
+    public KafkaSourceSplitEnumerator(
+            AdminClient adminClient,
+            KafkaSourceConfig kafkaSourceConfig,
+            Map<TopicPartition, KafkaSourceSplit> pendingSplit,
+            Map<TopicPartition, KafkaSourceSplit> assignedSplit,
+            boolean isStreamingMode,
+            boolean isRestored) {
+        this.tablePathMetadataMap =
+                kafkaSourceConfig == null ? new HashMap<>() : kafkaSourceConfig.getMapMetadata();
         this.context = null;
         this.discoveryIntervalMillis = -1;
         this.adminClient = adminClient;
         this.kafkaSourceConfig = kafkaSourceConfig;
         this.pendingSplit = pendingSplit;
         this.assignedSplit = assignedSplit;
-        this.isRestored = false;
+        this.isStreamingMode = isStreamingMode;
+        this.isRestored = isRestored;
     }
 
     @VisibleForTesting
@@ -131,8 +129,7 @@ public class KafkaSourceSplitEnumerator
             Map<TopicPartition, KafkaSourceSplit> pendingSplit,
             Map<TopicPartition, KafkaSourceSplit> assignedSplit,
             boolean isStreamingMode) {
-        this(adminClient, null, pendingSplit, assignedSplit);
-        this.isStreamingMode = isStreamingMode;
+        this(adminClient, null, pendingSplit, assignedSplit, isStreamingMode, false);
     }
 
     @Override
@@ -172,6 +169,7 @@ public class KafkaSourceSplitEnumerator
         }
         synchronized (lock) {
             assignSplit();
+            restoringSplits.clear();
         }
         if (!initialized) {
             initialized = true;
@@ -179,7 +177,13 @@ public class KafkaSourceSplitEnumerator
     }
 
     private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
-        Set<TopicPartition> pendingTopicPartitions = pendingSplit.keySet();
+        Set<TopicPartition> pendingTopicPartitions =
+                pendingSplit.keySet().stream()
+                        .filter(tp -> !restoringSplits.contains(tp))
+                        .collect(Collectors.toSet());
+        if (pendingTopicPartitions.isEmpty()) {
+            return;
+        }
         Map<TopicPartition, Long> topicPartitionOffsets = new HashMap<>();
         Map<TopicPartition, Long> topicPartitionEndOffsets = new HashMap<>();
         // Set kafka TopicPartition based on the topicPath granularity
@@ -194,10 +198,7 @@ public class KafkaSourceSplitEnumerator
             ConsumerMetadata metadata = tablePathMetadataMap.get(tablePath);
             Set<TopicPartition> topicPartitions = tablePathPartitionMap.get(tablePath);
 
-            StartMode effectiveStartMode =
-                    isRestored ? StartMode.GROUP_OFFSETS : metadata.getStartMode();
-
-            switch (effectiveStartMode) {
+            switch (metadata.getStartMode()) {
                 case EARLIEST:
                     topicPartitionOffsets.putAll(
                             listOffsets(topicPartitions, OffsetSpec.earliest()));
@@ -265,6 +266,18 @@ public class KafkaSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
+            if (isRestored && !initialized) {
+                Map<TopicPartition, KafkaSourceSplit> restoredSplits =
+                        splits.stream()
+                                .map(KafkaSourceSplit::copy)
+                                .collect(
+                                        Collectors.toMap(
+                                                KafkaSourceSplit::getTopicPartition,
+                                                split -> split));
+                restoringSplits.addAll(restoredSplits.keySet());
+                pendingSplit.putAll(restoredSplits);
+                return;
+            }
             Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
             // remove them from the assignedSplit, so we can reassign them
             nextSplit.keySet().forEach(assignedSplit::remove);
@@ -282,15 +295,16 @@ public class KafkaSourceSplitEnumerator
                                     .filter(Objects::nonNull)
                                     .collect(Collectors.toList()),
                             OffsetSpec.latest());
-            splits.forEach(
-                    split -> {
-                        split.setStartOffset(split.getEndOffset() + 1);
-                        split.setEndOffset(
-                                isStreamingMode
-                                        ? Long.MAX_VALUE
-                                        : latestOffsets.get(split.getTopicPartition()));
-                    });
             return splits.stream()
+                    .map(KafkaSourceSplit::copy)
+                    .peek(
+                            split -> {
+                                split.setStartOffset(split.getEndOffset() + 1);
+                                split.setEndOffset(
+                                        isStreamingMode
+                                                ? Long.MAX_VALUE
+                                                : latestOffsets.get(split.getTopicPartition()));
+                            })
                     .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, split -> split));
         } catch (Exception e) {
             throw new KafkaConnectorException(

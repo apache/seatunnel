@@ -75,6 +75,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private boolean noMoreElementFlag = true;
     private Optional<PageInfo> pageInfoOptional = Optional.empty();
+    private final boolean binaryMode;
+    private final long binaryChunkSize;
     /**
      * Holds the original request body template for placeholder replacement. This ensures that the
      * state is not unintentionally mutated during pagination.
@@ -87,12 +89,15 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             JsonField jsonField,
             String contentJson) {
-        this.context = context;
-        this.httpParameter = httpParameter;
-        this.deserializationCollector = new DeserializationCollector(deserializationSchema);
-        this.jsonField = jsonField;
-        this.contentJson = contentJson;
-        this.rawBody = httpParameter.getBody();
+        this(
+                httpParameter,
+                context,
+                deserializationSchema,
+                jsonField,
+                contentJson,
+                null,
+                false,
+                0L);
     }
 
     public HttpSourceReader(
@@ -102,6 +107,26 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             JsonField jsonField,
             String contentJson,
             PageInfo pageInfo) {
+        this(
+                httpParameter,
+                context,
+                deserializationSchema,
+                jsonField,
+                contentJson,
+                pageInfo,
+                false,
+                0L);
+    }
+
+    public HttpSourceReader(
+            HttpParameter httpParameter,
+            SingleSplitReaderContext context,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            JsonField jsonField,
+            String contentJson,
+            PageInfo pageInfo,
+            boolean binaryMode,
+            long binaryChunkSize) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
@@ -109,6 +134,15 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.contentJson = contentJson;
         this.pageInfoOptional = Optional.ofNullable(pageInfo);
         this.rawBody = httpParameter.getBody();
+        this.binaryMode = binaryMode;
+        this.binaryChunkSize = binaryChunkSize;
+
+        if (binaryMode && pageInfo != null) {
+            throw new HttpConnectorException(
+                    HttpConnectorErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Binary mode does not support pagination. "
+                            + "Please remove pagination configuration or use text mode.");
+        }
     }
 
     @Override
@@ -124,6 +158,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
+        if (binaryMode) {
+            pollAndCollectBinaryData(output);
+            return;
+        }
         HttpResponse response = executeRequest();
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
@@ -151,6 +189,36 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                             response.getCode(), response.getContent());
             throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, msg);
         }
+    }
+
+    private void pollAndCollectBinaryData(Collector<SeaTunnelRow> output) throws Exception {
+        int statusCode =
+                httpClient.executeBinaryStreaming(
+                        this.httpParameter.getUrl(),
+                        this.httpParameter.getMethod().getMethod(),
+                        this.httpParameter.getHeaders(),
+                        this.httpParameter.getParams(),
+                        this.httpParameter.getBody(),
+                        this.httpParameter.isKeepParamsAsForm(),
+                        binaryChunkSize,
+                        httpParameter.getUrl(),
+                        row -> output.collect(new SeaTunnelRow(row)));
+        if (statusCode >= 200 && statusCode <= 207) {
+            noMoreElementFlag = true;
+        } else {
+            String msg = String.format("http binary request failed, status code:[%s]", statusCode);
+            throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, msg);
+        }
+    }
+
+    protected HttpResponse executeBinaryRequest() throws Exception {
+        return httpClient.executeBinary(
+                this.httpParameter.getUrl(),
+                this.httpParameter.getMethod().getMethod(),
+                this.httpParameter.getHeaders(),
+                this.httpParameter.getParams(),
+                this.httpParameter.getBody(),
+                this.httpParameter.isKeepParamsAsForm());
     }
 
     protected HttpResponse executeRequest() throws Exception {

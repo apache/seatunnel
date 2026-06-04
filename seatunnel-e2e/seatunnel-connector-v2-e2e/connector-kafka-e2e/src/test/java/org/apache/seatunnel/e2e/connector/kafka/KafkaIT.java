@@ -61,6 +61,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -110,6 +111,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -170,13 +172,49 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new NewTopic("test_topic_source_skip_partition", 2, (short) 1);
             testTopicSourceSkipPartition.configs(Collections.singletonMap("retention.ms", "-1"));
 
+            NewTopic kafkaExactlyOnceSource =
+                    new NewTopic("kafka_topic_exactly_once_1", 1, (short) 1);
+            kafkaExactlyOnceSource.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic kafkaExactlyOnceSink =
+                    new NewTopic("kafka_topic_exactly_once_2", 1, (short) 1);
+            kafkaExactlyOnceSink.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic kafkaExactlyOnceBatchSource =
+                    new NewTopic("kafka_topic_exactly_batch_once_1", 1, (short) 1);
+            kafkaExactlyOnceBatchSource.configs(Collections.singletonMap("retention.ms", "-1"));
+
+            NewTopic kafkaExactlyOnceBatchSink =
+                    new NewTopic("kafka_topic_exactly_batch_once_2", 1, (short) 1);
+            kafkaExactlyOnceBatchSink.configs(Collections.singletonMap("retention.ms", "-1"));
+
             List<NewTopic> topics =
                     Arrays.asList(
                             testTopicSource,
                             testTopicNativeSource,
                             testTopicSourceWithTimestamp,
-                            testTopicSourceSkipPartition);
-            adminClient.createTopics(topics);
+                            testTopicSourceSkipPartition,
+                            kafkaExactlyOnceSource,
+                            kafkaExactlyOnceSink,
+                            kafkaExactlyOnceBatchSource,
+                            kafkaExactlyOnceBatchSink);
+            adminClient.createTopics(topics).all().get(60, SECONDS);
+
+            List<String> topicNames =
+                    topics.stream().map(NewTopic::name).collect(Collectors.toList());
+            given().ignoreExceptions()
+                    .atLeast(100, TimeUnit.MILLISECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .atMost(60, SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Map<String, TopicDescription> desc =
+                                        adminClient
+                                                .describeTopics(topicNames)
+                                                .allTopicNames()
+                                                .get(30, SECONDS);
+                                Assertions.assertEquals(topicNames.size(), desc.size());
+                            });
         }
 
         log.info("Write 100 records to topic test_topic_source");
@@ -595,8 +633,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // Wait for job to start and process initial data
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        // Wait for job to be RUNNING before changing partitions.
+        awaitJobRunning(container, jobId);
 
         try (AdminClient adminClient = createKafkaAdmin()) {
             Map<String, NewPartitions> newPartitions = new HashMap<>();
@@ -605,7 +643,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             log.info("Successfully created new partition for topic: {}", sourceTopic);
         }
 
-        Awaitility.await().pollDelay(3, SECONDS).atMost(30, SECONDS).until(() -> true);
+        Awaitility.await()
+                .pollInterval(1, SECONDS)
+                .atMost(30, SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (AdminClient adminClient = createKafkaAdmin()) {
+                                Map<String, TopicDescription> topicDescriptions =
+                                        adminClient
+                                                .describeTopics(Arrays.asList(sourceTopic))
+                                                .allTopicNames()
+                                                .get();
+                                Assertions.assertTrue(
+                                        topicDescriptions.get(sourceTopic).partitions().size()
+                                                >= 2);
+                            }
+                        });
 
         for (int i = 0; i < 15; i++) {
             String message =
@@ -681,8 +734,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // Warm up (simple delay).
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 additional records after the job starts.
         for (int i = 0; i < 10; i++) {
@@ -722,6 +774,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 srcEndAfterAll == srcEndBeforeStart + 25,
                 "Final end offset should advance by at least 25");
 
+        // Deliberately move the consumer-group offset past the savepoint position.
+        // Restore must still use the checkpointed split offsets instead of the external group
+        // offset, otherwise the 15 post-savepoint records will be skipped.
+        commitOffset(sourceTopic, "test_restore_group", srcEndAfterAll);
+
         // Restore the job from the savepoint asynchronously.
         CompletableFuture.runAsync(
                 () -> {
@@ -736,7 +793,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         // After restore, sink should advance by the 15 newly produced records at
         // minimum.
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -776,7 +832,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start; latest mode should consume only these 10
         // initially.
@@ -823,7 +879,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -862,7 +917,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
@@ -910,7 +965,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -950,7 +1004,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
@@ -999,10 +1053,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
+    }
+
+    private void awaitJobRunning(TestContainer container, String jobId) {
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(1, MINUTES)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
     }
 
     /**
@@ -1077,6 +1138,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             consumer.commitSync();
         } finally {
             consumer.close();
+        }
+    }
+
+    public void commitOffset(String topic, String groupId, long offset) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+        TopicPartition tp0 = new TopicPartition(topic, 0);
+        try (KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(props)) {
+            consumer.assign(Collections.singletonList(tp0));
+            consumer.commitSync(Collections.singletonMap(tp0, new OffsetAndMetadata(offset)));
         }
     }
 
@@ -1504,6 +1584,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String consumerTopic = "kafka_topic_exactly_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
         final String jobId = "18696753645413";
+        long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
                     new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
@@ -1528,12 +1609,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceData)));
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
 
         // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
 
         String sourceDataRestore = "Seatunnel Exactly Once Example Restore";
+        long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -1559,7 +1643,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(consumerTopic, 10, sourceDataRestore)));
+                                        checkData(
+                                                consumerTopic,
+                                                restoreStartOffset,
+                                                10,
+                                                sourceDataRestore)));
     }
 
     @TestTemplate
@@ -1571,6 +1659,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String producerTopic = "kafka_topic_exactly_once_1";
         String consumerTopic = "kafka_topic_exactly_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
+        long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
                     new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
@@ -1595,7 +1684,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceData)));
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
     }
 
     @TestTemplate
@@ -1604,6 +1695,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String producerTopic = "kafka_topic_exactly_batch_once_1";
         String consumerTopic = "kafka_topic_exactly_batch_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
+        long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
                     new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
@@ -1622,20 +1714,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
             Assertions.assertEquals(0, execResult.getExitCode());
             // wait for data written to kafka
-            Assertions.assertTrue(checkData(consumerTopic, endOffset, sourceData));
+            Assertions.assertTrue(checkData(consumerTopic, sinkStartOffset, endOffset, sourceData));
         } finally {
             closeKafkaConsumer(consumer);
         }
     }
 
     // Compare the values of data fields obtained from consumers
-    private boolean checkData(String topicName, long endOffset, String data) {
-        List<String> listData = getKafkaConsumerListData(topicName, endOffset);
-        if (listData.isEmpty() || listData.size() != endOffset) {
+    private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
+        List<String> listData = getKafkaConsumerListData(topicName, startOffset, expectedCount);
+        if (listData.isEmpty() || listData.size() != expectedCount) {
             log.error(
-                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},get end offset {}",
+                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},start offset {},expected count {}",
                     listData.size(),
-                    endOffset);
+                    startOffset,
+                    expectedCount);
             return false;
         }
         for (String value : listData) {
@@ -2152,26 +2245,36 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private List<String> getKafkaConsumerListData(String topicName, long endOffset) {
+    private List<String> getKafkaConsumerListData(
+            String topicName, long startOffset, long expectedCount) {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
-            consumer = new KafkaConsumer<>(kafkaConsumerConfig());
-            consumer.subscribe(Arrays.asList(topicName));
-            Long lastProcessedOffset = -1L;
+            consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
+            TopicPartition topicPartition = new TopicPartition(topicName, 0);
+            consumer.assign(Collections.singletonList(topicPartition));
+            consumer.seek(topicPartition, startOffset);
+            long targetOffsetExclusive = startOffset + expectedCount;
+            Long lastProcessedOffset = startOffset - 1;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
+                    if (record.offset() >= startOffset && record.offset() < targetOffsetExclusive) {
                         data.add(record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }
-            } while (lastProcessedOffset < endOffset - 1);
+            } while (lastProcessedOffset < targetOffsetExclusive - 1);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
         }
+    }
+
+    private Properties kafkaManualConsumerConfig() {
+        Properties props = kafkaConsumerConfig();
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        return props;
     }
 
     private void closeKafkaConsumer(KafkaConsumer<String, String> consumer) {

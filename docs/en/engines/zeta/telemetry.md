@@ -21,11 +21,9 @@ seatunnel:
 
 ## Metrics
 
-The [metric text of prometheus](./telemetry/metrics.txt),which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
+The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The [metric text of openMetrics](./telemetry/openmetrics.txt),which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 
@@ -50,6 +48,25 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_partition_activePartition       | Gauge | -                                                                                                                                  | The activePartition of seatunnel cluster node                           |
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
+
+### Engine State Store Metrics
+
+These metrics expose the basic size and local resource usage of Zeta engine state stores. The current backend is
+Hazelcast IMap, so the `backend` label value is `hazelcast`. Local metrics are emitted by each node with the
+`address` label. To monitor the total entry count of an engine state store, aggregate
+`engine_state_store_local_owned_entries` in Prometheus.
+
+| MetricName                                      | Type  | Labels                                                                      | DESCRIPTION                                                                 |
+|-------------------------------------------------|-------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| engine_state_store_local_owned_entries          | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local owned entries of an engine state store on this node.                  |
+| engine_state_store_local_backup_entries         | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local backup entries of an engine state store on this node.                 |
+| engine_state_store_local_heap_cost_bytes        | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local heap cost in bytes when the backend exposes it.                       |
+
+Example PromQL:
+
+```promql
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+```
 
 ### Thread Pool Status
 
@@ -147,6 +164,6 @@ the [Installation](https://grafana.com/docs/grafana/latest/setup-grafana/install
 ### Monitoring Dashboard
 
 - Add Prometheus DataSource on Grafana.
-  - Import `Seatunnel Cluster` monitoring dashboard by [Dashboard JSON](./telemetry/grafana-dashboard.json) into Grafana.
+  - Import the `Seatunnel Cluster` monitoring dashboard JSON into Grafana.
 
-The [effect image](../../images/grafana.png) of the dashboard
+The [effect image](../../../images/grafana.png) of the dashboard
