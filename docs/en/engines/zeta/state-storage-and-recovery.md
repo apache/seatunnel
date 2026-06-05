@@ -378,4 +378,3 @@ Before deleting any state directory:
 
 - [Checkpoint Storage Configuration](checkpoint-storage.md)
 - [REST API v2](rest-api-v2.md) — query job state and metrics via API
-- [CDC Production Cookbook](../../connectors/cdc-production-cookbook.md)

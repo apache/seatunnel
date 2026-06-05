@@ -366,4 +366,3 @@ hazelcast.fs.compaction-threshold: 500
 
 - [Checkpoint 存储配置](checkpoint-storage.md)
 - [REST API v2](rest-api-v2.md) — 通过 API 查询作业状态和指标
-- [CDC 生产实战手册](../../connectors/cdc-production-cookbook.md)
