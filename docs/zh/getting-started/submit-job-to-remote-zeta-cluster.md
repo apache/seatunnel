@@ -40,7 +40,7 @@ Zeta 集群内部默认端口为 **5801**，与 REST API 端口（8080）不同�
 对于 CI/CD 流水线和脚本，推荐使用 REST API 提交：
 
 ```bash
-curl -X POST http://192.168.1.100:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://192.168.1.100:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -63,7 +63,7 @@ docker run -d --name seatunnel \
 ### 3.2 从容器外部提交作业
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": { "job.name": "test", "job.mode": "BATCH" },
@@ -135,7 +135,7 @@ docker-compose up -d
 向 master 提交作业：
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -170,7 +170,7 @@ kubectl port-forward -n seatunnel \
 在另一个终端提交作业：
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -184,7 +184,7 @@ curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
 kubectl get svc -n seatunnel seatunnel-master-rest
 
 # 使用节点 IP 和节点端口提交
-curl -X POST http://<node-ip>:<node-port>/hazelcast/rest/maps/submit-job \
+curl -X POST http://<node-ip>:<node-port>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -195,7 +195,7 @@ curl -X POST http://<node-ip>:<node-port>/hazelcast/rest/maps/submit-job \
 LB_IP=$(kubectl get svc -n seatunnel seatunnel-master-rest \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-curl -X POST http://${LB_IP}:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://${LB_IP}:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -280,7 +280,7 @@ kubectl get svc -n seatunnel seatunnel-master \
 export ST_HOST=$(kubectl get svc -n seatunnel seatunnel-master \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
-curl -X POST http://${ST_HOST}:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://${ST_HOST}:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```

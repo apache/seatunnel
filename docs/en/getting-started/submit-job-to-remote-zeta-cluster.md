@@ -42,7 +42,7 @@ communicates with the cluster over the Hazelcast member protocol.
 For CI/CD pipelines and scripts, prefer REST API submission over the binary client:
 
 ```bash
-curl -X POST http://192.168.1.100:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://192.168.1.100:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -65,7 +65,7 @@ docker run -d --name seatunnel \
 ### 3.2 Submit a job from outside the container
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d '{
     "env": { "job.name": "test", "job.mode": "BATCH" },
@@ -138,7 +138,7 @@ docker-compose up -d
 Submit a job to the master:
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -174,7 +174,7 @@ kubectl port-forward -n seatunnel \
 In a second terminal, submit a job:
 
 ```bash
-curl -X POST http://localhost:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://localhost:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -188,7 +188,7 @@ If your cluster exposes the SeaTunnel master via a `NodePort` service:
 kubectl get svc -n seatunnel seatunnel-master-rest
 
 # Submit via node IP and node port
-curl -X POST http://<node-ip>:<node-port>/hazelcast/rest/maps/submit-job \
+curl -X POST http://<node-ip>:<node-port>/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -199,7 +199,7 @@ curl -X POST http://<node-ip>:<node-port>/hazelcast/rest/maps/submit-job \
 LB_IP=$(kubectl get svc -n seatunnel seatunnel-master-rest \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-curl -X POST http://${LB_IP}:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://${LB_IP}:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
@@ -285,7 +285,7 @@ Use that hostname as the API endpoint:
 export ST_HOST=$(kubectl get svc -n seatunnel seatunnel-master \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
-curl -X POST http://${ST_HOST}:8080/hazelcast/rest/maps/submit-job \
+curl -X POST http://${ST_HOST}:8080/submit-job \
   -H "Content-Type: application/json" \
   -d @job.json
 ```
