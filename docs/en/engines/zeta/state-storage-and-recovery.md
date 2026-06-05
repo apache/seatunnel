@@ -91,7 +91,13 @@ seatunnel:
 $SEATUNNEL_HOME/bin/seatunnel.sh --stop-job <job-id> --savepoint
 
 # Or via REST API v2
-curl -X POST http://<master>:8080/hazelcast/rest/maps/running-job/<job-id>/savepoint
+curl -X POST http://<master>:8080/stop-job \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jobId": <job-id>,
+    "isStopWithSavePoint": true,
+    "force": false
+  }'
 ```
 
 ### Restoring from a savepoint
@@ -298,9 +304,13 @@ state is rotated out.
 
 **Fix**:
 
-1. Identify job IDs that are no longer in `finished-job-state`:
+1. Query finished job metadata through REST API v2:
    ```bash
-   curl http://<master>:8080/hazelcast/rest/maps/finished-job-state
+   curl "http://<master>:8080/finished-jobs/FINISHED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/CANCELED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/FAILED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/SAVEPOINT_DONE?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/UNKNOWABLE?page=1&rows=100"
    ```
 2. For job IDs not in the response, their checkpoint directories are orphaned and safe to delete.
 

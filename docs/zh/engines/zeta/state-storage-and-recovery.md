@@ -86,7 +86,13 @@ seatunnel:
 $SEATUNNEL_HOME/bin/seatunnel.sh --stop-job <job-id> --savepoint
 
 # 或通过 REST API v2
-curl -X POST http://<master>:8080/hazelcast/rest/maps/running-job/<job-id>/savepoint
+curl -X POST http://<master>:8080/stop-job \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jobId": <job-id>,
+    "isStopWithSavePoint": true,
+    "force": false
+  }'
 ```
 
 ### 从 Savepoint 恢复
@@ -287,9 +293,13 @@ ls -lh /tmp/seatunnel/checkpoint/
 
 **修复**：
 
-1. 查询不再存在于 `finished-job-state` 中的作业 ID：
+1. 通过 REST API v2 查询已完成作业元数据：
    ```bash
-   curl http://<master>:8080/hazelcast/rest/maps/finished-job-state
+   curl "http://<master>:8080/finished-jobs/FINISHED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/CANCELED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/FAILED?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/SAVEPOINT_DONE?page=1&rows=100"
+   curl "http://<master>:8080/finished-jobs/UNKNOWABLE?page=1&rows=100"
    ```
 2. 响应中不包含的 job-id，其 Checkpoint 目录为孤立目录，可安全删除。
 
