@@ -49,6 +49,7 @@ support version >= 2.x and <= 8.x.
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
 | pit_batch_size          | int     | no       | 100                                                            |
 | runtime_fields          | array   | no       | -                                                              |
+| slice_max               | int     | no       | 1 (SCROLL: ES >= 5.0, PIT: ES >= 7.10)                        |
 | common-options          |         | no       | -                                                              |
 
 
@@ -255,6 +256,15 @@ runtime_fields = [
 - Requires Elasticsearch 7.11 or higher
 - Only Painless scripts are supported
 - May be slower than indexed fields for large-scale queries
+
+### slice_max [int]
+Split a single index into multiple slices for parallel reads. Only effective for SCROLL/PIT. Set to a value greater than 1 to enable slicing.
+
+**Version requirements:**
+- SCROLL slicing (sliced scroll) requires Elasticsearch 5.0 or higher.
+- PIT slicing requires Elasticsearch 7.10 or higher (PIT was introduced in 7.10.0).
+
+**Trade-off:** slicing improves throughput but may reduce snapshot consistency across slices. For strong consistency, prefer PIT with a shared snapshot or set `slice_max = 1`. For append-only or low-write workloads, slicing is usually acceptable.
 
 ### common options
 
@@ -515,6 +525,30 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+Demo 9: PIT with slicing
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+
+    search_type = DSL
+    search_api_type = PIT
+    pit_keep_alive = 60000
+    pit_batch_size = 100
+
+    # Enable slicing for parallel reads
+    slice_max = 2
   }
 }
 ```

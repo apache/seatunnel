@@ -79,6 +79,7 @@ public class ClusterFailureNoRestoreIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);

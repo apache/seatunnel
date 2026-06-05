@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -140,6 +141,14 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
             }
         }
         return fsDataOutputStream;
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) {
+        throw new FileConnectorException(
+                FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                "BinaryWriteStrategy does not support schema evolution. "
+                        + "Binary format requires a fixed schema.");
     }
 
     @Override

@@ -46,6 +46,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | no       | -                                   |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
 | pit_batch_size          | int     | no       | 100                                 |
+| slice_max               | int     | no       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） |
 | runtime_fields          | array   | no       | -                                   |
 | common-options          |         | no       | -                                   |
 
@@ -237,6 +238,15 @@ runtime_fields = [
 - 运行时字段在查询阶段计算，数据量大时会影响性能
 - 适合临时分析、字段试验与低频查询
 - 需要 Elasticsearch 7.11 及以上版本
+
+### slice_max [int]
+将单个索引拆分为多个切片以并行读取。仅对 SCROLL/PIT 生效，配置 > 1 时启用切片。
+
+**版本要求：**
+- SCROLL 切片（sliced scroll）需要 Elasticsearch 5.0 及以上版本。
+- PIT 切片需要 Elasticsearch 7.10 及以上版本（PIT 在 7.10.0 引入）。
+
+**取舍说明：**切片能提升吞吐，但可能降低跨切片的一致性。对一致性要求高时，建议使用 PIT（共享快照）或将 `slice_max = 1`；对追加写或写入较少的场景，开启切片通常可以接受。
 
 ### common options
 
@@ -491,6 +501,30 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+Demo9: PIT + slicing 并行读取
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+
+    search_type = DSL
+    search_api_type = PIT
+    pit_keep_alive = 60000
+    pit_batch_size = 100
+
+    # 开启切片并行读取
+    slice_max = 2
   }
 }
 ```

@@ -37,6 +37,7 @@
 # export OPENAI_MODEL=gpt-4o                        # optional override
 # export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini        # optional override
 # export OPENAI_BASE_URL=                            # optional: for Azure, DeepSeek, local models, etc.
+# export OPENAI_ECHO_REASONING_CONTENT=true          # optional: keep true for reasoning models that require replay
 
 # ─── Option C: AWS Bedrock (AI_PROVIDER=bedrock) ───
 # export AWS_REGION=us-east-1

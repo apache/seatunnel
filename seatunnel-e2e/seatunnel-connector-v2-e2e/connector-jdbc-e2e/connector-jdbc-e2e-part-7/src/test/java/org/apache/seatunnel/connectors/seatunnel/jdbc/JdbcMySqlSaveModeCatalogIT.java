@@ -50,7 +50,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestResource {
@@ -154,6 +157,11 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     @BeforeAll
     public void startUp() throws Exception {
         initContainer();
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::assertMySqlReady);
         initializeJdbcTable();
     }
 
@@ -274,6 +282,13 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                 mysql_container.getJdbcUrl(),
                 mysql_container.getUsername(),
                 mysql_container.getPassword());
+    }
+
+    private void assertMySqlReady() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeQuery("SELECT 1");
+        }
     }
 
     private void initializeJdbcTable() {
