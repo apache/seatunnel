@@ -76,7 +76,7 @@ seatunnel:
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(查询单个动态元数据数据源。)</code></summary>
+ <summary><code>GET</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(查询单个动态元数据数据源。)</code></summary>
 
 #### 响应
 
@@ -122,7 +122,7 @@ seatunnel:
 </details>
 
 <details>
- <summary><code>PUT</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(更新单个动态元数据数据源。)</code></summary>
+ <summary><code>PUT</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(更新单个动态元数据数据源。)</code></summary>
 
 #### 请求体
 
@@ -151,7 +151,7 @@ seatunnel:
 </details>
 
 <details>
- <summary><code>DELETE</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(删除单个动态元数据数据源。)</code></summary>
+ <summary><code>DELETE</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(删除单个动态元数据数据源。)</code></summary>
 
 #### 响应
 

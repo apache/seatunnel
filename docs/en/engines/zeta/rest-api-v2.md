@@ -79,7 +79,7 @@ Please refer [security](security.md)
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Get one dynamic metadata datasource.)</code></summary>
+ <summary><code>GET</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Get one dynamic metadata datasource.)</code></summary>
 
 #### Responses
 
@@ -125,7 +125,7 @@ Please refer [security](security.md)
 </details>
 
 <details>
- <summary><code>PUT</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Update one dynamic metadata datasource.)</code></summary>
+ <summary><code>PUT</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Update one dynamic metadata datasource.)</code></summary>
 
 #### Request Body
 
@@ -154,7 +154,7 @@ Please refer [security](security.md)
 </details>
 
 <details>
- <summary><code>DELETE</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Delete one dynamic metadata datasource.)</code></summary>
+ <summary><code>DELETE</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Delete one dynamic metadata datasource.)</code></summary>
 
 #### Responses
 
