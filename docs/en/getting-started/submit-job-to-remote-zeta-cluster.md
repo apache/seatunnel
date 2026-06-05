@@ -47,7 +47,7 @@ curl -X POST http://192.168.1.100:8080/submit-job \
   -d @job.json
 ```
 
-See [REST API Job Lifecycle Cookbook](../engines/zeta/rest-api-job-lifecycle.md) for full details.
+See [REST API v2](../engines/zeta/rest-api-v2.md) for the complete request and response reference.
 
 ---
 
@@ -159,7 +159,7 @@ The REST API only needs to be exposed on the master node(s).
 
 ### 5.1 Using `kubectl port-forward` (development / ad-hoc)
 
-After deploying SeaTunnel to Kubernetes (see [Kubernetes Deployment](kubernetes.md)), forward the
+After deploying SeaTunnel to Kubernetes (see [Kubernetes Deployment](kubernetes/kubernetes.mdx)), forward the
 master pod's REST port to your local machine:
 
 ```bash
@@ -381,8 +381,8 @@ spec:
 
 ## See Also
 
-- [Kubernetes Deployment Guide](kubernetes.md)
-- [Helm Chart Reference](helm.md)
-- [Docker Quick Start](../docker/docker.md)
-- [REST API Job Lifecycle Cookbook](../engines/zeta/rest-api-job-lifecycle.md)
-- [Zeta Engine Configuration](../../engines/zeta/deployment.md)
+- [Kubernetes Deployment Guide](kubernetes/kubernetes.mdx)
+- [Helm Chart Reference](kubernetes/helm.md)
+- [Docker Quick Start](docker/docker.md)
+- [REST API v2](../engines/zeta/rest-api-v2.md)
+- [Zeta Engine Configuration](../engines/zeta/deployment.md)

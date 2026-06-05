@@ -45,7 +45,7 @@ curl -X POST http://192.168.1.100:8080/submit-job \
   -d @job.json
 ```
 
-完整用法请参见 [REST API 作业生命周期手册](../engines/zeta/rest-api-job-lifecycle.md)。
+完整请求与响应说明请参见 [REST API v2](../engines/zeta/rest-api-v2.md)。
 
 ---
 
@@ -155,7 +155,7 @@ curl -X POST http://localhost:8080/submit-job \
 
 ### 5.1 使用 `kubectl port-forward`（开发 / 临时提交）
 
-在 Kubernetes 上部署 SeaTunnel（参见 [Kubernetes 部署](kubernetes.md)）后，将 Master
+在 Kubernetes 上部署 SeaTunnel（参见 [Kubernetes 部署](kubernetes/kubernetes.mdx)）后，将 Master
 Pod 的 REST 端口转发到本地：
 
 ```bash
@@ -376,8 +376,8 @@ spec:
 
 ## 参考
 
-- [Kubernetes 部署指南](kubernetes.md)
-- [Helm Chart 参考](helm.md)
-- [Docker 快速入门](../docker/docker.md)
-- [REST API 作业生命周期手册](../engines/zeta/rest-api-job-lifecycle.md)
-- [Zeta 引擎配置](../../engines/zeta/deployment.md)
+- [Kubernetes 部署指南](kubernetes/kubernetes.mdx)
+- [Helm Chart 参考](kubernetes/helm.md)
+- [Docker 快速入门](docker/docker.md)
+- [REST API v2](../engines/zeta/rest-api-v2.md)
+- [Zeta 引擎配置](../engines/zeta/deployment.md)
