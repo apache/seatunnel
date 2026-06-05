@@ -131,8 +131,7 @@ const sidebars = {
                         "getting-started/kubernetes/kubernetes",
                         "getting-started/kubernetes/helm"
                     ]
-                },
-                "getting-started/submit-job-to-remote-zeta-cluster"
+                }
             ]
         },
         {
