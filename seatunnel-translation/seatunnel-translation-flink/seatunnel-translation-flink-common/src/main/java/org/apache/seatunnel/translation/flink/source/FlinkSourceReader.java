@@ -143,8 +143,10 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void addSplits(List<SplitWrapper<SplitT>> splits) {
         if (!splits.isEmpty() && context instanceof FlinkSourceReaderContext) {
-            ((FlinkSourceReaderContext) context).resetNoMoreElementEvent();
-            inputStatus = InputStatus.MORE_AVAILABLE;
+            if (sourceKeepAliveEnabled) {
+                ((FlinkSourceReaderContext) context).resetNoMoreElementEvent();
+                inputStatus = InputStatus.MORE_AVAILABLE;
+            }
         }
         sourceReader.addSplits(
                 splits.stream().map(SplitWrapper::getSourceSplit).collect(Collectors.toList()));
