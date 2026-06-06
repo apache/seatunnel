@@ -466,8 +466,9 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () -> {
                                 String status = jobClient.getJobStatus(jobId);
-                                Assertions.assertTrue(
-                                        "CANCELED".equals(status) || "FAILED".equals(status),
+                                Assertions.assertEquals(
+                                        "CANCELED",
+                                        status,
                                         "Expected terminal state but was: " + status);
                             });
         } finally {
