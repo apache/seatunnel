@@ -44,7 +44,7 @@ import java.util.List;
  *   <li><b>String</b>: {@code notBlank}, {@code startsWith}, {@code contains}, {@code matches},
  *       {@code upperCase}, {@code lowerCase}
  *   <li><b>Collection</b>: {@code notEmpty}, {@code unique}
- *   <li><b>Map</b>: {@code mapNotEmpty}, {@code containsKey}, {@code containsKeys}
+ *   <li><b>Map</b>: {@code mapNotEmpty}, {@code mapContainsKey}, {@code mapContainsKeys}
  *   <li><b>Cross-field</b>: {@code lessThanField}, {@code lessOrEqualField}, {@code
  *       greaterThanField}, {@code greaterOrEqualField}
  * </ul>
