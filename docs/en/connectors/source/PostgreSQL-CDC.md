@@ -219,7 +219,9 @@ By default, PostgreSQL CDC requires primary keys. You can specify a custom prima
 
 ### How are replication slots managed?
 
-SeaTunnel creates a replication slot on startup if one does not already exist. Unused replication slots hold WAL segments on disk, which can cause unbounded disk usage growth. Ensure slots are dropped when a CDC job is permanently decommissioned. Use `drop.slot.on.close` to control whether SeaTunnel drops the slot when the job stops.
+SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
+Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
+CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
 
 ### Why does PostgreSQL CDC fall behind?
 

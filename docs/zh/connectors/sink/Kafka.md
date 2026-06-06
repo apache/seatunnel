@@ -342,14 +342,16 @@ SeaTunnel Kafka Sink 本身不会主动创建 Kafka topic，只是向配置的 `
 
 ### 如何实现精确一次（exactly-once）写入？
 
-设置 `transaction.prefix` 以启用 Kafka 事务生产者，SeaTunnel 将 Kafka 事务与 checkpoint 协调来实现 exactly-once：
+将 `semantics` 设为 `EXACTLY_ONCE` 以启用精确一次语义，并配置 `transaction_prefix`
+为每个任务提供唯一的 Kafka 事务 ID 前缀。SeaTunnel 会将 Kafka 事务与 checkpoint 协调来实现 exactly-once：
 
 ```hocon
 sink {
   kafka {
     topic = "output-topic"
     bootstrap.servers = "localhost:9092"
-    transaction.prefix = "SeaTunnelJob"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
     kafka.transaction.timeout.ms = "900000"
   }
 }

@@ -395,7 +395,9 @@ binlog_row_image = FULL
 
 ### MySQL CDC 是否支持无主键表？
 
-不支持。MySQL CDC 需要主键。没有主键时，SeaTunnel 无法确定应更新或删除下游的哪一行，会导致数据不一致。
+默认要求主键。如果源表没有声明主键，但存在其他可唯一标识记录的列，可以像当前文档中的
+source options 示例那样，通过 `table-names-config.primaryKeys` 指定自定义主键。若没有稳定的
+唯一键，下游就无法安全处理 UPDATE / DELETE 事件。
 
 ### 全量快照阶段如何工作？何时切换为增量读取？
 
@@ -403,7 +405,9 @@ binlog_row_image = FULL
 
 ### MySQL CDC 是否支持 DDL 传播？
 
-有限支持。当设置 `schema_change_enabled = true` 时，可以传播 `ADD COLUMN` 等 DDL 变更。删除列或重命名表可能需要对受影响的表重新做全量快照。
+支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
+[Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
+目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
 
 ### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
 
@@ -411,7 +415,9 @@ binlog_row_image = FULL
 
 ### 初始快照为什么很慢？
 
-快照速度取决于表的大小、JDBC fetch size 以及网络带宽。可以通过调整 `scan.incremental.snapshot.chunk.size` 和 `scan.incremental.snapshot.chunk.key-column` 来提升并行度。对于不需要历史数据的大表，可以将 `startup.mode` 设为 `"latest-offset"` 跳过快照。
+快照速度取决于表大小、JDBC fetch size 和网络带宽。可以通过调整 `snapshot.split.size`
+和 `snapshot.fetch.size` 来控制快照切分与抓取行为。对于不需要历史数据的大表，可将
+`startup.mode` 设为 `"latest"`，从最新 offset 启动并跳过初始快照。
 
 ### 如何处理时区和字符集问题？
 
@@ -420,4 +426,3 @@ binlog_row_image = FULL
 ## 更新日志
 
 <ChangeLog />
-

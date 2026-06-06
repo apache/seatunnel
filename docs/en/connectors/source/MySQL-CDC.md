@@ -397,7 +397,10 @@ Yes. SeaTunnel subscribes to MySQL binary logs, which are also streamed to repli
 
 ### Does MySQL CDC support tables without primary keys?
 
-No. MySQL CDC requires primary keys. Without a primary key, SeaTunnel cannot determine which specific row to update or delete when a change event arrives, which would lead to data inconsistency downstream.
+By default, MySQL CDC expects primary keys. If the source table does not declare a primary key but
+does have another unique column that can identify rows, you can override it with
+`table-names-config.primaryKeys` as shown in the existing source options example. Without a stable
+unique key, UPDATE and DELETE events cannot be applied safely downstream.
 
 ### How does the full snapshot phase work, and when does it switch to incremental reading?
 
@@ -405,7 +408,10 @@ On first startup, SeaTunnel takes a consistent full snapshot of the configured t
 
 ### Does MySQL CDC support DDL propagation?
 
-SeaTunnel MySQL CDC has limited DDL support. Schema changes such as `ADD COLUMN` can be propagated when `schema_change_enabled = true`. Dropping columns or renaming tables may require a full re-snapshot of the affected table.
+Yes, but only in a limited form. Enable `schema-changes.enabled = true`, then follow the current
+schema evolution contract already documented on this page and in the
+[Schema Evolution guide](../../introduction/configuration/schema-evolution.md). The current
+documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
 
 ### How do I avoid `server-id` conflicts when running multiple CDC jobs?
 
@@ -413,7 +419,10 @@ Each CDC job must use a unique `server-id` or a non-overlapping range. Duplicate
 
 ### Why is the initial snapshot very slow?
 
-Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune `scan.incremental.snapshot.chunk.size` and `scan.incremental.snapshot.chunk.key-column` to improve parallelism. For very large tables where historical data is not needed, set `startup.mode = "latest-offset"` to skip the snapshot entirely.
+Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune
+`snapshot.split.size` and `snapshot.fetch.size` to control chunking and fetch behavior. For very
+large tables where historical data is not needed, set `startup.mode = "latest"` to start from the
+latest offset and skip the initial snapshot.
 
 ### How do I handle timezone and character set issues?
 
@@ -422,4 +431,3 @@ Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/
 ## Changelog
 
 <ChangeLog />
-

@@ -384,14 +384,17 @@ This is suitable for load distribution but does **not** preserve ordering for re
 
 ### How do I achieve exactly-once delivery to Kafka?
 
-Set `transaction.prefix` to enable Kafka transactional producers. SeaTunnel coordinates Kafka transactions with checkpoints to provide exactly-once semantics:
+Set `semantics = EXACTLY_ONCE` to enable exactly-once delivery, and configure `transaction_prefix`
+so each job uses a distinct Kafka transactional ID prefix. SeaTunnel coordinates Kafka transactions
+with checkpoints to provide exactly-once semantics:
 
 ```hocon
 sink {
   kafka {
     topic = "output-topic"
     bootstrap.servers = "localhost:9092"
-    transaction.prefix = "SeaTunnelJob"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
     kafka.transaction.timeout.ms = "900000"
   }
 }

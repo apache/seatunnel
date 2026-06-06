@@ -217,7 +217,9 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 
 ### 复制槽如何管理？
 
-SeaTunnel 在启动时若不存在则自动创建复制槽。未使用的复制槽会持续占用磁盘上的 WAL 段，导致磁盘无限增长。当 CDC 任务永久停用时，务必手动删除复制槽。可通过 `drop.slot.on.close` 参数控制 SeaTunnel 停止时是否自动删除复制槽。
+SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。未使用的复制槽会持续占用
+磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC 任务永久下线时，应在 PostgreSQL 侧手动删除
+不再使用的复制槽。
 
 ### PostgreSQL CDC 为什么会滞后？
 
