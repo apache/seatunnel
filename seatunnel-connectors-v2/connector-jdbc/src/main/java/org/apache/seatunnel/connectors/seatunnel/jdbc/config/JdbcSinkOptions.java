@@ -127,6 +127,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
+            Options.key("oracle_insert_mode")
+                    .enumType(JdbcSinkConfig.OracleInsertMode.class)
+                    .defaultValue(JdbcSinkConfig.OracleInsertMode.CONVENTIONAL)
+                    .withDescription(
+                            "Oracle insert mode. CONVENTIONAL uses normal insert statements. "
+                                    + "APPEND_VALUES adds the Oracle APPEND_VALUES hint for insert-only writes.");
+
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")
                     .enumType(FieldIdeEnum.class)

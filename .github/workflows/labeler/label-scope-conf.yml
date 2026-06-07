@@ -338,3 +338,9 @@ hugegraph:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-hugegraph/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hugegraph)/**'
+
+bigquery:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-bigquery/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(bigquery)/**'

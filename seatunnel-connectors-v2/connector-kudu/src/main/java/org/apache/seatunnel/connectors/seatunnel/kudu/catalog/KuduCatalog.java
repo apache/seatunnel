@@ -43,7 +43,6 @@ import org.apache.kudu.Type;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.shaded.com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,7 +100,7 @@ public class KuduCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        return Lists.newArrayList(getDefaultDatabase());
+        return Collections.singletonList(getDefaultDatabase());
     }
 
     @Override

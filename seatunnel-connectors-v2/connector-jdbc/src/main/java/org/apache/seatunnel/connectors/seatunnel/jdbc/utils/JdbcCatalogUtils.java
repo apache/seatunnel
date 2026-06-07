@@ -20,8 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -66,9 +70,12 @@ public class JdbcCatalogUtils {
     private static final String DOT_PLACEHOLDER = "__$DOT$__";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
-            JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
+            JdbcConnectionConfig jdbcConnectionConfig,
+            List<JdbcSourceTableConfig> tablesConfig,
+            MultiTableFailurePolicy failurePolicy)
             throws SQLException, ClassNotFoundException {
         Map<TablePath, JdbcSourceTable> tables = new LinkedHashMap<>();
+        boolean continueOtherTables = failurePolicy != null && failurePolicy.continueOtherTables();
 
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
@@ -117,11 +124,28 @@ public class JdbcCatalogUtils {
                                 .equals(
                                         CommonErrorCode
                                                 .GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR)) {
-                            unsupportedTable.put(
-                                    e.getParams().get("tableName"),
-                                    e.getParamsValueAsMap("fieldWithDataTypes"));
+                            if (continueOtherTables) {
+                                logSkipFailedTable(
+                                        e.getParams().get("tableName"),
+                                        jdbcDialect.dialectName(),
+                                        e);
+                            } else {
+                                unsupportedTable.put(
+                                        e.getParams().get("tableName"),
+                                        e.getParamsValueAsMap("fieldWithDataTypes"));
+                            }
+                        } else if (continueOtherTables) {
+                            logSkipFailedTable(
+                                    tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
                         } else {
                             throw e;
+                        }
+                    } catch (Exception e) {
+                        if (continueOtherTables) {
+                            logSkipFailedTable(
+                                    tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
+                        } else {
+                            throw wrapThrowable(e);
                         }
                     }
                 }
@@ -143,24 +167,34 @@ public class JdbcCatalogUtils {
         try (Connection connection = getConnection(jdbcConnectionConfig, jdbcDialect)) {
             log.info("Loading catalog tables for jdbc : {}", jdbcConnectionConfig.getUrl());
             for (JdbcSourceTableConfig tableConfig : tablesConfig) {
-                CatalogTable catalogTable = getCatalogTable(tableConfig, connection, jdbcDialect);
-                TablePath tablePath = catalogTable.getTableId().toTablePath();
-                JdbcSourceTable jdbcSourceTable =
-                        JdbcSourceTable.builder()
-                                .tablePath(tablePath)
-                                .query(tableConfig.getQuery())
-                                .partitionColumn(tableConfig.getPartitionColumn())
-                                .partitionNumber(tableConfig.getPartitionNumber())
-                                .partitionStart(tableConfig.getPartitionStart())
-                                .partitionEnd(tableConfig.getPartitionEnd())
-                                .useSelectCount(tableConfig.getUseSelectCount())
-                                .skipAnalyze(tableConfig.getSkipAnalyze())
-                                .catalogTable(catalogTable)
-                                .build();
+                try {
+                    CatalogTable catalogTable =
+                            getCatalogTable(tableConfig, connection, jdbcDialect);
+                    TablePath tablePath = catalogTable.getTableId().toTablePath();
+                    JdbcSourceTable jdbcSourceTable =
+                            JdbcSourceTable.builder()
+                                    .tablePath(tablePath)
+                                    .query(tableConfig.getQuery())
+                                    .partitionColumn(tableConfig.getPartitionColumn())
+                                    .partitionNumber(tableConfig.getPartitionNumber())
+                                    .partitionStart(tableConfig.getPartitionStart())
+                                    .partitionEnd(tableConfig.getPartitionEnd())
+                                    .useSelectCount(tableConfig.getUseSelectCount())
+                                    .skipAnalyze(tableConfig.getSkipAnalyze())
+                                    .catalogTable(catalogTable)
+                                    .build();
 
-                tables.put(tablePath, jdbcSourceTable);
-                if (log.isDebugEnabled()) {
-                    log.debug("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                    tables.put(tablePath, jdbcSourceTable);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                    }
+                } catch (Exception e) {
+                    if (continueOtherTables) {
+                        logSkipFailedTable(
+                                tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
+                    } else {
+                        throw wrapThrowable(e);
+                    }
                 }
             }
             log.info(
@@ -169,6 +203,31 @@ public class JdbcCatalogUtils {
                     jdbcConnectionConfig.getUrl());
             return tables;
         }
+    }
+
+    private static void logSkipFailedTable(String tablePath, String pluginName, Throwable error) {
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        tablePath, MultiTableFailurePhase.DISCOVERY, pluginName, error);
+        MultiTableFailureHelper.recordFailedTable(failedTable);
+        log.warn(
+                "Skip failed JDBC source table in discovery: {}",
+                MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                error);
+    }
+
+    private static RuntimeException wrapThrowable(Throwable error)
+            throws SQLException, ClassNotFoundException {
+        if (error instanceof SQLException) {
+            throw (SQLException) error;
+        }
+        if (error instanceof ClassNotFoundException) {
+            throw (ClassNotFoundException) error;
+        }
+        if (error instanceof RuntimeException) {
+            return (RuntimeException) error;
+        }
+        return new RuntimeException(error);
     }
 
     private static CatalogTable getCatalogTable(

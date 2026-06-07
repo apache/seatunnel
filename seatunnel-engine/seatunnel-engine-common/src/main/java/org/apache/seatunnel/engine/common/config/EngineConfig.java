@@ -93,6 +93,7 @@ public class EngineConfig {
 
     private String eventReportHttpApi;
     private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
+    private boolean reportNonTerminalJobState = false;
 
     private ExecutionMode mode = ExecutionMode.CLUSTER;
 
@@ -169,6 +170,10 @@ public class EngineConfig {
                 ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
+    }
+
+    public void setReportNonTerminalJobState(boolean reportNonTerminalJobState) {
+        this.reportNonTerminalJobState = reportNonTerminalJobState;
     }
 
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {
