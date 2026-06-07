@@ -17,17 +17,6 @@
 
 package org.apache.seatunnel.engine.server.common.statestore;
 
-import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.cleanup.PendingPipelineCleanupStore;
-import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.runtime.RuntimeStateStore;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-
-import java.util.Map;
-
 /**
  * Bundle of authoritative control state that a new leader must trust during leader handoff.
  *
@@ -35,60 +24,4 @@ import java.util.Map;
  * storage backend may still be a local store, but the responsibility for deciding what is
  * authoritative belongs more strongly to this group.
  */
-public interface AuthoritativeStateStores {
-
-    /**
-     * Returns the store for running job info.
-     *
-     * @return running job info store
-     */
-    RuntimeStateStore<Long, JobInfo> runningJobInfoStore();
-
-    /**
-     * Returns the store for running job, pipeline, or task execution state.
-     *
-     * <p>The current engine structure mixes multiple key/value shapes, so this contract remains
-     * {@code Object}-based for now.
-     *
-     * @return running job state store
-     */
-    RuntimeStateStore<Object, Object> runningJobStateStore();
-
-    /**
-     * Returns the store for timestamps associated with running state.
-     *
-     * @return running job state timestamps store
-     */
-    RuntimeStateStore<Object, Long[]> runningJobStateTimestampsStore();
-
-    /**
-     * Returns the store for owned slot profiles by pipeline.
-     *
-     * @return owned slot profiles store
-     */
-    RuntimeStateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
-            ownedSlotProfilesStore();
-
-    /**
-     * Returns the checkpoint ID counter store.
-     *
-     * <p>The current key format is a string composed from {@code jobId + pipelineId}.
-     *
-     * @return checkpoint counter store
-     */
-    CounterStateStore<String> checkpointCounterStore();
-
-    /**
-     * Returns the store for pending pipeline cleanup records.
-     *
-     * @return pending pipeline cleanup store
-     */
-    PendingPipelineCleanupStore pendingPipelineCleanupStore();
-
-    /**
-     * Returns the store for connector jar reference counts.
-     *
-     * @return connector jar reference state store
-     */
-    ConnectorJarReferenceStateStore connectorJarReferenceStateStore();
-}
+public interface AuthoritativeStateStores {}

@@ -74,6 +74,20 @@ public interface StateStore<K, V> {
     boolean containsKey(K key);
 
     /**
+     * Returns whether the store is empty.
+     *
+     * @return {@code true} if the store is empty
+     */
+    boolean isEmpty();
+
+    /**
+     * Returns the number of key-value pairs in the store.
+     *
+     * @return size of the store
+     */
+    int size();
+
+    /**
      * Returns the default value when the key is absent.
      *
      * @param key key to look up

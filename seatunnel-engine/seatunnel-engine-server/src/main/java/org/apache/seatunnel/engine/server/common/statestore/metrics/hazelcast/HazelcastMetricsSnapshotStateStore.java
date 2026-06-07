@@ -74,7 +74,10 @@ public class HazelcastMetricsSnapshotStateStore implements MetricsSnapshotStateS
     public SeaTunnelMetricsContext get(TaskLocation taskLocation) {
         Map<TaskLocation, SeaTunnelMetricsContext> partitionMap =
                 metricsImap.get(partition(taskLocation));
-        return partitionMap == null ? null : partitionMap.get(taskLocation);
+        if (partitionMap == null) {
+            return null;
+        }
+        return partitionMap.get(taskLocation);
     }
 
     @Override
@@ -130,12 +133,31 @@ public class HazelcastMetricsSnapshotStateStore implements MetricsSnapshotStateS
     }
 
     @Override
-    public int size() {
-        int count = 0;
+    public boolean containsPipeline(PipelineLocation pipelineLocation) {
         for (Map<TaskLocation, SeaTunnelMetricsContext> partitionMap : metricsImap.values()) {
-            count += partitionMap.size();
+            boolean found =
+                    partitionMap.keySet().stream()
+                            .anyMatch(
+                                    taskLocation ->
+                                            pipelineLocation.equals(
+                                                    taskLocation
+                                                            .getTaskGroupLocation()
+                                                            .getPipelineLocation()));
+            if (found) {
+                return true;
+            }
         }
-        return count;
+        return false;
+    }
+
+    @Override
+    public int size() {
+        return metricsImap.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return metricsImap.isEmpty();
     }
 
     private long partition(TaskLocation taskLocation) {

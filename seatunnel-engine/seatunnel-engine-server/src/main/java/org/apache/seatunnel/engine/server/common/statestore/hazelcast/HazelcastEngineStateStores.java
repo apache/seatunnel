@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.engine.server.common.statestore.hazelcast;
 
-import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.engine.core.job.JobDAGInfo;
-import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
-import org.apache.seatunnel.engine.server.common.jar.hazelcast.HazelcastConnectorJarReferenceStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.AuthoritativeStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.AuxiliaryStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.DefaultAuthoritativeStateStores;
@@ -29,39 +24,15 @@ import org.apache.seatunnel.engine.server.common.statestore.DefaultAuxiliaryStat
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.hazelcast.HazelcastCheckpointOverviewStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.cleanup.PendingPipelineCleanupStore;
-import org.apache.seatunnel.engine.server.common.statestore.cleanup.hazelcast.HazelcastPendingPipelineCleanupStore;
-import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.counter.hazelcast.HazelcastCounterStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.HistoricalStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.ObservableHistoricalStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.hazelcast.HazelcastHistoricalStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.hazelcast.HazelcastMetricsSnapshotStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.runtime.RuntimeStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.runtime.hazelcast.HazelcastRuntimeStateStore;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.master.JobHistoryService;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
-import java.util.Map;
 import java.util.Objects;
 
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_ID;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_MONITOR;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CONNECTOR_JAR_REF_COUNTERS;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_METRICS;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_STATE;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_VERTEX_INFO;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.OWNED_SLOT_PROFILES;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.PENDING_PIPELINE_CLEANUP;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.RUNNING_JOB_INFO;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.RUNNING_JOB_METRICS;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.RUNNING_JOB_STATE;
-import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.STATE_TIMESTAMPS;
 
 /**
  * {@link EngineStateStores} implementation backed by Hazelcast.
@@ -91,60 +62,17 @@ public class HazelcastEngineStateStores implements EngineStateStores {
                 return;
             }
 
-            RuntimeStateStore<Long, JobInfo> runningJobInfoStore =
-                    new HazelcastRuntimeStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(RUNNING_JOB_INFO));
-            RuntimeStateStore<Object, Object> runningJobStateStore =
-                    new HazelcastRuntimeStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(RUNNING_JOB_STATE));
-            RuntimeStateStore<Object, Long[]> runningJobStateTimestampsStore =
-                    new HazelcastRuntimeStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(STATE_TIMESTAMPS));
-            RuntimeStateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
-                    ownedSlotProfilesStore =
-                            new HazelcastRuntimeStateStore<>(
-                                    nodeEngine.getHazelcastInstance().getMap(OWNED_SLOT_PROFILES));
-            HistoricalStateStore<Long, JobHistoryService.JobState> finishedJobStateStore =
-                    new HazelcastHistoricalStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(FINISHED_JOB_STATE));
-            HistoricalStateStore<Long, JobMetrics> finishedJobMetricsStore =
-                    new HazelcastHistoricalStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(FINISHED_JOB_METRICS));
-            ObservableHistoricalStateStore<Long, JobDAGInfo> finishedJobDagInfoStore =
-                    new HazelcastHistoricalStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(FINISHED_JOB_VERTEX_INFO));
             MetricsSnapshotStateStore metricsSnapshotStore =
                     new HazelcastMetricsSnapshotStateStore(
                             nodeEngine.getHazelcastInstance().getMap(RUNNING_JOB_METRICS),
                             metricsPartitionCount);
-            CounterStateStore<String> checkpointCounterStore =
-                    new HazelcastCounterStateStore<>(
-                            nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_ID));
-            PendingPipelineCleanupStore pendingPipelineCleanupStore =
-                    new HazelcastPendingPipelineCleanupStore(
-                            nodeEngine.getHazelcastInstance().getMap(PENDING_PIPELINE_CLEANUP));
             CheckpointOverviewStateStore checkpointOverviewStateStore =
                     new HazelcastCheckpointOverviewStateStore(
                             nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_MONITOR));
-            ConnectorJarReferenceStateStore connectorJarReferenceStateStore =
-                    new HazelcastConnectorJarReferenceStateStore(
-                            nodeEngine.getHazelcastInstance().getMap(CONNECTOR_JAR_REF_COUNTERS));
-            this.authoritativeStateStores =
-                    new DefaultAuthoritativeStateStores(
-                            runningJobInfoStore,
-                            runningJobStateStore,
-                            runningJobStateTimestampsStore,
-                            ownedSlotProfilesStore,
-                            checkpointCounterStore,
-                            pendingPipelineCleanupStore,
-                            connectorJarReferenceStateStore);
+            this.authoritativeStateStores = new DefaultAuthoritativeStateStores();
             this.auxiliaryStateStores =
                     new DefaultAuxiliaryStateStores(
-                            finishedJobStateStore,
-                            finishedJobMetricsStore,
-                            finishedJobDagInfoStore,
-                            metricsSnapshotStore,
-                            checkpointOverviewStateStore);
+                            metricsSnapshotStore, checkpointOverviewStateStore);
         }
     }
 

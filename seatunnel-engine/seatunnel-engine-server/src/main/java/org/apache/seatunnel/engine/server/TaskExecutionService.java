@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -117,6 +118,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final String hzInstanceName;
     private final NodeEngineImpl nodeEngine;
+    private final SeaTunnelEngineContext engineContext;
     private final ClassLoaderService classLoaderService;
     private final ILogger logger;
     private volatile boolean isRunning = true;
@@ -148,10 +150,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
+            SeaTunnelEngineContext engineContext,
             EventService eventService) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
+        this.engineContext = engineContext;
         this.classLoaderService = classLoaderService;
         this.logger = nodeEngine.getLoggingService().getLogger(TaskExecutionService.class);
 
@@ -387,7 +391,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .peek(
                                     task -> {
                                         TaskExecutionContext taskExecutionContext =
-                                                new TaskExecutionContext(task, nodeEngine, this);
+                                                new TaskExecutionContext(
+                                                        task, nodeEngine, engineContext, this);
                                         task.setTaskExecutionContext(taskExecutionContext);
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);

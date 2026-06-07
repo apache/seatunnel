@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -531,12 +532,11 @@ public class CoordinatorServiceTest {
                         "batch_fake_to_console.conf",
                         "test_cleanup_metrics_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        MetricsSnapshotStateStore metricsStore = coordinatorService.getMetricsSnapshotStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -552,12 +552,12 @@ public class CoordinatorServiceTest {
                         "batch_fake_to_console.conf",
                         "test_cleanup_metrics_imap_with_partition_config");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        MetricsSnapshotStateStore metricsSnapshotStore =
+                coordinatorService.getMetricsSnapshotStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsSnapshotStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsSnapshotStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -582,8 +582,8 @@ public class CoordinatorServiceTest {
                 taskLocation.setTaskID(i);
                 localMap.put(taskLocation, new SeaTunnelMetricsContext());
             }
-            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                    server1.getCoordinatorService().getMetricsImap();
+            MetricsSnapshotStateStore metricsSnapshotStore =
+                    server1.getCoordinatorService().getMetricsSnapshotStore();
             CompletableFuture.runAsync(
                     () -> {
                         try {
@@ -600,7 +600,7 @@ public class CoordinatorServiceTest {
                         }
                     });
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
+                    .untilAsserted(() -> Assertions.assertEquals(10, metricsSnapshotStore.size()));
         } finally {
             instance1.shutdown();
             setDefaultConfigFile();

@@ -92,9 +92,10 @@ public interface MetricsSnapshotStateStore
     void removePipeline(PipelineLocation pipelineLocation);
 
     /**
-     * Returns the number of stored task metrics.
+     * Checks whether any task snapshot exists for a specific pipeline.
      *
-     * @return task metrics count
+     * @param pipelineLocation pipeline location to check
+     * @return {@code true} if any snapshot exists for the pipeline
      */
-    int size();
+    boolean containsPipeline(PipelineLocation pipelineLocation);
 }

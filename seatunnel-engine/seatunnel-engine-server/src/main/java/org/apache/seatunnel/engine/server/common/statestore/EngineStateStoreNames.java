@@ -26,16 +26,6 @@ import lombok.Getter;
 public class EngineStateStoreNames {
     private EngineStateStoreNames() {}
 
-    public static final String RUNNING_JOB_INFO = "engine_runningJobInfo";
-    public static final String RUNNING_JOB_STATE = "engine_runningJobState";
-    public static final String FINISHED_JOB_STATE = "engine_finishedJobState";
-    public static final String FINISHED_JOB_METRICS = "engine_finishedJobMetrics";
-    public static final String FINISHED_JOB_VERTEX_INFO = "engine_finishedJobVertexInfo";
-    public static final String STATE_TIMESTAMPS = "engine_stateTimestamps";
-    public static final String OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
-    public static final String CHECKPOINT_ID = "engine_checkpoint-id-map";
     public static final String RUNNING_JOB_METRICS = "engine_runningJobMetrics";
-    public static final String PENDING_PIPELINE_CLEANUP = "engine_pendingPipelineCleanup";
     public static final String CHECKPOINT_MONITOR = "engine_checkpoint_monitor";
-    public static final String CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 }

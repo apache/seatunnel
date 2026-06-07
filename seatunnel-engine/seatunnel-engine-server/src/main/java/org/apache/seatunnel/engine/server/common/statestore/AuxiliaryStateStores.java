@@ -17,13 +17,8 @@
 
 package org.apache.seatunnel.engine.server.common.statestore;
 
-import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.HistoricalStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.ObservableHistoricalStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
-import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 /**
  * Bundle of state that is closer to observability, recent history, or cleanup than to failover
@@ -33,31 +28,6 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService;
  * is less likely to break system correctness immediately.
  */
 public interface AuxiliaryStateStores {
-
-    /**
-     * Returns the store for finished job state.
-     *
-     * @return finished job state store
-     */
-    HistoricalStateStore<Long, JobHistoryService.JobState> finishedJobStateStore();
-
-    /**
-     * Returns the store for finished job metrics.
-     *
-     * @return finished job metrics store
-     */
-    HistoricalStateStore<Long, JobMetrics> finishedJobMetricsStore();
-
-    /**
-     * Returns the store for finished job DAG info.
-     *
-     * <p>The current engine uses expiration events from this store to trigger log cleanup, so it is
-     * exposed as an observable historical store.
-     *
-     * @return finished job dag info store
-     */
-    ObservableHistoricalStateStore<Long, JobDAGInfo> finishedJobDagInfoStore();
-
     /**
      * Returns the store for runtime task metrics snapshots.
      *

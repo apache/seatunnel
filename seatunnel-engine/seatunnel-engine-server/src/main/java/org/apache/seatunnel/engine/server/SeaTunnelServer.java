@@ -86,7 +86,7 @@ public class SeaTunnelServer
 
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
-    private SeaTunnelEngineContext engineContext;
+    @Getter private SeaTunnelEngineContext engineContext;
     private NodeEngineImpl nodeEngine;
     private final LiveOperationRegistry liveOperationRegistry;
 
@@ -208,7 +208,8 @@ public class SeaTunnelServer
 
     private void startWorker() {
         taskExecutionService =
-                new TaskExecutionService(classLoaderService, nodeEngine, eventService);
+                new TaskExecutionService(
+                        classLoaderService, nodeEngine, engineContext, eventService);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -360,18 +361,14 @@ public class SeaTunnelServer
 
     public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
         MetricsSnapshotStateStore metricsSnapshotStateStore =
-                engineContext.getStateStores().auxiliary().metricsSnapshotStore();
+                engineContext.getStateStores().metricsSnapshotStore();
         metricsSnapshotStateStore.merge(localMap);
     }
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
         MetricsSnapshotStateStore metricsSnapshotStateStore =
-                engineContext.getStateStores().auxiliary().metricsSnapshotStore();
+                engineContext.getStateStores().metricsSnapshotStore();
         metricsSnapshotStateStore.removePipeline(pipelineLocation);
-    }
-
-    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
-        return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

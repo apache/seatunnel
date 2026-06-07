@@ -17,57 +17,24 @@
 
 package org.apache.seatunnel.engine.server.common.statestore;
 
-import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.HistoricalStateStore;
-import org.apache.seatunnel.engine.server.common.statestore.history.ObservableHistoricalStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
-import org.apache.seatunnel.engine.server.master.JobHistoryService;
 
 import java.util.Objects;
 
 /** Default immutable implementation of {@link AuxiliaryStateStores}. */
 public class DefaultAuxiliaryStateStores implements AuxiliaryStateStores {
-
-    private final HistoricalStateStore<Long, JobHistoryService.JobState> finishedJobStateStore;
-    private final HistoricalStateStore<Long, JobMetrics> finishedJobMetricsStore;
-    private final ObservableHistoricalStateStore<Long, JobDAGInfo> finishedJobDagInfoStore;
     private final MetricsSnapshotStateStore metricsSnapshotStore;
     private final CheckpointOverviewStateStore checkpointOverviewStateStore;
 
     public DefaultAuxiliaryStateStores(
-            HistoricalStateStore<Long, JobHistoryService.JobState> finishedJobStateStore,
-            HistoricalStateStore<Long, JobMetrics> finishedJobMetricsStore,
-            ObservableHistoricalStateStore<Long, JobDAGInfo> finishedJobDagInfoStore,
             MetricsSnapshotStateStore metricsSnapshotStore,
             CheckpointOverviewStateStore checkpointOverviewStateStore) {
-        this.finishedJobStateStore =
-                Objects.requireNonNull(finishedJobStateStore, "finishedJobStateStore");
-        this.finishedJobMetricsStore =
-                Objects.requireNonNull(finishedJobMetricsStore, "finishedJobMetricsStore");
-        this.finishedJobDagInfoStore =
-                Objects.requireNonNull(finishedJobDagInfoStore, "finishedJobDagInfoStore");
         this.metricsSnapshotStore =
                 Objects.requireNonNull(metricsSnapshotStore, "metricsSnapshotStore");
         this.checkpointOverviewStateStore =
                 Objects.requireNonNull(
                         checkpointOverviewStateStore, "checkpointOverviewStateStore");
-    }
-
-    @Override
-    public HistoricalStateStore<Long, JobHistoryService.JobState> finishedJobStateStore() {
-        return finishedJobStateStore;
-    }
-
-    @Override
-    public HistoricalStateStore<Long, JobMetrics> finishedJobMetricsStore() {
-        return finishedJobMetricsStore;
-    }
-
-    @Override
-    public ObservableHistoricalStateStore<Long, JobDAGInfo> finishedJobDagInfoStore() {
-        return finishedJobDagInfoStore;
     }
 
     @Override
