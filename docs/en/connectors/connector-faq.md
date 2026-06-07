@@ -6,6 +6,10 @@ sidebar_position: 10
 
 This page is an index of frequently asked questions organized by connector category. Each entry links to the FAQ section inside the corresponding connector documentation page.
 
+These FAQ sections are intended to be quick navigation, not a second source of truth. For exact
+option names, defaults, and full examples, always use the connector option table and linked
+detailed sections on the connector page itself.
+
 For general SeaTunnel questions (engine setup, variable substitution, scheduling, etc.) see the [General FAQ](../faq.md).
 
 ---

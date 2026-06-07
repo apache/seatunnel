@@ -415,10 +415,9 @@ ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 
 ### 如何提升 LogMiner 性能？
 
-- 仅对所需的表和列启用附加日志，以减少重做日志量。
-- 在高吞吐量环境中，使用 `log.mining.strategy = online_catalog`（持续挖掘模式）可以获得更好的性能。
-- 增大 `log.mining.batch.size.max` 以减少 LogMiner 会话次数。
-- 确保重做日志文件足够大，避免频繁的日志切换。
+首先把它当作数据库和 redo log 调优问题处理。优先复用上面的 LogMiner 配置和 supplemental
+logging 章节，只为需要采集的表开启日志；只有在确认目标 Oracle CDC 运行时确实支持相应
+Debezium 透传属性后，再引入额外调优参数。
 
 ### 支持哪些 Oracle 版本？
 

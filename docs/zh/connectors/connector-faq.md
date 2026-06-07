@@ -6,6 +6,9 @@ sidebar_position: 10
 
 本页面是按 Connector 类别组织的常见问题索引，每个条目均链接到对应 Connector 文档页面的 FAQ 小节。
 
+这些 FAQ 的定位是“快速导航”，不是另一套独立事实源。涉及精确配置项名称、默认值和完整示例时，应以
+各 Connector 页面中的 option 表和对应详细章节为准。
+
 关于 SeaTunnel 通用问题（引擎部署、变量替换、调度等），请查阅[通用 FAQ](../faq.md)。
 
 ---

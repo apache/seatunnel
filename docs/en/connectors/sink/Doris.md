@@ -531,14 +531,8 @@ sink {
 
 ### Does Doris Sink support automatic table creation?
 
-Yes. Use the `schema_save_mode` parameter to control table creation behavior:
-
-- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist; skips if the table already exists.
-- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
-- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table does not exist.
-- `IGNORE`: Skips all table creation logic.
-
-SeaTunnel maps SeaTunnel data types to Doris column types automatically when creating tables.
+Yes. Use the `schema_save_mode` and `save_mode_create_template` sections above as the canonical
+reference for the exact behavior, defaults, and DDL customization path.
 
 ### How does exactly-once work with Doris Sink?
 
@@ -573,7 +567,9 @@ Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC s
 
 ### Are Doris column names case-sensitive?
 
-Doris column names are case-insensitive by default. If the upstream data has mixed-case field names, verify they map correctly to Doris column names. Use the `column_mapping` option if a mismatch exists.
+See the case-sensitivity example above for the exact behavior. If upstream field names still do not
+match the Doris schema, normalize them before the sink stage or align the target schema explicitly
+instead of relying on an undocumented `column_mapping` option.
 
 ### What data format does Doris Stream Load use?
 

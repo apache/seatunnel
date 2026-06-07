@@ -352,21 +352,13 @@ sink {
 
 ### ClickHouse Sink 支持自动建表吗？
 
-支持。通过 `schema_save_mode` 参数控制建表行为：
-
-- `CREATE_SCHEMA_WHEN_NOT_EXIST`：表不存在时创建，已存在则跳过。
-- `RECREATE_SCHEMA`：每次任务启动时删除并重建表。
-- `ERROR_WHEN_SCHEMA_NOT_EXIST`：表不存在时抛出异常。
-- `IGNORE`：跳过所有建表逻辑。
-
-自动建表默认使用 `MergeTree` 引擎，可通过 `create_table_engine`、`create_table_order_by_keys` 和 `create_table_partition_by_fields` 自定义建表 DDL。
+支持。精确的模式和当前默认行为请以上面的 `schema_save_mode` 小节为准。如果需要自定义自动建表
+DDL，请使用 `save_mode_create_template`，不要在 FAQ 中再引入一套独立的 DDL 参数说法。
 
 ### 如何调优批量写入性能？
 
-ClickHouse 批量插入性能最佳。可调整以下参数：
-
-- `batch_size`：每批写入的行数（默认 `1000`），高吞吐场景可调大至 `10000`–`100000`。
-- `batch_interval_ms`：未满批次等待刷新的最长时间（毫秒）。
+优先围绕 `bulk_size` 调优。精确的参数名和当前默认值已在上方 option 表中定义，因此吞吐调优时应以
+该表为准，而不是让 FAQ 再复制一份参数说明。
 
 ### 支持哪些 ClickHouse 数据类型？
 
@@ -374,7 +366,8 @@ SeaTunnel 可映射到 ClickHouse 的类型包括 `Int8/16/32/64`、`UInt8/16/32
 
 ### 为什么提示"Table doesn't exist"错误？
 
-若 `schema_save_mode` 未设置或设为默认的 `ERROR_WHEN_SCHEMA_NOT_EXIST`，目标表不存在时任务会失败。将其改为 `CREATE_SCHEMA_WHEN_NOT_EXIST`，或在任务启动前手动创建 ClickHouse 目标表。
+先看上面的 `schema_save_mode` 小节。如果你的环境允许缺表时自动创建，就沿用文档中定义好的
+自动建表流程；如果你的环境要求目标表必须预先存在，则显式切到更严格的模式，并在任务启动前先建表。
 
 ## 变更日志
 

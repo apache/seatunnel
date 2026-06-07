@@ -440,14 +440,8 @@ sink {
 
 ### Doris Sink 支持自动建表吗？
 
-支持。通过 `schema_save_mode` 参数控制建表行为：
-
-- `CREATE_SCHEMA_WHEN_NOT_EXIST`：表不存在时创建，已存在则跳过。
-- `RECREATE_SCHEMA`：每次任务启动时删除并重建表。
-- `ERROR_WHEN_SCHEMA_NOT_EXIST`：表不存在时抛出异常。
-- `IGNORE`：跳过所有建表逻辑。
-
-SeaTunnel 在自动建表时会将上游数据类型自动映射为 Doris 列类型。
+支持。精确行为、默认值以及 DDL 自定义入口，请以上面的 `schema_save_mode` 和
+`save_mode_create_template` 小节为准。
 
 ### Doris Sink 如何实现精确一次（exactly-once）？
 
@@ -482,7 +476,8 @@ Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重�
 
 ### Doris 列名是否区分大小写？
 
-Doris 列名默认不区分大小写。如果上游字段名含大小写混合，请确认与 Doris 列名的映射关系正确，必要时使用 `column_mapping` 选项显式指定映射。
+请以上面的大小写敏感示例为准。如果上游字段名与 Doris 目标 schema 仍然对不上，应该在 sink 之前先
+做字段规范化，或直接调整目标 schema，而不是依赖并不存在的 `column_mapping` 选项。
 
 ### Doris Stream Load 使用什么数据格式？
 

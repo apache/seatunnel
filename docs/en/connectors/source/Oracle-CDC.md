@@ -416,10 +416,10 @@ By default, Oracle CDC requires primary keys. You can specify a custom primary k
 
 ### How do I improve LogMiner performance?
 
-- Enable supplemental logging only for the required tables and columns to reduce redo log volume.
-- Use `log.mining.strategy = online_catalog` (continuous mining) for better performance in high-throughput environments.
-- Increase `log.mining.batch.size.max` to reduce the number of LogMiner sessions.
-- Ensure redo log file sizes are large enough to avoid frequent log switches.
+Treat this primarily as a database and redo-log tuning topic. Reuse the LogMiner setup and
+supplemental logging sections above first, enable logging only for the required tables, and add
+Debezium passthrough tuning only after validating that those properties are supported in the exact
+Oracle CDC runtime you are deploying.
 
 ### Which Oracle versions are supported?
 

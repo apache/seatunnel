@@ -351,21 +351,15 @@ After submitting the job and successfully executing it, we can see that the data
 
 ### Does ClickHouse Sink support automatic table creation?
 
-Yes. Use `schema_save_mode` to control table creation behavior:
-
-- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist.
-- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
-- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table is missing.
-- `IGNORE`: Skips all table creation logic.
-
-When auto-creating tables, SeaTunnel uses the `MergeTree` engine by default. Use `create_table_engine`, `create_table_order_by_keys`, and `create_table_partition_by_fields` to customize the DDL.
+Yes. See the `schema_save_mode` section above for the exact modes and current default behavior.
+If you need to customize the generated DDL, use `save_mode_create_template` rather than
+re-introducing separate DDL option names in the FAQ.
 
 ### How do I tune batch write performance?
 
-ClickHouse performs best when records are inserted in large batches. Tune the following parameters:
-
-- `batch_size`: Number of rows per batch (default: `1000`). Increase to `10000`–`100000` for high-throughput scenarios.
-- `batch_interval_ms`: Maximum wait time (milliseconds) before flushing an incomplete batch to ClickHouse.
+Use `bulk_size` as the primary tuning knob. The exact option name and current default are already
+documented in the option table above, so treat that table as the source of truth when tuning
+throughput.
 
 ### What ClickHouse data types are supported?
 
@@ -373,7 +367,9 @@ SeaTunnel maps to ClickHouse types including `Int8/16/32/64`, `UInt8/16/32/64`, 
 
 ### Why do I get a "Table doesn't exist" error?
 
-If `schema_save_mode` is not set or is set to `ERROR_WHEN_SCHEMA_NOT_EXIST` (the default), SeaTunnel will fail if the target table does not exist. Switch to `CREATE_SCHEMA_WHEN_NOT_EXIST` or create the ClickHouse table manually before starting the job.
+Start with the `schema_save_mode` section above. If your environment should auto-create missing
+tables, keep the documented create-on-missing flow. If your environment requires pre-created
+tables, switch to the stricter mode explicitly and provision the table ahead of time.
 
 ## Changelog
 
