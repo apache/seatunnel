@@ -93,7 +93,7 @@ transform {
 ### api_key
 
 用于模型提供者的 API 密钥。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/api-reference/api-keys 文档的如何获取 API 密钥。
+如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
 ### api_path
 

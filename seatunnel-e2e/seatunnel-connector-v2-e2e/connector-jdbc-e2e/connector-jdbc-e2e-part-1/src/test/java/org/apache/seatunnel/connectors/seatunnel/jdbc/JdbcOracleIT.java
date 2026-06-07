@@ -45,6 +45,7 @@ import org.testcontainers.utility.MountableFile;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -186,6 +187,25 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_oracle_fake_source_to_sink_with_lob.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testOracleAppendValuesInsertMode(TestContainer container) throws Exception {
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_oracle_source_to_sink_append_values.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT COUNT(*) FROM "
+                                            + buildTableInfoWithSchema(SCHEMA, SINK_TABLE))) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getInt(1));
+            }
+        } finally {
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+        }
     }
 
     @Override

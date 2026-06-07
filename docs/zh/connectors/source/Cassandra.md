@@ -19,15 +19,18 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ## 选项
 
-|       名称           |  类型  | 必需 | 默认值 |
-|-------------------|--------|----|---------------|
-| host              | String | 是  | -             |
-| keyspace          | String | 是  | -             |
-| cql               | String | 是  | -             |
-| username          | String | 否  | -             |
-| password          | String | 否 | -             |
-| datacenter        | String | 否 | datacenter1   |
-| consistency_level | String | 否 | LOCAL_ONE     |
+|       名称           |     类型      | 必需   | 默认值        |
+|-------------------|-------------|------|---------------|
+| host              | String      | 是    | -             |
+| keyspace          | String      | 是    | -             |
+| cql               | String      | 否 *  | -             |
+| tables_configs    | List\<Map\> | 否 *  | -             |
+| username          | String      | 否    | -             |
+| password          | String      | 否    | -             |
+| datacenter        | String      | 否    | datacenter1   |
+| consistency_level | String      | 否    | LOCAL_ONE     |
+
+> \* `cql` 与 `tables_configs` 二选一，必须提供其中之一。
 
 ### host [string]
 
@@ -40,7 +43,19 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ### cql [String]
 
-查询cql，用于通过Cassandra会话搜索数据.
+查询 CQL，用于通过 Cassandra 会话读取单张表的数据。与 `tables_configs` 互斥。
+
+### tables_configs [List\<Map\>]
+
+多表读取配置，每个条目必须包含 `cql` 字段。与 `cql` 互斥。
+
+示例条目：
+
+```
+{
+  cql = "SELECT id, name FROM keyspace.table1"
+}
+```
 
 ### username [string]
 
@@ -56,21 +71,45 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ### consistency_level [String]
 
-`Cassandra` 的写入一致性级别, 默认为 `LOCAL_ONE`.
+`Cassandra` 的读取一致性级别, 默认为 `LOCAL_ONE`.
 
 ## 示例
 
+### 单表模式
+
 ```hocon
 source {
- Cassandra {
-     host = "localhost:9042"
-     username = "cassandra"
-     password = "cassandra"
-     datacenter = "datacenter1"
-     keyspace = "test"
-     cql = "select * from source_table"
-     plugin_output = "source_table"
-    }
+  Cassandra {
+    host = "localhost:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    cql = "SELECT * FROM test.source_table"
+    plugin_output = "source_table"
+  }
+}
+```
+
+### 多表模式
+
+```hocon
+source {
+  Cassandra {
+    host = "localhost:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    tables_configs = [
+      {
+        cql = "SELECT id, name FROM test.table1"
+      },
+      {
+        cql = "SELECT id, value FROM test.table2"
+      }
+    ]
+  }
 }
 ```
 

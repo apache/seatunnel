@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+/** Shared query keys, metric names, and endpoint paths used by SeaTunnel Engine REST handlers. */
 public class RestConstant {
 
     public static final String JOB_ID = "jobId";
@@ -26,6 +27,8 @@ public class RestConstant {
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
 
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
+
+    public static final String DRY_RUN = "dryRun";
 
     public static final String FORCE = "force";
 
@@ -100,6 +103,7 @@ public class RestConstant {
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    public static final String REST_URL_TRACE_TASK_MAPPING = "/trace/task-mapping";
     public static final String REST_URL_OPTION_RULES = "/option-rules";
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";

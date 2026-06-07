@@ -86,11 +86,15 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
         List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots(tags);
         IMap<Long, JobState> finishedJob =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        IMap<Long, Object> runningJobInfo =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
         overviewInfo.setUnassignedSlot(unassignedSlots.size());
         overviewInfo.setWorkers(resourceManager.workerCount(tags));
         overviewInfo.setRunningJobs(
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO).size());
+                runningJobInfo.keySet().stream()
+                        .filter(server.getCoordinatorService()::shouldShowAsRunningJob)
+                        .count());
         overviewInfo.setFailedJobs(
                 finishedJob.values().stream()
                         .filter(

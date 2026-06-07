@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -26,18 +27,25 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarMultiTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.PulsarSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.PulsarSplitEnumeratorState;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.NeverStopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.StopCursor;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.MultiTablePartitionDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicListDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicPatternDiscoverer;
@@ -50,76 +58,50 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.regex.Pattern;
-
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions.CURSOR_STARTUP_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions.CURSOR_STOP_MODE;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PulsarSource
         implements SeaTunnelSource<SeaTunnelRow, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
                 SupportParallelism {
 
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private CatalogTable catalogTable;
+    private final PulsarMultiTableConfig multiTableConfig;
+    private final Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap;
+    private final PulsarAdminConfig adminConfig;
+    private final PulsarClientConfig clientConfig;
+    private final PulsarDiscoverer partitionDiscoverer;
 
-    private PulsarAdminConfig adminConfig;
-    private PulsarClientConfig clientConfig;
-    private PulsarConsumerConfig consumerConfig;
-    private PulsarDiscoverer partitionDiscoverer;
-    private long partitionDiscoveryIntervalMs;
-    private StartCursor startCursor;
-    private StopCursor stopCursor;
-
-    protected int pollTimeout;
-    protected long pollInterval;
-    protected int batchSize;
+    private final long partitionDiscoveryIntervalMs;
+    protected final int pollTimeout;
+    protected final long pollInterval;
+    protected final int batchSize;
 
     public PulsarSource(ReadonlyConfig config, CatalogTable catalogTable) {
-        this.catalogTable = catalogTable;
-        // admin config
-        PulsarAdminConfig.Builder adminConfigBuilder =
-                PulsarAdminConfig.builder()
-                        .adminUrl(config.get(PulsarSourceOptions.ADMIN_SERVICE_URL));
-        adminConfigBuilder.authPluginClassName(config.get(PulsarSourceOptions.AUTH_PLUGIN_CLASS));
-        adminConfigBuilder.authParams(config.get(PulsarSourceOptions.AUTH_PARAMS));
-        this.adminConfig = adminConfigBuilder.build();
-
-        // client config
-        PulsarClientConfig.Builder clientConfigBuilder =
-                PulsarClientConfig.builder()
-                        .serviceUrl(config.get(PulsarSourceOptions.CLIENT_SERVICE_URL));
-        clientConfigBuilder.authPluginClassName(config.get(PulsarSourceOptions.AUTH_PLUGIN_CLASS));
-        clientConfigBuilder.authParams(config.get(PulsarSourceOptions.AUTH_PARAMS));
-        this.clientConfig = clientConfigBuilder.build();
-
-        // consumer config
-        PulsarConsumerConfig.Builder consumerConfigBuilder =
-                PulsarConsumerConfig.builder()
-                        .subscriptionName(config.get(PulsarSourceOptions.SUBSCRIPTION_NAME));
-        this.consumerConfig = consumerConfigBuilder.build();
-
-        // source properties
+        this.multiTableConfig = PulsarMultiTableConfig.of(config);
         this.partitionDiscoveryIntervalMs =
                 config.get(PulsarSourceOptions.TOPIC_DISCOVERY_INTERVAL);
+        this.adminConfig = buildAdminConfig(config);
+        this.clientConfig = buildClientConfig(config);
+        this.consumerMetadataMap = createConsumerMetadata(catalogTable);
+        this.partitionDiscoverer = createPartitionDiscoverer();
         this.pollTimeout = config.get(PulsarSourceOptions.POLL_TIMEOUT);
         this.pollInterval = config.get(PulsarSourceOptions.POLL_INTERVAL);
         this.batchSize = config.get(PulsarSourceOptions.POLL_BATCH_SIZE);
 
-        setStartCursor(config);
-        setStopCursor(config);
-        setPartitionDiscoverer(config);
-        setDeserialization(config);
+        validateBoundedDiscovery();
+    }
 
-        if (partitionDiscoverer instanceof TopicPatternDiscoverer
-                && partitionDiscoveryIntervalMs > 0
-                && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
-            throw new PulsarConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "Bounded streams do not support dynamic partition discovery.");
-        }
+    @Override
+    public Boundedness getBoundedness() {
+        return consumerMetadataMap.values().stream()
+                        .map(PulsarConsumerMetadata::getStopCursor)
+                        .anyMatch(stopCursor -> stopCursor instanceof NeverStopCursor)
+                ? Boundedness.UNBOUNDED
+                : Boundedness.BOUNDED;
     }
 
     @Override
@@ -127,125 +109,13 @@ public class PulsarSource
         return PulsarSourceOptions.IDENTIFIER;
     }
 
-    private void setStartCursor(ReadonlyConfig config) {
-        PulsarSourceOptions.StartMode startMode = config.get(CURSOR_STARTUP_MODE);
-        switch (startMode) {
-            case EARLIEST:
-                this.startCursor = StartCursor.earliest();
-                break;
-            case LATEST:
-                this.startCursor = StartCursor.latest();
-                break;
-            case SUBSCRIPTION:
-                PulsarSourceOptions.CursorResetStrategy resetStrategy =
-                        config.get(PulsarSourceOptions.CURSOR_RESET_MODE);
-                this.startCursor = StartCursor.subscription(resetStrategy);
-                break;
-            case TIMESTAMP:
-                if (!config.getOptional(PulsarSourceOptions.CURSOR_STARTUP_TIMESTAMP).isPresent()) {
-                    throw new PulsarConnectorException(
-                            SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
-                            String.format(
-                                    "The '%s' property is required when the '%s' is 'timestamp'.",
-                                    PulsarSourceOptions.CURSOR_STARTUP_TIMESTAMP.key(),
-                                    CURSOR_STARTUP_MODE.key()));
-                }
-                this.startCursor =
-                        StartCursor.timestamp(
-                                config.get(PulsarSourceOptions.CURSOR_STARTUP_TIMESTAMP));
-                break;
-            default:
-                throw new PulsarConnectorException(
-                        SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
-                        String.format("The %s mode is not supported.", startMode));
-        }
-    }
-
-    private void setStopCursor(ReadonlyConfig config) {
-        PulsarSourceOptions.StopMode stopMode = config.get(CURSOR_STOP_MODE);
-        switch (stopMode) {
-            case LATEST:
-                this.stopCursor = StopCursor.latest();
-                break;
-            case NEVER:
-                this.stopCursor = StopCursor.never();
-                break;
-            case TIMESTAMP:
-                if (!config.getOptional(PulsarSourceOptions.CURSOR_STOP_TIMESTAMP).isPresent()) {
-                    throw new PulsarConnectorException(
-                            SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
-                            String.format(
-                                    "The '%s' property is required when the '%s' is 'timestamp'.",
-                                    PulsarSourceOptions.CURSOR_STOP_TIMESTAMP.key(),
-                                    CURSOR_STOP_MODE.key()));
-                }
-                this.stopCursor =
-                        StopCursor.timestamp(config.get(PulsarSourceOptions.CURSOR_STOP_TIMESTAMP));
-                break;
-            default:
-                throw new PulsarConnectorException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        String.format("The %s mode is not supported.", stopMode));
-        }
-    }
-
-    private void setPartitionDiscoverer(ReadonlyConfig config) {
-        if (config.getOptional(PulsarSourceOptions.TOPIC).isPresent()) {
-            String topic = config.get(PulsarSourceOptions.TOPIC);
-            if (StringUtils.isNotBlank(topic)) {
-                this.partitionDiscoverer =
-                        new TopicListDiscoverer(Arrays.asList(StringUtils.split(topic, ",")));
-            }
-        }
-        if (config.getOptional(PulsarSourceOptions.TOPIC_PATTERN).isPresent()) {
-            String topicPattern = config.get(PulsarSourceOptions.TOPIC_PATTERN);
-            if (StringUtils.isNotBlank(topicPattern)) {
-                this.partitionDiscoverer =
-                        new TopicPatternDiscoverer(Pattern.compile(topicPattern));
-            }
-        }
-        if (this.partitionDiscoverer == null) {
-            throw new PulsarConnectorException(
-                    SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
-                    String.format(
-                            "The properties '%s' or '%s' is required.",
-                            PulsarSourceOptions.TOPIC.key(),
-                            PulsarSourceOptions.TOPIC_PATTERN.key()));
-        }
-    }
-
-    private void setDeserialization(ReadonlyConfig config) {
-        String format = config.get(PulsarSourceOptions.FORMAT);
-        switch (format.toUpperCase()) {
-            case "JSON":
-                this.deserializationSchema =
-                        new JsonDeserializationSchema(
-                                false, false, catalogTable.getSeaTunnelRowType());
-                break;
-            case "CANAL_JSON":
-                this.deserializationSchema =
-                        new PulsarCanalDecorator(
-                                CanalJsonDeserializationSchema.builder(catalogTable)
-                                        .setIgnoreParseErrors(true)
-                                        .build());
-                break;
-            default:
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported format: " + format);
-        }
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        return this.stopCursor instanceof NeverStopCursor
-                ? Boundedness.UNBOUNDED
-                : Boundedness.BOUNDED;
-    }
-
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        consumerMetadataMap
+                .values()
+                .forEach(metadata -> catalogTables.add(metadata.getCatalogTable()));
+        return catalogTables;
     }
 
     @Override
@@ -254,9 +124,8 @@ public class PulsarSource
         return new PulsarSourceReader<>(
                 readerContext,
                 clientConfig,
-                consumerConfig,
-                startCursor,
-                deserializationSchema,
+                consumerMetadataMap,
+                multiTableConfig.isTablesConfigs(),
                 pollTimeout,
                 pollInterval,
                 batchSize);
@@ -271,9 +140,8 @@ public class PulsarSource
                 adminConfig,
                 partitionDiscoverer,
                 partitionDiscoveryIntervalMs,
-                startCursor,
-                stopCursor,
-                consumerConfig.getSubscriptionName());
+                consumerMetadataMap,
+                getBoundedness());
     }
 
     @Override
@@ -287,9 +155,194 @@ public class PulsarSource
                 adminConfig,
                 partitionDiscoverer,
                 partitionDiscoveryIntervalMs,
-                startCursor,
-                stopCursor,
-                consumerConfig.getSubscriptionName(),
+                consumerMetadataMap,
+                getBoundedness(),
                 checkpointState.getAssignedPartitions());
+    }
+
+    @Override
+    public void setJobContext(JobContext jobContext) {
+        if (multiTableConfig.isMultiTable()
+                && JobMode.BATCH.equals(jobContext.getJobMode())
+                && getBoundedness() == Boundedness.UNBOUNDED) {
+            List<String> unboundedTables =
+                    consumerMetadataMap.entrySet().stream()
+                            .filter(e -> e.getValue().getStopCursor() instanceof NeverStopCursor)
+                            .map(e -> e.getKey().toString())
+                            .collect(Collectors.toList());
+            throw new PulsarConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Pulsar source does not support unbounded multi-table configuration in batch mode. "
+                                    + "The following tables use cursor.stop.mode=NEVER (unbounded): %s. "
+                                    + "Either change them to a bounded mode (LATEST or TIMESTAMP) or use STREAMING mode.",
+                            String.join(", ", unboundedTables)));
+        }
+    }
+
+    private Map<TablePath, PulsarConsumerMetadata> createConsumerMetadata(
+            CatalogTable singleCatalogTable) {
+        Map<TablePath, PulsarConsumerMetadata> metadataMap = new LinkedHashMap<>();
+        for (PulsarTableConfig tableConfig : multiTableConfig.getTableConfigs()) {
+            CatalogTable catalogTable =
+                    multiTableConfig.isTablesConfigs()
+                            ? buildCatalogTable(tableConfig)
+                            : CatalogTable.of(
+                                    TableIdentifier.of(
+                                            PulsarSourceOptions.IDENTIFIER,
+                                            singleCatalogTable.getTableId().toTablePath()),
+                                    singleCatalogTable);
+            TablePath tablePath = catalogTable.getTableId().toTablePath();
+            metadataMap.put(
+                    tablePath,
+                    new PulsarConsumerMetadata(
+                            tablePath,
+                            catalogTable,
+                            createDeserialization(tableConfig.getFormat(), catalogTable),
+                            createDiscoverer(tableConfig),
+                            createStartCursor(tableConfig),
+                            createStopCursor(tableConfig),
+                            buildConsumerConfig(tableConfig.getSubscriptionName())));
+        }
+        return metadataMap;
+    }
+
+    private PulsarDiscoverer createPartitionDiscoverer() {
+        if (consumerMetadataMap.size() == 1) {
+            return consumerMetadataMap.values().iterator().next().getDiscoverer();
+        }
+
+        // Preserve tables_configs order so multi-table topic-pattern overlaps are resolved
+        // deterministically by MultiTablePartitionDiscoverer.
+        List<MultiTablePartitionDiscoverer.TableDiscovererPair> discovererPairs = new ArrayList<>();
+        for (PulsarConsumerMetadata metadata : consumerMetadataMap.values()) {
+            discovererPairs.add(
+                    new MultiTablePartitionDiscoverer.TableDiscovererPair(
+                            metadata.getTablePath(),
+                            metadata.getDiscoverer(),
+                            metadata.getDiscoverer() instanceof TopicPatternDiscoverer));
+        }
+        return new MultiTablePartitionDiscoverer(discovererPairs);
+    }
+
+    private CatalogTable buildCatalogTable(PulsarTableConfig tableConfig) {
+        CatalogTable catalogTable;
+        if (tableConfig.getSchemaConfig().getOptional(PulsarSourceOptions.SCHEMA).isPresent()) {
+            catalogTable = CatalogTableUtil.buildWithConfig(tableConfig.getSchemaConfig());
+        } else {
+            catalogTable = CatalogTableUtil.buildSimpleTextTable();
+        }
+
+        return CatalogTable.of(
+                TableIdentifier.of(PulsarSourceOptions.IDENTIFIER, tableConfig.getTablePath()),
+                catalogTable);
+    }
+
+    private PulsarAdminConfig buildAdminConfig(ReadonlyConfig config) {
+        PulsarAdminConfig.Builder builder =
+                PulsarAdminConfig.builder()
+                        .adminUrl(config.get(PulsarSourceOptions.ADMIN_SERVICE_URL));
+        builder.authPluginClassName(config.get(PulsarSourceOptions.AUTH_PLUGIN_CLASS));
+        builder.authParams(config.get(PulsarSourceOptions.AUTH_PARAMS));
+        return builder.build();
+    }
+
+    private PulsarClientConfig buildClientConfig(ReadonlyConfig config) {
+        PulsarClientConfig.Builder builder =
+                PulsarClientConfig.builder()
+                        .serviceUrl(config.get(PulsarSourceOptions.CLIENT_SERVICE_URL));
+        builder.authPluginClassName(config.get(PulsarSourceOptions.AUTH_PLUGIN_CLASS));
+        builder.authParams(config.get(PulsarSourceOptions.AUTH_PARAMS));
+        return builder.build();
+    }
+
+    private PulsarConsumerConfig buildConsumerConfig(String subscriptionName) {
+        return PulsarConsumerConfig.builder().subscriptionName(subscriptionName).build();
+    }
+
+    private DeserializationSchema<SeaTunnelRow> createDeserialization(
+            String format, CatalogTable catalogTable) {
+        switch (format.toUpperCase()) {
+            case "JSON":
+                return new JsonDeserializationSchema(
+                        false, false, catalogTable.getSeaTunnelRowType());
+            case "CANAL_JSON":
+                return new PulsarCanalDecorator(
+                        CanalJsonDeserializationSchema.builder(catalogTable)
+                                .setIgnoreParseErrors(true)
+                                .build());
+            default:
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+        }
+    }
+
+    private void validateBoundedDiscovery() {
+        boolean hasTopicPattern;
+        if (partitionDiscoverer instanceof TopicPatternDiscoverer) {
+            hasTopicPattern = true;
+        } else if (partitionDiscoverer instanceof MultiTablePartitionDiscoverer) {
+            hasTopicPattern =
+                    ((MultiTablePartitionDiscoverer) partitionDiscoverer).hasTopicPattern();
+        } else {
+            hasTopicPattern = false;
+        }
+
+        if (hasTopicPattern
+                && partitionDiscoveryIntervalMs > 0
+                && Boundedness.BOUNDED == getBoundedness()) {
+            throw new PulsarConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Bounded streams do not support dynamic partition discovery.");
+        }
+    }
+
+    private StartCursor createStartCursor(PulsarTableConfig tableConfig) {
+        PulsarSourceOptions.StartMode startMode = tableConfig.getStartMode();
+        switch (startMode) {
+            case EARLIEST:
+                return StartCursor.earliest();
+            case LATEST:
+                return StartCursor.latest();
+            case SUBSCRIPTION:
+                return StartCursor.subscription(tableConfig.getResetMode());
+            case TIMESTAMP:
+                return StartCursor.timestamp(tableConfig.getStartTimestamp());
+            default:
+                throw new PulsarConnectorException(
+                        SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
+                        "Unsupported start mode: " + startMode);
+        }
+    }
+
+    private StopCursor createStopCursor(PulsarTableConfig tableConfig) {
+        PulsarSourceOptions.StopMode stopMode = tableConfig.getStopMode();
+        switch (stopMode) {
+            case LATEST:
+                return StopCursor.latest();
+            case NEVER:
+                return StopCursor.never();
+            case TIMESTAMP:
+                return StopCursor.timestamp(tableConfig.getStopTimestamp());
+            default:
+                throw new PulsarConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "Unsupported stop mode: " + stopMode);
+        }
+    }
+
+    private PulsarDiscoverer createDiscoverer(PulsarTableConfig tableConfig) {
+        if (StringUtils.isNotBlank(tableConfig.getTopic())) {
+            return new TopicListDiscoverer(
+                    Arrays.asList(StringUtils.split(tableConfig.getTopic(), ",")));
+        }
+        if (tableConfig.getTopicPattern() != null) {
+            return new TopicPatternDiscoverer(tableConfig.getTopicPattern());
+        }
+        throw new PulsarConnectorException(
+                SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
+                String.format(
+                        "The properties '%s' or '%s' is required.",
+                        PulsarSourceOptions.TOPIC.key(), PulsarSourceOptions.TOPIC_PATTERN.key()));
     }
 }

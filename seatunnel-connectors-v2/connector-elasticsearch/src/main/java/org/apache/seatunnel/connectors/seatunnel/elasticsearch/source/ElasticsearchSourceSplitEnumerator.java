@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -148,12 +149,21 @@ public class ElasticsearchSourceSplitEnumerator
                             .filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
                             .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount))
                             .collect(Collectors.toList());
+            int sliceMax = Math.max(1, elasticsearchConfig.getSliceMax());
+            if (SearchTypeEnum.SQL.equals(elasticsearchConfig.getSearchType()) && sliceMax > 1) {
+                log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
+                sliceMax = 1;
+            }
             for (IndexDocsCount indexDocsCount : indexDocsCounts) {
-                ElasticsearchConfig cloneCfg = elasticsearchConfig.clone();
-                cloneCfg.setIndex(indexDocsCount.getIndex());
-                splits.add(
-                        new ElasticsearchSourceSplit(
-                                String.valueOf(indexDocsCount.getIndex().hashCode()), cloneCfg));
+                String indexName = indexDocsCount.getIndex();
+                for (int sliceId = 0; sliceId < sliceMax; sliceId++) {
+                    ElasticsearchConfig cloneCfg = elasticsearchConfig.clone();
+                    cloneCfg.setIndex(indexName);
+                    cloneCfg.setSliceId(sliceId);
+                    cloneCfg.setSliceMax(sliceMax);
+                    String splitId = sliceMax > 1 ? indexName + "#" + sliceId : indexName;
+                    splits.add(new ElasticsearchSourceSplit(splitId, cloneCfg));
+                }
             }
         }
         return splits;
