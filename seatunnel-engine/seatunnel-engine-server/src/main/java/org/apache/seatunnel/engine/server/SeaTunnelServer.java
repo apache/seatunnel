@@ -198,7 +198,8 @@ public class SeaTunnelServer
         checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
-                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
+                new CoordinatorService(
+                        nodeEngine, this, engineContext, seaTunnelConfig.getEngineConfig());
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

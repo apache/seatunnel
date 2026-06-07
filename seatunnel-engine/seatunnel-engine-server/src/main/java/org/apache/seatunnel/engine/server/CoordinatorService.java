@@ -51,6 +51,8 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -67,13 +69,11 @@ import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -128,6 +128,7 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 public class CoordinatorService {
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
+    private final SeaTunnelEngineContext engineContext;
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
@@ -190,8 +191,6 @@ public class CoordinatorService {
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
-    private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
-
     private IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap;
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
@@ -224,8 +223,10 @@ public class CoordinatorService {
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
+        this.engineContext = engineContext;
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
@@ -506,7 +507,6 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-        metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         pendingPipelineCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
@@ -1881,8 +1881,8 @@ public class CoordinatorService {
     }
 
     @VisibleForTesting
-    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
-        return metricsImap;
+    protected MetricsSnapshotStateStore getMetricsSnapshotStateStore() {
+        return engineContext.getStateStores().metricsSnapshotStore();
     }
 
     @VisibleForTesting

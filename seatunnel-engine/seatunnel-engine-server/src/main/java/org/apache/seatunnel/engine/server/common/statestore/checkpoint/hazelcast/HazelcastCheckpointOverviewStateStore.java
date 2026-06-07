@@ -61,6 +61,16 @@ public class HazelcastCheckpointOverviewStateStore implements CheckpointOverview
     }
 
     @Override
+    public boolean isEmpty() {
+        return overviewMap.isEmpty();
+    }
+
+    @Override
+    public int size() {
+        return overviewMap.size();
+    }
+
+    @Override
     public void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> updater) {
         overviewMap.compute(
