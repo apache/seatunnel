@@ -20,16 +20,18 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
-import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
@@ -74,6 +76,8 @@ class EngineStateStoreLogicalMetricExportsTest {
 
         SeaTunnelServer server =
                 instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(server.isCoordinatorActive()));
 
         seedRunningJobMetrics();
         seedCheckpointMonitor(server);
@@ -139,6 +143,10 @@ class EngineStateStoreLogicalMetricExportsTest {
         instance = SeaTunnelServerStarter.createHazelcastInstance(createTestConfig());
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
+        SeaTunnelServer server =
+                instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(server.isCoordinatorActive()));
 
         IMap<Long, JobState> finishedJobStateMap =
                 instance.getMap(Constant.IMAP_FINISHED_JOB_STATE);
@@ -191,16 +199,17 @@ class EngineStateStoreLogicalMetricExportsTest {
 
     private void seedCheckpointMonitor(SeaTunnelServer server) {
         server.getCheckpointMonitorService()
-                .onCheckpointTriggered(7L, 1, 1001L, CheckpointType.CHECKPOINT, 100L, 2);
+                .onCheckpointTriggered(7L, 1, 1001L, CheckpointType.CHECKPOINT_TYPE, 100L, 2);
         server.getCheckpointMonitorService()
                 .onCheckpointCompleted(
-                        new org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint(
+                        new CompletedCheckpoint(
                                 7L,
                                 1,
                                 1000L,
-                                CheckpointType.CHECKPOINT,
                                 10L,
+                                CheckpointType.CHECKPOINT_TYPE,
                                 20L,
+                                Collections.emptyMap(),
                                 Collections.emptyMap()),
                         128L);
         server.getCheckpointMonitorService()
@@ -208,9 +217,8 @@ class EngineStateStoreLogicalMetricExportsTest {
                         7L,
                         1,
                         1002L,
-                        CheckpointType.CHECKPOINT,
-                        org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason
-                                .CHECKPOINT_EXPIRED,
+                        CheckpointType.CHECKPOINT_TYPE,
+                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
                         null,
                         30L);
     }
@@ -251,7 +259,7 @@ class EngineStateStoreLogicalMetricExportsTest {
                 new HashMap<>(),
                 new HashMap<>(),
                 new HashMap<>(),
-                new ExecutionAddress("127.0.0.1", 5801),
+                null,
                 Collections.emptySet());
     }
 
@@ -279,7 +287,11 @@ class EngineStateStoreLogicalMetricExportsTest {
     private static MetricFamilySamples findMetricFamily(
             List<MetricFamilySamples> metrics, String name) {
         return metrics.stream()
-                .filter(metricFamilySamples -> name.equals(metricFamilySamples.name))
+                .filter(
+                        metricFamilySamples ->
+                                name.equals(metricFamilySamples.name)
+                                        || metricFamilySamples.samples.stream()
+                                                .anyMatch(sample -> name.equals(sample.name)))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing metric family: " + name));
     }
@@ -296,7 +308,7 @@ class EngineStateStoreLogicalMetricExportsTest {
         return sample.labelValues.get(index);
     }
 
-    private static org.apache.seatunnel.engine.common.config.SeaTunnelConfig createTestConfig() {
+    private static SeaTunnelConfig createTestConfig() {
         String yaml =
                 "seatunnel:\n"
                         + "  engine:\n"
@@ -310,8 +322,7 @@ class EngineStateStoreLogicalMetricExportsTest {
                         + "      connector-jar-storage-path: \"\"\n"
                         + "      connector-jar-cleanup-task-interval: 3600\n"
                         + "      connector-jar-expiry-time: 600\n";
-        org.apache.seatunnel.engine.common.config.SeaTunnelConfig config =
-                ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml);
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfigFromString(yaml);
         config.getHazelcastConfig()
                 .setClusterName(
                         TestUtils.getClusterName(

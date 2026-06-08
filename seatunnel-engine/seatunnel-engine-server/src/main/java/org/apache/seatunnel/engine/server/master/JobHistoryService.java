@@ -51,9 +51,11 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -428,11 +430,10 @@ public class JobHistoryService {
             try {
                 Set<ExecutionAddress> historyExecutionPlan =
                         Optional.ofNullable(jobDagInfo.getHistoryExecutionPlan())
-                                .orElseGet(java.util.Collections::emptySet);
+                                .orElseGet(Collections::emptySet);
                 Stream.concat(
                                 historyExecutionPlan.stream(),
-                                Stream.of(jobDagInfo.getMaster())
-                                        .filter(java.util.Objects::nonNull))
+                                Stream.of(jobDagInfo.getMaster()).filter(Objects::nonNull))
                         .forEach(
                                 address -> {
                                     logger.info(

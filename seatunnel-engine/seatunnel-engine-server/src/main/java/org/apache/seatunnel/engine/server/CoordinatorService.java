@@ -113,6 +113,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -237,7 +238,7 @@ public class CoordinatorService {
 
     private final AtomicBoolean runningJobMetricsInitializing = new AtomicBoolean(false);
 
-    private volatile String runningJobMetricsListenerId;
+    private volatile UUID runningJobMetricsListenerId;
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,

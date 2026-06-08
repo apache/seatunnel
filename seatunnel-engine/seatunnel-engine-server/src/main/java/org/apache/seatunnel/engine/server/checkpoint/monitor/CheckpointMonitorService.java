@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,7 +70,7 @@ public class CheckpointMonitorService {
     private final Set<Long> overviewDirtyJobIds = ConcurrentHashMap.newKeySet();
     private final Map<Long, CheckpointOverviewStats> overviewStatsByJobId = new HashMap<>();
     private final AtomicBoolean overviewStatsInitializing = new AtomicBoolean(false);
-    private volatile String overviewListenerId;
+    private volatile UUID overviewListenerId;
 
     public CheckpointMonitorService(NodeEngine nodeEngine, int maxHistorySize) {
         this.nodeEngine = nodeEngine;
