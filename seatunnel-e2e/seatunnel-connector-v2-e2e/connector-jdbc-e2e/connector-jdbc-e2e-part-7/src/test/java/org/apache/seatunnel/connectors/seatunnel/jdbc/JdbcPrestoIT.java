@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -220,6 +222,8 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 new GenericContainer<>(PRESTO_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(PRESTO_ALIASES)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PRESTO_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));

@@ -321,6 +321,61 @@ sink {
 ```
 Note：key/value 需要 byte[]类型.
 
+## 常见问题
+
+### Kafka Sink 会自动创建 topic 吗？
+
+SeaTunnel Kafka Sink 本身不会主动创建 Kafka topic，只是向配置的 `topic` 写入数据。topic 是否自动创建取决于 Kafka Broker 的 `auto.create.topics.enable` 配置。
+
+生产环境中建议提前手动创建 topic，以便自行控制分区数、副本数、保留策略和 ACL。不要依赖自动创建，因为 Broker 可能已将 `auto.create.topics.enable` 设为 `false`。
+
+### 不配置 `partition_key_fields` 会怎样？
+
+若未设置 `partition_key_fields`，SeaTunnel 将以 **null** 作为 Kafka 消息 key 发送记录，Kafka 会使用默认的轮询策略将记录分散到各分区。
+
+这适合做负载均衡，但**不适合**需要相同业务 key 的记录落入同一分区以保证顺序的场景。如有顺序要求，请配置 `partition_key_fields`。
+
+### 如何实现精确一次（exactly-once）写入？
+
+将 `semantics` 设为 `EXACTLY_ONCE` 以启用精确一次语义，并配置 `transaction_prefix`
+为每个任务提供唯一的 Kafka 事务 ID 前缀。SeaTunnel 会将 Kafka 事务与 checkpoint 协调来实现 exactly-once：
+
+```hocon
+sink {
+  kafka {
+    topic = "output-topic"
+    bootstrap.servers = "localhost:9092"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
+    kafka.transaction.timeout.ms = "900000"
+  }
+}
+```
+
+确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
+
+### 如何配置 SASL/Kerberos 认证？
+
+```hocon
+sink {
+  kafka {
+    topic = "secure-topic"
+    bootstrap.servers = "broker:9092"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### Kafka Sink 支持哪些消息格式？
+
+支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
+
 ## 变更日志
 
 <ChangeLog />

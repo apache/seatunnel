@@ -347,6 +347,30 @@ sink {
 
 After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data tables `multi_sink_table1` and `multi_sink_table2` is 100 for each. 
 
+## FAQ
+
+### Does ClickHouse Sink support automatic table creation?
+
+Yes. See the `schema_save_mode` section above for the exact modes and current default behavior.
+If you need to customize the generated DDL, use `save_mode_create_template` rather than
+re-introducing separate DDL option names in the FAQ.
+
+### How do I tune batch write performance?
+
+Use `bulk_size` as the primary tuning knob. The exact option name and current default are already
+documented in the option table above, so treat that table as the source of truth when tuning
+throughput.
+
+### What ClickHouse data types are supported?
+
+SeaTunnel maps to ClickHouse types including `Int8/16/32/64`, `UInt8/16/32/64`, `Float32/64`, `Decimal`, `String`, `FixedString`, `Date`, `DateTime`, `Array`, `Map`, and `Nullable` variants. Complex nested types may require a field transform before writing.
+
+### Why do I get a "Table doesn't exist" error?
+
+Start with the `schema_save_mode` section above. If your environment should auto-create missing
+tables, keep the documented create-on-missing flow. If your environment requires pre-created
+tables, switch to the stricter mode explicitly and provision the table ahead of time.
+
 ## Changelog
 
 <ChangeLog />

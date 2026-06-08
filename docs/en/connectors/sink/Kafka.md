@@ -363,6 +363,64 @@ The input parameter requirements are as follows:
 ```
 Note：key/value is of type byte[].
 
+## FAQ
+
+### Does Kafka Sink automatically create topics?
+
+SeaTunnel Kafka Sink writes records to the configured `topic` but does not explicitly create Kafka topics itself. Whether a missing topic is created automatically depends on the Kafka broker's `auto.create.topics.enable` setting.
+
+In production, we recommend creating topics explicitly in advance to control partition count, replication factor, retention policy, and ACLs. Do not rely on automatic topic creation for production workloads, as brokers may have `auto.create.topics.enable = false`.
+
+### What happens if `partition_key_fields` is not configured?
+
+If `partition_key_fields` is not set, SeaTunnel sends records with a **null** Kafka message key. Kafka then distributes records across partitions using its default round-robin strategy.
+
+This is suitable for load distribution but does **not** preserve ordering for records with the same business key. If you need records with the same business key to land in the same partition, configure `partition_key_fields` with the relevant field names.
+
+### How do I achieve exactly-once delivery to Kafka?
+
+Set `semantics = EXACTLY_ONCE` to enable exactly-once delivery, and configure `transaction_prefix`
+so each job uses a distinct Kafka transactional ID prefix. SeaTunnel coordinates Kafka transactions
+with checkpoints to provide exactly-once semantics:
+
+```hocon
+sink {
+  kafka {
+    topic = "output-topic"
+    bootstrap.servers = "localhost:9092"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
+    kafka.transaction.timeout.ms = "900000"
+  }
+}
+```
+
+Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
+
+### How do I configure SASL/Kerberos authentication?
+
+Pass broker authentication settings via `kafka.*` properties:
+
+```hocon
+sink {
+  kafka {
+    topic = "secure-topic"
+    bootstrap.servers = "broker:9092"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### What message formats does Kafka Sink support?
+
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
+
 ## Changelog
 
 <ChangeLog />
