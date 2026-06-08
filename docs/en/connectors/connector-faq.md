@@ -42,7 +42,7 @@ Change Data Capture connectors read real-time change events (INSERT / UPDATE / D
 | Connector | Common FAQ Topics |
 |---|---|
 | [Doris Sink](./sink/Doris.md#faq) | Automatic table creation, exactly-once with 2PC, "Label already exists" error, DELETE propagation, column case sensitivity, Stream Load format |
-| [StarRocks Sink](./sink/StarRocks.md#faq) | Automatic table creation, upsert and DELETE support, exactly-once, column case sensitivity, `nodeUrls` vs `base-url` |
+| [StarRocks Sink](./sink/StarRocks.md#faq) | Automatic table creation, upsert and DELETE support, `labelPrefix` usage, column case sensitivity, `nodeUrls` vs `base-url` |
 | [ClickHouse Sink](./sink/Clickhouse.md#faq) | Automatic table creation, batch write performance, supported data types, "Table doesn't exist" error |
 
 ### Relational Databases

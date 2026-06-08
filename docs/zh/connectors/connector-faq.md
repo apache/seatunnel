@@ -41,7 +41,7 @@ CDC（变更数据捕获）Connector 从数据库事务日志中实时读取 INS
 | Connector | 常见问题主题 |
 |---|---|
 | [Doris Sink](./sink/Doris.md#常见问题) | 自动建表、2PC 精确一次、"Label already exists" 报错、DELETE 传播、列名大小写、Stream Load 格式 |
-| [StarRocks Sink](./sink/StarRocks.md#常见问题) | 自动建表、Upsert/DELETE 支持、精确一次、列名大小写、`nodeUrls` 与 `base-url` 的区别 |
+| [StarRocks Sink](./sink/StarRocks.md#常见问题) | 自动建表、Upsert/DELETE 支持、`labelPrefix` 用法、列名大小写、`nodeUrls` 与 `base-url` 的区别 |
 | [ClickHouse Sink](./sink/Clickhouse.md#常见问题) | 自动建表、批量写入调优、支持的数据类型、"Table doesn't exist" 报错 |
 
 ### 关系型数据库

@@ -317,9 +317,11 @@ SeaTunnel 会根据上游 schema 自动推断 StarRocks 列类型。
 
 支持。设置 `enable_upsert_delete = true` 可以传播 Upsert 和 DELETE 事件，目标 StarRocks 表必须使用**主键模型（Primary Key）**。来自 CDC 数据源的 DELETE 事件在开启此选项后可正确传播。
 
-### StarRocks Sink 如何实现精确一次（exactly-once）？
+### StarRocks Sink 中的 `labelPrefix` 是做什么的？
 
-StarRocks Sink 通过 label 去重实现 exactly-once，需配置唯一的 label 前缀：
+当前 StarRocks Sink 页面并未将精确一次列为已支持的 Connector 能力。
+`labelPrefix` 用于控制 Sink 生成的 Stream Load label 前缀，保持此前缀稳定且全局唯一，
+可以减少重试或任务重启时的 label 冲突：
 
 ```hocon
 sink {
@@ -330,12 +332,12 @@ sink {
     password = ""
     database = "mydb"
     table = "mytable"
-    sink.label-prefix = "unique-job-label"
+    labelPrefix = "unique-job-label"
   }
 }
 ```
 
-确保 `sink.label-prefix` 全局唯一，避免任务重启时 label 冲突。
+正式契约请以本页的**主要特性**矩阵和 `labelPrefix` option 说明为准。
 
 ### StarRocks 列名是否区分大小写？
 
