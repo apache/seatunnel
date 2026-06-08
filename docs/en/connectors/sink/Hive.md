@@ -612,8 +612,8 @@ sink {
   Hive {
     table_name = "mydb.events"
     metastore_uri = "thrift://hive-metastore:9083"
-    kerberosPrincipal = "hive/host@REALM.COM"
-    kerberosKeytabFilePath = "/etc/security/keytabs/hive.keytab"
+    kerberos_principal = "hive/host@REALM.COM"
+    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
     krb5_path = "/etc/krb5.conf"
   }
 }
