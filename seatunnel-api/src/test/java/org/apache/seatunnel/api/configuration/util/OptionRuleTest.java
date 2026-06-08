@@ -182,6 +182,63 @@ public class OptionRuleTest {
         assertEquals(
                 "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ExclusiveRequiredOptions options.",
                 assertThrows(OptionValidationException.class, executable).getMessage());
+
+        // test exclusive options can be paired with optional value constraints
+        OptionRule exclusiveWithOptional =
+                OptionRule.builder()
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, Conditions.notEmpty(TEST_TOPIC))
+                        .build();
+        assertEquals(1, exclusiveWithOptional.getRequiredOptions().size());
+        assertEquals(2, exclusiveWithOptional.getOptionalOptions().size());
+        assertEquals(2, exclusiveWithOptional.getValueConstraints().size());
+
+        // test bundled options can be paired with optional value constraints
+        OptionRule bundledWithOptional =
+                OptionRule.builder()
+                        .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, Conditions.notEmpty(TEST_TOPIC))
+                        .build();
+        assertEquals(1, bundledWithOptional.getRequiredOptions().size());
+        assertEquals(2, bundledWithOptional.getOptionalOptions().size());
+        assertEquals(2, bundledWithOptional.getValueConstraints().size());
+
+        // test required options still cannot be paired with optional (no condition)
+        executable = () -> OptionRule.builder().required(TEST_PORTS).optional(TEST_PORTS).build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required options still cannot be paired with optional (with condition)
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_PORTS)
+                                .optional(TEST_PORTS, Conditions.notEmpty(TEST_PORTS))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test duplicate optional declaration still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + duplicate optional value constraint still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
     }
 
     @Test

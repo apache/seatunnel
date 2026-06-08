@@ -2716,4 +2716,75 @@ public class ConfigValidatorTest {
         config.put(MAP_OPTION.key(), props);
         Assertions.assertDoesNotThrow(() -> validate(config, rule));
     }
+
+    @Test
+    public void testExclusiveWithOptionalValueConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, notEmpty(TEST_TOPIC))
+                        .build();
+
+        // neither present -> fails exclusive check
+        Map<String, Object> config1 = new HashMap<>();
+        assertThrows(OptionValidationException.class, () -> validate(config1, rule));
+
+        // one present with valid value -> pass
+        Map<String, Object> config2 = new HashMap<>();
+        config2.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
+        Assertions.assertDoesNotThrow(() -> validate(config2, rule));
+
+        // one present with empty value -> fails value constraint
+        Map<String, Object> config3 = new HashMap<>();
+        config3.put(TEST_TOPIC_PATTERN.key(), "");
+        assertThrows(OptionValidationException.class, () -> validate(config3, rule));
+
+        // both present -> fails exclusive check
+        Map<String, Object> config4 = new HashMap<>();
+        config4.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
+        config4.put(TEST_TOPIC.key(), Arrays.asList("t1", "t2"));
+        assertThrows(OptionValidationException.class, () -> validate(config4, rule));
+
+        // list option present with empty list -> fails value constraint
+        Map<String, Object> config5 = new HashMap<>();
+        config5.put(TEST_TOPIC.key(), Collections.emptyList());
+        assertThrows(OptionValidationException.class, () -> validate(config5, rule));
+
+        // list option present with valid list -> pass
+        Map<String, Object> config6 = new HashMap<>();
+        config6.put(TEST_TOPIC.key(), Arrays.asList("topic1"));
+        Assertions.assertDoesNotThrow(() -> validate(config6, rule));
+    }
+
+    @Test
+    public void testBundledWithOptionalValueConstraint() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, notEmpty(TEST_TOPIC))
+                        .build();
+
+        // neither present -> pass (bundled options are optional as a group)
+        Map<String, Object> config1 = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config1, rule));
+
+        // both present with valid values -> pass
+        Map<String, Object> config2 = new HashMap<>();
+        config2.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
+        config2.put(TEST_TOPIC.key(), Collections.singletonList("t1"));
+        Assertions.assertDoesNotThrow(() -> validate(config2, rule));
+
+        // only one present -> fails bundled check
+        Map<String, Object> config3 = new HashMap<>();
+        config3.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
+        assertThrows(OptionValidationException.class, () -> validate(config3, rule));
+
+        // both present but one has empty value -> fails value constraint
+        Map<String, Object> config4 = new HashMap<>();
+        config4.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
+        config4.put(TEST_TOPIC.key(), Collections.emptyList());
+        assertThrows(OptionValidationException.class, () -> validate(config4, rule));
+    }
 }

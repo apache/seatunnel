@@ -546,6 +546,11 @@ public class OptionRule {
 
             requiredOptions.forEach(
                     requiredOption -> {
+                        if (requiredOption instanceof RequiredOption.ExclusiveRequiredOptions
+                                || requiredOption
+                                        instanceof RequiredOption.BundledRequiredOptions) {
+                            return;
+                        }
                         if (requiredOption.getOptions().contains(option)) {
                             throw new OptionValidationException(
                                     String.format(
