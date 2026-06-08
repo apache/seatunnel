@@ -28,8 +28,15 @@ import java.util.Map;
 public class AzureKeyVaultConfigShade implements ConfigShade {
 
     private static final String IDENTIFIER = "azure-kv";
+    private static final String SECRET_REFERENCE_PREFIX = "${keyvault:azure:";
 
     private SecretClient secretClient;
+
+    public AzureKeyVaultConfigShade() {}
+
+    AzureKeyVaultConfigShade(SecretClient secretClient) {
+        this.secretClient = secretClient;
+    }
 
     @Override
     public void open(Map<String, Object> props) {
@@ -62,8 +69,9 @@ public class AzureKeyVaultConfigShade implements ConfigShade {
             return null;
         }
 
-        if (content.startsWith("${keyvault:azure:") && content.endsWith("}")) {
-            String secretName = content.replace("${keyvault:azure:", "").replace("}", "");
+        if (content.startsWith(SECRET_REFERENCE_PREFIX) && content.endsWith("}")) {
+            String secretName =
+                    content.substring(SECRET_REFERENCE_PREFIX.length(), content.length() - 1);
 
             int slashIndex = secretName.lastIndexOf("/");
 
