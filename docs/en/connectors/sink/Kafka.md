@@ -43,9 +43,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | partition             | Int    | No       | -       | We can specify the partition, all messages will be sent to this partition.                                                                                                                                                                                                                                                                                                                                                                                   |
 | assign_partitions     | Array  | No       | -       | We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.                                                                                                                                                                                                                                                                                                                      |
 | transaction_prefix    | String | No       | -       | If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction,kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.                                                                                                                                                                                |
-| format                | String | No       | json    | Data format. The default format is json. Optional text format, canal_json, debezium_json, ogg_json , avro and native.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
+| format                | String | No       | json    | Data format. The default format is json. Optional text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
 | field_delimiter       | String | No       | ,       | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| common-options        |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
+| common-options        |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
 | protobuf_message_name | String | No       | -       | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema       | String | No       | -       | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                |
 
@@ -149,7 +149,6 @@ sink {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -193,7 +192,6 @@ sink {
       format = json
       partition_key_fields = ["name"]
       kafka_headers_fields = ["source", "traceId"]
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -214,7 +212,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -248,7 +245,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -296,7 +292,6 @@ sink {
       topic = "test_protobuf_topic_fake_source"
       bootstrap.servers = "kafkaCluster:9092"
       format = protobuf
-      kafka.request.timeout.ms = 60000
       kafka.config = {
         acks = "all"
         request.timeout.ms = 60000

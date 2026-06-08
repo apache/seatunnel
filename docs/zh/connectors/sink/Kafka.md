@@ -43,7 +43,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
 | transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                                           |
-| format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 、 avro 、  protobuf 和native。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
+| format               | String | 否    | json | 数据格式。默认格式是json。可选 text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf 和 native。如果使用 json 或 text 格式，默认字段分隔符是 `,`。如果自定义分隔符，请添加 `field_delimiter` 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md)。如果使用 debezium 格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
 |protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                                    |
@@ -150,7 +150,6 @@ sink {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -171,7 +170,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -206,7 +204,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -222,15 +219,14 @@ sink {
 
 请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
 
-源配置示例：
+接收器配置示例：
 
 ```hocon
-source {
+sink {
    Kafka {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol = SASL_PLAINTEXT
@@ -255,7 +251,6 @@ sink {
       topic = "test_protobuf_topic_fake_source"
       bootstrap.servers = "kafkaCluster:9092"
       format = protobuf
-      kafka.request.timeout.ms = 60000
       kafka.config = {
         acks = "all"
         request.timeout.ms = 60000

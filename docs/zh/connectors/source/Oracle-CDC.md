@@ -423,6 +423,10 @@ Debezium 透传属性后，再引入额外调优参数。
 
 Oracle CDC 支持 Oracle Database 11g、12c、19c 和 21c。对于 12c 及更高版本的多租户配置，需使用 CDB 根连接和公共用户。
 
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 更新日志
 
 <ChangeLog />

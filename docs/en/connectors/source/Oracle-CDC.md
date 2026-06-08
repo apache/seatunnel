@@ -425,6 +425,12 @@ Oracle CDC runtime you are deploying.
 
 Oracle CDC is supported on Oracle Database 11g, 12c, 19c, and 21c. For 12c and later multi-tenant configurations, use the CDB root connection with a common user.
 
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
+
 ## Changelog
 
 <ChangeLog />

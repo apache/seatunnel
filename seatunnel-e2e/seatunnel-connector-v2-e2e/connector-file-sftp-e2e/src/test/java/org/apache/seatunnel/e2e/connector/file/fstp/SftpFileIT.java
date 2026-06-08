@@ -36,18 +36,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -59,13 +55,11 @@ import java.util.stream.Stream;
 @Slf4j
 public class SftpFileIT extends TestSuiteBase implements TestResource {
 
-    private static final String SFTP_IMAGE = "atmoz/sftp:latest";
+    private static final String SFTP_IMAGE = "atmoz/sftp:alpine-3.7";
 
     private static final String SFTP_CONTAINER_HOST = "sftp";
 
     private static final int SFTP_PORT = 22;
-
-    private static final int SFTP_BIND_PORT = 2222;
 
     private static final String SFTP_CONTAINER_HOME = "/home/seatunnel";
 
@@ -84,10 +78,9 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                         .withCommand(USERNAME + ":" + PASSWORD + ":::tmp")
                         .withNetwork(NETWORK)
                         .withNetworkAliases(SFTP_CONTAINER_HOST)
-                        .withExposedPorts(SFTP_PORT);
+                        .withExposedPorts(SFTP_PORT)
+                        .waitingFor(Wait.forListeningPort());
 
-        sftpContainer.setPortBindings(Collections.singletonList(SFTP_BIND_PORT + ":" + SFTP_PORT));
-        sftpContainer.start();
         Startables.deepStart(Stream.of(sftpContainer)).join();
         log.info("Sftp container started");
 
@@ -132,7 +125,10 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/text/e2e.txt",
                 "/home/seatunnel/tmp/seatunnel/read/wildcard/e2e.txt",
                 sftpContainer);
-        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+        Container.ExecResult chownResult =
+                sftpContainer.execInContainer(
+                        "sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+        Assertions.assertEquals(0, chownResult.getExitCode(), chownResult.getStderr());
     }
 
     @TestTemplate
@@ -160,19 +156,19 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/text/e2e.txt",
                 "/home/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                 sftpContainer);
-        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+        Container.ExecResult chownResult2 =
+                sftpContainer.execInContainer(
+                        "sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+        Assertions.assertEquals(0, chownResult2.getExitCode(), chownResult2.getStderr());
 
-        TestHelper helper = new TestHelper(container);
-        // -----filter based on the file directory at the same time, the expression needs to start
-        // with `path`--------
-        helper.execute("/json/sftp_to_access_for_json_path_filter.conf");
-
-        // -------filter based on file names, just simply write the regular file names--------
-        helper.execute("/json/sftp_to_access_for_json_name_filter.conf");
-
-        // delete path
         String filterPath = "/home/seatunnel/tmp/seatunnel/read/filter";
-        deleteFileFromContainer(filterPath);
+        try {
+            TestHelper helper = new TestHelper(container);
+            helper.execute("/json/sftp_to_access_for_json_path_filter.conf");
+            helper.execute("/json/sftp_to_access_for_json_name_filter.conf");
+        } finally {
+            deleteFileFromContainer(filterPath);
+        }
     }
 
     @TestTemplate
@@ -215,34 +211,51 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         deleteFileFromContainer(homePath + sink01);
         deleteFileFromContainer(homePath + sink02);
         helper.execute("/json/sftp_file_json_to_assert_with_multipletable.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
-        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    1, getFileListFromContainer(homePath + sink01).size());
+                            Assertions.assertEquals(
+                                    1, getFileListFromContainer(homePath + sink02).size());
+                        });
     }
 
     @TestTemplate
     public void testSftpBinaryUpdateModeDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
-        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abc");
+        try {
+            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abc");
 
-        TestHelper helper = new TestHelper(container);
-        helper.execute("/text/sftp_binary_update_distcp.conf");
-        Assertions.assertEquals(
-                "abc", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+            TestHelper helper = new TestHelper(container);
+            helper.execute("/text/sftp_binary_update_distcp.conf");
+            Assertions.assertEquals(
+                    "abc",
+                    readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
 
-        // Make target newer with same length, distcp strategy should SKIP overwrite.
-        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin", "zzz");
-        helper.execute("/text/sftp_binary_update_distcp.conf");
-        Assertions.assertEquals(
-                "zzz", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+            // Make target newer with same length, distcp strategy should SKIP overwrite.
+            String srcPath = SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin";
+            String dstPath = SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin";
+            long srcMtime = getSftpFileMtimeSeconds(srcPath);
+            waitUntilContainerTimeAfter(srcMtime);
+            putSftpFile(dstPath, "zzz");
+            helper.execute("/text/sftp_binary_update_distcp.conf");
+            Assertions.assertEquals(
+                    "zzz",
+                    readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
 
-        // Change source length, distcp strategy should COPY overwrite.
-        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abcd");
-        helper.execute("/text/sftp_binary_update_distcp.conf");
-        Assertions.assertEquals(
-                "abcd", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
-
-        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+            // Change source length, distcp strategy should COPY overwrite.
+            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abcd");
+            helper.execute("/text/sftp_binary_update_distcp.conf");
+            Assertions.assertEquals(
+                    "abcd",
+                    readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+        } finally {
+            deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+        }
     }
 
     @TestTemplate
@@ -253,65 +266,73 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
-        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
-
-        String jobId = String.valueOf(JobIdGenerator.newJobId());
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/text/sftp_binary_update_distcp_continuous.conf", jobId);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        "abc",
-                                        readSftpFile(
-                                                SFTP_CONTAINER_HOME
-                                                        + "/tmp/seatunnel/continuous/dst/test1.bin")));
-
-        long firstMtimeSeconds =
-                getSftpFileMtimeSeconds(
-                        SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
-        Thread.sleep(2500);
-        long secondMtimeSeconds =
-                getSftpFileMtimeSeconds(
-                        SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
-        Assertions.assertEquals(
-                firstMtimeSeconds,
-                secondMtimeSeconds,
-                "Continuous discovery should skip unchanged files in update mode.");
-
-        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test2.bin", "def");
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        "def",
-                                        readSftpFile(
-                                                SFTP_CONTAINER_HOME
-                                                        + "/tmp/seatunnel/continuous/dst/test2.bin")));
-
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-
-        Container.ExecResult execResult;
         try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
 
-        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+            String jobId = String.valueOf(JobIdGenerator.newJobId());
+            CompletableFuture<Container.ExecResult> jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/sftp_binary_update_distcp_continuous.conf",
+                                            jobId);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "abc",
+                                            readSftpFile(
+                                                    SFTP_CONTAINER_HOME
+                                                            + "/tmp/seatunnel/continuous/dst/test1.bin")));
+
+            String mtimePath = SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin";
+            long firstMtimeSeconds = getSftpFileMtimeSeconds(mtimePath);
+            Awaitility.await()
+                    .during(6, TimeUnit.SECONDS)
+                    .atMost(15, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long currentMtime = getSftpFileMtimeSeconds(mtimePath);
+                                Assertions.assertEquals(
+                                        firstMtimeSeconds,
+                                        currentMtime,
+                                        "Continuous discovery should skip unchanged files in update mode.");
+                            });
+
+            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test2.bin", "def");
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "def",
+                                            readSftpFile(
+                                                    SFTP_CONTAINER_HOME
+                                                            + "/tmp/seatunnel/continuous/dst/test2.bin")));
+
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            Container.ExecResult execResult;
+            try {
+                execResult = jobFuture.get(120, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException("Wait continuous job exit failed.", e);
+            }
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+        }
     }
 
     @TestTemplate
@@ -324,27 +345,42 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         String path2 = "/tmp/multiple_1/seatunnel/text/source_2";
         deleteFileFromContainer(homePath + path1);
         deleteFileFromContainer(homePath + path2);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 0);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 0);
+        Assertions.assertEquals(0, getFileListFromContainer(homePath + path1).size());
+        Assertions.assertEquals(0, getFileListFromContainer(homePath + path2).size());
         helper.execute("/text/multiple_fake_to_sftp_file_text_recreate_schema.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 1);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 1);
+        awaitFileCount(homePath + path1, 1);
+        awaitFileCount(homePath + path2, 1);
         helper.execute("/text/multiple_fake_to_sftp_file_text_recreate_schema.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + path1).size(), 1);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path2).size(), 1);
+        awaitFileCount(homePath + path1, 1);
+        awaitFileCount(homePath + path2, 1);
         // test mult table and save_mode:CREATE_SCHEMA_WHEN_NOT_EXIST APPEND_DATA
         String path3 = "/tmp/multiple_2/seatunnel/text/source_1";
         String path4 = "/tmp/multiple_2/seatunnel/text/source_2";
         deleteFileFromContainer(homePath + path3);
         deleteFileFromContainer(homePath + path4);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 0);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 0);
+        Assertions.assertEquals(0, getFileListFromContainer(homePath + path3).size());
+        Assertions.assertEquals(0, getFileListFromContainer(homePath + path4).size());
         helper.execute("/text/multiple_fake_to_sftp_file_text_append.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 1);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 1);
+        awaitFileCount(homePath + path3, 1);
+        awaitFileCount(homePath + path4, 1);
         helper.execute("/text/multiple_fake_to_sftp_file_text_append.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 2);
-        Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 2);
+        awaitFileCount(homePath + path3, 2);
+        awaitFileCount(homePath + path4, 2);
+    }
+
+    private void awaitFileCount(String containerPath, int expectedCount) {
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedCount,
+                                        getFileListFromContainer(containerPath).size(),
+                                        "Expected "
+                                                + expectedCount
+                                                + " files in "
+                                                + containerPath));
     }
 
     private void resetUpdateTestPath() throws IOException, InterruptedException {
@@ -410,6 +446,18 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
+    private void waitUntilContainerTimeAfter(long epochSeconds) {
+        Awaitility.await()
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .until(
+                        () -> {
+                            Container.ExecResult r =
+                                    sftpContainer.execInContainer("sh", "-c", "date +%s");
+                            return Long.parseLong(r.getStdout().trim()) > epochSeconds;
+                        });
+    }
+
     private long getSftpFileMtimeSeconds(String containerPath)
             throws IOException, InterruptedException {
         Container.ExecResult result =
@@ -420,22 +468,12 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
     @SneakyThrows
     private List<String> getFileListFromContainer(String path) {
-        String command = "ls -1 " + path;
-        ExecCreateCmdResponse execCreateCmdResponse =
-                dockerClient
-                        .execCreateCmd(sftpContainer.getContainerId())
-                        .withCmd("sh", "-c", command)
-                        .withAttachStdout(true)
-                        .withAttachStderr(true)
-                        .exec();
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        dockerClient
-                .execStartCmd(execCreateCmdResponse.getId())
-                .exec(new ExecStartResultCallback(outputStream, System.err))
-                .awaitCompletion();
-
-        String output = new String(outputStream.toByteArray(), StandardCharsets.UTF_8).trim();
+        Container.ExecResult result = sftpContainer.execInContainer("sh", "-c", "ls -1 " + path);
+        if (result.getExitCode() != 0) {
+            log.info("ls failed for path {}: {}", path, result.getStderr());
+            return new ArrayList<>();
+        }
+        String output = result.getStdout() == null ? "" : result.getStdout().trim();
         List<String> fileList = new ArrayList<>();
         log.info("container path file list is :{}", output);
         String[] files = output.split("\n");
@@ -450,20 +488,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
     @SneakyThrows
     private void deleteFileFromContainer(String path) {
-        String command = "rm -rf " + path;
-        ExecCreateCmdResponse execCreateCmdResponse =
-                dockerClient
-                        .execCreateCmd(sftpContainer.getContainerId())
-                        .withCmd("sh", "-c", command)
-                        .withAttachStdout(true)
-                        .withAttachStderr(true)
-                        .exec();
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        dockerClient
-                .execStartCmd(execCreateCmdResponse.getId())
-                .exec(new ExecStartResultCallback(outputStream, System.err))
-                .awaitCompletion();
+        sftpContainer.execInContainer("sh", "-c", "rm -rf " + path);
     }
 
     @AfterAll

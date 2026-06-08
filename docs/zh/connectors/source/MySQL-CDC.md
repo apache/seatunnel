@@ -423,6 +423,10 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 
 将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
 
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 更新日志
 
 <ChangeLog />

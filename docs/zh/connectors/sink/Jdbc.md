@@ -59,6 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
 | use_copy_statement                        | Boolean | 否    | false                        |
+| oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
@@ -233,6 +234,18 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 驱动程序 `org.postgresql.Driver`
 
 注意：不支持 `MAP`、`ARRAY`、`ROW`类型
+
+### oracle_insert_mode [Enum]
+
+Oracle 插入模式。默认值为 `CONVENTIONAL`，保持现有 JDBC insert 行为。
+
+设置为 `APPEND_VALUES` 时，SeaTunnel 会为自动生成的 Oracle insert SQL 添加 `APPEND_VALUES` hint：
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
 
 ### access_key_id [String]
 AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"

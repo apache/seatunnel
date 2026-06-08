@@ -18,14 +18,32 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.PluginIdentifier;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -39,14 +57,18 @@ import org.junit.jupiter.api.Test;
 import scala.Tuple2;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
 
@@ -240,5 +262,198 @@ public class MultipleTableJobConfigParserTest {
             checkExp = e;
         }
         Assertions.assertInstanceOf(IllegalArgumentException.class, checkExp);
+    }
+
+    @Test
+    public void testSkipFailedTableWhenContinueOtherTablesEnabled() throws IOException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config baseConfig = ConfigBuilder.of(Paths.get(filePath));
+        Config config =
+                ConfigFactory.parseString(
+                                "env { multi_table { failure_policy = \"CONTINUE_OTHER_TABLES\" } }")
+                        .withFallback(baseConfig);
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig) {
+                    @Override
+                    public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
+                            int configIndex, Config sourceConfig, ClassLoader classLoader) {
+                        Tuple2<String, List<Tuple2<CatalogTable, Action>>> parsedSource =
+                                super.parseSource(configIndex, sourceConfig, classLoader);
+                        Action action = parsedSource._2().get(0)._2();
+                        return new Tuple2<>(
+                                parsedSource._1(),
+                                Arrays.asList(
+                                        new Tuple2<>(mockCatalogTable("table1"), action),
+                                        new Tuple2<>(mockCatalogTable("table2"), action),
+                                        new Tuple2<>(mockCatalogTable("table3"), action)));
+                    }
+
+                    @Override
+                    protected Optional<SinkAction<?, ?, ?, ?>> createSinkAction(
+                            CatalogTable catalogTable,
+                            Set<Action> inputActions,
+                            org.apache.seatunnel.api.configuration.ReadonlyConfig readonlyConfig,
+                            ClassLoader classLoader,
+                            Set<URL> factoryUrls,
+                            Set<org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier>
+                                    connectorJarIdentifiers,
+                            String factoryId,
+                            int parallelism,
+                            int configIndex) {
+                        if (catalogTable.getTablePath().getTableName().equals("table2")) {
+                            return Optional.empty();
+                        }
+                        return super.createSinkAction(
+                                catalogTable,
+                                inputActions,
+                                readonlyConfig,
+                                classLoader,
+                                factoryUrls,
+                                connectorJarIdentifiers,
+                                factoryId,
+                                parallelism,
+                                configIndex);
+                    }
+                };
+
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertInstanceOf(SinkAction.class, actions.get(0));
+        Assertions.assertInstanceOf(MultiTableSink.class, ((SinkAction) actions.get(0)).getSink());
+        MultiTableSink multiTableSink = (MultiTableSink) ((SinkAction) actions.get(0)).getSink();
+        Assertions.assertEquals(
+                2, multiTableSink.getSinks().size(), multiTableSink.getSinks().keySet().toString());
+        Assertions.assertFalse(
+                multiTableSink.getSinks().keySet().stream()
+                        .anyMatch(tablePath -> tablePath.getTableName().equals("table2")));
+    }
+
+    @Test
+    public void testFailWhenNoSourceTablesRemainAfterDiscovery() throws IOException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config baseConfig = ConfigBuilder.of(Paths.get(filePath));
+        Config config =
+                ConfigFactory.parseString(
+                                "env { multi_table { failure_policy = \"CONTINUE_OTHER_TABLES\" } }")
+                        .withFallback(baseConfig);
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig) {
+                    @Override
+                    public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
+                            int configIndex, Config sourceConfig, ClassLoader classLoader) {
+                        return new Tuple2<>("fake", Collections.emptyList());
+                    }
+                };
+
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class, () -> jobConfigParser.parse(null));
+        Assertions.assertTrue(exception.getMessage().contains("No source tables were available"));
+    }
+
+    @Test
+    public void testSourceDiscoveryFailedTableIsPropagatedToMultiTableSink() throws IOException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config baseConfig = ConfigBuilder.of(Paths.get(filePath));
+        Config config =
+                ConfigFactory.parseString(
+                                "env { multi_table { failure_policy = \"CONTINUE_OTHER_TABLES\" } }")
+                        .withFallback(baseConfig);
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig) {
+                    @Override
+                    protected Tuple2<
+                                    SeaTunnelSource<Object, SourceSplit, Serializable>,
+                                    List<CatalogTable>>
+                            createAndPrepareSource(
+                                    int configIndex,
+                                    ReadonlyConfig readonlyConfig,
+                                    ClassLoader classLoader,
+                                    String factoryId,
+                                    Function<PluginIdentifier, SeaTunnelSource>
+                                            fallbackCreateSource) {
+                        MultiTableFailureHelper.recordFailedTable(
+                                MultiTableFailureHelper.buildFailedTable(
+                                        "test_db.test_schema.table2",
+                                        MultiTableFailurePhase.DISCOVERY,
+                                        factoryId,
+                                        new RuntimeException("metadata read failed")));
+                        return new Tuple2<>(
+                                new TestSeaTunnelSource(),
+                                Collections.singletonList(mockCatalogTable("table1")));
+                    }
+                };
+
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertInstanceOf(SinkAction.class, actions.get(0));
+        Assertions.assertInstanceOf(MultiTableSink.class, ((SinkAction) actions.get(0)).getSink());
+        MultiTableSink multiTableSink = (MultiTableSink) ((SinkAction) actions.get(0)).getSink();
+        Assertions.assertEquals(1, multiTableSink.getSinks().size());
+        Assertions.assertEquals(1, multiTableSink.getInitialFailedTables().size());
+        MultiTableFailedTable failedTable = multiTableSink.getInitialFailedTables().get(0);
+        Assertions.assertEquals("test_db.test_schema.table2", failedTable.getTablePath());
+        Assertions.assertEquals(MultiTableFailurePhase.DISCOVERY, failedTable.getPhase());
+        Assertions.assertTrue(failedTable.getMessageSummary().contains("metadata read failed"));
+    }
+
+    private CatalogTable mockCatalogTable(String tableName) {
+        return CatalogTable.of(
+                TableIdentifier.of(
+                        "test_catalog", TablePath.of("test_db", "test_schema", tableName)),
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 0L, true, null, null))
+                        .build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "");
+    }
+
+    private static class TestSeaTunnelSource
+            implements SeaTunnelSource<Object, SourceSplit, Serializable> {
+
+        @Override
+        public Boundedness getBoundedness() {
+            return Boundedness.BOUNDED;
+        }
+
+        @Override
+        public SourceReader<Object, SourceSplit> createReader(SourceReader.Context readerContext) {
+            return null;
+        }
+
+        @Override
+        public SourceSplitEnumerator<SourceSplit, Serializable> createEnumerator(
+                SourceSplitEnumerator.Context<SourceSplit> enumeratorContext) {
+            return null;
+        }
+
+        @Override
+        public SourceSplitEnumerator<SourceSplit, Serializable> restoreEnumerator(
+                SourceSplitEnumerator.Context<SourceSplit> enumeratorContext,
+                Serializable checkpointState) {
+            return null;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "TestSource";
+        }
     }
 }

@@ -4943,5 +4943,21 @@
         ]
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/example/binary"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Disposition": "attachment; filename=\"test.pdf\""
+      },
+      "body": {
+        "type": "BINARY",
+        "base64Bytes": "SGVsbG8gV29ybGQgLSBiaW5hcnkgdGVzdCBjb250ZW50"
+      }
+    }
   }
 ]

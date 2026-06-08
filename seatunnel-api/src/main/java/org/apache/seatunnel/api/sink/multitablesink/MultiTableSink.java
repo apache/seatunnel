@@ -18,6 +18,11 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -31,6 +36,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.JobMode;
 
 import lombok.Getter;
 
@@ -39,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,6 +70,11 @@ public class MultiTableSink
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
+    @Getter private final MultiTableFailurePolicy failurePolicy;
+    private final List<MultiTableFailedTable> initialFailedTables;
+    private final int tableRetryTimes;
+    private final int tableRetryIntervalSeconds;
+    private JobContext jobContext;
 
     /**
      * Constructs a MultiTableSink from the given factory context.
@@ -78,6 +90,18 @@ public class MultiTableSink
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
+        this.failurePolicy =
+                context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
+        this.tableRetryTimes = context.getOptions().get(EnvCommonOptions.JOB_RETRY_TIMES);
+        this.tableRetryIntervalSeconds =
+                context.getOptions().get(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS);
+        this.initialFailedTables =
+                new ArrayList<>(
+                        MultiTableFailureHelper.getInitialFailedTables(context.getOptions()));
+    }
+
+    public List<MultiTableFailedTable> getInitialFailedTables() {
+        return Collections.unmodifiableList(initialFailedTables);
     }
 
     @Override
@@ -113,7 +137,15 @@ public class MultiTableSink
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
+        return new MultiTableSinkWriter(
+                writers,
+                replicaNum,
+                sinkWritersContext,
+                failurePolicy,
+                getJobMode(),
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds);
     }
 
     /**
@@ -161,7 +193,15 @@ public class MultiTableSink
                 sinkWritersContext.put(sinkIdentifier, context);
             }
         }
-        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
+        return new MultiTableSinkWriter(
+                writers,
+                replicaNum,
+                sinkWritersContext,
+                failurePolicy,
+                getJobMode(),
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds);
     }
 
     @Override
@@ -270,7 +310,27 @@ public class MultiTableSink
 
     @Override
     public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
         sinks.values().forEach(sink -> sink.setJobContext(jobContext));
+    }
+
+    public void registerInitialFailedTables(Collection<MultiTableFailedTable> failedTables) {
+        if (failedTables == null || failedTables.isEmpty()) {
+            return;
+        }
+        Map<String, MultiTableFailedTable> mergedFailedTables = new LinkedHashMap<>();
+        initialFailedTables.forEach(
+                failedTable -> mergedFailedTables.put(failedTable.getTablePath(), failedTable));
+        failedTables.forEach(
+                failedTable -> mergedFailedTables.put(failedTable.getTablePath(), failedTable));
+        initialFailedTables.clear();
+        initialFailedTables.addAll(mergedFailedTables.values());
+    }
+
+    public void removeSink(TablePath tablePath) {
+        if (tablePath != null) {
+            sinks.remove(tablePath);
+        }
     }
 
     /**
@@ -305,5 +365,11 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
+    }
+
+    private JobMode getJobMode() {
+        return jobContext == null || jobContext.getJobMode() == null
+                ? JobMode.BATCH
+                : jobContext.getJobMode();
     }
 }

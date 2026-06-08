@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConditionOperator;
 import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -206,6 +207,15 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
             conditionRulesArray.add(condNode);
         }
         node.set("conditionRules", conditionRulesArray);
+
+        ArrayNode valueConstraintsArray = mapper.createArrayNode();
+        for (Condition<?> constraint : rule.getValueConstraints()) {
+            ObjectNode vcNode = mapper.createObjectNode();
+            vcNode.put("expression", constraint.toString());
+            vcNode.set("conditionTree", exportCondition(constraint));
+            valueConstraintsArray.add(vcNode);
+        }
+        node.set("valueConstraints", valueConstraintsArray);
 
         return node;
     }
@@ -410,7 +420,20 @@ public class MetadataExportCommand implements Command<MetadataExportCommandArgs>
         }
         ObjectNode node = mapper.createObjectNode();
         node.put("key", condition.getOption().key());
-        node.put("expectValue", String.valueOf(condition.getExpectValue()));
+        if (condition.getExpectValue() != null) {
+            node.put("expectValue", String.valueOf(condition.getExpectValue()));
+        }
+        ConditionOperator op = condition.getOperator();
+        if (op != null) {
+            node.put("conditionOperator", op.name());
+            node.put("conditionOperatorCategory", op.getCategory().name());
+        }
+        if (op != null && op != ConditionOperator.EQUAL) {
+            node.put("compareOperator", op.getSymbol());
+        }
+        if (condition.getCompareOption() != null) {
+            node.put("compareOption", condition.getCompareOption().key());
+        }
         if (condition.and() != null) {
             node.put("operator", condition.and() ? "AND" : "OR");
         }
