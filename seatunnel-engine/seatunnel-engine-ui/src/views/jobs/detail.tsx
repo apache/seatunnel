@@ -102,9 +102,9 @@ export default defineComponent({
     const tableData = computed(() => {
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
     })
-    const formatNumber = (val: number): number | string => {
+    const formatNumber = (val: number): number => {
       if (Number.isInteger(val)) return val
-      return val.toFixed(2)
+      return Math.round(val * 100) / 100
     }
     const sourceCell = (
       row: Vertex,
