@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -523,6 +524,8 @@ public class CoordinatorServiceTest {
         Mockito.when(nodeEngine.getLogger(Mockito.any(Class.class))).thenReturn(logger);
         Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         Mockito.when(hazelcastInstance.getMap(Mockito.anyString())).thenReturn(map);
+        SeaTunnelEngineContext engineContext = Mockito.mock(SeaTunnelEngineContext.class);
+        Mockito.when(server.getEngineContext()).thenReturn(engineContext);
 
         CoordinatorService coordinatorService =
                 new CoordinatorService(nodeEngine, server, server.getEngineContext(), engineConfig);
