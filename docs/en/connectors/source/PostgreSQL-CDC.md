@@ -192,6 +192,12 @@ source {
 }
 ```
 
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
+
 ## Changelog
 
 <ChangeLog />

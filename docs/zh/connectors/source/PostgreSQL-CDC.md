@@ -190,6 +190,10 @@ source {
 }
 ```
 
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 变更日志
 
 <ChangeLog />

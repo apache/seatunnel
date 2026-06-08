@@ -50,12 +50,16 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkOptions.DATABASE,
                         PaimonSinkOptions.TABLE)
                 .optional(
+                        PaimonSinkOptions.CATALOG_NAME,
                         PaimonSinkOptions.HDFS_SITE_PATH,
                         PaimonSinkOptions.HADOOP_CONF,
                         PaimonSinkOptions.HADOOP_CONF_PATH,
                         PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonSinkOptions.USER,
+                        PaimonSinkOptions.PASSWORD,
                         PaimonSinkOptions.SCHEMA_SAVE_MODE,
                         PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.NON_PRIMARY_KEY,
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
                         PaimonSinkOptions.WRITE_PROPS,

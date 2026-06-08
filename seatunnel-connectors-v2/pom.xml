@@ -92,6 +92,7 @@
         <module>connector-sensorsdata</module>
         <module>connector-fluss</module>
         <module>connector-lance</module>
+        <module>connector-bigquery</module>
         <module>connector-edge-socket</module>
     </modules>
 

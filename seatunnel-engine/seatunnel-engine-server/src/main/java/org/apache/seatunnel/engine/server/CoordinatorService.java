@@ -1906,6 +1906,10 @@ public class CoordinatorService {
         return runningJobMetricsTaskContextCount.get();
     }
 
+    public EngineConfig getEngineConfig() {
+        return engineConfig;
+    }
+
     @VisibleForTesting
     protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
         return metricsImap;

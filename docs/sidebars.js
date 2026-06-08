@@ -139,6 +139,7 @@ const sidebars = {
             "label": "Connectors",
             "items": [
                 "connectors/connector-isolated-dependency",
+                "connectors/cdc-production-cookbook",
                 {
                     "type": "category",
                     "label": "Source",
@@ -288,6 +289,7 @@ const sidebars = {
                             ]
                         },
                         "engines/zeta/checkpoint-storage",
+                        "engines/zeta/state-storage-and-recovery",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
@@ -298,6 +300,7 @@ const sidebars = {
                             "items": [
                                 "engines/zeta/rest-api-v1",
                                 "engines/zeta/rest-api-v2",
+                                "engines/zeta/rest-api-job-lifecycle",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
