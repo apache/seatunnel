@@ -239,6 +239,99 @@ public class OptionRuleTest {
                                         TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
                                 .build();
         assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + bundled with same key still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_NUM)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + exclusive with same key still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_NUM)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required + exclusive with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_TOPIC_PATTERN)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required + bundled with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_TOPIC_PATTERN)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + exclusive with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + bundled with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + duplicate optional value constraint still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
     }
 
     @Test
