@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -57,30 +58,50 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                         OracleIncrementalSourceOptions.USERNAME,
                         OracleIncrementalSourceOptions.PASSWORD)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
+                .optional(
+                        ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES))
                 .bundled(
                         OracleIncrementalSourceOptions.HOSTNAME,
                         OracleIncrementalSourceOptions.PORT)
+                .required(
+                        OracleIncrementalSourceOptions.DATABASE_NAMES,
+                        Conditions.notEmpty(OracleIncrementalSourceOptions.DATABASE_NAMES))
                 .optional(
                         OracleIncrementalSourceOptions.URL,
-                        OracleIncrementalSourceOptions.DATABASE_NAMES,
                         OracleIncrementalSourceOptions.SCHEMA_NAMES,
                         OracleIncrementalSourceOptions.USE_SELECT_COUNT,
                         OracleIncrementalSourceOptions.SKIP_ANALYZE,
                         OracleIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         OracleIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         OracleIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         OracleIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         OracleIncrementalSourceOptions.STOP_MODE)

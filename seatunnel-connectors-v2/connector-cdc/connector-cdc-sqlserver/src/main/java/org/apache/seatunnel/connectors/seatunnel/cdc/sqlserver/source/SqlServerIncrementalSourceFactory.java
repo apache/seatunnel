@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -59,22 +60,42 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
+                        ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES))
+                .required(
                         SqlServerIncrementalSourceOptions.DATABASE_NAMES,
+                        Conditions.notEmpty(SqlServerIncrementalSourceOptions.DATABASE_NAMES))
+                .optional(
                         SqlServerIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         SqlServerIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         SqlServerIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         SqlServerIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         SqlServerIncrementalSourceOptions.STOP_MODE)

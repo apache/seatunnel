@@ -28,8 +28,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
@@ -62,11 +60,11 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         // all other connectors, since it is used as a prefix for all Kafka topic names coming
         // from this connector. Only alphanumeric characters and underscores should be used.
         props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
+        props.setProperty("database.hostname", hostname);
+        props.setProperty("database.user", username);
+        props.setProperty("database.password", password);
         props.setProperty("database.port", String.valueOf(port));
-        props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        props.setProperty("database.dbname", databaseList.get(0));
         props.setProperty("plugin.name", decodingPluginName);
         props.setProperty("slot.name", slotName);
 

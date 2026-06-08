@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -63,24 +64,45 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.TABLE_NAMES,
                         MySqlIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
+                        MySqlIncrementalSourceOptions.TABLE_NAMES,
+                        Conditions.notEmpty(MySqlIncrementalSourceOptions.TABLE_NAMES))
+                .optional(
                         MySqlIncrementalSourceOptions.DATABASE_NAMES,
-                        MySqlIncrementalSourceOptions.SERVER_ID,
                         MySqlIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         MySqlIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         MySqlIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         MySqlIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.SERVER_ID,
+                        Conditions.matches(
+                                MySqlIncrementalSourceOptions.SERVER_ID, "^\\d+(-\\d+)?$"))
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         MySqlIncrementalSourceOptions.STOP_MODE)

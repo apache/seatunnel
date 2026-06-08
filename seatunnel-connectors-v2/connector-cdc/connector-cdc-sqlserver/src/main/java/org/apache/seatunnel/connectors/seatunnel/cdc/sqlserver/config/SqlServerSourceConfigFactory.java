@@ -26,8 +26,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 /** Factory for creating {@link SqlServerSourceConfig}. */
 public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
 
@@ -47,12 +45,12 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         // emanating from this connector. Only alphanumeric characters and underscores should be
         // used.
         props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
+        props.setProperty("database.hostname", hostname);
+        props.setProperty("database.user", username);
+        props.setProperty("database.password", password);
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        props.setProperty("database.dbname", databaseList.get(0));
 
         props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
         props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtask);

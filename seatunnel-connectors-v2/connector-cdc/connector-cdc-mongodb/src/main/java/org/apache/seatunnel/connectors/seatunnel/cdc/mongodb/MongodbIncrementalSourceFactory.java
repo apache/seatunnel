@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,7 +31,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
@@ -55,25 +55,49 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return MongodbIncrementalSourceOptions.getBaseRule()
+                .required(MongodbIncrementalSourceOptions.HOSTS)
                 .required(
-                        MongodbIncrementalSourceOptions.HOSTS,
                         MongodbIncrementalSourceOptions.DATABASE,
-                        MongodbIncrementalSourceOptions.COLLECTION)
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.DATABASE))
+                .required(
+                        MongodbIncrementalSourceOptions.COLLECTION,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.COLLECTION))
                 .exclusive(
                         MongodbIncrementalSourceOptions.SCHEMA,
                         MongodbIncrementalSourceOptions.TABLE_CONFIGS)
                 .optional(
+                        MongodbIncrementalSourceOptions.SCHEMA,
+                        Conditions.mapNotEmpty(MongodbIncrementalSourceOptions.SCHEMA))
+                .optional(
+                        MongodbIncrementalSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.TABLE_CONFIGS))
+                .optional(
                         MongodbIncrementalSourceOptions.USERNAME,
                         MongodbIncrementalSourceOptions.PASSWORD,
                         MongodbIncrementalSourceOptions.CONNECTION_OPTIONS,
-                        MongodbIncrementalSourceOptions.BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
-                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
-                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
                         MongodbIncrementalSourceOptions.STOP_MODE,
                         MongodbIncrementalSourceOptions.DEBEZIUM_PROPERTIES)
+                .optional(
+                        MongodbIncrementalSourceOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MongodbIncrementalSourceOptions.BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
+                        Conditions.greaterOrEqual(
+                                MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                                0))
                 .conditional(
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
@@ -139,17 +163,11 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
         String factoryId = config.get(ConnectorCommonOptions.PLUGIN_NAME).replace("-CDC", "");
         Map<String, Object> schemaMap = config.get(ConnectorCommonOptions.SCHEMA);
         if (schemaMap != null) {
-            if (schemaMap.isEmpty()) {
-                throw new SeaTunnelException("Schema config can not be empty");
-            }
             CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(factoryId, config);
             return Collections.singletonList(catalogTable);
         }
         List<Map<String, Object>> schemaMaps = config.get(ConnectorCommonOptions.TABLE_CONFIGS);
         if (schemaMaps != null) {
-            if (schemaMaps.isEmpty()) {
-                throw new SeaTunnelException("tables_configs can not be empty");
-            }
             return schemaMaps.stream()
                     .map(
                             map ->
