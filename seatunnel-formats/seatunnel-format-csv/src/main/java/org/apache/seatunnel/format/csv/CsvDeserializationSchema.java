@@ -285,11 +285,12 @@ public class CsvDeserializationSchema
                 for (String kv : kvs) {
                     String[] splits = kv.split(separators[level + 2]);
                     if (splits.length < 2) {
-                        objectMap.put(convert(splits[0], keyType, level + 1, fieldName), null);
+                        objectMap.put(
+                                convert(splits[0], keyType, level + 1, fieldName + ".key"), null);
                     } else {
                         objectMap.put(
-                                convert(splits[0], keyType, level + 1, fieldName),
-                                convert(splits[1], valueType, level + 1, fieldName));
+                                convert(splits[0], keyType, level + 1, fieldName + ".key"),
+                                convert(splits[1], valueType, level + 1, fieldName + ".value"));
                     }
                 }
                 return objectMap;
