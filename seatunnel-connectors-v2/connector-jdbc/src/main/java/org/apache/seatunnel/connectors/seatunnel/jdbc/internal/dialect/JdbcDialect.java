@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DefaultValueUtils;
 
 import org.slf4j.Logger;
@@ -97,6 +98,19 @@ public interface JdbcDialect extends Serializable {
      * @return a type mapper for the database
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
+
+    /**
+     * Whether this dialect can reliably read primary-key metadata through {@link
+     * java.sql.DatabaseMetaData#getPrimaryKeys(String, String, String)}.
+     */
+    default boolean supportsPrimaryKeyMetadata() {
+        return true;
+    }
+
+    default List<String> getPartitionKeys(Connection connection, TablePath tablePath)
+            throws SQLException {
+        return new ArrayList<>();
+    }
 
     default String hashModForField(String nativeType, String fieldName, int mod) {
         return hashModForField(fieldName, mod);
@@ -238,7 +252,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
+            String database, String tableName, String[] fieldNames, String[] pkNames);
 
     /**
      * Constructs the dialects upsert statement if supported; such as MySQL's {@code DUPLICATE KEY
@@ -254,9 +268,8 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     default Optional<String> getUpsertStatementByTableSchema(
-            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
-        return getUpsertStatement(
-                database, tableName, tableSchema.getFieldNames(), uniqueKeyFields);
+            String database, String tableName, TableSchema tableSchema, String[] pkNames) {
+        return getUpsertStatement(database, tableName, tableSchema.getFieldNames(), pkNames);
     }
 
     /**
@@ -334,6 +347,23 @@ public interface JdbcDialect extends Serializable {
             return SQLUtils.countForSubquery(connection, table.getQuery());
         }
         return SQLUtils.countForTable(connection, tableIdentifier(table.getTablePath()));
+    }
+
+    /** Dialects must opt in after verifying collation and key-shape constraints. */
+    default StringRangeSplitDecision validateStringRangeSplit(
+            Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
+            throws SQLException {
+        return StringRangeSplitDecision.unsafe(
+                "string range split is not validated for this JDBC dialect");
+    }
+
+    /** Returns whether this dialect has validated string range split support. */
+    default boolean supportStringRangeSplit() {
+        return false;
+    }
+
+    default boolean supportHashSplitter() {
+        return true;
     }
 
     /**

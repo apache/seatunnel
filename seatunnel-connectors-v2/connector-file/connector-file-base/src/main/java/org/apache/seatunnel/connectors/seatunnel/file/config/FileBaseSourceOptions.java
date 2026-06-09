@@ -108,6 +108,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
 
+    public static final Option<Boolean> MARKDOWN_RAG_METADATA_ENABLED =
+            Options.key("markdown_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading markdown files. "
+                                    + "Only valid when file_format_type is markdown.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)

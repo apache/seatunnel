@@ -38,9 +38,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -111,7 +114,7 @@ public class ResourceRequestHandler {
                                 LOGGER,
                                 (unused, error) -> {
                                     if (error != null) {
-                                        completeRequestWithException(error);
+                                        completeRequestWithException(toExternalException(error));
                                     } else {
                                         List<ResourceProfile> needRequestResource =
                                                 stillNeedRequestResource();
@@ -134,8 +137,23 @@ public class ResourceRequestHandler {
                                                 if (resourceManager.supportDynamicWorker()) {
                                                     applyByDynamicWorker(tags);
                                                 } else {
+                                                    int failedIndex =
+                                                            findNullIndexInResultSlotProfiles();
+                                                    String failureMessage =
+                                                            String.format(
+                                                                    "Apply resource not success for job: %d, required: %d slots, obtained: %d slots, "
+                                                                            + "first unassigned resource at index %d: %s",
+                                                                    jobId,
+                                                                    resourceProfile.size(),
+                                                                    resultSlotProfiles.size(),
+                                                                    failedIndex,
+                                                                    resourceProfile.get(
+                                                                            failedIndex));
+                                                    LOGGER.warning(failureMessage);
                                                     completeRequestWithException(
-                                                            requestSlotWithRetryError);
+                                                            toExternalException(
+                                                                    failureMessage,
+                                                                    requestSlotWithRetryError));
                                                 }
                                             }
                                         }
@@ -151,6 +169,15 @@ public class ResourceRequestHandler {
             }
         }
         return needRequestResource;
+    }
+
+    private int findNullIndexInResultSlotProfiles() {
+        for (int i = 0; i < resourceProfile.size(); i++) {
+            if (!resultSlotProfiles.containsKey(i)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
@@ -180,8 +207,9 @@ public class ResourceRequestHandler {
     }
 
     private void completeRequestWithException(Throwable e) {
-        releaseAllResourceInternal();
-        completableFuture.completeExceptionally(e);
+        if (completableFuture.completeExceptionally(e)) {
+            releaseAllResourceInternal();
+        }
     }
 
     private void addSlotToCacheMap(int index, SlotProfile slotProfile) {
@@ -285,15 +313,76 @@ public class ResourceRequestHandler {
     }
 
     private void releaseAllResourceInternal() {
-        LOGGER.warning("apply resource not success, release all already applied resource");
+        int appliedCount = resultSlotProfiles.size();
+        int requiredCount = resourceProfile.size();
+
+        String slotIds =
+                resultSlotProfiles.values().stream()
+                        .filter(Objects::nonNull)
+                        .map(
+                                slot ->
+                                        String.format(
+                                                "Slot-%d@%s", slot.getSlotID(), slot.getWorker()))
+                        .collect(Collectors.joining(", "));
+
+        LOGGER.warning(
+                String.format(
+                        "Apply resource not success for job: %d, required: %d slots, applied: %d slots, "
+                                + "releasing slots: [%s], remaining: %d slots not assigned",
+                        jobId, requiredCount, appliedCount, slotIds, requiredCount - appliedCount));
+
         new ArrayList<>(resultSlotProfiles.keySet())
                 .forEach(
                         index -> {
                             SlotProfile profile = resultSlotProfiles.remove(index);
-                            if (profile != null) {
-                                resourceManager.releaseResource(jobId, profile);
+                            if (profile == null) {
+                                return;
                             }
+                            LOGGER.fine(
+                                    String.format(
+                                            "Releasing slot %d for job %d from worker %s",
+                                            profile.getSlotID(), jobId, profile.getWorker()));
+                            resourceManager.releaseResource(jobId, profile);
                         });
+    }
+
+    private NoEnoughResourceException toExternalException(Throwable error) {
+        return toExternalException(buildFailureMessage(), error);
+    }
+
+    private NoEnoughResourceException toExternalException(String message, Throwable error) {
+        Throwable root = unwrapCompletionException(error);
+        if (root instanceof NoEnoughResourceException) {
+            return (NoEnoughResourceException) root;
+        }
+        return new NoEnoughResourceException(message, root);
+    }
+
+    private String buildFailureMessage() {
+        int failedIndex = findNullIndexInResultSlotProfiles();
+        String failedResource =
+                failedIndex >= 0 && failedIndex < resourceProfile.size()
+                        ? String.valueOf(resourceProfile.get(failedIndex))
+                        : "unknown";
+        return String.format(
+                "Apply resource not success for job: %d, required: %d slots, obtained: %d slots, "
+                        + "first unassigned resource at index %d: %s",
+                jobId,
+                resourceProfile.size(),
+                resultSlotProfiles.size(),
+                failedIndex,
+                failedResource);
+    }
+
+    private static Throwable unwrapCompletionException(Throwable error) {
+        Throwable current = error;
+        while (current instanceof ExecutionException || current instanceof CompletionException) {
+            if (current.getCause() == null) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return current;
     }
 
     private <T> CompletableFuture<T> getAllOfFuture(List<CompletableFuture<T>> allRequestFuture) {

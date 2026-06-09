@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.DefaultValueUtils;
 
 import io.debezium.connector.mysql.MySqlConnectorConfig;
@@ -35,6 +36,14 @@ import java.util.Optional;
 /** Utilities for converting from MySQL types to SeaTunnel types. */
 @Slf4j
 public class MySqlTypeUtils {
+
+    /**
+     * Converter used when {@code int_type_narrowing=false}: identical to {@link
+     * MySqlTypeConverter#DEFAULT_INSTANCE} except narrowing is off, so {@code tinyint(1)} stays
+     * TINYINT (byte) instead of becoming BOOLEAN. Pre-built singleton (no per-column allocation).
+     */
+    private static final MySqlTypeConverter NO_INT_NARROWING_CONVERTER =
+            new MySqlTypeConverter(MySqlVersion.V_5_7, false);
 
     public static SeaTunnelDataType<?> convertFromColumn(
             Column column, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
@@ -133,9 +142,23 @@ public class MySqlTypeUtils {
                     builder.scale(column.length());
                 }
                 break;
+            case "TINYINT":
+                // Debezium reports the bare type name "TINYINT", but the narrowing rule in
+                // MySqlTypeConverter checks columnType.equalsIgnoreCase("tinyint(1)"). Re-append
+                // the length so tinyint(1) is detectable on the CDC path; otherwise it can never
+                // be narrowed (or kept) according to int_type_narrowing.
+                if (column.length() > 0) {
+                    builder.columnType(String.format("TINYINT(%s)", column.length()));
+                }
+                break;
             default:
                 break;
         }
-        return MySqlTypeConverter.DEFAULT_INSTANCE.convert(builder.build());
+        // Honor the int_type_narrowing source option (carried via the Debezium properties).
+        // Default true keeps the original DEFAULT_INSTANCE behavior byte-for-byte.
+        boolean intTypeNarrowing =
+                dbzConnectorConfig.getConfig().getBoolean("int_type_narrowing", true);
+        return (intTypeNarrowing ? MySqlTypeConverter.DEFAULT_INSTANCE : NO_INT_NARROWING_CONVERTER)
+                .convert(builder.build());
     }
 }

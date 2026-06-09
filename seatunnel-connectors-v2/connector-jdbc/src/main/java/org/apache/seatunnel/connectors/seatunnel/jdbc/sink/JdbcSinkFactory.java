@@ -133,7 +133,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (!config.getOptional(JdbcSinkOptions.PRIMARY_KEYS).isPresent()) {
+        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(
                         JdbcSinkOptions.PRIMARY_KEYS.key(),
@@ -227,6 +227,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
+                        JdbcSinkOptions.ORACLE_INSERT_MODE,
                         JdbcSinkOptions.COMPATIBLE_MODE,
                         JdbcSinkOptions.ENABLE_UPSERT,
                         JdbcSinkOptions.FIELD_IDE,

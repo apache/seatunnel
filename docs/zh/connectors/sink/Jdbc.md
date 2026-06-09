@@ -59,6 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
 | use_copy_statement                        | Boolean | 否    | false                        |
+| oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
@@ -233,6 +234,18 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 驱动程序 `org.postgresql.Driver`
 
 注意：不支持 `MAP`、`ARRAY`、`ROW`类型
+
+### oracle_insert_mode [Enum]
+
+Oracle 插入模式。默认值为 `CONVENTIONAL`，保持现有 JDBC insert 行为。
+
+设置为 `APPEND_VALUES` 时，SeaTunnel 会为自动生成的 Oracle insert SQL 添加 `APPEND_VALUES` hint：
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
 
 ### access_key_id [String]
 AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"
@@ -424,6 +437,70 @@ sink {
     }
 }
 ```
+
+## 常见问题
+
+### JDBC Sink 支持自动建表吗？
+
+支持。通过 `schema_save_mode` 参数控制建表行为：
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`：表不存在时创建，已存在则跳过。
+- `RECREATE_SCHEMA`：每次任务启动时删除并重建表。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`：表不存在时抛出异常。
+- `IGNORE`：跳过所有建表逻辑。
+
+配合 `generate_sink_sql = true` 以及 `database`、`table` 参数可自动生成 INSERT/UPSERT SQL。
+
+### 如何用 JDBC Sink 实现精确一次（exactly-once）？
+
+JDBC Sink 通过 XA 事务支持 exactly-once：
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "password"
+    is_exactly_once = true
+    xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    table = "target_table"
+    primary_keys = ["id"]
+  }
+}
+```
+
+不是所有数据库都支持 XA 事务，启用前请确认数据库和 JDBC 驱动均支持。
+
+### 如何配置 Upsert（INSERT OR UPDATE）行为？
+
+指定 `primary_keys` 即可启用 upsert。SeaTunnel 会根据目标数据库方言自动生成 `INSERT ... ON DUPLICATE KEY UPDATE`（或等效）语句：
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    ...
+    primary_keys = ["id"]
+  }
+}
+```
+
+不设置 `primary_keys` 时，JDBC Sink 执行普通 INSERT，不处理主键冲突。
+
+### 如何在一个任务中写入多张表？
+
+使用 `table = "${table_name}"`、`database = "${schema_name}"` 占位符，SeaTunnel 会从上游记录的元数据中解析实际值（与 CDC 数据源或多表配置配合使用）。搭配 `generate_sink_sql = true` 可实现全自动 SQL 生成。
+
+### 为什么提示 JDBC 驱动未找到？
+
+SeaTunnel 出于许可证原因不内置所有 JDBC 驱动，需手动将驱动 JAR 放入 `$SEATUNNEL_HOME/lib/`。常用驱动：
+
+- MySQL：`mysql-connector-j-8.x.x.jar`
+- PostgreSQL：`postgresql-42.x.x.jar`
+- Oracle：`ojdbc8.jar`
+- SQL Server：`mssql-jdbc-12.x.x.jre11.jar`
 
 ## 变更日志
 

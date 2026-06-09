@@ -300,6 +300,56 @@ sink {
 }
 ```
 
+## 常见问题
+
+### StarRocks Sink 支持自动建表吗？
+
+支持。通过 `schema_save_mode` 参数控制建表行为：
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`：表不存在时创建，已存在则跳过。
+- `RECREATE_SCHEMA`：每次任务启动时删除并重建表。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`：表不存在时抛出异常。
+- `IGNORE`：跳过所有建表逻辑。
+
+SeaTunnel 会根据上游 schema 自动推断 StarRocks 列类型。
+
+### StarRocks Sink 是否支持 Upsert 和 DELETE 操作？
+
+支持。设置 `enable_upsert_delete = true` 可以传播 Upsert 和 DELETE 事件，目标 StarRocks 表必须使用**主键模型（Primary Key）**。来自 CDC 数据源的 DELETE 事件在开启此选项后可正确传播。
+
+### StarRocks Sink 中的 `labelPrefix` 是做什么的？
+
+当前 StarRocks Sink 页面并未将精确一次列为已支持的 Connector 能力。
+`labelPrefix` 用于控制 Sink 生成的 Stream Load label 前缀，保持此前缀稳定且全局唯一，
+可以减少重试或任务重启时的 label 冲突：
+
+```hocon
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks-fe:8030"]
+    base-url = "jdbc:mysql://starrocks-fe:9030/"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    labelPrefix = "unique-job-label"
+  }
+}
+```
+
+正式契约请以本页的**主要特性**矩阵和 `labelPrefix` option 说明为准。
+
+### StarRocks 列名是否区分大小写？
+
+StarRocks 列名默认不区分大小写。请确认上游字段名与目标 StarRocks 列名的映射关系，避免意外的字段不匹配。
+
+### `nodeUrls` 和 `base-url` 有什么区别？
+
+- `nodeUrls`：StarRocks FE 节点的 HTTP 地址，用于 Stream Load 数据写入。
+- `base-url`：指向 StarRocks FE 节点的 JDBC URL，用于建表、查询 schema 等 DDL 操作。
+
+开启自动建表时两者均需配置。
+
 ## 变更日志
 
 <ChangeLog />

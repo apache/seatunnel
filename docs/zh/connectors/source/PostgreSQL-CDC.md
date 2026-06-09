@@ -53,7 +53,7 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. 将指定表的 REPLICA 策略更改为 FULL
+2. 将指定表的 REPLICA 策略更改为 FULL，除非 `require-replica-identity-full` 设置为 `false`。
 
 ```sql
 ALTER TABLE your_table_name REPLICA IDENTITY FULL;
@@ -107,8 +107,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | chunk-key.even-distribution.factor.lower-bound | Double   | 否   | 0.05     | 块键分布因子的下限。此因子用于确定表数据是否均匀分布。如果计算出的分布因子大于或等于此下限（即 (MAX(id) - MIN(id) + 1) / 行数），则将优化表块以实现均匀分布。否则，如果分布因子更小，则将认为该表分布不均匀，并且如果估计的分片数量超过 `sample-sharding.threshold` 指定的值，则将使用基于采样的分片策略。默认值为 0.05。  |
 | sample-sharding.threshold                 | Integer  | 否   | 1000     | 此配置指定触发采样分片策略的估计分片数量阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，且估计的分片数量（计算为近似行数 / 块大小）超过此阈值时，将使用采样分片策略。这可以帮助更有效地处理大数据集。默认值为 1000 个分片。                                                                                   |
 | inverse-sampling.rate                     | Integer  | 否   | 1000     | 在采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则意味着在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理非常大数据集时，较低的采样率尤为有用。默认值为 1000。                                                                                                                                                              |
+| split.allow-sampling                      | Boolean  | 否   | true     | 是否允许基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | exactly_once                              | Boolean  | 否   | false    | 启用精确一次语义。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | 否   | DEFAULT  | PostgreSQL CDC 的可选输出格式，有效枚举为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| require-replica-identity-full             | Boolean  | 否   | true     | 要求表具有 REPLICA IDENTITY FULL。设置为 false 时，允许表使用其他副本标识设置，但 UPDATE/DELETE 事件可能不包含之前的状态。此选项仅应用于仅追加的表（例如 outbox 模式）。默认为 true 以保持向后兼容性。                                                                                                                                                                                                                                                                                                             |
 | debezium                                  | Config   | 否   | -        | 将 [Debezium 的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) 传递给用于捕获 PostgreSQL 服务器数据更改的 Debezium 嵌入式引擎。                                                                                                                                                                                                                                                                                                                                |
 | common-options                            |          | 否   | -        | 源插件的公共参数，请参阅 [源公共选项](../common-options/source-common-options.md) 获取详细信息。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -187,6 +189,45 @@ source {
   }
 }
 ```
+
+## 常见问题
+
+### PostgreSQL CDC 需要哪些权限？
+
+CDC 用户需要具备 `REPLICATION` 角色以及对监控表的 `SELECT` 权限：
+
+```sql
+CREATE USER replication_user REPLICATION LOGIN PASSWORD 'password';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
+```
+
+同时需要在 `postgresql.conf` 中设置 `wal_level = logical`，并在 `pg_hba.conf` 中添加允许该用户复制连接的条目。
+
+### 支持哪些逻辑解码插件？
+
+SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2json` 和 `decoderbufs`，默认使用 `pgoutput`。通过 `decoding.plugin.name` 参数指定插件。
+
+### SeaTunnel 能从 PostgreSQL 备库读取 CDC 数据吗？
+
+不能。PostgreSQL 逻辑复制槽必须在主库上创建和消费，SeaTunnel 无法直接从备库读取逻辑复制槽，需将 CDC 连接器指向主库实例。
+
+### PostgreSQL CDC 是否支持无主键表？
+
+默认需要主键。如果表有可作为唯一标识的列，可以通过 `table-names-config` 中的 `primaryKeys` 字段自定义主键。
+
+### 复制槽如何管理？
+
+SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。未使用的复制槽会持续占用
+磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC 任务永久下线时，应在 PostgreSQL 侧手动删除
+不再使用的复制槽。
+
+### PostgreSQL CDC 为什么会滞后？
+
+滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
+
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
 
 ## 变更日志
 

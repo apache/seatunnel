@@ -1009,6 +1009,6 @@ public void testCheckpointFailureRecovery() {
 ### Further Reading
 
 - [Two-Phase Commit Protocol](https://en.wikipedia.org/wiki/Two-phase_commit_protocol)
-- [XA Transactions](https://www.oracle.com/java/technologies/xa-transactions.html)
+- [XA Transactions](https://en.wikipedia.org/wiki/X/Open_XA)
 - [Kafka Transactions](https://kafka.apache.org/documentation/#semantics)
 - [Iceberg Table Format](https://iceberg.apache.org/spec/)
