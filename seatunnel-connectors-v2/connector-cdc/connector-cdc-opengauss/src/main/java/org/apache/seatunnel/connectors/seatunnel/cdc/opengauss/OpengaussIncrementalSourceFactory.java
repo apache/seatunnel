@@ -85,8 +85,7 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
-        return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
-                .PostgresIncrementalSource.class;
+        return OpengaussIncrementalSource.class;
     }
 
     @Override
@@ -110,8 +109,7 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
-                            .PostgresIncrementalSource<>(context.getOptions(), catalogTables);
+                    new OpengaussIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }
