@@ -25,11 +25,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -153,6 +155,8 @@ public class JdbcPhoenixIT extends AbstractJdbcIT {
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(PHOENIX_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PHOENIX_IMAGE)));
         container.setPortBindings(

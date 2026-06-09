@@ -37,6 +37,7 @@ import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
+import { readVertexMetricValue, collectVertexMetrics } from './detail-metrics'
 
 export default defineComponent({
   setup() {
@@ -91,32 +92,40 @@ export default defineComponent({
     const tableData = computed(() => {
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
     })
-    const sourceCell = (
-      row: Vertex,
-      key:
-        | 'TableSourceReceivedBytes'
-        | 'TableSourceReceivedCount'
-        | 'TableSourceReceivedQPS'
-        | 'TableSourceReceivedBytesPerSeconds'
-    ) => {
-      if (row.type === 'source') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
-      }
-      return 0
-    }
-    const sinkCell = (
-      row: Vertex,
-      key:
-        | 'TableSinkWriteBytes'
-        | 'TableSinkWriteCount'
-        | 'TableSinkWriteQPS'
-        | 'TableSinkWriteBytesPerSeconds'
-    ) => {
-      if (row.type === 'sink') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
-      }
-      return 0
-    }
+const sourceCell = (
+  row: Vertex,
+  key:
+    | 'TableSourceReceivedBytes'
+    | 'TableSourceReceivedCount'
+    | 'TableSourceReceivedQPS'
+    | 'TableSourceReceivedBytesPerSeconds'
+) => {
+  if (row.type === 'source') {
+    return row.tablePaths.reduce(
+      (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
+      0
+    )
+  }
+  return 0
+}
+
+const sinkCell = (
+  row: Vertex,
+  key:
+    | 'TableSinkWriteBytes'
+    | 'TableSinkWriteCount'
+    | 'TableSinkWriteQPS'
+    | 'TableSinkWriteBytesPerSeconds'
+) => {
+  if (row.type === 'sink') {
+    return row.tablePaths.reduce(
+      (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
+      0
+    )
+  }
+  return 0
+}
+
     const columns: DataTableColumns<Vertex> = [
       {
         title: 'Name',
@@ -179,40 +188,28 @@ export default defineComponent({
       drawerShow.value = false
     }
     const focusedVertex = computed(() => {
-      const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
-      const metrics = {} as any
-      if (vertex?.type === 'source') {
-        Object.keys(job.metrics?.TableSourceReceivedBytes || {}).forEach((key) => {
-          metrics[`TableSourceReceivedBytes.${key}`] = job.metrics?.TableSourceReceivedBytes[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedCount || {}).forEach((key) => {
-          metrics[`TableSourceReceivedCount.${key}`] = job.metrics?.TableSourceReceivedCount[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedQPS || {}).forEach((key) => {
-          metrics[`TableSourceReceivedQPS.${key}`] = job.metrics?.TableSourceReceivedQPS[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedBytesPerSeconds || {}).forEach((key) => {
-          metrics[`TableSourceReceivedBytesPerSeconds.${key}`] =
-            job.metrics?.TableSourceReceivedBytesPerSeconds[key]
-        })
-      }
-      if (vertex?.type === 'sink') {
-        Object.keys(job.metrics?.TableSinkWriteBytes || {}).forEach((key) => {
-          metrics[`TableSinkWriteBytes.${key}`] = job.metrics?.TableSinkWriteBytes[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteCount || {}).forEach((key) => {
-          metrics[`TableSinkWriteCount.${key}`] = job.metrics?.TableSinkWriteCount[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteQPS || {}).forEach((key) => {
-          metrics[`TableSinkWriteQPS.${key}`] = job.metrics?.TableSinkWriteQPS[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteBytesPerSeconds || {}).forEach((key) => {
-          metrics[`TableSinkWriteBytesPerSeconds.${key}`] =
-            job.metrics?.TableSinkWriteBytesPerSeconds[key]
-        })
-      }
-      return Object.assign({}, vertex, metrics)
-    })
+  const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
+  const metrics = {} as any
+  if (vertex?.type === 'source') {
+    Object.assign(
+      metrics,
+      collectVertexMetrics('TableSourceReceivedBytes', job.metrics?.TableSourceReceivedBytes, vertex),
+      collectVertexMetrics('TableSourceReceivedCount', job.metrics?.TableSourceReceivedCount, vertex),
+      collectVertexMetrics('TableSourceReceivedQPS', job.metrics?.TableSourceReceivedQPS, vertex),
+      collectVertexMetrics('TableSourceReceivedBytesPerSeconds', job.metrics?.TableSourceReceivedBytesPerSeconds, vertex),
+    )
+  }
+  if (vertex?.type === 'sink') {
+    Object.assign(
+      metrics,
+      collectVertexMetrics('TableSinkWriteBytes', job.metrics?.TableSinkWriteBytes, vertex),
+      collectVertexMetrics('TableSinkWriteCount', job.metrics?.TableSinkWriteCount, vertex),
+      collectVertexMetrics('TableSinkWriteQPS', job.metrics?.TableSinkWriteQPS, vertex),
+      collectVertexMetrics('TableSinkWriteBytesPerSeconds', job.metrics?.TableSinkWriteBytesPerSeconds, vertex),
+    )
+  }
+  return Object.assign({}, vertex, metrics)
+})
     const rowClassName = (row: Vertex) => {
       if (row.vertexId === focusedId.value) {
         return 'focused-row'

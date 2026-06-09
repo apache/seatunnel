@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConditionOperator;
 import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
 import org.apache.seatunnel.plugin.discovery.PluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +77,7 @@ public class OptionRulesService extends BaseService {
         Map<PluginType, PluginDiscovery<?>> discoveries = new EnumMap<>(PluginType.class);
         discoveries.put(PluginType.SOURCE, new SeaTunnelSourcePluginDiscovery());
         discoveries.put(PluginType.SINK, new SeaTunnelSinkPluginDiscovery());
+        discoveries.put(PluginType.TRANSFORM, new SeaTunnelTransformPluginDiscovery());
         this.pluginDiscoveries = Collections.unmodifiableMap(discoveries);
         this.discoveredPluginsCache = new ConcurrentHashMap<>();
         this.responseCache = new ConcurrentHashMap<>();
@@ -134,8 +137,12 @@ public class OptionRulesService extends BaseService {
                 optionRule.getConditionRules().stream()
                         .map(this::toConditionRuleMetadata)
                         .collect(Collectors.toList());
+        List<OptionRuleResponse.ValueConstraintMetadata> valueConstraints =
+                optionRule.getValueConstraints().stream()
+                        .map(this::toValueConstraintMetadata)
+                        .collect(Collectors.toList());
         return new OptionRuleResponse.OptionRuleMetadata(
-                optionalOptions, requiredOptions, conditionRules);
+                optionalOptions, requiredOptions, conditionRules, valueConstraints);
     }
 
     private ConcurrentMap<String, OptionRuleResponse> getPluginTypeCache(PluginType pluginType) {
@@ -193,12 +200,16 @@ public class OptionRulesService extends BaseService {
         if (StringUtils.equalsIgnoreCase(normalizedPluginType, PluginType.SINK.getType())) {
             return PluginType.SINK;
         }
+        if (StringUtils.equalsIgnoreCase(normalizedPluginType, PluginType.TRANSFORM.getType())) {
+            return PluginType.TRANSFORM;
+        }
         throw new IllegalArgumentException(
                 String.format(
-                        "Unsupported plugin type '%s'. Only '%s' and '%s' are supported.",
+                        "Unsupported plugin type '%s'. Only '%s', '%s' and '%s' are supported.",
                         normalizedPluginType,
                         PluginType.SOURCE.getType(),
-                        PluginType.SINK.getType()));
+                        PluginType.SINK.getType(),
+                        PluginType.TRANSFORM.getType()));
     }
 
     private String normalizePluginName(String pluginName) {
@@ -262,11 +273,30 @@ public class OptionRulesService extends BaseService {
         if (condition == null) {
             return null;
         }
+        ConditionOperator op = condition.getOperator();
+        String compareOperatorSymbol =
+                (op != null && op != ConditionOperator.EQUAL) ? op.getSymbol() : null;
+        OptionRuleResponse.OptionMetadata compareOptionMeta =
+                condition.getCompareOption() != null
+                        ? toOptionMetadata(condition.getCompareOption())
+                        : null;
+        String conditionOperator = (op != null) ? op.name() : null;
+        String conditionOperatorCategory = (op != null) ? op.getCategory().name() : null;
         return new OptionRuleResponse.ConditionNode(
                 toOptionMetadata(condition.getOption()),
                 condition.getExpectValue(),
+                compareOperatorSymbol,
+                compareOptionMeta,
+                conditionOperator,
+                conditionOperatorCategory,
                 toLogicalOperator(condition.and()),
                 toConditionNode(condition.getNext()));
+    }
+
+    private OptionRuleResponse.ValueConstraintMetadata toValueConstraintMetadata(
+            Condition<?> condition) {
+        return new OptionRuleResponse.ValueConstraintMetadata(
+                condition.toString(), toConditionNode(condition));
     }
 
     private OptionRuleResponse.LogicalOperator toLogicalOperator(Boolean and) {

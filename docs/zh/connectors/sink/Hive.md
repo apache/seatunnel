@@ -576,6 +576,54 @@ sink {
   }
 }
 ```
+## 常见问题
+
+### Hive Sink 支持哪些文件格式？
+
+Hive Sink 支持 `ORC`、`PARQUET`、`TEXT`、`JSON` 和 `SEQUENCE` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
+
+### Hive Sink 是否支持分区表？
+
+支持。对于分区表，通过 `partition_by` 指定分区字段，SeaTunnel 会自动将数据写入正确的分区目录：
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.sales"
+    metastore_uri = "thrift://hive-metastore:9083"
+    partition_by = ["dt", "region"]
+  }
+}
+```
+
+### 如何连接已启用 Kerberos 的 Hadoop 集群？
+
+在连接器配置中提供 Kerberos keytab 和 principal：
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.events"
+    metastore_uri = "thrift://hive-metastore:9083"
+    kerberos_principal = "hive/host@REALM.COM"
+    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+### 为什么 Hive 表中产生了大量小文件？
+
+当任务并行度较高或批次较小时会产生大量小文件。减少小文件的方法：
+
+- 降低 `env` 块中的 `parallelism`。
+- 增大 `batch_size`，使每个 task 写入更大的文件。
+- 定期运行 `ALTER TABLE ... CONCATENATE` 或使用 Spark merge 任务合并小文件。
+
+### Hive Sink 是否支持 Schema 演变？
+
+Hive Sink 从 Hive Metastore 读取当前表 schema。若上游新增了列，需先手动执行 `ALTER TABLE` 更新 Hive 表结构，SeaTunnel 不会自动修改 Hive schema。
+
 ## 变更日志
 
 <ChangeLog />

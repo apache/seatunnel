@@ -1876,6 +1876,10 @@ public class CoordinatorService {
         return pendingJobQueue.getJobIdMap().size();
     }
 
+    public EngineConfig getEngineConfig() {
+        return engineConfig;
+    }
+
     @VisibleForTesting
     protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
         return metricsImap;

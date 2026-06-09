@@ -26,10 +26,12 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.junit.jupiter.api.Disabled;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -167,6 +169,8 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         .withNetworkAliases(KINGBASE_CONTAINER_HOST)
                         .withEnv("KINGBASE_SYSTEM_PASSWORD", "123456")
                         .withFileSystemBind(KM_LICENSE_PATH, "/home/kingbase/license.dat")
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));

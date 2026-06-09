@@ -106,7 +106,16 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 return;
             }
             SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
-            for (SeaTunnelTransform<T> t : transform) {
+            for (int i = 0; i < transform.size(); i++) {
+                SeaTunnelTransform<T> t = transform.get(i);
+                // Refresh this transform's input from upstream's post-event produced schema so
+                // its catalog matches the actual row layout it will receive. Without this, each
+                // transform applies ALTER to its own stale local catalog, diverging from the
+                // upstream's actual output positions and breaking name-based field access (SQL
+                // projections, FilterField excludes) after live ALTER ADD COLUMN.
+                if (i > 0) {
+                    t.setInputCatalogTables(transform.get(i - 1).getProducedCatalogTables());
+                }
                 SchemaChangeEvent eventBefore = event;
                 event = t.mapSchemaChangeEvent(eventBefore);
                 if (event == null) {

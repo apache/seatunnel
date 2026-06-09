@@ -94,6 +94,7 @@
         <module>connector-hugegraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
+        <module>connector-bigquery-e2e</module>
     </modules>
 
     <dependencies>
