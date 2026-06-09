@@ -360,9 +360,9 @@ public class MultiTableSinkWriterTest {
     public void testSingleWriterFallbackAcceptsExplicitTableId() {
         Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
         RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false, true);
-        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = new LinkedBlockingQueue<>(1);
         tableIdWriterMap.put("http", onlyWriter);
-        queue.add(buildRow("Optional[http]", 1));
+        queue.add(MultiTableWriterRunnable.rowRequest(buildRow("Optional[http]", 1)));
 
         MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
         runnable.run();
@@ -376,9 +376,9 @@ public class MultiTableSinkWriterTest {
     public void testRunnableSelectsWriterUnderLock() {
         GuardedWriterMap tableIdWriterMap = new GuardedWriterMap();
         RecordingSinkWriter writer = new RecordingSinkWriter(false, true);
-        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = new LinkedBlockingQueue<>(1);
         tableIdWriterMap.put("test.table", writer);
-        queue.add(buildRow("test.table", 1));
+        queue.add(MultiTableWriterRunnable.rowRequest(buildRow("test.table", 1)));
 
         MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
         tableIdWriterMap.setRequiredLock(runnable);
@@ -614,14 +614,16 @@ public class MultiTableSinkWriterTest {
         }
     }
 
-    static class BlockingPollQueue extends LinkedBlockingQueue<SeaTunnelRow> {
+    static class BlockingPollQueue
+            extends LinkedBlockingQueue<MultiTableWriterRunnable.QueueElement> {
         private static final long serialVersionUID = 1L;
 
         private final CountDownLatch pollStarted = new CountDownLatch(1);
         private final CountDownLatch releasePoll = new CountDownLatch(1);
 
         @Override
-        public SeaTunnelRow poll(long timeout, TimeUnit unit) throws InterruptedException {
+        public MultiTableWriterRunnable.QueueElement poll(long timeout, TimeUnit unit)
+                throws InterruptedException {
             pollStarted.countDown();
             releasePoll.await();
             return null;
