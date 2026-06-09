@@ -26,11 +26,11 @@ import ChangeLog from '../changelog/connector-http-zendesk.md';
 | api_token                   | String  | 是       | -         |
 | method                      | String  | 否       | get       |
 | schema                      | Config  | 否       | -         |
-| format                      | String  | 否       | json      |
+| format                      | String  | 否       | text      |
 | params                      | Map     | 否       | -         |
 | body                        | String  | 否       | -         |
 | json_field                  | Config  | 否       | -         |
-| content_json                | String  | 否       | -         |
+| content_field                | String  | 否       | -         |
 | poll_interval_millis        | int     | 否       | -         |
 | retry                       | int     | 否       | -         |
 | retry_backoff_multiplier_ms | int     | 否       | 100       |
@@ -70,7 +70,7 @@ http 请求参数。
 
 该参数用于配置 schema，因此必须与 schema 一起使用。它将响应中的 JSON 路径映射到 schema 字段。详情和示例请参考 [Http source](./Http.md) 连接器。
 
-### content_json [String]
+### content_field [String]
 
 该参数可以在映射为行之前，提取 JSON 响应中的某个子部分（例如顶层键 `tickets` 或 `users` 下的数组）。详情和示例请参考 [Http source](./Http.md) 连接器。
 
@@ -88,7 +88,7 @@ source {
     api_token = "${ZENDESK_API_TOKEN}"
     method = "GET"
     format = "json"
-    content_json = "$.tickets.*"
+    content_field = "$.tickets.*"
     schema = {
       fields {
         id = bigint

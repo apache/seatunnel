@@ -26,11 +26,11 @@ Used to read data from the [Zendesk REST API](https://developer.zendesk.com/api-
 | api_token                   | String  | Yes      | -             |
 | method                      | String  | No       | get           |
 | schema                      | Config  | No       | -             |
-| format                      | String  | No       | json          |
+| format                      | String  | No       | text          |
 | params                      | Map     | No       | -             |
 | body                        | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
-| content_json                | String  | No       | -             |
+| content_field                | String  | No       | -             |
 | poll_interval_millis        | int     | No       | -             |
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
@@ -70,7 +70,7 @@ http params
 
 This parameter helps you configure the schema, so this parameter must be used with schema. It maps JSON paths in the response to schema fields. See the [Http source](./Http.md) connector for details and examples.
 
-### content_json [String]
+### content_field [String]
 
 This parameter can extract a sub-section of the JSON response (for example the array under a top-level key such as `tickets` or `users`) before mapping to rows. See the [Http source](./Http.md) connector for details and examples.
 
@@ -88,7 +88,7 @@ source {
     api_token = "${ZENDESK_API_TOKEN}"
     method = "GET"
     format = "json"
-    content_json = "$.tickets.*"
+    content_field = "$.tickets.*"
     schema = {
       fields {
         id = bigint
