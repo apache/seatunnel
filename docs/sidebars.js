@@ -117,6 +117,7 @@ const sidebars = {
                     ]
                 },
                 "getting-started/job-configuration-guide",
+                "getting-started/submit-job-to-remote-zeta-cluster",
                 {
                     "type": "category",
                     "label": "Docker",
