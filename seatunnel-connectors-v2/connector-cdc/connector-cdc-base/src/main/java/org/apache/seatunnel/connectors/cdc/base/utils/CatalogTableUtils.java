@@ -118,6 +118,11 @@ public class CatalogTableUtils {
     }
 
     public static Table mergeCatalogTableConfig(Table debeziumTable, CatalogTable catalogTable) {
+        if (catalogTable == null) {
+            // Newly discovered CDC tables can be absent from the user-provided catalog config.
+            // Keep the Debezium schema unchanged in that case.
+            return debeziumTable;
+        }
         PrimaryKey pk = catalogTable.getTableSchema().getPrimaryKey();
         if (pk != null) {
             debeziumTable = debeziumTable.edit().setPrimaryKeyNames(pk.getColumnNames()).create();
