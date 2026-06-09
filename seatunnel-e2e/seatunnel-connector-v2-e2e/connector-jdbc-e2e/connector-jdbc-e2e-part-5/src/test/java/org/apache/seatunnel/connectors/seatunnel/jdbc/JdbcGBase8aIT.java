@@ -26,11 +26,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -170,6 +172,8 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
                 new GenericContainer<>(GBASE_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(GBASE_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(GBASE_IMAGE)));
 

@@ -16,7 +16,7 @@
  */
 
 import { get } from '@/service/service'
-import type {Job, JobPage} from './types'
+import type { Job, JobPage } from './types'
 
 export const getRunningJobs = (page: number, rows: number) => get<JobPage>('/running-jobs', {page: page, rows: rows})
 export const getFinishedJobs = (page: number, rows: number) => get<JobPage>(`/finished-jobs`, {page: page, rows: rows})

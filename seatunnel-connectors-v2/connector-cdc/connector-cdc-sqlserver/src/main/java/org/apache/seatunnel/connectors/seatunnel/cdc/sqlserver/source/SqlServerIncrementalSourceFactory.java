@@ -71,7 +71,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         SqlServerIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
-                        SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                        SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         SqlServerIncrementalSourceOptions.STOP_MODE)

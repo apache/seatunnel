@@ -30,6 +30,34 @@
   }
   ```
 
+- **破坏性变更：`Condition.of(option, null)` 不再允许**
+  - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
+  - **变更说明**：`Condition` 构造器新增校验：二元字面量操作符（如 `EQUAL`、`NOT_EQUAL`、`GREATER_THAN` 等）的 `expectValue` 不能为 null。此前 `Condition.of(option, null)` 会被静默接受，现在会在构造时抛出 `IllegalArgumentException`。
+  - **影响**：主仓库中没有任何生产代码使用 `Condition.of(option, null)`，实际影响为零。但如果自定义或第三方连接器代码依赖了这一用法，则需要修改。
+  - **迁移指南**：如需检测某个 option 是否缺省或未配置，请使用 `Conditions.notBlank(option)`（针对字符串类型）或在 `OptionRule.Builder` 层面使用 `optional(...)` 来处理缺失情况，而不是将 `null` 作为期望值传入。
+
+- **破坏性变更：`OptionValidationException` 消息格式变为结构化聚合**
+  - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.ConfigValidator`
+  - **变更说明**：`ConfigValidator.validate(OptionRule)` 现在会收集所有结构性错误和值约束错误，一次性抛出包含结构化多行消息的 `OptionValidationException`，而非遇到第一个错误就失败。
+
+  **变更前（快速失败，单条错误）**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('host') are required.
+  ```
+
+  **变更后（聚合、结构化）**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Option validation failed (2 errors):
+    [1] option: 'host'
+        type: required
+        constraint: required option is not configured
+    [2] option: 'port'
+        type: value
+        constraint: 'port' >= 1
+  ```
+  - **影响**：通过子字符串匹配（如 `"are required"`）解析异常消息，或假定单行错误格式的代码需要更新。错误码（`API-02`）和代码前缀与消息体之间的 `" - "` 分隔符保持不变。
+  - **迁移指南**：更新对 `OptionValidationException.getMessage()` 的字符串匹配逻辑以适配新的多行编号格式。可使用 `getRawMessage()` 获取不含 `ErrorCode` 前缀的消息体。
+
 ### 配置变更
 
 ### 连接器变更

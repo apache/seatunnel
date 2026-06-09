@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -52,7 +54,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSink
 
 public class BaseFileSinkWriter
         implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,
-                SupportMultiTableSinkWriter<WriteStrategy> {
+                SupportMultiTableSinkWriter<WriteStrategy>,
+                SupportSchemaEvolutionSinkWriter {
 
     protected final WriteStrategy writeStrategy;
 
@@ -197,6 +200,11 @@ public class BaseFileSinkWriter
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
         return writeStrategy.snapshotState(checkpointId);
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        writeStrategy.applySchemaChange(event);
     }
 
     @Override

@@ -30,9 +30,11 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -44,6 +46,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,7 +57,10 @@ public abstract class BaseMultipleTableFileSink
         implements SeaTunnelSink<
                         SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>,
                 SupportMultiTableSink,
-                SupportSaveMode {
+                SupportSaveMode,
+                SupportSchemaEvolutionSink {
+
+    private static final long serialVersionUID = 1L;
 
     private final HadoopConf hadoopConf;
     private final CatalogTable catalogTable;
@@ -119,6 +126,18 @@ public abstract class BaseMultipleTableFileSink
     @Override
     public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
+            return Collections.emptyList();
+        }
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 
     protected WriteStrategy createWriteStrategy() {

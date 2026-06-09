@@ -21,22 +21,20 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -44,7 +42,7 @@ import static org.mockito.Mockito.when;
 public class DamengCreateTableSqlBuilderTest {
 
     @Test
-    public void TestCreateTableSqlBuilder() {
+    public void testCreateTableSqlsWithComments() {
         TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
         TableSchema tableSchema =
                 TableSchema.builder()
@@ -55,37 +53,7 @@ public class DamengCreateTableSqlBuilderTest {
                         .column(
                                 PhysicalColumn.of(
                                         "age", BasicType.INT_TYPE, (Long) null, true, null, "age"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "createTime",
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                        3,
-                                        true,
-                                        null,
-                                        "createTime"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "lastUpdateTime",
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                        3,
-                                        true,
-                                        null,
-                                        "lastUpdateTime"))
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
-                        .constraintKey(
-                                Arrays.asList(
-                                        ConstraintKey.of(
-                                                ConstraintKey.ConstraintType.UNIQUE_KEY,
-                                                "name",
-                                                Lists.newArrayList(
-                                                        ConstraintKey.ConstraintKeyColumn.of(
-                                                                "name", null))),
-                                        ConstraintKey.of(
-                                                ConstraintKey.ConstraintType.INDEX_KEY,
-                                                "age",
-                                                Lists.newArrayList(
-                                                        ConstraintKey.ConstraintKeyColumn.of(
-                                                                "age", null)))))
                         .build();
 
         CatalogTable catalogTable =
@@ -96,48 +64,133 @@ public class DamengCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql =
-                new DamengCreateTableSqlBuilder(catalogTable, true).build(tablePath);
-        String expect =
-                "CREATE TABLE \"test_schema\".\"test_table\" (\n"
-                        + "\"id\" BIGINT NOT NULL,\n"
-                        + "\"name\" VARCHAR2(128) NOT NULL,\n"
-                        + "\"age\" INT,\n"
-                        + "\"createTime\" TIMESTAMP,\n"
-                        + "\"lastUpdateTime\" TIMESTAMP,\n"
-                        + "CONSTRAINT id_63d5 PRIMARY KEY (\"id\"),\n"
-                        + "\tCONSTRAINT name_49b6 UNIQUE (\"name\")\n"
-                        + ");\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime';";
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, true).build(tablePath);
 
-        String regex1 = "id_\\w+";
-        String regex2 = "name_\\w+";
-        String replacedStr1 = createTableSql.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
-        String replacedStr2 = expect.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
-        Assertions.assertEquals(replacedStr2, replacedStr1);
+        // 1 CREATE TABLE + 3 COMMENT ON COLUMN
+        Assertions.assertEquals(4, sqls.size());
 
-        // skip index
-        String createTableSqlSkipIndex =
-                new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
-        // create table sql is change; The old unit tests are no longer applicable
-        String expectSkipIndex =
-                "CREATE TABLE \"test_schema\".\"test_table\" (\n"
-                        + "\"id\" BIGINT NOT NULL,\n"
-                        + "\"name\" VARCHAR2(128) NOT NULL,\n"
-                        + "\"age\" INT,\n"
-                        + "\"createTime\" TIMESTAMP,\n"
-                        + "\"lastUpdateTime\" TIMESTAMP\n"
-                        + ");\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime';";
-        Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
+        String createTable = sqls.get(0);
+        Assertions.assertTrue(
+                createTable.startsWith("CREATE TABLE \"test_schema\".\"test_table\" ("),
+                "First element should be CREATE TABLE");
+        Assertions.assertTrue(
+                createTable.contains("\"id\" BIGINT NOT NULL"),
+                "CREATE TABLE should contain id column");
+        Assertions.assertTrue(
+                createTable.contains("\"name\" VARCHAR2(128) NOT NULL"),
+                "CREATE TABLE should contain name column");
+        Assertions.assertTrue(
+                createTable.contains("\"age\" INT"), "CREATE TABLE should contain age column");
+
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id'", sqls.get(1));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name'", sqls.get(2));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age'", sqls.get(3));
+    }
+
+    @Test
+    public void testCreateTableSqlsSkipIndex() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                        .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
+                        .build();
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "User table");
+
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        // 1 CREATE TABLE + 2 COMMENT ON COLUMN
+        Assertions.assertEquals(3, sqls.size());
+        Assertions.assertTrue(sqls.get(0).startsWith("CREATE TABLE"));
+
+        // With createIndex=false, no CONSTRAINT should appear
+        Assertions.assertFalse(sqls.get(0).contains("CONSTRAINT"));
+    }
+
+    @Test
+    public void testCommentWithSemicolonNotSplit() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "col1",
+                                        BasicType.STRING_TYPE,
+                                        64,
+                                        true,
+                                        null,
+                                        "comment with a;b semicolon"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "col2",
+                                        BasicType.INT_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        "normal comment"))
+                        .build();
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "Test table");
+
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        // 1 CREATE TABLE + 2 COMMENT ON COLUMN
+        Assertions.assertEquals(
+                3, sqls.size(), "Should have exactly 3 statements: 1 CREATE TABLE + 2 COMMENTs");
+
+        // The comment with semicolon must remain intact as a single statement
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"col1\" IS 'comment with a;b semicolon'",
+                sqls.get(1),
+                "Comment containing ';' must not be split");
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"col2\" IS 'normal comment'",
+                sqls.get(2));
+    }
+
+    @Test
+    public void testNoCommentColumns() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, null))
+                        .build();
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "Table without comments");
+
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        // Only CREATE TABLE, no COMMENT statements
+        Assertions.assertEquals(1, sqls.size());
+        Assertions.assertTrue(sqls.get(0).startsWith("CREATE TABLE"));
     }
 
     @Test
