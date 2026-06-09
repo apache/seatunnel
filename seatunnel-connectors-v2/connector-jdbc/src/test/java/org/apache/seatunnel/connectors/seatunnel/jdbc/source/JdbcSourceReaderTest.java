@@ -75,6 +75,62 @@ class JdbcSourceReaderTest {
         Mockito.verify(inputFormat).close();
     }
 
+    @Test
+    void testSnapshotStateRestoresPendingCloseTableEvent() throws Exception {
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        JdbcSourceReader reader =
+                new JdbcSourceReader(
+                        new TestSourceReaderContext(), Mockito.mock(JdbcInputFormat.class));
+        reader.handleSourceEvent(new JdbcTableFinishedEvent(tablePath, 2));
+
+        List<JdbcSourceSplit> snapshot = reader.snapshotState(1L);
+
+        Assertions.assertEquals(1, snapshot.size());
+        Assertions.assertTrue(snapshot.get(0).isPendingCloseTableEvent());
+
+        JdbcSourceReader restoredReader =
+                new JdbcSourceReader(
+                        new TestSourceReaderContext(), Mockito.mock(JdbcInputFormat.class));
+        restoredReader.addSplits(snapshot);
+        TestCollector collector = new TestCollector();
+
+        restoredReader.pollNext(collector);
+
+        Assertions.assertEquals(1, collector.closeTableEvents.size());
+        Assertions.assertEquals(tablePath, collector.closeTableEvents.get(0).getTablePath());
+        Assertions.assertEquals(0, collector.closeTableEvents.get(0).getSourceSubtaskId());
+        Assertions.assertEquals(2, collector.closeTableEvents.get(0).getExpectedSourceEventCount());
+    }
+
+    @Test
+    void testSnapshotStateRoundTripsWaitingGlobalCloseTable() throws Exception {
+        TestSourceReaderContext context = new TestSourceReaderContext();
+        JdbcInputFormat inputFormat = Mockito.mock(JdbcInputFormat.class);
+        Mockito.when(inputFormat.reachedEnd()).thenReturn(true);
+        JdbcSourceReader reader = new JdbcSourceReader(context, inputFormat);
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(tablePath, "split-0", "select 1", null, null, null, null);
+
+        reader.addSplits(Collections.singletonList(split));
+        reader.pollNext(new TestCollector());
+
+        List<JdbcSourceSplit> snapshot = reader.snapshotState(1L);
+        Assertions.assertEquals(1, snapshot.size());
+        Assertions.assertTrue(snapshot.get(0).isCloseTableMarker());
+        Assertions.assertFalse(snapshot.get(0).isPendingCloseTableEvent());
+
+        JdbcSourceReader restoredReader =
+                new JdbcSourceReader(
+                        new TestSourceReaderContext(), Mockito.mock(JdbcInputFormat.class));
+        restoredReader.addSplits(snapshot);
+        List<JdbcSourceSplit> restoredSnapshot = restoredReader.snapshotState(2L);
+
+        Assertions.assertEquals(1, restoredSnapshot.size());
+        Assertions.assertTrue(restoredSnapshot.get(0).isCloseTableMarker());
+        Assertions.assertFalse(restoredSnapshot.get(0).isPendingCloseTableEvent());
+    }
+
     private static final class TestSourceReaderContext
             implements org.apache.seatunnel.api.source.SourceReader.Context {
         private final List<SourceEvent> sourceEvents = new ArrayList<>();

@@ -67,13 +67,18 @@ public class JdbcSourceSplitEnumerator
         if (sourceState == null) {
             this.pendingTables = new ConcurrentLinkedQueue<>(tables.keySet());
             this.pendingSplits = new HashMap<>();
+            this.unfinishedSplitsPerTable = new HashMap<>();
+            this.readersPerTable = new HashMap<>();
         } else {
             this.pendingTables = new ConcurrentLinkedQueue<>(sourceState.getPendingTables());
             this.pendingSplits = new HashMap<>(sourceState.getPendingSplits());
+            this.unfinishedSplitsPerTable =
+                    new HashMap<>(sourceState.getUnfinishedSplitsPerTableOrEmpty());
+            this.readersPerTable = copyReadersPerTable(sourceState.getReadersPerTableOrEmpty());
         }
-        this.unfinishedSplitsPerTable = new HashMap<>();
-        this.readersPerTable = new HashMap<>();
-        rebuildTableStateFromPendingSplits();
+        if (unfinishedSplitsPerTable.isEmpty() && readersPerTable.isEmpty()) {
+            rebuildTableStateFromPendingSplits();
+        }
     }
 
     @Override
@@ -114,7 +119,7 @@ public class JdbcSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<JdbcSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits, subtaskId);
+            addReturnedSplits(splits, subtaskId);
             if (context.registeredReaders().contains(subtaskId)) {
                 assignSplit(Collections.singletonList(subtaskId));
             } else {
@@ -142,8 +147,11 @@ public class JdbcSourceSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         LOG.info("Register reader {} to JdbcSourceSplitEnumerator.", subtaskId);
-        if (!pendingSplits.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
+        synchronized (stateLock) {
+            if (!pendingSplits.isEmpty()) {
+                assignSplit(Collections.singletonList(subtaskId));
+            }
+            resendFinishedTableEvent(subtaskId);
         }
     }
 
@@ -154,20 +162,28 @@ public class JdbcSourceSplitEnumerator
         }
         JdbcSplitFinishedEvent splitFinishedEvent = (JdbcSplitFinishedEvent) sourceEvent;
         synchronized (stateLock) {
-            Integer remain = unfinishedSplitsPerTable.get(splitFinishedEvent.getTablePath());
+            TablePath tablePath = splitFinishedEvent.getTablePath();
+            Integer remain = unfinishedSplitsPerTable.get(tablePath);
             if (remain == null) {
                 LOG.debug(
                         "Ignore split finished event for unknown table {} from reader {}",
-                        splitFinishedEvent.getTablePath(),
+                        tablePath,
+                        subtaskId);
+                return;
+            }
+            if (remain == 0) {
+                LOG.debug(
+                        "Ignore duplicate split finished event for completed table {} from reader {}",
+                        tablePath,
                         subtaskId);
                 return;
             }
             if (remain <= 1) {
-                TablePath tablePath = splitFinishedEvent.getTablePath();
-                unfinishedSplitsPerTable.remove(tablePath);
-                Set<Integer> readers = readersPerTable.remove(tablePath);
+                unfinishedSplitsPerTable.put(tablePath, 0);
+                Set<Integer> readers = readersPerTable.get(tablePath);
                 if (readers == null || readers.isEmpty()) {
                     readers = Collections.singleton(subtaskId);
+                    readersPerTable.put(tablePath, new HashSet<>(readers));
                 }
                 int expectedCloseEventCount = readers.size();
                 for (Integer reader : readers) {
@@ -183,7 +199,11 @@ public class JdbcSourceSplitEnumerator
     @Override
     public JdbcSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new JdbcSourceState(new ArrayList(pendingTables), new HashMap<>(pendingSplits));
+            return new JdbcSourceState(
+                    new ArrayList<>(pendingTables),
+                    new HashMap<>(pendingSplits),
+                    new HashMap<>(unfinishedSplitsPerTable),
+                    copyReadersPerTable(readersPerTable));
         }
     }
 
@@ -207,16 +227,14 @@ public class JdbcSourceSplitEnumerator
         for (JdbcSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             LOG.debug("Assigning {} to {} reader.", split, ownerReader);
-            recordPendingSplit(split, ownerReader);
-            pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
+            addPendingSplit(split, ownerReader, true);
         }
     }
 
-    private void addPendingSplit(Collection<JdbcSourceSplit> splits, int ownerReader) {
+    private void addReturnedSplits(Collection<JdbcSourceSplit> splits, int ownerReader) {
         for (JdbcSourceSplit split : splits) {
-            recordPendingSplit(split, ownerReader);
+            addPendingSplit(split, ownerReader, false);
         }
-        pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
@@ -230,15 +248,41 @@ public class JdbcSourceSplitEnumerator
                         return;
                     }
                     for (JdbcSourceSplit split : splits) {
-                        recordPendingSplit(split, reader);
+                        trackPendingSplitState(split, reader, true);
                     }
                 });
     }
 
-    private void recordPendingSplit(JdbcSourceSplit split, int ownerReader) {
-        unfinishedSplitsPerTable.merge(split.getTablePath(), 1, Integer::sum);
+    private void addPendingSplit(JdbcSourceSplit split, int ownerReader, boolean countAsNewSplit) {
+        trackPendingSplitState(split, ownerReader, countAsNewSplit);
+        pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
+    }
+
+    private void trackPendingSplitState(
+            JdbcSourceSplit split, int ownerReader, boolean countAsNewSplit) {
+        if (countAsNewSplit) {
+            unfinishedSplitsPerTable.merge(split.getTablePath(), 1, Integer::sum);
+        }
         readersPerTable
                 .computeIfAbsent(split.getTablePath(), key -> new HashSet<>())
                 .add(ownerReader);
+    }
+
+    private void resendFinishedTableEvent(int subtaskId) {
+        readersPerTable.forEach(
+                (tablePath, readers) -> {
+                    Integer remain = unfinishedSplitsPerTable.get(tablePath);
+                    if (remain != null && remain == 0 && readers.contains(subtaskId)) {
+                        context.sendEventToSourceReader(
+                                subtaskId, new JdbcTableFinishedEvent(tablePath, readers.size()));
+                    }
+                });
+    }
+
+    private static Map<TablePath, Set<Integer>> copyReadersPerTable(
+            Map<TablePath, Set<Integer>> source) {
+        Map<TablePath, Set<Integer>> copied = new HashMap<>();
+        source.forEach((tablePath, readers) -> copied.put(tablePath, new HashSet<>(readers)));
+        return copied;
     }
 }

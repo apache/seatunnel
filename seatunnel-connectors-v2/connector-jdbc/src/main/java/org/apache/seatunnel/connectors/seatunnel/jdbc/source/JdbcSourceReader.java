@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -105,15 +106,36 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
 
     @Override
     public List<JdbcSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return new ArrayList<>(splits);
+        List<JdbcSourceSplit> snapshot = new ArrayList<>(splits);
+        Set<TablePath> tablesWithSnapshotState = new HashSet<>();
+        for (JdbcSourceSplit split : snapshot) {
+            tablesWithSnapshotState.add(split.getTablePath());
+        }
+        for (CloseTableEvent closeTableEvent : pendingCloseTableEvents) {
+            snapshot.add(
+                    JdbcSourceSplit.forCloseTableState(
+                            closeTableEvent.getTablePath(),
+                            closeTableEvent.getExpectedSourceEventCount()));
+            tablesWithSnapshotState.add(closeTableEvent.getTablePath());
+        }
+        for (TablePath tablePath : pendingGlobalCloseTables) {
+            if (!tablesWithSnapshotState.contains(tablePath)) {
+                snapshot.add(JdbcSourceSplit.forCloseTableState(tablePath, 0));
+            }
+        }
+        return snapshot;
     }
 
     @Override
     public void addSplits(List<JdbcSourceSplit> splits) {
         for (JdbcSourceSplit split : splits) {
+            if (split.isCloseTableMarker()) {
+                restoreCloseTableState(split);
+                continue;
+            }
             pendingGlobalCloseTables.add(split.getTablePath());
+            this.splits.add(split);
         }
-        this.splits.addAll(splits);
     }
 
     @Override
@@ -136,4 +158,17 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+
+    private void restoreCloseTableState(JdbcSourceSplit split) {
+        if (split.isPendingCloseTableEvent()) {
+            pendingGlobalCloseTables.remove(split.getTablePath());
+            pendingCloseTableEvents.add(
+                    new CloseTableEvent(
+                            split.getTablePath(),
+                            context.getIndexOfSubtask(),
+                            split.getExpectedCloseEventCount()));
+            return;
+        }
+        pendingGlobalCloseTables.add(split.getTablePath());
+    }
 }

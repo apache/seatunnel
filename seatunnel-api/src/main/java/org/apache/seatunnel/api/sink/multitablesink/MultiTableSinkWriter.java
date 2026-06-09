@@ -77,6 +77,11 @@ public class MultiTableSinkWriter
     private final List<BlockingQueue<SeaTunnelRow>> blockingQueues = new ArrayList<>();
     private final ExecutorService executorService;
     private final Set<String> closedTableIds = ConcurrentHashMap.newKeySet();
+    /**
+     * Tables that have received all close-table events and must reject new rows immediately, but
+     * whose writers can only be closed after their final checkpoint state has been captured.
+     */
+    private final Set<String> pendingCloseTableIds = ConcurrentHashMap.newKeySet();
     /** Tracks which upstream subtasks have already acknowledged a table as finished. */
     private final ConcurrentMap<String, Set<Integer>> closeTableEventSources =
             new ConcurrentHashMap<>();
@@ -246,7 +251,7 @@ public class MultiTableSinkWriter
         if (sourceSubtaskId == null
                 || expectedSourceEventCount == null
                 || expectedSourceEventCount <= 1) {
-            closeTable(event.tableId());
+            markTablePendingClose(event.tableId());
             return;
         }
         Set<Integer> receivedSourceSubtasks =
@@ -264,7 +269,7 @@ public class MultiTableSinkWriter
                     event.tableId());
             return;
         }
-        closeTable(event.tableId());
+        markTablePendingClose(event.tableId());
     }
 
     /**
@@ -307,7 +312,9 @@ public class MultiTableSinkWriter
             }
         }
 
-        if (element.getTableId() != null && closedTableIds.contains(element.getTableId())) {
+        if (element.getTableId() != null
+                && (closedTableIds.contains(element.getTableId())
+                        || pendingCloseTableIds.contains(element.getTableId()))) {
             throw new IOException(
                     String.format(
                             "Received row for table %s after close table event was handled",
@@ -347,7 +354,24 @@ public class MultiTableSinkWriter
         }
     }
 
+    private void markTablePendingClose(String tableId) {
+        if (closedTableIds.contains(tableId)) {
+            log.debug("Table {} is already closed in multi table sink writer", tableId);
+            return;
+        }
+        if (!pendingCloseTableIds.add(tableId)) {
+            log.debug("Table {} is already pending close in multi table sink writer", tableId);
+            return;
+        }
+        closeTableEventSources.remove(tableId);
+        expectedCloseTableEventCounts.remove(tableId);
+        log.info(
+                "Marked sink writers for table {} to close after snapshotting their final checkpoint state",
+                tableId);
+    }
+
     private void closeTable(String tableId) throws IOException {
+        pendingCloseTableIds.remove(tableId);
         if (!closedTableIds.add(tableId)) {
             log.debug("Table {} is already closed in multi table sink writer", tableId);
             return;
@@ -425,6 +449,15 @@ public class MultiTableSinkWriter
         return false;
     }
 
+    private void closePendingTables() throws IOException {
+        if (pendingCloseTableIds.isEmpty()) {
+            return;
+        }
+        for (String tableId : new ArrayList<>(pendingCloseTableIds)) {
+            closeTable(tableId);
+        }
+    }
+
     /**
      * Captures the state of all sub-writers for the given checkpoint.
      *
@@ -452,6 +485,7 @@ public class MultiTableSinkWriter
                 }
             }
         }
+        closePendingTables();
         multiTableStates.add(multiTableState);
         return multiTableStates;
     }

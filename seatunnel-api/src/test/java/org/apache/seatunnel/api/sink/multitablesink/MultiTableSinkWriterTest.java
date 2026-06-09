@@ -66,7 +66,32 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testCloseTableEventOnlyClosesMatchedSubWriters() throws IOException {
+    public void testCloseTableEventRejectsNewRowsImmediately() throws IOException {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 1));
+
+        Assertions.assertEquals(0, table1Writer0.closeCount.get());
+        SeaTunnelRow lateRow = new SeaTunnelRow(new Object[] {1});
+        lateRow.setTableId(table1);
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> multiTableSinkWriter.write(lateRow));
+        Assertions.assertTrue(exception.getMessage().contains(table1));
+    }
+
+    @Test
+    public void testCloseTableEventDefersCloseUntilFinalSnapshot() throws IOException {
         String table1 = TablePath.of("db", "schema", "table1").getFullName();
         String table2 = TablePath.of("db", "schema", "table2").getFullName();
         TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
@@ -87,23 +112,38 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.handleCloseTableEvent(
                 new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
 
         Assertions.assertEquals(0, table1Writer0.closeCount.get());
         Assertions.assertEquals(0, table1Writer1.closeCount.get());
         Assertions.assertEquals(0, table2Writer0.closeCount.get());
 
-        multiTableSinkWriter.handleCloseTableEvent(
-                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
+        Optional<MultiTableCommitInfo> beforeSnapshotCommitInfo =
+                multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(beforeSnapshotCommitInfo.isPresent());
+        Assertions.assertEquals(3, beforeSnapshotCommitInfo.get().getCommitInfo().size());
+
+        List<MultiTableState> checkpointStates = multiTableSinkWriter.snapshotState(1L);
+        Assertions.assertEquals(1, checkpointStates.size());
+        Assertions.assertTrue(
+                checkpointStates.get(0).getStates().containsKey(SinkIdentifier.of(table1, 0)));
+        Assertions.assertTrue(
+                checkpointStates.get(0).getStates().containsKey(SinkIdentifier.of(table1, 1)));
 
         Assertions.assertEquals(1, table1Writer0.closeCount.get());
         Assertions.assertEquals(1, table1Writer1.closeCount.get());
         Assertions.assertEquals(0, table2Writer0.closeCount.get());
 
-        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
-        Assertions.assertTrue(commitInfo.isPresent());
-        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Optional<MultiTableCommitInfo> afterSnapshotCommitInfo =
+                multiTableSinkWriter.prepareCommit(2L);
+        Assertions.assertTrue(afterSnapshotCommitInfo.isPresent());
+        Assertions.assertEquals(1, afterSnapshotCommitInfo.get().getCommitInfo().size());
         Assertions.assertTrue(
-                commitInfo.get().getCommitInfo().containsKey(SinkIdentifier.of(table2, 0)));
+                afterSnapshotCommitInfo
+                        .get()
+                        .getCommitInfo()
+                        .containsKey(SinkIdentifier.of(table2, 0)));
     }
 
     static class TestSinkWriter
