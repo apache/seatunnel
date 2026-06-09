@@ -25,8 +25,9 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.cluster.ClusterService;
+import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.version.MemberVersion;
 
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -86,7 +87,7 @@ public class AbstractCollectorTest {
             throws UnknownHostException {
         Node node = Mockito.mock(Node.class);
         NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
-        ClusterService clusterService = Mockito.mock(ClusterService.class);
+        ClusterServiceImpl clusterService = Mockito.mock(ClusterServiceImpl.class);
 
         Mockito.when(node.getNodeEngine()).thenReturn(nodeEngine);
         Mockito.when(nodeEngine.getThisAddress()).thenReturn(localAddress);
@@ -102,10 +103,10 @@ public class AbstractCollectorTest {
     }
 
     private MemberImpl newMember(Address address, boolean liteMember) {
-        MemberImpl member = Mockito.mock(MemberImpl.class);
-        Mockito.when(member.getAddress()).thenReturn(address);
-        Mockito.when(member.isLiteMember()).thenReturn(liteMember);
-        return member;
+        return new MemberImpl.Builder(address)
+                .version(MemberVersion.of(5, 1, 0))
+                .liteMember(liteMember)
+                .build();
     }
 
     private static class TestCollector extends AbstractCollector {

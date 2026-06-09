@@ -26,6 +26,7 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.version.MemberVersion;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -79,9 +80,9 @@ public class NodeEngineUtilTest {
     }
 
     private MemberImpl newMember(Address address, boolean liteMember) {
-        MemberImpl member = Mockito.mock(MemberImpl.class);
-        Mockito.when(member.getAddress()).thenReturn(address);
-        Mockito.when(member.isLiteMember()).thenReturn(liteMember);
-        return member;
+        return new MemberImpl.Builder(address)
+                .version(MemberVersion.of(5, 1, 0))
+                .liteMember(liteMember)
+                .build();
     }
 }
