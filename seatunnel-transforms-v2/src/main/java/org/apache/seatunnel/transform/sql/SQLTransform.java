@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -182,7 +185,44 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     }
 
     @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof AlterTableEvent) {
+            TableSchema newSchema =
+                    new AlterTableSchemaEventHandler()
+                            .reset(inputCatalogTable.getTableSchema())
+                            .apply(event);
+            inputCatalogTable =
+                    CatalogTable.of(
+                            inputCatalogTable.getTableId(),
+                            newSchema,
+                            inputCatalogTable.getOptions(),
+                            inputCatalogTable.getPartitionKeys(),
+                            inputCatalogTable.getComment(),
+                            inputCatalogTable.getTableId().getCatalogName(),
+                            inputCatalogTable.getMetadataSchema());
+            // Force re-initialization: sqlEngine caches allColumnsCount and outRowType based on
+            // the old inputRowType. After a schema change (e.g. ADD COLUMN), select * would
+            // produce an ArrayIndexOutOfBoundsException because the cached output size is stale.
+            sqlEngine = null;
+            outputCatalogTable = null;
+        }
+        return event;
+    }
+
+    /**
+     * Replace input schema from upstream and invalidate the cached SQL engine so the next {@code
+     * transformRow} re-initializes against the new schema.
+     */
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        this.sqlEngine = null;
+    }
+
+    @Override
     public void close() {
-        sqlEngine.close();
+        if (sqlEngine != null) {
+            sqlEngine.close();
+        }
     }
 }

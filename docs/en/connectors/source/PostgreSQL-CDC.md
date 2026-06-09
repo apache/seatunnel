@@ -55,7 +55,7 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. Change the REPLICA policy of the specified table to FULL
+2. Change the REPLICA policy of the specified table to FULL, unless `require-replica-identity-full` is set to `false`.
 
 ```sql
 ALTER TABLE your_table_name REPLICA IDENTITY FULL;
@@ -112,6 +112,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | split.allow-sampling                      | Boolean  | No       | true     | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
 | exactly_once                              | Boolean  | No       | false    | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT  | Optional output format for PostgreSQL CDC, valid enumerations are `DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| require-replica-identity-full             | Boolean  | No       | true     | Require the table to have REPLICA IDENTITY FULL. When set to false, allows tables with other replica identity settings, but UPDATE/DELETE events may not contain the previous state. This should only be used for append-only tables (e.g., outbox pattern). Default is true for backward compatibility.                                                                                                                                                                                                                                                                                                             |
 | debezium                                  | Config   | No       | -        | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) to Debezium Embedded Engine which is used to capture data changes from PostgreSQL server.                                                                                                                                                                                                                                                                                                                                |
 | common-options                            |          | no       | -        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -190,6 +191,47 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### What PostgreSQL permissions are required for CDC?
+
+The CDC user must have the `REPLICATION` role and `SELECT` access to the monitored tables:
+
+```sql
+CREATE USER replication_user REPLICATION LOGIN PASSWORD 'password';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
+```
+
+Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.conf` to allow the replication connection.
+
+### Which logical decoding plugins are supported?
+
+SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
+
+### Can SeaTunnel read CDC from a PostgreSQL standby?
+
+PostgreSQL logical replication slots must be created and consumed on the primary server. SeaTunnel cannot read a logical replication slot directly from a standby. Point the CDC connector at the primary instance.
+
+### Does PostgreSQL CDC support tables without primary keys?
+
+By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
+
+### How are replication slots managed?
+
+SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
+Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
+CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### Why does PostgreSQL CDC fall behind?
+
+Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
 
 ## Changelog
 

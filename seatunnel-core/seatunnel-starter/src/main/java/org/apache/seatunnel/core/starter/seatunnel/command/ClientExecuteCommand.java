@@ -288,8 +288,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 "Total Write Count",
                                 jobMetricsSummary.getSinkWriteCount(),
                                 "Total Failed Count",
-                                jobMetricsSummary.getSourceReadCount()
-                                        - jobMetricsSummary.getSinkWriteCount()));
+                                Math.max(
+                                        0,
+                                        jobMetricsSummary.getSourceReadCount()
+                                                - jobMetricsSummary.getSinkWriteCount())));
             }
             closeClient();
         }

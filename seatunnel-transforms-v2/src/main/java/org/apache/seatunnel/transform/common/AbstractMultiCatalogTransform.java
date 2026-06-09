@@ -19,6 +19,8 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -100,6 +102,74 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
     @Override
     public CatalogTable getProducedCatalogTable() {
         return outputCatalogTables.get(0);
+    }
+
+    /**
+     * Dispatches the schema-change event to the inner per-table transform that owns the affected
+     * table, then refreshes {@link #outputCatalogTables} so downstream sees the new schema.
+     *
+     * <p>Without this override, the wrapper would inherit the {@link SeaTunnelTransform} no-op
+     * default — the inner transforms in {@link #transformMap} would never see ALTER, their cached
+     * {@code inputCatalogTable} would stay at the original schema, and post-ALTER rows would have
+     * their new column values silently truncated by the inner transform's row container.
+     */
+    @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        String targetTableId = event.tablePath().toString();
+        SeaTunnelTransform<SeaTunnelRow> targetTransform = transformMap.get(targetTableId);
+        if (targetTransform != null) {
+            targetTransform.mapSchemaChangeEvent(event);
+            refreshOutputCatalogTables();
+            // Propagate this transform's actual produced catalog through the chain via the event's
+            // changeAfter field (existing API designed for exactly this). Downstream transforms
+            // and the sink read changeAfter to adopt upstream's actual row layout instead of
+            // re-applying ALTER locally — which would diverge from the actual row order.
+            if (event instanceof AlterTableEvent) {
+                outputCatalogTables.stream()
+                        .filter(t -> t.getTableId().toTablePath().toString().equals(targetTableId))
+                        .findFirst()
+                        .ifPresent(produced -> ((AlterTableEvent) event).setChangeAfter(produced));
+            }
+        }
+        return event;
+    }
+
+    /**
+     * Re-derives this wrapper (and its inner per-table transforms) from upstream's post-event
+     * produced schema. Called by the engine after an upstream transform has mapped a schema-change
+     * event. This ensures inner transforms see the same column order their actual data rows carry,
+     * instead of applying ALTER events to a stale local view.
+     */
+    @Override
+    public void setInputCatalogTables(List<CatalogTable> newInputCatalogTables) {
+        if (newInputCatalogTables == null || newInputCatalogTables.isEmpty()) {
+            return;
+        }
+        this.inputCatalogTables = newInputCatalogTables;
+        for (CatalogTable newInput : newInputCatalogTables) {
+            String tableId = newInput.getTableId().toTablePath().toString();
+            SeaTunnelTransform<SeaTunnelRow> inner = transformMap.get(tableId);
+            if (inner instanceof AbstractSeaTunnelTransform) {
+                ((AbstractSeaTunnelTransform<?, ?>) inner).setInputCatalogTable(newInput);
+            }
+        }
+        refreshOutputCatalogTables();
+    }
+
+    private void refreshOutputCatalogTables() {
+        this.outputCatalogTables =
+                inputCatalogTables.stream()
+                        .map(
+                                inputCatalogTable -> {
+                                    String tableName =
+                                            inputCatalogTable.getTableId().toTablePath().toString();
+                                    SeaTunnelTransform<SeaTunnelRow> inner =
+                                            transformMap.get(tableName);
+                                    return inner != null
+                                            ? inner.getProducedCatalogTable()
+                                            : inputCatalogTable;
+                                })
+                        .collect(Collectors.toList());
     }
 
     @Override
