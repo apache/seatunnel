@@ -110,25 +110,51 @@ It only supports hadoop version **2.9.X+**.
 
 #### <span id="date_format"> date_format </span>
 
-> Date type format, used to tell the connector how to convert string to date, supported as the following formats:
+> Date type format, used to tell the connector how to convert string to date.
+>
+> When explicitly configured, only the specified format is used. Supported formats:
 >
 > `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+>
+> When not configured, the system auto-detects the format from the following candidates:
+>
+> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd` `M/d/yyyy` `M-d-yyyy`
 >
 > default `yyyy-MM-dd`
 
 ### <span id="datetime_format"> datetime_format </span>
 
-> Datetime type format, used to tell the connector how to convert string to datetime, supported as the following formats:
+> Datetime type format, used to tell the connector how to convert string to datetime.
 >
-> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+> When explicitly configured, only the specified format is used. Supported formats:
+>
+> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss`
+>
+> When not configured, the system auto-detects the format from a wider set of candidates, including:
+>
+> - Standard: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss`
+> - Slash: `yyyy/MM/dd HH:mm:ss`
+> - Dot: `yyyy.MM.dd HH:mm:ss`
+> - Compact: `yyyyMMddHHmmss`
+> - Single-digit month/day: `yyyy-M-d HH:mm`, `yyyy-M-d H:mm:ss`
+> - Chinese: `yyyy年MM月dd日HH时mm分ss秒`
+> - Reverse: `M/d/yyyy HH:mm:ss`, `M-d-yyyy HH:mm:ss`
+> - With milliseconds (1-9 digits): `yyyy-MM-dd HH:mm:ss.SSS`
+> - With time zone: `yyyy-MM-dd HH:mm:ss+HH:mm`, `yyyy-MM-dd HH:mm:ssZ`
 >
 > default `yyyy-MM-dd HH:mm:ss`
 
 ### <span id="time_format"> time_format </span>
 
-> Time type format, used to tell the connector how to convert string to time, supported as the following formats:
+> Time type format, used to tell the connector how to convert string to time.
+>
+> When explicitly configured, only the specified format is used. Supported formats:
 >
 > `HH:mm:ss` `HH:mm:ss.SSS`
+>
+> When not configured, the system auto-detects the format from the following candidates:
+>
+> `HH:mm:ss` `HH:mm:ss.SSS` `H:mm:ss` `H:mm`
 >
 > default `HH:mm:ss`
 

@@ -589,6 +589,15 @@ public class DateTimeUtilsTest {
         assertEquals(1, dateTime4.getHour());
         assertEquals(2, dateTime4.getMinute());
         assertEquals(3, dateTime4.getSecond());
+
+        // T separator should also work
+        LocalDateTime dateTime5 = DateTimeUtils.parse("1/2/2026T12:01:30");
+        assertEquals(2026, dateTime5.getYear());
+        assertEquals(1, dateTime5.getMonthValue());
+        assertEquals(2, dateTime5.getDayOfMonth());
+        assertEquals(12, dateTime5.getHour());
+        assertEquals(1, dateTime5.getMinute());
+        assertEquals(30, dateTime5.getSecond());
     }
 
     @Test
@@ -634,178 +643,114 @@ public class DateTimeUtilsTest {
 
     @Test
     public void testParsePerformanceAutoFormatNormalPattern() {
-        // Test performance of auto-format parsing
         final int iterations = 10000000;
         String dateTimeStr = "2023-12-25 15:30:45";
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 4079 ms (0.408 μs/iteration)
+        long durationMs = (endTime - startTime) / 1_000_000;
         System.out.printf(
-                "Auto-format[%s] parsing performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                dateTimeStr, iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+                "Auto-format[%s] parsing: %d iterations in %d ms%n",
+                dateTimeStr, iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 
     @Test
-    public void testParsePerformanceAutoFormatShorPattern() {
-        // Test performance of auto-format parsing
+    public void testParsePerformanceAutoFormatShortPattern() {
         final int iterations = 10000000;
         String dateTimeStr = "2023/1/25 8:30:45";
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 4079 ms (0.408 μs/iteration)
+        long durationMs = (endTime - startTime) / 1_000_000;
         System.out.printf(
-                "Auto-format[%s] parsing performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                dateTimeStr, iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+                "Auto-format[%s] parsing: %d iterations in %d ms%n",
+                dateTimeStr, iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 
     @Test
     public void testParsePerformanceAutoFormatCNPattern() {
-        // Test performance of auto-format parsing
         final int iterations = 10000000;
         String dateTimeStr = "2023年12月25日15时30分45秒";
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.parse(dateTimeStr);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 11876 ms (1.188 μs/iteration)
+        long durationMs = (endTime - startTime) / 1_000_000;
         System.out.printf(
-                "Auto-format[%s] parsing performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                dateTimeStr, iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+                "Auto-format[%s] parsing: %d iterations in %d ms%n",
+                dateTimeStr, iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 
     @Test
     public void testParsePerformanceFormatterEnum() {
-        // Test performance of parsing with Formatter enum
         final int iterations = 10000000;
         String dateTimeStr = "2023-12-25 15:30:45";
         DateTimeUtils.Formatter formatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.parse(dateTimeStr, formatter);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.parse(dateTimeStr, formatter);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 2782 ms (0.278 μs/iteration)
+        long durationMs = (endTime - startTime) / 1_000_000;
         System.out.printf(
-                "Auto-format-enum parsing performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+                "Auto-format-enum parsing: %d iterations in %d ms%n", iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 
     @Test
     public void testParsePerformanceCustomFormat() {
-        // Test performance of parsing with custom format string
         final int iterations = 10000000;
         String dateTimeStr = "2023-12-25 15:30:45";
         String formatStr = "yyyy-MM-dd HH:mm:ss";
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.parse(dateTimeStr, formatStr);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.parse(dateTimeStr, formatStr);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 5557 ms (0.556 μs/iteration)
+        long durationMs = (endTime - startTime) / 1_000_000;
         System.out.printf(
-                "Auto-format-custom-format parsing performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+                "Auto-format-custom parsing: %d iterations in %d ms%n", iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 
     @Test
     public void testToStringPerformance() {
-        // Test performance of to string formatting
         final int iterations = 10000000;
         LocalDateTime dateTime = LocalDateTime.of(2023, 12, 25, 15, 30, 45);
         DateTimeUtils.Formatter formatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
-        // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
             DateTimeUtils.toString(dateTime, formatter);
         }
-
-        // Measure performance
         long startTime = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
             DateTimeUtils.toString(dateTime, formatter);
         }
         long endTime = System.nanoTime();
-        long durationNs = endTime - startTime;
-        long durationMs = durationNs / 1_000_000;
-        double durationUs = durationNs / 1000.0;
-        // 10000000 iterations in 1135 ms (0.114 μs/iteration)
-        System.out.printf(
-                "ToString performance: %d iterations in %d ms (%.3f μs/iteration)%n",
-                iterations, durationMs, durationUs / iterations);
-
-        // Ensure the operation is performed
+        long durationMs = (endTime - startTime) / 1_000_000;
+        System.out.printf("ToString performance: %d iterations in %d ms%n", iterations, durationMs);
         assertTrue(durationMs > 0);
     }
 }

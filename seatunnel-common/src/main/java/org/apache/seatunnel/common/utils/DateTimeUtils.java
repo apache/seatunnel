@@ -82,7 +82,10 @@ public class DateTimeUtils {
                         .appendOptional(
                                 new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
                         .appendValue(ChronoField.YEAR, 4)
-                        .appendLiteral(' ')
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('T').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral(' ').toFormatter())
                         .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
                         .appendLiteral(':')
                         .appendValue(ChronoField.MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
