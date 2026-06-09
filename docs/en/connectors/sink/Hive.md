@@ -583,6 +583,54 @@ sink {
   }
 }
 ```
+## FAQ
+
+### What file formats does Hive Sink support?
+
+Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
+
+### Does Hive Sink support partitioned tables?
+
+Yes. For partitioned tables, specify the partition fields using `partition_by`. SeaTunnel writes data into the correct partition directories automatically:
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.sales"
+    metastore_uri = "thrift://hive-metastore:9083"
+    partition_by = ["dt", "region"]
+  }
+}
+```
+
+### How do I connect to a Kerberized Hadoop cluster?
+
+Provide the Kerberos keytab and principal in the connector configuration:
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.events"
+    metastore_uri = "thrift://hive-metastore:9083"
+    kerberos_principal = "hive/host@REALM.COM"
+    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+### Why do I see many small files in my Hive table?
+
+Small files are created when job parallelism is high or batches are small. To reduce small file counts:
+
+- Lower the job `parallelism` setting in the `env` block.
+- Increase `batch_size` so each task writes larger files.
+- Run a periodic compaction using Hive's `ALTER TABLE ... CONCATENATE` or a Spark merge job.
+
+### Does Hive Sink support schema evolution?
+
+Hive Sink reads the current table schema from the Hive Metastore. If columns are added to the upstream, they will only appear in Hive after the table DDL is updated. SeaTunnel does not automatically `ALTER TABLE` Hive schemas.
+
 ## Changelog
 
 <ChangeLog />

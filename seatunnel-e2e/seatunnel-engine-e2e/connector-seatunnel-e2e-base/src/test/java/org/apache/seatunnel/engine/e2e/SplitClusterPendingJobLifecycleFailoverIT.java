@@ -52,6 +52,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         HazelcastInstanceImpl masterNode1 = null;
         HazelcastInstanceImpl masterNode2 = null;
         HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
         SeaTunnelClient engineClient = null;
         ClientJobProxy holderJob = null;
         ClientJobProxy pendingJob = null;
@@ -59,9 +60,11 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
         SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
         SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode2Config = getSeaTunnelConfig(testClusterName);
         configurePendingLifecycleTest(masterNode1Config);
         configurePendingLifecycleTest(masterNode2Config);
         configurePendingLifecycleTest(workerNode1Config);
+        configurePendingLifecycleTest(workerNode2Config);
 
         try {
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
@@ -136,13 +139,19 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                         JobStatus.PENDING, pendingJobAfterFailover.getJobStatus());
                             });
 
-            engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
-            assertJobStatusWithTimeout(holderJob, JobStatus.CANCELED, 120);
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode2Config);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, standbyMaster.getCluster().getMembers().size()));
             assertJobStatusWithTimeout(pendingJobAfterFailover, JobStatus.RUNNING, 180);
             assertPendingQueueNotContainsJob(standbyMaster, pendingJobId);
 
             pendingJobAfterFailover.cancelJob();
             assertJobStatusWithTimeout(pendingJobAfterFailover, JobStatus.CANCELED, 120);
+            engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
         } finally {
             if (engineClient != null) {
                 engineClient.close();
@@ -155,6 +164,9 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             }
             if (workerNode1 != null) {
                 workerNode1.shutdown();
+            }
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
             }
         }
     }

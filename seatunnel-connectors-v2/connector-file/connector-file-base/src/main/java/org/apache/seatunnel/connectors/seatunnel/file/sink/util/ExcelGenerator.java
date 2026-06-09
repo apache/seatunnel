@@ -122,7 +122,7 @@ public class ExcelGenerator {
         int index = 0;
         for (Integer i : sinkColumnsIndexInRow) {
             Cell cell = excelRow.createCell(index++);
-            Object value = seaTunnelRow.getField(i);
+            Object value = i < seaTunnelRow.getArity() ? seaTunnelRow.getField(i) : null;
             setCellValue(fieldTypes[i], seaTunnelRowType.getFieldName(i), value, cell);
         }
         currentRowInSheet++;

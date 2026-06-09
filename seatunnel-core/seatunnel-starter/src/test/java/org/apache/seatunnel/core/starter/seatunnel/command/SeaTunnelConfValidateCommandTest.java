@@ -101,7 +101,7 @@ public class SeaTunnelConfValidateCommandTest {
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
         Assertions.assertTrue(
-                exception.getMessage().contains("unconfigured options"),
+                exception.getMessage().contains("Option validation failed"),
                 "Should detect missing required option. Actual: " + exception.getMessage());
     }
 
