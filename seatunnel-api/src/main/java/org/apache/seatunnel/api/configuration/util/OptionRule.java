@@ -345,7 +345,7 @@ public class OptionRule {
                 @NonNull Option<?> option,
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
-            verifyOptionOptionsDuplicate(option, "OptionsOption");
+            verifyOptionOptionsDuplicate(option, "OptionsOptionWithConstraint");
             this.optionalOptions.add(option);
             this.valueConstraints.add(condition1);
             Collections.addAll(this.valueConstraints, conditions);
@@ -358,8 +358,8 @@ public class OptionRule {
                 @NonNull Option<?> option2,
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
-            verifyOptionOptionsDuplicate(option1, "OptionsOption");
-            verifyOptionOptionsDuplicate(option2, "OptionsOption");
+            verifyOptionOptionsDuplicate(option1, "OptionsOptionWithConstraint");
+            verifyOptionOptionsDuplicate(option2, "OptionsOptionWithConstraint");
             this.optionalOptions.add(option1);
             this.optionalOptions.add(option2);
             this.valueConstraints.add(condition1);
@@ -544,11 +544,15 @@ public class OptionRule {
                 @NonNull Option<?> option, @NonNull String currentOptionType) {
             verifyDuplicateWithOptionOptions(option, currentOptionType);
 
+            boolean hasOptionsOptionWithConstraint =
+                    "OptionsOptionWithConstraint".equals(currentOptionType);
             requiredOptions.forEach(
                     requiredOption -> {
-                        if (requiredOption instanceof RequiredOption.ExclusiveRequiredOptions
-                                || requiredOption
-                                        instanceof RequiredOption.BundledRequiredOptions) {
+                        if (hasOptionsOptionWithConstraint
+                                && (requiredOption
+                                                instanceof RequiredOption.ExclusiveRequiredOptions
+                                        || requiredOption
+                                                instanceof RequiredOption.BundledRequiredOptions)) {
                             return;
                         }
                         if (requiredOption.getOptions().contains(option)) {

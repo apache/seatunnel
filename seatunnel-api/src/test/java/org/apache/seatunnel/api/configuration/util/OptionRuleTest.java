@@ -321,6 +321,24 @@ public class OptionRuleTest {
                                 .build();
         assertThrows(OptionValidationException.class, executable);
 
+        // test exclusive -> optional(no condition) with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled -> optional(no condition) with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
         // test bundled + duplicate optional value constraint still fails
         executable =
                 () ->
