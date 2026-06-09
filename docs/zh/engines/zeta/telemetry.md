@@ -85,6 +85,53 @@ sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 | engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前被跟踪的 connector jar 数。 |
 | engine_state_store_connector_jar_total_references        | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前所有 connector jar 引用计数之和。 |
 
+这些逻辑指标与上面的本地 Hazelcast store 指标互为补充：
+
+- 当你想看每个节点上的数据分布和内存占用时，使用 `engine_state_store_local_*` 指标。
+- 当你想看 checkpoint 积压、finished job 保留、connector jar 复用等引擎语义时，使用 `engine_state_store_*` 逻辑指标。
+
+PromQL 示例：
+
+```promql
+# 按 store 聚合后的状态存储总 entry 数
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# 当前 checkpoint 积压
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# 最近 15 分钟 finished job cleanup 增长量
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# connector jar 引用压力
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Grafana 面板示例：
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### 线程池状态
 
 | MetricName                          | Type    | Labels                                  | 描述                             |

@@ -86,6 +86,53 @@ master only. The metric names remain backend-neutral, while the current implemen
 | engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**, state store backend.           | Current tracked connector jar count in `engine_connectorJarRefCounters`. |
 | engine_state_store_connector_jar_total_references        | Gauge   | **backend**, state store backend.           | Sum of connector jar reference counts in `engine_connectorJarRefCounters`. |
 
+Logical metrics complement the local Hazelcast store metrics above:
+
+- Use `engine_state_store_local_*` metrics when you want to understand data distribution and memory usage on each node.
+- Use `engine_state_store_*` logical metrics when you want to understand engine semantics such as checkpoint backlog, finished-job retention, or connector jar reuse.
+
+Example PromQL:
+
+```promql
+# Total state store entries by store
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# Current checkpoint backlog
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# Finished-job cleanup growth over the last 15 minutes
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# Connector jar reference pressure
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Example Grafana panels:
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### Thread Pool Status
 
 | MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |
