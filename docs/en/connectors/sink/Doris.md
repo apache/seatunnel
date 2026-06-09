@@ -527,6 +527,63 @@ sink {
 }
 ```
 
+## FAQ
+
+### Does Doris Sink support automatic table creation?
+
+Yes. Use the `schema_save_mode` and `save_mode_create_template` sections above as the canonical
+reference for the exact behavior, defaults, and DDL customization path.
+
+### How does exactly-once work with Doris Sink?
+
+Doris Sink uses Stream Load with two-phase commit (2PC) for exactly-once semantics:
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting.
+
+### Why do I get a "Label already exists" error?
+
+Doris uses Stream Load labels to detect and reject duplicate submissions. If a job is restarted with 2PC enabled, the same label prefix may be reused. To resolve:
+
+- Include a timestamp or unique token in `sink.label-prefix` to ensure uniqueness across restarts.
+- Abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
+
+### Does Doris Sink support DELETE propagation from CDC sources?
+
+Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC sources (e.g., MySQL CDC) to Doris. This requires the target table to use the Unique Key model in Doris.
+
+### Are Doris column names case-sensitive?
+
+See the case-sensitivity example above for the exact behavior. If upstream field names still do not
+match the Doris schema, normalize them before the sink stage or align the target schema explicitly
+instead of relying on an undocumented `column_mapping` option.
+
+### What data format does Doris Stream Load use?
+
+Doris Sink uses JSON format for Stream Load by default. Configure it explicitly if needed:
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+CSV format is also supported but requires careful delimiter configuration.
+
 ## Changelog
 
 <ChangeLog />

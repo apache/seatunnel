@@ -26,8 +26,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.junit.jupiter.api.Disabled;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -122,6 +124,8 @@ public class JdbcVerticaIT extends AbstractJdbcIT {
                 new GenericContainer<>(VERTICA_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(VERTICA_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(VERTICA_IMAGE)));
         container.setPortBindings(

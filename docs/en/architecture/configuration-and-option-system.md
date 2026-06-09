@@ -124,6 +124,9 @@ Available operators (all accessed via the `Conditions` factory class):
 | String | `lowerCase(option)` | string is all lowercase |
 | Collection | `notEmpty(option)` | collection is not empty |
 | Collection | `unique(option)` | collection has no duplicate elements |
+| Map | `mapNotEmpty(option)` | map is not empty |
+| Map | `mapContainsKey(option, key)` | map contains the specified key |
+| Map | `mapContainsKeys(option, key1, key2, ...)` | map contains all specified keys |
 | Cross-field | `lessThanField(option, other)` | value < another option's value |
 | Cross-field | `lessOrEqualField(option, other)` | value <= another option's value |
 | Cross-field | `greaterThanField(option, other)` | value > another option's value |
@@ -293,6 +296,26 @@ Lists that must not be empty, or whose elements must be unique.
 .required(TABLES,
         Conditions.notEmpty(TABLES)
                 .and(Conditions.unique(TABLES)))
+```
+
+### Map constraints
+
+Map must not be empty:
+
+```java
+.required(PROPERTIES, Conditions.mapNotEmpty(PROPERTIES))
+```
+
+Map must contain a specific key:
+
+```java
+.required(KAFKA_CONFIG, Conditions.mapContainsKey(KAFKA_CONFIG, "bootstrap.servers"))
+```
+
+Map must contain multiple keys simultaneously:
+
+```java
+.required(JDBC_PROPS, Conditions.mapContainsKeys(JDBC_PROPS, "url", "driver", "user"))
 ```
 
 ### Compound constraints with AND

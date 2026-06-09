@@ -42,6 +42,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
@@ -56,6 +57,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -68,7 +70,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcIrisIT extends AbstractJdbcIT {
-    private static final String IRIS_IMAGE = "intersystems/iris-community:2025.1";
+    private static final String IRIS_IMAGE = "intersystems/iris-community:2025.3";
     private static final String IRIS_NETWORK_ALIASES = "e2e_irisDb";
     private static final String DRIVER_CLASS = "com.intersystems.jdbc.IRISDriver";
     private static final int IRIS_PORT = 1972;
@@ -559,6 +561,8 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(IRIS_NETWORK_ALIASES)
                         .withExposedPorts(IRIS_PORT)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IRIS_IMAGE)));
 
