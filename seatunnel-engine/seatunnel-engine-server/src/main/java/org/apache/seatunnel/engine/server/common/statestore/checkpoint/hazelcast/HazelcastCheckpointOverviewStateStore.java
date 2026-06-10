@@ -23,6 +23,8 @@ import org.apache.seatunnel.engine.server.common.statestore.checkpoint.Checkpoin
 
 import com.hazelcast.map.IMap;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -95,8 +97,8 @@ public class HazelcastCheckpointOverviewStateStore implements CheckpointOverview
         return overviewMap.values().stream()
                 .filter(Objects::nonNull)
                 .map(CheckpointOverview::getPipelines)
-                .map(java.util.Map::values)
-                .flatMap(java.util.Collection::stream)
+                .map(Map::values)
+                .flatMap(Collection::stream)
                 .filter(Objects::nonNull)
                 .mapToLong(pipelineOverview -> pipelineOverview.getInProgress().size())
                 .sum();
@@ -107,8 +109,8 @@ public class HazelcastCheckpointOverviewStateStore implements CheckpointOverview
         return overviewMap.values().stream()
                 .filter(Objects::nonNull)
                 .map(CheckpointOverview::getPipelines)
-                .map(java.util.Map::values)
-                .flatMap(java.util.Collection::stream)
+                .map(Map::values)
+                .flatMap(Collection::stream)
                 .filter(Objects::nonNull)
                 .map(PipelineCheckpointOverview::getHistory)
                 .filter(Objects::nonNull)
