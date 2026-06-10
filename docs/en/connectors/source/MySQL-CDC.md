@@ -193,7 +193,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | table-names                               | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | Yes      | -       | The table names RegEx of the database to capture. The table name needs to include the database name, for example: `database.*\\.table_.*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
+| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `snapshot`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `snapshot`: Synchronize historical data plus a bounded catch-up that reconciles changes made while the snapshot was being scanned, then finish at the binlog position reached when the snapshot completed — it does not keep streaming new changes afterwards (bounded bootstrap job, see the example below).<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | startup.timestamp                         | Long     | No       | -       | Start from the specified timestamp. **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -258,6 +258,40 @@ source {
     table-names = ["testdb.table1", "testdb.table2"]
     
     startup.mode = "initial"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### Snapshot bootstrap (bounded snapshot + catch-up)
+
+When you only need a one-time backfill — for example bootstrapping a warehouse table or a controlled
+migration stage — set `startup.mode = "snapshot"`. The job reads the snapshot of the captured tables
+and then runs a **bounded catch-up phase**: it consumes the binlog from where the snapshot started up
+to the position reached when the snapshot completed, so changes that happened *while the snapshot was
+being scanned* are reconciled into the result (this preserves the same consistency guarantee as
+`initial`). It then finishes on its own and does **not** keep streaming changes made after that point.
+Because the source is bounded it can run as a `BATCH` job, and it cannot be combined with `stop.mode`
+or with the `startup.specific-offset.*` / `startup.timestamp` options.
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306/testdb"
+    username = "root"
+    password = "root@123"
+    table-names = ["testdb.table1"]
+
+    startup.mode = "snapshot"
   }
 }
 

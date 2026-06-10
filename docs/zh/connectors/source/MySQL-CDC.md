@@ -192,7 +192,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | table-names                               | List     | 是    | -       | 要监控的表名. 表名需要包括库名, 例如: `database_name.table_name`                                                                                                                                                                                             |
 | table-pattern                             | String   | 是    | -       | 要捕获的表名称的正则表达式. 表名需要包括库名, 例如: `database.*\\.table_.*`                                                                                                                                                                                         |
 | table-names-config                        | List     | 否    | -       | 表配置的列表集合. 例如: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引). 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列.                                                                                                                                                                                         |
-| startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
+| startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `snapshot`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `snapshot`: 同步历史数据, 并执行一个有界的追平阶段以协调快照扫描期间发生的变更, 然后在快照完成时所到达的 binlog 位置结束, 之后不再持续读取新的变更（有界的引导作业, 见下方示例）.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
 | startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
 | startup.timestamp                         | Long     | No    | -       | 从指定的binlog时间戳文件位置开始. **注意, 当使用 `startup.mode` 选项为 `timestamp` 时，此选项为必填项.**                                                                                                                                                                    |
@@ -257,6 +257,37 @@ source {
     table-names = ["testdb.table1", "testdb.table2"]
     
     startup.mode = "initial"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### 快照引导（有界快照 + 追平）
+
+当只需要一次性回填数据时——例如初始化数仓表或受控迁移阶段——可将 `startup.mode` 设为 `"snapshot"`。
+作业先读取所捕获表的快照，然后执行一个**有界的追平阶段**：从快照开始处消费 binlog 直到快照完成时所到达的位置，
+因此**快照扫描期间**发生的变更也会被协调进结果中（与 `initial` 保持相同的一致性保证）。随后作业自动结束，
+**不会**继续读取该位置之后产生的新变更。由于数据源是有界的，可以以 `BATCH` 模式运行，且不能与 `stop.mode`、
+`startup.specific-offset.*` 或 `startup.timestamp` 选项组合使用。
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306/testdb"
+    username = "root"
+    password = "root@123"
+    table-names = ["testdb.table1"]
+
+    startup.mode = "snapshot"
   }
 }
 

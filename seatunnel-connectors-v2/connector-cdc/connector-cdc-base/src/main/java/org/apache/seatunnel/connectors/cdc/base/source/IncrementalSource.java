@@ -119,6 +119,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.readonlyConfig = options;
         this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
+        validateSnapshotStartupConfig();
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
@@ -126,6 +127,36 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
+    }
+
+    private void validateSnapshotStartupConfig() {
+        if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT) {
+            return;
+        }
+        // SNAPSHOT runs a bounded snapshot followed by a catch-up that stops at the change-log
+        // position reached when the snapshot completes (see getStopConfig). It therefore owns its
+        // own stop boundary and does not read from a user-supplied startup offset.
+        StopMode configuredStopMode = readonlyConfig.get(getStopModeOption());
+        if (configuredStopMode != StopMode.NEVER) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The '%s' startup mode manages its own bounded stop boundary, so it "
+                                    + "cannot be combined with an explicit '%s' = '%s'.",
+                            StartupMode.SNAPSHOT, SourceOptions.STOP_MODE_KEY, configuredStopMode));
+        }
+        if (readonlyConfig.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
+                || readonlyConfig.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent()
+                || readonlyConfig.getOptional(SourceOptions.STARTUP_TIMESTAMP).isPresent()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The '%s' startup mode does not read from a user-supplied change-log "
+                                    + "offset, so it cannot be combined with startup offset options "
+                                    + "(%s, %s, %s).",
+                            StartupMode.SNAPSHOT,
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                            SourceOptions.STARTUP_TIMESTAMP.key()));
+        }
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
@@ -212,6 +243,16 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     }
 
     private StopConfig getStopConfig(ReadonlyConfig config) {
+        if (startupConfig.getStartupMode() == StartupMode.SNAPSHOT) {
+            // SNAPSHOT = snapshot phase + a bounded catch-up that reconciles changes made while the
+            // snapshot is being scanned, stopping at the change-log position reached when the
+            // snapshot completes. The incremental split is created only after the snapshot phase
+            // finishes, so resolving the LATEST stop offset at that point yields exactly that
+            // boundary. Reusing the existing bounded-LATEST stop machinery (the connector binlog
+            // readers already terminate at a non-NEVER stop offset) keeps the consistency guarantee
+            // identical to INITIAL instead of introducing a separate, less-tested code path.
+            return new StopConfig(StopMode.LATEST, null, null, null);
+        }
         return new StopConfig(
                 config.get(getStopModeOption()),
                 config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
@@ -251,6 +292,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     @Override
     public Boundedness getBoundedness() {
+        // SNAPSHOT forces a LATEST stop (see getStopConfig), so it reports BOUNDED here too.
         return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
     }
 
@@ -316,7 +358,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashSet<>(remainingTables),
                         new HashMap<>(),
                         new HashMap<>());
-        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL) {
+        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
+        if (startupMode == StartupMode.INITIAL || startupMode == StartupMode.SNAPSHOT) {
             try {
 
                 boolean isTableIdCaseSensitive =

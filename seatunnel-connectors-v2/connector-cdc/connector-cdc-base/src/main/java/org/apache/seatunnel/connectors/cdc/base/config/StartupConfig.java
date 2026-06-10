@@ -43,6 +43,7 @@ public final class StartupConfig implements Serializable {
             case LATEST:
                 return offsetFactory.latest();
             case INITIAL:
+            case SNAPSHOT:
                 return null;
             case SPECIFIC:
                 return offsetFactory.specific(specificOffsetFile, specificOffsetPos);

@@ -184,6 +184,32 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    public void testMysqlCdcSnapshotOnlyStartupMode(TestContainer container)
+            throws IOException, InterruptedException {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        // seed the source table before the job starts
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        List<List<Object>> snapshotData = query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1));
+
+        // the source is bounded in snapshot mode, so the job finishes on its own
+        Container.ExecResult execResult = container.executeJob("/mysqlcdc_snapshot_only.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // the snapshot was fully synchronized
+        Assertions.assertIterableEquals(
+                snapshotData, query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+
+        // changes made after the job finished are not consumed: the job has already exited,
+        // so the sink must keep the snapshot result
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE_1 + " WHERE id > 0");
+        Assertions.assertIterableEquals(
+                snapshotData, query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},

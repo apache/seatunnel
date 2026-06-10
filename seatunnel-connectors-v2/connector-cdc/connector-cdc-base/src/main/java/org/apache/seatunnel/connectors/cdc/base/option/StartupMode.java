@@ -25,6 +25,11 @@ public enum StartupMode {
     LATEST,
     /** Synchronize historical data at startup, and then synchronize incremental data. */
     INITIAL,
+    /**
+     * Synchronize historical data only: read the snapshot of the captured tables and then finish
+     * without consuming incremental changes. Useful for one-time backfill / bootstrap jobs.
+     */
+    SNAPSHOT,
     /** Start from user-supplied timestamp. */
     TIMESTAMP,
     /** Startup from user-supplied specific offsets. */

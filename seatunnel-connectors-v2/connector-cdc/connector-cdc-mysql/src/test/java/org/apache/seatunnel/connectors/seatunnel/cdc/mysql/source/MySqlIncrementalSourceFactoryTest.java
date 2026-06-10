@@ -17,12 +17,37 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 public class MySqlIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new MySqlIncrementalSourceFactory()).optionRule());
+    }
+
+    @Test
+    public void testSupportedStartUpModes() {
+        new MySqlIncrementalSourceFactory()
+                .optionRule().getOptionalOptions().stream()
+                        .filter(option -> option.key().equals(SourceOptions.STARTUP_MODE_KEY))
+                        .forEach(
+                                option ->
+                                        Assertions.assertIterableEquals(
+                                                Arrays.asList(
+                                                        StartupMode.INITIAL,
+                                                        StartupMode.SNAPSHOT,
+                                                        StartupMode.EARLIEST,
+                                                        StartupMode.LATEST,
+                                                        StartupMode.SPECIFIC,
+                                                        StartupMode.TIMESTAMP),
+                                                ((SingleChoiceOption<StartupMode>) option)
+                                                        .getOptionValues()));
     }
 }
