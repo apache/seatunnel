@@ -60,7 +60,7 @@ The structure of the data, including field names and field types. For more detai
 
 ### format [String]
 
-the format of upstream data, now only support `json` `text`, default `json`.
+the format of upstream data, now only support `json` `text`, default `text`.
 
 ### params [Map]
 
