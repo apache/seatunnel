@@ -32,7 +32,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import com.google.auto.service.AutoService;
@@ -45,7 +44,6 @@ import java.util.Optional;
 @AutoService(Factory.class)
 @Slf4j
 public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
-
     @Override
     public String factoryIdentifier() {
         return SqlServerIncrementalSource.IDENTIFIER;
@@ -61,7 +59,11 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         ConnectorCommonOptions.TABLE_NAMES,
-                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES))
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
                 .required(
                         SqlServerIncrementalSourceOptions.DATABASE_NAMES,
                         Conditions.notEmpty(SqlServerIncrementalSourceOptions.DATABASE_NAMES))
@@ -101,20 +103,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STOP_MODE,
-                        StopMode.TIMESTAMP,
-                        SourceOptions.STOP_TIMESTAMP)
                 .conditional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,

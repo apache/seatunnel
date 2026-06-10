@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -71,7 +72,23 @@ public class TiDBSourceFactory implements TableSourceFactory {
                         TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
                         TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT,
                         TiDBSourceOptions.TIKV_GRPC_TIMEOUT,
+                        TiDBSourceOptions.BATCH_SIZE_PER_SCAN,
                         TiDBSourceOptions.STARTUP_MODE)
+                .optional(
+                        TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY,
+                        Conditions.greaterThan(TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY, 0))
+                .optional(
+                        TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
+                        Conditions.greaterThan(TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY, 0))
+                .optional(
+                        TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT,
+                        Conditions.greaterThan(TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT, 0L))
+                .optional(
+                        TiDBSourceOptions.TIKV_GRPC_TIMEOUT,
+                        Conditions.greaterThan(TiDBSourceOptions.TIKV_GRPC_TIMEOUT, 0L))
+                .optional(
+                        TiDBSourceOptions.BATCH_SIZE_PER_SCAN,
+                        Conditions.greaterThan(TiDBSourceOptions.BATCH_SIZE_PER_SCAN, 0))
                 .build();
     }
 

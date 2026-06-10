@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -31,7 +33,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
@@ -41,11 +42,34 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @AutoService(Factory.class)
 @Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
+
+    static class SchemaChangeLogMiningValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "when schema changes are enabled, debezium log mining strategy cannot be online_catalog";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value) {
+            if (value == null || !value) {
+                return true;
+            }
+            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+            if (dbzProps == null) {
+                return true;
+            }
+            String strategy = dbzProps.get(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY);
+            return strategy == null
+                    || !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
+        }
+    }
+
     @Override
     public String factoryIdentifier() {
         return OracleIncrementalSource.IDENTIFIER;
@@ -60,7 +84,11 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         ConnectorCommonOptions.TABLE_NAMES,
-                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES))
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
                 .bundled(
                         OracleIncrementalSourceOptions.HOSTNAME,
                         OracleIncrementalSourceOptions.PORT)
@@ -78,8 +106,13 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                         OracleIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         OracleIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
-                        OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG,
+                        OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .optional(
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                                new SchemaChangeLogMiningValidator()))
+                .optional(
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
                 .optional(
@@ -107,20 +140,8 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                         OracleIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.TIMESTAMP,
-                        SourceOptions.STOP_TIMESTAMP)
                 .conditional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,

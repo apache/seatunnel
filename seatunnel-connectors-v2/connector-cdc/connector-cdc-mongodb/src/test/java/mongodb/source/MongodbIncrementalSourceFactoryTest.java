@@ -147,4 +147,17 @@ public class MongodbIncrementalSourceFactoryTest {
         cfgNeither.put("collection", Collections.singletonList("testcol"));
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgNeither));
     }
+
+    @Test
+    public void testCollectionSchemaAlignmentExtension() {
+        Map<String, Object> cfgMismatch = new HashMap<>();
+        cfgMismatch.put("hosts", "localhost:27017");
+        cfgMismatch.put("database", Collections.singletonList("testdb"));
+        cfgMismatch.put("collection", Collections.singletonList("testcol"));
+        List<Map<String, Object>> tables = new ArrayList<>();
+        tables.add(Collections.singletonMap("table", "db.c1"));
+        tables.add(Collections.singletonMap("table", "db.c2"));
+        cfgMismatch.put("tables_configs", tables);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgMismatch));
+    }
 }

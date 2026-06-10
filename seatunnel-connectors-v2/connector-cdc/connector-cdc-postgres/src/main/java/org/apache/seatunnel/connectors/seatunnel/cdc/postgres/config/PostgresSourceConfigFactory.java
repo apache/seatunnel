@@ -89,16 +89,10 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                             .map(
                                     tableStr -> {
                                         String[] splits = tableStr.split("\\.");
-                                        if (splits.length == 2) {
-                                            return tableStr;
-                                        }
                                         if (splits.length == 3) {
                                             return String.join(".", splits[1], splits[2]);
                                         }
-                                        throw new IllegalArgumentException(
-                                                "Invalid table name: "
-                                                        + tableStr
-                                                        + " ,Postgres identifier is of the form schemaName.tableName");
+                                        return tableStr;
                                     })
                             .collect(Collectors.joining(",")));
         }

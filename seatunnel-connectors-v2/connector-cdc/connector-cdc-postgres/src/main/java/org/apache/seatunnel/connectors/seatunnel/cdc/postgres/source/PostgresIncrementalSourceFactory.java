@@ -46,6 +46,7 @@ import java.util.Optional;
 @AutoService(Factory.class)
 @Slf4j
 public class PostgresIncrementalSourceFactory implements TableSourceFactory {
+
     @Override
     public String factoryIdentifier() {
         return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
@@ -62,7 +63,11 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         ConnectorCommonOptions.TABLE_NAMES,
-                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES))
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
                 .required(
                         JdbcSourceOptions.DATABASE_NAMES,
                         Conditions.notEmpty(JdbcSourceOptions.DATABASE_NAMES))

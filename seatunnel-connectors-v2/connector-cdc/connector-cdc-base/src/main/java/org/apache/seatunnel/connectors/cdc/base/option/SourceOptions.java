@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
@@ -149,8 +152,46 @@ public class SourceOptions {
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
-                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
-                .optional(INCREMENTAL_PARALLELISM)
+                .optional(SNAPSHOT_SPLIT_SIZE, Conditions.greaterThan(SNAPSHOT_SPLIT_SIZE, 0))
+                .optional(SNAPSHOT_FETCH_SIZE, Conditions.greaterThan(SNAPSHOT_FETCH_SIZE, 0))
+                .optional(
+                        INCREMENTAL_PARALLELISM, Conditions.greaterThan(INCREMENTAL_PARALLELISM, 0))
                 .optional(DEBEZIUM_PROPERTIES);
+    }
+
+    /**
+     * Validates that every table name follows the qualified format: {@code schema.table} or {@code
+     * db.schema.table}. Shared across all JDBC-based CDC connectors.
+     */
+    public static class QualifiedTableNameValidator implements ConditionExtension<List<String>> {
+
+        @Override
+        public String description() {
+            return "each table name must be in 'schema.table' or 'db.schema.table' format";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            return value.stream().allMatch(QualifiedTableNameValidator::isQualifiedName);
+        }
+
+        private static boolean isQualifiedName(String name) {
+            if (name == null || name.isEmpty()) {
+                return false;
+            }
+            String[] segments = name.split("\\.", -1);
+            if (segments.length < 2 || segments.length > 3) {
+                return false;
+            }
+            for (String seg : segments) {
+                if (seg.trim().isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

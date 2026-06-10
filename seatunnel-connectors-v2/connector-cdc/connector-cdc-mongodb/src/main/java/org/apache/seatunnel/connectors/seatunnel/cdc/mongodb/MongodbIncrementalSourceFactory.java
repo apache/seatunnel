@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -33,7 +34,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -43,10 +43,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-
 @AutoService(Factory.class)
 public class MongodbIncrementalSourceFactory implements TableSourceFactory {
+
+    static class CollectionCountConsistencyValidator implements ConditionExtension<List<String>> {
+        @Override
+        public String description() {
+            return "collection count must align with schema/table_configs definition";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            List<Map<String, Object>> tableConfigs =
+                    config.get(MongodbIncrementalSourceOptions.TABLE_CONFIGS);
+            if (tableConfigs != null) {
+                return value.size() == tableConfigs.size();
+            }
+            Map<String, Object> schema = config.get(MongodbIncrementalSourceOptions.SCHEMA);
+            if (schema != null) {
+                return value.size() == 1;
+            }
+            return true;
+        }
+    }
+
     @Override
     public String factoryIdentifier() {
         return MongodbIncrementalSource.IDENTIFIER;
@@ -61,7 +84,11 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         Conditions.notEmpty(MongodbIncrementalSourceOptions.DATABASE))
                 .required(
                         MongodbIncrementalSourceOptions.COLLECTION,
-                        Conditions.notEmpty(MongodbIncrementalSourceOptions.COLLECTION))
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.COLLECTION)
+                                .and(
+                                        Conditions.extension(
+                                                MongodbIncrementalSourceOptions.COLLECTION,
+                                                new CollectionCountConsistencyValidator())))
                 .exclusive(
                         MongodbIncrementalSourceOptions.SCHEMA,
                         MongodbIncrementalSourceOptions.TABLE_CONFIGS)
@@ -118,7 +145,6 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             List<CatalogTable> catalogTables = buildWithConfig(context.getOptions());
             List<String> collections =
                     context.getOptions().get(MongodbIncrementalSourceOptions.COLLECTION);
-            validateCatalogTablesAndCollections(catalogTables, collections);
             catalogTables = updateAndValidateCatalogTableId(catalogTables, collections);
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MongodbIncrementalSource<>(context.getOptions(), catalogTables);
@@ -138,25 +164,10 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                                     catalogTable.getCatalogName(), TablePath.of(collectionName));
                     return Collections.singletonList(
                             CatalogTable.of(updatedIdentifier, catalogTable));
-                } else if (!fullName.equals(collectionName)) {
-                    throw new MongodbConnectorException(
-                            ILLEGAL_ARGUMENT,
-                            String.format(
-                                    "Inconsistent naming found at index %d: The collection name '%s' must match the schema table name '%s'.",
-                                    i, collectionName, fullName));
                 }
             }
         }
         return catalogTables;
-    }
-
-    private void validateCatalogTablesAndCollections(
-            List<CatalogTable> catalogTables, List<String> collections) {
-        if (catalogTables.size() != collections.size()) {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT,
-                    "The number of collections must be equal to the number of schema tables");
-        }
     }
 
     private List<CatalogTable> buildWithConfig(ReadonlyConfig config) {

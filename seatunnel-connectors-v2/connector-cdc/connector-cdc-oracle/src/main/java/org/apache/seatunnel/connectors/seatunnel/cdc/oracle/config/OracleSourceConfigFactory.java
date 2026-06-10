@@ -124,29 +124,16 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                             .map(
                                     tableStr -> {
                                         String[] splits = tableStr.split("\\.");
-                                        if (splits.length == 2) {
-                                            return tableStr;
-                                        }
                                         if (splits.length == 3) {
                                             return String.join(".", splits[1], splits[2]);
                                         }
-                                        throw new IllegalArgumentException(
-                                                "Invalid table name: " + tableStr);
+                                        return tableStr;
                                     })
                             .collect(Collectors.joining(",")));
         }
 
         // override the user-defined debezium properties
         if (dbzProperties != null) {
-            String debeziumSchemaChanges =
-                    dbzProperties.getProperty(
-                            SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
-            String debeziumLogMiningStrategy = dbzProperties.getProperty(LOG_MINING_STRATEGY_KEY);
-            if (Boolean.parseBoolean(debeziumSchemaChanges)
-                    && LOG_MINING_STRATEGY_DEFAULT.equals(debeziumLogMiningStrategy)) {
-                throw new IllegalArgumentException(
-                        "Debezium log mining strategy must be set to redo_log_catalog when schema changes are enabled");
-            }
             props.putAll(dbzProperties);
         }
 

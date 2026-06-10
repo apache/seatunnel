@@ -91,6 +91,13 @@ class SqlServerIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testTableNamesFormatExtension() {
+        Map<String, Object> cfgInvalid = validSqlServerConfig();
+        cfgInvalid.put("table-names", Arrays.asList("users"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgInvalid));
+    }
+
+    @Test
     public void testDatabaseNamesRequired() {
         Map<String, Object> cfgMissing = validSqlServerConfig();
         cfgMissing.remove("database-names");

@@ -90,6 +90,27 @@ class OracleIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testTableNamesFormatExtension() {
+        Map<String, Object> cfgInvalid = validOracleConfig();
+        cfgInvalid.put("table-names", Arrays.asList("TABLE_ONLY"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgInvalid));
+
+        Map<String, Object> cfgValidThreeSegment = validOracleConfig();
+        cfgValidThreeSegment.put("table-names", Arrays.asList("DB1.S1.T1"));
+        Assertions.assertDoesNotThrow(() -> validate(cfgValidThreeSegment));
+    }
+
+    @Test
+    public void testSchemaChangeLogMiningExtension() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("schema-changes.enabled", true);
+        Map<String, String> debezium = new HashMap<>();
+        debezium.put("log.mining.strategy", "online_catalog");
+        cfg.put("debezium", debezium);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
     public void testDatabaseNamesRequired() {
         Map<String, Object> cfgMissing = validOracleConfig();
         cfgMissing.remove("database-names");
