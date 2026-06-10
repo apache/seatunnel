@@ -409,7 +409,7 @@ Inline anonymous class:
 .optional(API_KEY_ENCODED, Conditions.extension(API_KEY_ENCODED,
         new ConditionExtension<String>() {
             @Override public String description() { return "must be Base64-encoded 'id:api_key'"; }
-            @Override public boolean evaluate(ReadonlyConfig cfg, String v) {
+            @Override public boolean evaluate(ReadonlyConfig cfg, String v) throws OptionValidationException {
                 try {
                     return new String(Base64.getDecoder().decode(v)).contains(":");
                 } catch (IllegalArgumentException e) {
@@ -430,7 +430,7 @@ static class TableConfigsValidator
     }
 
     @Override
-    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) {
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) throws OptionValidationException {
         if (value.isEmpty()) return false;
         Set<String> seen = new HashSet<>();
         for (Map<String, Object> entry : value) {
