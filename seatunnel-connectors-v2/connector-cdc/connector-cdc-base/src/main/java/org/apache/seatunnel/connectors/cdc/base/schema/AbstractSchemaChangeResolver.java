@@ -24,12 +24,15 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
@@ -208,9 +211,68 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                                             changeColumnEvent.getTablePath());
                                 }
                             }
+                            if (event instanceof AlterTableModifyColumnEvent && table != null) {
+                                AlterTableModifyColumnEvent modifyColumnEvent =
+                                        (AlterTableModifyColumnEvent) event;
+                                if (table.getTableSchema()
+                                        .contains(modifyColumnEvent.getColumn().getName())) {
+                                    Column oldColumn =
+                                            table.getTableSchema()
+                                                    .getColumn(
+                                                            modifyColumnEvent
+                                                                    .getColumn()
+                                                                    .getName());
+                                    AlterColumnCommentEvent columnCommentEvent =
+                                            convertToColumnCommentEventIfOnlyCommentChanged(
+                                                    modifyColumnEvent, oldColumn);
+                                    if (columnCommentEvent != null) {
+                                        columnCommentEvent.setSourceDialectName(
+                                                getSourceDialectName());
+                                        return columnCommentEvent;
+                                    }
+                                }
+                            }
                             return event;
                         })
                 .collect(Collectors.toList());
+    }
+
+    private AlterColumnCommentEvent convertToColumnCommentEventIfOnlyCommentChanged(
+            AlterTableModifyColumnEvent modifyColumnEvent, Column oldColumn) {
+        if (oldColumn == null
+                || modifyColumnEvent.isFirst()
+                || StringUtils.isNotBlank(modifyColumnEvent.getAfterColumn())) {
+            return null;
+        }
+        Column newColumn = modifyColumnEvent.getColumn();
+        if (isSameColumnExceptComment(oldColumn, newColumn)
+                && !StringUtils.equals(oldColumn.getComment(), newColumn.getComment())) {
+            return AlterColumnCommentEvent.of(
+                    modifyColumnEvent.getTableIdentifier(),
+                    newColumn.getName(),
+                    oldColumn.getComment(),
+                    newColumn.getComment());
+        }
+        return null;
+    }
+
+    private boolean isSameColumnExceptComment(Column oldColumn, Column newColumn) {
+        return StringUtils.equals(oldColumn.getName(), newColumn.getName())
+                && isSameDataType(oldColumn.getDataType(), newColumn.getDataType())
+                && Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())
+                && Objects.equals(oldColumn.getScale(), newColumn.getScale())
+                && oldColumn.isNullable() == newColumn.isNullable()
+                && Objects.equals(oldColumn.getDefaultValue(), newColumn.getDefaultValue())
+                && StringUtils.equals(oldColumn.getSourceType(), newColumn.getSourceType())
+                && Objects.equals(oldColumn.getOptions(), newColumn.getOptions());
+    }
+
+    private boolean isSameDataType(
+            SeaTunnelDataType<?> oldDataType, SeaTunnelDataType<?> newDataType) {
+        return Objects.equals(oldDataType, newDataType)
+                || (oldDataType != null
+                        && newDataType != null
+                        && oldDataType.getSqlType() == newDataType.getSqlType());
     }
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);

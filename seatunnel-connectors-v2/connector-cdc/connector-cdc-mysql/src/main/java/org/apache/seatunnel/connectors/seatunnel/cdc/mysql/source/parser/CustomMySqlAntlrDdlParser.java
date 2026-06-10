@@ -24,10 +24,12 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import io.debezium.antlr.AntlrDdlParserListener;
 import io.debezium.antlr.DataTypeResolver;
+import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
 import io.debezium.ddl.parser.mysql.generated.MySqlParser;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
+import io.debezium.relational.Tables;
 
 import java.sql.Types;
 import java.util.Arrays;
@@ -42,7 +44,7 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
     public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
-        super();
+        super(false, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }

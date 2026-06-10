@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 
@@ -68,5 +70,19 @@ public class CustomMySqlAntlrDdlParserTest {
                 secondDatabaseEvents.get(0).getTableIdentifier().getDatabaseName());
         Assertions.assertEquals(
                 "products", secondDatabaseEvents.get(0).getTablePath().getTableName());
+    }
+
+    @Test
+    void testParseAlterTableCommentEvent() {
+        CustomMySqlAntlrDdlParser parser = new CustomMySqlAntlrDdlParser(null);
+
+        parser.setCurrentDatabase("test_db");
+        parser.parse("ALTER TABLE products COMMENT = 'Product catalog table'", new Tables());
+
+        List<AlterTableEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertTrue(events.get(0) instanceof AlterTableCommentEvent);
+        AlterTableCommentEvent event = (AlterTableCommentEvent) events.get(0);
+        Assertions.assertEquals("Product catalog table", event.getNewComment());
     }
 }

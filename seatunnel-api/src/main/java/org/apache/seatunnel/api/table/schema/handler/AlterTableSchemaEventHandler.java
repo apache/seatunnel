@@ -88,8 +88,7 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
             return schema;
         }
         if (alterTableEvent instanceof AlterColumnCommentEvent) {
-            // Column comment changes do not affect the physical schema structure
-            return schema;
+            return applyColumnComment(schema, (AlterColumnCommentEvent) alterTableEvent);
         }
 
         throw new UnsupportedOperationException(
@@ -211,6 +210,24 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
         }
         return TableSchema.builder()
                 .columns(originColumns)
+                .primaryKey(schema.getPrimaryKey())
+                .constraintKey(schema.getConstraintKeys())
+                .build();
+    }
+
+    private TableSchema applyColumnComment(
+            TableSchema schema, AlterColumnCommentEvent columnCommentEvent) {
+        List<String> fieldNames = Arrays.asList(schema.getFieldNames());
+        if (!fieldNames.contains(columnCommentEvent.getColumn())) {
+            return schema;
+        }
+        int columnIndex = fieldNames.indexOf(columnCommentEvent.getColumn());
+        LinkedList<Column> columns = new LinkedList<>(schema.getColumns());
+        columns.set(
+                columnIndex,
+                columns.get(columnIndex).copyWithComment(columnCommentEvent.getNewComment()));
+        return TableSchema.builder()
+                .columns(columns)
                 .primaryKey(schema.getPrimaryKey())
                 .constraintKey(schema.getConstraintKeys())
                 .build();

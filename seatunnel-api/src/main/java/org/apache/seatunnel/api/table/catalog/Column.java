@@ -229,4 +229,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced sourceType. */
     public abstract Column reSourceType(String sourceType);
+
+    /** Returns a copy of the column with a replaced comment. */
+    public abstract Column copyWithComment(String comment);
 }
