@@ -2925,6 +2925,23 @@ public class ConfigValidatorTest {
         Condition<Integer> b = Conditions.extension(EXT_PORT, new PortRangeExtension());
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
+
+        Condition<Integer> c =
+                Conditions.extension(
+                        EXT_PORT,
+                        new ConditionExtension<Integer>() {
+                            @Override
+                            public String description() {
+                                return "different impl";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, Integer value) {
+                                return value != null;
+                            }
+                        });
+        assertEquals(a, c);
+        assertEquals(a.hashCode(), c.hashCode());
     }
 
     static final Option<List<Map<String, Object>>> LIST_MAP_OPTION =
