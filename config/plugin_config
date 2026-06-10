@@ -25,6 +25,7 @@ connector-assert
 connector-cassandra
 connector-salesforce
 connector-cdc-mysql
+connector-cdc-oceanbase
 connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-cdc-postgres
