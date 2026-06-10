@@ -288,7 +288,9 @@ sink {
 ### 目标表没有主键时会发生什么？
 
 如果既没有显式配置 `primary_keys`，上游元数据里也没有可继承的主键或 unique key，
-PostgreSQL Sink 会退回普通 INSERT，不会生成 `ON CONFLICT`。这时重复键是否报错，完全取决于目标表自身约束。
+PostgreSQL Sink 会退回普通 INSERT，不会生成 `ON CONFLICT`。进入这个无 key 模式后，
+Sink 也不会再使用按 `RowKind` 执行 UPDATE / DELETE 的写入器，因此 CDC 输入会实质上退化为普通
+INSERT batching。这时重复键是否报错，完全取决于目标表自身约束。
 
 ### `use_copy_statement` 和 `enable_upsert` 应该怎么选？
 

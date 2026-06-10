@@ -262,8 +262,9 @@ headers {
 1. `GET` 请求：`params` 一定会被拼到 URL 查询串里。
 2. `POST` 且 `keep_params_as_form = false`：
    - `params` 仍然会拼到 URL 查询串里
-   - `body` 会作为 JSON body 发送
-   - 如果没有配置 `body`，运行时仍会发送一个空 JSON 对象 `{}` 作为请求体
+   - 在默认的非 form 分支上，`body` 会作为 JSON body 发送
+   - 如果没有配置 `body`，并且请求仍然走这个默认非 form 分支，运行时会发送一个空 JSON 对象 `{}` 作为请求体
+   - 如果你显式把 `Content-Type` 设为 `application/x-www-form-urlencoded`，运行时会改走 form-body 分支，而不是默认 JSON 分支
 3. `POST` 且 `keep_params_as_form = true`：
    - `params` 会并入表单 body
    - 如果未显式设置 `Content-Type`，SeaTunnel 会自动补 `application/x-www-form-urlencoded`
@@ -299,7 +300,7 @@ source {
 GET https://api.example.com/orders?page=3&size=100
 ```
 
-示例 2：POST JSON，请求参数进 URL，分页字段留在 body
+示例 2：POST JSON（默认非 form 分支），请求参数进 URL，分页字段留在 body
 
 ```hocon
 source {

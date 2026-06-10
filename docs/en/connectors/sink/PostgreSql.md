@@ -293,7 +293,9 @@ If every column is part of the key and there is nothing left to update, PostgreS
 
 If there is no explicit `primary_keys` setting and no inheritable primary key or unique key in
 upstream metadata, PostgreSQL Sink falls back to plain INSERT and does not generate `ON CONFLICT`.
-In that case, duplicate-key behavior depends entirely on the target table constraints.
+In that keyless mode, the sink also stops using row-kind-aware UPDATE / DELETE executors, so CDC
+inputs effectively degrade to plain INSERT batching. Duplicate-key behavior then depends entirely on
+the target table constraints.
 
 ### How should I choose between `use_copy_statement` and `enable_upsert`?
 

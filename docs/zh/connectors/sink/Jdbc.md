@@ -493,6 +493,7 @@ sink {
 
 - `INSERT` 行执行普通 INSERT
 - CDC `UPDATE_AFTER` 行执行 UPDATE
+- CDC `DELETE` 行执行 DELETE
 
 因此，`enable_upsert = false` 不适合依赖重复键自动覆盖的普通批量导入场景。
 
@@ -500,7 +501,7 @@ sink {
 
 如果你没有显式配置 `primary_keys`，SeaTunnel 会先尝试从上游 catalog 元数据继承主键；如果没有主键，则再尝试继承第一组 unique key。
 
-只有在“显式配置也没有、上游元数据里也没有可继承 key”时，JDBC Sink 才会退回普通 INSERT。此时不会生成数据库原生 upsert 语句，重复键是否报错完全取决于目标表自身约束。
+只有在“显式配置也没有、上游元数据里也没有可继承 key”时，JDBC Sink 才会退回普通 INSERT。进入这个无 key 模式后，不仅不会生成数据库原生 upsert 语句，Sink 也不会再使用按 `RowKind` 执行 UPDATE / DELETE 的写入器。对于 CDC 输入，这条写链路会实质上退化为普通 INSERT batching，重复键是否报错完全取决于目标表自身约束。
 
 ### 什么时候应该开启 `use_copy_statement`？
 

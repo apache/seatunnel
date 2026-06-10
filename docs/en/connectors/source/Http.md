@@ -273,8 +273,9 @@ The easiest way to troubleshoot the Http source is to reason from the final outb
 1. For `GET`, `params` are always appended to the URL query string.
 2. For `POST` with `keep_params_as_form = false`:
    - `params` still go to the URL query string
-   - `body` is sent as the JSON request body
-   - if `body` is not configured, the runtime still sends an empty JSON object `{}` as the request body
+   - on the default non-form path, `body` is serialized as the JSON request body
+   - if `body` is not configured and the request stays on that default non-form path, the runtime sends an empty JSON object `{}` as the request body
+   - if you explicitly force `Content-Type: application/x-www-form-urlencoded`, the runtime follows the form-body branch instead of the default JSON branch
 3. For `POST` with `keep_params_as_form = true`:
    - `params` are merged into the form body
    - if `Content-Type` is not set explicitly, SeaTunnel adds `application/x-www-form-urlencoded`
@@ -310,7 +311,7 @@ When the page advances to `3`, the final request is:
 GET https://api.example.com/orders?page=3&size=100
 ```
 
-Example 2: POST JSON with URL query parameters and the paging field inside the body
+Example 2: POST JSON on the default non-form path, with URL query parameters and the paging field inside the body
 
 ```hocon
 source {

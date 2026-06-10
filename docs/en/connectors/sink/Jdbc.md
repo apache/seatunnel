@@ -588,6 +588,7 @@ When a final key set exists but `enable_upsert = false`, SeaTunnel stops using n
 
 - `INSERT` rows are written as plain INSERTs
 - CDC `UPDATE_AFTER` rows are written as UPDATEs
+- CDC `DELETE` rows are written as DELETEs
 
 As a result, `enable_upsert = false` is not appropriate for ordinary batch imports that rely on duplicate-key overwrite behavior.
 
@@ -595,7 +596,7 @@ As a result, `enable_upsert = false` is not appropriate for ordinary batch impor
 
 If `primary_keys` is not configured, SeaTunnel first tries to inherit the primary key from upstream catalog metadata. If there is no primary key, it then tries the first unique key.
 
-JDBC Sink falls back to plain INSERT only when there is no explicit key and nothing usable can be inherited from upstream metadata. In that case, no database-native upsert SQL is generated, and duplicate-key behavior depends entirely on the target table constraints.
+JDBC Sink falls back to plain INSERT only when there is no explicit key and nothing usable can be inherited from upstream metadata. In that keyless mode, no database-native upsert SQL is generated, and the sink no longer uses row-kind-aware UPDATE / DELETE executors. For CDC inputs, the write path therefore effectively degrades to plain INSERT batching, and duplicate-key behavior depends entirely on the target table constraints.
 
 ### When should I enable `use_copy_statement`?
 
