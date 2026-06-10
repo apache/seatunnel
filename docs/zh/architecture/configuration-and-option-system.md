@@ -406,29 +406,39 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 匿名内部类写法：
 
 ```java
-.required(PORT, Conditions.extension(PORT, new ConditionExtension<Integer>() {
-    @Override public String description() { return "must be between 1 and 65535"; }
-    @Override public boolean evaluate(ReadonlyConfig cfg, Integer v) throws OptionValidationException {
-        return v != null && v >= 1 && v <= 65535;
-    }
-}))
+.optional(API_KEY_ENCODED, Conditions.extension(API_KEY_ENCODED,
+        new ConditionExtension<String>() {
+            @Override public String description() { return "must be Base64-encoded 'id:api_key'"; }
+            @Override public boolean evaluate(ReadonlyConfig cfg, String v) {
+                try {
+                    return new String(Base64.getDecoder().decode(v)).contains(":");
+                } catch (IllegalArgumentException e) {
+                    return false;
+                }
+            }
+        }))
 ```
 
 静态内部类写法（适合复杂类型）：
 
 ```java
-static class ChildConfigValidator
+static class TableConfigsValidator
         implements ConditionExtension<List<Map<String, Object>>> {
     @Override
     public String description() {
-        return "each entry must contain 'field' and 'type' keys";
+        return "each entry must contain a non-empty 'table_name', and all table names must be unique";
     }
 
     @Override
-    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) throws OptionValidationException {
-        if (value == null || value.isEmpty()) return false;
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) {
+        if (value.isEmpty()) return false;
+        Set<String> seen = new HashSet<>();
         for (Map<String, Object> entry : value) {
-            if (!entry.containsKey("field") || !entry.containsKey("type")) {
+            Object name = entry.get("table_name");
+            if (!(name instanceof String) || ((String) name).isEmpty()) {
+                return false;
+            }
+            if (!seen.add((String) name)) {
                 return false;
             }
         }
@@ -436,8 +446,9 @@ static class ChildConfigValidator
     }
 }
 
-.required(TABLE_CONFIGS,
-        Conditions.extension(TABLE_CONFIGS, new ChildConfigValidator()))
+.exclusive(TABLE_CONFIGS, SCHEMA)
+.optional(TABLE_CONFIGS,
+        Conditions.extension(TABLE_CONFIGS, new TableConfigsValidator()))
 ```
 
 :::caution
