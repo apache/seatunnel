@@ -11,6 +11,30 @@ SeaTunnel is a multimodal, ultra-high-performance, distributed data integration 
 
 If you are new to SeaTunnel, use this short reading path:
 
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "16px",
+    margin: "16px 0 24px",
+  }}>
+  <a
+    href="../getting-started/locally/run-your-first-job"
+    style={{
+      display: "block",
+      padding: "18px",
+      border: "1px solid var(--ifm-color-emphasis-300)",
+      borderRadius: "12px",
+      textDecoration: "none",
+      color: "inherit",
+      background: "var(--ifm-background-surface-color)",
+      boxShadow: "var(--ifm-global-shadow-lw)",
+    }}>
+    <strong>Run your first job</strong><br/>
+    <span>Start with a local FakeSource -&gt; FieldMapper -&gt; Console pipeline, then continue with practical source-to-sink recipes.</span>
+  </a>
+</div>
+
 - [Getting Started Overview](../getting-started/overview.md) for the shortest path into the docs
 - [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md) for the first local run
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md) for writing real jobs
@@ -87,4 +111,4 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/?item=app-definition-a
 
 ## Learn more
 
-You can see [Quick Start](../getting-started/locally/deployment.md) for the next steps.
+You can see [Run your first job](../getting-started/locally/run-your-first-job.md) for the next steps.

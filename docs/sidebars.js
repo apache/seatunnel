@@ -109,11 +109,40 @@ const sidebars = {
                 {
                     "type": "category",
                     "label": "Locally",
+                    "link": {
+                        "type": "generated-index",
+                        "title": "Local Getting Started",
+                        "description": "Use SeaTunnel locally, run your first job, and validate common pipelines before moving to larger environments.",
+                        "slug": "/getting-started/locally",
+                        "keywords": ["getting-started", "local"],
+                        "image": "/img/favicon.ico"
+                    },
                     "items": [
+                        "getting-started/locally/run-your-first-job",
                         "getting-started/locally/deployment",
                         "getting-started/locally/quick-start-seatunnel-engine",
                         "getting-started/locally/quick-start-flink",
                         "getting-started/locally/quick-start-spark"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Recipes",
+                    "link": {
+                        "type": "generated-index",
+                        "title": "Scenario Recipes",
+                        "description": "Practical SeaTunnel recipes for common source-to-sink pipelines.",
+                        "slug": "/getting-started/recipes",
+                        "keywords": ["recipes", "examples"],
+                        "image": "/img/favicon.ico"
+                    },
+                    "items": [
+                        "getting-started/recipes/mysql-cdc-to-doris",
+                        "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/kafka-to-iceberg",
+                        "getting-started/recipes/http-to-jdbc",
+                        "getting-started/recipes/file-to-starrocks",
+                        "getting-started/recipes/multi-table-cdc"
                     ]
                 },
                 "getting-started/job-configuration-guide",
