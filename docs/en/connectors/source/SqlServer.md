@@ -251,7 +251,7 @@ source {
 
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 
@@ -263,7 +263,7 @@ transform {
 sink {
   Console {}
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 
