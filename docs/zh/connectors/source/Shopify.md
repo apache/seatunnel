@@ -55,7 +55,7 @@ http 请求方法，仅支持 GET、POST 方法。
 
 ### format [String]
 
-上游数据的格式，目前仅支持 `json` 和 `text`，默认 `json`。
+上游数据的格式，目前仅支持 `json` 和 `text`，默认 `text`。
 
 ### params [Map]
 
