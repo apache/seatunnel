@@ -192,7 +192,7 @@ connector will generate data as the following:
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
-when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode.
+when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode and does not support pagination (`pageing`).
 
 Example: Download a file via HTTP and write to LocalFileSink:
 

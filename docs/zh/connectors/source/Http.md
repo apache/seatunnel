@@ -181,7 +181,7 @@ schema {
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
-当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式。
+当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式，且不支持分页（`pageing`）。
 
 示例：通过 HTTP 下载文件并写入 LocalFileSink：
 
