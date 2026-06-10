@@ -23,6 +23,9 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfigProvider;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
@@ -52,6 +55,30 @@ public class MongodbIncrementalSourceFactoryTest {
                                             StartupMode.TIMESTAMP),
                                     ((SingleChoiceOption<StartupMode>) option).getOptionValues());
                         });
+    }
+
+    @Test
+    public void testSourceConfigBuilderAcceptsLatestStartupMode() {
+        // Regression for the real source-assembly path: the builder used to reject
+        // StartupMode.LATEST at runtime even though the option rule advertised it.
+        MongodbSourceConfig config =
+                MongodbSourceConfigProvider.newBuilder()
+                        .hosts("localhost:27017")
+                        .startupOptions(new StartupConfig(StartupMode.LATEST, null, null, null))
+                        .validate()
+                        .create(0);
+
+        Assertions.assertEquals(StartupMode.LATEST, config.getStartupConfig().getStartupMode());
+    }
+
+    @Test
+    public void testSourceConfigBuilderRejectsUnsupportedStartupMode() {
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .startupOptions(
+                                        new StartupConfig(StartupMode.EARLIEST, null, null, null)));
     }
 
     @Test

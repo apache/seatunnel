@@ -111,6 +111,7 @@ public class MongodbSourceConfigProvider {
         public Builder startupOptions(StartupConfig startupOptions) {
             this.startupOptions = Objects.requireNonNull(startupOptions);
             if (startupOptions.getStartupMode() != StartupMode.INITIAL
+                    && startupOptions.getStartupMode() != StartupMode.LATEST
                     && startupOptions.getStartupMode() != StartupMode.TIMESTAMP) {
                 throw new MongodbConnectorException(
                         ILLEGAL_ARGUMENT,
