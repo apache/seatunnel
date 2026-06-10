@@ -197,6 +197,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         try (ParquetReader<Group> closeableReader = reader) {
             Group record;
             while ((record = closeableReader.read()) != null) {
+                GroupType recordType = record.getType();
                 Object[] fields;
                 if (isMergePartition) {
                     int index = fieldsCount;
@@ -208,11 +209,17 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields = new Object[fieldsCount];
                 }
                 for (int i = 0; i < fieldsCount; i++) {
+                    String fieldName = seaTunnelRowType.getFieldName(i);
+                    if (!recordType.containsField(fieldName)) {
+                        fields[i] = null;
+                        continue;
+                    }
+                    int fieldIndex = recordType.getFieldIndex(fieldName);
                     fields[i] =
                             resolveGroupObject(
                                     record,
-                                    record.getType().getType(indexes[i]),
-                                    indexes[i],
+                                    recordType.getType(fieldIndex),
+                                    fieldIndex,
                                     seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);

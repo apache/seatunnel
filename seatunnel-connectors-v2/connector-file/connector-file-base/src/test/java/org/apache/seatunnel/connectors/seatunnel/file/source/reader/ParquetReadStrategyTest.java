@@ -255,7 +255,8 @@ public class ParquetReadStrategyTest {
         NativeParquetWriterWithAvroIncompatibleColumn.generateTestData();
         try {
             ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             SeaTunnelRowType rowType =
                     parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -282,7 +283,8 @@ public class ParquetReadStrategyTest {
         NativeParquetWriterWithAvroIncompatibleColumnAndList.generateTestData();
         try {
             ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             SeaTunnelRowType rowType =
                     parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -305,6 +307,40 @@ public class ParquetReadStrategyTest {
             Assertions.assertEquals("python", tags[1]);
         } finally {
             NativeParquetWriterWithAvroIncompatibleColumnAndList.deleteFile();
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadColumnsWithNativeParquetFallback() throws Exception {
+        NativeParquetWriterWithAvroIncompatibleColumn.generateTestData();
+        try {
+            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            parquetReadStrategy.init(localConf);
+            parquetReadStrategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns = [job_blue-collar, id]\n"
+                                    + "parse_partition_from_path = false"));
+
+            SeaTunnelRowType rowType =
+                    parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                            NativeParquetWriterWithAvroIncompatibleColumn.DATA_FILE_PATH);
+            Assertions.assertEquals("job_blue-collar", rowType.getFieldName(0));
+            Assertions.assertEquals("id", rowType.getFieldName(1));
+
+            TestCollector testCollector = new TestCollector();
+            parquetReadStrategy.read(
+                    NativeParquetWriterWithAvroIncompatibleColumn.DATA_FILE_PATH,
+                    "",
+                    testCollector);
+            Assertions.assertEquals(1, testCollector.getRows().size());
+            SeaTunnelRow row = testCollector.getRows().get(0);
+            Assertions.assertEquals("engineer", row.getField(0));
+            Assertions.assertEquals(1, row.getField(1));
+        } finally {
+            NativeParquetWriterWithAvroIncompatibleColumn.deleteFile();
         }
     }
 
