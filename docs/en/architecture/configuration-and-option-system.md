@@ -441,7 +441,7 @@ static class ChildConfigValidator
 ```
 
 :::caution
-`ConditionExtension.evaluate()` runs during job submission and REST metadata queries. Implementations **must not** perform I/O (database connections, HTTP calls, file access). Keep the logic pure — validate structure and values only.
+`ConditionExtension.evaluate()` runs during job submission validation only. REST metadata queries only serialize `description()` and do not invoke `evaluate()`. Implementations should avoid I/O (database connections, HTTP calls, file access) and only validate structure and values.
 :::
 
 ## Why It Matters For Operators

@@ -441,7 +441,7 @@ static class ChildConfigValidator
 ```
 
 :::caution
-`ConditionExtension.evaluate()` 在作业提交和 REST 元数据查询时执行。实现中**禁止**做 I/O 操作（数据库连接、HTTP 请求、文件读写等），只做纯粹的结构和值校验。
+`ConditionExtension.evaluate()` 仅在作业提交校验时执行，REST 元数据查询只序列化 `description()`，不会调用 `evaluate()`。实现时应避免 I/O 操作（如数据库连接、HTTP 请求、文件读写），只做结构和值校验。
 :::
 
 ## 为什么这对运维也重要
