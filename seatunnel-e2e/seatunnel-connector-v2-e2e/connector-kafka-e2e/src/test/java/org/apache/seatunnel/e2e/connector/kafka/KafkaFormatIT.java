@@ -38,6 +38,10 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -76,10 +80,12 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -120,6 +126,18 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private static final String DEBEZIUM_KAFKA_SINK_TOPIC = "test-debezium-sink";
     private static final String DEBEZIUM_DATA_PATH = "/debezium/debezium_data.txt";
     private static final String DEBEZIUM_KAFKA_SOURCE_TOPIC = "dbserver1.debezium.products";
+
+    private static final List<String> KAFKA_TOPICS =
+            Arrays.asList(
+                    CANAL_KAFKA_SOURCE_TOPIC,
+                    OGG_KAFKA_SOURCE_TOPIC,
+                    MAXWELL_KAFKA_SOURCE_TOPIC,
+                    COMPATIBLE_KAFKA_SOURCE_TOPIC,
+                    DEBEZIUM_KAFKA_SOURCE_TOPIC,
+                    CANAL_KAFKA_SINK_TOPIC,
+                    OGG_KAFKA_SINK_TOPIC,
+                    MAXWELL_KAFKA_SINK_TOPIC,
+                    DEBEZIUM_KAFKA_SINK_TOPIC);
 
     private static final String PG_SINK_TABLE1 = "sink";
     private static final String PG_SINK_TABLE2 = "sink2";
@@ -303,7 +321,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException, InterruptedException, IOException {
+    public void startUp() throws ClassNotFoundException, IOException {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
@@ -327,15 +345,22 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initKafkaConsumer);
+                .untilAsserted(this::initializeKafkaTopics);
 
-        // local file local data send kafka
         given().ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(this::initLocalDataToKafka);
-        Thread.sleep(20 * 1000);
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::waitForKafkaTopicsReady);
+
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initKafkaConsumer);
+
+        // local file local data send kafka
+        initLocalDataToKafka();
     }
 
     @DisabledOnContainer(
@@ -887,6 +912,56 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         kafkaConsumer = new KafkaConsumer<>(prop);
     }
 
+    private void initializeKafkaTopics() {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Set<String> existingTopics = adminClient.listTopics().names().get(30, TimeUnit.SECONDS);
+            List<NewTopic> topicsToCreate =
+                    KAFKA_TOPICS.stream()
+                            .filter(topic -> !existingTopics.contains(topic))
+                            .map(topic -> new NewTopic(topic, 1, (short) 1))
+                            .collect(Collectors.toList());
+            if (!topicsToCreate.isEmpty()) {
+                adminClient.createTopics(topicsToCreate).all().get(60, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while initializing Kafka topics", e);
+        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+            throw new RuntimeException("Failed to initialize Kafka topics", e);
+        }
+    }
+
+    private void waitForKafkaTopicsReady() {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Map<String, TopicDescription> topicDescriptions =
+                    adminClient
+                            .describeTopics(KAFKA_TOPICS)
+                            .allTopicNames()
+                            .get(30, TimeUnit.SECONDS);
+            Assertions.assertEquals(
+                    new HashSet<>(KAFKA_TOPICS).size(),
+                    topicDescriptions.size(),
+                    "Kafka topics are not ready yet");
+            KAFKA_TOPICS.forEach(
+                    topic ->
+                            Assertions.assertTrue(
+                                    topicDescriptions.containsKey(topic),
+                                    "Kafka topic is not ready yet: " + topic));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for Kafka topics", e);
+        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+            throw new RuntimeException("Kafka topics are not ready yet", e);
+        }
+    }
+
+    private AdminClient createKafkaAdmin() {
+        Properties props = new Properties();
+        props.put(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_CONTAINER.getBootstrapServers());
+        return AdminClient.create(props);
+    }
+
     // Example Initialize the pg sink table
     private void initializeJdbcTable() {
         try (Connection connection =
@@ -981,7 +1056,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         producer.send(record).get();
                     }
                 } catch (IOException | InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new RuntimeException(
+                            "Failed to initialize local Kafka data for topic " + kafkaTopic, e);
                 }
             }
         }
@@ -1013,7 +1092,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 LOG.info("truncate table sink");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Query Postgre sink table failed: " + tableName, e);
         }
         return actual;
     }

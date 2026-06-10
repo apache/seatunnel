@@ -42,6 +42,21 @@ helm install seatunnel .
 helm install seatunnel . -n <your namespace>
 ```
 
+对于托管 Kubernetes 服务，建议将云厂商相关的差异化配置单独维护在一个 values 文件中，并通过 `-f` 传入，例如：
+
+```bash
+helm install seatunnel . -n <your namespace> -f values-eks.yaml
+```
+
+在托管集群上常见需要复核的 values 包括：
+
+- 用于 ECR、Artifact Registry、ACR、ACK 容器镜像服务、TCR、SWR、Volcengine Container Registry 或 OpenShift 内置镜像仓库的镜像仓库地址与 `imagePullSecrets`
+- 目标命名空间对应的 ServiceAccount、RBAC，以及 OpenShift 上的 SecurityContextConstraint 要求
+- 云厂商负载均衡、子网、证书与内外网暴露模式相关的 Service 或 Ingress annotation
+- 用于 checkpoint 与 state 路径的对象存储或 PersistentVolume 配置
+- 用于运行 SeaTunnel Pod 的节点池所需的 resource request/limit、node selector、toleration 与 affinity
+- 接入云厂商监控栈的日志与指标采集配置
+
 ## 提交任务
 
 当前默认的配置没有启用ingress，所以需要使用转发命令将master的restapi端口转发出来。

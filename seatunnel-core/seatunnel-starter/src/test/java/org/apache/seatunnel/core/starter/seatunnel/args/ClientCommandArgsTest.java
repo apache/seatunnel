@@ -18,9 +18,11 @@
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,45 @@ public class ClientCommandArgsTest {
                         "The '%s' option is not configured, please configure it.",
                         PLUGIN_NAME.key()),
                 commandExecuteException.getCause().getMessage());
+    }
+
+    @Test
+    public void testDryRunParam() {
+        String[] args = {"-c", "app.conf", "--dry-run", "static"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        Assertions.assertEquals(DryRun.STATIC, clientCommandArgs.getDryRun());
+    }
+
+    @Test
+    public void testDryRunConverterWithValidStatic() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        Assertions.assertEquals(DryRun.STATIC, converter.convert("static"));
+        Assertions.assertEquals(DryRun.STATIC, converter.convert("STATIC"));
+    }
+
+    @Test
+    public void testDryRunConverterRejectsUnsupportedModes() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, () -> converter.convert("connect"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("not implemented yet"), "Actual: " + ex.getMessage());
+        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("sample"));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("shadow"));
+    }
+
+    @Test
+    public void testDryRunConverterRejectsInvalidMode() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> converter.convert("nonexistent_mode"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("Currently only [static] is supported"),
+                "Actual: " + ex.getMessage());
     }
 
     private static ClientCommandArgs buildClientCommandArgs(String configFile, Long jobId) {

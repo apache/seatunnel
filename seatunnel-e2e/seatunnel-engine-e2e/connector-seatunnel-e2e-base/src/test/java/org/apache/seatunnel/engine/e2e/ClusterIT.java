@@ -55,6 +55,7 @@ public class ClusterIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -109,6 +110,7 @@ public class ClusterIT {
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
         seaTunnelConfig.getEngineConfig().setClassloaderCacheMode(true);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);

@@ -41,7 +41,7 @@ seatunnel:
         enabled: false
       logs:
         scheduled-deletion-enable: false
-    datasource:
+    metadata:
       enabled: true
       kind: test_kind
       test_kind:

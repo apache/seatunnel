@@ -37,11 +37,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
@@ -90,14 +89,14 @@ public class HiveSourceConfig implements Serializable {
     @SneakyThrows
     public HiveSourceConfig(ReadonlyConfig readonlyConfig) {
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
+                .getOptional(HiveSourceOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
         Table table;
         try {
             table = HiveTableUtils.getTableInfo(readonlyConfig);
         } catch (Exception e) {
             String tableName =
-                    readonlyConfig.getOptional(HiveOptions.TABLE_NAME).orElse("<missing>");
+                    readonlyConfig.getOptional(HiveSourceOptions.TABLE_NAME).orElse("<missing>");
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED,
                     "Failed to get Hive table information for table_name='"
@@ -202,19 +201,17 @@ public class HiveSourceConfig implements Serializable {
                 StorageFactory.getStorageType(hiveSdLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH)
+                .getOptional(HiveSourceOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
+        readonlyConfig.getOptional(HiveSourceOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KRB5_PATH)
-                .ifPresent(hadoopConf::setKrb5Path);
-        readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL)
+                .getOptional(HiveSourceOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH)
+                .getOptional(HiveSourceOptions.KERBEROS_KEYTAB_PATH)
                 .ifPresent(hadoopConf::setKerberosKeytabPath);
         readonlyConfig
-                .getOptional(HdfsSourceConfigOptions.REMOTE_USER)
+                .getOptional(HiveSourceOptions.REMOTE_USER)
                 .ifPresent(hadoopConf::setRemoteUser);
         return hadoopConf;
     }

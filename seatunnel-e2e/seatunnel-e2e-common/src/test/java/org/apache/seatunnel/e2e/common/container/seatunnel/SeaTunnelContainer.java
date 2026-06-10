@@ -409,6 +409,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains("DestroyJavaVM")
                 || s.contains("main-query-state-checker")
                 || s.contains("Keep-Alive-SocketCleaner")
+                // SeaTunnel REST service thread, owned by the test container lifecycle.
+                || s.startsWith("Connector-Scheduler-")
                 || s.contains("process reaper")
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
@@ -427,7 +429,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
                 || s.startsWith("java-sdk-progress-listener-callback-thread")
                 // redis pool evictor daemon thread
-                || s.startsWith("commons-pool-evictor");
+                || s.startsWith("commons-pool-evictor")
+                // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
+                // it may outlive the job and cause the E2E thread-leak check to fail.
+                || s.startsWith("qtp");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

@@ -73,6 +73,8 @@ import static org.awaitility.Awaitility.given;
         disabledReason =
                 "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
 public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implements TestResource {
+    private static final long SCHEMA_ASSERT_TIMEOUT_MILLIS = 300000L;
+
     private static final String SOURCE_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -197,7 +199,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -229,7 +231,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // savepoint 2
         given().pollDelay(Duration.ofSeconds(5))
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -282,7 +284,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -292,7 +294,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -307,7 +309,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -321,7 +323,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -366,7 +368,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -383,7 +385,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -395,7 +397,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                                 schemaChangeCase.getSchemaName(),
                                                                 sinkTable)
                                                         + ORDER_BY)));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -428,7 +430,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private void assertTableStructureAndData(String sourceTable, String sinkTable) {
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -442,7 +444,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(

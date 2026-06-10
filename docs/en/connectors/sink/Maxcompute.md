@@ -16,11 +16,13 @@ Used to read data from Maxcompute.
 
 |      name      | type    | required | default value |
 |----------------|---------|----------|---------------|
-| accessId       | string  | yes      | -             |
-| accesskey      | string  | yes      | -             |
+| accessId       | string  | no       | -             |
+| accesskey      | string  | no       | -             |
+| sts_token      | string  | no       | -             |
 | endpoint       | string  | yes      | -             |
 | project        | string  | yes      | -             |
 | table_name     | string  | yes      | -             |
+| schema_name    | string  | no       | -             |
 | partition_spec | string  | no       | -             |
 | overwrite      | boolean | no       | false         |
 | insert_strategy| string  | no       | upload        |
@@ -33,6 +35,13 @@ Used to read data from Maxcompute.
 ### accesskey [string]
 
 `accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+
+### sts_token [string]
+
+`sts_token` Your MaxCompute STS Token for temporary authentication. **Note:** If `sts_token` is provided, `accessId` and `accesskey` are strictly required.
+
+> **Passwordless Authentication (ECS RAM Role, Environment Variables, etc.)**
+> To use passwordless authentication seamlessly, simply leave `accessId`, `accesskey`, and `sts_token` all blank. The connector will automatically fall back to the Aliyun DefaultCredentialsProvider chain (Environment Variables, System Properties, CLI Profiles, OIDC, ECS RAM Roles).
 
 ### endpoint [string]
 
@@ -49,6 +58,14 @@ Used to read data from Maxcompute.
 ### partition_spec [string]
 
 `partition_spec` This spec of Maxcompute partition table eg:ds='20220101'.
+
+### schema_name [string]
+
+`schema_name` The MaxCompute Schema name (the namespace between Project and Table).
+Only required when the table resides in a **non-default schema** within your MaxCompute project.
+See [Schema-related operations](https://www.alibabacloud.com/help/en/maxcompute/user-guide/schema-related-operations).
+
+Default: not set (uses the project default schema).
 
 ### overwrite [boolean]
 

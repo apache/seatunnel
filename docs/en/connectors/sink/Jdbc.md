@@ -61,6 +61,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
@@ -238,6 +239,18 @@ Enable upsert by primary_keys exist, If the task has no key duplicate data, sett
 Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
+
+### oracle_insert_mode [Enum]
+
+Oracle insert mode. The default value is `CONVENTIONAL`, which keeps the existing JDBC insert behavior.
+
+When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to generated insert SQL:
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
 
 ### create_index [boolean]
 

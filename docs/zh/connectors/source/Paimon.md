@@ -49,6 +49,7 @@ import ChangeLog from '../changelog/connector-paimon.md';
 | 名称                      | 类型       | 是否必须   | 默认值 |
 |-------------------------|----------|--------|---------------|
 | warehouse               | String   | 是      | -             |
+| catalog_name            | String   | 否      | paimon        |
 | catalog_type            | String   | 否      | filesystem    |
 | catalog_uri             | String   | 否      | -             |
 | database                | String   | 是      | -             |

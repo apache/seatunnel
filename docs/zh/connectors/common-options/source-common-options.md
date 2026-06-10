@@ -16,7 +16,7 @@ sidebar_position: 3
 |---------------|--------|----|-----|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | plugin_output | String | 否  | -   | 当未指定 `plugin_output` 时，此插件处理的数据将不会被注册为可由其他插件直接访问的数据集 `(dataStream/dataset)`，或称为临时表 `(table)`。<br/>当指定了 `plugin_output` 时，此插件处理的数据将被注册为可由其他插件直接访问的数据集 `(dataStream/dataset)`，或称为临时表 `(table)`。此处注册的数据集 `(dataStream/dataset)` 可通过指定 `plugin_input` 直接被其他插件访问。 |
 | parallelism   | Int    | 否  | -   | 当未指定 `parallelism` 时，默认使用环境中的 `parallelism`。<br/>当指定了 `parallelism` 时，将覆盖环境中的 `parallelism` 设置。                                                                                                                                                              |
-| datasource_id | String | 否  | -   | 用于从数据源中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [数据源 SPI](../../introduction/concepts/datasource-spi)。                                                                                                                  |
+| metadata_datasource_id | String | 否  | -   | 用于从元数据中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。                                                                                                                        |
 
 # 重要提示
 

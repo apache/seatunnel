@@ -60,7 +60,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | pageing.cursor_field          | String  | No       | -           | this parameter is used to specify the Cursor field name in the request parameter.                                                                                       |
 | pageing.cursor_response_field | String  | No       | -           | This parameter specifies the field in the response from which the cursor is retrieved.                                                                                        |
 | content_field                  | String  | No       | -           | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.                                          |
-| format                        | String  | No       | text        | The format of upstream data, now only support `json` `text`, default `text`.                                                                                                  |
+| format                        | String  | No       | text        | The format of upstream data, supports `json` `text` `binary`, default `text`. When set to `binary`, the response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). |
+| binary_chunk_size             | Long    | No       | 10485760    | Chunk size in bytes when `format = binary`. Large files are split into multiple rows. Default 10MB. Only effective in BATCH mode.                                             |
 | method                        | String  | No       | get         | Http request method, only supports GET, POST method.                                                                                                                          |
 | headers                       | Map     | No       | -           | Http headers.                                                                                                                                                                 |
 | params                        | Map     | No       | -           | Http params.                                                                                                                                                                  |
@@ -190,6 +191,40 @@ connector will generate data as the following:
 |                         content                          |
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
+
+when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode.
+
+Example: Download a file via HTTP and write to LocalFileSink:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Http {
+    url = "http://example.com/files/report.pdf"
+    method = "GET"
+    format = "binary"
+    binary_chunk_size = 10485760  # 10MB per chunk
+    schema = {
+      fields {
+        data = bytes
+        relativePath = string
+        partIndex = long
+      }
+    }
+  }
+}
+
+sink {
+  LocalFile {
+    path = "/tmp/download"
+    file_format = "binary"
+  }
+}
+```
 
 ### keep_params_as_form
 For compatibility with old versions of http.
