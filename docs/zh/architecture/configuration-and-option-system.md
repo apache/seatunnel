@@ -408,7 +408,7 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 ```java
 .required(PORT, Conditions.extension(PORT, new ConditionExtension<Integer>() {
     @Override public String description() { return "must be between 1 and 65535"; }
-    @Override public boolean evaluate(ReadonlyConfig cfg, Integer v) {
+    @Override public boolean evaluate(ReadonlyConfig cfg, Integer v) throws OptionValidationException {
         return v != null && v >= 1 && v <= 65535;
     }
 }))
@@ -425,7 +425,7 @@ static class ChildConfigValidator
     }
 
     @Override
-    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) {
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) throws OptionValidationException {
         if (value == null || value.isEmpty()) return false;
         for (Map<String, Object> entry : value) {
             if (!entry.containsKey("field") || !entry.containsKey("type")) {
