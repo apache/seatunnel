@@ -131,6 +131,7 @@ Available operators (all accessed via the `Conditions` factory class):
 | Cross-field | `lessOrEqualField(option, other)` | value <= another option's value |
 | Cross-field | `greaterThanField(option, other)` | value > another option's value |
 | Cross-field | `greaterOrEqualField(option, other)` | value >= another option's value |
+| Extension | `Conditions.extension(option, ext)` | delegates to a `ConditionExtension<T>` implementation |
 
 :::tip
 Multiple conditions can be chained with `.and(...)` or `.or(...)` to form compound constraints. AND binds tighter than OR, so `A.or(B).and(C)` evaluates as `A || (B && C)`.
@@ -206,6 +207,7 @@ Quick reference:
 | Validate value only when trigger matches | `.conditional(trigger, value, condition...)` |
 | Optional field with value check when present | `.optional(opt, condition...)` |
 | Cross-field comparisons | `Conditions.lessThanField/greaterThanField(...)` |
+| Custom / structural validation | `Conditions.extension(opt, ext)` |
 
 ### Required fields
 
@@ -394,6 +396,53 @@ When two optional fields are provided together, their values must satisfy a cros
 .optional(START_TS, END_TS,
         Conditions.lessThanField(START_TS, END_TS))
 ```
+
+### Custom validation with Extension
+
+When built-in operators are not expressive enough — for example, validating the internal structure of a `List<Map>` or enforcing cross-key constraints inside nested configs — use the `EXTENSION` operator.
+
+Implement `ConditionExtension<T>` and wire it via `Conditions.extension(option, ext)`. The extension plugs into the same `valueConstraints` pipeline as all built-in operators, so it works with `.and()` / `.or()`, `required`, `optional`, and `conditional` rules.
+
+Inline anonymous class:
+
+```java
+.required(PORT, Conditions.extension(PORT, new ConditionExtension<Integer>() {
+    @Override public String description() { return "must be between 1 and 65535"; }
+    @Override public boolean evaluate(ReadonlyConfig cfg, Integer v) {
+        return v != null && v >= 1 && v <= 65535;
+    }
+}))
+```
+
+Static inner class for complex types:
+
+```java
+static class ChildConfigValidator
+        implements ConditionExtension<List<Map<String, Object>>> {
+    @Override
+    public String description() {
+        return "each entry must contain 'field' and 'type' keys";
+    }
+
+    @Override
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) {
+        if (value == null || value.isEmpty()) return false;
+        for (Map<String, Object> entry : value) {
+            if (!entry.containsKey("field") || !entry.containsKey("type")) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+.required(TABLE_CONFIGS,
+        Conditions.extension(TABLE_CONFIGS, new ChildConfigValidator()))
+```
+
+:::caution
+`ConditionExtension.evaluate()` runs during job submission and REST metadata queries. Implementations **must not** perform I/O (database connections, HTTP calls, file access). Keep the logic pure — validate structure and values only.
+:::
 
 ## Why It Matters For Operators
 

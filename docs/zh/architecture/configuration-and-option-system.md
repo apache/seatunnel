@@ -131,6 +131,7 @@ public OptionRule optionRule() {
 | 跨字段 | `lessOrEqualField(option, other)` | 值 <= 另一个配置项的值 |
 | 跨字段 | `greaterThanField(option, other)` | 值 > 另一个配置项的值 |
 | 跨字段 | `greaterOrEqualField(option, other)` | 值 >= 另一个配置项的值 |
+| 扩展 | `Conditions.extension(option, ext)` | 委托给 `ConditionExtension<T>` 实现类执行自定义校验 |
 
 :::tip
 多个条件可以通过 `.and(...)` 或 `.or(...)` 链式组合成复合约束。AND 优先级高于 OR，因此 `A.or(B).and(C)` 等价于 `A || (B && C)`。
@@ -206,6 +207,7 @@ Option validation failed (4 errors):
 | 条件触发的值校验 | `.conditional(trigger, value, condition...)` |
 | 可选字段（提供时校验） | `.optional(opt, condition...)` |
 | 跨字段比较 | `Conditions.lessThanField/greaterThanField(...)` |
+| 自定义 / 结构化校验 | `Conditions.extension(opt, ext)` |
 
 ### 必填字段
 
@@ -394,6 +396,53 @@ AND 优先级高于 OR，因此 `A.or(B.and(C))` 等价于 `A || (B && C)`。适
 .optional(START_TS, END_TS,
         Conditions.lessThanField(START_TS, END_TS))
 ```
+
+### 自定义校验（Extension 扩展算子）
+
+当内置算子无法满足需求时 — 例如校验 `List<Map>` 内部结构，或对嵌套配置做跨 key 约束 — 使用 `EXTENSION` 算子。
+
+实现 `ConditionExtension<T>` 接口，通过 `Conditions.extension(option, ext)` 接入。扩展算子复用与内置算子完全相同的 `valueConstraints` 管线，支持 `.and()` / `.or()` 链式组合，适用于 `required`、`optional`、`conditional` 等所有规则类型。
+
+匿名内部类写法：
+
+```java
+.required(PORT, Conditions.extension(PORT, new ConditionExtension<Integer>() {
+    @Override public String description() { return "must be between 1 and 65535"; }
+    @Override public boolean evaluate(ReadonlyConfig cfg, Integer v) {
+        return v != null && v >= 1 && v <= 65535;
+    }
+}))
+```
+
+静态内部类写法（适合复杂类型）：
+
+```java
+static class ChildConfigValidator
+        implements ConditionExtension<List<Map<String, Object>>> {
+    @Override
+    public String description() {
+        return "each entry must contain 'field' and 'type' keys";
+    }
+
+    @Override
+    public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value) {
+        if (value == null || value.isEmpty()) return false;
+        for (Map<String, Object> entry : value) {
+            if (!entry.containsKey("field") || !entry.containsKey("type")) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+.required(TABLE_CONFIGS,
+        Conditions.extension(TABLE_CONFIGS, new ChildConfigValidator()))
+```
+
+:::caution
+`ConditionExtension.evaluate()` 在作业提交和 REST 元数据查询时执行。实现中**禁止**做 I/O 操作（数据库连接、HTTP 请求、文件读写等），只做纯粹的结构和值校验。
+:::
 
 ## 为什么这对运维也重要
 
