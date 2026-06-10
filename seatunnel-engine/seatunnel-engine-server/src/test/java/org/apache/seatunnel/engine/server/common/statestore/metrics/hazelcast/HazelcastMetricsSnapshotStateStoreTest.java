@@ -146,6 +146,25 @@ class HazelcastMetricsSnapshotStateStoreTest {
         assertEquals(pipelineToKeep, kept.getTaskGroupLocation().getPipelineLocation());
     }
 
+    @Test
+    void sizeShouldCountTaskSnapshotsInsteadOfPartitionBuckets() {
+        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> iMap =
+                hazelcastInstance.getMap("metrics-snapshot-size");
+        iMap.clear();
+        HazelcastMetricsSnapshotStateStore store = new HazelcastMetricsSnapshotStateStore(iMap, 1);
+
+        TaskLocation taskOne = taskLocation(4L, 40, 400L, 0L, 0);
+        TaskLocation taskTwo = taskLocation(4L, 40, 401L, 0L, 1);
+
+        Map<TaskLocation, SeaTunnelMetricsContext> snapshot = new LinkedHashMap<>();
+        snapshot.put(taskOne, metricsContextWithCounterValue(1));
+        snapshot.put(taskTwo, metricsContextWithCounterValue(2));
+        store.merge(snapshot);
+
+        assertEquals(1, iMap.size());
+        assertEquals(2, store.size());
+    }
+
     private static Map<TaskLocation, SeaTunnelMetricsContext> singletonSnapshot(
             TaskLocation taskLocation, SeaTunnelMetricsContext metricsContext) {
         Map<TaskLocation, SeaTunnelMetricsContext> snapshot = new HashMap<>();

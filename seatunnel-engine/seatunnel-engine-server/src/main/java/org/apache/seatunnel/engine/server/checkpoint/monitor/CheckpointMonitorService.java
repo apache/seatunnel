@@ -237,6 +237,18 @@ public class CheckpointMonitorService {
                 });
     }
 
+    public long getOverviewJobCount() {
+        return getOverviewMap().getOverviewJobCount();
+    }
+
+    public long getInProgressCheckpointCount() {
+        return getOverviewMap().getInProgressCheckpointCount();
+    }
+
+    public long getRetainedHistoryCount() {
+        return getOverviewMap().getRetainedHistoryCount();
+    }
+
     private void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> consumer) {
         getOverviewMap().updateOverview(jobId, pipelineId, consumer);

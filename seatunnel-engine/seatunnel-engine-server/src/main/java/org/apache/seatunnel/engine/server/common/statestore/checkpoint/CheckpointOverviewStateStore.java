@@ -42,4 +42,26 @@ public interface CheckpointOverviewStateStore extends StateStore<Long, Checkpoin
      * @param updater pipeline-level updater
      */
     void updateOverview(long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> updater);
+
+    /**
+     * Returns the number of jobs currently tracked by the overview store.
+     *
+     * @return tracked job count
+     */
+    long getOverviewJobCount();
+
+    /**
+     * Returns the total number of in-progress checkpoints across all tracked jobs and pipelines.
+     *
+     * @return in-progress checkpoint count
+     */
+    long getInProgressCheckpointCount();
+
+    /**
+     * Returns the total number of retained checkpoint history entries across all tracked jobs and
+     * pipelines.
+     *
+     * @return retained checkpoint history entry count
+     */
+    long getRetainedHistoryCount();
 }

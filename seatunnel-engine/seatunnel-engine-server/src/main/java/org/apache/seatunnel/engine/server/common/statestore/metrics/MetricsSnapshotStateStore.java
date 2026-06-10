@@ -35,7 +35,9 @@ import java.util.Map;
  * SeaTunnelMetricsContext} to the coordinator, and the coordinator replaces the snapshot by task
  * key. The Hazelcast implementation uses {@code compute()} internally to safely update the outer
  * partition map, while the RocksDB implementation uses task location directly as the key, so
- * task-level overwrite preserves the same storage meaning.
+ * task-level overwrite preserves the same storage meaning. Even when a backend uses internal
+ * partition buckets, the exposed {@link StateStore} contract remains task-based, so {@link #size()}
+ * must report the number of task snapshots rather than backend-specific buckets.
  */
 public interface MetricsSnapshotStateStore
         extends StateStore<TaskLocation, SeaTunnelMetricsContext> {
@@ -98,4 +100,14 @@ public interface MetricsSnapshotStateStore
      * @return {@code true} if any snapshot exists for the pipeline
      */
     boolean containsPipeline(PipelineLocation pipelineLocation);
+
+    /**
+     * Returns the number of active backend partition buckets currently holding task snapshots.
+     *
+     * <p>This value is observability-oriented and may differ from {@link #size()}, which reports
+     * logical task snapshot count.
+     *
+     * @return active backend partition bucket count
+     */
+    int activePartitionKeyCount();
 }

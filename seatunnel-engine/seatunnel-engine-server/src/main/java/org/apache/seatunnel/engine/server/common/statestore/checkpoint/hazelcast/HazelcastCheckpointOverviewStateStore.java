@@ -84,4 +84,35 @@ public class HazelcastCheckpointOverviewStateStore implements CheckpointOverview
                     return snapshot;
                 });
     }
+
+    @Override
+    public long getOverviewJobCount() {
+        return overviewMap.size();
+    }
+
+    @Override
+    public long getInProgressCheckpointCount() {
+        return overviewMap.values().stream()
+                .filter(Objects::nonNull)
+                .map(CheckpointOverview::getPipelines)
+                .map(java.util.Map::values)
+                .flatMap(java.util.Collection::stream)
+                .filter(Objects::nonNull)
+                .mapToLong(pipelineOverview -> pipelineOverview.getInProgress().size())
+                .sum();
+    }
+
+    @Override
+    public long getRetainedHistoryCount() {
+        return overviewMap.values().stream()
+                .filter(Objects::nonNull)
+                .map(CheckpointOverview::getPipelines)
+                .map(java.util.Map::values)
+                .flatMap(java.util.Collection::stream)
+                .filter(Objects::nonNull)
+                .map(PipelineCheckpointOverview::getHistory)
+                .filter(Objects::nonNull)
+                .mapToLong(history -> history.size())
+                .sum();
+    }
 }

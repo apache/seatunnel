@@ -152,12 +152,17 @@ public class HazelcastMetricsSnapshotStateStore implements MetricsSnapshotStateS
 
     @Override
     public int size() {
-        return metricsImap.size();
+        return metricsImap.values().stream().mapToInt(Map::size).sum();
     }
 
     @Override
     public boolean isEmpty() {
         return metricsImap.isEmpty();
+    }
+
+    @Override
+    public int activePartitionKeyCount() {
+        return metricsImap.size();
     }
 
     private long partition(TaskLocation taskLocation) {
