@@ -99,6 +99,7 @@ semantics (using XA transaction guarantee).
 | data_save_mode                            | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| use_copy_statement                        | Boolean | No       | false                        | Use PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` for bulk import. This option takes precedence over the regular INSERT / UPSERT path, requires a JDBC driver connection that exposes `getCopyAPI()`, and does not support `MAP`, `ARRAY`, or `ROW` types.                                                                                                                                                                                                                                                                                                                |
 
 ### table [string]
 
@@ -272,6 +273,45 @@ sink {
     }
 }
 ```
+
+## FAQ
+
+### When does PostgreSQL Sink generate `ON CONFLICT`?
+
+PostgreSQL Sink generates `INSERT ... ON CONFLICT (...) DO UPDATE` only after it has a final
+primary-key / unique-key set and `enable_upsert = true`.
+
+That key can come from two places:
+
+- explicit `primary_keys`
+- inherited upstream catalog metadata when `primary_keys` is omitted; if no primary key exists, SeaTunnel also tries the first unique key
+
+If every column is part of the key and there is nothing left to update, PostgreSQL degrades this to
+`ON CONFLICT (...) DO NOTHING`.
+
+### What happens when the target table has no primary key?
+
+If there is no explicit `primary_keys` setting and no inheritable primary key or unique key in
+upstream metadata, PostgreSQL Sink falls back to plain INSERT and does not generate `ON CONFLICT`.
+In that case, duplicate-key behavior depends entirely on the target table constraints.
+
+### How should I choose between `use_copy_statement` and `enable_upsert`?
+
+`use_copy_statement = true` makes PostgreSQL Sink enter the COPY bulk-load path before the normal
+INSERT / UPSERT path. In other words, COPY still wins even if `primary_keys` is configured and
+`enable_upsert = true`.
+
+COPY is a good fit when:
+
+- the target is PostgreSQL
+- the goal is high-throughput bulk import
+- you do not rely on PostgreSQL native upsert semantics for duplicate-key overwrite
+
+COPY is not a good fit when:
+
+- you want PostgreSQL native upsert conflict handling
+- your data contains `MAP`, `ARRAY`, or `ROW` types
+- the current JDBC driver connection does not expose `getCopyAPI()`
 
 ## Changelog
 

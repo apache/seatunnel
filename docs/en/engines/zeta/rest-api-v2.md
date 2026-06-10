@@ -5,10 +5,31 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 
 ## Overview
 
-The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
-, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
-you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is enabled,
-If enable-dynamic-port is true, We will use the unused port in the range within the range of `port` and `port` + `port-range`, default range is 100
+The v2 API and the Web UI are both served by the embedded Jetty server. Jetty starts only when
+`seatunnel.engine.http.enable-http = true` or `enable-https = true`.
+
+There are two different "default" sources that are easy to mix up:
+
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`
+- The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
+
+As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
+listen on `http://<host>:8080/`. If you build a minimal config yourself, rely on code defaults, or
+remove `enable-http`, Jetty will not start by default.
+
+Use the following configuration for a fixed port:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+If you want Jetty to choose the first free port between `port` and `port + port-range`, enable
+dynamic ports explicitly:
 
 ```yaml
 
@@ -21,7 +42,7 @@ seatunnel:
       port-range: 100
 ```
 
-Context-path can also be configured as follows:
+`context-path` can also be configured as follows:
 
 ```yaml
 
@@ -32,6 +53,13 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+## Web UI and Port 8080 Troubleshooting
+
+- If `http://<host>:8080/` is unreachable, first check whether `seatunnel.engine.http.enable-http` or `enable-https` is actually enabled. The `network.rest-api.enabled` setting in `hazelcast.yaml` does not replace the Jetty switch.
+- If `enable-dynamic-port = true`, the actual listening port may not be 8080. Jetty will choose the first available port between `port` and `port + port-range`. Use the startup log `SeaTunnel REST service will start on port xxx` as the source of truth.
+- If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
+- The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
 
 ## Enable HTTPS
 

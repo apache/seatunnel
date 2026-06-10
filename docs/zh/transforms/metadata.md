@@ -246,3 +246,56 @@ sink {
 ```
 
 上面的 `pt` 字段由 Kafka 事件时间转换而来，可在 Hive 中作为分区列使用，便于补数和校准分区。
+
+### 示例 4：结合 Metadata 和 Sql 提取分表后缀并生成装载日期
+
+当上游是按月或按天分表的 CDC 源时，常见需求是先把 `Table` 元数据暴露成普通字段，再用
+`Sql` 提取分表后缀、补充任务装载日期。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["app.orders_202401", "app.orders_202402"]
+    url = "jdbc:mysql://localhost:3306/app"
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "orders_cdc"
+    plugin_output = "orders_with_meta"
+    metadata_fields {
+      Table = source_table
+      EventTime = event_ts
+    }
+  }
+
+  Sql {
+    plugin_input = "orders_with_meta"
+    plugin_output = "orders_normalized"
+    query = "select id, amount, source_table, REGEXP_SUBSTR(source_table, '[0-9]+$') as table_suffix, FROM_UNIXTIME(event_ts / 1000, 'yyyy-MM-dd HH:mm:ss', 'Asia/Shanghai') as event_time_str, FORMATDATETIME(CURRENT_TIMESTAMP, 'yyyyMMdd') as load_date from orders_with_meta"
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_normalized"
+  }
+}
+```
+
+如果当前记录来自 `orders_202402`，那么：
+
+- `source_table = "orders_202402"`
+- `table_suffix = "202402"`
+- `event_time_str` 来自 CDC 事件时间
+- `load_date` 是任务运行时格式化后的日期字符串
