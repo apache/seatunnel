@@ -26,9 +26,22 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 public abstract class AbstractClassLoaderServiceTest {
 
@@ -104,6 +117,84 @@ public abstract class AbstractClassLoaderServiceTest {
                 2L,
                 Lists.newArrayList(new URL("file:///fake.jar"), new URL("file:///console.jar")));
         Assertions.assertEquals(0, classLoaderService.queryClassLoaderCount());
+    }
+
+    /**
+     * Verifies that child-first classloaders can isolate identical Debezium class names when the
+     * backing jars differ.
+     */
+    @Test
+    void testDifferentClassLoadersCanHostConflictingDebeziumClasses() throws Exception {
+        File versionOneJar = createVersionProbeJar("v1");
+        File versionTwoJar = createVersionProbeJar("v2");
+        URL versionOneUrl = versionOneJar.toURI().toURL();
+        URL versionTwoUrl = versionTwoJar.toURI().toURL();
+
+        ClassLoader versionOneClassLoader =
+                classLoaderService.getClassLoader(11L, Collections.singletonList(versionOneUrl));
+        ClassLoader versionTwoClassLoader =
+                classLoaderService.getClassLoader(12L, Collections.singletonList(versionTwoUrl));
+
+        Class<?> versionOneProbe =
+                versionOneClassLoader.loadClass("io.debezium.testing.VersionProbe");
+        Class<?> versionTwoProbe =
+                versionTwoClassLoader.loadClass("io.debezium.testing.VersionProbe");
+
+        Assertions.assertNotSame(versionOneProbe, versionTwoProbe);
+        Assertions.assertEquals("v1", versionOneProbe.getMethod("version").invoke(null));
+        Assertions.assertEquals("v2", versionTwoProbe.getMethod("version").invoke(null));
+
+        classLoaderService.releaseClassLoader(11L, Collections.singletonList(versionOneUrl));
+        classLoaderService.releaseClassLoader(12L, Collections.singletonList(versionTwoUrl));
+    }
+
+    /**
+     * Builds a temporary jar that exports the same Debezium-like class name but returns a
+     * caller-provided version string.
+     */
+    private static File createVersionProbeJar(String version) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assertions.assertNotNull(compiler, "A JDK compiler is required to build test probe jars");
+
+        Path tempRoot = Files.createTempDirectory("debezium-version-probe-" + version);
+        Path sourceFile = tempRoot.resolve("io/debezium/testing/VersionProbe.java");
+        Files.createDirectories(sourceFile.getParent());
+        Files.write(
+                sourceFile,
+                Collections.singletonList(
+                        "package io.debezium.testing;"
+                                + " public class VersionProbe {"
+                                + " public static String version() { return \""
+                                + version
+                                + "\"; }"
+                                + " }"),
+                StandardCharsets.UTF_8);
+
+        try (StandardJavaFileManager fileManager =
+                compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+            Iterable<? extends JavaFileObject> compilationUnits =
+                    fileManager.getJavaFileObjectsFromFiles(
+                            Collections.singletonList(sourceFile.toFile()));
+            Boolean success =
+                    compiler.getTask(
+                                    null,
+                                    fileManager,
+                                    null,
+                                    Lists.newArrayList("-proc:none", "-d", tempRoot.toString()),
+                                    null,
+                                    compilationUnits)
+                            .call();
+            Assertions.assertTrue(Boolean.TRUE.equals(success), "Failed to compile probe jar");
+        }
+
+        Path classFile = tempRoot.resolve("io/debezium/testing/VersionProbe.class");
+        File jarFile = tempRoot.resolve("version-probe-" + version + ".jar").toFile();
+        try (JarOutputStream jarOutputStream = new JarOutputStream(new FileOutputStream(jarFile))) {
+            jarOutputStream.putNextEntry(new JarEntry("io/debezium/testing/VersionProbe.class"));
+            jarOutputStream.write(Files.readAllBytes(classFile));
+            jarOutputStream.closeEntry();
+        }
+        return jarFile;
     }
 
     @AfterEach

@@ -226,25 +226,32 @@ public class MultipleTableJobConfigParser {
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "sink", Collections.emptyList());
 
-        List<URL> sourceConnectorJars = getConnectorJarList(sourceConfigs, PluginType.SOURCE);
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
         List<URL> sinkConnectorJars = getConnectorJarList(sinkConfigs, PluginType.SINK);
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
-        // source and transform use the same classloader
-        List<URL> sourceJars =
-                Stream.of(sourceConnectorJars, transformConnectorJars)
-                        .flatMap(Collection::stream)
-                        .distinct()
+        // Each source uses its own classloader so source-side dependencies can diverge
+        // independently, e.g. when two CDC sources target different Debezium versions.
+        List<List<URL>> sourceJars =
+                sourceConfigs.stream()
+                        .map(
+                                config ->
+                                        getConnectorJarList(
+                                                Collections.singletonList(config),
+                                                PluginType.SOURCE))
                         .collect(Collectors.toList());
-        ClassLoader sourceAndTransformClassLoader =
-                getClassLoader(classLoaderService, parentClassLoader, sourceJars);
+        List<ClassLoader> sourceClassLoaders =
+                sourceJars.stream()
+                        .map(jars -> getClassLoader(classLoaderService, parentClassLoader, jars))
+                        .collect(Collectors.toList());
+        ClassLoader transformClassLoader =
+                getClassLoader(classLoaderService, parentClassLoader, transformConnectorJars);
         ClassLoader sinkClassLoader =
                 getClassLoader(classLoaderService, parentClassLoader, sinkConnectorJars);
 
         try {
-            Thread.currentThread().setContextClassLoader(sourceAndTransformClassLoader);
+            Thread.currentThread().setContextClassLoader(transformClassLoader);
             ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                     new LinkedHashMap<>();
@@ -260,7 +267,7 @@ public class MultipleTableJobConfigParser {
             for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
                 Config sourceConfig = sourceConfigs.get(configIndex);
                 Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
-                        parseSource(configIndex, sourceConfig, sourceAndTransformClassLoader);
+                        parseSource(configIndex, sourceConfig, sourceClassLoaders.get(configIndex));
                 tableWithActionMap.put(tuple2._1(), tuple2._2());
             }
             boolean hasSourceTables =
@@ -274,7 +281,7 @@ public class MultipleTableJobConfigParser {
             }
 
             log.info("start generating all transforms.");
-            parseTransforms(transformConfigs, sourceAndTransformClassLoader, tableWithActionMap);
+            parseTransforms(transformConfigs, transformClassLoader, tableWithActionMap);
 
             Thread.currentThread().setContextClassLoader(sinkClassLoader);
             log.info("start generating all sinks.");
@@ -299,8 +306,13 @@ public class MultipleTableJobConfigParser {
         } finally {
             Thread.currentThread().setContextClassLoader(parentClassLoader);
             if (classLoaderService != null) {
+                for (List<URL> jars : sourceJars) {
+                    classLoaderService.releaseClassLoader(
+                            Long.parseLong(jobConfig.getJobContext().getJobId()), jars);
+                }
                 classLoaderService.releaseClassLoader(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), sourceJars);
+                        Long.parseLong(jobConfig.getJobContext().getJobId()),
+                        transformConnectorJars);
                 classLoaderService.releaseClassLoader(
                         Long.parseLong(jobConfig.getJobContext().getJobId()), sinkConnectorJars);
             }

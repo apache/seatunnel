@@ -238,11 +238,82 @@ public class MultipleTableJobConfigParserTest {
                     @Override
                     public void close() {}
                 });
-        Assertions.assertEquals(2, getClassLoaderTimes.get());
-        Assertions.assertEquals(2, releaseClassLoaderTimes.get());
-        Assertions.assertEquals(classLoaders[0], classLoaders[1]);
+        Assertions.assertEquals(3, getClassLoaderTimes.get());
+        Assertions.assertEquals(3, releaseClassLoaderTimes.get());
+        Assertions.assertNotEquals(classLoaders[0], classLoaders[1]);
         Assertions.assertNotEquals(classLoaders[0], classLoaders[2]);
         Assertions.assertNotEquals(classLoaders[1], classLoaders[2]);
+    }
+
+    /**
+     * Verifies that the parser requests a dedicated source-side classloader for each source
+     * configuration before transforms and sinks are parsed.
+     */
+    @Test
+    public void testMultipleSourcesUseDifferentClassLoaders() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext(System.currentTimeMillis()));
+        final ClassLoader[] sourceClassLoaders = new ClassLoader[2];
+        final ClassLoader[] transformAndSinkClassLoaders = new ClassLoader[2];
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig) {
+                    @Override
+                    public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
+                            int configIndex, Config sourceConfig, ClassLoader classLoader) {
+                        sourceClassLoaders[configIndex] = classLoader;
+                        return super.parseSource(configIndex, sourceConfig, classLoader);
+                    }
+
+                    @Override
+                    public void parseTransforms(
+                            List<? extends Config> transformConfigs,
+                            ClassLoader classLoader,
+                            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>>
+                                    tableWithActionMap) {
+                        transformAndSinkClassLoaders[0] = classLoader;
+                        super.parseTransforms(transformConfigs, classLoader, tableWithActionMap);
+                    }
+
+                    @Override
+                    public List<SinkAction<?, ?, ?, ?>> parseSink(
+                            int configIndex,
+                            Config sinkConfig,
+                            ClassLoader classLoader,
+                            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>>
+                                    tableWithActionMap) {
+                        transformAndSinkClassLoaders[1] = classLoader;
+                        return super.parseSink(
+                                configIndex, sinkConfig, classLoader, tableWithActionMap);
+                    }
+                };
+        AtomicInteger getClassLoaderTimes = new AtomicInteger();
+        AtomicInteger releaseClassLoaderTimes = new AtomicInteger();
+        jobConfigParser.parse(
+                new ClassLoaderService() {
+                    @Override
+                    public ClassLoader getClassLoader(long jobId, Collection<URL> jars) {
+                        getClassLoaderTimes.getAndIncrement();
+                        return new SeaTunnelChildFirstClassLoader(jars);
+                    }
+
+                    @Override
+                    public void releaseClassLoader(long jobId, Collection<URL> jars) {
+                        releaseClassLoaderTimes.getAndIncrement();
+                    }
+
+                    @Override
+                    public void close() {}
+                });
+        Assertions.assertEquals(4, getClassLoaderTimes.get());
+        Assertions.assertEquals(4, releaseClassLoaderTimes.get());
+        Assertions.assertNotEquals(sourceClassLoaders[0], sourceClassLoaders[1]);
+        Assertions.assertNotEquals(sourceClassLoaders[0], transformAndSinkClassLoaders[0]);
+        Assertions.assertNotEquals(sourceClassLoaders[1], transformAndSinkClassLoaders[0]);
+        Assertions.assertNotEquals(
+                transformAndSinkClassLoaders[0], transformAndSinkClassLoaders[1]);
     }
 
     @Test
