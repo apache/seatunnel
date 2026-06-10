@@ -343,6 +343,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public List<SchemaChangeType> supports() {
         return Arrays.asList(
+                SchemaChangeType.CREATE_TABLE,
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,

@@ -37,7 +37,6 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                     .withDescription(
                             "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
 
-<<<<<<< HEAD
     public static final Option<String> STARTUP_SPECIFIC_OFFSET_GTID_SET =
             Options.key("startup.specific-offset.gtid-set")
                     .stringType()

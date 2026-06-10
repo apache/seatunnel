@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
@@ -93,6 +94,8 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
+    /** Tables discovered from CREATE TABLE records that still need create-table events emitted. */
+    private final List<CatalogTable> pendingCreateTables = new ArrayList<>();
 
     SeaTunnelRowDebeziumDeserializeSchema(
             MetadataConverter[] metadataConverters,
@@ -138,6 +141,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                         return;
                     }
                     tables.add(catalogTable);
+                    pendingCreateTables.add(catalogTable);
                     tableRowConverters =
                             createTableRowConverters(
                                     tables,
@@ -186,6 +190,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     private void deserializeSchemaChangeRecord(
             SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (emitPendingCreateTableEvents(record, collector)) {
+            return;
+        }
         SchemaChangeEvent schemaChangeEvent = null;
         try {
             if (schemaChangeResolver != null) {
@@ -274,6 +281,28 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
         collector.collect(schemaChangeEvent);
+    }
+
+    /**
+     * Emits create-table schema events for tables that were registered from Debezium CREATE TABLE
+     * metadata earlier in the same source record.
+     */
+    private boolean emitPendingCreateTableEvents(
+            SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (pendingCreateTables.isEmpty()) {
+            return false;
+        }
+        String ddl = SourceRecordUtils.getDdl(record);
+        List<CatalogTable> createTables = new ArrayList<>(pendingCreateTables);
+        pendingCreateTables.clear();
+        for (CatalogTable catalogTable : createTables) {
+            CreateTableEvent createTableEvent =
+                    new CreateTableEvent(catalogTable.getTableId(), catalogTable);
+            createTableEvent.setStatement(ddl);
+            createTableEvent.setSourceDialectName(catalogTable.getTableId().getCatalogName());
+            collector.collect(createTableEvent);
+        }
+        return true;
     }
 
     private void deserializeDataChangeRecord(SourceRecord record, Collector<SeaTunnelRow> collector)

@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -85,6 +87,7 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
      */
     @Test
     public void testEnabledBinlogNewlyAddedTableRegistersCreateTableRecord() throws Exception {
+        EmptyCollector collector = new EmptyCollector();
         SeaTunnelRowDebeziumDeserializeSchema schema =
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(
@@ -96,8 +99,7 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
                                 tableChange -> catalogTable(tableChange.getId()))
                         .build();
 
-        schema.deserialize(
-                schemaChangeRecord(TableId.parse("db1.new_table")), new EmptyCollector());
+        schema.deserialize(schemaChangeRecord(TableId.parse("db1.new_table")), collector);
 
         List<CatalogTable> producedType = schema.getProducedType();
         Assertions.assertEquals(2, producedType.size());
@@ -107,6 +109,8 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
                                 catalogTable ->
                                         TablePath.of("db1", "new_table")
                                                 .equals(catalogTable.getTablePath())));
+        Assertions.assertEquals(1, collector.getSchemaEvents().size());
+        Assertions.assertTrue(collector.getSchemaEvents().get(0) instanceof CreateTableEvent);
     }
 
     /**
@@ -123,12 +127,17 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
         Schema valueSchema =
                 SchemaBuilder.struct()
                         .name("io.debezium.connector.mysql.SchemaChangeValue")
+                        .field(HistoryRecord.Fields.DDL_STATEMENTS, Schema.STRING_SCHEMA)
                         .field(
                                 HistoryRecord.Fields.TABLE_CHANGES,
                                 SchemaBuilder.array(tableChangeStructs.get(0).schema()).build())
                         .build();
         Struct value =
-                new Struct(valueSchema).put(HistoryRecord.Fields.TABLE_CHANGES, tableChangeStructs);
+                new Struct(valueSchema)
+                        .put(
+                                HistoryRecord.Fields.DDL_STATEMENTS,
+                                "CREATE TABLE " + tableId.table() + " (id INT)")
+                        .put(HistoryRecord.Fields.TABLE_CHANGES, tableChangeStructs);
 
         return new SourceRecord(
                 Collections.emptyMap(),
@@ -201,6 +210,7 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
      * no rows.
      */
     private static class EmptyCollector implements Collector<SeaTunnelRow> {
+        private final List<SchemaChangeEvent> schemaEvents = new ArrayList<>();
 
         /**
          * Data records are irrelevant for schema-change side-effect tests.
@@ -210,6 +220,11 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
         @Override
         public void collect(SeaTunnelRow record) {}
 
+        @Override
+        public void collect(SchemaChangeEvent event) {
+            schemaEvents.add(event);
+        }
+
         /**
          * Returns a stable local checkpoint lock for the collector contract.
          *
@@ -218,6 +233,10 @@ public class SeaTunnelRowDebeziumDeserializeSchemaTest {
         @Override
         public Object getCheckpointLock() {
             return this;
+        }
+
+        public List<SchemaChangeEvent> getSchemaEvents() {
+            return schemaEvents;
         }
     }
 }

@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.event;
 
 /** Enumerates the event categories that can flow through SeaTunnel's engine event pipeline. */
 public enum EventType {
+    SCHEMA_CHANGE_CREATE_TABLE,
     SCHEMA_CHANGE_ADD_COLUMN,
     SCHEMA_CHANGE_DROP_COLUMN,
     SCHEMA_CHANGE_MODIFY_COLUMN,

@@ -63,6 +63,11 @@ public class EventTest {
         AlterTableDropColumnEvent dropColumnEvent =
                 new AlterTableDropColumnEvent(TableIdentifier.of("", TablePath.DEFAULT), "test");
         Assertions.assertEquals(EventType.SCHEMA_CHANGE_DROP_COLUMN, getEventType(dropColumnEvent));
+
+        CreateTableEvent createTableEvent =
+                new CreateTableEvent(TableIdentifier.of("", TablePath.DEFAULT), null);
+        Assertions.assertEquals(
+                EventType.SCHEMA_CHANGE_CREATE_TABLE, createTableEvent.getEventType());
     }
 
     private EventType getEventType(AlterTableColumnEvent event) {

@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,6 +51,8 @@ import java.util.Optional;
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
     private final Integer primaryKeyIndex;
+    /** Template sink config reused to resolve naming rules for runtime-created tables. */
+    private final ReadonlyConfig baseConfig;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
@@ -57,13 +61,15 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
-            Integer primaryKeyIndex) {
+            Integer primaryKeyIndex,
+            ReadonlyConfig baseConfig) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
+        this.baseConfig = baseConfig;
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
@@ -144,6 +150,45 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public Optional<Integer> primaryKey() {
         return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
+    }
+
+    /** JDBC at-least-once writers can create additional per-table writers at runtime. */
+    @Override
+    public boolean supportsNewlyCreatedTable() {
+        return !jdbcSinkConfig.isExactlyOnce();
+    }
+
+    /**
+     * Reuses JDBC sink naming rules so a runtime source table is mapped to the same target naming
+     * convention as startup tables.
+     */
+    @Override
+    public SinkWriter<SeaTunnelRow, ?, ?> createSinkWriter(
+            CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
+        if (jdbcSinkConfig.isExactlyOnce()) {
+            throw new IOException(
+                    "JDBC exact-once mode does not support runtime newly created tables");
+        }
+        JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
+                JdbcSinkFactory.resolveSinkTable(baseConfig, catalogTable);
+        TableSchema targetTableSchema = resolvedSinkTable.getCatalogTable().getTableSchema();
+        Integer targetPrimaryKeyIndex = null;
+        if (targetTableSchema.getPrimaryKey() != null) {
+            String keyName = targetTableSchema.getPrimaryKey().getColumnNames().get(0);
+            int index = targetTableSchema.toPhysicalRowDataType().indexOf(keyName);
+            if (index > -1) {
+                targetPrimaryKeyIndex = index;
+            }
+        }
+        return new JdbcSinkWriter(
+                resolvedSinkTable.getCatalogTable().getTablePath(),
+                context,
+                dialect,
+                JdbcSinkConfig.of(resolvedSinkTable.getOptions()),
+                targetTableSchema,
+                null,
+                targetPrimaryKeyIndex,
+                baseConfig);
     }
 
     private void tryOpen() throws IOException {
