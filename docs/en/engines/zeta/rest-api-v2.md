@@ -110,6 +110,10 @@ Please refer [security](security.md)
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -139,6 +143,26 @@ Please refer [security](security.md)
           "operator": null,
           "next": null
         }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
       }
     ]
   }
@@ -151,8 +175,9 @@ Please refer [security](security.md)
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
 - `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
-- Within `conditionTree`, the `compareOperator` field (e.g. `>=`, `<`, `>`) and `compareOption` field are populated for numeric and cross-field comparisons. For equality checks and other non-comparison conditions, these fields are `null`.
-- The `conditionOperator` field provides a stable, machine-readable operator identifier (e.g. `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`), while `conditionOperatorCategory` indicates the operator's category (e.g. `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`). These two fields are designed for programmatic consumption by frontend applications and automation tools.
+- Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
+- `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
+- For `EXTENSION` conditions, `expectValue` carries the rule description text returned by `ConditionExtension.description()`.
 
 </details>
 

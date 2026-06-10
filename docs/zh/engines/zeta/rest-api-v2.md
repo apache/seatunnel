@@ -108,6 +108,10 @@ seatunnel:
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -137,6 +141,26 @@ seatunnel:
           "operator": null,
           "next": null
         }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
       }
     ]
   }
@@ -149,8 +173,9 @@ seatunnel:
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
 - `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
-- 在 `conditionTree` 中，`compareOperator` 字段（如 `>=`、`<`、`>`）和 `compareOption` 字段用于数值比较和跨字段比较场景；对于等值判断及其他非比较类条件，这两个字段为 `null`。
-- `conditionOperator` 字段提供稳定的、机器可读的操作符标识（如 `GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`），`conditionOperatorCategory` 字段标明操作符所属分类（如 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`）。这两个字段专为前端应用和自动化工具的程序化消费而设计。
+- 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
+- `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
+- 对于 `EXTENSION` 条件，`expectValue` 承载的是 `ConditionExtension.description()` 返回的规则说明文本。
 
 </details>
 
