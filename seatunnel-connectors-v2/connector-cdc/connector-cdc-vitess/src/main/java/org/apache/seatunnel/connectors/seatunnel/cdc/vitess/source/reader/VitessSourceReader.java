@@ -131,7 +131,10 @@ public class VitessSourceReader implements SourceReader<SeaTunnelRow, VitessSour
     public List<VitessSourceSplit> snapshotState(long checkpointId) {
         synchronized (stateLock) {
             if (runtime != null && !sourceSplits.isEmpty()) {
-                sourceSplits.get(0).setTableSchemas(runtime.snapshotTableSchemas());
+                Map<String, byte[]> runtimeTableSchemas = runtime.snapshotTableSchemas();
+                if (runtimeTableSchemas != null && !runtimeTableSchemas.isEmpty()) {
+                    sourceSplits.get(0).setTableSchemas(runtimeTableSchemas);
+                }
             }
             return sourceSplits.stream().map(VitessSourceSplit::copy).collect(Collectors.toList());
         }

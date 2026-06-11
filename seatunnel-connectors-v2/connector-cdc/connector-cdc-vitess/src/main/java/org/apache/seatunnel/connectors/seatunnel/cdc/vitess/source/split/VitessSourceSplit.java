@@ -18,8 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.vitess.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,15 +51,32 @@ public class VitessSourceSplit implements SourceSplit {
      */
     private Map<String, byte[]> tableSchemas;
 
+    /**
+     * SeaTunnel-side table schemas used to rebuild row converters during checkpoint restore.
+     *
+     * <p>The first Vitess delivery keeps schema evolution out of scope, so this stays aligned with
+     * the declared table schemas and must survive restart unchanged.
+     */
+    private List<CatalogTable> checkpointTables;
+
     public VitessSourceSplit(String splitId, Map<String, Object> offset) {
-        this(splitId, offset, null);
+        this(splitId, offset, null, null);
     }
 
     public VitessSourceSplit(
             String splitId, Map<String, Object> offset, Map<String, byte[]> tableSchemas) {
+        this(splitId, offset, tableSchemas, null);
+    }
+
+    public VitessSourceSplit(
+            String splitId,
+            Map<String, Object> offset,
+            Map<String, byte[]> tableSchemas,
+            List<CatalogTable> checkpointTables) {
         this.splitId = splitId;
         this.offset = copyOffset(offset);
         this.tableSchemas = copyTableSchemas(tableSchemas);
+        this.checkpointTables = copyCheckpointTables(checkpointTables);
     }
 
     @Override
@@ -86,9 +106,14 @@ public class VitessSourceSplit implements SourceSplit {
         this.tableSchemas = copyTableSchemas(tableSchemas);
     }
 
+    /** Returns the SeaTunnel schema snapshot used to rebuild the deserializer on restore. */
+    public List<CatalogTable> getCheckpointTables() {
+        return copyCheckpointTables(checkpointTables);
+    }
+
     /** Creates a deep-enough copy for checkpoint serialization. */
     public VitessSourceSplit copy() {
-        return new VitessSourceSplit(splitId, offset, tableSchemas);
+        return new VitessSourceSplit(splitId, offset, tableSchemas, checkpointTables);
     }
 
     @Override
@@ -101,6 +126,8 @@ public class VitessSourceSplit implements SourceSplit {
                 + offset
                 + ", tableSchemas="
                 + (tableSchemas == null ? 0 : tableSchemas.size())
+                + ", checkpointTables="
+                + (checkpointTables == null ? 0 : checkpointTables.size())
                 + '}';
     }
 
@@ -121,5 +148,12 @@ public class VitessSourceSplit implements SourceSplit {
                         copiedSchemas.put(
                                 tableId, schemaBytes == null ? null : schemaBytes.clone()));
         return copiedSchemas;
+    }
+
+    private static List<CatalogTable> copyCheckpointTables(List<CatalogTable> checkpointTables) {
+        if (checkpointTables == null || checkpointTables.isEmpty()) {
+            return null;
+        }
+        return new ArrayList<>(checkpointTables);
     }
 }

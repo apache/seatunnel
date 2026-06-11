@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.utils;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;

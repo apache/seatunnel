@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.vitess.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -139,9 +138,8 @@ public final class VitessSourceConfig {
         return new VitessSourceSplit(
                 VitessSourceSplit.SPLIT_ID,
                 createStartupOffset(),
-                startupMode == StartupMode.SPECIFIC
-                        ? VitessTableSchemaState.serializeCatalogTables(catalogTables)
-                        : null);
+                VitessTableSchemaState.serializeCatalogTables(catalogTables),
+                catalogTables);
     }
 
     /** Creates the Debezium deserializer selected by the SeaTunnel format option. */
@@ -206,14 +204,11 @@ public final class VitessSourceConfig {
         options.getOptional(VitessSourceOptions.GRPC_HEADERS)
                 .ifPresent(headers -> properties.setProperty("vitess.grpc.headers", headers));
 
-        List<String> tableNames =
-                options.getOptional(ConnectorCommonOptions.TABLE_NAMES).orElse(null);
-        if (tableNames != null && !tableNames.isEmpty()) {
-            properties.setProperty("table.include.list", String.join(",", tableNames));
-        } else {
-            String tablePattern = options.get(ConnectorCommonOptions.TABLE_PATTERN);
-            properties.setProperty("table.include.list", tablePattern);
-        }
+        properties.setProperty(
+                "table.include.list",
+                catalogTables.stream()
+                        .map(catalogTable -> catalogTable.getTablePath().toString())
+                        .collect(Collectors.joining(",")));
 
         // LATEST intentionally uses Vitess' symbolic current position for convenience startup.
         // SPECIFIC uses an explicit VGTID and is the reproducible startup path.

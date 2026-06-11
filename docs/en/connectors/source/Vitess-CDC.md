@@ -15,7 +15,8 @@ The Vitess CDC connector captures change events from Vitess VTGate through the V
 The first delivery keeps the connector intentionally narrow:
 
 - streaming only, no initial snapshot phase
-- explicitly configured tables or table patterns only
+- explicit schema metadata only, provided through `schema` or `tables_configs`
+- optional `table-names` / `table-pattern` filters over those declared schemas
 - checkpoint / restore based on serialized Vitess VGTID state
 - rows emitted as SeaTunnel CDC rows for existing multi-table downstream paths
 
@@ -52,8 +53,11 @@ separately.
 | hostname | String | Yes | - | Hostname or IP address of the Vitess VTGate gRPC server. |
 | port | Int | No | 15991 | Port of the Vitess VTGate gRPC server. |
 | keyspace | String | Yes | - | Vitess keyspace captured by the connector. |
-| table-names | List | Yes* | - | Explicit tables to capture. Table names must be database-qualified, for example `commerce.orders`. |
-| table-pattern | String | Yes* | - | Regular expression for database-qualified table names. |
+| schema | Config | Yes* | - | Single-table schema definition. The schema block must provide `table` plus either `columns` or `metadata_table_id`. |
+| tables_configs | List\<Map\> | Yes* | - | Multi-table schema definitions. Each entry must contain a `schema` block with `table` plus either `columns` or `metadata_table_id`. |
+| table-names | List | No** | - | Optional database-qualified tables to capture from the declared schema set, for example `commerce.orders`. |
+| table-pattern | String | No** | - | Optional regular expression used to filter the declared schema set. |
+| metalake_type | Enum | No | GRAVITINO | Metadata lake implementation used when a schema block resolves columns through `metadata_table_id`. |
 | startup.mode | Enum | No | LATEST | Supported values are `latest` and `specific`. `specific` is the stable startup mode for reproducible restore. |
 | startup.specific-offset.vgtid | String | No | - | Vitess VGTID used when `startup.mode = specific`. |
 | tablet-type | Enum | No | MASTER | VTGate tablet type used by VStream. Supported values are `MASTER`, `REPLICA`, `RDONLY`. |
@@ -66,13 +70,16 @@ separately.
 | format | Enum | No | DEFAULT | Optional output format. Supported values are `DEFAULT` and `COMPATIBLE_DEBEZIUM_JSON`. |
 | debezium | Config | No | - | Pass-through Debezium properties for the Vitess connector backend. |
 
-\* Configure exactly one of `table-names` and `table-pattern`.
+\* Configure exactly one of `schema` and `tables_configs`.
+
+\** Configure at most one of `table-names` and `table-pattern`. When both are omitted, the connector captures every declared schema table.
 
 ## Notes
 
 - The first delivery does not read an initial table snapshot.
 - Dynamic discovery of newly added tables is out of scope.
 - Schema evolution events are not emitted in this first delivery.
+- Restore uses the checkpointed SeaTunnel table schema snapshot instead of re-parsing the latest config shape.
 - A focused integration path is provided by `VitessSourceReaderIT`, which runs against
   `vitess/vttestserver`.
 
@@ -91,9 +98,39 @@ source {
     hostname = "127.0.0.1"
     port = 15992
     keyspace = "test"
+    tables_configs = [
+      {
+        schema = {
+          table = "test.products"
+          columns = [
+            { name = "id", type = "int" }
+            { name = "name", type = "string" }
+            { name = "description", type = "string" }
+            { name = "weight", type = "float" }
+          ]
+          primaryKey = {
+            name = "pk_products"
+            columnNames = ["id"]
+          }
+        }
+      },
+      {
+        schema = {
+          table = "test.customers"
+          columns = [
+            { name = "id", type = "int" }
+            { name = "name", type = "string" }
+          ]
+          primaryKey = {
+            name = "pk_customers"
+            columnNames = ["id"]
+          }
+        }
+      }
+    ]
     table-names = ["test.products", "test.customers"]
     startup.mode = "specific"
-    startup.specific-offset.vgtid = "{\"shard_gtids\":[{\"keyspace\":\"test\",\"gtid\":\"MySQL56/uuid:1-200\"}]}"
+    startup.specific-offset.vgtid = "[{\"keyspace\":\"test\",\"shard\":\"-\",\"gtid\":\"MySQL56/uuid:1-200\"}]"
     server-time-zone = "UTC"
   }
 }
