@@ -13,10 +13,30 @@ title: File 到 StarRocks
 - 安装 `connector-file-local` 和 `connector-starrocks`。
 - 把 StarRocks sink 依赖的 MySQL JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
 - 准备好一个 SeaTunnel 进程可以访问的本地输入文件。
+- 运行任务前，先在 StarRocks 中创建好目标库和目标表。
 
 ## 最小配置
 
-下面的示例读取一个带表头的本地 CSV 文件，并把数据写入 StarRocks。
+下面的示例读取一个带表头的本地 CSV 文件，并把数据写入已经存在的 StarRocks 主键表。
+
+先创建目标表：
+
+```sql
+CREATE DATABASE IF NOT EXISTS sync_demo;
+
+CREATE TABLE IF NOT EXISTS sync_demo.customers (
+  id BIGINT NOT NULL,
+  name STRING,
+  city STRING,
+  updated_at DATETIME
+)
+ENGINE=OLAP
+PRIMARY KEY(id)
+DISTRIBUTED BY HASH(id)
+PROPERTIES (
+  "replication_num" = "1"
+);
+```
 
 ```hocon
 env {
@@ -51,7 +71,7 @@ sink {
     database = "sync_demo"
     table = "customers"
     batch_max_rows = 1000
-    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    schema_save_mode = "IGNORE"
     starrocks.config = {
       format = "JSON"
       strip_outer_array = true
@@ -77,7 +97,7 @@ SELECT id, name, city, updated_at FROM sync_demo.customers ORDER BY id;
 - 配了 `nodeUrls`，但漏了 `base-url`。
 - 文件带表头，但没有设置 `csv_use_header_line = true`。
 - 源文件 schema、分隔符、时间格式和实际文件内容不一致。
-- StarRocks 表模型或自动建表结果不符合你的查询预期。
+- 运行前没有先创建目标表。本教程使用 `schema_save_mode = "IGNORE"`，因为本地文件源不会提供 StarRocks 自动建表需要的主键元数据。
 
 ## 相关文档
 

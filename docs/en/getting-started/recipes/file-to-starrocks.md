@@ -13,10 +13,30 @@ Use this recipe when you want to import local CSV or text files into StarRocks f
 - Install the `connector-file-local` and `connector-starrocks` plugins.
 - Put the MySQL JDBC driver required by the StarRocks sink into `${SEATUNNEL_HOME}/lib`.
 - Prepare a local input file that is accessible to the SeaTunnel process.
+- Create the target database and table in StarRocks before running the job.
 
 ## Minimal configuration
 
-This example reads a local CSV file with a header line and writes the rows to StarRocks.
+This example reads a local CSV file with a header line and writes the rows to an existing StarRocks primary-key table.
+
+Prepare the target table first:
+
+```sql
+CREATE DATABASE IF NOT EXISTS sync_demo;
+
+CREATE TABLE IF NOT EXISTS sync_demo.customers (
+  id BIGINT NOT NULL,
+  name STRING,
+  city STRING,
+  updated_at DATETIME
+)
+ENGINE=OLAP
+PRIMARY KEY(id)
+DISTRIBUTED BY HASH(id)
+PROPERTIES (
+  "replication_num" = "1"
+);
+```
 
 ```hocon
 env {
@@ -51,7 +71,7 @@ sink {
     database = "sync_demo"
     table = "customers"
     batch_max_rows = 1000
-    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    schema_save_mode = "IGNORE"
     starrocks.config = {
       format = "JSON"
       strip_outer_array = true
@@ -77,7 +97,7 @@ If the imported rows in StarRocks match the file content, the pipeline is workin
 - `base-url` is missing even though `nodeUrls` is configured.
 - The file has a header row, but `csv_use_header_line = true` is not set.
 - The source schema does not match the file delimiter or timestamp format.
-- The StarRocks table model or auto-created schema does not match the intended query pattern.
+- The target table was not created before the job. This recipe uses `schema_save_mode = "IGNORE"` because the local file source does not provide primary-key metadata for StarRocks auto DDL.
 
 ## Related docs
 

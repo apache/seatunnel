@@ -47,6 +47,11 @@ sink {
     secret_key = "your-secret-key"
     file_format_type = "json"
     row_delimiter = "\n"
+    custom_filename = true
+    file_name_expression = "orders"
+    filename_extension = "json"
+    single_file_mode = true
+    is_enable_transaction = false
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
   }
@@ -61,7 +66,7 @@ sink {
 
 ```bash
 aws s3 ls s3://company-data-lake/seatunnel/orders/ --recursive
-aws s3 cp s3://company-data-lake/seatunnel/orders/part-00000.json - | head
+aws s3 cp s3://company-data-lake/seatunnel/orders/orders.json - | head
 ```
 
 如果目标前缀下生成了对象，且内容和源查询结果一致，这条链路就是通的。
@@ -72,6 +77,7 @@ aws s3 cp s3://company-data-lake/seatunnel/orders/part-00000.json - | head
 - `bucket` 和 `path` 写反了。`bucket` 写桶，`path` 写桶内前缀。
 - 凭据提供器和你实际配置的认证方式不匹配。
 - 大表直接跑一个无边界 `query`，没有做过滤或分片。
+- 固定文件名只适合这个单文件教程。如果重新开启事务，`file_name_expression` 里必须保留 `${transactionId}`。
 - 目标是兼容 S3 的对象存储，但 `fs.s3a.endpoint` 还在指向 AWS 默认地址。
 
 ## 相关文档

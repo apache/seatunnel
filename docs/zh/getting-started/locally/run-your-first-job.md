@@ -62,7 +62,7 @@ cd "apache-seatunnel-${version}"
 ## 验证结果
 
 - 任务可以正常启动，没有 connector 加载错误。
-- 控制台会打印 `output rowType: name<STRING>, age<INT>`。
+- 控制台会打印映射后字段的 `output rowType` 行。
 - 控制台会打印 16 行 `ConsoleSinkWriter` 输出。
 - 批任务在写完全部数据后正常退出。
 

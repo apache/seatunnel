@@ -45,7 +45,7 @@ sink {
     username = "postgres"
     password = "password"
     generate_sink_sql = true
-    database = "public"
+    database = "sync_demo"
     table = "public.st_${table_name}"
     primary_keys = ["${primary_key}"]
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"

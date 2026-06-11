@@ -71,7 +71,11 @@ sink {
 
 ```bash
 ls /tmp/seatunnel/iceberg/warehouse/lakehouse/orders
-spark-sql -e "SELECT COUNT(*) FROM lakehouse.orders"
+spark-sql \
+  --conf spark.sql.catalog.seatunnel_demo=org.apache.iceberg.spark.SparkCatalog \
+  --conf spark.sql.catalog.seatunnel_demo.type=hadoop \
+  --conf spark.sql.catalog.seatunnel_demo.warehouse=file:///tmp/seatunnel/iceberg/warehouse \
+  -e "SELECT COUNT(*) FROM seatunnel_demo.lakehouse.orders"
 ```
 
 如果表可以正常查询，且行数和你写入 Kafka 的消息数量一致，这条链路就是通的。

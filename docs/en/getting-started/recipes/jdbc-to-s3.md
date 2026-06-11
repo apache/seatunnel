@@ -47,6 +47,11 @@ sink {
     secret_key = "your-secret-key"
     file_format_type = "json"
     row_delimiter = "\n"
+    custom_filename = true
+    file_name_expression = "orders"
+    filename_extension = "json"
+    single_file_mode = true
+    is_enable_transaction = false
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
   }
@@ -61,7 +66,7 @@ sink {
 
 ```bash
 aws s3 ls s3://company-data-lake/seatunnel/orders/ --recursive
-aws s3 cp s3://company-data-lake/seatunnel/orders/part-00000.json - | head
+aws s3 cp s3://company-data-lake/seatunnel/orders/orders.json - | head
 ```
 
 If objects are created under the target prefix and the exported content matches the source query, the pipeline is working.
@@ -72,6 +77,7 @@ If objects are created under the target prefix and the exported content matches 
 - `bucket` and `path` are mixed up. Keep the bucket in `bucket` and the prefix in `path`.
 - The credential provider does not match the authentication method you configured.
 - Large tables are exported through one unbounded query without filtering or partitioning.
+- Fixed filenames are only safe for this single-file tutorial. If you enable transactions again, keep `${transactionId}` in `file_name_expression`.
 - The target endpoint is S3-compatible, but the `fs.s3a.endpoint` value still points to AWS.
 
 ## Related docs

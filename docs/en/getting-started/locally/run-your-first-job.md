@@ -62,7 +62,7 @@ cd "apache-seatunnel-${version}"
 ## Expected validation result
 
 - The process starts successfully without connector loading errors.
-- The console prints `output rowType: name<STRING>, age<INT>`.
+- The console prints an `output rowType` line for the mapped fields.
 - The console prints 16 rows from `ConsoleSinkWriter`.
 - The batch job exits successfully after all rows are written.
 
