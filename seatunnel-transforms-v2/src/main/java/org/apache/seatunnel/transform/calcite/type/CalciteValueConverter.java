@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.org.apache.calcite.avatica.util.ByteString;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import lombok.experimental.UtilityClass;
+
 import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
@@ -33,9 +35,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
 /** Bidirectional value converter between SeaTunnel runtime values and Calcite runtime values. */
+@UtilityClass
 public final class CalciteValueConverter {
-
-    private CalciteValueConverter() {}
 
     /**
      * Converts a SeaTunnel runtime value into the representation Calcite expects when scanning a

@@ -33,6 +33,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import lombok.experimental.UtilityClass;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +42,7 @@ import java.util.List;
  * Bidirectional type converter between {@link SeaTunnelDataType} and Calcite {@link RelDataType}.
  * Covers all types defined in {@link SqlType}.
  */
+@UtilityClass
 public final class CalciteTypeConverter {
 
     /**

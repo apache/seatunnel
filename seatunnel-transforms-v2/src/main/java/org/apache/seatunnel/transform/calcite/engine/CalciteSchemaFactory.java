@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelScannableTable;
 import org.apache.seatunnel.transform.calcite.type.CalciteTypeConverter;
 
+import lombok.experimental.UtilityClass;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +34,7 @@ import java.util.List;
  * Registers a SeaTunnel table (by name and row-type) into a Calcite {@link SchemaPlus} as a {@link
  * SeaTunnelScannableTable}.
  */
+@UtilityClass
 public final class CalciteSchemaFactory {
 
     /**
