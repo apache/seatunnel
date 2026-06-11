@@ -6,18 +6,23 @@
 
 SQL transform plugin powered by [Apache Calcite](https://calcite.apache.org/). Use standard SQL to transform data rows. The SQL plan is compiled once at job startup and applied to each row at runtime.
 
+:::tip
+
+- Each row is processed independently -- `JOIN` and cross-row aggregation (`GROUP BY`, `SUM`, `COUNT`) are **not** supported.
+- Vector types (FLOAT_VECTOR, BINARY_VECTOR, etc.) are mapped to VARBINARY internally. Use the built-in vector UDFs (e.g., `COSINE_DISTANCE`, `VECTOR_REDUCE`) for vector operations.
+
+:::
+
 ## Options
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| sql | string | yes | - | SQL statement to execute. The `FROM` table name must match `plugin_input` |
+| sql | string | yes | - | SQL statement to execute |
 | table_transform | list | no | [] | Per-table SQL overrides for multi-table CDC scenarios |
 | table_match_regex | string | no | .* | Regex to match table paths. Unmatched tables pass through unchanged |
 | row_error_handle_way | enum | no | FAIL | How to handle row-level errors: `FAIL`, `SKIP`, or `ROUTE_TO_TABLE` |
 
 ### sql [string]
-
-The SQL statement to execute using the Apache Calcite engine. The table name in `FROM` must match the `plugin_input` value.
 
 ```hocon
 sql = "SELECT id, UPPER(name) AS name, age + 1 AS next_age FROM source_table WHERE age > 18"
@@ -56,86 +61,177 @@ How to handle errors during SQL execution for a row:
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details.
 
-## Supported Types
-
-Bidirectional type mapping between SeaTunnel and Calcite:
-
-| SeaTunnel Type | Calcite Type | Notes |
-|----------------|--------------|-------|
-| BOOLEAN | BOOLEAN | |
-| TINYINT | TINYINT | |
-| SMALLINT | SMALLINT | |
-| INT | INTEGER | |
-| BIGINT | BIGINT | |
-| FLOAT | REAL | |
-| DOUBLE | DOUBLE | |
-| DECIMAL(p,s) | DECIMAL(p,s) | Precision and scale preserved |
-| STRING | VARCHAR | |
-| BYTES | VARBINARY | |
-| DATE | DATE | |
-| TIME | TIME | |
-| TIMESTAMP | TIMESTAMP | |
-| TIMESTAMP_TZ | TIMESTAMP_WITH_LOCAL_TIME_ZONE | |
-| NULL | NULL | |
-| ARRAY | ARRAY | Element type recursively mapped |
-| MAP | MAP | Key/value types recursively mapped |
-| ROW | ROW (struct) | Field names and types preserved |
-| BINARY_VECTOR | VARBINARY | Lossy: vector semantics not preserved in SQL |
-| FLOAT_VECTOR | VARBINARY | Lossy: vector semantics not preserved in SQL |
-| FLOAT16_VECTOR | VARBINARY | Lossy: vector semantics not preserved in SQL |
-| BFLOAT16_VECTOR | VARBINARY | Lossy: vector semantics not preserved in SQL |
-| SPARSE_FLOAT_VECTOR | VARBINARY | Lossy: vector semantics not preserved in SQL |
-
-Calcite INTERVAL types (e.g., `INTERVAL YEAR`, `INTERVAL DAY TO SECOND`) are mapped to `BIGINT` on output.
-
 ## Built-in UDFs
 
-| Function | Signature | Return Type | Description |
-|----------|-----------|-------------|-------------|
-| MASK | `MASK(value, start, end, maskChar)` | STRING | Replaces characters in range `[start, end)` with `maskChar`. Returns original if range is invalid. Default mask char is `*` when null or empty |
-| MASK_HASH | `MASK_HASH(value)` | STRING | Returns the SHA-256 hex hash (64 characters) of the input. Deterministic -- same input always produces same hash |
-| DES_ENCRYPT | `DES_ENCRYPT(password, data)` | STRING | Encrypts `data` with DES (CBC/PKCS5Padding) using `password` (must be >= 8 chars). Returns Base64-encoded ciphertext |
-| DES_DECRYPT | `DES_DECRYPT(password, data)` | STRING | Decrypts Base64-encoded `data` with the same password used for encryption |
-| URL_ENCODE | `URL_ENCODE(value)` | STRING | URL-encodes the input string (UTF-8) |
-| URL_DECODE | `URL_DECODE(value)` | STRING | URL-decodes the input string (UTF-8) |
-
 All built-in UDFs return `NULL` when any required argument is `NULL`.
+Function identifiers are case-insensitive. For example, `MASK(...)`, `mask(...)`, and `Mask(...)` are equivalent.
 
-## Built-in SQL Functions
+### Data Masking Functions
 
-Calcite provides 200+ standard SQL functions. Below are commonly used categories:
+#### MASK
 
-### String Functions
+```MASK(value, start, end, maskChar) -> STRING```
 
-`UPPER`, `LOWER`, `TRIM`, `CONCAT`, `SUBSTRING`, `REPLACE`, `CHAR_LENGTH`, `POSITION`, `OVERLAY`, `INITCAP`
+Replaces characters in range `[start, end)` with `maskChar`. Returns the original string if the range is invalid. Default mask char is `*` when null or empty.
 
-### Math Functions
+Example:
 
-`ABS`, `MOD`, `POWER`, `SQRT`, `FLOOR`, `CEIL`, `ROUND`, `SIGN`, `LN`, `LOG10`, `EXP`
+```sql
+SELECT MASK(phone, 3, 7, '*') AS masked_phone FROM t
+```
 
-### Date/Time Functions
+#### MASK_HASH
 
-`CURRENT_DATE`, `CURRENT_TIMESTAMP`, `EXTRACT`, `TIMESTAMPADD`, `TIMESTAMPDIFF`, `YEAR`, `MONTH`, `DAYOFMONTH`
+```MASK_HASH(value) -> STRING```
 
-### JSON Functions
+Returns the SHA-256 hex hash (64 characters) of the input. Deterministic -- same input always produces the same hash.
 
-`JSON_VALUE(json, '$.path')`, `JSON_QUERY`, `JSON_EXISTS`
+Example:
 
-### Conditional Functions
+```sql
+SELECT MASK_HASH(phone) AS phone_hash FROM t
+```
 
-`CASE WHEN ... THEN ... ELSE ... END`, `COALESCE`, `NULLIF`, `GREATEST`, `LEAST`
+#### DES_ENCRYPT
 
-### Comparison & Logical
+```DES_ENCRYPT(password, data) -> STRING```
 
-`=`, `<>`, `<`, `>`, `IN (...)`, `BETWEEN ... AND ...`, `LIKE`, `IS NULL`, `IS NOT NULL`, `AND`, `OR`, `NOT`
+Encrypts `data` with DES (CBC/PKCS5Padding) using `password` (must be >= 8 chars). Returns Base64-encoded ciphertext.
 
-### Type Conversion
+Example:
 
-`CAST(expr AS type)`
+```sql
+SELECT DES_ENCRYPT('12345678', secret) AS encrypted FROM t
+```
 
-For the full function reference, see the [Apache Calcite SQL Reference](https://calcite.apache.org/docs/reference.html).
+#### DES_DECRYPT
 
-> **Note:** Calcite Transform processes rows one at a time. Aggregate functions like `SUM`, `COUNT`, `AVG` are syntactically valid but operate on a single row, which is generally not useful. Use them only with window functions or in specific single-row contexts.
+```DES_DECRYPT(password, data) -> STRING```
+
+Decrypts Base64-encoded `data` with the same password used for encryption.
+
+Example:
+
+```sql
+SELECT DES_DECRYPT('12345678', encrypted_secret) AS original FROM t
+```
+
+### Vector Functions
+
+#### COSINE_DISTANCE
+
+```COSINE_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Returns a DOUBLE value between 0 and 1: 0 means identical vectors (completely similar), 1 means orthogonal vectors (completely dissimilar).
+
+Example:
+
+```sql
+SELECT COSINE_DISTANCE(vec1, vec2) AS distance FROM t
+```
+
+#### L1_DISTANCE
+
+```L1_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Calculates the Manhattan (L1) distance between two vectors.
+
+Example:
+
+```sql
+SELECT L1_DISTANCE(vec1, vec2) AS dist FROM t
+```
+
+#### L2_DISTANCE
+
+```L2_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Calculates the Euclidean (L2) distance between two vectors.
+
+Example:
+
+```sql
+SELECT L2_DISTANCE(vec1, vec2) AS dist FROM t
+```
+
+#### VECTOR_DIMS
+
+```VECTOR_DIMS(vector) -> INT```
+
+Returns an INT value representing the number of dimensions (elements) in the vector.
+
+Example:
+
+```sql
+SELECT VECTOR_DIMS(embedding) AS dims FROM t
+```
+
+#### VECTOR_NORM
+
+```VECTOR_NORM(vector) -> DOUBLE```
+
+Calculates the L2 norm (Euclidean norm) of a vector, which represents the length or magnitude of the vector.
+
+Example:
+
+```sql
+SELECT VECTOR_NORM(embedding) AS norm FROM t
+```
+
+#### INNER_PRODUCT
+
+```INNER_PRODUCT(vector1, vector2) -> DOUBLE```
+
+Calculates the inner product (dot product) of two vectors, which is used to measure the similarity and projection between the vectors.
+
+Example:
+
+```sql
+SELECT INNER_PRODUCT(vec1, vec2) AS ip FROM t
+```
+
+#### VECTOR_REDUCE
+
+```VECTOR_REDUCE(vector_field, target_dimension, method)```
+
+Generic vector dimension reduction function that supports multiple reduction methods.
+
+**Parameters:**
+- `vector_field`: The vector field to reduce (VECTOR type)
+- `target_dimension`: The target dimension (INTEGER, must be smaller than source dimension)
+- `method`: The reduction method (STRING):
+  - **'TRUNCATE'**: Truncates the vector by keeping only the first N elements. Simplest and fastest, but may lose information in truncated dimensions.
+  - **'RANDOM_PROJECTION'**: Uses Gaussian random projection. Preserves relative distances between vectors following the Johnson-Lindenstrauss lemma.
+  - **'SPARSE_RANDOM_PROJECTION'**: Uses sparse random projection where matrix elements are mostly zero. More computationally efficient than regular random projection.
+
+**Returns:** VARBINARY -- the reduced vector
+
+**Example:**
+
+```sql
+SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') AS reduced FROM t
+SELECT id, VECTOR_REDUCE(embedding, 128, 'RANDOM_PROJECTION') AS reduced FROM t
+SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') AS reduced FROM t
+```
+
+#### VECTOR_NORMALIZE
+
+```VECTOR_NORMALIZE(vector_field)```
+
+Normalizes a vector to unit length (magnitude = 1). Useful for computing cosine similarity.
+
+**Parameters:**
+- `vector_field`: The vector field to normalize (VECTOR type)
+
+**Returns:** VARBINARY -- the normalized vector
+
+**Example:**
+
+```sql
+SELECT id, VECTOR_NORMALIZE(embedding) AS unit_vec FROM t
+```
+
+In addition to the UDFs listed above, all standard SQL functions provided by Apache Calcite are available (string, math, date/time, JSON, conditional, etc.). For the full function reference, see the [Apache Calcite SQL Reference](https://calcite.apache.org/docs/reference.html).
 
 ## Examples
 
@@ -196,7 +292,7 @@ Output:
 | 1 | JOY DING | 8 | 5500.0 |
 | 2 | MAY DING | 8 | 8800.0 |
 
-### CASE WHEN
+### CASE WHEN Conditional
 
 Input:
 
@@ -289,6 +385,22 @@ transform {
   }
 }
 ```
+
+### Vector Operations
+
+Use built-in vector UDFs to compute distances, reduce dimensions, or normalize vectors in a data pipeline (e.g., between Milvus/Qdrant source and sink).
+
+```hocon
+transform {
+  Calcite {
+    plugin_input = "vector_source"
+    plugin_output = "result"
+    sql = "SELECT id, COSINE_DISTANCE(query_vec, doc_vec) AS distance, VECTOR_DIMS(doc_vec) AS dims, VECTOR_REDUCE(doc_vec, 128, 'TRUNCATE') AS reduced_vec FROM vector_source"
+  }
+}
+```
+
+Given two FLOAT_VECTOR columns `query_vec` and `doc_vec`, this computes the cosine distance, extracts dimensions, and reduces `doc_vec` from its original dimension to 128.
 
 ### Multi-table CDC (table_transform)
 
@@ -393,37 +505,8 @@ SELECT MY_UPPER(name) AS upper_name FROM source_table
 | WHERE filtering | `WHERE` conditions that evaluate to `false` cause the row to be dropped (not passed through) |
 | Table name matching | The `FROM` table name in SQL must exactly match the `plugin_input` value |
 | Scalar UDFs only | Only scalar functions are supported. Table-valued functions and aggregate UDFs are not available |
-| Vector type lossy | Vector types (BINARY_VECTOR, FLOAT_VECTOR, etc.) are mapped to VARBINARY, losing vector semantics |
-
-## FAQ
-
-**Q: What table name should I use in the SQL `FROM` clause?**
-
-A: It must match the `plugin_input` value. For example, if `plugin_input = "fake"`, your SQL should be `SELECT ... FROM fake`.
-
-**Q: Do I need to quote UDF function names?**
-
-A: No. The Calcite engine is configured with case-insensitive identifier matching. `MASK(...)`, `mask(...)`, and `Mask(...)` all work.
-
-**Q: Does it support JOIN?**
-
-A: No. The Calcite Transform registers only one input table. For cross-table operations, chain multiple transforms or use a different approach.
-
-**Q: Can I use GROUP BY or aggregate functions?**
-
-A: They are syntactically valid but not practically useful. The engine processes one row at a time, so `SUM(amount)` returns the value of `amount` for that single row.
-
-**Q: Must the `eval` method in a custom UDF be `static`?**
-
-A: Yes. Calcite's code generation calls `eval` as a static method directly. An instance method would cause Calcite to create a new object for each call, bypassing any initialization done in `open()`.
-
-**Q: How do I add a new UDF?**
-
-A: Implement the `CalciteUdf` SPI with `@AutoService` and place the JAR in `${SEATUNNEL_HOME}/lib/`. See the [Custom UDF Development Guide](#custom-udf-development-guide) section.
-
-**Q: How does it handle schema changes in CDC scenarios?**
-
-A: When an `AlterTableEvent` is received (e.g., column added/dropped), the engine automatically rebuilds the SQL plan and re-infers the output schema.
+| Vector type mapping | Vector types are mapped to VARBINARY internally. Use built-in vector UDFs (COSINE_DISTANCE, L1_DISTANCE, etc.) for vector operations |
+| CDC schema changes | When an `AlterTableEvent` is received (for example, add/drop columns), the engine rebuilds the SQL plan and re-infers the output schema automatically |
 
 ## Job Config Example
 

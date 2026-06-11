@@ -18,29 +18,38 @@
 package org.apache.seatunnel.transform.calcite.udf;
 
 import org.apache.seatunnel.api.transform.CalciteUdf;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import com.google.auto.service.AutoService;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
+import java.nio.ByteBuffer;
+import java.util.stream.IntStream;
 
-/** URL encoding UDF. Usage: {@code URL_ENCODE(value)} */
+/**
+ * Calculates the inner product (dot product) of two vectors.
+ *
+ * <p>Usage: {@code INNER_PRODUCT(vector1, vector2)}
+ */
 @AutoService(CalciteUdf.class)
-public class UrlEncodeFunction implements CalciteUdf {
+public class InnerProductFunction implements CalciteUdf {
 
     @Override
     public String functionName() {
-        return "URL_ENCODE";
+        return "INNER_PRODUCT";
     }
 
-    public static String eval(String value) {
-        if (value == null) {
+    public static Double eval(byte[] v1, byte[] v2) {
+        if (v1 == null || v2 == null) {
             return null;
         }
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("UTF-8 encoding not supported", e);
+        Float[] vector1 = VectorUtils.toFloatArray(ByteBuffer.wrap(v1));
+        Float[] vector2 = VectorUtils.toFloatArray(ByteBuffer.wrap(v2));
+        if (vector1.length != vector2.length) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Vectors must have the same dimension: %d vs %d",
+                            vector1.length, vector2.length));
         }
+        return IntStream.range(0, vector1.length).mapToDouble(i -> vector1[i] * vector2[i]).sum();
     }
 }

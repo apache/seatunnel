@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.transform.calcite.engine.CalciteSQLEngine;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -4004,6 +4007,134 @@ class CalciteSQLEngineTest {
         Assertions.assertEquals(SqlType.STRING, outType.getFieldType(0).getSqlType());
         Assertions.assertEquals(SqlType.STRING, outType.getFieldType(1).getSqlType());
         Assertions.assertEquals(SqlType.DOUBLE, outType.getFieldType(2).getSqlType());
+        engine.close();
+    }
+
+    private SeaTunnelRowType twoVectorRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"vec1", "vec2"},
+                new SeaTunnelDataType[] {
+                    VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
+                });
+    }
+
+    private SeaTunnelRowType singleVectorRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"vec"}, new SeaTunnelDataType[] {VectorType.VECTOR_FLOAT_TYPE});
+    }
+
+    private static ByteBuffer floatVec(Float... values) {
+        return VectorUtils.toByteBuffer(values);
+    }
+
+    @Test
+    void testCosineDistanceIdentical() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT COSINE_DISTANCE(vec1, vec2) AS dist FROM t",
+                        "t",
+                        twoVectorRowType());
+        ByteBuffer v = floatVec(1.0f, 2.0f, 3.0f);
+        Object result = singleField(engine, new Object[] {v, v.duplicate()});
+        Assertions.assertEquals(0.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testCosineDistanceOrthogonal() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT COSINE_DISTANCE(vec1, vec2) AS dist FROM t",
+                        "t",
+                        twoVectorRowType());
+        Object result =
+                singleField(engine, new Object[] {floatVec(1.0f, 0.0f), floatVec(0.0f, 1.0f)});
+        Assertions.assertEquals(1.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testL1Distance() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT L1_DISTANCE(vec1, vec2) AS dist FROM t", "t", twoVectorRowType());
+        Object result =
+                singleField(
+                        engine,
+                        new Object[] {floatVec(2.0f, 4.0f, 6.0f), floatVec(1.0f, 2.0f, 3.0f)});
+        Assertions.assertEquals(6.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testL2Distance() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT L2_DISTANCE(vec1, vec2) AS dist FROM t", "t", twoVectorRowType());
+        Object result =
+                singleField(
+                        engine,
+                        new Object[] {floatVec(2.0f, 4.0f, 4.0f), floatVec(1.0f, 2.0f, 2.0f)});
+        Assertions.assertEquals(3.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testVectorDims() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT VECTOR_DIMS(vec) AS dims FROM t", "t", singleVectorRowType());
+        Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f)});
+        Assertions.assertEquals(3, ((Number) result).intValue());
+        engine.close();
+    }
+
+    @Test
+    void testVectorNorm() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT VECTOR_NORM(vec) AS norm FROM t", "t", singleVectorRowType());
+        Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 2.0f)});
+        Assertions.assertEquals(3.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testInnerProduct() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT INNER_PRODUCT(vec1, vec2) AS ip FROM t", "t", twoVectorRowType());
+        Object result =
+                singleField(
+                        engine,
+                        new Object[] {floatVec(1.0f, 2.0f, 3.0f), floatVec(7.0f, 8.0f, 9.0f)});
+        Assertions.assertEquals(50.0, ((Number) result).doubleValue(), 1e-9);
+        engine.close();
+    }
+
+    @Test
+    void testVectorReduceTruncate() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT VECTOR_REDUCE(vec, 2, 'TRUNCATE') AS reduced FROM t",
+                        "t",
+                        singleVectorRowType());
+        Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
+        Assertions.assertNotNull(result);
+        Float[] reduced = VectorUtils.toFloatArray(ByteBuffer.wrap((byte[]) result));
+        Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, reduced);
+        engine.close();
+    }
+
+    @Test
+    void testVectorNormalize() {
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT VECTOR_NORMALIZE(vec) AS nvec FROM t", "t", singleVectorRowType());
+        Object result = singleField(engine, new Object[] {floatVec(3.0f, 4.0f)});
+        Assertions.assertNotNull(result);
+        Float[] normalized = VectorUtils.toFloatArray(ByteBuffer.wrap((byte[]) result));
+        Assertions.assertEquals(2, normalized.length);
+        double norm = Math.sqrt(normalized[0] * normalized[0] + normalized[1] * normalized[1]);
+        Assertions.assertEquals(1.0, norm, 1e-6);
         engine.close();
     }
 }

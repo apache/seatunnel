@@ -18,29 +18,31 @@
 package org.apache.seatunnel.transform.calcite.udf;
 
 import org.apache.seatunnel.api.transform.CalciteUdf;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import com.google.auto.service.AutoService;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
-/** URL decoding UDF. Usage: {@code URL_DECODE(value)} */
+/**
+ * Calculates the L2 norm (Euclidean norm) of a vector.
+ *
+ * <p>Usage: {@code VECTOR_NORM(vector)}
+ */
 @AutoService(CalciteUdf.class)
-public class UrlDecodeFunction implements CalciteUdf {
+public class VectorNormFunction implements CalciteUdf {
 
     @Override
     public String functionName() {
-        return "URL_DECODE";
+        return "VECTOR_NORM";
     }
 
-    public static String eval(String value) {
-        if (value == null) {
+    public static Double eval(byte[] v) {
+        if (v == null) {
             return null;
         }
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("UTF-8 encoding not supported", e);
-        }
+        Float[] vector = VectorUtils.toFloatArray(ByteBuffer.wrap(v));
+        return Math.sqrt(Arrays.stream(vector).mapToDouble(val -> val * val).sum());
     }
 }
