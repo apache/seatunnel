@@ -23,7 +23,7 @@ import org.apache.seatunnel.shade.org.apache.calcite.schema.SchemaPlus;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelScannableTable;
-import org.apache.seatunnel.transform.calcite.type.TypeConverter;
+import org.apache.seatunnel.transform.calcite.type.CalciteTypeConverter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,8 @@ public final class CalciteSchemaFactory {
         for (int i = 0; i < fieldNames.length; i++) {
             names.add(fieldNames[i]);
             RelDataType fieldType =
-                    TypeConverter.toCalciteType(typeFactory, seaTunnelRowType.getFieldType(i));
+                    CalciteTypeConverter.toCalciteType(
+                            typeFactory, seaTunnelRowType.getFieldType(i));
             types.add(typeFactory.createTypeWithNullability(fieldType, true));
         }
         RelDataType rowType = typeFactory.createStructType(types, names);

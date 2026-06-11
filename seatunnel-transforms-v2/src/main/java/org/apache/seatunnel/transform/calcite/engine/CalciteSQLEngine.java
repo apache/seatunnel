@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.transform.calcite.engine;
 
-import org.apache.seatunnel.shade.org.apache.calcite.DataContext;
 import org.apache.seatunnel.shade.org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.seatunnel.shade.org.apache.calcite.adapter.enumerable.EnumerableInterpretable;
 import org.apache.seatunnel.shade.org.apache.calcite.adapter.enumerable.EnumerableRel;
-import org.apache.seatunnel.shade.org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.seatunnel.shade.org.apache.calcite.avatica.util.Casing;
 import org.apache.seatunnel.shade.org.apache.calcite.jdbc.JavaTypeFactoryImpl;
-import org.apache.seatunnel.shade.org.apache.calcite.linq4j.QueryProvider;
 import org.apache.seatunnel.shade.org.apache.calcite.rel.RelNode;
 import org.apache.seatunnel.shade.org.apache.calcite.rel.RelRoot;
 import org.apache.seatunnel.shade.org.apache.calcite.rel.type.RelDataType;
 import org.apache.seatunnel.shade.org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.seatunnel.shade.org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.seatunnel.shade.org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.seatunnel.shade.org.apache.calcite.runtime.Bindable;
 import org.apache.seatunnel.shade.org.apache.calcite.schema.SchemaPlus;
@@ -43,28 +39,21 @@ import org.apache.seatunnel.shade.org.apache.calcite.tools.Programs;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelDataContext;
 import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelScannableTable;
-import org.apache.seatunnel.transform.calcite.type.TypeConverter;
+import org.apache.seatunnel.transform.calcite.type.CalciteValueConverter;
+import org.apache.seatunnel.transform.calcite.type.OutputRowTypeDeriver;
 import org.apache.seatunnel.transform.calcite.udf.BuiltinFunctions;
 import org.apache.seatunnel.transform.calcite.udf.CalciteUdfContext;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.TimeZone;
 
 /**
  * Core Calcite SQL engine that parses, validates, compiles and executes SQL against a single
@@ -80,12 +69,11 @@ public class CalciteSQLEngine implements AutoCloseable {
     private SchemaPlus rootSchema;
     private SeaTunnelScannableTable scannableTable;
     private Bindable<Object[]> bindable;
-    private RelDataType validatedRowType;
-    private SeaTunnelRowType outputRowType;
+
+    @Getter private SeaTunnelRowType outputRowType;
     private BuiltinFunctions builtinFunctions;
-    private CalciteUdfContext udfContext;
     private RelDataTypeFactory typeFactory;
-    private DataContextImpl dataContext;
+    private SeaTunnelDataContext dataContext;
 
     public CalciteSQLEngine(String sql, String tableName, SeaTunnelRowType inputRowType) {
         this.sql = sql;
@@ -110,8 +98,7 @@ public class CalciteSQLEngine implements AutoCloseable {
 
             builtinFunctions = new BuiltinFunctions();
             builtinFunctions.discoverAndRegister(rootSchema);
-            udfContext = new CalciteUdfContext();
-            dataContext = new DataContextImpl(rootSchema, typeFactory);
+            dataContext = new SeaTunnelDataContext(rootSchema, typeFactory);
 
             SqlParser.Config parserConfig =
                     SqlParser.config()
@@ -132,7 +119,7 @@ public class CalciteSQLEngine implements AutoCloseable {
 
             RelRoot relRoot = planner.rel(validated);
             RelNode logicalPlan = relRoot.rel;
-            validatedRowType = relRoot.validatedRowType;
+            RelDataType validatedRowType = relRoot.validatedRowType;
 
             RelNode enumerablePlan =
                     Programs.standard()
@@ -152,7 +139,8 @@ public class CalciteSQLEngine implements AutoCloseable {
                             (EnumerableRel) enumerablePlan,
                             EnumerableRel.Prefer.ARRAY);
 
-            outputRowType = deriveOutputRowType();
+            outputRowType =
+                    new OutputRowTypeDeriver(inputRowType).derive(validated, validatedRowType);
 
             log.info(
                     "Calcite SQL engine initialized successfully for table '{}', SQL: {}",
@@ -178,12 +166,11 @@ public class CalciteSQLEngine implements AutoCloseable {
     public List<SeaTunnelRow> execute(SeaTunnelRow inputRow) {
         Object[] calciteRow = toCalciteRow(inputRow);
         scannableTable.setCurrentRow(calciteRow);
-
-        udfContext.update(inputRow.getTableId(), inputRow.getRowKind());
-        CalciteUdfContext.set(udfContext);
+        dataContext.refreshNow();
 
         List<SeaTunnelRow> results = new ArrayList<>();
-        try {
+        try (CalciteUdfContext.Scope ignored =
+                CalciteUdfContext.enter(inputRow.getTableId(), inputRow.getRowKind())) {
             for (Object rawRow : bindable.bind(dataContext)) {
                 Object[] row;
                 if (rawRow instanceof Object[]) {
@@ -196,139 +183,30 @@ public class CalciteSQLEngine implements AutoCloseable {
         } catch (Exception e) {
             throw TransformCommonError.sqlExpressionError(sql, e);
         } finally {
-            CalciteUdfContext.clear();
             scannableTable.setCurrentRow(null);
         }
         return results;
     }
 
-    /** Returns the output row type derived from the validated SQL. */
-    public SeaTunnelRowType getOutputRowType() {
-        return outputRowType;
-    }
-
-    private SeaTunnelRowType deriveOutputRowType() {
-        List<RelDataTypeField> fields = validatedRowType.getFieldList();
-        String[] names = new String[fields.size()];
-        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[fields.size()];
-        for (int i = 0; i < fields.size(); i++) {
-            names[i] = fields.get(i).getName();
-            types[i] = TypeConverter.toSeaTunnelType(fields.get(i).getType());
-        }
-        return new SeaTunnelRowType(names, types);
-    }
-
     private Object[] toCalciteRow(SeaTunnelRow row) {
         Object[] values = new Object[row.getArity()];
         for (int i = 0; i < row.getArity(); i++) {
-            values[i] = convertToCalciteValue(row.getField(i));
+            values[i] = CalciteValueConverter.toCalcite(row.getField(i));
         }
         return values;
-    }
-
-    private Object convertToCalciteValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDate) {
-            return Date.valueOf((LocalDate) value);
-        }
-        if (value instanceof LocalTime) {
-            return Time.valueOf((LocalTime) value);
-        }
-        if (value instanceof LocalDateTime) {
-            return Timestamp.valueOf((LocalDateTime) value);
-        }
-        if (value instanceof OffsetDateTime) {
-            return Timestamp.from(((OffsetDateTime) value).toInstant());
-        }
-        return value;
     }
 
     private SeaTunnelRow toSeaTunnelRow(Object[] calciteRow, SeaTunnelRow inputRow) {
         Object[] values = new Object[calciteRow.length];
         SeaTunnelDataType<?>[] fieldTypes = outputRowType.getFieldTypes();
         for (int i = 0; i < calciteRow.length; i++) {
-            values[i] = convertFromCalciteValue(calciteRow[i], fieldTypes[i]);
+            values[i] = CalciteValueConverter.fromCalcite(calciteRow[i], fieldTypes[i]);
         }
         SeaTunnelRow result = new SeaTunnelRow(values);
         result.setTableId(inputRow.getTableId());
         result.setRowKind(inputRow.getRowKind());
         result.setOptions(inputRow.getOptions());
         return result;
-    }
-
-    private Object convertFromCalciteValue(Object value, SeaTunnelDataType<?> targetType) {
-        if (value == null) {
-            return null;
-        }
-        switch (targetType.getSqlType()) {
-            case DATE:
-                if (value instanceof Date) {
-                    return ((Date) value).toLocalDate();
-                }
-                if (value instanceof Number) {
-                    return LocalDate.ofEpochDay(((Number) value).longValue());
-                }
-                return value;
-            case TIME:
-                if (value instanceof Time) {
-                    return ((Time) value).toLocalTime();
-                }
-                if (value instanceof Number) {
-                    return LocalTime.ofSecondOfDay(((Number) value).longValue() / 1000);
-                }
-                return value;
-            case TIMESTAMP:
-                if (value instanceof Timestamp) {
-                    return ((Timestamp) value).toLocalDateTime();
-                }
-                if (value instanceof Number) {
-                    return new Timestamp(((Number) value).longValue()).toLocalDateTime();
-                }
-                return value;
-            case TIMESTAMP_TZ:
-                if (value instanceof Timestamp) {
-                    return ((Timestamp) value).toInstant().atOffset(ZoneOffset.UTC);
-                }
-                if (value instanceof Number) {
-                    return Instant.ofEpochMilli(((Number) value).longValue())
-                            .atOffset(ZoneOffset.UTC);
-                }
-                return value;
-            case TINYINT:
-                if (value instanceof Number) {
-                    return ((Number) value).byteValue();
-                }
-                return value;
-            case SMALLINT:
-                if (value instanceof Number) {
-                    return ((Number) value).shortValue();
-                }
-                return value;
-            case INT:
-                if (value instanceof Number) {
-                    return ((Number) value).intValue();
-                }
-                return value;
-            case BIGINT:
-                if (value instanceof Number) {
-                    return ((Number) value).longValue();
-                }
-                return value;
-            case FLOAT:
-                if (value instanceof Number) {
-                    return ((Number) value).floatValue();
-                }
-                return value;
-            case DOUBLE:
-                if (value instanceof Number) {
-                    return ((Number) value).doubleValue();
-                }
-                return value;
-            default:
-                return value;
-        }
     }
 
     @Override
@@ -341,53 +219,7 @@ public class CalciteSQLEngine implements AutoCloseable {
         scannableTable = null;
         bindable = null;
         dataContext = null;
-        udfContext = null;
         typeFactory = null;
-        validatedRowType = null;
         outputRowType = null;
-    }
-
-    /**
-     * Minimal DataContext implementation for Bindable execution without a full CalciteConnection.
-     */
-    private static class DataContextImpl implements DataContext {
-
-        private final SchemaPlus rootSchema;
-        private final RelDataTypeFactory typeFactory;
-
-        DataContextImpl(SchemaPlus rootSchema, RelDataTypeFactory typeFactory) {
-            this.rootSchema = rootSchema;
-            this.typeFactory = typeFactory;
-        }
-
-        @Override
-        public SchemaPlus getRootSchema() {
-            return rootSchema;
-        }
-
-        @Override
-        public JavaTypeFactory getTypeFactory() {
-            return (JavaTypeFactory) typeFactory;
-        }
-
-        @Override
-        public QueryProvider getQueryProvider() {
-            return null;
-        }
-
-        @Override
-        public Object get(String name) {
-            if (name == null) {
-                return null;
-            }
-            if (DataContext.Variable.CURRENT_TIMESTAMP.camelName.equals(name)
-                    || DataContext.Variable.LOCAL_TIMESTAMP.camelName.equals(name)) {
-                return System.currentTimeMillis();
-            }
-            if (DataContext.Variable.TIME_ZONE.camelName.equals(name)) {
-                return TimeZone.getDefault();
-            }
-            return null;
-        }
     }
 }

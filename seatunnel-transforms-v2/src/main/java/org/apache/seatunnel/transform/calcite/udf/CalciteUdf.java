@@ -18,28 +18,12 @@
 package org.apache.seatunnel.transform.calcite.udf;
 
 /**
- * SPI for Calcite SQL transform UDFs. Implementations must provide a <b>public static</b> {@code
- * eval} method whose signature determines the SQL function's input/output types.
+ * SPI for Calcite SQL transform UDFs. Implementations must provide a {@code public static eval}
+ * method whose signature determines the SQL function's input/output types; for binary/vector data
+ * declare {@code byte[]} and the framework bridges Calcite's {@code ByteString} automatically.
  *
- * <p>The {@code eval} method <b>must be static</b> because Calcite's code generation calls it
- * directly without creating an instance. The SPI instance (loaded by {@link
- * java.util.ServiceLoader}) is used only for discovery and lifecycle management.
- *
- * <h3>How to create a custom UDF:</h3>
- *
- * <ol>
- *   <li>Implement this interface and add a <b>public static</b> {@code eval} method:
- *       <pre>{@code
- * @AutoService(CalciteUdf.class)
- * public class MyUdf implements CalciteUdf {
- *     @Override public String functionName() { return "MY_UDF"; }
- *     public static String eval(String input, int length) {
- *         return input.substring(0, length);
- *     }
- * }
- * }</pre>
- *   <li>Package as JAR and place it in {@code ${SEATUNNEL_HOME}/lib/}
- * </ol>
+ * <p>Annotate the implementation with {@code @AutoService(CalciteUdf.class)} and ship the jar in
+ * {@code ${SEATUNNEL_HOME}/lib/} for SPI discovery.
  */
 public interface CalciteUdf extends AutoCloseable {
 

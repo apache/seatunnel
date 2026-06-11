@@ -27,18 +27,9 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * Thread-local row context for Calcite UDFs. Since Calcite code generation calls {@code eval} as a
- * static method, this context is the only way for UDFs to access row-level metadata.
+ * Thread-local row context exposing per-row metadata (table id, {@link RowKind}) to Calcite UDFs.
  *
- * <p>Usage in a custom UDF:
- *
- * <pre>{@code
- * public static String eval(String input) {
- *     CalciteUdfContext ctx = CalciteUdfContext.current();
- *     RowKind kind = ctx.getRowKind();
- *     // ...
- * }
- * }</pre>
+ * <p>UDFs read it via {@link #current()}; the engine opens a {@link Scope} around each row.
  */
 @Slf4j
 public final class CalciteUdfContext {
@@ -52,28 +43,43 @@ public final class CalciteUdfContext {
     private @Nullable String table;
     private @Nullable RowKind rowKind;
 
+    private CalciteUdfContext() {}
+
     /**
-     * Returns the context for the current row being processed. Returns {@code null} if called
-     * outside of Calcite Transform execution.
+     * Returns the context for the row currently being processed by the Calcite engine. Returns
+     * {@code null} when called outside of a UDF execution scope.
      */
     @Nullable public static CalciteUdfContext current() {
         return HOLDER.get();
     }
 
-    public static void set(CalciteUdfContext ctx) {
-        HOLDER.set(ctx);
+    /**
+     * Opens a UDF execution scope bound to the current thread, populated with the given row
+     * metadata. The returned handle MUST be closed (preferably via try-with-resources) so the
+     * thread-local context is properly torn down.
+     *
+     * <p>If a scope already exists on this thread (e.g. nested SQL transforms), the existing
+     * context instance is reused and its metadata is refreshed; nested scopes do not tear down
+     * their parent.
+     */
+    public static Scope enter(@Nullable String tableId, @Nullable RowKind rowKind) {
+        CalciteUdfContext existing = HOLDER.get();
+        if (existing != null) {
+            existing.update(tableId, rowKind);
+            return Scope.NOOP;
+        }
+        CalciteUdfContext fresh = new CalciteUdfContext();
+        fresh.update(tableId, rowKind);
+        HOLDER.set(fresh);
+        return HOLDER::remove;
     }
 
-    public static void clear() {
-        HOLDER.remove();
-    }
-
-    public void update(String tableId, RowKind rowKind) {
+    private void update(@Nullable String tableId, @Nullable RowKind rowKind) {
         this.rowKind = rowKind;
         updateTableId(tableId);
     }
 
-    private void updateTableId(String tableId) {
+    private void updateTableId(@Nullable String tableId) {
         if (Objects.equals(this.rawTableId, tableId)) {
             return;
         }
@@ -127,5 +133,18 @@ public final class CalciteUdfContext {
 
     @Nullable public RowKind getRowKind() {
         return rowKind;
+    }
+
+    /**
+     * Auto-closeable handle returned by {@link #enter}. Closing it removes the thread-local context
+     * if this scope owns it.
+     */
+    public interface Scope extends AutoCloseable {
+
+        /** No-op scope used for nested {@link #enter} calls. */
+        Scope NOOP = () -> {};
+
+        @Override
+        void close();
     }
 }

@@ -4121,7 +4121,9 @@ class CalciteSQLEngineTest {
                         singleVectorRowType());
         Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f, 4.0f)});
         Assertions.assertNotNull(result);
-        Float[] reduced = VectorUtils.toFloatArray(ByteBuffer.wrap((byte[]) result));
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT_TYPE, engine.getOutputRowType().getFieldType(0));
+        Float[] reduced = VectorUtils.toFloatArray((ByteBuffer) result);
         Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, reduced);
         engine.close();
     }
@@ -4133,10 +4135,38 @@ class CalciteSQLEngineTest {
                         "SELECT VECTOR_NORMALIZE(vec) AS nvec FROM t", "t", singleVectorRowType());
         Object result = singleField(engine, new Object[] {floatVec(3.0f, 4.0f)});
         Assertions.assertNotNull(result);
-        Float[] normalized = VectorUtils.toFloatArray(ByteBuffer.wrap((byte[]) result));
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT_TYPE, engine.getOutputRowType().getFieldType(0));
+        Float[] normalized = VectorUtils.toFloatArray((ByteBuffer) result);
         Assertions.assertEquals(2, normalized.length);
         double norm = Math.sqrt(normalized[0] * normalized[0] + normalized[1] * normalized[1]);
         Assertions.assertEquals(1.0, norm, 1e-6);
+        engine.close();
+    }
+
+    @Test
+    void testVectorAliasPreservesType() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT vec AS alias_vec FROM t", "t", singleVectorRowType());
+        Object result = singleField(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f)});
+        Assertions.assertInstanceOf(ByteBuffer.class, result);
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT_TYPE, engine.getOutputRowType().getFieldType(0));
+        Float[] values = VectorUtils.toFloatArray((ByteBuffer) result);
+        Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f, 3.0f}, values);
+        engine.close();
+    }
+
+    @Test
+    void testSelectStarPreservesVectorType() {
+        CalciteSQLEngine engine = createAndInit("SELECT * FROM t", "t", singleVectorRowType());
+        List<SeaTunnelRow> results = exec(engine, new Object[] {floatVec(1.0f, 2.0f, 3.0f)});
+        Assertions.assertEquals(1, results.size());
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT_TYPE, engine.getOutputRowType().getFieldType(0));
+        Assertions.assertInstanceOf(ByteBuffer.class, results.get(0).getField(0));
+        Float[] values = VectorUtils.toFloatArray((ByteBuffer) results.get(0).getField(0));
+        Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f, 3.0f}, values);
         engine.close();
     }
 

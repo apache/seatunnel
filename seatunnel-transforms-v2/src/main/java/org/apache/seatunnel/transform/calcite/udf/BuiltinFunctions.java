@@ -23,19 +23,13 @@ import org.apache.seatunnel.shade.org.apache.calcite.schema.impl.ScalarFunctionI
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 
-/**
- * Discovers and manages {@link CalciteUdf} implementations via SPI. Both built-in UDFs (shipped
- * with SeaTunnel) and external UDFs (placed in {@code ${SEATUNNEL_HOME}/lib/}) are auto-discovered
- * through {@link ServiceLoader}.
- *
- * <p>Each UDF's {@code eval} method must be {@code public static}. Calcite's code generation calls
- * the static method directly without creating instances, so the SPI instance is used only for
- * discovery, lifecycle hooks ({@link CalciteUdf#open()}/{@link CalciteUdf#close()}), and metadata.
- */
+/** Discovers {@link CalciteUdf} implementations via {@link ServiceLoader} and registers them. */
 @Slf4j
 public final class BuiltinFunctions {
 
@@ -60,8 +54,15 @@ public final class BuiltinFunctions {
                             String name = rawName.toUpperCase();
                             boolean opened = false;
                             try {
-                                ScalarFunction function =
-                                        ScalarFunctionImpl.create(udf.getClass(), "eval");
+                                Method evalMethod = findStaticEvalMethod(udf.getClass());
+                                ScalarFunction function;
+                                if (evalMethod != null
+                                        && BinaryAwareScalarFunction.requiresBinaryBridging(
+                                                evalMethod)) {
+                                    function = new BinaryAwareScalarFunction(evalMethod);
+                                } else {
+                                    function = ScalarFunctionImpl.create(udf.getClass(), "eval");
+                                }
                                 if (function == null) {
                                     log.warn(
                                             "No valid static eval method found in Calcite UDF: {}",
@@ -95,5 +96,17 @@ public final class BuiltinFunctions {
             }
         }
         loadedUdfs.clear();
+    }
+
+    /** Finds the {@code public static eval} method declared on the UDF class, if any. */
+    private static Method findStaticEvalMethod(Class<?> clazz) {
+        for (Method method : clazz.getMethods()) {
+            if ("eval".equals(method.getName())
+                    && Modifier.isStatic(method.getModifiers())
+                    && Modifier.isPublic(method.getModifiers())) {
+                return method;
+            }
+        }
+        return null;
     }
 }

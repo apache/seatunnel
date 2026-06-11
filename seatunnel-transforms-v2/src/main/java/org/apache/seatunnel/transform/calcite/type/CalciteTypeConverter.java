@@ -40,7 +40,7 @@ import java.util.List;
  * Bidirectional type converter between {@link SeaTunnelDataType} and Calcite {@link RelDataType}.
  * Covers all types defined in {@link SqlType}.
  */
-public final class TypeConverter {
+public final class CalciteTypeConverter {
 
     /**
      * Converts a SeaTunnel type to the corresponding Calcite RelDataType.
