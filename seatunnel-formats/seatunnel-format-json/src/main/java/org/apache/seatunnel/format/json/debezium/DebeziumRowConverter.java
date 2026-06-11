@@ -156,7 +156,10 @@ public class DebeziumRowConverter implements DateTimeParseHelper, Serializable {
                     Map.Entry<String, JsonNode> entry = it.next();
                     mapValue.put(
                             entry.getKey(),
-                            getValue(null, ((MapType) dataType).getValueType(), entry.getValue()));
+                            getValue(
+                                    fieldName == null ? null : fieldName + ".value",
+                                    ((MapType) dataType).getValueType(),
+                                    entry.getValue()));
                 }
                 return mapValue;
             case ROW:
