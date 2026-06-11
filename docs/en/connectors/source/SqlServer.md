@@ -182,7 +182,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -217,7 +217,7 @@ source {
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -257,7 +257,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
