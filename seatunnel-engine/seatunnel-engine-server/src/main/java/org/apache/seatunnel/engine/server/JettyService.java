@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointHistoryServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointOverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.DynamicMetadataDataSourceServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
@@ -73,6 +75,8 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCE;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTION_RULES;
@@ -214,6 +218,13 @@ public class JettyService {
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
+        ServletHolder metadataDataSourceHolder =
+                isDynamicMetadataEnabled()
+                        ? new ServletHolder(
+                                new DynamicMetadataDataSourceServlet(
+                                        nodeEngine,
+                                        seaTunnelConfig.getEngineConfig().getMetadataConfig()))
+                        : null;
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -246,6 +257,12 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
+        if (metadataDataSourceHolder != null) {
+            context.addServlet(
+                    metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCE));
+            context.addServlet(
+                    metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCES));
+        }
 
         server.setHandler(context);
 
@@ -268,6 +285,13 @@ public class JettyService {
 
     private static String convertUrlToPath(String url) {
         return url + "/*";
+    }
+
+    private boolean isDynamicMetadataEnabled() {
+        return seaTunnelConfig.getEngineConfig().getMetadataConfig() != null
+                && seaTunnelConfig.getEngineConfig().getMetadataConfig().isEnabled()
+                && DynamicMetadataProvider.KIND.equalsIgnoreCase(
+                        seaTunnelConfig.getEngineConfig().getMetadataConfig().getKind());
     }
 
     public int chooseAppropriatePort(int initialPort, int portRange) {

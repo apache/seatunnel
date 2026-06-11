@@ -69,6 +69,8 @@ public class RestConstant {
     public static final String TABLE_SINK_COMMITTED_BYTES = "TableSinkCommittedBytes";
     public static final String TABLE_SINK_COMMITTED_BYTES_PER_SECONDS =
             "TableSinkCommittedBytesPerSeconds";
+    public static final String STATUS = "status";
+    public static final String MESSAGE = "message";
     public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
     public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
 
@@ -107,6 +109,9 @@ public class RestConstant {
     public static final String REST_URL_OPTION_RULES = "/option-rules";
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
+    // Metadata datasource API
+    public static final String REST_URL_METADATA_DATASOURCE = "/metadata/datasource";
+    public static final String REST_URL_METADATA_DATASOURCES = "/metadata/datasources";
     // api path end
 
 }

@@ -177,7 +177,13 @@ seatunnel:
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
+        sensitive_keys:
+          - password
+          - secret_key
 ```
+
+`sensitive_keys` 为可选配置，用于定义动态元数据数据源查询响应中需要脱敏的
+datasource property 字段名。未配置时，SeaTunnel 默认不脱敏。
 
 ### 配置选项
 
@@ -187,6 +193,197 @@ seatunnel:
 | `kind`               | String  | `gravitino` | 要使用的元数据提供者类型                                |
 | `gravitino.uri`      | String  | -           | Gravitino 服务器 URI（当 kind=gravitino 时必填）     |
 | `gravitino.metalake` | String  | -           | Gravitino metalake 名称（当 kind=gravitino 时必填） |
+
+## 内置实现：DynamicMetadataProvider
+
+`DynamicMetadataProvider` 是 Zeta 引擎内置的 Metadata SPI 实现。它使用 Hazelcast 分布式 `IMap` 在 SeaTunnel 集群中保存数据源连接配置，并提供 REST API 用于在运行时创建、查询、更新和删除数据源定义。
+
+当你希望通过 API 动态管理数据源连接信息，而不是在每个作业配置文件中维护连接参数时，可以使用该提供者。
+
+### 支持能力
+
+- 通过 REST API 注册数据源连接属性
+- 在 source 和 sink 连接器中通过 `metadata_datasource_id` 引用已注册的数据源
+- 不修改作业配置模板即可更新数据源属性
+- 将数据源定义保存在 Zeta 集群运行时状态中
+
+> **注意**：`DynamicMetadataProvider` 目前只支持数据源配置查询，不支持通过 `metadata_table_id` 获取表结构。
+
+### 启用 DynamicMetadataProvider
+
+在 `seatunnel.yaml` 中配置如下内容：
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+    metadata:
+      enabled: true
+      kind: dynamic
+```
+
+REST API 使用 Zeta 引擎的 HTTP 服务，因此必须启用 `seatunnel.engine.http.enable-http`。
+
+### 数据源 REST API
+
+#### 创建数据源
+
+```bash
+curl -X POST http://localhost:8080/metadata/datasource \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "metadataDatasourceId": "mysql_source",
+    "connectorType": "Jdbc",
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "secret"
+    }
+  }'
+```
+
+响应：
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource created successfully"
+}
+```
+
+#### 查询单个数据源
+
+```bash
+curl http://localhost:8080/metadata/datasource/mysql_source
+```
+
+#### 查询数据源列表
+
+```bash
+curl http://localhost:8080/metadata/datasources
+```
+
+#### 更新数据源
+
+```bash
+curl -X PUT http://localhost:8080/metadata/datasource/mysql_source \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "new-secret"
+    }
+  }'
+```
+
+#### 删除数据源
+
+```bash
+curl -X DELETE http://localhost:8080/metadata/datasource/mysql_source
+```
+
+### 在作业中使用已注册的数据源
+
+注册数据源后，在连接器配置中通过 `metadata_datasource_id` 引用。提供者会将已注册的 `properties` 合并到连接器配置中；作业级别配置优先于提供者返回的配置。
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    metadata_datasource_id = "mysql_source"
+    query = "select * from source"
+  }
+}
+
+sink {
+  Jdbc {
+    metadata_datasource_id = "mysql_source"
+    database = "seatunnel"
+    generate_sink_sql = true
+    table = "sink"
+  }
+}
+```
+
+### 请求字段
+
+| 字段                     | 是否必填 | 描述                                                       |
+|------------------------|------|----------------------------------------------------------|
+| `metadataDatasourceId` | 是    | 数据源唯一 ID，在作业配置中通过 `metadata_datasource_id` 引用            |
+| `connectorType`        | 是    | 连接器标识，例如 `Jdbc`；必须与作业中使用的连接器匹配                       |
+| `properties`           | 是    | 连接器连接属性，例如 `url`、`driver`、`username`、`password` |
+
+### 限制
+
+- 仅支持 Zeta 引擎。
+- 数据源定义保存在 Zeta 集群运行时状态中。
+- 查询响应会对密码、token 等敏感字段做脱敏处理。
+- `connectorType` 会与作业中的连接器标识进行校验。例如，使用 `connectorType: "Jdbc"` 创建的数据源只能被 `Jdbc` 连接器使用。
+- `DynamicMetadataProvider` 不支持通过 `metadata_table_id` 获取表结构。
+
+### 配置动态数据源持久化，避免集群重启后丢失
+
+`DynamicMetadataProvider` 将数据源定义保存在名为 `engine_metadataDatasource` 的 Hazelcast IMap 中。默认情况下，Hazelcast IMap 数据只保存在内存中。如果所有 Zeta 引擎节点都停止，已注册的数据源定义会丢失，除非配置 IMap 持久化。
+
+如需在集群完全重启后保留动态元数据数据源定义，请在 `hazelcast.yaml` 中为 `engine_metadataDatasource` 配置 MapStore 持久化。
+
+使用 HDFS 的示例：
+
+```yaml
+hazelcast:
+  map:
+    engine_metadataDatasource:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        write-delay-seconds: 0
+        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+        properties:
+          type: hdfs
+          namespace: /tmp/seatunnel/imap
+          clusterName: seatunnel-cluster
+          storage.type: hdfs
+          fs.defaultFS: hdfs://localhost:9000
+```
+
+单节点集群或共享挂载目录可以使用本地文件路径：
+
+```yaml
+hazelcast:
+  map:
+    engine_metadataDatasource:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        write-delay-seconds: 0
+        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+        properties:
+          type: hdfs
+          namespace: /tmp/seatunnel/imap
+          clusterName: seatunnel-cluster
+          storage.type: hdfs
+          fs.defaultFS: file:///
+```
+
+配置说明：
+
+- `engine_metadataDatasource` 是 `DynamicMetadataProvider` 使用的固定 IMap 名称。
+- `initial-mode: EAGER` 表示集群启动时加载已持久化的数据源定义。
+- `write-delay-seconds: 0` 表示同步写入，降低关闭前最后一次 REST API 修改丢失的概率。
+- 多节点集群应使用 HDFS、OSS、S3 或共享挂载文件系统等共享外部存储。节点本地路径只适合单节点部署。
+- 集群重启后需要保持相同的 `namespace` 和 `clusterName`，否则 SeaTunnel 会读取到不同的持久化位置。
+
+更多 IMap 持久化选项请参考 [IMap 持久化配置](../../engines/zeta/hybrid-cluster-deployment.md#53-imap持久化配置)。
 
 ## 默认实现：Gravitino
 

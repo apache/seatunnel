@@ -17,20 +17,25 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
 import lombok.Getter;
 import lombok.NonNull;
 
@@ -52,9 +57,56 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     private final SeaTunnelHazelcastClient hazelcastClient;
     @Getter private final JobClient jobClient;
 
+    /** Flag to track if DynamicMetadataProvider has been initialized */
+    private volatile boolean metadataProviderInitialized = false;
+
     public SeaTunnelClient(@NonNull ClientConfig clientConfig) {
         this.hazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
         this.jobClient = new JobClient(this.hazelcastClient);
+    }
+
+    /**
+     * Initialize DynamicMetadataProvider with Hazelcast client IMap.
+     *
+     * <p>The initialization is performed only once per client instance - subsequent calls will be
+     * ignored.
+     *
+     * @param seaTunnelConfig the SeaTunnel configuration
+     */
+    private synchronized void initDynamicMetadataProvider(SeaTunnelConfig seaTunnelConfig) {
+        // Double-checked locking
+        if (metadataProviderInitialized) {
+            return;
+        }
+
+        MetadataConfig metaDataConfig = seaTunnelConfig.getEngineConfig().getMetadataConfig();
+        if (metaDataConfig == null || !metaDataConfig.isEnabled()) {
+            return;
+        }
+
+        if (!DynamicMetadataProvider.KIND.equalsIgnoreCase(metaDataConfig.getKind())) {
+            return;
+        }
+
+        try {
+            // Get IMap from Hazelcast client
+            IMap<?, ?> datasourceIMap =
+                    hazelcastClient
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_METADATA_DATASOURCE);
+
+            @SuppressWarnings("unchecked")
+            IMap<String, DynamicMetadataDataSource> typedDatasourceIMap =
+                    (IMap<String, DynamicMetadataDataSource>) datasourceIMap;
+            DynamicMetadataProvider.setMetadataDatasourceImap(typedDatasourceIMap);
+
+            metadataProviderInitialized = true;
+            getLogger()
+                    .info(
+                            "Successfully initialized DynamicMetadataProvider with Hazelcast client IMap");
+        } catch (Exception e) {
+            getLogger().warning("Failed to initialize DynamicMetadataProvider", e);
+        }
     }
 
     @Override
@@ -71,6 +123,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             List<String> variables,
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig) {
+        initDynamicMetadataProvider(seaTunnelConfig);
         return new ClientJobExecutionEnvironment(
                 jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, null);
     }
@@ -82,6 +135,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             Long jobId) {
+        initDynamicMetadataProvider(seaTunnelConfig);
         return new ClientJobExecutionEnvironment(
                 jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, jobId);
     }
@@ -102,6 +156,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId) {
+        initDynamicMetadataProvider(seaTunnelConfig);
         return new ClientJobExecutionEnvironment(
                 jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
     }

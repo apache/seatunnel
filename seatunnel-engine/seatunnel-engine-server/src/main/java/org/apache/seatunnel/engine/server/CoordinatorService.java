@@ -46,6 +46,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -200,6 +201,9 @@ public class CoordinatorService {
     private IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap;
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
+
+    /** IMap for storing metadata datasource configurations */
+    private IMap<String, DynamicMetadataDataSource> metadataDatasourceIMap;
 
     /** If this node is a master node */
     private volatile boolean isActive = false;
@@ -503,6 +507,10 @@ public class CoordinatorService {
         return jobHistoryService;
     }
 
+    public IMap<String, DynamicMetadataDataSource> getMetadataDatasourceIMap() {
+        return metadataDatasourceIMap;
+    }
+
     public JobMaster getJobMaster(Long jobId) {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
@@ -531,6 +539,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        metadataDatasourceIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_METADATA_DATASOURCE);
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,

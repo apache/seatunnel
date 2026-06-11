@@ -67,5 +67,7 @@ public class Constant {
 
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
+    public static final String IMAP_METADATA_DATASOURCE = "engine_metadataDatasource";
+
     public static final String PROP_FILE = "zeta.version.properties";
 }

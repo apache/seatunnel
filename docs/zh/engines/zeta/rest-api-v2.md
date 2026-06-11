@@ -37,6 +37,137 @@ seatunnel:
 
 ## API参考
 
+### 管理动态元数据数据源
+
+<details>
+ <summary><code>POST</code> <code><b>/metadata/datasource</b></code> <code>(为 DynamicMetadataProvider 创建数据源。)</code></summary>
+
+#### 请求体
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "secret"
+  }
+}
+```
+
+#### 响应
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource created successfully"
+}
+```
+
+**说明：**
+- 该 API 由 `dynamic` Metadata SPI 提供者使用。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+- `connectorType` 必须与作业中使用的连接器标识匹配，例如 `Jdbc`。
+- 作业通过 `metadata_datasource_id` 引用该数据源时，`properties` 中的配置会被合并到连接器配置中。
+- 查询响应仅会对 `seatunnel.yaml` 中 `metadata.<kind>.sensitive_keys` 配置的敏感字段做脱敏处理。例如配置
+  `metadata.dynamic.sensitive_keys` 为 `password,secret_key` 后，GET 和 LIST 响应会对这两个字段脱敏。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(查询单个动态元数据数据源。)</code></summary>
+
+#### 响应
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "******"
+  },
+  "createTime": 1717500000000,
+  "updateTime": 1717500000000
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasources</b></code> <code>(查询动态元数据数据源列表。)</code></summary>
+
+#### 响应
+
+```json
+[
+  {
+    "metadataDatasourceId": "mysql_source",
+    "connectorType": "Jdbc",
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "******"
+    },
+    "createTime": 1717500000000,
+    "updateTime": 1717500000000
+  }
+]
+```
+
+</details>
+
+<details>
+ <summary><code>PUT</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(更新单个动态元数据数据源。)</code></summary>
+
+#### 请求体
+
+```json
+{
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "new-secret"
+  }
+}
+```
+
+#### 响应
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource updated successfully"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(删除单个动态元数据数据源。)</code></summary>
+
+#### 响应
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource deleted successfully"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 获取 Connector 的 OptionRule
 
 <details>

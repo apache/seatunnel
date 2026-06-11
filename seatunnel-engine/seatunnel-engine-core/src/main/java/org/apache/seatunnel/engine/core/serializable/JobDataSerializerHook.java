@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorPluginJar;
+import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.RefCount;
@@ -63,6 +64,9 @@ public final class JobDataSerializerHook implements DataSerializerHook {
 
     public static final int CONNECTOR_JAR_REF_COUNT = 7;
 
+    /** Serialization ID of the {@link DynamicMetadataDataSource} class. */
+    public static final int METADATA_DATASOURCE = 8;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
@@ -99,6 +103,8 @@ public final class JobDataSerializerHook implements DataSerializerHook {
                     return new ConnectorPluginJar();
                 case CONNECTOR_JAR_REF_COUNT:
                     return new RefCount();
+                case METADATA_DATASOURCE:
+                    return new DynamicMetadataDataSource();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

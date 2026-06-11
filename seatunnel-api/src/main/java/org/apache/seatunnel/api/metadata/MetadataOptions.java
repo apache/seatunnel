@@ -49,4 +49,14 @@ public class MetadataOptions {
                     .defaultValue("gravitino")
                     .withDescription(
                             "The kind of Metadata provider to use. Supported values: gravitino, datahub, atlas, etc.");
+
+    /**
+     * Comma-separated field names that should be masked in dynamic metadata datasource responses.
+     */
+    public static final Option<String> SENSITIVE_KEYS =
+            Options.key("sensitive_keys")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma-separated field names that should be masked in dynamic metadata datasource query responses.");
 }

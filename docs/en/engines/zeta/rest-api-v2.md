@@ -39,6 +39,138 @@ Please refer [security](security.md)
 
 ## API reference
 
+### Manage Dynamic Metadata Datasources
+
+<details>
+ <summary><code>POST</code> <code><b>/metadata/datasource</b></code> <code>(Create a datasource for DynamicMetadataProvider.)</code></summary>
+
+#### Request Body
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "secret"
+  }
+}
+```
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource created successfully"
+}
+```
+
+**Notes:**
+- This API is used by the `dynamic` Metadata SPI provider. See [Metadata SPI](../../introduction/concepts/metadata-spi.md).
+- `connectorType` must match the connector identifier used in the job, for example `Jdbc`.
+- The values under `properties` are merged into the connector configuration when the job references this datasource by `metadata_datasource_id`.
+- Query responses mask only sensitive fields configured by `metadata.<kind>.sensitive_keys` in
+  `seatunnel.yaml`. For example, configure `metadata.dynamic.sensitive_keys` as
+  `password,secret_key` to mask these two fields in GET and LIST responses.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Get one dynamic metadata datasource.)</code></summary>
+
+#### Responses
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "******"
+  },
+  "createTime": 1717500000000,
+  "updateTime": 1717500000000
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasources</b></code> <code>(List dynamic metadata datasources.)</code></summary>
+
+#### Responses
+
+```json
+[
+  {
+    "metadataDatasourceId": "mysql_source",
+    "connectorType": "Jdbc",
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "******"
+    },
+    "createTime": 1717500000000,
+    "updateTime": 1717500000000
+  }
+]
+```
+
+</details>
+
+<details>
+ <summary><code>PUT</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Update one dynamic metadata datasource.)</code></summary>
+
+#### Request Body
+
+```json
+{
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "new-secret"
+  }
+}
+```
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource updated successfully"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/metadata/datasource/&#123;metadataDatasourceId&#125;</b></code> <code>(Delete one dynamic metadata datasource.)</code></summary>
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource deleted successfully"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Get Connector Option Rules
 
 <details>
