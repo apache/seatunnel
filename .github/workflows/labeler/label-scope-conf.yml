@@ -83,6 +83,11 @@ cassandra:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-cassandra/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(cassandra)/**'
+salesforce:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
 cdc:
   - all:
       - changed-files:

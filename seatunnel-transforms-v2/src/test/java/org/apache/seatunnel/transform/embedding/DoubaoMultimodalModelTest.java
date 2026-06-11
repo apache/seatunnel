@@ -178,7 +178,7 @@ public class DoubaoMultimodalModelTest {
                         "binary_image_vector", binaryImageFieldConfig);
         FieldSpec fieldSpec = new FieldSpec(binaryImageFieldEntry);
 
-        byte[] mockImageData = "mock-image-data".getBytes();
+        byte[] mockImageData = "mock-image-data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         MultimodalFieldValue multimodalFieldValue =
                 new MultimodalFieldValue(fieldSpec, mockImageData);
 

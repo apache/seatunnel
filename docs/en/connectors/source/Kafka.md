@@ -533,6 +533,73 @@ The returned data is as follows:
 ```
 Note：key/value is of type byte[].
 
+## FAQ
+
+### What `start_mode` values are available and how do they differ?
+
+| `start_mode` | Behavior |
+|---|---|
+| `earliest` | Consume from the earliest available offset in each partition |
+| `latest` | Consume only new messages produced after the job starts |
+| `group_offsets` | Resume from the committed offsets for the consumer group |
+| `specific_offsets` | Start from explicitly specified offsets per partition |
+| `timestamp` | Start from the first message at or after a given timestamp |
+
+Use `group_offsets` to resume an interrupted job. Use `earliest` for a full replay from the beginning of the topic.
+
+### How can I filter messages from the same topic by Kafka message key?
+
+Use `format = "NATIVE"` to expose the raw Kafka metadata — including the `key` field — as part of each record. Then apply a SQL Transform to keep only messages matching the desired key value:
+
+```hocon
+source {
+  Kafka {
+    topic = "events"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "my-group"
+  }
+}
+transform {
+  Sql {
+    plugin_input = "kafka_source"
+    plugin_output = "filtered"
+    query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
+  }
+}
+```
+
+Note: the `key` field in NATIVE format is base64-encoded bytes.
+
+### What message formats does Kafka Source support?
+
+Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+### How do I configure SASL/Kerberos authentication?
+
+Pass authentication settings via `kafka.*` properties in the connector configuration:
+
+```hocon
+source {
+  Kafka {
+    bootstrap.servers = "broker:9092"
+    topic = "secure-topic"
+    consumer.group = "my-group"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### How are consumer group offsets committed?
+
+Offsets are committed to Kafka when a SeaTunnel checkpoint completes. Ensure checkpointing is enabled via `checkpoint.interval` in the `env` block. If the job restarts with `start_mode = "group_offsets"`, it resumes from the last committed checkpoint offset.
+
 ## Changelog
 
 <ChangeLog />

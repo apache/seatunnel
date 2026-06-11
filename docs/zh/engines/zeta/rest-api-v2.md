@@ -1412,3 +1412,109 @@ Checkpoint 信息字段：
 ```
 
 </details>
+
+------------------------------------------------------------------------------------------
+
+### 获取作业实时可观测性指标（内存时序，realtime）
+
+> 该组接口用于 Web UI 的“实时指标”展示，不依赖 Telemetry，不会落盘，只保留最近 N 分钟的内存 bucket。
+>
+> 配置与指标口径详见：[实时可观测性](realtime-observability.md)。
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(列出当前运行作业的 realtime 指标开关与窗口信息)</code></summary>
+
+#### 响应
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(返回 vertex 维度时序：Source/Transform/Sink)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+> 说明：
+> - ratio 类指标范围为 `0~1`（UI 可显示为百分比）。
+> - 对于非 Source/Transform/Sink 类型的 vertex，相应字段可能为 0。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(返回 queue/edge 维度时序：下游等待占比 + 队列填充率)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>

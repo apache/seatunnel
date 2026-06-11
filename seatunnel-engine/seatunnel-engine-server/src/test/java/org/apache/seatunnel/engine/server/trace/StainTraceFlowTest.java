@@ -406,7 +406,11 @@ public class StainTraceFlowTest {
         SeaTunnelTask queueTask = mockTask(200L, null);
         BlockingQueue<Record<?>> queue = new LinkedBlockingQueue<>();
         IntermediateBlockingQueue blockingQueue =
-                new IntermediateBlockingQueue(queue, new ThreadSafeCounter("qsize"));
+                new IntermediateBlockingQueue(
+                        queue,
+                        new ThreadSafeCounter("total-qsize"),
+                        new ThreadSafeCounter("qsize"),
+                        new ThreadSafeCounter("put-blocked-ns"));
         setField(blockingQueue, "stainTraceMaxEntriesPerTrace", 32);
         setField(blockingQueue, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("c"));
         return new IntermediateQueueFlowLifeCycle<>(

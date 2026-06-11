@@ -525,6 +525,73 @@ source {
 ```
 注意：key/value是byte[]类型。
 
+## 常见问题
+
+### `start_mode` 各取值有什么区别？
+
+| `start_mode` | 行为 |
+|---|---|
+| `earliest` | 从每个分区最早可用的 offset 开始消费 |
+| `latest` | 只消费任务启动后新产生的消息 |
+| `group_offsets` | 从消费组已提交的 offset 恢复消费 |
+| `specific_offsets` | 从每个分区指定的 offset 开始消费 |
+| `timestamp` | 从指定时间戳处或其后的第一条消息开始消费 |
+
+任务中断后重启时使用 `group_offsets` 恢复；需要从头重放全量数据时使用 `earliest`。
+
+### 如何按 Kafka 消息 key 过滤同一 topic 中的消息？
+
+将 `format` 设为 `"NATIVE"` 可以把 Kafka 原始元数据（包括 `key` 字段）作为记录的一部分暴露出来。再用 SQL Transform 保留所需 key 值的消息：
+
+```hocon
+source {
+  Kafka {
+    topic = "events"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "my-group"
+  }
+}
+transform {
+  Sql {
+    plugin_input = "kafka_source"
+    plugin_output = "filtered"
+    query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
+  }
+}
+```
+
+注意：NATIVE 格式中 `key` 字段为 base64 编码的字节数组。
+
+### Kafka Source 支持哪些消息格式？
+
+支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
+
+### 如何配置 SASL/Kerberos 认证？
+
+通过 `kafka.*` 属性传入认证参数：
+
+```hocon
+source {
+  Kafka {
+    bootstrap.servers = "broker:9092"
+    topic = "secure-topic"
+    consumer.group = "my-group"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### 消费组 offset 是如何提交的？
+
+SeaTunnel 在 checkpoint 完成时向 Kafka 提交 offset。需在 `env` 块中通过 `checkpoint.interval` 开启 checkpoint。使用 `start_mode = "group_offsets"` 重启任务时，将从上次 checkpoint 提交的 offset 恢复消费。
+
 ## 变更日志
 
 <ChangeLog />

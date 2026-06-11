@@ -70,6 +70,8 @@ public class EmbeddingModelDimensionTest {
                     .thenReturn(responseStr);
 
             Assertions.assertEquals(dimension, model.dimension());
+        } finally {
+            model.close();
         }
     }
 
@@ -102,6 +104,8 @@ public class EmbeddingModelDimensionTest {
                     .thenReturn(responseStr);
 
             Assertions.assertEquals(dimension, model.dimension());
+        } finally {
+            model.close();
         }
     }
 
@@ -133,6 +137,8 @@ public class EmbeddingModelDimensionTest {
                     .thenReturn(responseStr);
 
             Assertions.assertEquals(dimension, model.dimension());
+        } finally {
+            model.close();
         }
     }
 
