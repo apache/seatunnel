@@ -445,46 +445,30 @@ Many sinks only need Writer + Committer; AggregatedCommitter is for complex case
 
 However, for Flink translation, SeaTunnel checkpoints align with Flink checkpoints to avoid duplication.
 
-## 6. Future Directions
+## 6. Lessons Learned
 
-### 6.1 Planned Enhancements
-
-- **Dynamic Scaling**: Add/remove workers during job execution
-- **Adaptive Batch Size**: Auto-tune batch sizes based on throughput
-- **Query Pushdown**: Push filters/projections to sources
-- **Vectorized Execution**: Process batches of rows (columnar)
-- **Speculative Execution**: Mitigate stragglers
-
-### 6.2 Research Directions
-
-- **Machine Learning Integration**: ML-based optimization (split sizing, parallelism)
-- **Unified Batch and Streaming**: True unified processing model
-- **Global Query Optimization**: Cross-pipeline optimization
-
-## 7. Lessons Learned
-
-### 7.1 What Worked Well
+### 6.1 What Worked Well
 
 1. **Engine Independence**: Validated by successful Zeta engine addition without API changes
 2. **Split-based Parallelism**: Scales well to 1000+ parallel tasks
 3. **Explicit Schema**: Caught many bugs early, enabled schema evolution
 4. **Two-Phase Commit**: Reliable exactly-once semantics
 
-### 7.2 What Could Be Better
+### 6.2 What Could Be Better
 
 1. **API Complexity**: Enumerator/Committer adds learning curve for simple connectors
 2. **Class Loader Issues**: Occasional conflicts with shaded dependencies
 3. **Checkpoint Latency**: Large state causes checkpoint delays
 4. **Documentation Gaps**: Architecture docs lagged behind code
 
-### 7.3 If Starting Over
+### 6.3 If Starting Over
 
 1. **Simplify API**: Provide higher-level abstractions for simple sources/sinks
 2. **Async I/O Support**: First-class async API for non-blocking connectors
 3. **Built-in Metrics**: Standardized metrics collection in API
 4. **Schema Registry Integration**: Tighter integration with external schema registries
 
-## 8. Conclusion
+## 7. Conclusion
 
 SeaTunnel's architecture reflects careful trade-offs between competing concerns:
 - Engine independence vs engine-specific optimization
@@ -494,7 +478,7 @@ SeaTunnel's architecture reflects careful trade-offs between competing concerns:
 
 The V2 redesign addressed major V1 limitations while establishing principles for long-term evolution. Understanding these design philosophies helps contributors make consistent decisions and users understand SeaTunnel's strengths and appropriate use cases.
 
-## 9. References
+## 8. References
 
 - [Architecture Overview](overview.md)
 - [Source Architecture](api-design/source-architecture.md)

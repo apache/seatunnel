@@ -41,6 +41,8 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 |              Name              |  Type   | Required |           Default            |                                                                      Description                                                                       |
 |--------------------------------|---------|----------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | fenodes                        | String  | Yes      | -                            | `Doris` 集群 fenodes 地址, 格式是 `"fe_ip:fe_http_port, ..."`                                                                                                 |
+| benodes                        | String  | No       | -                            | 当 `direct_to_be=true` 时使用的 `Doris` BE HTTP 地址列表，格式是 `"be_ip:be_http_port, ..."`                                                                             |
+| direct_to_be                   | bool    | No       | false                        | 是否将 Stream Load 数据写入请求直接发送到 `benodes`。这是显式启用能力，不会改变默认的 FE 路径。                                                                                      |
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes mysql协议查询端口                                                                                                                            |
 | username                       | String  | Yes      | -                            | `Doris` 用户名                                                                                                                                            |
 | password                       | String  | Yes      | -                            | `Doris` 密码                                                                                                                                             |
@@ -62,6 +64,19 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
 | doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                      |
+
+## Redirect 行为说明
+
+默认情况下，Doris sink 会先将 Stream Load 请求发送到 `fenodes` 指定的 FE 节点。
+
+当 `direct_to_be=true` 时，SeaTunnel 会改为使用 `benodes` 作为 Stream Load 数据写入路径。
+
+如果同时启用了 `sink.enable-2pc=true`：
+
+- pre-commit 阶段的数据写入请求走 `benodes`
+- 2PC 的 commit/abort 控制请求仍然走 `fenodes`
+
+这种“数据面走 BE、控制面走 FE”的混合路径可以在保持 FE 控制路径的同时，绕过不稳定的 FE redirect 场景。
 
 ### schema_save_mode [Enum]
 
@@ -172,6 +187,16 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
 
+## `307 Temporary Redirect` 排查
+
+如果任务报错 `HTTP/1.1 307 Temporary Redirect`，建议优先检查以下项目：
+
+1. SeaTunnel worker 是否能够访问 Doris redirect 返回的目标 BE 地址
+2. Doris FE 是否存在高负载、超时或 Full GC
+3. 是否有代理、SLB、ingress 或网关改写、拦截了 redirect 路径
+
+如果你所在的环境已经有可访问的 Doris BE HTTP 地址，可以通过配置 `benodes` 并设置 `direct_to_be=true`，绕过 FE redirect 的数据写入路径。
+
 ## 任务示例
 
 ### 简单示例
@@ -224,6 +249,49 @@ sink {
     sink.label-prefix = "test-cdc"
     sink.enable-2pc = "true"
     sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### 直连 BE
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### 直连 BE + 2PC
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be-2pc"
+    sink.enable-2pc = true
     doris.config {
       format = "json"
       read_json_by_line = "true"
@@ -367,6 +435,62 @@ sink {
     }
 }
 ```
+
+## 常见问题
+
+### Doris Sink 支持自动建表吗？
+
+支持。精确行为、默认值以及 DDL 自定义入口，请以上面的 `schema_save_mode` 和
+`save_mode_create_template` 小节为准。
+
+### Doris Sink 如何实现精确一次（exactly-once）？
+
+Doris Sink 通过 Stream Load 两阶段提交（2PC）实现 exactly-once：
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突。
+
+### 为什么出现"Label already exists"错误？
+
+Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重启任务，可能复用相同的 label 前缀导致冲突。解决方法：
+
+- 在 `sink.label-prefix` 中加入时间戳或唯一标识，确保每次重启后 label 唯一。
+- 重启前在 Doris 中中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
+
+### Doris Sink 是否支持 CDC 的 DELETE 传播？
+
+支持。设置 `sink.enable-delete = "true"` 即可将 CDC 数据源（如 MySQL CDC）的 DELETE 事件传播到 Doris。目标表必须使用 Doris 的 **Unique Key** 模型。
+
+### Doris 列名是否区分大小写？
+
+请以上面的大小写敏感示例为准。如果上游字段名与 Doris 目标 schema 仍然对不上，应该在 sink 之前先
+做字段规范化，或直接调整目标 schema，而不是依赖并不存在的 `column_mapping` 选项。
+
+### Doris Stream Load 使用什么数据格式？
+
+默认使用 JSON 格式，可按需显式配置：
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+也支持 CSV 格式，但需要仔细配置分隔符。
 
 ## 变更日志
 

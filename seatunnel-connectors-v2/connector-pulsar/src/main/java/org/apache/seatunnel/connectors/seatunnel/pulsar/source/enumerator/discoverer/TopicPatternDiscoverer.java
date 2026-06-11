@@ -65,7 +65,7 @@ public class TopicPatternDiscoverer implements PulsarDiscoverer {
                     .getTopics(namespace)
                     .parallelStream()
                     .filter(this::matchesSubscriptionMode)
-                    .filter(topic -> topicPattern.matcher(topic).find())
+                    .filter(topic -> topicPattern.matcher(topic).matches())
                     .map(
                             topicName -> {
                                 String completeTopicName =

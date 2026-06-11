@@ -205,7 +205,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile && split.getLength() > -1) {
+        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        if (useSplitRead) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
         try (BufferedReader reader =
@@ -220,7 +221,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         }
                     };
             StreamLineSplitter splitter;
-            if (enableSplitFile) {
+            if (useSplitRead) {
                 splitter = new StreamLineSplitter(rowDelimiter, 0, lineProcessor);
             } else {
                 splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);

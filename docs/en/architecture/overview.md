@@ -9,10 +9,10 @@ title: Architecture Overview
 
 ### 1.1 Design Goals
 
-SeaTunnel is designed as a distributed data integration platform with the following core objectives:
+SeaTunnel is designed as a distributed multimodal data integration tool with the following core objectives:
 
 - **Engine Independence**: Decouple connector logic from execution engines, enabling the same connectors to run on SeaTunnel Engine (Zeta), Apache Flink, or Apache Spark
-- **High Performance**: Support large-scale data synchronization with high throughput and low latency
+- **High Performance**: Support large-scale data synchronization with ultra-high-performance throughput and low latency
 - **Fault Tolerance**: Provide exactly-once semantics through distributed snapshots and two-phase commit
 - **Ease of Use**: Offer simple configuration and a rich connector ecosystem
 - **Extensibility**: Plugin-based architecture allowing easy addition of new connectors and transforms
@@ -23,6 +23,20 @@ SeaTunnel is designed as a distributed data integration platform with the follow
 - **Real-time Data Integration**: Stream data capture and synchronization with CDC support
 - **Data Lake/Warehouse Ingestion**: Efficient data loading to data lakes (Iceberg, Hudi, Delta Lake) and warehouses
 - **Multi-table Synchronization**: Synchronizing multiple tables in a single job with schema evolution support
+
+### 1.3 Recommended Reading Path
+
+If you are using this section to build architectural understanding, read in this order:
+
+- this page for the layered system view
+- [Configuration And Option System](./configuration-and-option-system.md) for how plugin configuration is modeled and validated
+- [Transform Plugin System](./transform-plugin-system.md) for how transform plugins fit between source, sink, schema, and engine translation
+- [Table Schema and Type System](./table-schema-and-type-system.md) for how table metadata and portable types flow through the pipeline
+- [CDC Pipeline Architecture](./cdc-pipeline-architecture.md) if you need the end-to-end view for changelog-style pipelines
+- [Checkpoint Mechanism](./fault-tolerance/checkpoint-mechanism.md) and [Exactly-Once](./fault-tolerance/exactly-once.md) for consistency semantics
+- [Resource Management](./engine/resource-management.md) for slot allocation and worker coordination
+- [Plugin Discovery and Class Loading](./plugin-discovery-and-class-loading.md) for runtime plugin packaging and isolation
+- [Translation Layer](./api-design/translation-layer.md) if you need to understand multi-engine support
 
 ## 2. Overall Architecture
 
@@ -98,8 +112,8 @@ The API layer provides engine-independent abstractions:
 **Key Design**: Separation of coordination (Enumerator) and execution (Reader) enables efficient parallel processing and fault tolerance.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSource.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [seatunnel-api/.../SourceSplitEnumerator.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
+- [seatunnel-api/.../SeaTunnelSource.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
+- [seatunnel-api/.../SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
 
 #### Sink API
 - **SeaTunnelSink**: Factory interface for creating writers and committers
@@ -110,8 +124,8 @@ The API layer provides engine-independent abstractions:
 **Key Design**: Two-phase commit protocol (prepareCommit → commit) ensures exactly-once semantics.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSink.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [seatunnel-api/.../SinkWriter.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [seatunnel-api/.../SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [seatunnel-api/.../SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
 
 #### Transform API
 - **SeaTunnelTransform**: Data transformation interface
@@ -119,7 +133,7 @@ The API layer provides engine-independent abstractions:
 - **SeaTunnelFlatMapTransform**: 1:N transformation
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelTransform.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
+- [seatunnel-api/.../SeaTunnelTransform.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
 
 #### Table API
 - **CatalogTable**: Complete table metadata (schema, partition keys, options)
@@ -127,7 +141,7 @@ The API layer provides engine-independent abstractions:
 - **SchemaChangeEvent**: Represents DDL changes for schema evolution
 
 **Code Reference**:
-- [seatunnel-api/.../CatalogTable.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [seatunnel-api/.../CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
 
 ### 3.2 SeaTunnel Engine (Zeta)
 
@@ -150,8 +164,8 @@ LogicalDag → PhysicalPlan → SubPlan (Pipeline) → PhysicalVertex → TaskGr
 ```
 
 **Code Reference**:
-- [seatunnel-engine/.../server/CoordinatorService.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
-- [seatunnel-engine/.../server/master/JobMaster.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
+- [seatunnel-engine/.../server/CoordinatorService.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- [seatunnel-engine/.../server/master/JobMaster.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
 
 ### 3.3 Translation Layer
 
@@ -163,7 +177,7 @@ Enables engine portability through adapter pattern:
 - **Serialization Adapters**: Bridges SeaTunnel and engine serialization mechanisms
 
 **Code Reference**:
-- [seatunnel-translation/.../flink/source/FlinkSource.java](../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
+- [seatunnel-translation/.../flink/source/FlinkSource.java](../../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
 
 ### 3.4 Connector Ecosystem
 
@@ -437,8 +451,12 @@ seatunnel/
 To dive deeper into specific architectural components:
 
 - [Design Philosophy](design-philosophy.md) - Core design principles and trade-offs
+- [Transform Plugin System](transform-plugin-system.md) - How transform plugins are structured, discovered, and used to shape rows and schema
+- [Table Schema and Type System](table-schema-and-type-system.md) - How schema, metadata, and portable types are modeled across connectors and engines
+- [CDC Pipeline Architecture](cdc-pipeline-architecture.md) - How snapshot, incremental change capture, and sink application work together
 - [Source Architecture](api-design/source-architecture.md) - Deep dive into Source API design
 - [Sink Architecture](api-design/sink-architecture.md) - Deep dive into Sink API design
+- [Plugin Discovery and Class Loading](plugin-discovery-and-class-loading.md) - How factories, jars, and isolated dependencies are resolved at runtime
 - [Engine Architecture](engine/engine-architecture.md) - SeaTunnel Engine internals
 - [Checkpoint Mechanism](fault-tolerance/checkpoint-mechanism.md) - Fault tolerance implementation
 

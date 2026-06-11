@@ -191,7 +191,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | database-pattern                          | String   | 否    | .*      | 要捕获的数据库名称的正则表达式, 例如: `database_prefix.*`.                                                                                                                                                                                                    |
 | table-names                               | List     | 是    | -       | 要监控的表名. 表名需要包括库名, 例如: `database_name.table_name`                                                                                                                                                                                             |
 | table-pattern                             | String   | 是    | -       | 要捕获的表名称的正则表达式. 表名需要包括库名, 例如: `database.*\\.table_.*`                                                                                                                                                                                         |
-| table-names-config                        | List     | 否    | -       | 表配置的列表集合. 例如: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                        |
+| table-names-config                        | List     | 否    | -       | 表配置的列表集合. 例如: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引). 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列.                                                                                                                                                                                         |
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
 | startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
@@ -210,6 +210,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | chunk-key.even-distribution.factor.lower-bound | Double   | 否    | 0.05    | 块键分布因子的下限. 该因子用于确定表数据是否分布均匀. 如果计算得出的分布因子大于或等于此下限 (即., (MAX(id) - MIN(id) + 1) / row count), 表的分块将被优化以实现均匀分布. 否则, 如果分布因子小于此下限, 该表将被视为分布不均, 并且如果预估的分片数量超过了 `sample-sharding.threshold` 所指定的值，则将使用基于采样的分片策略. 默认值是 0.05.                         |
 | sample-sharding.threshold                 | Integer  | 否    | 1000    | 此配置指定了触发采样分片策略的预估分片数量阈值. 当分配因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 所指定的范围时, 如果估计的分片数量 (按近似行数/块大小 计算) 超过此阈值, 则将使用样本分片策略. 这有助于更高效地处理大型数据集. 默认值为 1000 分片.                    |
 | inverse-sampling.rate                     | Integer  | 否    | 1000    | 采样分片策略中使用的采样率的倒数. 例如, 如果该值设置为 1000, 则表示在采样过程中应用了 1/1000 的采样率. 此选项在控制采样的粒度方面提供了灵活性, 从而影响最终的分片数量. 在处理非常大的数据集时非常有用, 因为此时更倾向于使用较低的采样率. 默认值为 1000.                                                                                                |
+| split.allow-sampling                      | Boolean  | 否    | true    | 是否允许基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
@@ -369,7 +370,63 @@ sink {
 }
 ```
 
+## 常见问题
+
+### MySQL CDC 需要哪些权限？
+
+MySQL 用户需要以下权限：
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+同时需要在 `my.cnf` / `my.ini` 中开启 binlog：
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### SeaTunnel 能从 MySQL 从库读取 CDC 数据吗？
+
+可以。SeaTunnel 通过订阅 binlog 工作，从库也有 binlog 流。将 SeaTunnel 指向从库可以减轻主库压力。需确保从库开启了 binlog，并在配置中设置 `log_slave_updates = ON`。
+
+### MySQL CDC 是否支持无主键表？
+
+默认要求主键。如果源表没有声明主键，但存在其他可唯一标识记录的列，可以像当前文档中的
+source options 示例那样，通过 `table-names-config.primaryKeys` 指定自定义主键。若没有稳定的
+唯一键，下游就无法安全处理 UPDATE / DELETE 事件。
+
+### 全量快照阶段如何工作？何时切换为增量读取？
+
+首次启动时，SeaTunnel 对已配置的表做一次一致性全量快照。快照完成后，自动从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失任何变更事件。
+
+### MySQL CDC 是否支持 DDL 传播？
+
+支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
+[Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
+目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+
+### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
+
+每个 CDC 任务必须使用唯一的 `server-id` 或不重叠的范围。重复的 `server-id` 会导致 MySQL 服务器断开其中一个客户端连接。建议为每个任务分配独立的范围，例如一个任务用 `5400-5600`，另一个用 `5601-5800`。
+
+### 初始快照为什么很慢？
+
+快照速度取决于表大小、JDBC fetch size 和网络带宽。可以通过调整 `snapshot.split.size`
+和 `snapshot.fetch.size` 来控制快照切分与抓取行为。对于不需要历史数据的大表，可将
+`startup.mode` 设为 `"latest"`，从最新 offset 启动并跳过初始快照。
+
+### 如何处理时区和字符集问题？
+
+将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
+
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 更新日志
 
 <ChangeLog />
-

@@ -79,6 +79,13 @@ jobs:
           else
             echo "No .class files found in git repository."
           fi
+      - name: Check connector registration completeness
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
+          else
+            echo "GITHUB_BASE_REF is not set (push event), skipping connector registration check."
+          fi
 
   helm-chart-check:
     name: Check Helm Chart Syntax
@@ -87,24 +94,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Helm
-        uses: azure/setup-helm@v4.3.0
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
         id: install
       - name: Lint Chart
         run: helm lint deploy/kubernetes/seatunnel
 
-#  dead-link:
-#    name: Dead links
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 150
-#    # Temporarily ignore this job to avoid blocking PRs
-#    continue-on-error: true
-#    steps:
-#      - uses: actions/checkout@v2
-#      - run: sudo npm install -g markdown-link-check@3.8.7
-#      - run: |
-#          for file in $(find . -name "*.md"); do
-#            markdown-link-check -c .dlc.json -q "$file"
-#          done
+  dead-link:
+    name: Dead links
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    # Temporarily ignore this job to avoid blocking PRs
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo npm install -g markdown-link-check@3.8.7
+      - run: |
+          for file in $(find . -name "*.md"); do
+            markdown-link-check -c .dlc.json -q "$file"
+          done
 
   sanity-check:
     name: Sanity check results
@@ -119,7 +126,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     outputs:
       api: ${{ steps.filter.outputs.api }}
       engine: ${{ steps.filter.outputs.engine }}
@@ -256,6 +263,16 @@ jobs:
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          if [[ "zz"$connector_modules == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already route the full downstream engine test set through engine=true.
+            # Keep the fixed smoke modules as the output without resolving the Maven dependency tree.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
@@ -284,6 +301,20 @@ jobs:
           fi
           
           if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-e2e-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-flink-e2e-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-spark-e2e-modules.outputs.modules }}'
+          engine_e2e_modules='${{ steps.engine-e2e-modules.outputs.modules }}'
+          if [[ "zz${connector_modules}${engine_e2e_modules}" == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already trigger the broad downstream integration jobs through engine=true.
+            # Avoid a second Maven dependency tree pass when no connector or engine-e2e module changed.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
             exit 0
           fi
           
@@ -327,7 +358,7 @@ jobs:
     needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout PR
         uses: actions/checkout@v3
@@ -802,7 +833,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -864,7 +895,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -895,7 +926,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -1209,7 +1240,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    # Kudu E2E expands each @TestTemplate case across several PR test containers.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}

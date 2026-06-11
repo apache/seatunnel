@@ -42,6 +42,7 @@
         <module>connector-http-github</module>
         <module>connector-http-notion</module>
         <module>connector-http-persistiq</module>
+        <module>connector-http-airtable</module>
     </modules>
 
 </project>

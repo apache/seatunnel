@@ -21,12 +21,14 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Iceberg aggregated committer */
 @Slf4j
@@ -53,19 +55,26 @@ public class IcebergAggregatedCommitter
     public List<IcebergAggregatedCommitInfo> commit(
             List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
-            commitFiles(commitInfo.commitInfos);
+            commitFiles(commitInfo.getCommitInfos(), commitInfo.getCheckpointId());
         }
         return Collections.emptyList();
     }
 
-    private void commitFiles(List<IcebergCommitInfo> commitInfos) {
-        for (IcebergCommitInfo icebergCommitInfo : commitInfos) {
-            if (icebergCommitInfo.getResults() == null
-                    || icebergCommitInfo.getResults().isEmpty()) {
+    @Override
+    public List<IcebergAggregatedCommitInfo> restoreCommit(
+            List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        for (IcebergAggregatedCommitInfo commitInfo : aggregatedCommitInfo) {
+            long checkpointId = commitInfo.getCheckpointId();
+            List<WriteResult> allResults = flattenResults(commitInfo.getCommitInfos());
+            if (filesCommitter.isAlreadyCommitted(checkpointId, allResults)) {
+                log.info(
+                        "Checkpoint {} already committed to Iceberg table, skipping restore commit",
+                        checkpointId);
                 continue;
             }
-            filesCommitter.doCommit(icebergCommitInfo.getResults());
+            commitFiles(commitInfo.getCommitInfos(), checkpointId);
         }
+        return Collections.emptyList();
     }
 
     @Override
@@ -79,5 +88,19 @@ public class IcebergAggregatedCommitter
     @Override
     public void close() throws IOException {
         this.tableLoader.close();
+    }
+
+    private void commitFiles(List<IcebergCommitInfo> commitInfos, long checkpointId) {
+        List<WriteResult> allResults = flattenResults(commitInfos);
+        if (!allResults.isEmpty()) {
+            filesCommitter.doCommit(allResults, checkpointId);
+        }
+    }
+
+    private List<WriteResult> flattenResults(List<IcebergCommitInfo> commitInfos) {
+        return commitInfos.stream()
+                .filter(info -> info.getResults() != null && !info.getResults().isEmpty())
+                .flatMap(info -> info.getResults().stream())
+                .collect(Collectors.toList());
     }
 }

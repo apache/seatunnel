@@ -422,12 +422,33 @@ sink {
 }
 ```
 
+### 10.4 异常表隔离
+
+对于多表任务，可以在 `env` 中开启框架级异常表隔离：
+
+```hocon
+env {
+  multi_table {
+    failure_policy = "CONTINUE_OTHER_TABLES"
+  }
+}
+```
+
+启用后：
+
+- 启动阶段的表发现、sink 初始化、save mode 处理，以及 `MultiTableSink` 运行期写入失败，会按表打印 `table`、`phase`、`plugin`、`exception`、`reason`
+- 健康表继续运行，异常表被隔离，不再拖垮其余表
+- Batch 作业只要出现失败表，最终状态仍为 `FAILED`
+- Streaming 作业只要还有健康表，会继续保持运行
+
+该配置不处理共享故障，例如 source 连接中断、checkpoint 协调失败、插件加载失败或 OOM；这类异常仍会导致整个作业失败。
+
 ## 13. 相关资源
 
 - [CatalogTable 和元数据](../api-design/catalog-table.md)
 - [目标端架构](../api-design/sink-architecture.md)
 - [DAG 执行](../engine/dag-execution.md)
-- [模式演化](../../introduction/concepts/schema-evolution.md)
+- [模式演化](../../introduction/configuration/schema-evolution.md)
 
 ## 14. 参考资料
 

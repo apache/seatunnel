@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | thrift_max_frame_size      | int     | 否    | -   | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -   | 是否启用 Leader 节点缓存                                                                 |
 | version                    | string  | 否    | -   | 客户端 SQL 语义版本（`V_0_12` / `V_0_13`）                                                |
-| common-options             |         | 否    | -   | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
+| common-options             |         | 否    | -   | Source 插件常用参数，详见 [Source common Options](../common-options/source-common-options.md)            |
 
 我们可以使用时间列进行分区查询。
 
@@ -157,4 +157,3 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 ## 变更日志
 
 <ChangeLog />
-

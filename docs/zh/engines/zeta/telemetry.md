@@ -1,8 +1,9 @@
 ---
 sidebar_position: 14
+title: 监控与指标
 ---
 
-# Telemetry
+# 监控与指标
 
 通过 `Prometheus-exports` 集成 `Metrices` 可以更好地与相关的监控平台（如 Prometheus 和 Grafana）无缝衔接，提高对 SeaTunnel
 集群的监控和告警能力。
@@ -21,10 +22,9 @@ seatunnel:
 
 ## 指标
 
-Prometheus 的[指标文本](telemetryetrics.txt)，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`。
+Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
-OpenMetrics 的[指标文本](telemetrypenmetrics.txt)
-，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`。
+OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
 
 可用的指标包括以下类别。
 
@@ -49,6 +49,88 @@ OpenMetrics 的[指标文本](telemetrypenmetrics.txt)
 | hazelcast_partition_activePartition       | Gauge | -                                                                                                          | seatunnel 集群节点的活跃分区数量               |
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                          | 分区是否安全                              |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                          | 本地成员是否安全                            |
+
+### 引擎状态存储指标
+
+这些指标暴露 Zeta 引擎状态存储的基础大小和本地资源使用情况。当前后端是 Hazelcast IMap，因此 `backend`
+标签值为 `hazelcast`。本地指标由每个节点输出，并包含 `address` 标签。如需监控某个引擎状态存储的全局
+entry 总量，请在 Prometheus 中聚合 `engine_state_store_local_owned_entries`。
+
+| MetricName                                      | Type  | Labels                                                    | 描述                                      |
+|-------------------------------------------------|-------|-----------------------------------------------------------|-----------------------------------------|
+| engine_state_store_local_owned_entries          | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 当前节点上该引擎状态存储的本地 owned entry 数。       |
+| engine_state_store_local_backup_entries         | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 当前节点上该引擎状态存储的本地 backup entry 数。      |
+| engine_state_store_local_heap_cost_bytes        | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 后端支持时，当前节点上该引擎状态存储的本地堆内存成本，单位为字节。 |
+
+PromQL 示例：
+
+```promql
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+```
+
+### 引擎状态存储逻辑指标
+
+这些指标暴露特定引擎状态存储的业务语义计数。它们仅由当前 active master 输出。指标名保持 backend-neutral，
+但当前实现仍会带上 `backend="hazelcast"` 标签。
+
+| MetricName                                               | Type    | Labels                                      | 描述 |
+|----------------------------------------------------------|---------|---------------------------------------------|------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**，状态存储后端。                  | `engine_runningJobMetrics` 中当前保存的 task metric context 总数。 |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**，状态存储后端。                | `engine_runningJobMetrics` 中当前非空的顶层分桶 key 数。 |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**，状态存储后端。                  | `engine_checkpoint_monitor` 中当前跟踪的 job 数。 |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**，状态存储后端。              | `engine_checkpoint_monitor` 中当前 in-progress checkpoint 数。 |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**，状态存储后端。            | `engine_checkpoint_monitor` 中当前保留的 checkpoint history 条目数。 |
+| engine_state_store_finished_job_records                  | Gauge   | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 相关状态存储中的当前记录数。 |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 状态存储因过期而发生的清理总次数。 |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前被跟踪的 connector jar 数。 |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前所有 connector jar 引用计数之和。 |
+
+这些逻辑指标与上面的本地 Hazelcast store 指标互为补充：
+
+- 当你想看每个节点上的数据分布和内存占用时，使用 `engine_state_store_local_*` 指标。
+- 当你想看 checkpoint 积压、finished job 保留、connector jar 复用等引擎语义时，使用 `engine_state_store_*` 逻辑指标。
+
+PromQL 示例：
+
+```promql
+# 按 store 聚合后的状态存储总 entry 数
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# 当前 checkpoint 积压
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# 最近 15 分钟 finished job cleanup 增长量
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# connector jar 引用压力
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Grafana 面板示例：
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
 
 ### 线程池状态
 
@@ -146,6 +228,6 @@ scrape_configs:
 #### 监控仪表板
 
 - 在 Grafana 中添加 Prometheus 数据源。
-- 将 `Seatunnel Cluster` 监控仪表板导入到 Grafana 中，使用 [仪表板 JSON](telemetryrafana-dashboard.json)。
+- 将 `Seatunnel Cluster` 监控仪表板 JSON 导入到 Grafana 中。
 
 监控[效果图](../../../images/grafana.png)

@@ -55,7 +55,7 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. Change the REPLICA policy of the specified table to FULL
+2. Change the REPLICA policy of the specified table to FULL, unless `require-replica-identity-full` is set to `false`.
 
 ```sql
 ALTER TABLE your_table_name REPLICA IDENTITY FULL;
@@ -95,7 +95,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names                               | List     | Yes      | -        | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| table-names-config                        | List     | No       | -        | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | startup.mode                              | Enum     | No       | INITIAL  | Optional startup mode for PostgreSQL CDC consumer, valid enumerations are `initial`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -109,8 +109,10 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05     | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | Integer  | No       | 1000     | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No       | 1000     | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
+| split.allow-sampling                      | Boolean  | No       | true     | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
 | exactly_once                              | Boolean  | No       | false    | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT  | Optional output format for PostgreSQL CDC, valid enumerations are `DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| require-replica-identity-full             | Boolean  | No       | true     | Require the table to have REPLICA IDENTITY FULL. When set to false, allows tables with other replica identity settings, but UPDATE/DELETE events may not contain the previous state. This should only be used for append-only tables (e.g., outbox pattern). Default is true for backward compatibility.                                                                                                                                                                                                                                                                                                             |
 | debezium                                  | Config   | No       | -        | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) to Debezium Embedded Engine which is used to capture data changes from PostgreSQL server.                                                                                                                                                                                                                                                                                                                                |
 | common-options                            |          | no       | -        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -189,6 +191,47 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### What PostgreSQL permissions are required for CDC?
+
+The CDC user must have the `REPLICATION` role and `SELECT` access to the monitored tables:
+
+```sql
+CREATE USER replication_user REPLICATION LOGIN PASSWORD 'password';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication_user;
+```
+
+Also set `wal_level = logical` in `postgresql.conf` and add an entry in `pg_hba.conf` to allow the replication connection.
+
+### Which logical decoding plugins are supported?
+
+SeaTunnel PostgreSQL CDC supports `pgoutput` (built-in since PostgreSQL 10), `wal2json`, and `decoderbufs`. The default is `pgoutput`. Use the `decoding.plugin.name` parameter to select the plugin.
+
+### Can SeaTunnel read CDC from a PostgreSQL standby?
+
+PostgreSQL logical replication slots must be created and consumed on the primary server. SeaTunnel cannot read a logical replication slot directly from a standby. Point the CDC connector at the primary instance.
+
+### Does PostgreSQL CDC support tables without primary keys?
+
+By default, PostgreSQL CDC requires primary keys. You can specify a custom primary key via `table-names-config` with the `primaryKeys` field if the table has a unique column that can serve as an identifier.
+
+### How are replication slots managed?
+
+SeaTunnel creates or reuses the replication slot identified by `slot.name` when the job starts.
+Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
+CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
+
+### Why does PostgreSQL CDC fall behind?
+
+Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
 
 ## Changelog
 

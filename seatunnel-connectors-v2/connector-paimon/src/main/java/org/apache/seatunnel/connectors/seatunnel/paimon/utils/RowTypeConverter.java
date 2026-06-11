@@ -422,13 +422,16 @@ public class RowTypeConverter {
                     SeaTunnelDataType<?>[] fieldTypes = row.getFieldTypes();
                     String[] fieldNames = row.getFieldNames();
                     int totalFields = row.getTotalFields();
-                    DataType[] dataTypes = new DataType[totalFields];
+                    DataField[] dataFields = new DataField[totalFields];
                     for (int i = 0; i < totalFields; i++) {
-                        dataTypes[i] =
-                                SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(
-                                        fieldNames[i], fieldTypes[i]);
+                        dataFields[i] =
+                                new DataField(
+                                        i,
+                                        fieldNames[i],
+                                        SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(
+                                                fieldNames[i], fieldTypes[i]));
                     }
-                    return DataTypes.ROW(dataTypes);
+                    return DataTypes.ROW(dataFields);
                 default:
                     throw CommonError.unsupportedDataType(
                             PaimonBaseOptions.CONNECTOR_IDENTITY,

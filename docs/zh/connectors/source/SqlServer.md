@@ -182,7 +182,7 @@ source{
 
 transform {
     # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看转换插件的完整列表，
-    # 请前往 https://seatunnel.apache.org/docs/transform-v2/sql
+    # 请前往 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -217,7 +217,7 @@ source {
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -251,19 +251,19 @@ source {
 
   }
   # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看源插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # 请前往 https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 
 transform {
   # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看转换插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/transform-v2/sql
+  # 请前往 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
   Console {}
-  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看 Sink 插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看汇插件的完整列表，
+  # 请前往 https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 

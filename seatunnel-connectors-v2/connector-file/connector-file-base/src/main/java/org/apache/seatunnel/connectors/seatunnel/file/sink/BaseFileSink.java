@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -46,22 +42,36 @@ import java.util.Optional;
 public abstract class BaseFileSink
         implements SeaTunnelSink<
                 SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
-    protected SeaTunnelRowType seaTunnelRowType;
-    protected Config pluginConfig;
-    protected HadoopConf hadoopConf;
+    protected ReadonlyConfig pluginConfig;
+    protected CatalogTable catalogTable;
     protected FileSinkConfig fileSinkConfig;
+    protected HadoopConf hadoopConf;
     protected JobContext jobContext;
     protected String jobId;
 
+    public BaseFileSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
+        this.fileSinkConfig = new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+        this.hadoopConf = initHadoopConf();
+    }
+
+    protected abstract HadoopConf initHadoopConf();
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
+    }
+
     public void preCheckConfig() {
-        if (pluginConfig.hasPath(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
+        if (pluginConfig.getOptional(FileBaseSinkOptions.SINGLE_FILE_MODE).isPresent()
+                && pluginConfig.get(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 && jobContext.isEnableCheckpoint()) {
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
         }
-        if (pluginConfig.hasPath(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+        if (pluginConfig.getOptional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA).isPresent()
+                && pluginConfig.get(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
             throw new IllegalArgumentException(
                     "Generate empty file when no data is not supported when partition is enabled.");
@@ -73,12 +83,6 @@ public abstract class BaseFileSink
         this.jobContext = jobContext;
         this.jobId = jobContext.getJobId();
         preCheckConfig();
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
     }
 
     @Override
@@ -114,24 +118,10 @@ public abstract class BaseFileSink
         return Optional.of(new DefaultSerializer<>());
     }
 
-    /**
-     * Use the pluginConfig to do some initialize operation.
-     *
-     * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will
-     *     throw.
-     */
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-    }
-
     protected WriteStrategy createWriteStrategy() {
         WriteStrategy writeStrategy =
                 WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-        writeStrategy.setCatalogTable(
-                CatalogTableUtil.getCatalogTable(
-                        "file", null, null, TablePath.DEFAULT.getTableName(), seaTunnelRowType));
+        writeStrategy.setCatalogTable(catalogTable);
         return writeStrategy;
     }
 }

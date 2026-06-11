@@ -30,6 +30,7 @@ import com.google.auto.service.AutoService;
 
 import java.util.List;
 
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @AutoService(Factory.class)
@@ -73,7 +74,8 @@ public class InMemorySinkFactory
                         CHECKPOINT_SLEEP,
                         THROW_EXCEPTION_OF_COMMITTER,
                         ASSERT_OPTIONS_KEY,
-                        ASSERT_OPTIONS_VALUE)
+                        ASSERT_OPTIONS_VALUE,
+                        MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

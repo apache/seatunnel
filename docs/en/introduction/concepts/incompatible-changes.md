@@ -31,9 +31,58 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: `Condition.of(option, null)` no longer allowed**
+  - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
+  - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
+  - **Impact**: No production code in the main repository uses `Condition.of(option, null)`, so the practical impact is zero. However, any custom or third-party connector code that relied on this pattern will need to be updated.
+  - **Migration Guide**: If you need to check whether an option is absent or unset, use `Conditions.notBlank(option)` (for strings) or handle the absence at the `OptionRule.Builder` level with `optional(...)` instead of passing `null` as the expected value.
+
+- **Breaking Change: `OptionValidationException` message format changed to structured aggregation**
+  - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.ConfigValidator`
+  - **Description**: `ConfigValidator.validate(OptionRule)` now collects all structural and value constraint errors and throws a single `OptionValidationException` with a structured multi-line message instead of failing on the first error.
+
+  **Before (fail-fast, single error)**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('host') are required.
+  ```
+
+  **After (aggregated, structured)**
+  ```
+  ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Option validation failed (2 errors):
+    [1] option: 'host'
+        type: required
+        constraint: required option is not configured
+    [2] option: 'port'
+        type: value
+        constraint: 'port' >= 1
+  ```
+  - **Impact**: Code that parses the exception message by matching substrings like `"are required"` or assumes a single-error format will need to be updated. The error code (`API-02`) and the `" - "` separator between the code prefix and the body remain unchanged.
+  - **Migration Guide**: Update any string-matching logic on `OptionValidationException.getMessage()` to handle the new multi-line numbered format. Use `getRawMessage()` to get the body without the `ErrorCode` prefix if needed.
+
 ### Configuration Changes
 
 ### Connector Changes
+
+- **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
+  - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
+  - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source
+    table's primary key when `iceberg.table.primary-keys` was not explicitly configured. This
+    silently set `identifier-field-ids` on auto-created Iceberg tables, activating equality-delete
+    semantics and causing silent INSERT data loss in append-only CDC pipelines
+    (see [#10747](https://github.com/apache/seatunnel/issues/10747)). The fallback has been
+    removed.
+  - **Impact**: Jobs that set `iceberg.table.upsert-mode-enabled=true` without an explicit
+    `iceberg.table.primary-keys` will now fail at startup with a clear `IllegalArgumentException`.
+    Jobs that relied on implicit PK inheritance to drive upsert semantics must now set
+    `iceberg.table.primary-keys` explicitly.
+  - **Migration Guide**:
+    - **Upsert mode jobs**: Add `iceberg.table.primary-keys = "<your key columns>"` to the Iceberg
+      sink config.
+    - **Append-only CDC jobs**: No action needed — omitting `iceberg.table.primary-keys` now
+      correctly routes writes through the pure append writer with no equality deletes.
+    - **Existing Iceberg tables** that already have `identifier-field-ids` stored in their
+      Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
+      behavior.
 
 ### Transform Changes
 

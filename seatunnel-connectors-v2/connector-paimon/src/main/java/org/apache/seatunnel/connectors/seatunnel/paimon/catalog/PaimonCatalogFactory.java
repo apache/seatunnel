@@ -47,12 +47,16 @@ public class PaimonCatalogFactory implements CatalogFactory {
                         PaimonBaseOptions.DATABASE,
                         PaimonBaseOptions.TABLE)
                 .optional(
+                        PaimonBaseOptions.CATALOG_NAME,
                         PaimonBaseOptions.HDFS_SITE_PATH,
                         PaimonBaseOptions.HADOOP_CONF,
                         PaimonBaseOptions.HADOOP_CONF_PATH,
                         PaimonBaseOptions.CATALOG_TYPE,
+                        PaimonBaseOptions.USER,
+                        PaimonBaseOptions.PASSWORD,
                         PaimonSinkOptions.SCHEMA_SAVE_MODE,
                         PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.NON_PRIMARY_KEY,
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
                         PaimonSinkOptions.WRITE_PROPS,

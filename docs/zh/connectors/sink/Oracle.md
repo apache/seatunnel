@@ -99,7 +99,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单的例子
 
->此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start-SeaTunnel-Engine.md）中的说明运行此作业。
+>此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 ```
 # 定义运行环境
@@ -121,12 +121,12 @@ source {
     }
   }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的源插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/source
+	#请前往https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/transform-v2
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -138,7 +138,7 @@ sink {
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/sink
+	#请前往https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

@@ -19,7 +19,11 @@ package org.apache.seatunnel.engine.common.utils;
 
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.spi.exception.RetryableHazelcastException;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ExceptionUtilTest {
 
@@ -44,5 +48,25 @@ public class ExceptionUtilTest {
     @Test
     void throwsNullPointerExceptionWhenNull() {
         assertThrows(NullPointerException.class, () -> ExceptionUtil.sneakyThrow(null));
+    }
+
+    @Test
+    void testIsOperationNeedRetryException_withRetryableHazelcastException() {
+        RetryableHazelcastException exception = new RetryableHazelcastException("IMap loading");
+        assertTrue(ExceptionUtil.isOperationNeedRetryException(exception));
+    }
+
+    @Test
+    void testIsOperationNeedRetryException_withWrappedRetryableHazelcastException() {
+        Throwable exception =
+                new Exception(
+                        new RuntimeException(new RetryableHazelcastException("IMap loading")));
+        assertTrue(ExceptionUtil.isOperationNeedRetryException(exception));
+    }
+
+    @Test
+    void testIsOperationNeedRetryException_withNonRetryableException() {
+        Exception exception = new Exception("Non-retryable error");
+        assertFalse(ExceptionUtil.isOperationNeedRetryException(exception));
     }
 }

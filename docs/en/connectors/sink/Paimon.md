@@ -63,6 +63,7 @@ libfb303-xxx.jar
 | name                         | type    | required | default value                | Description                                                                                                                                                      |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | warehouse                    | String  | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
+| catalog_name                 | String  | No       | paimon                       | The name of Paimon catalog                                                                                                                                       |
 | catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
 | catalog_uri                  | String  | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
 | database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
@@ -78,7 +79,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | false    | -                            | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
-| branch                       | String  | No       | main                         | The branch name of Paimon table to write data to. If the branch does not exist, an exception will be thrown.                                                     |
+| branch                       | String  | No       | main                         | The branch name of Paimon table to write data to. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
 
 
 ## Checkpoint in batch mode
@@ -98,7 +99,7 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
 > note： 
-> When you use a streaming mode to read paimon table，different mode will produce [different results](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
+> When you use a streaming mode to read paimon table，different mode will produce [different results](../source/Paimon.md#changelog)。
 
 ## Filesystems
 The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.

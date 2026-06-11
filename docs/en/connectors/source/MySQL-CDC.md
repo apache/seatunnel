@@ -192,7 +192,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | database-pattern                          | String   | No       | .*      | The database names RegEx of the database to capture, for example: `database_prefix.*`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | table-names                               | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | Yes      | -       | The table names RegEx of the database to capture. The table name needs to include the database name, for example: `database.*\\.table_.*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -211,6 +211,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | Integer  | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
+| split.allow-sampling                      | Boolean  | No       | true    | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for MySQL CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -371,7 +372,68 @@ sink {
 }
 ```
 
+## FAQ
+
+### What MySQL permissions are required for CDC?
+
+The MySQL user must have the following privileges:
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+Also enable binary logging in `my.cnf` / `my.ini`:
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### Can SeaTunnel read CDC from a MySQL replica?
+
+Yes. SeaTunnel subscribes to MySQL binary logs, which are also streamed to replicas. You can point SeaTunnel at a replica to offload the primary. Ensure the replica has binary logging enabled and `log_slave_updates = ON` set in its configuration.
+
+### Does MySQL CDC support tables without primary keys?
+
+By default, MySQL CDC expects primary keys. If the source table does not declare a primary key but
+does have another unique column that can identify rows, you can override it with
+`table-names-config.primaryKeys` as shown in the existing source options example. Without a stable
+unique key, UPDATE and DELETE events cannot be applied safely downstream.
+
+### How does the full snapshot phase work, and when does it switch to incremental reading?
+
+On first startup, SeaTunnel takes a consistent full snapshot of the configured tables. After the snapshot completes, it automatically switches to reading binlog from the position recorded at the beginning of the snapshot, ensuring no events are lost during the transition.
+
+### Does MySQL CDC support DDL propagation?
+
+Yes, but only in a limited form. Enable `schema-changes.enabled = true`, then follow the current
+schema evolution contract already documented on this page and in the
+[Schema Evolution guide](../../introduction/configuration/schema-evolution.md). The current
+documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
+
+### How do I avoid `server-id` conflicts when running multiple CDC jobs?
+
+Each CDC job must use a unique `server-id` or a non-overlapping range. Duplicate `server-id` values cause the MySQL server to disconnect one of the clients. Assign distinct ranges, for example `5400-5600` for one job and `5601-5800` for another.
+
+### Why is the initial snapshot very slow?
+
+Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune
+`snapshot.split.size` and `snapshot.fetch.size` to control chunking and fetch behavior. For very
+large tables where historical data is not needed, set `startup.mode = "latest"` to start from the
+latest offset and skip the initial snapshot.
+
+### How do I handle timezone and character set issues?
+
+Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/Shanghai"`. For character set issues, append `characterEncoding=UTF-8&useUnicode=true` to the JDBC connection URL.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
+
 ## Changelog
 
 <ChangeLog />
-

@@ -52,15 +52,36 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | start_mode                          | StartMode[earliest],[group_offsets],[latest],[specific_offsets],[timestamp] | No       | group_offsets            | The initial consumption pattern of consumers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | start_mode.offsets                  | Config                                                                     | No       | -                        | The offset required for consumption mode to be specific_offsets.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | start_mode.timestamp                | Long                                                                       | No       | -                        | The time required for consumption mode to be "timestamp".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode
+| start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode |
 | partition-discovery.interval-millis | Long                                                                       | No       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ignore_no_leader_partition          | Boolean                                                                    | No       | false                    | Whether to ignore partitions that have no leader. If set to true, partitions without a leader will be skipped during partition discovery. If set to false (default), the connector will include all partitions regardless of leader status. This is useful when dealing with Kafka clusters that may have temporary leadership issues.                                                                                                                                                                                                      |
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
-| reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
+| reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
 | is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.
+
+> On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
+> `start_mode` and consumer-group offsets are only used for the first startup or for newly
+> discovered partitions that do not have checkpointed state yet.
+
+### reader_cache_queue_size
+
+The maximum number of poll-result batches that the connector buffers between the fetcher thread and the reader thread.
+
+:::tip
+
+Each element in the queue is one complete `consumer.poll()` result, which may contain up to `max.poll.records` (default 500) messages.
+When back-pressure occurs downstream, the queue may fill up, and the upper bound of messages held in memory is `reader_cache_queue_size × max.poll.records`.
+
+:::
+
+:::caution
+
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+
+:::
 
 ### debezium_record_table_filter
 
@@ -78,7 +99,7 @@ Only the data of the `test.public.products` table will be consumed.
 
 ## Metadata Support
 
-The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transforms/metadata.md) for downstream SQL or partitioning.
 
 ```hocon
 source {
@@ -511,6 +532,73 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+## FAQ
+
+### What `start_mode` values are available and how do they differ?
+
+| `start_mode` | Behavior |
+|---|---|
+| `earliest` | Consume from the earliest available offset in each partition |
+| `latest` | Consume only new messages produced after the job starts |
+| `group_offsets` | Resume from the committed offsets for the consumer group |
+| `specific_offsets` | Start from explicitly specified offsets per partition |
+| `timestamp` | Start from the first message at or after a given timestamp |
+
+Use `group_offsets` to resume an interrupted job. Use `earliest` for a full replay from the beginning of the topic.
+
+### How can I filter messages from the same topic by Kafka message key?
+
+Use `format = "NATIVE"` to expose the raw Kafka metadata — including the `key` field — as part of each record. Then apply a SQL Transform to keep only messages matching the desired key value:
+
+```hocon
+source {
+  Kafka {
+    topic = "events"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "my-group"
+  }
+}
+transform {
+  Sql {
+    plugin_input = "kafka_source"
+    plugin_output = "filtered"
+    query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
+  }
+}
+```
+
+Note: the `key` field in NATIVE format is base64-encoded bytes.
+
+### What message formats does Kafka Source support?
+
+Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+### How do I configure SASL/Kerberos authentication?
+
+Pass authentication settings via `kafka.*` properties in the connector configuration:
+
+```hocon
+source {
+  Kafka {
+    bootstrap.servers = "broker:9092"
+    topic = "secure-topic"
+    consumer.group = "my-group"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### How are consumer group offsets committed?
+
+Offsets are committed to Kafka when a SeaTunnel checkpoint completes. Ensure checkpointing is enabled via `checkpoint.interval` in the `env` block. If the job restarts with `start_mode = "group_offsets"`, it resumes from the last committed checkpoint offset.
 
 ## Changelog
 

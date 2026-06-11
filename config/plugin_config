@@ -23,6 +23,7 @@
 connector-amazondynamodb
 connector-assert
 connector-cassandra
+connector-salesforce
 connector-cdc-mysql
 connector-cdc-mongodb
 connector-cdc-sqlserver
@@ -60,6 +61,7 @@ connector-http-myhours
 connector-http-notion
 connector-http-onesignal
 connector-http-wechat
+connector-http-airtable
 connector-hudi
 connector-iceberg
 connector-influxdb
@@ -99,3 +101,5 @@ connector-cdc-opengauss
 connector-sensorsdata
 connector-hugegraph
 connector-lance
+connector-mqtt
+connector-bigquery
