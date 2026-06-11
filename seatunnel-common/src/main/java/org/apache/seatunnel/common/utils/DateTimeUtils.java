@@ -67,7 +67,7 @@ public class DateTimeUtils {
     private static void initPatternMap() {
         // Clear the map to avoid repeated initialization when the class is reloaded
         DATETIME_PATTERN_MAP.clear();
-        String reversePattern = "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}[T\\s]\\d{1,2}:\\d{1,2}:\\d{1,2}";
+        String reversePattern = "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}[T ]\\d{1,2}:\\d{1,2}:\\d{1,2}";
         DateTimeFormatter reverseFormatter =
                 new DateTimeFormatterBuilder()
                         .parseCaseInsensitive()

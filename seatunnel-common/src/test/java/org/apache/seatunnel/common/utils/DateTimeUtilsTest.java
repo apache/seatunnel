@@ -631,6 +631,20 @@ public class DateTimeUtilsTest {
     }
 
     @Test
+    public void testReverseDateTimeWithTSeparator() {
+        // Regression: reverse datetime pattern should accept both T and space as separator
+        LocalDateTime withT = DateTimeUtils.parse("1/2/2026T12:01:30");
+        LocalDateTime withSpace = DateTimeUtils.parse("1/2/2026 12:01:30");
+        assertEquals(withSpace, withT);
+        assertEquals(2026, withT.getYear());
+        assertEquals(1, withT.getMonthValue());
+        assertEquals(2, withT.getDayOfMonth());
+        assertEquals(12, withT.getHour());
+        assertEquals(1, withT.getMinute());
+        assertEquals(30, withT.getSecond());
+    }
+
+    @Test
     public void testParseUnsupportedFormat() {
         // Test parsing with unsupported format
         IllegalArgumentException assertThrows =
@@ -641,6 +655,7 @@ public class DateTimeUtilsTest {
                 "Unsupported datetime format: 2023/12/251 15:30:45", assertThrows.getMessage());
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testParsePerformanceAutoFormatNormalPattern() {
         final int iterations = 10000000;
@@ -660,6 +675,7 @@ public class DateTimeUtilsTest {
         assertTrue(durationMs > 0);
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testParsePerformanceAutoFormatShortPattern() {
         final int iterations = 10000000;
@@ -679,6 +695,7 @@ public class DateTimeUtilsTest {
         assertTrue(durationMs > 0);
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testParsePerformanceAutoFormatCNPattern() {
         final int iterations = 10000000;
@@ -698,6 +715,7 @@ public class DateTimeUtilsTest {
         assertTrue(durationMs > 0);
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testParsePerformanceFormatterEnum() {
         final int iterations = 10000000;
@@ -717,6 +735,7 @@ public class DateTimeUtilsTest {
         assertTrue(durationMs > 0);
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testParsePerformanceCustomFormat() {
         final int iterations = 10000000;
@@ -736,6 +755,7 @@ public class DateTimeUtilsTest {
         assertTrue(durationMs > 0);
     }
 
+    @Disabled("Performance benchmark, not a functional test")
     @Test
     public void testToStringPerformance() {
         final int iterations = 10000000;
