@@ -10,11 +10,57 @@ title: MySQL CDC 到 Doris
 ## 前置条件
 
 - 先完成 [跑第一个任务](../locally/run-your-first-job.md)，确认本地基础链路正常。
-- 安装 `connector-cdc-mysql` 和 `connector-doris`。
-- 如果使用 SeaTunnel Zeta，把 MySQL JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
-- 打开 MySQL binlog，并确保格式是 `ROW`。
-- 为 CDC 用户授予 `SELECT`、`RELOAD`、`SHOW DATABASES`、`REPLICATION SLAVE`、`REPLICATION CLIENT` 权限。
-- 准备好 Doris 目标库和目标表。如果你要同步删除事件，目标表模型要支持对应删除行为。
+
+1. 先准备 MySQL 源表。这条教程依赖稳定主键，这样下游才能正确回放更新和删除事件。
+
+```sql
+CREATE DATABASE IF NOT EXISTS inventory;
+
+CREATE TABLE IF NOT EXISTS inventory.orders (
+  id BIGINT PRIMARY KEY,
+  order_status VARCHAR(32),
+  amount DECIMAL(10, 2),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO inventory.orders (id, order_status, amount, updated_at) VALUES
+  (1001, 'CREATED', 19.99, NOW()),
+  (1002, 'CREATED', 29.99, NOW());
+```
+
+2. 按照 [MySQL CDC Source](../../connectors/source/MySQL-CDC.md) 的要求创建 CDC 用户并授权：
+
+```sql
+CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT
+ON *.* TO 'st_user_source'@'%';
+FLUSH PRIVILEGES;
+```
+
+3. 检查 MySQL binlog 是否已经满足 CDC 要求：
+
+```sql
+SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
+```
+
+期望值是 `log_bin = ON`、`binlog_format = ROW`、`binlog_row_image = FULL`。
+如果还没有配置好，就修改 `my.cnf` 并重启 MySQL：
+
+```ini
+[mysqld]
+server-id = 223344
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+4. 先准备 Doris 目标库。这篇教程保留 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`，所以第一次启动时会用 MySQL 主键信息自动创建 `sync_demo.orders`。
+
+```sql
+CREATE DATABASE IF NOT EXISTS sync_demo;
+```
+
+5. 安装 `connector-cdc-mysql` 和 `connector-doris`。如果使用 SeaTunnel Zeta，再把 MySQL JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
 
 ## 最小配置
 
@@ -29,6 +75,7 @@ source {
   MySQL-CDC {
     plugin_output = "orders_cdc"
     parallelism = 1
+    startup.mode = "initial"
     server-id = 5652
     username = "st_user_source"
     password = "mysqlpw"
@@ -59,23 +106,37 @@ sink {
 ## 验证结果
 
 1. 启动作业，等首轮快照完成。
-2. 在 MySQL 里执行几条插入、更新、删除。
-3. 在 Doris 中查询最新结果。
+2. 在 MySQL 中执行下面几条变更：
+
+```sql
+INSERT INTO inventory.orders (id, order_status, amount, updated_at)
+VALUES (1003, 'CREATED', 39.99, NOW());
+
+UPDATE inventory.orders
+SET order_status = 'PAID', updated_at = NOW()
+WHERE id = 1001;
+
+DELETE FROM inventory.orders
+WHERE id = 1002;
+```
+
+3. 在 Doris 中查询最新结果：
 
 ```sql
 SELECT COUNT(*) FROM sync_demo.orders;
-SELECT id, order_status, updated_at FROM sync_demo.orders ORDER BY id;
+SELECT id, order_status, amount FROM sync_demo.orders ORDER BY id;
 ```
 
-如果 MySQL 里的新增、更新、删除都能体现在 Doris 里，这条链路就是通的。
+此时你应该能看到 `1001` 变成 `PAID`，`1003` 成功插入，`1002` 已经消失。如果 MySQL 的新增、更新、删除都能体现在 Doris 里，这条链路就是通的。
 
 ## 常见坑
 
 - MySQL 没开 binlog，或者 binlog 不是 `ROW` 格式。
 - CDC 用户缺少复制相关权限。
+- `server-id` 和其他 MySQL 副本或 CDC 作业冲突。
 - 多个运行中的任务复用了同一个 `sink.label-prefix`，导致 Doris stream load 冲突。
 - 开启了删除同步，但 Doris 目标表模型不支持预期的删除行为。
-- 源表没有稳定主键，导致下游 upsert 结果不确定。
+- 源表没有稳定主键，导致 Doris 自动建表和下游 upsert 结果都不稳定。
 
 ## 相关文档
 

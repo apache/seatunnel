@@ -10,10 +10,57 @@ Use this recipe when you want to capture row-level changes from MySQL and keep a
 ## Prerequisites
 
 - Finish [Run your first job](../locally/run-your-first-job.md) and make sure local execution works.
-- Install the `connector-cdc-mysql` and `connector-doris` plugins.
-- Put the MySQL JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta, or into the engine plugin directory for Spark or Flink.
-- Enable MySQL binlog with `ROW` format and create a CDC user with `SELECT`, `RELOAD`, `SHOW DATABASES`, `REPLICATION SLAVE`, and `REPLICATION CLIENT` permissions.
-- Create the target Doris database and a table model that matches your update and delete requirements. If you enable delete propagation, the target table should use a model that supports it.
+
+1. Prepare the MySQL source table. This recipe relies on a stable primary key so that updates and deletes can be replayed correctly downstream.
+
+```sql
+CREATE DATABASE IF NOT EXISTS inventory;
+
+CREATE TABLE IF NOT EXISTS inventory.orders (
+  id BIGINT PRIMARY KEY,
+  order_status VARCHAR(32),
+  amount DECIMAL(10, 2),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO inventory.orders (id, order_status, amount, updated_at) VALUES
+  (1001, 'CREATED', 19.99, NOW()),
+  (1002, 'CREATED', 29.99, NOW());
+```
+
+2. Create the MySQL CDC user and grant the same privileges required by the [MySQL CDC source](../../connectors/source/MySQL-CDC.md):
+
+```sql
+CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT
+ON *.* TO 'st_user_source'@'%';
+FLUSH PRIVILEGES;
+```
+
+3. Verify that MySQL binlog is ready for CDC:
+
+```sql
+SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
+```
+
+The expected values are `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`.
+If they are not set yet, update `my.cnf` and restart MySQL:
+
+```ini
+[mysqld]
+server-id = 223344
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+4. Prepare the Doris target database. This recipe keeps `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, so SeaTunnel will create `sync_demo.orders` automatically from the MySQL primary-key metadata on first startup.
+
+```sql
+CREATE DATABASE IF NOT EXISTS sync_demo;
+```
+
+5. Install the `connector-cdc-mysql` and `connector-doris` plugins, and put the MySQL JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta, or into the engine plugin directory for Spark or Flink.
 
 ## Minimal configuration
 
@@ -28,6 +75,7 @@ source {
   MySQL-CDC {
     plugin_output = "orders_cdc"
     parallelism = 1
+    startup.mode = "initial"
     server-id = 5652
     username = "st_user_source"
     password = "mysqlpw"
@@ -58,23 +106,37 @@ sink {
 ## Validation result
 
 1. Start the job and wait for the initial snapshot to finish.
-2. Insert, update, and delete a few rows in MySQL.
-3. Query Doris and confirm the latest state is visible there.
+2. Change the source rows in MySQL:
+
+```sql
+INSERT INTO inventory.orders (id, order_status, amount, updated_at)
+VALUES (1003, 'CREATED', 39.99, NOW());
+
+UPDATE inventory.orders
+SET order_status = 'PAID', updated_at = NOW()
+WHERE id = 1001;
+
+DELETE FROM inventory.orders
+WHERE id = 1002;
+```
+
+3. Query Doris and confirm that the latest state is visible there:
 
 ```sql
 SELECT COUNT(*) FROM sync_demo.orders;
-SELECT id, order_status, updated_at FROM sync_demo.orders ORDER BY id;
+SELECT id, order_status, amount FROM sync_demo.orders ORDER BY id;
 ```
 
-If inserts, updates, and deletes from MySQL are reflected in Doris, the pipeline is working.
+You should now see row `1001` with status `PAID`, row `1003` with status `CREATED`, and no remaining row `1002`. If inserts, updates, and deletes from MySQL are reflected in Doris, the pipeline is working.
 
 ## Common pitfalls
 
 - MySQL binlog is not enabled or is not using `ROW` format.
 - The CDC user is missing replication privileges.
+- The `server-id` conflicts with another MySQL replica or another CDC job.
 - `sink.label-prefix` is reused across multiple running jobs, which can cause Doris stream load conflicts.
 - Delete propagation is enabled, but the Doris table model does not support the expected delete behavior.
-- The source table has no stable primary key, so downstream upsert behavior is not deterministic.
+- The source table has no stable primary key, so Doris auto-create and downstream upsert behavior are not deterministic.
 
 ## Related docs
 
