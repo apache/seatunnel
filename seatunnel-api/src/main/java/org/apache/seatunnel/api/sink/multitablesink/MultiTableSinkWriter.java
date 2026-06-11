@@ -476,7 +476,7 @@ public class MultiTableSinkWriter
         checkQueueRemain();
         subSinkErrorCheck();
         List<MultiTableState> multiTableStates = new ArrayList<>();
-        MultiTableState multiTableState = new MultiTableState(new HashMap<>());
+        Map<SinkIdentifier, List<?>> snapshotStates = new HashMap<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
                     new ArrayList<>(sinkWritersWithIndex.get(i).entrySet())) {
@@ -490,7 +490,7 @@ public class MultiTableSinkWriter
                                                 sinkWriterEntry
                                                         .getValue()
                                                         .snapshotState(checkpointId));
-                        multiTableState.getStates().put(sinkWriterEntry.getKey(), states);
+                        snapshotStates.put(sinkWriterEntry.getKey(), states);
                     } catch (InterruptedException error) {
                         Thread.currentThread().interrupt();
                         throwAsIOException(error);
@@ -509,7 +509,8 @@ public class MultiTableSinkWriter
         }
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
-        multiTableStates.add(multiTableState);
+        multiTableStates.add(
+                new MultiTableState(snapshotStates, new ArrayList<>(failedTables.values())));
         return multiTableStates;
     }
 

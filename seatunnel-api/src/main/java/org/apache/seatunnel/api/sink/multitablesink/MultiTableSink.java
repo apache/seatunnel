@@ -166,6 +166,14 @@ public class MultiTableSink
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        List<MultiTableFailedTable> restoredFailedTables =
+                states.stream()
+                        .map(MultiTableState::getFailedTables)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toList());
+        List<MultiTableFailedTable> effectiveFailedTables = new ArrayList<>(initialFailedTables);
+        effectiveFailedTables.addAll(restoredFailedTables);
 
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
@@ -199,7 +207,7 @@ public class MultiTableSink
                 sinkWritersContext,
                 failurePolicy,
                 getJobMode(),
-                initialFailedTables,
+                effectiveFailedTables,
                 tableRetryTimes,
                 tableRetryIntervalSeconds);
     }
