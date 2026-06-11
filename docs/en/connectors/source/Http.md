@@ -590,7 +590,7 @@ source {
 the `pageing.page_type` parameter must be set to `Cursor`.
 `cursor_field` is the field name of the cursor in the request parameters.
 `cursor_response_field` is the field name denotes the name of the pagination token field in the response data, we should add this to add pageing fields into request.
-````hocon
+```hocon
 
 source {
     Http {
