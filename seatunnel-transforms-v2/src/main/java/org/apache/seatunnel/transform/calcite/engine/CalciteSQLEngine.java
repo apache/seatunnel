@@ -46,7 +46,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelScannableTable;
 import org.apache.seatunnel.transform.calcite.type.TypeConverter;
 import org.apache.seatunnel.transform.calcite.udf.BuiltinFunctions;
-import org.apache.seatunnel.transform.calcite.udf.ZetaUdfBridge;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -82,7 +81,6 @@ public class CalciteSQLEngine implements AutoCloseable {
     private RelDataType validatedRowType;
     private SeaTunnelRowType outputRowType;
     private BuiltinFunctions builtinFunctions;
-    private ZetaUdfBridge zetaUdfBridge;
     private RelDataTypeFactory typeFactory;
 
     public CalciteSQLEngine(String sql, String tableName, SeaTunnelRowType inputRowType) {
@@ -107,8 +105,6 @@ public class CalciteSQLEngine implements AutoCloseable {
 
             builtinFunctions = new BuiltinFunctions();
             builtinFunctions.discoverAndRegister(rootSchema);
-            zetaUdfBridge = new ZetaUdfBridge();
-            zetaUdfBridge.loadAndRegister(rootSchema);
 
             SqlParser.Config parserConfig =
                     SqlParser.config()
@@ -323,10 +319,6 @@ public class CalciteSQLEngine implements AutoCloseable {
         if (builtinFunctions != null) {
             builtinFunctions.close();
             builtinFunctions = null;
-        }
-        if (zetaUdfBridge != null) {
-            zetaUdfBridge.close();
-            zetaUdfBridge = null;
         }
         rootSchema = null;
         scannableTable = null;
