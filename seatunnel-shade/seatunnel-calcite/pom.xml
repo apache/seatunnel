@@ -48,10 +48,6 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
@@ -119,6 +115,10 @@
                                 <relocation>
                                     <pattern>org.checkerframework</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.org.checkerframework</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.com.google</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
