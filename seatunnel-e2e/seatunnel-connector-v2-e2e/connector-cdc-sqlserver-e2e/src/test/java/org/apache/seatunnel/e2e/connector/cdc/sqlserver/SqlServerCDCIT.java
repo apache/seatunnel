@@ -256,6 +256,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     /**
      * Verifies that a single SqlServer CDC source can capture multiple tables and route them to
      * different sink tables in the same database.
+     *
+     * <p>The sink tables are pre-created so this regression stays focused on multi-table routing
+     * instead of SQL Server auto-create type derivation.
      */
     @TestTemplate
     public void testSqlServerCdcMultiTableE2e(TestContainer container) {
