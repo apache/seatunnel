@@ -1,12 +1,12 @@
-# DynamicCompile
+# 动态编译转换
 
-> 动态编译插件
+> 在运行时编译并执行自定义代码，完成灵活的数据处理
 
 ## 描述
 
 :::tip
 
-特别申明
+特别声明
 您需要确保服务的安全性，并防止攻击者上传破坏性代码
 
 :::
@@ -24,7 +24,7 @@
 | absolute_path    | string | no       |               |
 
 
-### common options [string]
+### 通用选项 [string]
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情。
 
@@ -62,7 +62,7 @@ SOURCE_CODE,ABSOLUTE_PATH
 你需要重启集群服务，才能重新加载这些依赖。
 
 
-## Example
+## 示例
 
 源端数据读取的表格如下：
 
@@ -224,4 +224,3 @@ transform {
 https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-transforms-v2-e2e/seatunnel-transforms-v2-e2e-part-2/src/test/resources/dynamic_compile/conf
 
 ## Changelog
-

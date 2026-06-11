@@ -1,6 +1,6 @@
-# Embedding
+# 向量化嵌入
 
-> Embedding Transform Plugin
+> 将文本、图片或视频等内容转换为向量表示
 
 ## 描述
 
