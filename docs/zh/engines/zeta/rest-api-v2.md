@@ -46,7 +46,7 @@ seatunnel:
 
 > |  参数名称  | 是否必传 | 参数类型 |                   参数描述                    |
 > |--------|------|------|-----------------------------------------|
-> | type   | 是    | string | 插件类型，当前支持 `source` 和 `sink`        |
+> | type   | 是    | string | 插件类型，支持 `source`、`sink` 和 `transform` |
 > | plugin | 是    | string | connector 的 factory identifier，例如 `FakeSource` 或 `Console` |
 
 #### 响应
@@ -116,7 +116,29 @@ seatunnel:
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -126,6 +148,9 @@ seatunnel:
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
+- 在 `conditionTree` 中，`compareOperator` 字段（如 `>=`、`<`、`>`）和 `compareOption` 字段用于数值比较和跨字段比较场景；对于等值判断及其他非比较类条件，这两个字段为 `null`。
+- `conditionOperator` 字段提供稳定的、机器可读的操作符标识（如 `GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`），`conditionOperatorCategory` 字段标明操作符所属分类（如 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`）。这两个字段专为前端应用和自动化工具的程序化消费而设计。
 
 </details>
 
@@ -1384,6 +1409,112 @@ Checkpoint 信息字段：
     }
   }
 ]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 获取作业实时可观测性指标（内存时序，realtime）
+
+> 该组接口用于 Web UI 的“实时指标”展示，不依赖 Telemetry，不会落盘，只保留最近 N 分钟的内存 bucket。
+>
+> 配置与指标口径详见：[实时可观测性](realtime-observability.md)。
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(列出当前运行作业的 realtime 指标开关与窗口信息)</code></summary>
+
+#### 响应
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(返回 vertex 维度时序：Source/Transform/Sink)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+> 说明：
+> - ratio 类指标范围为 `0~1`（UI 可显示为百分比）。
+> - 对于非 Source/Transform/Sink 类型的 vertex，相应字段可能为 0。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(返回 queue/edge 维度时序：下游等待占比 + 队列填充率)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
 ```
 
 </details>

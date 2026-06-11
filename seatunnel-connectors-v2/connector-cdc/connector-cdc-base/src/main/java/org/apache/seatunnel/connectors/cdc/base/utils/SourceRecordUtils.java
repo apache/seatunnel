@@ -54,7 +54,8 @@ public class SourceRecordUtils {
                     "io.debezium.connector.oracle.SchemaChangeKey",
                     "io.debezium.connector.postgresql.SchemaChangeKey",
                     "io.debezium.connector.postgres.SchemaChangeKey",
-                    "io.debezium.connector.postgres-cdc.SchemaChangeKey");
+                    "io.debezium.connector.postgres-cdc.SchemaChangeKey",
+                    "io.debezium.connector.sqlserver.SchemaChangeKey");
 
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
             "io.debezium.connector.common.Heartbeat";

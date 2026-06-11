@@ -75,7 +75,9 @@ public class XmlWriter {
                                 new AbstractMap.SimpleEntry<>(
                                         seaTunnelRowType.getFieldName(index),
                                         convertToXmlString(
-                                                seaTunnelRow.getField(index),
+                                                index < seaTunnelRow.getArity()
+                                                        ? seaTunnelRow.getField(index)
+                                                        : null,
                                                 seaTunnelRowType.getFieldType(index))))
                 .forEach(
                         entry -> {

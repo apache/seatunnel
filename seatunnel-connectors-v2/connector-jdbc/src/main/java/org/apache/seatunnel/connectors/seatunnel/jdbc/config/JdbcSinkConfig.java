@@ -41,6 +41,7 @@ public class JdbcSinkConfig implements Serializable {
     private boolean supportUpsertByInsertOnly;
     private boolean useCopyStatement;
     @Builder.Default private boolean createIndex = true;
+    @Builder.Default private OracleInsertMode oracleInsertMode = OracleInsertMode.CONVENTIONAL;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
         JdbcSinkConfigBuilder builder = JdbcSinkConfig.builder();
@@ -56,6 +57,12 @@ public class JdbcSinkConfig implements Serializable {
         builder.simpleSql(config.get(JdbcSinkOptions.QUERY));
         builder.useCopyStatement(config.get(JdbcSinkOptions.USE_COPY_STATEMENT));
         builder.createIndex(config.get(JdbcSinkOptions.CREATE_INDEX));
+        builder.oracleInsertMode(config.get(JdbcSinkOptions.ORACLE_INSERT_MODE));
         return builder.build();
+    }
+
+    public enum OracleInsertMode {
+        CONVENTIONAL,
+        APPEND_VALUES
     }
 }

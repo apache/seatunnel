@@ -61,6 +61,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
@@ -238,6 +239,18 @@ Enable upsert by primary_keys exist, If the task has no key duplicate data, sett
 Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
+
+### oracle_insert_mode [Enum]
+
+Oracle insert mode. The default value is `CONVENTIONAL`, which keeps the existing JDBC insert behavior.
+
+When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to generated insert SQL:
+
+```sql
+INSERT /*+ APPEND_VALUES */ INTO ...
+```
+
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
 
 ### create_index [boolean]
 
@@ -519,6 +532,70 @@ sink {
     }
 }
 ```
+
+## FAQ
+
+### Does JDBC Sink support automatic table creation?
+
+Yes. Use `schema_save_mode` to control table creation behavior:
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table only if it does not exist.
+- `RECREATE_SCHEMA`: Drops and recreates the table on every job start.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table is missing.
+- `IGNORE`: Skips all table creation logic.
+
+Use `generate_sink_sql = true` together with `database` and `table` for automatic INSERT/UPSERT SQL generation.
+
+### How do I enable exactly-once semantics with JDBC Sink?
+
+JDBC Sink supports exactly-once via XA transactions. Enable it with:
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "password"
+    is_exactly_once = true
+    xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    table = "target_table"
+    primary_keys = ["id"]
+  }
+}
+```
+
+Not all databases support XA transactions. Verify that your database and JDBC driver both support XA before enabling this option.
+
+### How do I configure upsert (INSERT or UPDATE) behavior?
+
+Specify `primary_keys` to enable upsert behavior. SeaTunnel generates an INSERT ... ON DUPLICATE KEY UPDATE (or equivalent) statement based on the target database dialect:
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    ...
+    primary_keys = ["id"]
+  }
+}
+```
+
+Without `primary_keys`, JDBC Sink performs plain INSERTs and does not handle duplicate key conflicts.
+
+### How do I write to multiple tables in a single job?
+
+Use `table = "${table_name}"` and `database = "${schema_name}"` as placeholders. SeaTunnel resolves these from the upstream record's metadata when used with CDC sources or multi-table configurations. Pair with `generate_sink_sql = true` for fully automatic SQL generation.
+
+### Why is my JDBC driver not found?
+
+SeaTunnel does not bundle all JDBC drivers due to licensing restrictions. Place the JDBC driver JAR in `$SEATUNNEL_HOME/lib/` manually before starting the job. Common drivers:
+
+- MySQL: `mysql-connector-j-8.x.x.jar`
+- PostgreSQL: `postgresql-42.x.x.jar`
+- Oracle: `ojdbc8.jar`
+- SQL Server: `mssql-jdbc-12.x.x.jre11.jar`
 
 ## Changelog
 

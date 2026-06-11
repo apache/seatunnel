@@ -268,4 +268,37 @@ class ReplaceTransformTest {
         Assertions.assertEquals("abcNUMdef456", output.getField(1));
         Assertions.assertEquals("xyzNUMuvw012", output.getField(2));
     }
+
+    @Test
+    void testReplaceDoesNotMutateInputRowForFanOut() {
+        Map<String, Object> phoneReplaceConfig = new HashMap<>();
+        phoneReplaceConfig.put("replace_field", "title");
+        phoneReplaceConfig.put(ReplaceTransformConfig.KEY_PATTERN.key(), "1");
+        phoneReplaceConfig.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "a");
+
+        Map<String, Object> nameReplaceConfig = new HashMap<>();
+        nameReplaceConfig.put("replace_field", "name");
+        nameReplaceConfig.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        nameReplaceConfig.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
+
+        ReplaceTransform phoneReplaceTransform =
+                new ReplaceTransform(ReadonlyConfig.fromMap(phoneReplaceConfig), catalogTable);
+        ReplaceTransform nameReplaceTransform =
+                new ReplaceTransform(ReadonlyConfig.fromMap(nameReplaceConfig), catalogTable);
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "before name", "17111999384"});
+
+        SeaTunnelRow phoneOutput = phoneReplaceTransform.transformRow(input);
+        SeaTunnelRow nameOutput = nameReplaceTransform.transformRow(input);
+
+        Assertions.assertEquals("a7aaa999384", phoneOutput.getField(2));
+        Assertions.assertEquals("after name", nameOutput.getField(1));
+
+        // The sibling transform branch should still see the original title value.
+        Assertions.assertEquals("17111999384", nameOutput.getField(2));
+
+        // ReplaceTransform should not mutate the shared input row.
+        Assertions.assertEquals("before name", input.getField(1));
+        Assertions.assertEquals("17111999384", input.getField(2));
+    }
 }

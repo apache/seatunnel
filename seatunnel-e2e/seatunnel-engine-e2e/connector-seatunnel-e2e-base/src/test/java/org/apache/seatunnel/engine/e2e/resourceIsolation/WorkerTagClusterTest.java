@@ -121,6 +121,7 @@ public class WorkerTagClusterTest {
         hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         return seaTunnelConfig;
     }
 

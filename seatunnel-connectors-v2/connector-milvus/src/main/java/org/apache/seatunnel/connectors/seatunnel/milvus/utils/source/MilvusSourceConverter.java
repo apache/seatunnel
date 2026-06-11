@@ -108,6 +108,7 @@ public class MilvusSourceConverter {
                     } else {
                         seatunnelField[fieldIndex] = Short.parseShort(fieldValues.toString());
                     }
+                    break;
                 case INT:
                     if (fieldValues instanceof Integer) {
                         seatunnelField[fieldIndex] = fieldValues;
