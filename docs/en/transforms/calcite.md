@@ -444,57 +444,9 @@ When a row causes a SQL execution error:
 - `SKIP` -- the problematic row is silently dropped
 - `ROUTE_TO_TABLE` -- the row is sent to a separate error table for later inspection
 
-## Custom UDF Development Guide
+## Custom UDF
 
-Custom UDFs are added via the `CalciteUdf` SPI. Implement the interface, package as JAR, and place it in `${SEATUNNEL_HOME}/lib/`.
-
-**Step 1.** Create a class that implements `CalciteUdf` and add a **public static `eval`** method:
-
-```java
-package com.example;
-
-import org.apache.seatunnel.api.transform.CalciteUdf;
-import com.google.auto.service.AutoService;
-import java.util.Locale;
-
-@AutoService(CalciteUdf.class)
-public class MyUpperUdf implements CalciteUdf {
-
-    @Override
-    public String functionName() {
-        return "MY_UPPER";
-    }
-
-    public static String eval(String input) {
-        return input == null ? null : input.toUpperCase(Locale.ROOT);
-    }
-}
-```
-
-Key requirements:
-- `eval` **must be `public static`** -- Calcite's code generation calls it directly without creating an instance
-- The `eval` method signature defines the SQL function's input/output types (e.g., `String eval(String, int)` means the SQL function takes a VARCHAR and an INTEGER)
-- `@AutoService(CalciteUdf.class)` generates the `META-INF/services` file for SPI discovery
-- `functionName()` returns the SQL name (case-insensitive at query time)
-
-**Step 2.** Add the `auto-service` dependency to your `pom.xml`:
-
-```xml
-<dependency>
-    <groupId>com.google.auto.service</groupId>
-    <artifactId>auto-service</artifactId>
-    <version>1.1.1</version>
-    <scope>provided</scope>
-</dependency>
-```
-
-**Step 3.** Build the JAR and place it in `${SEATUNNEL_HOME}/lib/`.
-
-**Step 4.** Use in SQL:
-
-```sql
-SELECT MY_UPPER(name) AS upper_name FROM source_table
-```
+Custom scalar functions can be added via the `CalciteUdf` SPI. For the full development guide, API reference, examples, and type mapping, see [Calcite UDF](calcite-udf.md).
 
 ## Limitations
 
@@ -506,7 +458,10 @@ SELECT MY_UPPER(name) AS upper_name FROM source_table
 | Table name matching | The `FROM` table name in SQL must exactly match the `plugin_input` value |
 | Scalar UDFs only | Only scalar functions are supported. Table-valued functions and aggregate UDFs are not available |
 | Vector type mapping | Vector types are mapped to VARBINARY internally. Use built-in vector UDFs (COSINE_DISTANCE, L1_DISTANCE, etc.) for vector operations |
-| CDC schema changes | When an `AlterTableEvent` is received (for example, add/drop columns), the engine rebuilds the SQL plan and re-infers the output schema automatically |
+
+:::tip CDC schema changes
+When an `AlterTableEvent` is received (for example, add/drop columns), the engine automatically rebuilds the SQL plan and re-infers the output schema. No manual intervention is needed.
+:::
 
 ## Job Config Example
 

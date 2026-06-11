@@ -21,8 +21,6 @@ import org.apache.seatunnel.shade.org.apache.calcite.schema.ScalarFunction;
 import org.apache.seatunnel.shade.org.apache.calcite.schema.SchemaPlus;
 import org.apache.seatunnel.shade.org.apache.calcite.schema.impl.ScalarFunctionImpl;
 
-import org.apache.seatunnel.api.transform.CalciteUdf;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.transform.calcite.udf;
 
-import org.apache.seatunnel.api.transform.CalciteUdf;
-
 import com.google.auto.service.AutoService;
 
 /**

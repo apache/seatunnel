@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.transform.calcite.udf;
 
 /**
  * SPI for Calcite SQL transform UDFs. Implementations must provide a <b>public static</b> {@code

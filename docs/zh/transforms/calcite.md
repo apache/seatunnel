@@ -444,57 +444,9 @@ transform {
 - `SKIP` -- 静默跳过错误行
 - `ROUTE_TO_TABLE` -- 将错误行路由到独立错误表，便于后续排查
 
-## 自定义 UDF 开发指南
+## 自定义 UDF
 
-通过 `CalciteUdf` SPI 添加自定义 UDF。实现接口，打包为 JAR，放入 `${SEATUNNEL_HOME}/lib/` 即可自动发现。
-
-**第一步**：创建一个实现 `CalciteUdf` 接口的类，并添加 **public static `eval`** 方法：
-
-```java
-package com.example;
-
-import org.apache.seatunnel.api.transform.CalciteUdf;
-import com.google.auto.service.AutoService;
-import java.util.Locale;
-
-@AutoService(CalciteUdf.class)
-public class MyUpperUdf implements CalciteUdf {
-
-    @Override
-    public String functionName() {
-        return "MY_UPPER";
-    }
-
-    public static String eval(String input) {
-        return input == null ? null : input.toUpperCase(Locale.ROOT);
-    }
-}
-```
-
-关键要求：
-- `eval` **必须是 `public static`** -- Calcite 代码生成直接调用静态方法，不创建实例
-- `eval` 方法签名决定 SQL 函数的输入/输出类型（如 `String eval(String, int)` 表示接受 VARCHAR 和 INTEGER）
-- `@AutoService(CalciteUdf.class)` 自动生成 `META-INF/services` 文件用于 SPI 发现
-- `functionName()` 返回 SQL 函数名（查询时大小写不敏感）
-
-**第二步**：在 `pom.xml` 中添加 `auto-service` 依赖：
-
-```xml
-<dependency>
-    <groupId>com.google.auto.service</groupId>
-    <artifactId>auto-service</artifactId>
-    <version>1.1.1</version>
-    <scope>provided</scope>
-</dependency>
-```
-
-**第三步**：构建 JAR 并放入 `${SEATUNNEL_HOME}/lib/`。
-
-**第四步**：在 SQL 中使用：
-
-```sql
-SELECT MY_UPPER(name) AS upper_name FROM source_table
-```
+通过 `CalciteUdf` SPI 添加自定义标量函数。完整的开发指南、API 参考、示例和类型映射请参阅 [Calcite 用户自定义函数](calcite-udf.md)。
 
 ## 限制
 
@@ -506,7 +458,10 @@ SELECT MY_UPPER(name) AS upper_name FROM source_table
 | 表名匹配 | SQL `FROM` 中的表名必须与 `plugin_input` 值完全一致 |
 | 仅标量 UDF | 仅支持标量函数，不支持表值函数和聚合 UDF |
 | 向量类型映射 | 向量类型内部映射为 VARBINARY。可使用内置向量 UDF（COSINE_DISTANCE、L1_DISTANCE 等）进行向量运算 |
-| CDC Schema 变更 | 收到 `AlterTableEvent`（例如加列、删列）时，引擎会自动重建 SQL 执行计划并重新推导输出 Schema |
+
+:::tip CDC Schema 变更
+收到 `AlterTableEvent`（例如加列、删列）时，引擎会自动重建 SQL 执行计划并重新推导输出 Schema，无需手动干预。
+:::
 
 ## 作业配置示例
 
