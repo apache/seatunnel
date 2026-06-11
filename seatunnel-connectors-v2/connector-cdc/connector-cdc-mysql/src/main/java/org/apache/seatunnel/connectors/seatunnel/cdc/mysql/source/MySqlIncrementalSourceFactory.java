@@ -65,7 +65,11 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
                         MySqlIncrementalSourceOptions.TABLE_NAMES,
-                        Conditions.notEmpty(MySqlIncrementalSourceOptions.TABLE_NAMES))
+                        Conditions.notEmpty(MySqlIncrementalSourceOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                MySqlIncrementalSourceOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
                 .optional(
                         MySqlIncrementalSourceOptions.DATABASE_NAMES,
                         MySqlIncrementalSourceOptions.SERVER_TIME_ZONE,

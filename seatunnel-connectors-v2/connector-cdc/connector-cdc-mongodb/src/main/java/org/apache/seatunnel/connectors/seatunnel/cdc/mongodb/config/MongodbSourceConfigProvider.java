@@ -24,8 +24,6 @@ import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import java.util.List;
 import java.util.Objects;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 public class MongodbSourceConfigProvider {
 
     private MongodbSourceConfigProvider() {}
@@ -101,12 +99,12 @@ public class MongodbSourceConfigProvider {
         }
 
         public Builder startupOptions(StartupConfig startupOptions) {
-            this.startupOptions = startupOptions;
+            this.startupOptions = Objects.requireNonNull(startupOptions);
             return this;
         }
 
         public Builder stopOptions(StopConfig stopOptions) {
-            this.stopOptions = stopOptions;
+            this.stopOptions = Objects.requireNonNull(stopOptions);
             return this;
         }
 
@@ -117,10 +115,6 @@ public class MongodbSourceConfigProvider {
 
         public Builder splitSizeMB(int splitSizeMB) {
             this.splitSizeMB = splitSizeMB;
-            return this;
-        }
-
-        public Builder validate() {
             return this;
         }
 

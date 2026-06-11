@@ -77,8 +77,7 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
             @Nonnull ReadonlyConfig config) {
         MongodbSourceConfigProvider.Builder builder =
                 MongodbSourceConfigProvider.newBuilder()
-                        .hosts(config.get(MongodbIncrementalSourceOptions.HOSTS))
-                        .validate();
+                        .hosts(config.get(MongodbIncrementalSourceOptions.HOSTS));
         Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.DATABASE))
                 .ifPresent(builder::databaseList);
         Optional.ofNullable(config.get(MongodbIncrementalSourceOptions.COLLECTION))

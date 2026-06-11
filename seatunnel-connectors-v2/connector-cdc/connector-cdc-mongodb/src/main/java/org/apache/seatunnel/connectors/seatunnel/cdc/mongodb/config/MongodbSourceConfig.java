@@ -27,7 +27,6 @@ import lombok.Getter;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.buildConnectionString;
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Getter
 @EqualsAndHashCode
@@ -81,7 +80,7 @@ public class MongodbSourceConfig implements SourceConfig {
             int heartbeatIntervalMillis,
             int splitSizeMB,
             boolean exactlyOnce) {
-        this.hosts = checkNotNull(hosts);
+        this.hosts = hosts;
         this.username = username;
         this.password = password;
         this.databaseList = databaseList;
