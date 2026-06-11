@@ -51,9 +51,7 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
 
     private final String sql;
     private final String inputTableName;
-
     private transient CalciteSQLEngine engine;
-    private SeaTunnelRowType outRowType;
 
     public CalciteTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable, config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION));
@@ -92,7 +90,7 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
     @Override
     protected TableSchema transformTableSchema() {
         tryOpen();
-        outRowType = engine.getOutputRowType();
+        SeaTunnelRowType outRowType = engine.getOutputRowType();
         List<String> outputColumns = Arrays.asList(outRowType.getFieldNames());
 
         TableSchema.Builder builder = TableSchema.builder();
