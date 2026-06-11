@@ -56,7 +56,7 @@ OceanBase Binlog Service 提供增量订阅能力。
 在使用 `OceanBase-CDC` 之前，请确保被采集租户满足以下条件：
 
 1. OceanBase 运行在 MySQL 兼容模式。
-2. [OceanBase Binlog Service](https://en.oceanbase.com/docs/common-ocp-10000000002168919) 已部署并开启增量订阅能力。
+2. OceanBase Binlog Service 已部署并开启增量订阅能力。
 3. JDBC `url` 指向 SeaTunnel 可用于快照读取的 MySQL 兼容端点。
 4. 配置账号同时具备快照读取和增量订阅所需权限。
 

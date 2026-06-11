@@ -56,7 +56,7 @@ OceanBase Oracle compatible mode is not supported in this first delivery.
 Before using `OceanBase-CDC`, make sure the monitored tenant satisfies these requirements:
 
 1. OceanBase runs in MySQL compatible mode for the captured tables.
-2. [OceanBase Binlog Service](https://en.oceanbase.com/docs/common-ocp-10000000002168919) is deployed and enabled for incremental subscription.
+2. OceanBase Binlog Service is deployed and enabled for incremental subscription.
 3. The JDBC `url` points to a MySQL-compatible endpoint that SeaTunnel can use for snapshot reads.
 4. The configured account can read the captured tables and subscribe to incremental changes.
 
