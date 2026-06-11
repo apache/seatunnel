@@ -135,7 +135,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         if (tableNames != null && !tableNames.isEmpty()) {
             Iterator<TablePath> tablePaths =
                     tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
-            return buildCatalogTablesWithErrorCheck(tablePaths);
+            return buildCatalogTablesWithErrorCheck(tablePaths, config);
         }
         // Get the list of table pattern
         String tablePatternStr = config.get(ConnectorCommonOptions.TABLE_PATTERN);
@@ -154,7 +154,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                 tablePaths.add(tablePath);
             }
         }
-        return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
+        return buildCatalogTablesWithErrorCheck(tablePaths.iterator(), config);
     }
 
     protected String getSelectColumnsSql(TablePath tablePath) {

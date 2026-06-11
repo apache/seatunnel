@@ -81,6 +81,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
 | quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
 | escape_char               | string  | 否  | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### file_format_type [string]
 
@@ -121,6 +122,13 @@ PDF 特有的解析行为如下：
 - `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
+### sort_files_by_modification_time [boolean]
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ## 变更日志
 

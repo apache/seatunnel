@@ -301,7 +301,8 @@ public class SystemFunctionTest {
         args.add("BYTES");
         Object bytesResult = SystemFunction.castAs(args);
         Assertions.assertTrue(bytesResult instanceof byte[]);
-        Assertions.assertArrayEquals("hello".getBytes(), (byte[]) bytesResult);
+        Assertions.assertArrayEquals(
+                "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8), (byte[]) bytesResult);
 
         args.clear();
         args.add("3.14");

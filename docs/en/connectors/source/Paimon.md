@@ -49,6 +49,7 @@ Read data from Apache Paimon.
 | name                    | type     | required       | default value |
 |-------------------------|----------|----------------|---------------|
 | warehouse               | String   | Yes            | -             |
+| catalog_name            | String   | No             | paimon        |
 | catalog_type            | String   | No             | filesystem    |
 | catalog_uri             | String   | No             | -             |
 | database                | String   | Yes            | -             |

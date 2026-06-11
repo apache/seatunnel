@@ -48,7 +48,7 @@ Please refer [security](security.md)
 
 > |  name  |   type   | data type |                            description                             |
 > |--------|----------|-----------|--------------------------------------------------------------------|
-> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | type   | required | string    | plugin type, supports `source`, `sink` and `transform`             |
 > | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
 
 #### Responses
@@ -118,7 +118,29 @@ Please refer [security](security.md)
         }
       }
     ],
-    "conditionRules": []
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
   }
 }
 ```
@@ -128,6 +150,9 @@ Please refer [security](security.md)
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
 - `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
+- Within `conditionTree`, the `compareOperator` field (e.g. `>=`, `<`, `>`) and `compareOption` field are populated for numeric and cross-field comparisons. For equality checks and other non-comparison conditions, these fields are `null`.
+- The `conditionOperator` field provides a stable, machine-readable operator identifier (e.g. `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`), while `conditionOperatorCategory` indicates the operator's category (e.g. `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`). These two fields are designed for programmatic consumption by frontend applications and automation tools.
 
 </details>
 
@@ -1406,3 +1431,107 @@ Checkpoint metadata fields:
 | --- | --- |
 | `pipelineId` | ID of the pipeline to which the record belongs. |
 | `checkpoint` | Checkpoint metadata described above. |
+
+------------------------------------------------------------------------------------------
+
+### Get Job Realtime Observability Metrics
+
+These APIs are used by the Web UI realtime metrics view. They do not depend on Telemetry and do not write historical data to disk. The master only keeps recent in-memory buckets.
+
+See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(List realtime metric state and window information for running jobs.)</code></summary>
+
+#### Response
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(Return Source/Transform/Sink vertex time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+Ratio fields are in the range `0~1` and can be displayed as percentages. Fields that do not apply to a vertex type may be `0`.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(Return queue/edge downstream wait ratio and queue fill ratio time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>

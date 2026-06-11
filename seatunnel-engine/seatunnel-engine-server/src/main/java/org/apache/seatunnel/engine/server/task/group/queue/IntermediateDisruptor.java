@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.task.group.queue.disruptor.RecordEvent;
@@ -29,19 +30,32 @@ import java.io.IOException;
 
 public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<RecordEvent>> {
 
-    public IntermediateDisruptor(Disruptor<RecordEvent> queue) {
+    private final Counter totalIntermediateQueueSize;
+    private final Counter intermediateQueueSize;
+    private final Counter putBlockedNs;
+
+    public IntermediateDisruptor(
+            Disruptor<RecordEvent> queue,
+            Counter totalIntermediateQueueSize,
+            Counter intermediateQueueSize,
+            Counter putBlockedNs) {
         super(queue);
+        this.totalIntermediateQueueSize = totalIntermediateQueueSize;
+        this.intermediateQueueSize = intermediateQueueSize;
+        this.putBlockedNs = putBlockedNs;
     }
 
     private volatile boolean isExecuted;
 
     @Override
     public void received(Record<?> record) {
-        getIntermediateQueue().getRingBuffer();
         RecordEventProducer.onData(
                 record,
                 getIntermediateQueue().getRingBuffer(),
-                getIntermediateQueueFlowLifeCycle());
+                getIntermediateQueueFlowLifeCycle(),
+                putBlockedNs,
+                totalIntermediateQueueSize,
+                intermediateQueueSize);
     }
 
     @Override
@@ -52,7 +66,9 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
                             new RecordEventHandler(
                                     getRunningTask(),
                                     collector,
-                                    getIntermediateQueueFlowLifeCycle()));
+                                    getIntermediateQueueFlowLifeCycle(),
+                                    totalIntermediateQueueSize,
+                                    intermediateQueueSize));
             getIntermediateQueue().start();
             isExecuted = true;
         } else {

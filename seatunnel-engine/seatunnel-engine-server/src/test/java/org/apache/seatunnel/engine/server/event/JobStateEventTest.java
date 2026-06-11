@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,10 +36,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointErrorRestoreEndTest.STREAM_CONF_WITH_ERROR_PATH;
 import static org.awaitility.Awaitility.await;
 
-public class JobStateEventTest extends AbstractSeaTunnelServerTest {
+class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testJobStateEvent() throws InterruptedException {
+    void testJobStateEvent() {
 
         JobEventProcessor eventProcessor =
                 (JobEventProcessor) server.getCoordinatorService().getEventProcessor();
@@ -68,40 +69,179 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
         List<EventHandler> handlers =
                 (List<EventHandler>) ReflectionUtils.getField(eventProcessor, "handlers").get();
         handlers.add(eventHandler);
-        long jobId_finished = System.currentTimeMillis();
+        long jobIdFinished = System.currentTimeMillis();
         long currentTimeMillis = System.currentTimeMillis();
-        startJob(jobId_finished, "fake_to_console.conf", false);
+        startJob(jobIdFinished, "fake_to_console.conf", false);
         await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED,
                                         server.getCoordinatorService()
-                                                .getJobStatus(jobId_finished)));
+                                                .getJobStatus(jobIdFinished)));
         // check whether the event handler is executed
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(1, accessCounter.get()));
         JobStateEvent jobStateEventFinished = jobStateEventReference.get();
-        Assertions.assertEquals(String.valueOf(jobId_finished), jobStateEventFinished.getJobId());
+        Assertions.assertEquals(String.valueOf(jobIdFinished), jobStateEventFinished.getJobId());
         Assertions.assertEquals(JobStatus.FINISHED, jobStateEventFinished.getJobStatus());
         Assertions.assertTrue(jobStateEventFinished.getCreatedTime() > currentTimeMillis);
-        Assertions.assertEquals(String.valueOf(jobId_finished), jobStateEventFinished.getJobName());
+        Assertions.assertEquals(String.valueOf(jobIdFinished), jobStateEventFinished.getJobName());
 
-        long jobId_failed = System.currentTimeMillis();
-        startJob(jobId_failed, STREAM_CONF_WITH_ERROR_PATH, false);
+        long jobIdFailed = System.currentTimeMillis();
+        startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
         await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FAILED,
-                                        server.getCoordinatorService().getJobStatus(jobId_failed)));
+                                        server.getCoordinatorService().getJobStatus(jobIdFailed)));
 
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(2, accessCounter.get()));
         JobStateEvent jobStateEventFailed = jobStateEventReference.get();
-        Assertions.assertEquals(String.valueOf(jobId_failed), jobStateEventFailed.getJobId());
+        Assertions.assertEquals(String.valueOf(jobIdFailed), jobStateEventFailed.getJobId());
         Assertions.assertEquals(JobStatus.FAILED, jobStateEventFailed.getJobStatus());
         Assertions.assertTrue(jobStateEventFailed.getCreatedTime() > currentTimeMillis);
-        Assertions.assertEquals(String.valueOf(jobId_failed), jobStateEventFailed.getJobName());
+        Assertions.assertEquals(String.valueOf(jobIdFailed), jobStateEventFailed.getJobName());
+    }
+
+    @Test
+    void testNotEndJobStateEvent() {
+        server.getCoordinatorService().getEngineConfig().setReportNonTerminalJobState(true);
+
+        JobEventProcessor eventProcessor =
+                (JobEventProcessor) server.getCoordinatorService().getEventProcessor();
+
+        AtomicInteger accessCounter = new AtomicInteger(0);
+        AtomicReference<JobStateEvent> jobStateEventReference = new AtomicReference<>();
+        EventHandler eventHandler =
+                event -> {
+                    if (event.getEventType() != EventType.JOB_STATUS) {
+                        return;
+                    }
+                    JobStateEvent jobStateEvent = (JobStateEvent) event;
+                    JobStatus status = jobStateEvent.getJobStatus();
+                    switch (status) {
+                        case PENDING:
+                        case SCHEDULED:
+                        case RUNNING:
+                        case DOING_SAVEPOINT:
+                        case FAILING:
+                        case CANCELING:
+                            accessCounter.incrementAndGet();
+                            jobStateEventReference.lazySet(jobStateEvent);
+                            break;
+                        default:
+                            break;
+                    }
+                };
+        // register the event handler
+        List<EventHandler> handlers =
+                (List<EventHandler>) ReflectionUtils.getField(eventProcessor, "handlers").get();
+        handlers.add(eventHandler);
+        long jobIdFinished = System.currentTimeMillis();
+        long currentTimeMillis = System.currentTimeMillis();
+        startJob(jobIdFinished, "fake_to_console.conf", false);
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        server.getCoordinatorService()
+                                                .getJobStatus(jobIdFinished)));
+        // check whether the event handler is executed
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(3, accessCounter.get()));
+        JobStateEvent jobStateEventFinished = jobStateEventReference.get();
+        Assertions.assertEquals(String.valueOf(jobIdFinished), jobStateEventFinished.getJobId());
+        Assertions.assertEquals(JobStatus.RUNNING, jobStateEventFinished.getJobStatus());
+        Assertions.assertTrue(jobStateEventFinished.getCreatedTime() > currentTimeMillis);
+        Assertions.assertEquals(String.valueOf(jobIdFinished), jobStateEventFinished.getJobName());
+
+        long jobIdFailed = System.currentTimeMillis();
+        startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobIdFailed)));
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(7, accessCounter.get()));
+        JobStateEvent jobStateEventFailed = jobStateEventReference.get();
+        Assertions.assertEquals(String.valueOf(jobIdFailed), jobStateEventFailed.getJobId());
+        Assertions.assertEquals(JobStatus.FAILING, jobStateEventFailed.getJobStatus());
+        Assertions.assertTrue(jobStateEventFailed.getCreatedTime() > currentTimeMillis);
+        Assertions.assertEquals(String.valueOf(jobIdFailed), jobStateEventFailed.getJobName());
+    }
+
+    @Test
+    void testJobStateEventOrderWhenReportNonTerminalJobStateEnabled() {
+        server.getCoordinatorService().getEngineConfig().setReportNonTerminalJobState(true);
+
+        JobEventProcessor eventProcessor =
+                (JobEventProcessor) server.getCoordinatorService().getEventProcessor();
+
+        List<JobStatus> reportedStatuses = new CopyOnWriteArrayList<>();
+        AtomicReference<JobStateEvent> lastJobStateEventReference = new AtomicReference<>();
+
+        EventHandler eventHandler =
+                event -> {
+                    if (event.getEventType() != EventType.JOB_STATUS) {
+                        return;
+                    }
+
+                    JobStateEvent jobStateEvent = (JobStateEvent) event;
+                    reportedStatuses.add(jobStateEvent.getJobStatus());
+                    lastJobStateEventReference.lazySet(jobStateEvent);
+                };
+
+        List handlers = (List) ReflectionUtils.getField(eventProcessor, "handlers").get();
+        handlers.add(eventHandler);
+
+        long jobId = System.currentTimeMillis();
+        long currentTimeMillis = System.currentTimeMillis();
+
+        startJob(jobId, "fake_to_console.conf", false);
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        reportedStatuses.contains(JobStatus.FINISHED),
+                                        "FINISHED event should be reported"));
+
+        Assertions.assertTrue(
+                reportedStatuses.contains(JobStatus.SCHEDULED),
+                "SCHEDULED event should be reported");
+        Assertions.assertTrue(
+                reportedStatuses.contains(JobStatus.RUNNING), "RUNNING event should be reported");
+        Assertions.assertTrue(
+                reportedStatuses.contains(JobStatus.FINISHED), "FINISHED event should be reported");
+
+        Assertions.assertTrue(
+                reportedStatuses.indexOf(JobStatus.SCHEDULED)
+                        < reportedStatuses.indexOf(JobStatus.RUNNING),
+                "SCHEDULED should be reported before RUNNING. Actual events: " + reportedStatuses);
+
+        Assertions.assertTrue(
+                reportedStatuses.indexOf(JobStatus.RUNNING)
+                        < reportedStatuses.indexOf(JobStatus.FINISHED),
+                "RUNNING should be reported before FINISHED. Actual events: " + reportedStatuses);
+
+        JobStateEvent lastJobStateEvent = lastJobStateEventReference.get();
+        Assertions.assertEquals(String.valueOf(jobId), lastJobStateEvent.getJobId());
+        Assertions.assertEquals(JobStatus.FINISHED, lastJobStateEvent.getJobStatus());
+        Assertions.assertTrue(lastJobStateEvent.getCreatedTime() > currentTimeMillis);
+        Assertions.assertEquals(String.valueOf(jobId), lastJobStateEvent.getJobName());
     }
 }

@@ -143,7 +143,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connection.getAutoCommit() != autoCommit) {
             connection.setAutoCommit(autoCommit);
         }
-        log.debug("Prepared statement: {}", sql);
+        log.info("Prepared statement: {}", sql);
         return jdbcDialect.creatPreparedStatement(connection, sql, fetchSize);
     }
 

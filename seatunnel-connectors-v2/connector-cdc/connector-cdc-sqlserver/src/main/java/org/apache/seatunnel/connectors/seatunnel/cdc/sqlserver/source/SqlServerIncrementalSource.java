@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -30,6 +33,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
@@ -39,12 +43,23 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.Lsn
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
+import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
+
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism {
+        implements SupportParallelism, SupportSchemaEvolution {
 
     static final String IDENTIFIER = "SqlServer-CDC";
 
@@ -84,11 +99,16 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
+        boolean schemaChangesEnabled =
+                config.get(SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED);
+        Map<TableId, Struct> tableIdTableChangeMap =
+                schemaChangesEnabled ? tableChanges() : Collections.emptyMap();
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
                 config.get(JdbcSourceOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
                     new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            tableIdTableChangeMap);
         }
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
@@ -96,6 +116,9 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
+                        .setSchemaChangeResolver(
+                                schemaChangesEnabled ? new SqlServerSchemaChangeResolver() : null)
                         .build();
     }
 
@@ -113,5 +136,40 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     @Override
     public Optional<String> driverName() {
         return Optional.of("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN,
+                SchemaChangeType.RENAME_COLUMN);
+    }
+
+    private Map<TableId, Struct> tableChanges() {
+        // Reuse the already-initialized dialect and config rather than constructing a second
+        SqlServerDialect dialect = (SqlServerDialect) dataSourceDialect;
+        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
+        ConnectTableChangeSerializer connectTableChangeSerializer =
+                new ConnectTableChangeSerializer();
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
+            return discoverTables.stream()
+                    .collect(
+                            Collectors.toMap(
+                                    Function.identity(),
+                                    tableId -> {
+                                        TableChanges tableChanges = new TableChanges();
+                                        tableChanges.create(
+                                                dialect.queryTableSchema(jdbcConnection, tableId)
+                                                        .getTable());
+                                        return connectTableChangeSerializer
+                                                .serialize(tableChanges)
+                                                .get(0);
+                                    }));
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
     }
 }

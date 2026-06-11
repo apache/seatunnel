@@ -60,6 +60,7 @@ import org.apache.seatunnel.engine.server.diagnostic.PendingJobDiagnostic;
 import org.apache.seatunnel.engine.server.diagnostic.PendingJobsResponse;
 import org.apache.seatunnel.engine.server.diagnostic.PendingQueueSummary;
 import org.apache.seatunnel.engine.server.event.JobEventHttpReportHandler;
+import org.apache.seatunnel.engine.server.event.JobEventLocalFileHandler;
 import org.apache.seatunnel.engine.server.event.JobEventProcessor;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
@@ -87,11 +88,15 @@ import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
+import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
+import com.hazelcast.map.listener.EntryAddedListener;
+import com.hazelcast.map.listener.EntryRemovedListener;
+import com.hazelcast.map.listener.EntryUpdatedListener;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
@@ -108,13 +113,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -122,6 +131,7 @@ import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTER
 import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
+/** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
@@ -197,6 +207,7 @@ public class CoordinatorService {
     private volatile boolean isActive = false;
 
     private ExecutorService executorService;
+    private final ExecutorService metricsFetchExecutor;
 
     private final SeaTunnelServer seaTunnelServer;
 
@@ -216,6 +227,22 @@ public class CoordinatorService {
 
     private final ScheduleStrategy scheduleStrategy;
 
+    private final AtomicBoolean coordinatorServiceCleared = new AtomicBoolean(false);
+
+    private final AtomicLong runningJobMetricsPartitionKeyCount = new AtomicLong();
+
+    private final AtomicLong runningJobMetricsTaskContextCount = new AtomicLong();
+
+    private final Object runningJobMetricsStatsLock = new Object();
+
+    private final Set<Long> runningJobMetricsDirtyKeys = ConcurrentHashMap.newKeySet();
+
+    private final Map<Long, RunningJobMetricsStats> runningJobMetricsStatsByJobId = new HashMap<>();
+
+    private final AtomicBoolean runningJobMetricsInitializing = new AtomicBoolean(false);
+
+    private volatile UUID runningJobMetricsListenerId;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -223,17 +250,17 @@ public class CoordinatorService {
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
-        this.executorService =
-                new ThreadPoolExecutor(
-                        engineConfig.getCoordinatorServiceConfig().getCoreThreadNum(),
-                        engineConfig.getCoordinatorServiceConfig().getMaxThreadNum(),
-                        60L,
-                        TimeUnit.SECONDS,
-                        new SynchronousQueue<>(),
+        this.executorService = createCoordinatorExecutor();
+
+        int metricsFetchThreads =
+                Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        this.metricsFetchExecutor =
+                Executors.newFixedThreadPool(
+                        metricsFetchThreads,
                         new ThreadFactoryBuilder()
-                                .setNameFormat("seatunnel-coordinator-service-%d")
-                                .build(),
-                        new ThreadPoolStatus.RejectionCountingHandler());
+                                .setNameFormat("seatunnel-metrics-fetch-%d")
+                                .setDaemon(true)
+                                .build());
 
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
@@ -251,9 +278,19 @@ public class CoordinatorService {
                 TimeUnit.SECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
-        logger.info("Start pending job schedule thread");
-        // start pending job schedule thread
-        startPendingJobScheduleThread();
+    }
+
+    private ExecutorService createCoordinatorExecutor() {
+        return new ThreadPoolExecutor(
+                engineConfig.getCoordinatorServiceConfig().getCoreThreadNum(),
+                engineConfig.getCoordinatorServiceConfig().getMaxThreadNum(),
+                60L,
+                TimeUnit.SECONDS,
+                new SynchronousQueue<>(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("seatunnel-coordinator-service-%d")
+                        .build(),
+                new ThreadPoolStatus.RejectionCountingHandler());
     }
 
     /**
@@ -264,10 +301,11 @@ public class CoordinatorService {
      * does not terminate future pending-job processing.
      */
     private void startPendingJobScheduleThread() {
+        logger.info("Start pending job schedule thread");
         Runnable pendingJobScheduleTask =
                 () -> {
                     Thread.currentThread().setName("pending-job-schedule-runner");
-                    while (true) {
+                    while (isActive) {
                         try {
                             pendingJobSchedule();
                         } catch (InterruptedException interrupted) {
@@ -413,9 +451,14 @@ public class CoordinatorService {
                         && state == PendingSourceState.SUBMIT);
     }
 
+    /** Creates the event processor that fans out sampled stain trace events to configured sinks. */
     private JobEventProcessor createJobEventProcessor(
             String reportHttpEndpoint,
             Map<String, String> reportHttpHeaders,
+            String stainTraceFileBasePath,
+            int stainTraceFileMaxEventsPerFile,
+            int stainTraceFileMaxSizeMb,
+            int stainTraceFileFlushIntervalSeconds,
             NodeEngineImpl nodeEngine) {
         List<EventHandler> handlers =
                 EventProcessor.loadEventHandlers(Thread.currentThread().getContextClassLoader());
@@ -439,6 +482,32 @@ public class CoordinatorService {
                             reportHttpEndpoint, reportHttpHeaders, ringbuffer);
             handlers.add(httpReportHandler);
         }
+
+        if (stainTraceFileBasePath != null && !stainTraceFileBasePath.isEmpty()) {
+            String ringBufferName = "zeta-stain-trace-file-event";
+            int maxBufferCapacity = 2000;
+            nodeEngine
+                    .getHazelcastInstance()
+                    .getConfig()
+                    .addRingBufferConfig(
+                            new Config()
+                                    .getRingbufferConfig(ringBufferName)
+                                    .setCapacity(maxBufferCapacity)
+                                    .setBackupCount(0)
+                                    .setAsyncBackupCount(1)
+                                    .setTimeToLiveSeconds(0));
+            Ringbuffer ringbuffer = nodeEngine.getHazelcastInstance().getRingbuffer(ringBufferName);
+            handlers.add(
+                    new JobEventLocalFileHandler(
+                            stainTraceFileBasePath,
+                            java.time.Duration.ofSeconds(stainTraceFileFlushIntervalSeconds),
+                            ringbuffer,
+                            stainTraceFileMaxEventsPerFile,
+                            (long) stainTraceFileMaxSizeMb * 1024 * 1024L));
+            logger.info(
+                    "StainTrace local file handler enabled, writing to: " + stainTraceFileBasePath);
+        }
+
         logger.info("Loaded event handlers: " + handlers);
         return new JobEventProcessor(handlers);
     }
@@ -460,6 +529,7 @@ public class CoordinatorService {
     }
 
     private void initCoordinatorService() {
+        coordinatorServiceCleared.set(false);
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         runningJobStateIMap =
@@ -469,6 +539,7 @@ public class CoordinatorService {
         ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        initRunningJobMetricsStoreStats();
         pendingPipelineCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
@@ -492,6 +563,10 @@ public class CoordinatorService {
                 createJobEventProcessor(
                         engineConfig.getEventReportHttpApi(),
                         engineConfig.getEventReportHttpHeaders(),
+                        engineConfig.getStainTraceFileBasePath(),
+                        engineConfig.getStainTraceFileMaxEventsPerFile(),
+                        engineConfig.getStainTraceFileMaxSizeMb(),
+                        engineConfig.getStainTraceFileFlushIntervalSeconds(),
                         nodeEngine);
 
         // If the user has configured the connector package service, create it  on the master node.
@@ -1010,24 +1085,24 @@ public class CoordinatorService {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
-                if (this.executorService.isShutdown()) {
-                    this.executorService =
-                            Executors.newCachedThreadPool(
-                                    new ThreadFactoryBuilder()
-                                            .setNameFormat("seatunnel-coordinator-service-%d")
-                                            .build());
+                if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
+                    this.executorService = createCoordinatorExecutor();
                 }
                 initCoordinatorService();
                 isActive = true;
+                startPendingJobScheduleThread();
+                seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
                         "This node become leave active master node, begin clear coordinator service");
+                seaTunnelServer.stopRealtimeMetricsService();
                 clearCoordinatorService();
             }
         } catch (Exception e) {
             isActive = false;
             logger.severe("check new active master error, will retry later.", e);
+            seaTunnelServer.stopRealtimeMetricsService();
             try {
                 clearCoordinatorService();
             } catch (Exception ex) {
@@ -1045,6 +1120,11 @@ public class CoordinatorService {
      * active master needs for takeover recovery.
      */
     public synchronized void clearCoordinatorService() {
+        isActive = false;
+        if (!coordinatorServiceCleared.compareAndSet(false, true)) {
+            return;
+        }
+        removeRunningJobMetricsListener();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {
@@ -1062,18 +1142,28 @@ public class CoordinatorService {
         runningJobMasterMap.clear();
 
         try {
-            executorService.awaitTermination(20, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(20, TimeUnit.SECONDS);
+            if (!terminated) {
+                logger.warning(
+                        "Coordinator service executorService did not terminate within 20 seconds.");
+            }
         } catch (InterruptedException e) {
-            throw new SeaTunnelEngineException("wait clean executor service error", e);
+            Thread.currentThread().interrupt();
+            logger.info(
+                    "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
         }
 
-        if (resourceManager != null) {
-            resourceManager.close();
+        ResourceManager manager = resourceManager;
+        resourceManager = null;
+        if (manager != null) {
+            manager.close();
         }
 
         try {
-            if (eventProcessor != null) {
-                eventProcessor.close();
+            EventProcessor processor = eventProcessor;
+            eventProcessor = null;
+            if (processor != null) {
+                processor.close();
             }
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
@@ -1337,19 +1427,8 @@ public class CoordinatorService {
 
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         final Set<Long> runningJobIds = runningJobMasterMap.keySet();
-
-        Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
-                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
-                                .values()
-                                .forEach(
-                                        ownedSlotProfile -> {
-                                            addresses.add(ownedSlotProfile.getWorker());
-                                        });
-                    }
-                });
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
 
         List<RawJobMetrics> metrics = new ArrayList<>();
 
@@ -1390,6 +1469,196 @@ public class CoordinatorService {
                 });
 
         return longJobMetricsMap;
+    }
+
+    /**
+     * Get metrics for the specified running jobs.
+     *
+     * <p>This method is best-effort: if a worker node is unreachable or times out, its metrics will
+     * be skipped.
+     */
+    public Map<Long, JobMetrics> getRunningJobMetrics(Set<Long> runningJobIds, long timeoutMs) {
+        return getRunningJobMetrics(runningJobIds, timeoutMs, null);
+    }
+
+    /**
+     * Get metrics for the specified running jobs with optional metric-name prefix filtering.
+     *
+     * <p>This method is best-effort: if a worker node is unreachable or times out, its metrics will
+     * be skipped.
+     */
+    public Map<Long, JobMetrics> getRunningJobMetrics(
+            Set<Long> runningJobIds, long timeoutMs, String[] metricNamePrefixes) {
+        if (runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        for (Address address : addresses) {
+            try {
+                if (nodeEngine.getClusterService().getMember(address) != null) {
+                    RawJobMetrics rawJobMetrics =
+                            (RawJobMetrics)
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                    nodeEngine,
+                                                    new GetMetricsOperation(
+                                                            runningJobIds, metricNamePrefixes),
+                                                    address)
+                                            .get(timeoutMs, TimeUnit.MILLISECONDS);
+                    metrics.add(rawJobMetrics);
+                }
+            } catch (TimeoutException e) {
+                logger.warning(String.format("get metrics timeout from worker %s", address));
+            } catch (HazelcastInstanceNotActiveException e) {
+                logger.warning(
+                        String.format(
+                                "get metrics with exception: %s.", ExceptionUtils.getMessage(e)));
+            } catch (Exception e) {
+                logger.warning(
+                        String.format(
+                                "get metrics from worker %s failed: %s",
+                                address, ExceptionUtils.getMessage(e)));
+            }
+        }
+
+        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+
+        longJobMetricsMap.forEach(
+                (jobId, jobMetrics) -> {
+                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+                    if (jobMetricsImap != JobMetrics.empty()) {
+                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
+                    }
+                });
+
+        return longJobMetricsMap;
+    }
+
+    /**
+     * Get raw metrics blobs for the specified running jobs.
+     *
+     * <p>This is used by lightweight services (e.g. realtime observability) to parse only required
+     * metrics without materializing {@link JobMetrics} (which may cause heavy allocations).
+     *
+     * <p>Note: {@code timeoutMs} is treated as an overall time budget for the whole fetch (not per
+     * worker). This avoids the master-side collector thread being blocked for {@code N * timeoutMs}
+     * in large clusters when many workers are slow or unreachable.
+     */
+    public List<RawJobMetrics> getRunningJobRawMetrics(
+            Set<Long> runningJobIds, long timeoutMs, String[] metricNamePrefixes) {
+        if (runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
+        if (addresses.isEmpty()) {
+            return Collections.emptyList();
+        }
+        long budgetMs = Math.max(0L, timeoutMs);
+        if (budgetMs == 0L) {
+            return Collections.emptyList();
+        }
+
+        List<java.util.concurrent.Callable<RawJobMetrics>> tasks =
+                new ArrayList<>(addresses.size());
+        for (Address address : addresses) {
+            tasks.add(
+                    () ->
+                            fetchRawMetricsFromWorker(
+                                    address, runningJobIds, metricNamePrefixes, budgetMs));
+        }
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        List<Future<RawJobMetrics>> futures;
+        try {
+            futures = metricsFetchExecutor.invokeAll(tasks, budgetMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Collections.emptyList();
+        }
+
+        for (Future<RawJobMetrics> f : futures) {
+            try {
+                if (f.isCancelled()) {
+                    continue;
+                }
+                RawJobMetrics m = f.get();
+                if (m != null) {
+                    metrics.add(m);
+                }
+            } catch (Exception ignored) {
+                // ignored: detailed warnings are logged in fetchRawMetricsFromWorker
+            }
+        }
+        return metrics;
+    }
+
+    @VisibleForTesting
+    static Set<Address> collectRunningWorkerAddresses(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            Set<Long> runningJobIds) {
+        if (ownedSlotProfiles == null || runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<Address> addresses = new HashSet<>();
+        // Realtime metrics polling can start before coordinator state is fully initialized.
+        ownedSlotProfiles.forEach(
+                (pipelineLocation, pipelineOwnedSlotProfiles) -> {
+                    if (pipelineLocation == null
+                            || pipelineOwnedSlotProfiles == null
+                            || !runningJobIds.contains(pipelineLocation.getJobId())) {
+                        return;
+                    }
+                    pipelineOwnedSlotProfiles
+                            .values()
+                            .forEach(
+                                    ownedSlotProfile -> {
+                                        if (ownedSlotProfile != null
+                                                && ownedSlotProfile.getWorker() != null) {
+                                            addresses.add(ownedSlotProfile.getWorker());
+                                        }
+                                    });
+                });
+        return addresses;
+    }
+
+    private RawJobMetrics fetchRawMetricsFromWorker(
+            Address address, Set<Long> runningJobIds, String[] metricNamePrefixes, long timeoutMs) {
+        try {
+            if (address == null) {
+                return null;
+            }
+            if (nodeEngine.getClusterService().getMember(address) == null) {
+                return null;
+            }
+            return (RawJobMetrics)
+                    NodeEngineUtil.sendOperationToMemberNode(
+                                    nodeEngine,
+                                    new GetMetricsOperation(runningJobIds, metricNamePrefixes),
+                                    address)
+                            .get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            logger.warning(String.format("get metrics timeout from worker %s", address));
+            return null;
+        } catch (HazelcastInstanceNotActiveException e) {
+            logger.warning(
+                    String.format("get metrics with exception: %s.", ExceptionUtils.getMessage(e)));
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "get metrics from worker %s failed: %s",
+                            address, ExceptionUtils.getMessage(e)));
+            return null;
+        }
     }
 
     public JobDAGInfo getJobInfo(long jobId) {
@@ -1555,13 +1824,20 @@ public class CoordinatorService {
     }
 
     public void shutdown() {
+        isActive = false;
         if (masterActiveListener != null) {
-            masterActiveListener.shutdownNow();
+            masterActiveListener.shutdown();
+        }
+        if (metricsFetchExecutor != null) {
+            metricsFetchExecutor.shutdownNow();
         }
         if (pipelineCleanupScheduler != null) {
-            pipelineCleanupScheduler.shutdownNow();
+            pipelineCleanupScheduler.shutdown();
         }
+        removeRunningJobMetricsListener();
         clearCoordinatorService();
+        awaitSchedulerTermination("master active listener", masterActiveListener);
+        awaitSchedulerTermination("pipeline cleanup scheduler", pipelineCleanupScheduler);
     }
 
     /** return true if this node is a master node and the coordinator service init finished. */
@@ -1820,6 +2096,18 @@ public class CoordinatorService {
         return pendingJobQueue.getJobIdMap().size();
     }
 
+    public long getRunningJobMetricsPartitionKeyCount() {
+        return runningJobMetricsPartitionKeyCount.get();
+    }
+
+    public long getRunningJobMetricsTaskContextCount() {
+        return runningJobMetricsTaskContextCount.get();
+    }
+
+    public EngineConfig getEngineConfig() {
+        return engineConfig;
+    }
+
     @VisibleForTesting
     protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
         return metricsImap;
@@ -1840,8 +2128,162 @@ public class CoordinatorService {
         }
     }
 
+    private void initRunningJobMetricsStoreStats() {
+        removeRunningJobMetricsListener();
+        runningJobMetricsListenerId =
+                metricsImap.addEntryListener(new RunningJobMetricsEntryListener(), true);
+        runningJobMetricsInitializing.set(true);
+        runningJobMetricsDirtyKeys.clear();
+
+        Map<Long, RunningJobMetricsStats> snapshotStats = new HashMap<>();
+        metricsImap.forEach(
+                (partitionKey, metrics) ->
+                        snapshotStats.put(partitionKey, toRunningJobMetricsStats(metrics)));
+
+        Set<Long> dirtyKeys = new HashSet<>(runningJobMetricsDirtyKeys);
+        for (Long partitionKey : dirtyKeys) {
+            snapshotStats.put(
+                    partitionKey, toRunningJobMetricsStats(metricsImap.get(partitionKey)));
+        }
+
+        synchronized (runningJobMetricsStatsLock) {
+            runningJobMetricsStatsByJobId.clear();
+            runningJobMetricsPartitionKeyCount.set(0L);
+            runningJobMetricsTaskContextCount.set(0L);
+            snapshotStats.forEach(this::replaceRunningJobMetricsStatsLocked);
+            runningJobMetricsInitializing.set(false);
+
+            Set<Long> postSnapshotDirtyKeys = new HashSet<>(runningJobMetricsDirtyKeys);
+            runningJobMetricsDirtyKeys.clear();
+            for (Long partitionKey : postSnapshotDirtyKeys) {
+                replaceRunningJobMetricsStatsLocked(
+                        partitionKey, toRunningJobMetricsStats(metricsImap.get(partitionKey)));
+            }
+        }
+    }
+
+    private RunningJobMetricsStats toRunningJobMetricsStats(
+            Map<TaskLocation, SeaTunnelMetricsContext> metrics) {
+        if (metrics == null || metrics.isEmpty()) {
+            return RunningJobMetricsStats.EMPTY;
+        }
+        return new RunningJobMetricsStats(1L, metrics.size());
+    }
+
+    private void replaceRunningJobMetricsStatsLocked(
+            Long partitionKey, RunningJobMetricsStats stats) {
+        RunningJobMetricsStats currentStats = runningJobMetricsStatsByJobId.get(partitionKey);
+        if (currentStats != null) {
+            runningJobMetricsPartitionKeyCount.addAndGet(-currentStats.partitionKeyCount);
+            runningJobMetricsTaskContextCount.addAndGet(-currentStats.taskContextCount);
+        }
+
+        if (stats.isEmpty()) {
+            runningJobMetricsStatsByJobId.remove(partitionKey);
+            return;
+        }
+
+        runningJobMetricsStatsByJobId.put(partitionKey, stats);
+        runningJobMetricsPartitionKeyCount.addAndGet(stats.partitionKeyCount);
+        runningJobMetricsTaskContextCount.addAndGet(stats.taskContextCount);
+    }
+
+    private void removeRunningJobMetricsListener() {
+        if (metricsImap != null && runningJobMetricsListenerId != null) {
+            metricsImap.removeEntryListener(runningJobMetricsListenerId);
+            runningJobMetricsListenerId = null;
+        }
+        runningJobMetricsInitializing.set(false);
+        runningJobMetricsDirtyKeys.clear();
+        synchronized (runningJobMetricsStatsLock) {
+            runningJobMetricsStatsByJobId.clear();
+        }
+        runningJobMetricsPartitionKeyCount.set(0L);
+        runningJobMetricsTaskContextCount.set(0L);
+    }
+
+    private final class RunningJobMetricsEntryListener
+            implements EntryAddedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>,
+                    EntryUpdatedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>,
+                    EntryRemovedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> {
+
+        @Override
+        public void entryAdded(
+                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
+            replaceRunningJobMetricsStats(event.getKey(), event.getValue());
+        }
+
+        @Override
+        public void entryUpdated(
+                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
+            replaceRunningJobMetricsStats(event.getKey(), event.getValue());
+        }
+
+        @Override
+        public void entryRemoved(
+                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
+            replaceRunningJobMetricsStats(event.getKey(), null);
+        }
+    }
+
+    private void replaceRunningJobMetricsStats(
+            Long partitionKey, Map<TaskLocation, SeaTunnelMetricsContext> metrics) {
+        if (runningJobMetricsInitializing.get()) {
+            runningJobMetricsDirtyKeys.add(partitionKey);
+            return;
+        }
+        synchronized (runningJobMetricsStatsLock) {
+            if (runningJobMetricsInitializing.get()) {
+                runningJobMetricsDirtyKeys.add(partitionKey);
+                return;
+            }
+            replaceRunningJobMetricsStatsLocked(partitionKey, toRunningJobMetricsStats(metrics));
+        }
+    }
+
+    private static final class RunningJobMetricsStats {
+        private static final RunningJobMetricsStats EMPTY = new RunningJobMetricsStats(0L, 0L);
+
+        private final long partitionKeyCount;
+        private final long taskContextCount;
+
+        private RunningJobMetricsStats(long partitionKeyCount, long taskContextCount) {
+            this.partitionKeyCount = partitionKeyCount;
+            this.taskContextCount = taskContextCount;
+        }
+
+        private boolean isEmpty() {
+            return partitionKeyCount == 0L && taskContextCount == 0L;
+        }
+    }
+
     @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
+    }
+
+    private void awaitSchedulerTermination(
+            String schedulerName, ScheduledExecutorService scheduler) {
+        if (scheduler == null) {
+            return;
+        }
+        try {
+            if (!scheduler.awaitTermination(20, TimeUnit.SECONDS)) {
+                logger.warning(
+                        String.format(
+                                "%s did not terminate within 20 seconds, forcing shutdown.",
+                                schedulerName));
+                scheduler.shutdownNow();
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warning(
+                            String.format(
+                                    "%s did not terminate after forced shutdown.", schedulerName));
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.info(
+                    String.format("Interrupted while waiting for %s to terminate.", schedulerName));
+        }
     }
 }

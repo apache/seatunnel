@@ -51,7 +51,8 @@ public class SourceRecordUtils {
     public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
             Arrays.asList(
                     "io.debezium.connector.mysql.SchemaChangeKey",
-                    "io.debezium.connector.oracle.SchemaChangeKey");
+                    "io.debezium.connector.oracle.SchemaChangeKey",
+                    "io.debezium.connector.sqlserver.SchemaChangeKey");
 
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
             "io.debezium.connector.common.Heartbeat";

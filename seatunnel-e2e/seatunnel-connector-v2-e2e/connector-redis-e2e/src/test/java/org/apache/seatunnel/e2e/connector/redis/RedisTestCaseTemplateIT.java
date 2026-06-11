@@ -305,9 +305,9 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
-        // Clear data to prevent data duplication in the next TestContainer
-        Thread.sleep(60 * 1000);
-        Assertions.assertEquals(0, jedis.llen("key_list"));
+        await().atMost(90, TimeUnit.SECONDS)
+                .pollInterval(3, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(0, jedis.llen("key_list")));
     }
 
     @TestTemplate
@@ -689,19 +689,26 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @DisabledOnOs(OS.WINDOWS)
     public void testFakeToRedisInRealTimeTest(TestContainer container)
             throws IOException, InterruptedException {
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/fake-to-redis-test-in-real-time.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        CompletableFuture<Void> jobFuture =
+                CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        container.executeJob(
+                                                "/fake-to-redis-test-in-real-time.conf");
+                                    } catch (Exception e) {
+                                        log.error("Streaming job execution failed", e);
+                                        throw new RuntimeException(e);
+                                    }
+                                    return null;
+                                })
+                        .thenAccept(v -> {});
+        await().atMost(120, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
+                            Assertions.assertFalse(
+                                    jobFuture.isCompletedExceptionally(),
+                                    "Streaming job failed unexpectedly");
                             Assertions.assertEquals(3, jedis.llen("list_check"));
                         });
         jedis.del("list_check");
