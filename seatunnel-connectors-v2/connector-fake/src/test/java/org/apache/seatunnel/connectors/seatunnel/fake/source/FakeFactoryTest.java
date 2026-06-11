@@ -17,13 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class FakeFactoryTest {
 
     @Test
     void optionRule() {
         Assertions.assertNotNull((new FakeSourceFactory()).optionRule());
+    }
+
+    @Test
+    void invalidTinyintMinShouldFailValidation() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("tinyint.min", 200);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(config))
+                                .validate(new FakeSourceFactory().optionRule()));
     }
 }

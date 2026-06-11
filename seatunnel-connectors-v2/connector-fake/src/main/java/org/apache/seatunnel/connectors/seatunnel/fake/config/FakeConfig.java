@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
-
+import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -220,58 +220,241 @@ public class FakeConfig implements Serializable {
 
         readonlyConfig
                 .getOptional(TINYINT_MIN)
-                .ifPresent(builder::tinyintMin);
-
+                .ifPresent(
+                        tinyintMin -> {
+                            if (tinyintMin < TINYINT_MIN.defaultValue()
+                                    || tinyintMin > TINYINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        TINYINT_MIN.key()
+                                                + " should >= "
+                                                + TINYINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + TINYINT_MAX.defaultValue());
+                            }
+                            builder.tinyintMin(tinyintMin);
+                        });
 
         readonlyConfig
                 .getOptional(TINYINT_MAX)
-                .ifPresent(builder::tinyintMax);
+                .ifPresent(
+                        tinyintMax -> {
+                            if (tinyintMax < TINYINT_MIN.defaultValue()
+                                    || tinyintMax > TINYINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        TINYINT_MAX.key()
+                                                + " should >= "
+                                                + TINYINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + TINYINT_MAX.defaultValue());
+                            }
+                            builder.tinyintMax(tinyintMax);
+                        });
 
         readonlyConfig
                 .getOptional(SMALLINT_MIN)
-                .ifPresent(builder::smallintMin);
+                .ifPresent(
+                        smallintMin -> {
+                            if (smallintMin < SMALLINT_MIN.defaultValue()
+                                    || smallintMin > SMALLINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        SMALLINT_MIN.key()
+                                                + " should >= "
+                                                + SMALLINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + SMALLINT_MAX.defaultValue());
+                            }
+                            builder.smallintMin(smallintMin);
+                        });
+
         readonlyConfig
                 .getOptional(SMALLINT_MAX)
-                .ifPresent(builder::smallintMax);
+                .ifPresent(
+                        smallintMax -> {
+                            if (smallintMax < SMALLINT_MIN.defaultValue()
+                                    || smallintMax > SMALLINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        SMALLINT_MAX.key()
+                                                + " should >= "
+                                                + SMALLINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + SMALLINT_MAX.defaultValue());
+                            }
+                            builder.smallintMax(smallintMax);
+                        });
 
         readonlyConfig
                 .getOptional(INT_MIN)
-                .ifPresent(builder::intMin);
+                .ifPresent(
+                        intMin -> {
+                            if (intMin < INT_MIN.defaultValue()
+                                    || intMin > INT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        INT_MIN.key()
+                                                + " should >= "
+                                                + INT_MIN.defaultValue()
+                                                + " and <= "
+                                                + INT_MAX.defaultValue());
+                            }
+                            builder.intMin(intMin);
+                        });
 
         readonlyConfig
                 .getOptional(INT_MAX)
-                .ifPresent(builder::intMax);
+                .ifPresent(
+                        intMax -> {
+                            if (intMax < INT_MIN.defaultValue()
+                                    || intMax > INT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        INT_MAX.key()
+                                                + " should >= "
+                                                + INT_MIN.defaultValue()
+                                                + " and <= "
+                                                + INT_MAX.defaultValue());
+                            }
+                            builder.intMax(intMax);
+                        });
 
         readonlyConfig
                 .getOptional(BIGINT_MIN)
-                .ifPresent(builder::bigintMin);
+                .ifPresent(
+                        bigintMin -> {
+                            if (bigintMin < BIGINT_MIN.defaultValue()
+                                    || bigintMin > BIGINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        BIGINT_MIN.key()
+                                                + " should >= "
+                                                + BIGINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + BIGINT_MAX.defaultValue());
+                            }
+                            builder.bigintMin(bigintMin);
+                        });
 
         readonlyConfig
                 .getOptional(BIGINT_MAX)
-                .ifPresent(builder::bigintMax);
+                .ifPresent(
+                        bigintMax -> {
+                            if (bigintMax < BIGINT_MIN.defaultValue()
+                                    || bigintMax > BIGINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        BIGINT_MAX.key()
+                                                + " should >= "
+                                                + BIGINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + BIGINT_MAX.defaultValue());
+                            }
+                            builder.bigintMax(bigintMax);
+                        });
 
         readonlyConfig
                 .getOptional(FLOAT_MIN)
-                .ifPresent(builder::floatMin);
+                .ifPresent(
+                        floatMin -> {
+                            if (floatMin < FLOAT_MIN.defaultValue()
+                                    || floatMin > FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        FLOAT_MIN.key()
+                                                + " should >= "
+                                                + FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + FLOAT_MAX.defaultValue());
+                            }
+                            builder.floatMin(floatMin);
+                        });
 
         readonlyConfig
                 .getOptional(FLOAT_MAX)
-                .ifPresent(builder::floatMax);
+                .ifPresent(
+                        floatMax -> {
+                            if (floatMax < FLOAT_MIN.defaultValue()
+                                    || floatMax > FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        FLOAT_MAX.key()
+                                                + " should >= "
+                                                + FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + FLOAT_MAX.defaultValue());
+                            }
+                            builder.floatMax(floatMax);
+                        });
 
         readonlyConfig
                 .getOptional(DOUBLE_MIN)
-                .ifPresent(builder::doubleMin);
+                .ifPresent(
+                        doubleMin -> {
+                            if (doubleMin < DOUBLE_MIN.defaultValue()
+                                    || doubleMin > DOUBLE_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        DOUBLE_MIN.key()
+                                                + " should >= "
+                                                + DOUBLE_MIN.defaultValue()
+                                                + " and <= "
+                                                + DOUBLE_MAX.defaultValue());
+                            }
+                            builder.doubleMin(doubleMin);
+                        });
 
         readonlyConfig
                 .getOptional(DOUBLE_MAX)
-                .ifPresent(builder::doubleMax);
+                .ifPresent(
+                        doubleMax -> {
+                            if (doubleMax < DOUBLE_MIN.defaultValue()
+                                    || doubleMax > DOUBLE_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        DOUBLE_MAX.key()
+                                                + " should >= "
+                                                + DOUBLE_MIN.defaultValue()
+                                                + " and <= "
+                                                + DOUBLE_MAX.defaultValue());
+                            }
+                            builder.doubleMax(doubleMax);
+                        });
 
         readonlyConfig
                 .getOptional(VECTOR_FLOAT_MIN)
-                .ifPresent(builder::vectorFloatMin);
+                .ifPresent(
+                        vectorFloatMin -> {
+                            if (vectorFloatMin < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMin > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MIN.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMin(vectorFloatMin);
+                        });
+
         readonlyConfig
                 .getOptional(VECTOR_FLOAT_MAX)
-                .ifPresent(builder::vectorFloatMax);
+                .ifPresent(
+                        vectorFloatMax -> {
+                            if (vectorFloatMax < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMax > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MAX.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMax(vectorFloatMax);
+                        });
 
         readonlyConfig.getOptional(STRING_FAKE_MODE).ifPresent(builder::stringFakeMode);
         readonlyConfig.getOptional(TINYINT_FAKE_MODE).ifPresent(builder::tinyintFakeMode);
