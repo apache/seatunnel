@@ -23,18 +23,36 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-janino</artifactId>
-    <name>SeaTunnel : Shade : Janino</name>
+    <artifactId>seatunnel-calcite</artifactId>
+    <name>SeaTunnel : Shade : Calcite</name>
     <properties>
-        <janino.verion>3.1.12</janino.verion>
+        <calcite.version>1.38.0</calcite.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>${janino.verion}</version>
+            <groupId>org.apache.calcite</groupId>
+            <artifactId>calcite-core</artifactId>
+            <version>${calcite.version}</version>
             <optional>true</optional>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -50,7 +68,7 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <finalName>seatunnel-janino</finalName>
+                            <finalName>seatunnel-calcite</finalName>
                             <createSourcesJar>${enableSourceJarCreation}</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
@@ -67,8 +85,40 @@
                             </filters>
                             <relocations>
                                 <relocation>
-                                    <pattern>org.codehaus</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.org.codehaus</shadedPattern>
+                                    <pattern>org.apache.calcite</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apache.calcite</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.calcite.avatica</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apache.calcite.avatica</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.codehaus.janino</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.codehaus.janino</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.codehaus.commons</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.codehaus.commons</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.codec</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apache.commons.codec</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.jayway.jsonpath</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.com.jayway.jsonpath</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.minidev</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.net.minidev</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apiguardian</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apiguardian</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.checkerframework</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.checkerframework</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
@@ -88,7 +138,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>${basedir}/target/seatunnel-janino.jar</file>
+                                    <file>${basedir}/target/seatunnel-calcite.jar</file>
                                     <type>jar</type>
                                     <classifier>optional</classifier>
                                 </artifact>

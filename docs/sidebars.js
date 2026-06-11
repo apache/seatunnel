@@ -244,6 +244,7 @@ const sidebars = {
                         "transforms/common-options/common-options"
                     ]
                 },
+                "transforms/calcite",
                 "transforms/copy",
                 "transforms/data-validator",
                 "transforms/define-sink-type",
