@@ -50,9 +50,16 @@ public final class BuiltinFunctions {
         ServiceLoader.load(CalciteUdf.class, cl)
                 .forEach(
                         udf -> {
-                            String name = udf.functionName().toUpperCase();
+                            String rawName = udf.functionName();
+                            if (rawName == null || rawName.isEmpty()) {
+                                log.warn(
+                                        "Skipping Calcite UDF with null/empty functionName: {}",
+                                        udf.getClass().getName());
+                                return;
+                            }
+                            String name = rawName.toUpperCase();
+                            boolean opened = false;
                             try {
-                                udf.open();
                                 ScalarFunction function =
                                         ScalarFunctionImpl.create(udf.getClass(), "eval");
                                 if (function == null) {
@@ -61,11 +68,20 @@ public final class BuiltinFunctions {
                                             name);
                                     return;
                                 }
+                                udf.open();
+                                opened = true;
                                 schema.add(name, function);
                                 loadedUdfs.add(udf);
                                 log.info("Registered Calcite UDF via SPI: {}", name);
                             } catch (Exception e) {
                                 log.warn("Failed to register Calcite UDF: {}", name, e);
+                                if (opened) {
+                                    try {
+                                        udf.close();
+                                    } catch (Exception ce) {
+                                        log.warn("Failed to close Calcite UDF: {}", name, ce);
+                                    }
+                                }
                             }
                         });
     }

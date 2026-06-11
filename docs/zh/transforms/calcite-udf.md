@@ -112,7 +112,7 @@ import com.google.auto.service.AutoService;
 @AutoService(CalciteUdf.class)
 public class PrefixUdf implements CalciteUdf {
 
-    private static String prefix;
+    private static volatile String prefix;
 
     @Override
     public String functionName() {
@@ -126,7 +126,8 @@ public class PrefixUdf implements CalciteUdf {
 
     public static String eval(String input) {
         if (input == null) return null;
-        return prefix + ": " + input;
+        String p = prefix;
+        return (p != null ? p : "") + ": " + input;
     }
 
     @Override
@@ -138,9 +139,52 @@ public class PrefixUdf implements CalciteUdf {
 
 :::caution
 
-由于 `eval` 必须是静态方法，共享状态（如上面的 `prefix`）必须存储在静态字段中。如果 UDF 维护可变状态，请注意线程安全。
+由于 `eval` 必须是静态方法，共享状态（如上面的 `prefix`）必须存储在静态字段中。对于简单引用类型请使用 `volatile`，对于复杂可变状态请使用适当的同步机制，以确保跨线程的可见性。
 
 :::
+
+## 上下文感知 UDF 示例
+
+如果 UDF 需要访问行级元数据（如 CDC 场景的 RowKind、表路径等），可以在静态 `eval` 方法中通过 `CalciteUdfContext.current()` 获取：
+
+```java
+package com.example;
+
+import org.apache.seatunnel.transform.calcite.udf.CalciteUdf;
+import org.apache.seatunnel.transform.calcite.udf.CalciteUdfContext;
+import com.google.auto.service.AutoService;
+
+@AutoService(CalciteUdf.class)
+public class RowKindUdf implements CalciteUdf {
+
+    @Override
+    public String functionName() {
+        return "ROW_KIND";
+    }
+
+    public static String eval(String input) {
+        CalciteUdfContext ctx = CalciteUdfContext.current();
+        if (ctx == null || input == null) return null;
+        return ctx.getRowKind().shortString() + ":" + input;
+    }
+}
+```
+
+`CalciteUdfContext` 提供以下方法：
+
+| 方法 | 返回类型 | 说明 |
+|------|---------|------|
+| `getRawTableId()` | String | 原始表标识符（如 `db.schema.table`） |
+| `getDatabase()` | String | 解析后的数据库名 |
+| `getSchema()` | String | 解析后的 Schema 名 |
+| `getTable()` | String | 解析后的表名 |
+| `getRowKind()` | RowKind | 行变更类型：`INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER`、`DELETE` |
+
+使用：
+
+```sql
+SELECT ROW_KIND(name) AS kind_name FROM source_table
+```
 
 ## 多参数 UDF 示例
 

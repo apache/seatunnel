@@ -179,7 +179,7 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
                             inputCatalogTable.getComment(),
                             inputCatalogTable.getTableId().getCatalogName(),
                             inputCatalogTable.getMetadataSchema());
-            engine = null;
+            closeEngine();
             outputCatalogTable = null;
         }
         return event;
@@ -188,13 +188,18 @@ public class CalciteTransform extends AbstractCatalogSupportFlatMapTransform {
     @Override
     public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
         super.setInputCatalogTable(inputCatalogTable);
-        this.engine = null;
+        closeEngine();
+    }
+
+    private void closeEngine() {
+        if (engine != null) {
+            engine.close();
+            engine = null;
+        }
     }
 
     @Override
     public void close() {
-        if (engine != null) {
-            engine.close();
-        }
+        closeEngine();
     }
 }

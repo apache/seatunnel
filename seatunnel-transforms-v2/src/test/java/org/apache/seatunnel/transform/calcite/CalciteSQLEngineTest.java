@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.calcite;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,7 +38,9 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 class CalciteSQLEngineTest {
 
@@ -1174,7 +1177,6 @@ class CalciteSQLEngineTest {
 
         SeaTunnelRow row =
                 new SeaTunnelRow(new Object[] {(byte) 1, (short) 200, 100000L, 3.14f, 2.718281828});
-        List<SeaTunnelRow> result = exec(engine, row.getFields());
 
         SeaTunnelRowType outType = engine.getOutputRowType();
         Assertions.assertEquals(SqlType.TINYINT, outType.getFieldType(0).getSqlType());
@@ -1209,7 +1211,7 @@ class CalciteSQLEngineTest {
                 singleField(
                         engine, new Object[] {new BigDecimal("100.50"), new BigDecimal("200.75")});
         Assertions.assertNotNull(result);
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, new BigDecimal("301.25").compareTo((BigDecimal) result));
         engine.close();
     }
@@ -2208,7 +2210,7 @@ class CalciteSQLEngineTest {
                         "test_table",
                         buildRowType());
         Object result = singleField(engine, new Object[] {1, "A", 25});
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, new BigDecimal("25.00").compareTo((BigDecimal) result));
         engine.close();
     }
@@ -2223,7 +2225,7 @@ class CalciteSQLEngineTest {
         Object result =
                 singleField(
                         engine, new Object[] {new BigDecimal("100.50"), new BigDecimal("30.25")});
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, new BigDecimal("70.25").compareTo((BigDecimal) result));
         engine.close();
     }
@@ -2237,7 +2239,7 @@ class CalciteSQLEngineTest {
         CalciteSQLEngine engine = createAndInit("SELECT a * b AS product FROM t", "t", rt);
         Object result =
                 singleField(engine, new Object[] {new BigDecimal("10.00"), new BigDecimal("3.50")});
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, new BigDecimal("35.0000").compareTo((BigDecimal) result));
         engine.close();
     }
@@ -2253,7 +2255,7 @@ class CalciteSQLEngineTest {
                 singleField(
                         engine, new Object[] {new BigDecimal("100.00"), new BigDecimal("4.00")});
         Assertions.assertNotNull(result);
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         engine.close();
     }
 
@@ -2653,7 +2655,7 @@ class CalciteSQLEngineTest {
                         new String[] {"val"}, new SeaTunnelDataType[] {new DecimalType(10, 2)});
         CalciteSQLEngine engine = createAndInit("SELECT val FROM t", "t", rt);
         Object result = singleField(engine, new Object[] {BigDecimal.ZERO});
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, BigDecimal.ZERO.compareTo((BigDecimal) result));
         engine.close();
     }
@@ -2665,7 +2667,7 @@ class CalciteSQLEngineTest {
                         new String[] {"val"}, new SeaTunnelDataType[] {new DecimalType(10, 2)});
         CalciteSQLEngine engine = createAndInit("SELECT val FROM t", "t", rt);
         Object result = singleField(engine, new Object[] {new BigDecimal("-99.99")});
-        Assertions.assertTrue(result instanceof BigDecimal);
+        Assertions.assertInstanceOf(BigDecimal.class, result);
         Assertions.assertEquals(0, new BigDecimal("-99.99").compareTo((BigDecimal) result));
         engine.close();
     }
@@ -4135,6 +4137,50 @@ class CalciteSQLEngineTest {
         Assertions.assertEquals(2, normalized.length);
         double norm = Math.sqrt(normalized[0] * normalized[0] + normalized[1] * normalized[1]);
         Assertions.assertEquals(1.0, norm, 1e-6);
+        engine.close();
+    }
+
+    @Test
+    void testRowKindPropagation() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT id, name FROM test_table", "test_table", buildRowType());
+
+        for (RowKind kind : RowKind.values()) {
+            SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "Alice", 25});
+            input.setRowKind(kind);
+            input.setTableId("db.schema.users");
+
+            List<SeaTunnelRow> results = engine.execute(input);
+            Assertions.assertEquals(1, results.size());
+            SeaTunnelRow output = results.get(0);
+            Assertions.assertEquals(
+                    kind, output.getRowKind(), "RowKind should be preserved for " + kind);
+            Assertions.assertEquals("db.schema.users", output.getTableId());
+        }
+        engine.close();
+    }
+
+    @Test
+    void testRowOptionsPropagation() {
+        CalciteSQLEngine engine =
+                createAndInit("SELECT id, name FROM test_table", "test_table", buildRowType());
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "Alice", 25});
+        input.setRowKind(RowKind.UPDATE_AFTER);
+        input.setTableId("mydb.mytable");
+        Map<String, Object> options = new HashMap<>();
+        options.put("partition", "p0");
+        options.put("offset", "42");
+        input.setOptions(options);
+
+        List<SeaTunnelRow> results = engine.execute(input);
+        Assertions.assertEquals(1, results.size());
+        SeaTunnelRow output = results.get(0);
+        Assertions.assertEquals(RowKind.UPDATE_AFTER, output.getRowKind());
+        Assertions.assertEquals("mydb.mytable", output.getTableId());
+        Assertions.assertNotNull(output.getOptions());
+        Assertions.assertEquals("p0", output.getOptions().get("partition"));
+        Assertions.assertEquals("42", output.getOptions().get("offset"));
         engine.close();
     }
 }

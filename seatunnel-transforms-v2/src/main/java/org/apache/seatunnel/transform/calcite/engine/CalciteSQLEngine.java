@@ -46,6 +46,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.calcite.adapter.SeaTunnelScannableTable;
 import org.apache.seatunnel.transform.calcite.type.TypeConverter;
 import org.apache.seatunnel.transform.calcite.udf.BuiltinFunctions;
+import org.apache.seatunnel.transform.calcite.udf.CalciteUdfContext;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -63,6 +64,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Core Calcite SQL engine that parses, validates, compiles and executes SQL against a single
@@ -81,7 +83,9 @@ public class CalciteSQLEngine implements AutoCloseable {
     private RelDataType validatedRowType;
     private SeaTunnelRowType outputRowType;
     private BuiltinFunctions builtinFunctions;
+    private CalciteUdfContext udfContext;
     private RelDataTypeFactory typeFactory;
+    private DataContextImpl dataContext;
 
     public CalciteSQLEngine(String sql, String tableName, SeaTunnelRowType inputRowType) {
         this.sql = sql;
@@ -95,6 +99,7 @@ public class CalciteSQLEngine implements AutoCloseable {
      */
     @SuppressWarnings("unchecked")
     public void init() {
+        Planner planner = null;
         try {
             rootSchema = Frameworks.createRootSchema(true);
             typeFactory = new JavaTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
@@ -105,6 +110,8 @@ public class CalciteSQLEngine implements AutoCloseable {
 
             builtinFunctions = new BuiltinFunctions();
             builtinFunctions.discoverAndRegister(rootSchema);
+            udfContext = new CalciteUdfContext();
+            dataContext = new DataContextImpl(rootSchema, typeFactory);
 
             SqlParser.Config parserConfig =
                     SqlParser.config()
@@ -119,7 +126,7 @@ public class CalciteSQLEngine implements AutoCloseable {
                             .programs(Programs.standard())
                             .build();
 
-            Planner planner = Frameworks.getPlanner(frameworkConfig);
+            planner = Frameworks.getPlanner(frameworkConfig);
             SqlNode parsed = planner.parse(sql);
             SqlNode validated = planner.validate(parsed);
 
@@ -147,16 +154,20 @@ public class CalciteSQLEngine implements AutoCloseable {
 
             outputRowType = deriveOutputRowType();
 
-            planner.close();
-
             log.info(
                     "Calcite SQL engine initialized successfully for table '{}', SQL: {}",
                     tableName,
                     sql);
         } catch (TransformException e) {
+            close();
             throw e;
         } catch (Exception e) {
+            close();
             throw TransformCommonError.sqlExpressionError(sql, e);
+        } finally {
+            if (planner != null) {
+                planner.close();
+            }
         }
     }
 
@@ -168,21 +179,25 @@ public class CalciteSQLEngine implements AutoCloseable {
         Object[] calciteRow = toCalciteRow(inputRow);
         scannableTable.setCurrentRow(calciteRow);
 
-        DataContextImpl ctx = new DataContextImpl(rootSchema, typeFactory);
+        udfContext.update(inputRow.getTableId(), inputRow.getRowKind());
+        CalciteUdfContext.set(udfContext);
 
         List<SeaTunnelRow> results = new ArrayList<>();
         try {
-            for (Object rawRow : bindable.bind(ctx)) {
+            for (Object rawRow : bindable.bind(dataContext)) {
                 Object[] row;
                 if (rawRow instanceof Object[]) {
                     row = (Object[]) rawRow;
                 } else {
                     row = new Object[] {rawRow};
                 }
-                results.add(toSeaTunnelRow(row, inputRow.getTableId()));
+                results.add(toSeaTunnelRow(row, inputRow));
             }
         } catch (Exception e) {
             throw TransformCommonError.sqlExpressionError(sql, e);
+        } finally {
+            CalciteUdfContext.clear();
+            scannableTable.setCurrentRow(null);
         }
         return results;
     }
@@ -230,14 +245,16 @@ public class CalciteSQLEngine implements AutoCloseable {
         return value;
     }
 
-    private SeaTunnelRow toSeaTunnelRow(Object[] calciteRow, String tableId) {
+    private SeaTunnelRow toSeaTunnelRow(Object[] calciteRow, SeaTunnelRow inputRow) {
         Object[] values = new Object[calciteRow.length];
         SeaTunnelDataType<?>[] fieldTypes = outputRowType.getFieldTypes();
         for (int i = 0; i < calciteRow.length; i++) {
             values[i] = convertFromCalciteValue(calciteRow[i], fieldTypes[i]);
         }
         SeaTunnelRow result = new SeaTunnelRow(values);
-        result.setTableId(tableId);
+        result.setTableId(inputRow.getTableId());
+        result.setRowKind(inputRow.getRowKind());
+        result.setOptions(inputRow.getOptions());
         return result;
     }
 
@@ -323,6 +340,11 @@ public class CalciteSQLEngine implements AutoCloseable {
         rootSchema = null;
         scannableTable = null;
         bindable = null;
+        dataContext = null;
+        udfContext = null;
+        typeFactory = null;
+        validatedRowType = null;
+        outputRowType = null;
     }
 
     /**
@@ -355,6 +377,16 @@ public class CalciteSQLEngine implements AutoCloseable {
 
         @Override
         public Object get(String name) {
+            if (name == null) {
+                return null;
+            }
+            if (DataContext.Variable.CURRENT_TIMESTAMP.camelName.equals(name)
+                    || DataContext.Variable.LOCAL_TIMESTAMP.camelName.equals(name)) {
+                return System.currentTimeMillis();
+            }
+            if (DataContext.Variable.TIME_ZONE.camelName.equals(name)) {
+                return TimeZone.getDefault();
+            }
             return null;
         }
     }

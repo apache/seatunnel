@@ -23,17 +23,24 @@ import com.google.auto.service.AutoService;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Generic vector dimension reduction function. Supports TRUNCATE, RANDOM_PROJECTION, and
  * SPARSE_RANDOM_PROJECTION methods.
+ *
+ * <p>Projection matrices are cached per (sourceDimension, targetDimension, method) triple so that
+ * all rows within the same job use the same matrix, ensuring mathematically consistent results.
  *
  * <p>Usage: {@code VECTOR_REDUCE(vector_field, target_dimension, method)}
  */
 @AutoService(CalciteUdf.class)
 public class VectorReduceFunction implements CalciteUdf {
 
-    private static final Random random = new Random(42);
+    private static final long PROJECTION_SEED = 42L;
+
+    private static final ConcurrentMap<String, float[][]> MATRIX_CACHE = new ConcurrentHashMap<>();
 
     @Override
     public String functionName() {
@@ -59,14 +66,14 @@ public class VectorReduceFunction implements CalciteUdf {
                 result =
                         applyProjection(
                                 source,
-                                createGaussianProjectionMatrix(source.length, targetDimension),
+                                getOrCreateMatrix("GAUSSIAN", source.length, targetDimension),
                                 targetDimension);
                 break;
             case "SPARSE_RANDOM_PROJECTION":
                 result =
                         applyProjection(
                                 source,
-                                createSparseProjectionMatrix(source.length, targetDimension),
+                                getOrCreateMatrix("SPARSE", source.length, targetDimension),
                                 targetDimension);
                 break;
             default:
@@ -76,6 +83,22 @@ public class VectorReduceFunction implements CalciteUdf {
         byte[] out = new byte[buf.remaining()];
         buf.get(out);
         return out;
+    }
+
+    private static float[][] getOrCreateMatrix(
+            String type, int sourceDimension, int targetDimension) {
+        String key = type + ":" + sourceDimension + ":" + targetDimension;
+        return MATRIX_CACHE.computeIfAbsent(
+                key,
+                k -> {
+                    Random rng = new Random(PROJECTION_SEED);
+                    if ("GAUSSIAN".equals(type)) {
+                        return createGaussianProjectionMatrix(
+                                rng, sourceDimension, targetDimension);
+                    } else {
+                        return createSparseProjectionMatrix(rng, sourceDimension, targetDimension);
+                    }
+                });
     }
 
     private static Float[] applyProjection(
@@ -94,26 +117,26 @@ public class VectorReduceFunction implements CalciteUdf {
     }
 
     private static float[][] createGaussianProjectionMatrix(
-            int sourceDimension, int targetDimension) {
+            Random rng, int sourceDimension, int targetDimension) {
         float[][] matrix = new float[targetDimension][sourceDimension];
         float scale = (float) Math.sqrt(1.0 / targetDimension);
         for (int i = 0; i < targetDimension; i++) {
             for (int j = 0; j < sourceDimension; j++) {
-                matrix[i][j] = (float) random.nextGaussian() * scale;
+                matrix[i][j] = (float) rng.nextGaussian() * scale;
             }
         }
         return matrix;
     }
 
     private static float[][] createSparseProjectionMatrix(
-            int sourceDimension, int targetDimension) {
+            Random rng, int sourceDimension, int targetDimension) {
         float[][] matrix = new float[targetDimension][sourceDimension];
         float scale = (float) Math.sqrt(3.0);
         double p1 = 1.0 / 6.0;
         double p2 = 2.0 / 6.0;
         for (int i = 0; i < targetDimension; i++) {
             for (int j = 0; j < sourceDimension; j++) {
-                double rand = random.nextDouble();
+                double rand = rng.nextDouble();
                 if (rand < p1) {
                     matrix[i][j] = scale;
                 } else if (rand < p2) {

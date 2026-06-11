@@ -112,7 +112,7 @@ import com.google.auto.service.AutoService;
 @AutoService(CalciteUdf.class)
 public class PrefixUdf implements CalciteUdf {
 
-    private static String prefix;
+    private static volatile String prefix;
 
     @Override
     public String functionName() {
@@ -126,7 +126,8 @@ public class PrefixUdf implements CalciteUdf {
 
     public static String eval(String input) {
         if (input == null) return null;
-        return prefix + ": " + input;
+        String p = prefix;
+        return (p != null ? p : "") + ": " + input;
     }
 
     @Override
@@ -138,9 +139,52 @@ public class PrefixUdf implements CalciteUdf {
 
 :::caution
 
-Since `eval` must be static, shared state (like `prefix` above) must also be stored in a static field. Be aware of thread-safety if your UDF maintains mutable state.
+Since `eval` must be static, shared state (like `prefix` above) must also be stored in a static field. Use `volatile` for simple references and proper synchronization for complex mutable state to ensure visibility across threads.
 
 :::
+
+## Context-aware UDF Example
+
+If your UDF needs access to row-level metadata (e.g., RowKind for CDC, table path), use `CalciteUdfContext.current()` inside the static `eval` method:
+
+```java
+package com.example;
+
+import org.apache.seatunnel.transform.calcite.udf.CalciteUdf;
+import org.apache.seatunnel.transform.calcite.udf.CalciteUdfContext;
+import com.google.auto.service.AutoService;
+
+@AutoService(CalciteUdf.class)
+public class RowKindUdf implements CalciteUdf {
+
+    @Override
+    public String functionName() {
+        return "ROW_KIND";
+    }
+
+    public static String eval(String input) {
+        CalciteUdfContext ctx = CalciteUdfContext.current();
+        if (ctx == null || input == null) return null;
+        return ctx.getRowKind().shortString() + ":" + input;
+    }
+}
+```
+
+The `CalciteUdfContext` provides the following methods:
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getRawTableId()` | String | Raw table identifier (e.g., `db.schema.table`) |
+| `getDatabase()` | String | Parsed database name |
+| `getSchema()` | String | Parsed schema name |
+| `getTable()` | String | Parsed table name |
+| `getRowKind()` | RowKind | Row change type: `INSERT`, `UPDATE_BEFORE`, `UPDATE_AFTER`, `DELETE` |
+
+Usage:
+
+```sql
+SELECT ROW_KIND(name) AS kind_name FROM source_table
+```
 
 ## Multi-parameter UDF Example
 

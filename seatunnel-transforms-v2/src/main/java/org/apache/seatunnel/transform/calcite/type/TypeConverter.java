@@ -42,8 +42,6 @@ import java.util.List;
  */
 public final class TypeConverter {
 
-    private TypeConverter() {}
-
     /**
      * Converts a SeaTunnel type to the corresponding Calcite RelDataType.
      *
