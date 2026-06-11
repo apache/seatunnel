@@ -77,7 +77,7 @@ JDBC 做验证或示例下游，请额外准备 MySQL JDBC 驱动。
 - 第一版不支持运行时动态发现新表。
 - 第一版不发送 schema evolution 事件。
 - restore 时会优先使用 checkpoint 中保存的 SeaTunnel 表结构快照，而不是重新按最新配置重建字段列表。
-- 仓库内提供了 `VitessSourceReaderIT` 作为真实可跑的集成验证路径，底层使用
+- 仓库内提供了 `TestVitessSourceReaderIT` 作为真实可跑的集成验证路径，底层使用
   `vitess/vttestserver`。
 
 ## 任务示例

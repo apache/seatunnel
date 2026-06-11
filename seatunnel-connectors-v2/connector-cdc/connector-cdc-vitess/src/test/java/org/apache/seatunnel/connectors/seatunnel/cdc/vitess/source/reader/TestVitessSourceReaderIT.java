@@ -60,7 +60,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /** Integration tests that exercise stable startup, table identity and checkpoint restore. */
-class VitessSourceReaderIT {
+class TestVitessSourceReaderIT {
 
     private static final VitessContainer VITESS_CONTAINER =
             new VitessContainer()

@@ -80,7 +80,7 @@ separately.
 - Dynamic discovery of newly added tables is out of scope.
 - Schema evolution events are not emitted in this first delivery.
 - Restore uses the checkpointed SeaTunnel table schema snapshot instead of re-parsing the latest config shape.
-- A focused integration path is provided by `VitessSourceReaderIT`, which runs against
+- A focused integration path is provided by `TestVitessSourceReaderIT`, which runs against
   `vitess/vttestserver`.
 
 ## Task Example
