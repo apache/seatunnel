@@ -104,6 +104,8 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
                 break;
             case TIMESTAMP:
             case TIMESTAMP_TZ:
+                // Doris has no timezone-aware datetime type; TIMESTAMP_TZ is stored as DATETIMEV2
+                // (wall-clock value, timezone offset is lost).
                 if (column.getScale() != null
                         && column.getScale() > 0
                         && column.getScale() <= MAX_DATETIME_SCALE) {

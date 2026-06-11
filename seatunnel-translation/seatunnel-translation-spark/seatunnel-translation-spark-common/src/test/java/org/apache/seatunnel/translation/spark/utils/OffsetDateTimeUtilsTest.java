@@ -30,14 +30,8 @@ class OffsetDateTimeUtilsTest {
     private static void assertRoundTrip(OffsetDateTime original) {
         BigDecimal encoded = OffsetDateTimeUtils.toBigDecimal(original);
         OffsetDateTime decoded = OffsetDateTimeUtils.toOffsetDateTime(encoded);
-        assertEquals(
-                original.toInstant(),
-                decoded.toInstant(),
-                "Epoch mismatch for " + original);
-        assertEquals(
-                original.getOffset(),
-                decoded.getOffset(),
-                "Offset mismatch for " + original);
+        assertEquals(original.toInstant(), decoded.toInstant(), "Epoch mismatch for " + original);
+        assertEquals(original.getOffset(), decoded.getOffset(), "Offset mismatch for " + original);
     }
 
     @Test

@@ -47,7 +47,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.Calendar;
 import java.util.Optional;
+import java.util.TimeZone;
 
 public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
@@ -227,8 +229,12 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         break;
                     case TIMESTAMP_TZ:
                         OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        // OceanBase MySQL has no native timezone-aware type; convert to UTC epoch
+                        // and pass Calendar.UTC so the driver does not apply the session timezone.
                         statement.setTimestamp(
-                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                                statementIndex,
+                                Timestamp.from(offsetDateTime.toInstant()),
+                                Calendar.getInstance(TimeZone.getTimeZone("UTC")));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

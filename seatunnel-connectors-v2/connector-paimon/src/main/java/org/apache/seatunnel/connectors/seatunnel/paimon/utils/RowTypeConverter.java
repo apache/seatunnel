@@ -222,10 +222,14 @@ public class RowTypeConverter {
             DataType dataType =
                     SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldName, fieldTypes[i]);
             DataTypeRoot typeRoot = dataType.getTypeRoot();
-            if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)
-                    || typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
+            if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
                 dataType = new TimestampType(((TimestampType) dataField.type()).getPrecision());
+            } else if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
+                DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                dataType =
+                        new LocalZonedTimestampType(
+                                ((LocalZonedTimestampType) dataField.type()).getPrecision());
             }
             if (typeRoot.equals(DataTypeRoot.TIME_WITHOUT_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
@@ -546,7 +550,7 @@ public class RowTypeConverter {
 
         @Override
         public SeaTunnelDataType<?> visit(LocalZonedTimestampType localZonedTimestampType) {
-            return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            return LocalTimeType.OFFSET_DATE_TIME_TYPE;
         }
 
         @Override

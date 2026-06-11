@@ -29,7 +29,8 @@ public class OffsetDateTimeUtils {
             "logical_timestamp_with_offset_type";
 
     // Shift applied to totalSeconds so the fractional part is always positive.
-    // Offset range: [-43200, +50400] seconds → shifted range: [56800, 150400] (6 digits, always > 0)
+    // Offset range: [-43200, +50400] seconds → shifted range: [56800, 150400] (6 digits, always >
+    // 0)
     static final int OFFSET_SHIFT = 100_000;
 
     // scale=6 to hold the 6-digit shifted offset; precision=20 for 13-digit epochMilli + 6 decimal
