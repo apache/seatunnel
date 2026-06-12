@@ -258,7 +258,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
      * different sink tables in the same database.
      *
      * <p>The sink tables are pre-created so this regression stays focused on multi-table routing
-     * instead of SQL Server auto-create type derivation.
+     * instead of SQL Server auto-create type derivation while still exercising Jdbc table-mode
+     * writes.
      */
     @TestTemplate
     public void testSqlServerCdcMultiTableE2e(TestContainer container) {
