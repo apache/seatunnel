@@ -51,6 +51,7 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(SftpFileSourceOptions.SFTP_PORT)
                 .optional(SftpFileSourceOptions.SFTP_USER)
                 .optional(SftpFileSourceOptions.SFTP_PASSWORD)
+                .optional(SftpFileSourceOptions.SFTP_KEYFILE)
                 .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
