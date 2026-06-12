@@ -49,6 +49,21 @@ import java.util.Optional;
 @Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
 
+    static class EndpointValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "either 'url' or 'hostname'+'port' must be provided as the connection endpoint";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            boolean hasUrl = config.getOptional(OracleIncrementalSourceOptions.URL).isPresent();
+            boolean hasHostname =
+                    config.getOptional(OracleIncrementalSourceOptions.HOSTNAME).isPresent();
+            return hasUrl || hasHostname;
+        }
+    }
+
     static class SchemaChangeLogMiningValidator implements ConditionExtension<Boolean> {
         @Override
         public String description() {
@@ -65,8 +80,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 return true;
             }
             String strategy = dbzProps.get(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY);
-            return strategy == null
-                    || !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
+            return !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
         }
     }
 
@@ -80,7 +94,9 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
         return OracleIncrementalSourceOptions.getBaseRule()
                 .required(
                         OracleIncrementalSourceOptions.USERNAME,
-                        OracleIncrementalSourceOptions.PASSWORD)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.USERNAME, new EndpointValidator()))
+                .required(OracleIncrementalSourceOptions.PASSWORD)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         ConnectorCommonOptions.TABLE_NAMES,

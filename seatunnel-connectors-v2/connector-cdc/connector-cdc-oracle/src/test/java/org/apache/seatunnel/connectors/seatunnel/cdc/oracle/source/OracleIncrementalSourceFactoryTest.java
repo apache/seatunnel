@@ -124,4 +124,33 @@ class OracleIncrementalSourceFactoryTest {
         cfgValid.put("database-names", Collections.singletonList("ORCL"));
         Assertions.assertDoesNotThrow(() -> validate(cfgValid));
     }
+
+    @Test
+    public void testEndpointRequired() {
+        Map<String, Object> cfgUrlOnly = validOracleConfig();
+        cfgUrlOnly.remove("hostname");
+        cfgUrlOnly.remove("port");
+        cfgUrlOnly.put("url", "jdbc:oracle:thin:@localhost:1521:ORCL");
+        Assertions.assertDoesNotThrow(() -> validate(cfgUrlOnly));
+
+        Map<String, Object> cfgHostPortOnly = validOracleConfig();
+        Assertions.assertDoesNotThrow(() -> validate(cfgHostPortOnly));
+
+        Map<String, Object> cfgBoth = validOracleConfig();
+        cfgBoth.put("url", "jdbc:oracle:thin:@localhost:1521:ORCL");
+        Assertions.assertDoesNotThrow(() -> validate(cfgBoth));
+
+        Map<String, Object> cfgNeither = validOracleConfig();
+        cfgNeither.remove("hostname");
+        cfgNeither.remove("port");
+        cfgNeither.remove("url");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgNeither));
+    }
+
+    @Test
+    public void testHostnameBundledWithPort() {
+        Map<String, Object> cfgHostNoPort = validOracleConfig();
+        cfgHostNoPort.remove("port");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgHostNoPort));
+    }
 }
