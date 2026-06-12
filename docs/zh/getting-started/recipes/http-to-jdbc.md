@@ -15,7 +15,7 @@ title: Http 到 JDBC
 
 ```plugin_config
 --seatunnel-connectors--
-connector-http
+connector-http-base
 connector-jdbc
 --end--
 ```
@@ -23,7 +23,7 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(http|jdbc)'
+ls connectors | rg 'connector-(http-base|jdbc)'
 ```
 
 3. 把目标数据库 JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：

@@ -15,7 +15,7 @@ Use this recipe when you want to pull structured data from an HTTP API and store
 
 ```plugin_config
 --seatunnel-connectors--
-connector-http
+connector-http-base
 connector-jdbc
 --end--
 ```
@@ -23,7 +23,7 @@ connector-jdbc
 ```bash
 cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
-ls connectors | rg 'connector-(http|jdbc)'
+ls connectors | rg 'connector-(http-base|jdbc)'
 ```
 
 3. Put the target database JDBC driver into `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
