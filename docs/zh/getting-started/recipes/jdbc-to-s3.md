@@ -9,11 +9,53 @@ title: JDBC 到 S3
 
 ## 前置条件
 
-- 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
-- 安装 `connector-jdbc` 和 `connector-file-s3`。
-- 把源端数据库 JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
-- 把 S3 连接器依赖的 `hadoop-aws` 和 AWS SDK bundle 放到 `${SEATUNNEL_HOME}/lib`。
-- 准备好可写入的 S3 bucket 和访问凭据。
+1. 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
+
+2. 安装这条链路需要的插件。先看 [部署 > 下载连接器插件](../locally/deployment.md#下载连接器插件)，然后把 `config/plugin_config` 改成下面这样：
+
+```plugin_config
+--seatunnel-connectors--
+connector-jdbc
+connector-file-s3
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(jdbc|file-s3)'
+```
+
+3. 把源端数据库 JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+```
+
+4. 把 S3 连接器依赖的 `hadoop-aws` 和 AWS SDK bundle 也放进 `${SEATUNNEL_HOME}/lib`，然后确认这两个依赖都能看到：
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'hadoop-aws|aws-java-sdk-bundle'
+```
+
+5. 先准备源端数据库表。这个示例使用 MySQL，并从 `analytics.orders` 导出两条数据：
+
+```sql
+CREATE DATABASE IF NOT EXISTS analytics;
+
+CREATE TABLE IF NOT EXISTS analytics.orders (
+  id BIGINT PRIMARY KEY,
+  customer_id BIGINT,
+  total_amount DECIMAL(16, 2),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO analytics.orders (id, customer_id, total_amount, updated_at) VALUES
+  (5001, 101, 19.99, NOW()),
+  (5002, 102, 29.99, NOW());
+```
+
+6. 准备好可写入的 S3 bucket 和访问凭据。下面的示例默认目标 bucket 已存在，而且 `access_key` 与 `secret_key` 对 `s3://company-data-lake/seatunnel/orders/` 有写权限。
 
 ## 最小配置
 
@@ -56,6 +98,15 @@ sink {
     data_save_mode = "APPEND_DATA"
   }
 }
+```
+
+## 运行任务
+
+把配置保存为 `config/jdbc-to-s3.conf`，然后用本地模式运行 SeaTunnel：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/jdbc-to-s3.conf -m local
 ```
 
 ## 验证结果

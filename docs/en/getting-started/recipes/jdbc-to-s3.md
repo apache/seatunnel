@@ -9,11 +9,53 @@ Use this recipe when you want to export table data from a relational database to
 
 ## Prerequisites
 
-- Finish [Run your first job](../locally/run-your-first-job.md).
-- Install the `connector-jdbc` and `connector-file-s3` plugins.
-- Put the source database JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta.
-- Put `hadoop-aws` and the AWS SDK bundle required by the S3 connector into `${SEATUNNEL_HOME}/lib`.
-- Prepare an S3 bucket and credentials with write permission.
+1. Finish [Run your first job](../locally/run-your-first-job.md).
+
+2. Install the plugins required by this recipe. Follow [Deployment > Download The Connector Plugins](../locally/deployment.md#download-the-connector-plugins), then keep only the plugins below in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-jdbc
+connector-file-s3
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(jdbc|file-s3)'
+```
+
+3. Put the source database JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta, then confirm the jar is visible:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+```
+
+4. Put `hadoop-aws` and the AWS SDK bundle required by the S3 connector into `${SEATUNNEL_HOME}/lib`, then confirm both jars are present:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'hadoop-aws|aws-java-sdk-bundle'
+```
+
+5. Prepare the source table in the relational database. This example uses MySQL and exports two rows from `analytics.orders`:
+
+```sql
+CREATE DATABASE IF NOT EXISTS analytics;
+
+CREATE TABLE IF NOT EXISTS analytics.orders (
+  id BIGINT PRIMARY KEY,
+  customer_id BIGINT,
+  total_amount DECIMAL(16, 2),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO analytics.orders (id, customer_id, total_amount, updated_at) VALUES
+  (5001, 101, 19.99, NOW()),
+  (5002, 102, 29.99, NOW());
+```
+
+6. Prepare an S3 bucket and credentials with write permission. The example below assumes the bucket already exists and that `access_key` and `secret_key` can write to `s3://company-data-lake/seatunnel/orders/`.
 
 ## Minimal configuration
 
@@ -56,6 +98,15 @@ sink {
     data_save_mode = "APPEND_DATA"
   }
 }
+```
+
+## Run the job
+
+Save the config as `config/jdbc-to-s3.conf`, then run SeaTunnel in local mode:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/jdbc-to-s3.conf -m local
 ```
 
 ## Validation result

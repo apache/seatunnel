@@ -9,9 +9,30 @@ Use this recipe when you want one SeaTunnel job to capture changes from multiple
 
 ## Prerequisites
 
-- Finish [Run your first job](../locally/run-your-first-job.md).
+1. Finish [Run your first job](../locally/run-your-first-job.md).
 
-1. Prepare the MySQL source tables. Each upstream table should have a stable primary key because this recipe routes CDC changes to downstream upsert tables automatically.
+2. Install the plugins required by this recipe. Follow [Deployment > Download The Connector Plugins](../locally/deployment.md#download-the-connector-plugins), then keep only the plugins below in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-cdc-mysql
+connector-jdbc
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(cdc-mysql|jdbc)'
+```
+
+3. If you use SeaTunnel Zeta, place both the MySQL JDBC driver and the PostgreSQL JDBC driver into `${SEATUNNEL_HOME}/lib`, then confirm they are visible:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+```
+
+4. Prepare the MySQL source tables. Each upstream table should have a stable primary key because this recipe routes CDC changes to downstream upsert tables automatically.
 
 ```sql
 CREATE DATABASE IF NOT EXISTS inventory;
@@ -46,7 +67,7 @@ INSERT INTO inventory.products (id, product_name, unit_price, updated_at) VALUES
   (4001, 'Keyboard', 99.00, NOW());
 ```
 
-2. Create the MySQL CDC user and grant the required privileges:
+5. Create the MySQL CDC user and grant the required privileges:
 
 ```sql
 CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
@@ -55,7 +76,7 @@ ON *.* TO 'st_user_source'@'%';
 FLUSH PRIVILEGES;
 ```
 
-3. Verify that MySQL binlog is ready:
+6. Verify that MySQL binlog is ready:
 
 ```sql
 SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
@@ -63,7 +84,7 @@ SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_i
 
 The expected values are `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`.
 
-4. Prepare the PostgreSQL target database and grant the sink user permission to create tables in `public`:
+7. Prepare the PostgreSQL target database and grant the sink user permission to create tables in `public`:
 
 ```sql
 CREATE USER st_user_sink WITH PASSWORD 'pgpw';
@@ -78,8 +99,6 @@ GRANT USAGE, CREATE ON SCHEMA public TO st_user_sink;
 ```
 
 This recipe uses `generate_sink_sql = true`, so SeaTunnel will create tables such as `public.st_orders` and `public.st_customers` automatically on the first run.
-
-5. Install the `connector-cdc-mysql` and `connector-jdbc` plugins, and put both the MySQL JDBC driver and the PostgreSQL JDBC driver into `${SEATUNNEL_HOME}/lib`.
 
 ## Minimal configuration
 
@@ -121,6 +140,17 @@ sink {
   }
 }
 ```
+
+## Run the job
+
+Save the config as `config/multi-table-cdc.conf`, then start SeaTunnel in local mode:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/multi-table-cdc.conf -m local
+```
+
+Keep the job running while you verify new changes from MySQL, because this is a streaming CDC pipeline.
 
 ## Validation result
 

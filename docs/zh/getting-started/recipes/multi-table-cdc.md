@@ -9,9 +9,30 @@ title: 多表 CDC
 
 ## 前置条件
 
-- 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
+1. 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
 
-1. 先准备 MySQL 源表。因为这条链路会自动把 CDC 事件路由到下游 upsert 表，所以每张上游表都要有稳定主键。
+2. 安装这条链路需要的插件。先看 [部署 > 下载连接器插件](../locally/deployment.md#下载连接器插件)，然后把 `config/plugin_config` 改成下面这样：
+
+```plugin_config
+--seatunnel-connectors--
+connector-cdc-mysql
+connector-jdbc
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(cdc-mysql|jdbc)'
+```
+
+3. 如果你用的是 SeaTunnel Zeta，再把 MySQL JDBC 驱动和 PostgreSQL JDBC 驱动都放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经能看到：
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector|postgresql'
+```
+
+4. 先准备 MySQL 源表。因为这条链路会自动把 CDC 事件路由到下游 upsert 表，所以每张上游表都要有稳定主键。
 
 ```sql
 CREATE DATABASE IF NOT EXISTS inventory;
@@ -46,7 +67,7 @@ INSERT INTO inventory.products (id, product_name, unit_price, updated_at) VALUES
   (4001, 'Keyboard', 99.00, NOW());
 ```
 
-2. 创建 MySQL CDC 用户并授权：
+5. 创建 MySQL CDC 用户并授权：
 
 ```sql
 CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
@@ -55,7 +76,7 @@ ON *.* TO 'st_user_source'@'%';
 FLUSH PRIVILEGES;
 ```
 
-3. 检查 MySQL binlog 是否满足 CDC 要求：
+6. 检查 MySQL binlog 是否满足 CDC 要求：
 
 ```sql
 SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
@@ -63,7 +84,7 @@ SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_i
 
 期望值是 `log_bin = ON`、`binlog_format = ROW`、`binlog_row_image = FULL`。
 
-4. 准备 PostgreSQL 目标库，并给 sink 用户授予在 `public` schema 自动建表的权限：
+7. 准备 PostgreSQL 目标库，并给 sink 用户授予在 `public` schema 自动建表的权限：
 
 ```sql
 CREATE USER st_user_sink WITH PASSWORD 'pgpw';
@@ -78,8 +99,6 @@ GRANT USAGE, CREATE ON SCHEMA public TO st_user_sink;
 ```
 
 这篇教程使用 `generate_sink_sql = true`，所以第一次运行时 SeaTunnel 会自动创建 `public.st_orders`、`public.st_customers` 这类目标表。
-
-5. 安装 `connector-cdc-mysql` 和 `connector-jdbc`，再把 MySQL JDBC 驱动和 PostgreSQL JDBC 驱动都放到 `${SEATUNNEL_HOME}/lib`。
 
 ## 最小配置
 
@@ -121,6 +140,17 @@ sink {
   }
 }
 ```
+
+## 运行任务
+
+把配置保存为 `config/multi-table-cdc.conf`，然后用本地模式启动 SeaTunnel：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/multi-table-cdc.conf -m local
+```
+
+这是一条流式 CDC 作业，所以执行下面的验证步骤时，任务需要保持运行中。
 
 ## 验证结果
 

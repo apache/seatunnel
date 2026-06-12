@@ -9,9 +9,32 @@ Use this recipe when you want to capture row-level changes from MySQL and keep a
 
 ## Prerequisites
 
-- Finish [Run your first job](../locally/run-your-first-job.md) and make sure local execution works.
+1. Finish [Run your first job](../locally/run-your-first-job.md) and make sure local execution works.
 
-1. Prepare the MySQL source table. This recipe relies on a stable primary key so that updates and deletes can be replayed correctly downstream.
+2. Install the plugins required by this recipe. Follow [Deployment > Download The Connector Plugins](../locally/deployment.md#download-the-connector-plugins), then keep only the plugins below in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-cdc-mysql
+connector-doris
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(cdc-mysql|doris)'
+```
+
+3. If you use SeaTunnel Zeta, download the MySQL JDBC driver and place it in `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+```
+
+If you use Flink or Spark instead of Zeta, put the same driver jar into the engine plugin directory that your runtime loads.
+
+4. Prepare the MySQL source table. This recipe relies on a stable primary key so that updates and deletes can be replayed correctly downstream.
 
 ```sql
 CREATE DATABASE IF NOT EXISTS inventory;
@@ -28,7 +51,7 @@ INSERT INTO inventory.orders (id, order_status, amount, updated_at) VALUES
   (1002, 'CREATED', 29.99, NOW());
 ```
 
-2. Create the MySQL CDC user and grant the same privileges required by the [MySQL CDC source](../../connectors/source/MySQL-CDC.md):
+5. Create the MySQL CDC user and grant the same privileges required by the [MySQL CDC source](../../connectors/source/MySQL-CDC.md):
 
 ```sql
 CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
@@ -37,7 +60,7 @@ ON *.* TO 'st_user_source'@'%';
 FLUSH PRIVILEGES;
 ```
 
-3. Verify that MySQL binlog is ready for CDC:
+6. Verify that MySQL binlog is ready for CDC:
 
 ```sql
 SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
@@ -54,13 +77,11 @@ binlog_format = ROW
 binlog_row_image = FULL
 ```
 
-4. Prepare the Doris target database. This recipe keeps `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, so SeaTunnel will create `sync_demo.orders` automatically from the MySQL primary-key metadata on first startup.
+7. Prepare the Doris target database. This recipe keeps `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, so SeaTunnel will create `sync_demo.orders` automatically from the MySQL primary-key metadata on first startup.
 
 ```sql
 CREATE DATABASE IF NOT EXISTS sync_demo;
 ```
-
-5. Install the `connector-cdc-mysql` and `connector-doris` plugins, and put the MySQL JDBC driver into `${SEATUNNEL_HOME}/lib` for SeaTunnel Zeta, or into the engine plugin directory for Spark or Flink.
 
 ## Minimal configuration
 
@@ -102,6 +123,17 @@ sink {
   }
 }
 ```
+
+## Run the job
+
+Save the config as `config/mysql-cdc-to-doris.conf`, then start SeaTunnel in local mode:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/mysql-cdc-to-doris.conf -m local
+```
+
+Keep the job running while you execute the validation SQL below, because this is a streaming CDC pipeline.
 
 ## Validation result
 

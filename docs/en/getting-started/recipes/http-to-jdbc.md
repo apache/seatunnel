@@ -9,10 +9,49 @@ Use this recipe when you want to pull structured data from an HTTP API and store
 
 ## Prerequisites
 
-- Finish [Run your first job](../locally/run-your-first-job.md).
-- Install the `connector-http` and `connector-jdbc` plugins.
-- Put the target database JDBC driver into `${SEATUNNEL_HOME}/lib`.
-- Make sure the HTTP API returns a stable JSON structure, or define `json_field` or `content_field` if the useful records are nested.
+1. Finish [Run your first job](../locally/run-your-first-job.md).
+
+2. Install the plugins required by this recipe. Follow [Deployment > Download The Connector Plugins](../locally/deployment.md#download-the-connector-plugins), then keep only the plugins below in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-http
+connector-jdbc
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(http|jdbc)'
+```
+
+3. Put the target database JDBC driver into `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'postgresql'
+```
+
+4. Inspect the HTTP response before running the job. The sample endpoint from the [Http source](../../connectors/source/Http.md) should return a JSON body that contains top-level fields such as `c_string` and `c_int`:
+
+```bash
+curl http://mockserver:1080/example/http
+```
+
+If your real API nests the useful records under another field, define `json_field` or `content_field` before you continue.
+
+5. Prepare the PostgreSQL target database and grant the sink user permission to create tables in `public`, because this recipe uses `generate_sink_sql = true`:
+
+```sql
+CREATE USER test WITH PASSWORD 'test';
+CREATE DATABASE test OWNER test;
+```
+
+Reconnect to database `test`, then run:
+
+```sql
+GRANT USAGE, CREATE ON SCHEMA public TO test;
+```
 
 ## Minimal configuration
 
@@ -53,6 +92,15 @@ sink {
 }
 ```
 
+## Run the job
+
+Save the config as `config/http-to-jdbc.conf`, then run SeaTunnel in local mode:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/http-to-jdbc.conf -m local
+```
+
 ## Validation result
 
 1. Run the job and confirm there are no HTTP parse or JDBC DDL errors.
@@ -63,7 +111,7 @@ SELECT COUNT(*) FROM public.http_orders;
 SELECT c_string, c_int FROM public.http_orders ORDER BY c_string;
 ```
 
-If the rows in the target table match the HTTP response, the pipeline is working.
+If the rows in the target table match the HTTP response, the pipeline is working. With the default mock response, you should see the same `c_string` and `c_int` values you saw in `curl`.
 
 ## Common pitfalls
 

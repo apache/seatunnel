@@ -11,7 +11,26 @@ This page gives you the shortest path to a successful SeaTunnel run. The example
 
 Complete [Deployment](deployment.md) first and make sure `bin/seatunnel.sh` is available in your SeaTunnel home directory.
 
-## Step 2: Use a minimal job
+## Step 2: Install only the plugins this sample needs
+
+Follow [Deployment > Download The Connector Plugins](deployment.md#download-the-connector-plugins), then keep only `connector-fake` and `connector-console` in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-fake
+connector-console
+--end--
+```
+
+Install the plugins and confirm they were downloaded into `${SEATUNNEL_HOME}/connectors`:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(fake|console)'
+```
+
+## Step 3: Use a minimal job
 
 Save the following config as `config/v2.batch.config.template` or another local file:
 
@@ -52,7 +71,7 @@ sink {
 }
 ```
 
-## Step 3: Run it in local mode
+## Step 4: Run it in local mode
 
 ```shell
 cd "apache-seatunnel-${version}"

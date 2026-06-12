@@ -9,9 +9,32 @@ title: MySQL CDC 到 Doris
 
 ## 前置条件
 
-- 先完成 [跑第一个任务](../locally/run-your-first-job.md)，确认本地基础链路正常。
+1. 先完成 [跑第一个任务](../locally/run-your-first-job.md)，确认本地基础链路正常。
 
-1. 先准备 MySQL 源表。这条教程依赖稳定主键，这样下游才能正确回放更新和删除事件。
+2. 安装这条链路需要的插件。先看 [部署 > 下载连接器插件](../locally/deployment.md#下载连接器插件)，然后把 `config/plugin_config` 改成下面这样：
+
+```plugin_config
+--seatunnel-connectors--
+connector-cdc-mysql
+connector-doris
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(cdc-mysql|doris)'
+```
+
+3. 如果你用的是 SeaTunnel Zeta，再把 MySQL JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+```
+
+如果你用的是 Flink 或 Spark，就把同一个驱动 jar 放到对应引擎实际加载的插件目录里。
+
+4. 先准备 MySQL 源表。这条教程依赖稳定主键，这样下游才能正确回放更新和删除事件。
 
 ```sql
 CREATE DATABASE IF NOT EXISTS inventory;
@@ -28,7 +51,7 @@ INSERT INTO inventory.orders (id, order_status, amount, updated_at) VALUES
   (1002, 'CREATED', 29.99, NOW());
 ```
 
-2. 按照 [MySQL CDC Source](../../connectors/source/MySQL-CDC.md) 的要求创建 CDC 用户并授权：
+5. 按照 [MySQL CDC Source](../../connectors/source/MySQL-CDC.md) 的要求创建 CDC 用户并授权：
 
 ```sql
 CREATE USER IF NOT EXISTS 'st_user_source'@'%' IDENTIFIED BY 'mysqlpw';
@@ -37,7 +60,7 @@ ON *.* TO 'st_user_source'@'%';
 FLUSH PRIVILEGES;
 ```
 
-3. 检查 MySQL binlog 是否已经满足 CDC 要求：
+6. 检查 MySQL binlog 是否已经满足 CDC 要求：
 
 ```sql
 SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
@@ -54,13 +77,11 @@ binlog_format = ROW
 binlog_row_image = FULL
 ```
 
-4. 先准备 Doris 目标库。这篇教程保留 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`，所以第一次启动时会用 MySQL 主键信息自动创建 `sync_demo.orders`。
+7. 先准备 Doris 目标库。这篇教程保留 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`，所以第一次启动时会用 MySQL 主键信息自动创建 `sync_demo.orders`。
 
 ```sql
 CREATE DATABASE IF NOT EXISTS sync_demo;
 ```
-
-5. 安装 `connector-cdc-mysql` 和 `connector-doris`。如果使用 SeaTunnel Zeta，再把 MySQL JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
 
 ## 最小配置
 
@@ -102,6 +123,17 @@ sink {
   }
 }
 ```
+
+## 运行任务
+
+把配置保存为 `config/mysql-cdc-to-doris.conf`，然后用本地模式启动 SeaTunnel：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/mysql-cdc-to-doris.conf -m local
+```
+
+这是一条流式 CDC 作业，所以执行下面的验证 SQL 时，任务需要保持运行中。
 
 ## 验证结果
 

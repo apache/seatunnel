@@ -9,11 +9,42 @@ Use this recipe when you want to import local CSV or text files into StarRocks f
 
 ## Prerequisites
 
-- Finish [Run your first job](../locally/run-your-first-job.md).
-- Install the `connector-file-local` and `connector-starrocks` plugins.
-- Put the MySQL JDBC driver required by the StarRocks sink into `${SEATUNNEL_HOME}/lib`.
-- Prepare a local input file that is accessible to the SeaTunnel process.
-- Create the target database and table in StarRocks before running the job.
+1. Finish [Run your first job](../locally/run-your-first-job.md).
+
+2. Install the plugins required by this recipe. Follow [Deployment > Download The Connector Plugins](../locally/deployment.md#download-the-connector-plugins), then keep only the plugins below in `config/plugin_config`:
+
+```plugin_config
+--seatunnel-connectors--
+connector-file-local
+connector-starrocks
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(file-local|starrocks)'
+```
+
+3. Put the MySQL JDBC driver required by the StarRocks sink into `${SEATUNNEL_HOME}/lib`, then confirm the jar is visible:
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'mysql-connector'
+```
+
+4. Prepare the local input file and make sure the SeaTunnel process can read it:
+
+```bash
+mkdir -p /tmp/seatunnel/input
+cat <<'EOF' > /tmp/seatunnel/input/customers.csv
+id,name,city,updated_at
+1001,Alice,Shanghai,2026-06-12 10:00:00
+1002,Bob,Beijing,2026-06-12 10:05:00
+1003,Carol,Hangzhou,2026-06-12 10:10:00
+EOF
+```
+
+5. Create the target database and table in StarRocks before running the job.
 
 ## Minimal configuration
 
@@ -78,6 +109,15 @@ sink {
     }
   }
 }
+```
+
+## Run the job
+
+Save the config as `config/file-to-starrocks.conf`, then run SeaTunnel in local mode:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/file-to-starrocks.conf -m local
 ```
 
 ## Validation result

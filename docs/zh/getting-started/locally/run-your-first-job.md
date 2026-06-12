@@ -11,7 +11,26 @@ title: 跑第一个任务
 
 先完成 [部署](deployment.md)，并确认 SeaTunnel 目录下已经有 `bin/seatunnel.sh`。
 
-## 步骤 2：使用最小可运行配置
+## 步骤 2：只安装这篇示例真正需要的插件
+
+先看 [部署 > 下载连接器插件](deployment.md#下载连接器插件)，然后把 `config/plugin_config` 收敛成下面两个插件：
+
+```plugin_config
+--seatunnel-connectors--
+connector-fake
+connector-console
+--end--
+```
+
+接着执行安装命令，并确认插件已经下载到 `${SEATUNNEL_HOME}/connectors`：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(fake|console)'
+```
+
+## 步骤 3：使用最小可运行配置
 
 把下面的配置保存为 `config/v2.batch.config.template`，或者保存为你自己的本地配置文件：
 
@@ -52,7 +71,7 @@ sink {
 }
 ```
 
-## 步骤 3：用本地模式运行
+## 步骤 4：用本地模式运行
 
 ```shell
 cd "apache-seatunnel-${version}"

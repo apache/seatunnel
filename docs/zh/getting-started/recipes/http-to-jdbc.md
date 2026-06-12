@@ -9,10 +9,49 @@ title: Http 到 JDBC
 
 ## 前置条件
 
-- 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
-- 安装 `connector-http` 和 `connector-jdbc`。
-- 把目标数据库 JDBC 驱动放到 `${SEATUNNEL_HOME}/lib`。
-- 确认 HTTP API 返回结构稳定。如果有效数据嵌套较深，要提前规划 `json_field` 或 `content_field`。
+1. 先完成 [跑第一个任务](../locally/run-your-first-job.md)。
+
+2. 安装这条链路需要的插件。先看 [部署 > 下载连接器插件](../locally/deployment.md#下载连接器插件)，然后把 `config/plugin_config` 改成下面这样：
+
+```plugin_config
+--seatunnel-connectors--
+connector-http
+connector-jdbc
+--end--
+```
+
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+ls connectors | rg 'connector-(http|jdbc)'
+```
+
+3. 把目标数据库 JDBC 驱动放进 `${SEATUNNEL_HOME}/lib`，并确认 jar 已经落盘：
+
+```bash
+ls "${SEATUNNEL_HOME}/lib" | rg 'postgresql'
+```
+
+4. 运行任务前，先看一眼 HTTP 返回内容。这里直接使用 [Http Source](../../connectors/source/Http.md) 里的示例接口，返回 JSON 顶层应该能看到 `c_string` 和 `c_int` 这些字段：
+
+```bash
+curl http://mockserver:1080/example/http
+```
+
+如果你的真实接口把有效数据包在更深层字段里，就要先补 `json_field` 或 `content_field`，否则别急着运行。
+
+5. 先准备 PostgreSQL 目标库，并给 sink 用户授予在 `public` schema 自动建表的权限，因为这篇教程使用了 `generate_sink_sql = true`：
+
+```sql
+CREATE USER test WITH PASSWORD 'test';
+CREATE DATABASE test OWNER test;
+```
+
+重新连接到 `test` 库以后，再执行：
+
+```sql
+GRANT USAGE, CREATE ON SCHEMA public TO test;
+```
 
 ## 最小配置
 
@@ -53,6 +92,15 @@ sink {
 }
 ```
 
+## 运行任务
+
+把配置保存为 `config/http-to-jdbc.conf`，然后用本地模式运行 SeaTunnel：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/http-to-jdbc.conf -m local
+```
+
 ## 验证结果
 
 1. 运行任务，确认没有 HTTP 解析错误和 JDBC DDL 错误。
@@ -63,7 +111,7 @@ SELECT COUNT(*) FROM public.http_orders;
 SELECT c_string, c_int FROM public.http_orders ORDER BY c_string;
 ```
 
-如果目标表里的数据和 HTTP 返回内容一致，这条链路就是通的。
+如果目标表里的数据和 HTTP 返回内容一致，这条链路就是通的。使用默认 mock 返回时，查询结果里应该能看到和 `curl` 输出一致的 `c_string`、`c_int` 值。
 
 ## 常见坑
 
