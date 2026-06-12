@@ -81,7 +81,7 @@ public final class CalciteTypeConverter {
             case DATE:
                 return factory.createSqlType(SqlTypeName.DATE);
             case TIME:
-                return factory.createSqlType(SqlTypeName.TIME);
+                return factory.createSqlType(SqlTypeName.TIME, 3);
             case TIMESTAMP:
                 return factory.createSqlType(SqlTypeName.TIMESTAMP);
             case TIMESTAMP_TZ:

@@ -50,7 +50,7 @@ public final class CalciteValueConverter {
             return Date.valueOf((LocalDate) value);
         }
         if (value instanceof LocalTime) {
-            return Time.valueOf((LocalTime) value);
+            return (int) (((LocalTime) value).toNanoOfDay() / 1_000_000L);
         }
         if (value instanceof LocalDateTime) {
             return Timestamp.valueOf((LocalDateTime) value);
@@ -97,11 +97,12 @@ public final class CalciteValueConverter {
                 }
                 return value;
             case TIME:
+                if (value instanceof Number) {
+                    long millis = ((Number) value).longValue();
+                    return LocalTime.ofNanoOfDay(millis * 1_000_000L);
+                }
                 if (value instanceof Time) {
                     return ((Time) value).toLocalTime();
-                }
-                if (value instanceof Number) {
-                    return LocalTime.ofSecondOfDay(((Number) value).longValue() / 1000);
                 }
                 return value;
             case TIMESTAMP:

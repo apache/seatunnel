@@ -142,10 +142,7 @@ public class CalciteSQLEngine implements AutoCloseable {
             outputRowType =
                     new OutputRowTypeDeriver(inputRowType).derive(validated, validatedRowType);
 
-            log.info(
-                    "Calcite SQL engine initialized successfully for table '{}', SQL: {}",
-                    tableName,
-                    sql);
+            log.info("Calcite SQL engine initialized successfully for table '{}'", tableName);
         } catch (TransformException e) {
             close();
             throw e;

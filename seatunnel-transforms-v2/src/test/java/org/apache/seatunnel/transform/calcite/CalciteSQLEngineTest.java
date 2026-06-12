@@ -1071,6 +1071,42 @@ class CalciteSQLEngineTest {
         LocalTime time = LocalTime.of(14, 30, 0);
         List<SeaTunnelRow> result = exec(engine, new Object[] {1, time});
         Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(time, result.get(0).getField(1));
+        engine.close();
+    }
+
+    @Test
+    void testTimeTypeMillisecondRoundTrip() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "tm"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, LocalTimeType.LOCAL_TIME_TYPE
+                        });
+        CalciteSQLEngine engine = createAndInit("SELECT id, tm FROM t", "t", rowType);
+
+        LocalTime time = LocalTime.of(14, 30, 12, 345_000_000);
+        List<SeaTunnelRow> result = exec(engine, new Object[] {1, time});
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(time, result.get(0).getField(1));
+        engine.close();
+    }
+
+    @Test
+    void testTimeTypeNanoTruncation() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "tm"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, LocalTimeType.LOCAL_TIME_TYPE
+                        });
+        CalciteSQLEngine engine = createAndInit("SELECT id, tm FROM t", "t", rowType);
+
+        LocalTime input = LocalTime.of(14, 30, 12, 345_678_912);
+        LocalTime expected = LocalTime.of(14, 30, 12, 345_000_000);
+        List<SeaTunnelRow> result = exec(engine, new Object[] {1, input});
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(expected, result.get(0).getField(1));
         engine.close();
     }
 
