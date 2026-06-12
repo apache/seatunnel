@@ -1,10 +1,10 @@
 # 定义写入字段类型
 
-> 为 sink 建表或写入阶段显式指定字段类型
+> DefineSinkType：为 sink 建表或写入阶段显式指定字段类型
 
 ## 描述
 
-用于定义 sink 字段的目标存储类型，适用于开启 `savemode` 自动建表的场景。
+DefineSinkType 转换插件用于定义 sink 字段的目标存储类型，适用于开启 `savemode` 自动建表的场景。
 
 ## 参数
 

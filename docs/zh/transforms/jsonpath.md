@@ -1,10 +1,10 @@
 # JSON 路径提取
 
-> 使用 JSONPath 从 JSON 数据中提取字段
+> JsonPath：使用 JSONPath 从 JSON 数据中提取字段
 
 ## 描述
 
-> 支持使用 JSONPath 选择数据
+JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 ## 属性
 
