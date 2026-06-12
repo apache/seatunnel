@@ -67,13 +67,7 @@ public class TiDBSourceFactory implements TableSourceFactory {
                         TiDBSourceOptions.DATABASE_NAME,
                         TiDBSourceOptions.TABLE_NAME,
                         TiDBSourceOptions.PD_ADDRESSES)
-                .optional(
-                        TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY,
-                        TiDBSourceOptions.TIKV_BATCH_SCAN_CONCURRENCY,
-                        TiDBSourceOptions.TIKV_GRPC_SCAN_TIMEOUT,
-                        TiDBSourceOptions.TIKV_GRPC_TIMEOUT,
-                        TiDBSourceOptions.BATCH_SIZE_PER_SCAN,
-                        TiDBSourceOptions.STARTUP_MODE)
+                .optional(TiDBSourceOptions.STARTUP_MODE)
                 .optional(
                         TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY,
                         Conditions.greaterThan(TiDBSourceOptions.TIKV_BATCH_GET_CONCURRENCY, 0))
