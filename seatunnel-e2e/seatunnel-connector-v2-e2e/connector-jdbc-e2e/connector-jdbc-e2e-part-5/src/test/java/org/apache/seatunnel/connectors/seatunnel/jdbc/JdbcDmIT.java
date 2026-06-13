@@ -25,11 +25,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -233,6 +235,8 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 new GenericContainer<>(DM_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DM_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));

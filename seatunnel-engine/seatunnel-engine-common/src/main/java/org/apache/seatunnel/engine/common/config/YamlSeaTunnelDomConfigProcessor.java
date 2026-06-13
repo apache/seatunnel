@@ -301,6 +301,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         }
                         engineConfig.setEventReportHttpHeaders(headers);
                     }
+
+                    Node reportNonTerminalJobStateNode =
+                            attributes.getNamedItem(
+                                    ServerConfigOptions.MasterServerConfigOptions
+                                            .REPORT_NON_TERMINAL_JOB_STATE);
+                    if (reportNonTerminalJobStateNode != null) {
+                        engineConfig.setReportNonTerminalJobState(
+                                getBooleanValue(getTextContent(reportNonTerminalJobStateNode)));
+                    }
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
                 engineConfig.setTelemetryConfig(parseTelemetryConfig(node));

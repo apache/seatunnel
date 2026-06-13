@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -118,7 +118,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "distcp",
                             "len_mtime"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertTrue(files.isEmpty(), "Target is newer with same len -> SKIP");
@@ -144,7 +144,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "distcp",
                             "len_mtime"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertEquals(1, files.size());
@@ -171,7 +171,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "strict",
                             "checksum"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertTrue(files.isEmpty(), "Checksum equal -> SKIP");
@@ -195,7 +195,7 @@ class UpdateSyncModeTest {
                             targetDir.toUri().toString(),
                             "strict",
                             "checksum"));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertEquals(1, files.size());
@@ -229,7 +229,7 @@ class UpdateSyncModeTest {
                             "distcp",
                             "len_mtime",
                             false));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertEquals(1, files.size());
@@ -263,7 +263,7 @@ class UpdateSyncModeTest {
                             "distcp",
                             "len_mtime",
                             false));
-            strategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
 
             List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
             Assertions.assertTrue(files.isEmpty(), "Nested-only changes should be skipped");
@@ -299,24 +299,5 @@ class UpdateSyncModeTest {
         configMap.put("compare_mode", compareMode);
         configMap.put("recursive_file_scan", recursiveFileScan);
         return ConfigFactory.parseMap(configMap);
-    }
-
-    static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 }

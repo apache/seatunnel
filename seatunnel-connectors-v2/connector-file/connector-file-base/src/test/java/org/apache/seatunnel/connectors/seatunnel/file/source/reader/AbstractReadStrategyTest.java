@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.writer.ParquetReadStrategyTest;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
@@ -100,8 +100,8 @@ public class AbstractReadStrategyTest {
     public void testReadDirectorySkipHiddenDirectories() throws Exception {
         AutoGenerateParquetData.generateTestData();
         try (ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy(); ) {
-            ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             List<String> list =
                     parquetReadStrategy.getFileNamesByPath(AutoGenerateParquetData.DATA_FILE_PATH);
@@ -448,8 +448,8 @@ public class AbstractReadStrategyTest {
             Config pluginConfig = ConfigFactory.parseMap(config);
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
-                ParquetReadStrategyTest.LocalConf localConf =
-                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
@@ -483,8 +483,8 @@ public class AbstractReadStrategyTest {
             Config pluginConfig = ConfigFactory.parseMap(config);
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
-                ParquetReadStrategyTest.LocalConf localConf =
-                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
@@ -523,8 +523,8 @@ public class AbstractReadStrategyTest {
             Config pluginConfig = ConfigFactory.parseMap(config);
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
-                ParquetReadStrategyTest.LocalConf localConf =
-                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
@@ -555,8 +555,8 @@ public class AbstractReadStrategyTest {
             Config pluginConfig = ConfigFactory.parseMap(config);
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
-                ParquetReadStrategyTest.LocalConf localConf =
-                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 

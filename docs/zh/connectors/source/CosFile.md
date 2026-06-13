@@ -85,6 +85,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | quote_char                 | string  | 否  | "                   | 
 | escape_char                | string  | 否  | -                   |
 | recursive_file_scan        | boolean | 否  | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### path [string]
 
@@ -435,6 +436,13 @@ abc.*
 
 是否递归扫描子目录。
 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ### common options
 

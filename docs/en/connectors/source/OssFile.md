@@ -219,6 +219,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                         |
 | metalake_type              | string  | no       | gravitino          | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                              |
 | recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                             |
+| sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_format_type [string]
 
@@ -288,6 +289,14 @@ A single character that allows the quote or other special characters to appear i
 
 Whether to scan subdirectories recursively.
 If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### file_filter_pattern [string]
 

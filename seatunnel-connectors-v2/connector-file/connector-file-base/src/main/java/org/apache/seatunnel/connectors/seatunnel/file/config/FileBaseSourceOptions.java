@@ -232,4 +232,13 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Whether to recursively scan subdirectories. "
                                     + "If false, subdirectories will be ignored.");
+
+    public static final Option<Boolean> SORT_FILES_BY_MOD_TIME =
+            Options.key("sort_files_by_modification_time")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Sort files by modification time in descending order. "
+                                    + "Enable this when reading evolving schemas to ensure schema inference uses the latest file. "
+                                    + "Disabled by default to avoid performance overhead for large file directories.");
 }

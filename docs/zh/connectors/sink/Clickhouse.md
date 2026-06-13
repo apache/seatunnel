@@ -348,6 +348,27 @@ sink {
 
 提交作业并执行成功后，我们可以看到 ClickHouse 数据表 `multi_sink_table1` 和 `multi_sink_table2` 的数据量都为100.
 
+## 常见问题
+
+### ClickHouse Sink 支持自动建表吗？
+
+支持。精确的模式和当前默认行为请以上面的 `schema_save_mode` 小节为准。如果需要自定义自动建表
+DDL，请使用 `save_mode_create_template`，不要在 FAQ 中再引入一套独立的 DDL 参数说法。
+
+### 如何调优批量写入性能？
+
+优先围绕 `bulk_size` 调优。精确的参数名和当前默认值已在上方 option 表中定义，因此吞吐调优时应以
+该表为准，而不是让 FAQ 再复制一份参数说明。
+
+### 支持哪些 ClickHouse 数据类型？
+
+SeaTunnel 可映射到 ClickHouse 的类型包括 `Int8/16/32/64`、`UInt8/16/32/64`、`Float32/64`、`Decimal`、`String`、`FixedString`、`Date`、`DateTime`、`Array`、`Map` 及其 `Nullable` 变体。复杂嵌套类型写入前可能需要通过 Transform 做转换。
+
+### 为什么提示"Table doesn't exist"错误？
+
+先看上面的 `schema_save_mode` 小节。如果你的环境允许缺表时自动创建，就沿用文档中定义好的
+自动建表流程；如果你的环境要求目标表必须预先存在，则显式切到更严格的模式，并在任务启动前先建表。
+
 ## 变更日志
 
 <ChangeLog />

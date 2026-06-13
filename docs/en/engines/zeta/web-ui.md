@@ -34,6 +34,16 @@ The "Running Jobs" section lists all SeaTunnel jobs that are currently in execut
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
 
+#### Realtime Observability
+
+On the Job Detail page, the DAG view can display realtime metrics for the recent window (3 minutes by default, up to 10 minutes):
+
+- **Vertex busyness**: busy and idle ratios for Source, Transform, and Sink vertices.
+- **Edge downstream wait ratio**: when the job inserts queues at async boundaries or before Sink IO, edges are colored and thickened by downstream wait ratio and queue fill ratio.
+- **Interaction**: click a vertex or edge to open the detail drawer and view realtime curves and key fields.
+
+This capability requires the job to enable `env.engine.observability` or configure an option that auto-enables it, such as `async_boundaries` or `split_sink_io`. See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
+
 ### Finished Jobs
 
 The "Finished Jobs" section displays all SeaTunnel jobs that have either successfully completed or failed. This section provides execution results, completion times, durations, and failure reasons (if any) for each job. Users can review past job records through this module to analyze job performance, troubleshoot issues, or rerun specific jobs as needed.

@@ -19,6 +19,9 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Unified factory for creating {@link Condition} instances.
  *
@@ -33,7 +36,7 @@ import org.apache.seatunnel.api.configuration.Option;
  *     .build();
  * }</pre>
  *
- * <p>Currently supported operators (17 total, 4 categories):
+ * <p>Currently supported operators (19 total, 5 categories):
  *
  * <ul>
  *   <li><b>Numeric</b>: {@code greaterThan}, {@code greaterOrEqual}, {@code lessThan}, {@code
@@ -41,6 +44,7 @@ import org.apache.seatunnel.api.configuration.Option;
  *   <li><b>String</b>: {@code notBlank}, {@code startsWith}, {@code contains}, {@code matches},
  *       {@code upperCase}, {@code lowerCase}
  *   <li><b>Collection</b>: {@code notEmpty}, {@code unique}
+ *   <li><b>Map</b>: {@code mapNotEmpty}, {@code mapContainsKey}, {@code mapContainsKeys}
  *   <li><b>Cross-field</b>: {@code lessThanField}, {@code lessOrEqualField}, {@code
  *       greaterThanField}, {@code greaterOrEqualField}
  * </ul>
@@ -98,6 +102,20 @@ public final class Conditions {
 
     public static <T> Condition<T> notEmpty(Option<T> option) {
         return new Condition<>(option, ConditionOperator.NOT_EMPTY, null, null);
+    }
+
+    // ==================== Map validation ====================
+    public static <T> Condition<T> mapNotEmpty(Option<T> option) {
+        return new Condition<>(option, ConditionOperator.MAP_NOT_EMPTY, null, null);
+    }
+
+    public static <T> Condition<T> mapContainsKey(Option<T> option, String key) {
+        return new Condition<>(option, ConditionOperator.MAP_CONTAINS_KEY, (T) key, null);
+    }
+
+    public static <T> Condition<T> mapContainsKeys(Option<T> option, String... keys) {
+        List<String> keyList = Arrays.asList(keys);
+        return new Condition<>(option, ConditionOperator.MAP_CONTAINS_KEYS, (T) keyList, null);
     }
 
     public static <T> Condition<T> unique(Option<T> option) {

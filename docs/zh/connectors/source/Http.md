@@ -579,7 +579,7 @@ source {
 `pageing.page_type` 参数必须设置为 `Cursor`。
 `cursor_field` 是请求参数中游标的字段名称。
 `cursor_response_field` 是响应数据中分页令牌字段的名称，我们应该将其添加到请求的分页字段中。
-````hocon
+```hocon
 
 source {
     Http {

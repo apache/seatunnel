@@ -50,6 +50,12 @@ public enum ConditionOperator {
     NOT_EMPTY("is not empty", Category.COLLECTION, Arity.UNARY, Source.LITERAL),
     COLLECTION_UNIQUE("has unique elements", Category.COLLECTION, Arity.UNARY, Source.LITERAL),
 
+    // ==================== Map ====================
+
+    MAP_NOT_EMPTY("is not empty", Category.MAP, Arity.UNARY, Source.LITERAL),
+    MAP_CONTAINS_KEY("contains key", Category.MAP, Arity.BINARY, Source.LITERAL),
+    MAP_CONTAINS_KEYS("contains keys", Category.MAP, Arity.BINARY, Source.LITERAL),
+
     // ==================== Cross-field comparison ====================
 
     FIELD_LESS_THAN("<", Category.NUMERIC, Arity.BINARY, Source.FIELD),
@@ -61,7 +67,8 @@ public enum ConditionOperator {
         EQUALITY,
         NUMERIC,
         STRING,
-        COLLECTION
+        COLLECTION,
+        MAP
     }
 
     public enum Arity {

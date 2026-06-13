@@ -94,7 +94,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | escape_char                | string  | no       | -                                    |
 | metalake_type              | string  | no       | gravitino                            |
 | recursive_file_scan        | boolean | no       | true                                 |
-
+| sort_files_by_modification_time | boolean | no       | false                                |
 ### path [string]
 
 The source file path.
@@ -541,6 +541,14 @@ A single character that allows the quote or other special characters to appear i
 
 Whether to scan subdirectories recursively.
 If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### common options
 

@@ -50,6 +50,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -59,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
@@ -77,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -730,6 +733,32 @@ public class CoordinatorServiceTest {
         boolean wasInterrupted() {
             return interrupted.get();
         }
+    }
+
+    @Test
+    void testCollectRunningWorkerAddressesIgnoresNullOwnedSlotProfiles() throws Exception {
+        Set<Long> runningJobIds = Collections.singleton(1L);
+        Assertions.assertTrue(
+                CoordinatorService.collectRunningWorkerAddresses(null, runningJobIds).isEmpty());
+
+        Address worker = new Address("127.0.0.1", 5801);
+        Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles =
+                new HashMap<>();
+        ownedSlotProfiles.put(null, Collections.emptyMap());
+        ownedSlotProfiles.put(new PipelineLocation(1L, 1), null);
+
+        Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles = new HashMap<>();
+        pipelineOwnedSlotProfiles.put(new TaskGroupLocation(1L, 1, 1L), null);
+        pipelineOwnedSlotProfiles.put(
+                new TaskGroupLocation(1L, 1, 2L), new SlotProfile(worker, 1, null, "slot-1"));
+        pipelineOwnedSlotProfiles.put(
+                new TaskGroupLocation(2L, 1, 1L), new SlotProfile(null, 2, null, "slot-2"));
+        ownedSlotProfiles.put(new PipelineLocation(1L, 2), pipelineOwnedSlotProfiles);
+        ownedSlotProfiles.put(new PipelineLocation(2L, 1), pipelineOwnedSlotProfiles);
+
+        Assertions.assertEquals(
+                Collections.singleton(worker),
+                CoordinatorService.collectRunningWorkerAddresses(ownedSlotProfiles, runningJobIds));
     }
 
     @Test

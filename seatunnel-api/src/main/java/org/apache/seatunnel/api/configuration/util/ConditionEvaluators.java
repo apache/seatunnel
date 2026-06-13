@@ -119,6 +119,22 @@ public final class ConditionEvaluators {
                     return false;
                 });
 
+        // Map
+        m.put(
+                ConditionOperator.MAP_NOT_EMPTY,
+                (v, c, cfg) -> v instanceof Map && !((Map) v).isEmpty());
+        m.put(
+                ConditionOperator.MAP_CONTAINS_KEY,
+                (v, c, cfg) -> v instanceof Map && ((Map) v).containsKey(c.getExpectValue()));
+        m.put(
+                ConditionOperator.MAP_CONTAINS_KEYS,
+                (v, c, cfg) -> {
+                    if (!(v instanceof Map)) return false;
+                    Object expect = c.getExpectValue();
+                    if (!(expect instanceof Collection)) return false;
+                    return ((Map) v).keySet().containsAll((Collection) expect);
+                });
+
         // Cross-field (null on either side -> false, preserving or() short-circuit)
         m.put(
                 ConditionOperator.FIELD_LESS_THAN,
