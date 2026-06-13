@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.transform.copy;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -36,8 +40,15 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .bundled(CopyTransformConfig.SRC_FIELD, CopyTransformConfig.DEST_FIELD)
-                .bundled(CopyTransformConfig.FIELDS)
+                .exclusive(CopyTransformConfig.FIELDS, CopyTransformConfig.SRC_FIELD)
+                .optional(
+                        CopyTransformConfig.FIELDS,
+                        Conditions.mapNotEmpty(CopyTransformConfig.FIELDS))
+                .optional(
+                        CopyTransformConfig.SRC_FIELD,
+                        Conditions.extension(
+                                CopyTransformConfig.SRC_FIELD, new RequireDestFieldValidator()))
+                .optional(CopyTransformConfig.DEST_FIELD)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
@@ -48,5 +59,23 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
         return () ->
                 new CopyFieldMultiCatalogTransform(
                         context.getCatalogTables(), context.getOptions());
+    }
+
+    static class RequireDestFieldValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "'dest_field' is required when 'src_field' is provided";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value)
+                throws OptionValidationException {
+            String destField = config.get(CopyTransformConfig.DEST_FIELD);
+            if (destField == null || destField.trim().isEmpty()) {
+                throw new OptionValidationException(
+                        "'dest_field' must be provided when using 'src_field'");
+            }
+            return true;
+        }
     }
 }
