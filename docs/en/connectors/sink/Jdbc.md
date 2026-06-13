@@ -28,6 +28,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

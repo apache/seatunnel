@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-pulsar.md';
 ## 核心特性
 
 - [x] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

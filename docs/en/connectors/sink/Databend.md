@@ -16,6 +16,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 - [x] [Exactly-Once](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
