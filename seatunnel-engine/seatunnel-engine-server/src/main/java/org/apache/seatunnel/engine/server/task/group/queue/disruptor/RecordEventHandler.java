@@ -68,18 +68,23 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     }
 
     private void handleRecord(Record<?> record, Collector<Record<?>> collector) throws Exception {
-        if (record != null) {
-            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
-            if (record.getData() instanceof Barrier) {
-                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-                runningTask.ack(barrier);
-                if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
-                    this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
-                }
-            } else {
-                if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
-                    return;
-                }
+        if (record == null) {
+            return;
+        }
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        if (record.getData() instanceof Barrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            runningTask.ack(barrier);
+            if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
+                this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
+            }
+        } else if (record.getData() instanceof Signal) {
+            if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
+            }
+        } else {
+            if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
             }
             if (record.getData() instanceof SeaTunnelRow) {
                 SeaTunnelRow row = (SeaTunnelRow) record.getData();
@@ -93,12 +98,12 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                             intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
                 }
             }
+        }
 
-            collector.collect(record);
-            totalQueueSize.dec();
-            if (metricsEnabled) {
-                queueSize.dec();
-            }
+        collector.collect(record);
+        totalQueueSize.dec();
+        if (metricsEnabled) {
+            queueSize.dec();
         }
     }
 }

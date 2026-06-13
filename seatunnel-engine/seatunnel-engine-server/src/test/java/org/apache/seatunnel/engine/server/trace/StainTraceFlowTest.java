@@ -414,11 +414,15 @@ public class StainTraceFlowTest {
                         queue,
                         new ThreadSafeCounter("total-qsize"),
                         new ThreadSafeCounter("qsize"),
-                        new ThreadSafeCounter("put-blocked-ns"));
-        setField(blockingQueue, "stainTraceMaxEntriesPerTrace", 32);
-        setField(blockingQueue, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("c"));
-        return new IntermediateQueueFlowLifeCycle<>(
-                queueTask, new CompletableFuture<>(), blockingQueue);
+                        new ThreadSafeCounter("put-blocked-ns"),
+                        new ThreadSafeCounter("flush-signal-success"),
+                        new ThreadSafeCounter("flush-signal-failure"));
+        IntermediateQueueFlowLifeCycle<?> flow =
+                new IntermediateQueueFlowLifeCycle<>(
+                        queueTask, new CompletableFuture<>(), blockingQueue);
+        setField(flow, "stainTraceMaxEntriesPerTrace", 32);
+        setField(flow, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("c"));
+        return flow;
     }
 
     private static SeaTunnelTask mockTask(long taskId, TaskExecutionContext executionContext) {

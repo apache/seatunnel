@@ -51,6 +51,7 @@ import com.hazelcast.cluster.Address;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -109,7 +110,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final TaskLocation currentTaskLocation;
 
-    private SeaTunnelSourceCollector<T> collector;
+    @Setter private SeaTunnelSourceCollector<T> collector;
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
@@ -142,10 +143,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.flushIntervalMs = flushIntervalMs;
         this.eventListener =
                 new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
-    }
-
-    public void setCollector(SeaTunnelSourceCollector<T> collector) {
-        this.collector = collector;
     }
 
     /**
@@ -282,7 +279,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                     sourceReadNs.inc(pollCostNs);
                 }
                 collector.resetEmptyThisPollNext();
-                /**
+                /*
                  * The current thread obtain a checkpoint lock in the method {@link
                  * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
                  * other threads try to obtain the lock in the method {@link
@@ -340,7 +337,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (Exception e) {
-            log.warn("source close failed {}", e);
+            log.warn("source close failed", e);
             throw new RuntimeException(e);
         }
     }

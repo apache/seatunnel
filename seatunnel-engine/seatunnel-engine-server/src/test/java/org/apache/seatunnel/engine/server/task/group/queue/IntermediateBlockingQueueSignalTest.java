@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue;
 
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.table.type.Record;
@@ -55,10 +54,14 @@ class IntermediateBlockingQueueSignalTest {
     void setUp() {
         backing = new ArrayBlockingQueue<>(4);
         sizeCounter = new ThreadSafeCounter("intermediateQueueSize");
-        MetricsContext metricsContext = Mockito.mock(MetricsContext.class);
-        Mockito.when(metricsContext.counter(Mockito.anyString()))
-                .thenAnswer(inv -> new ThreadSafeCounter(inv.getArgument(0)));
-        queue = new IntermediateBlockingQueue(backing, sizeCounter, metricsContext);
+        queue =
+                new IntermediateBlockingQueue(
+                        backing,
+                        new ThreadSafeCounter("totalQueueSize"),
+                        sizeCounter,
+                        new ThreadSafeCounter("putBlockedNs"),
+                        new ThreadSafeCounter("flushSignalQueueSuccess"),
+                        new ThreadSafeCounter("flushSignalQueueFailure"));
 
         SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
         Mockito.when(task.getTaskLocation()).thenReturn(TASK_LOCATION);

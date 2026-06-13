@@ -48,6 +48,14 @@ class RecordEventProducerTest {
     private static final TaskLocation TASK_LOCATION =
             new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 1L, 1);
 
+    private static final ThreadSafeCounter PUT_BLOCKED_NS = new ThreadSafeCounter("putBlockedNs");
+    private static final ThreadSafeCounter TOTAL_QUEUE_SIZE = new ThreadSafeCounter("totalQSize");
+    private static final ThreadSafeCounter QUEUE_SIZE = new ThreadSafeCounter("qSize");
+    private static final ThreadSafeCounter FLUSH_SIGNAL_Q_SUCCESS =
+            new ThreadSafeCounter("flushSignalQueueSuccess");
+    private static final ThreadSafeCounter FLUSH_SIGNAL_Q_FAILURE =
+            new ThreadSafeCounter("flushSignalQueueFailure");
+
     @SuppressWarnings("rawtypes")
     private static IntermediateQueueFlowLifeCycle createFlow(SeaTunnelTask task) {
         SeaTunnelMetricsContext metricsContext = new SeaTunnelMetricsContext();
@@ -58,8 +66,11 @@ class RecordEventProducerTest {
         IntermediateBlockingQueue blockingQueue =
                 new IntermediateBlockingQueue(
                         new LinkedBlockingQueue<>(),
-                        new ThreadSafeCounter("qsize"),
-                        metricsContext);
+                        new ThreadSafeCounter("totalQueueSize"),
+                        new ThreadSafeCounter("queueSize"),
+                        new ThreadSafeCounter("putBlockedNs"),
+                        new ThreadSafeCounter("flushSignalQueueSuccess"),
+                        new ThreadSafeCounter("flushSignalQueueFailure"));
 
         return new IntermediateQueueFlowLifeCycle(task, new CompletableFuture<>(), blockingQueue);
     }
@@ -67,6 +78,22 @@ class RecordEventProducerTest {
     private static RingBuffer<RecordEvent> createRingBuffer() {
         return RingBuffer.create(
                 ProducerType.SINGLE, RecordEvent::new, 4, new YieldingWaitStrategy());
+    }
+
+    private static Object[] onDataArgs(
+            Record<?> record,
+            RingBuffer<RecordEvent> ringBuffer,
+            IntermediateQueueFlowLifeCycle flow) {
+        return new Object[] {
+            record,
+            ringBuffer,
+            flow,
+            PUT_BLOCKED_NS,
+            TOTAL_QUEUE_SIZE,
+            QUEUE_SIZE,
+            FLUSH_SIGNAL_Q_SUCCESS,
+            FLUSH_SIGNAL_Q_FAILURE
+        };
     }
 
     @Test
@@ -77,7 +104,15 @@ class RecordEventProducerTest {
 
         long seqBefore = ringBuffer.getCursor();
 
-        RecordEventProducer.onData(new Record<>(FlushSignal.of(1L, 42L)), ringBuffer, flow);
+        RecordEventProducer.onData(
+                new Record<>(FlushSignal.of(1L, 42L)),
+                ringBuffer,
+                flow,
+                PUT_BLOCKED_NS,
+                TOTAL_QUEUE_SIZE,
+                QUEUE_SIZE,
+                FLUSH_SIGNAL_Q_SUCCESS,
+                FLUSH_SIGNAL_Q_FAILURE);
 
         long seqAfter = ringBuffer.getCursor();
         Assertions.assertEquals(seqBefore + 1, seqAfter, "signal should advance cursor by 1");
@@ -106,7 +141,14 @@ class RecordEventProducerTest {
         Assertions.assertDoesNotThrow(
                 () ->
                         RecordEventProducer.onData(
-                                new Record<>(FlushSignal.of(1L, 42L)), ringBuffer, flow));
+                                new Record<>(FlushSignal.of(1L, 42L)),
+                                ringBuffer,
+                                flow,
+                                PUT_BLOCKED_NS,
+                                TOTAL_QUEUE_SIZE,
+                                QUEUE_SIZE,
+                                FLUSH_SIGNAL_Q_SUCCESS,
+                                FLUSH_SIGNAL_Q_FAILURE));
 
         Assertions.assertEquals(
                 cursorBefore,
@@ -124,7 +166,14 @@ class RecordEventProducerTest {
         long cursorBefore = ringBuffer.getCursor();
 
         RecordEventProducer.onData(
-                new Record<>(new SeaTunnelRow(new Object[] {"v"})), ringBuffer, flow);
+                new Record<>(new SeaTunnelRow(new Object[] {"v"})),
+                ringBuffer,
+                flow,
+                PUT_BLOCKED_NS,
+                TOTAL_QUEUE_SIZE,
+                QUEUE_SIZE,
+                FLUSH_SIGNAL_Q_SUCCESS,
+                FLUSH_SIGNAL_Q_FAILURE);
 
         Assertions.assertEquals(
                 cursorBefore,
@@ -146,7 +195,15 @@ class RecordEventProducerTest {
                         Collections.emptySet(),
                         Collections.emptySet());
 
-        RecordEventProducer.onData(new Record<>(closeBarrier), ringBuffer, flow);
+        RecordEventProducer.onData(
+                new Record<>(closeBarrier),
+                ringBuffer,
+                flow,
+                PUT_BLOCKED_NS,
+                TOTAL_QUEUE_SIZE,
+                QUEUE_SIZE,
+                FLUSH_SIGNAL_Q_SUCCESS,
+                FLUSH_SIGNAL_Q_FAILURE);
 
         Assertions.assertTrue(flow.getPrepareClose(), "prepareClose should be true after barrier");
         Mockito.verify(task).ack(closeBarrier);

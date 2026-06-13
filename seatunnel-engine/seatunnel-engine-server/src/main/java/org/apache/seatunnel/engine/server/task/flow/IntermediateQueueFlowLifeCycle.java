@@ -27,17 +27,12 @@ import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
-
 /** Bridges an intermediate queue between upstream producers and downstream collectors. */
 public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>>
         extends AbstractFlowLifeCycle
         implements OneInputFlowLifeCycle<Record<?>>, OneOutputFlowLifeCycle<Record<?>> {
 
     private final AbstractIntermediateQueue<?> queue;
-    private final Counter flushSignalQueueSuccessTotal;
-    private final Counter flushSignalQueueFailureTotal;
 
     private volatile Counter stainTraceEntriesTruncatedTotal;
 
@@ -49,10 +44,6 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
             AbstractIntermediateQueue<?> queue) {
         super(runningTask, completableFuture);
         this.queue = queue;
-        this.flushSignalQueueSuccessTotal =
-                runningTask.getMetricsContext().counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
-        this.flushSignalQueueFailureTotal =
-                runningTask.getMetricsContext().counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
         queue.setIntermediateQueueFlowLifeCycle(this);
         queue.setRunningTask(runningTask);
     }
@@ -105,13 +96,5 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
             }
         }
         return stainTraceMaxEntriesPerTrace;
-    }
-
-    public Counter getFlushSignalQueueFailureTotal() {
-        return flushSignalQueueFailureTotal;
-    }
-
-    public Counter getFlushSignalQueueSuccessTotal() {
-        return flushSignalQueueSuccessTotal;
     }
 }

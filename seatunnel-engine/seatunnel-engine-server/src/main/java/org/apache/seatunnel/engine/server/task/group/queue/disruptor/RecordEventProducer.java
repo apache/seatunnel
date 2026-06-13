@@ -43,7 +43,9 @@ public class RecordEventProducer {
             IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
             Counter putBlockedNs,
             Counter totalQueueSize,
-            Counter queueSize) {
+            Counter queueSize,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
 
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
@@ -52,42 +54,61 @@ public class RecordEventProducer {
                     intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
-            publishRecord(record, ringBuffer, intermediateQueueFlowLifeCycle);
+            publishRecord(record, ringBuffer, totalQueueSize);
         } else if (record.getData() instanceof Signal) {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;
             }
-            publishSignalRecord(record, ringBuffer, intermediateQueueFlowLifeCycle);
-            return;
+            publishSignalRecord(
+                    record,
+                    ringBuffer,
+                    totalQueueSize,
+                    flushSignalQueueSuccessTotal,
+                    flushSignalQueueFailureTotal);
         } else {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;
             }
-            publishRecord(
+            publishDataRecord(
                     record,
                     ringBuffer,
                     intermediateQueueFlowLifeCycle,
                     putBlockedNs,
                     totalQueueSize,
                     queueSize);
-            return;
         }
     }
 
+    /** Publishes a barrier record without backpressure metrics, but tracks queue size. */
+    private static void publishRecord(
+            Record<?> record, RingBuffer<RecordEvent> ringBuffer, Counter totalQueueSize) {
+        long sequence = ringBuffer.next();
+        try {
+            ringBuffer.get(sequence).setRecord(record);
+        } finally {
+            ringBuffer.publish(sequence);
+            totalQueueSize.inc();
+        }
+    }
+
+    /** Non-blocking publish for signal records; tracks success/failure via injected counters. */
     private static void publishSignalRecord(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
-            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
-        boolean tryPublishEvent =
-                ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
-        if (tryPublishEvent) {
-            intermediateQueueFlowLifeCycle.getFlushSignalQueueSuccessTotal().inc();
+            Counter totalQueueSize,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
+        boolean published = ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
+        if (published) {
+            totalQueueSize.inc();
+            flushSignalQueueSuccessTotal.inc();
         } else {
-            intermediateQueueFlowLifeCycle.getFlushSignalQueueFailureTotal().inc();
+            flushSignalQueueFailureTotal.inc();
         }
     }
 
-    private static void publishRecord(
+    /** Publishes a data record with backpressure metrics and stain trace. */
+    private static void publishDataRecord(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
             IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,

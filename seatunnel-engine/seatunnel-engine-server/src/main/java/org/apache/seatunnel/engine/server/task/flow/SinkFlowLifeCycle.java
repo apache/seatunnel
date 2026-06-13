@@ -107,6 +107,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Optional<CommitInfoT> lastCommitInfo;
 
+    private final boolean containAggCommitter;
+
+    private final EventListener eventListener;
+
+    /** Mapping relationship between upstream TablePath and downstream TablePath. */
+    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+
     private final MetricsContext metricsContext;
 
     private final ConnectorMetricsCalcContext connectorMetricsCalcContext;
@@ -116,14 +123,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private final Counter sinkPrepareCommitNs;
     private final Counter sinkCommitNs;
     private final Counter sinkAbortNs;
-
-    private final boolean containAggCommitter;
-
-    private final EventListener eventListener;
-
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
-
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
     private final Counter flushSignalSinkSuccessTotal;
@@ -229,7 +228,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     @Override
     public void received(Record<?> record) {
         try {
-            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             if (record.getData() instanceof Barrier) {
                 Barrier barrier = (Barrier) record.getData();
                 processCheckpointBarrier(barrier);
@@ -313,8 +311,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processDataRecord(Record<?> record) throws IOException {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         String tableId;
+        long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
         writer.write((T) record.getData());
+        if (metricsEnabled) {
+            sinkWriteNs.inc(System.nanoTime() - writeStartNs);
+            sinkRecordsIn.inc();
+        }
         if (record.getData() instanceof SeaTunnelRow) {
             SeaTunnelRow row = (SeaTunnelRow) record.getData();
             if (this.sinkAction.getSink() instanceof MultiTableSink) {
@@ -380,6 +384,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processCheckpointBarrier(Barrier barrier) throws IOException {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         long startTime = System.currentTimeMillis();
         connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
         if (barrier.prepareClose(this.taskLocation)) {
@@ -387,7 +392,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
         if (barrier.snapshot()) {
             try {
+                long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
                 lastCommitInfo = writer.prepareCommit(barrier.getId());
+                if (metricsEnabled) {
+                    sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
+                }
             } catch (Exception e) {
                 writer.abortPrepare();
                 throw e;

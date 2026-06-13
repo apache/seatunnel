@@ -25,9 +25,7 @@ import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.common.utils.function.FunctionWithException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
-import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
 import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
@@ -44,25 +42,22 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
     private final Counter totalIntermediateQueueSize;
     private final Counter intermediateQueueSize;
     private final Counter putBlockedNs;
-    private volatile Counter stainTraceEntriesTruncatedTotal;
-
-    private volatile Counter flushSignalTotal;
-
-    private volatile Counter flushSignalSuccessTotal;
-
-    private volatile Counter flushSignalFailureTotal;
-
-    private volatile int stainTraceMaxEntriesPerTrace = -1;
+    private final Counter flushSignalQueueSuccessTotal;
+    private final Counter flushSignalQueueFailureTotal;
 
     public IntermediateBlockingQueue(
             BlockingQueue<Record<?>> queue,
             Counter totalIntermediateQueueSize,
             Counter intermediateQueueSize,
-            Counter putBlockedNs) {
+            Counter putBlockedNs,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
         super(queue);
         this.totalIntermediateQueueSize = totalIntermediateQueueSize;
         this.intermediateQueueSize = intermediateQueueSize;
         this.putBlockedNs = putBlockedNs;
+        this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+        this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
     }
 
     @Override
@@ -152,8 +147,9 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                             stage,
                             getRunningTask().getTaskID(),
                             System.currentTimeMillis(),
-                            getStainTraceMaxEntriesPerTrace(),
-                            getStainTraceEntriesTruncatedTotal());
+                            getIntermediateQueueFlowLifeCycle().getStainTraceMaxEntriesPerTrace(),
+                            getIntermediateQueueFlowLifeCycle()
+                                    .getStainTraceEntriesTruncatedTotal());
                 }
             }
             consumer.accept(record);
@@ -169,84 +165,11 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             return false;
         }
         boolean offered = function.apply(record);
-        getFlushSignalTotal().inc();
-        if (!offered) {
-            getFlushSignalFailureTotal().inc();
+        if (offered) {
+            flushSignalQueueSuccessTotal.inc();
+        } else {
+            flushSignalQueueFailureTotal.inc();
         }
-
         return offered;
-    }
-
-    private Counter getStainTraceEntriesTruncatedTotal() {
-        if (stainTraceEntriesTruncatedTotal == null) {
-            synchronized (this) {
-                if (stainTraceEntriesTruncatedTotal == null) {
-                    stainTraceEntriesTruncatedTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
-                }
-            }
-        }
-        return stainTraceEntriesTruncatedTotal;
-    }
-
-    private int getStainTraceMaxEntriesPerTrace() {
-        if (stainTraceMaxEntriesPerTrace < 0) {
-            synchronized (this) {
-                if (stainTraceMaxEntriesPerTrace < 0) {
-                    stainTraceMaxEntriesPerTrace =
-                            getRunningTask()
-                                    .getExecutionContext()
-                                    .getTaskExecutionService()
-                                    .getSeaTunnelConfig()
-                                    .getEngineConfig()
-                                    .getStainTraceMaxEntriesPerTrace();
-                }
-            }
-        }
-        return stainTraceMaxEntriesPerTrace;
-    }
-
-    public Counter getFlushSignalTotal() {
-        if (flushSignalTotal == null) {
-            synchronized (this) {
-                if (flushSignalTotal == null) {
-                    flushSignalTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
-                }
-            }
-        }
-        return flushSignalTotal;
-    }
-
-    public Counter getFlushSignalSuccessTotal() {
-        if (flushSignalSuccessTotal == null) {
-            synchronized (this) {
-                if (flushSignalSuccessTotal == null) {
-                    flushSignalSuccessTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
-                }
-            }
-        }
-        return flushSignalSuccessTotal;
-    }
-
-    public Counter getFlushSignalFailureTotal() {
-        if (flushSignalFailureTotal == null) {
-            synchronized (this) {
-                if (flushSignalFailureTotal == null) {
-                    flushSignalFailureTotal =
-                            getRunningTask()
-                                    .getMetricsContext()
-                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
-                }
-            }
-        }
-        return flushSignalFailureTotal;
     }
 }

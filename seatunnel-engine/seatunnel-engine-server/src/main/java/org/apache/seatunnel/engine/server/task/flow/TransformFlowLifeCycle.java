@@ -64,9 +64,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private transient Counter processNs;
     private transient Counter recordsIn;
     private transient Counter recordsOut;
-    private volatile int stainTraceMaxEntriesPerTrace = -1;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile Boolean stainTracePropagateToAllSplits;
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
