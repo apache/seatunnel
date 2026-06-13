@@ -18,59 +18,34 @@
 package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.connector.TableTransform;
-import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-public class SQLTransformFactoryTest {
+class SQLTransformFactoryTest {
 
-    @Test
-    public void testFactoryIdentifierAndOptionRule() {
-        SQLTransformFactory factory = new SQLTransformFactory();
-        Assertions.assertEquals(SQLTransform.PLUGIN_NAME, factory.factoryIdentifier());
+    private final OptionRule rule = new SQLTransformFactory().optionRule();
 
-        OptionRule rule = factory.optionRule();
-        // Just ensure optional keys are registered; exact contents will be validated elsewhere
-        Assertions.assertNotNull(rule);
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
     }
 
     @Test
-    public void testCreateTransformReturnsMultiCatalogTransform() {
-        SQLTransformFactory factory = new SQLTransformFactory();
+    void testValidConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("query", "SELECT id, name FROM table1");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
 
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"id", "name"},
-                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
-        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
-        List<CatalogTable> tables = Collections.singletonList(catalogTable);
-
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                SQLTransform.KEY_QUERY.key(), "select * from dual"));
-
-        TableTransformFactoryContext context =
-                new TableTransformFactoryContext(
-                        tables, config, Thread.currentThread().getContextClassLoader());
-
-        TableTransform<?> tableTransform = factory.createTransform(context);
-        Assertions.assertNotNull(tableTransform);
-
-        SeaTunnelTransform<?> inner = tableTransform.createTransform();
-        Assertions.assertNotNull(inner);
-        Assertions.assertTrue(inner instanceof SQLMultiCatalogFlatMapTransform);
+    @Test
+    void testMissingQueryFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 }
