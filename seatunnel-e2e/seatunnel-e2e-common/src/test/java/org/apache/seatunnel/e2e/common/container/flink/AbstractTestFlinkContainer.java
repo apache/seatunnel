@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -84,7 +82,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                         .withCommand("jobmanager")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("jobmanager")
-                        .withExposedPorts()
+                        .withExposedPorts(8081)
                         .withEnv("FLINK_PROPERTIES", properties)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -99,7 +97,6 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 BindMode.READ_WRITE);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-        jobManager.setPortBindings(Lists.newArrayList(String.format("%s:%s", 8081, 8081)));
 
         taskManager =
                 new GenericContainer<>(dockerImage)
