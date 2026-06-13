@@ -371,6 +371,45 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         assertEquals(0, sink.getInvocationCount());
     }
 
+    /**
+     * Once a queue worker has already failed, the schema-change entry point must still honor its
+     * declared {@link IOException} contract instead of letting a raw runtime failure escape.
+     */
+    @Test
+    void schemaChangeKeepsIOExceptionContractWhenWorkerAlreadyFailed() throws Exception {
+        IOException rowWriteFailure = new IOException("boom-before-schema-entry");
+        FailingRowSinkWriter sink = new FailingRowSinkWriter(PHYSICAL_SINK_SHARED, rowWriteFailure);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        writers.put(SinkIdentifier.of("dbA.users", 0), sink);
+
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(writers, 1, buildContextMap(writers));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("dbA.users");
+        coordinator.write(row);
+
+        MultiTableWriterRunnable queueRunnable = getRunnable(coordinator, 0);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (queueRunnable.getThrowable() == null && System.nanoTime() < deadline) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
+
+        assertTrue(
+                queueRunnable.getThrowable() != null,
+                "the worker must observe the row failure before schema change retries the contract");
+
+        IOException schemaChangeFailure =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                coordinator.applySchemaChange(
+                                        new TestSchemaChangeEvent(
+                                                TablePath.of("dbA", null, "users"))));
+        assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(coordinator::close);
+    }
+
     /** Builds the writer-context map required by the multi-table coordinator constructor. */
     private Map<SinkIdentifier, SinkWriter.Context> buildContextMap(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers) {

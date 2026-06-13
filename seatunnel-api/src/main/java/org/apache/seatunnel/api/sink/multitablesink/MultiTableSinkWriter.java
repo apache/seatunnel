@@ -291,27 +291,53 @@ public class MultiTableSinkWriter
      *
      * <p>Each {@link MultiTableWriterRunnable} captures exceptions thrown during write into a
      * volatile field. This method iterates over all runnables and re-throws the first error found
-     * as a {@link RuntimeException}. It is called before every state-mutating operation ({@link
-     * #write(SeaTunnelRow)}, {@link #snapshotState(long)}, {@link #prepareCommit(long)}) to fail
-     * fast.
+     * through the checked {@link IOException} contract already declared by the schema-change, write
+     * and snapshot APIs.
      */
-    private void subSinkErrorCheck() {
+    private void subSinkErrorCheck() throws IOException {
+        IOException failure = currentSubSinkFailure();
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    /**
+     * Converts the first observed queue-worker failure into {@link IOException} so coordinator
+     * entry points keep one consistent failure channel.
+     */
+    private IOException currentSubSinkFailure() {
         if (fatalThrowable != null) {
-            throw new RuntimeException(buildFailureSummary(), fatalThrowable);
+            return buildIOException(buildFailureSummary(), fatalThrowable);
         }
         for (MultiTableWriterRunnable writerRunnable : runnable) {
-            if (writerRunnable.getThrowable() != null) {
-                throw new RuntimeException(
+            Throwable throwable = writerRunnable.getThrowable();
+            if (throwable != null) {
+                if (throwable instanceof IOException) {
+                    return (IOException) throwable;
+                }
+                return new IOException(
                         String.format(
                                 "table %s sink throw error", writerRunnable.getCurrentTableId()),
-                        writerRunnable.getThrowable());
+                        throwable);
             }
         }
         if (failurePolicy.continueOtherTables()
                 && sinkPrimaryKeys.isEmpty()
                 && !failedTables.isEmpty()) {
-            throw new RuntimeException(buildIsolatedFailureSummary(), getFirstFailureCause());
+            return buildIOException(buildIsolatedFailureSummary(), getFirstFailureCause());
         }
+        return null;
+    }
+
+    /**
+     * Wraps non-IO failures so callers that already rely on {@link IOException} can keep one
+     * predictable error type.
+     */
+    private IOException buildIOException(String message, Throwable failure) {
+        if (failure instanceof IOException && message.equals(failure.getMessage())) {
+            return (IOException) failure;
+        }
+        return new IOException(message, failure);
     }
 
     @Override
@@ -870,14 +896,15 @@ public class MultiTableSinkWriter
      * operations ({@link #snapshotState(long)}, {@link #prepareCommit(long)}) to ensure all
      * enqueued rows have been consumed by the writer threads.
      */
-    private void checkQueueRemain() {
+    private void checkQueueRemain() throws IOException {
         try {
             while (hasPendingRuntimeWrites()) {
                 Thread.sleep(100);
                 subSinkErrorCheck();
             }
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
         }
     }
 

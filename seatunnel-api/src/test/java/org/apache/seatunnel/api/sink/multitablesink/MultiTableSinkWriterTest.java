@@ -252,9 +252,9 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.write(buildRow("test.failed", 0));
 
-        RuntimeException prepareCommitException =
+        IOException prepareCommitException =
                 Assertions.assertThrows(
-                        RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+                        IOException.class, () -> multiTableSinkWriter.prepareCommit(1L));
         Assertions.assertTrue(
                 MultiTableFailureHelper.isIsolatedFailure(prepareCommitException.getMessage()));
         Assertions.assertEquals(1, failedWriter.getWriteCount());
@@ -285,8 +285,7 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.write(buildRow("test.failed", 0));
 
-        Assertions.assertThrows(
-                RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+        Assertions.assertThrows(IOException.class, () -> multiTableSinkWriter.prepareCommit(1L));
         Assertions.assertEquals(1, failedWriter.getWriteCount());
         multiTableSinkWriter.close();
     }
@@ -367,7 +366,7 @@ public class MultiTableSinkWriterTest {
         MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
         runnable.run();
 
-        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertTrue(runnable.getThrowable() instanceof InterruptedException);
         Assertions.assertEquals(1, onlyWriter.getWriteCount());
         Assertions.assertEquals("http", runnable.getCurrentTableId());
     }
@@ -384,7 +383,7 @@ public class MultiTableSinkWriterTest {
         tableIdWriterMap.setRequiredLock(runnable);
         runnable.run();
 
-        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertTrue(runnable.getThrowable() instanceof InterruptedException);
         Assertions.assertEquals(1, writer.getWriteCount());
     }
 
