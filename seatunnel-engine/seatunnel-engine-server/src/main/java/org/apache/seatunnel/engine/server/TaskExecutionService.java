@@ -242,6 +242,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         this.eventService = eventService;
     }
 
+    /**
+     * Gets the Hazelcast node engine backing this task execution service.
+     *
+     * @return the Hazelcast node engine
+     */
+    public NodeEngineImpl getNodeEngine() {
+        return nodeEngine;
+    }
+
     /** Starts the task execution service by creating initial cooperative task worker threads. */
     public void start() {
         runBusWorkSupplier.runNewBusWork(false);
