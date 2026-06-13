@@ -25,10 +25,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -50,28 +51,37 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         this.transformMap = new HashMap<>();
         Pattern tableMatchRegex =
                 Pattern.compile(config.get(TransformCommonOptions.TABLE_MATCH_REGEX));
-        Map<String, ReadonlyConfig> singleTableConfig =
+        TransformCommonOptions.RuleMatchMode ruleMatchMode =
+                config.get(TransformCommonOptions.RULE_MATCH_MODE);
+        List<ReadonlyConfig> singleTableConfigs =
                 config.get(TransformCommonOptions.MULTI_TABLES).stream()
                         .map(ReadonlyConfig::fromMap)
                         .filter(c -> c.get(TransformCommonOptions.TABLE_PATH) != null)
-                        .collect(
-                                Collectors.toMap(
-                                        c -> c.get(TransformCommonOptions.TABLE_PATH),
-                                        Function.identity()));
+                        .collect(Collectors.toList());
 
         inputCatalogTables.forEach(
                 inputCatalogTable -> {
                     String tableId = inputCatalogTable.getTableId().toTablePath().toString();
-                    ReadonlyConfig tableConfig;
-                    if (singleTableConfig.containsKey(tableId)) {
-                        tableConfig = singleTableConfig.get(tableId);
+                    List<ReadonlyConfig> tableConfigs =
+                            singleTableConfigs.stream()
+                                    .filter(
+                                            c ->
+                                                    tableId.equals(
+                                                            c.get(
+                                                                    TransformCommonOptions
+                                                                            .TABLE_PATH)))
+                                    .collect(Collectors.toList());
+                    if (!tableConfigs.isEmpty()) {
+                        transformMap.put(
+                                tableId,
+                                buildTransform(
+                                        inputCatalogTable,
+                                        selectTableConfigs(tableConfigs, ruleMatchMode)));
                     } else if (tableMatchRegex.matcher(tableId).matches()) {
-                        tableConfig = config;
-                    } else {
-                        tableConfig = null;
-                    }
-                    if (tableConfig != null) {
-                        transformMap.put(tableId, buildTransform(inputCatalogTable, tableConfig));
+                        transformMap.put(
+                                tableId,
+                                buildTransform(
+                                        inputCatalogTable, Collections.singletonList(config)));
                     } else {
                         transformMap.put(tableId, createIdentityTransform(inputCatalogTable));
                     }
@@ -90,6 +100,36 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     protected abstract SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config);
+
+    private List<ReadonlyConfig> selectTableConfigs(
+            List<ReadonlyConfig> tableConfigs, TransformCommonOptions.RuleMatchMode ruleMatchMode) {
+        if (ruleMatchMode == TransformCommonOptions.RuleMatchMode.FIRST_MATCH) {
+            return Collections.singletonList(tableConfigs.get(0));
+        }
+        return tableConfigs;
+    }
+
+    private SeaTunnelTransform<SeaTunnelRow> buildTransform(
+            CatalogTable inputCatalogTable, List<ReadonlyConfig> configs) {
+        List<SeaTunnelTransform<SeaTunnelRow>> transforms = new ArrayList<>();
+        CatalogTable currentCatalogTable = inputCatalogTable;
+        for (ReadonlyConfig config : configs) {
+            SeaTunnelTransform<SeaTunnelRow> transform =
+                    buildTransform(currentCatalogTable, config);
+            transforms.add(transform);
+            currentCatalogTable = transform.getProducedCatalogTable();
+        }
+        return composeTransforms(transforms);
+    }
+
+    protected SeaTunnelTransform<SeaTunnelRow> composeTransforms(
+            List<SeaTunnelTransform<SeaTunnelRow>> transforms) {
+        if (transforms.size() == 1) {
+            return transforms.get(0);
+        }
+        throw new UnsupportedOperationException(
+                String.format("%s does not support chained transforms", getPluginName()));
+    }
 
     protected abstract SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
             CatalogTable catalogTable);
@@ -151,6 +191,8 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
             SeaTunnelTransform<SeaTunnelRow> inner = transformMap.get(tableId);
             if (inner instanceof AbstractSeaTunnelTransform) {
                 ((AbstractSeaTunnelTransform<?, ?>) inner).setInputCatalogTable(newInput);
+            } else if (inner != null) {
+                inner.setInputCatalogTables(Collections.singletonList(newInput));
             }
         }
         refreshOutputCatalogTables();
