@@ -141,7 +141,17 @@ def get_deleted_modules(files):
     print(output_module)
 
 
-def get_sub_it_modules(modules, total_num, current_num):
+def filter_excluded_modules(modules_arr, excluded_modules):
+    # Keep dedicated long-running suites out of the dynamic shards.
+    if excluded_modules is None or len(excluded_modules.strip()) == 0:
+        return modules_arr
+    excluded_module_set = {
+        module.strip() for module in excluded_modules.split(",") if len(module.strip()) > 0
+    }
+    return [module for module in modules_arr if module not in excluded_module_set]
+
+
+def get_sub_it_modules(modules, total_num, current_num, excluded_modules=None):
     modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr.remove("connector-jdbc-e2e")
     modules_arr.remove("connector-kafka-e2e")
@@ -155,6 +165,7 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
+    modules_arr = filter_excluded_modules(modules_arr, excluded_modules)
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:
@@ -234,7 +245,8 @@ def main(argv):
     elif argv[1] == "rm":
         remove_deleted_modules(argv[2], argv[3])
     elif argv[1] == "sub_it_module":
-        get_sub_it_modules(argv[2], argv[3], argv[4])
+        excluded_modules = argv[5] if len(argv) > 5 else None
+        get_sub_it_modules(argv[2], argv[3], argv[4], excluded_modules)
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
 
