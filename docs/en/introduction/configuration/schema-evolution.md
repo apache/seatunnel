@@ -15,19 +15,19 @@ Schema Evolution means that the schema of a data table can be changed and the da
 ## Supported connectors
 
 ### Source
-[Mysql-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/source/MySQL-CDC.md)
-[Oracle-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/source/Oracle-CDC.md)
+[Mysql-CDC](../../connectors/source/MySQL-CDC.md)
+[Oracle-CDC](../../connectors/source/Oracle-CDC.md)
 
 ### Sink
-[Jdbc-Mysql](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Jdbc.md)
-[Jdbc-Oracle](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Jdbc.md)
-[Jdbc-Postgres](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Jdbc.md)
-[Jdbc-Dameng](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Jdbc.md)
-[Jdbc-SqlServer](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Jdbc.md)
-[StarRocks](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/StarRocks.md)
-[Doris](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Doris.md)
-[Paimon](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Paimon.md#Schema-Evolution)
-[Elasticsearch](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/sink/Elasticsearch.md#Schema-Evolution)
+[Jdbc-Mysql](../../connectors/sink/Jdbc.md)
+[Jdbc-Oracle](../../connectors/sink/Jdbc.md)
+[Jdbc-Postgres](../../connectors/sink/Jdbc.md)
+[Jdbc-Dameng](../../connectors/sink/Jdbc.md)
+[Jdbc-SqlServer](../../connectors/sink/Jdbc.md)
+[StarRocks](../../connectors/sink/StarRocks.md)
+[Doris](../../connectors/sink/Doris.md)
+[Paimon](../../connectors/sink/Paimon.md#schema-evolution)
+[Elasticsearch](../../connectors/sink/Elasticsearch.md#schema-evolution)
 
 Note:  
 * The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.

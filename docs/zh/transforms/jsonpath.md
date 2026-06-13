@@ -1,10 +1,10 @@
-# JsonPath
+# JSON 路径提取
 
-> JSONPath 转换插件
+> JsonPath：使用 JSONPath 从 JSON 数据中提取字段
 
 ## 描述
 
-> 支持使用 JSONPath 选择数据
+JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 ## 属性
 
@@ -13,7 +13,7 @@
 | columns              | Array | Yes  |      | 
 | row_error_handle_way | Enum  | No   | FAIL |
 
-### common options [string]
+### 通用选项 [string]
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情
 
@@ -323,4 +323,3 @@ transform {
 ## 更新日志
 
 * 添加 JsonPath 转换
-

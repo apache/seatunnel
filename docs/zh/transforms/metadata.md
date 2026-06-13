@@ -1,10 +1,10 @@
-# Metadata
+# 元数据提取
 
-> Metadata 转换插件
+> Metadata：把库名、表名、RowKind 等元数据提取为普通字段
 
 ## 描述
 
-Metadata 转换插件用于将数据行中的元数据信息提取并转换为普通字段，方便后续处理和分析。
+Metadata 转换插件用于将数据行中的元数据信息提取为普通字段，方便后续处理和分析。
 
 **核心功能：**
 - 将元数据（如数据库名、表名、行类型等）提取为可见字段
@@ -26,13 +26,19 @@ Metadata 转换插件用于将数据行中的元数据信息提取并转换为�
 |  RowKind  |  string  |  行的变更类型，值为：+I（插入）、-U（更新前）、+U（更新后）、-D（删除）  | 所有连接器 |
 | EventTime | long   | 数据变更的事件时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
 |   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
+| SourceTimestamp | long | 数据在源数据库中提交的时间戳（毫秒，即 `source.ts_ms`）。 | CDC 连接器 |
+| BinlogFile | string | Binlog 文件名（如 `mysql-bin-changelog.000123`）。快照行返回 `null`。 | 仅 MySQL-CDC |
+| BinlogPos  | long   | Binlog 字节偏移量。快照行返回 `null`。 | 仅 MySQL-CDC |
+| BinlogRow  | int    | Binlog 事件中的行索引（从 0 开始）。快照行返回 `null`。 | 仅 MySQL-CDC |
+| Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
 ### 重要说明
 
 1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
-2. **时间相关字段**：`Delay` 仅在 CDC 连接器有效（TiDB-CDC 除外）；`EventTime` 由 CDC 连接器写入，也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
+2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
+4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
 
 ## 配置选项
 
@@ -240,3 +246,56 @@ sink {
 ```
 
 上面的 `pt` 字段由 Kafka 事件时间转换而来，可在 Hive 中作为分区列使用，便于补数和校准分区。
+
+### 示例 4：结合 Metadata 和 Sql 提取分表后缀并生成装载日期
+
+当上游是按月或按天分表的 CDC 源时，常见需求是先把 `Table` 元数据暴露成普通字段，再用
+`Sql` 提取分表后缀、补充任务装载日期。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["app.orders_202401", "app.orders_202402"]
+    url = "jdbc:mysql://localhost:3306/app"
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "orders_cdc"
+    plugin_output = "orders_with_meta"
+    metadata_fields {
+      Table = source_table
+      EventTime = event_ts
+    }
+  }
+
+  Sql {
+    plugin_input = "orders_with_meta"
+    plugin_output = "orders_normalized"
+    query = "select id, amount, source_table, REGEXP_SUBSTR(source_table, '[0-9]+$') as table_suffix, FROM_UNIXTIME(event_ts / 1000, 'yyyy-MM-dd HH:mm:ss', 'Asia/Shanghai') as event_time_str, FORMATDATETIME(CURRENT_TIMESTAMP, 'yyyyMMdd') as load_date from orders_with_meta"
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_normalized"
+  }
+}
+```
+
+如果当前记录来自 `orders_202402`，那么：
+
+- `source_table = "orders_202402"`
+- `table_suffix = "202402"`
+- `event_time_str` 来自 CDC 事件时间
+- `load_date` 是任务运行时格式化后的日期字符串

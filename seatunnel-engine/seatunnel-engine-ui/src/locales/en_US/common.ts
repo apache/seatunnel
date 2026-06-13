@@ -20,4 +20,7 @@ export default {
   hour: 'h',
   min: 'm',
   second: 's',
+  version: 'Version',
+  commit: 'Commit',
+  language: 'Language',
 }

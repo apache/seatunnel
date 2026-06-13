@@ -34,15 +34,16 @@ github:
     - elt
   collaborators:
     - ricky2129
-    - chl-wxp
+    - DanielLeens
     - LiJie20190102
-    - yzeng1618
+    - CosmosNi
     - fcb-xiaobo
     - LeonYoah
     - silenceland
     - SEZ9
     - boy-xiaozhang
     - nzw921rx
+  dependabot_updates: false
   enabled_merge_buttons:
     squash: true
     merge: false
@@ -53,7 +54,7 @@ github:
         strict: true
       required_pull_request_reviews:
         dismiss_stale_reviews: true
-        required_approving_review_count: 2
+        required_approving_review_count: 1
 
 notifications:
   commits:      commits@seatunnel.apache.org

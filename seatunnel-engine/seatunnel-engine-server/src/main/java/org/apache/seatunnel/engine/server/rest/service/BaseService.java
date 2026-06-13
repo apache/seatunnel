@@ -48,6 +48,7 @@ import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
@@ -71,6 +72,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -79,7 +81,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -116,20 +125,211 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_
 public abstract class BaseService {
 
     private static final int JOB_METRICS_LOG_TRUNCATE_LENGTH = 500;
+    private static final int INVALID_METRICS_LOG_INTERVAL_MS = 60_000;
+    private static final int INVALID_METRICS_LOG_PREFIX_MAX_LEN = 512;
+    private static final int INVALID_METRICS_LOG_TOKEN_MAX_LEN = 128;
+    private static final int INVALID_METRICS_LOG_TOKEN_MAX_COUNT = 5;
+    private static final AtomicLong LAST_INVALID_METRICS_LOG_TIME_MS = new AtomicLong(0L);
     private static final Pattern VERTEX_IDENTIFIER_PATTERN =
             Pattern.compile("((?:Sink|Source|Transform)\\[(\\d+)\\])");
 
     protected final NodeEngineImpl nodeEngine;
 
+    private static final int RUNNING_JOB_DAG_CACHE_MAX_ENTRIES = 500;
+    private static final long RUNNING_JOB_DAG_CACHE_TTL_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final long RUNNING_JOB_DAG_CACHE_CLEANUP_INTERVAL_MS =
+            TimeUnit.MINUTES.toMillis(1);
+    private static final long RUNNING_JOB_DAG_CACHE_CLEANUP_THROTTLE_ON_ACCESS_MS =
+            TimeUnit.MINUTES.toMillis(1);
+
+    private static final Object RUNNING_JOB_DAG_CACHE_LOCK = new Object();
+    private static final AtomicInteger RUNNING_JOB_DAG_CACHE_OWNER_COUNT = new AtomicInteger(0);
+
+    private static final ConcurrentMap<Long, RunningJobDagJsonCacheEntry>
+            RUNNING_JOB_DAG_JSON_CACHE = new ConcurrentHashMap<>();
+    private static final AtomicLong RUNNING_JOB_DAG_CACHE_LAST_CLEANUP_ON_ACCESS_MS =
+            new AtomicLong(0L);
+    private static final AtomicLong RUNNING_JOB_DAG_CACHE_LAST_LOG_MS = new AtomicLong(0L);
+    private static volatile ScheduledExecutorService runningJobDagCacheCleaner;
+
+    static final class RunningJobDagJsonCacheEntry {
+        private final JsonObject dagJson;
+        private final JobDAGInfo dagInfo;
+        private final long createMs;
+        private volatile long lastAccessMs;
+
+        private RunningJobDagJsonCacheEntry(JsonObject dagJson, JobDAGInfo dagInfo, long nowMs) {
+            this.dagJson = dagJson;
+            this.dagInfo = dagInfo;
+            this.createMs = nowMs;
+            this.lastAccessMs = nowMs;
+        }
+    }
+
     public BaseService(NodeEngineImpl nodeEngine) {
         this.nodeEngine = nodeEngine;
     }
 
+    public static void retainRunningJobDagJsonCache() {
+        RUNNING_JOB_DAG_CACHE_OWNER_COUNT.incrementAndGet();
+        ensureRunningJobDagCacheCleanerStarted();
+    }
+
+    private static void ensureRunningJobDagCacheCleanerStarted() {
+        if (RUNNING_JOB_DAG_CACHE_OWNER_COUNT.get() <= 0) {
+            return;
+        }
+        synchronized (RUNNING_JOB_DAG_CACHE_LOCK) {
+            if (runningJobDagCacheCleaner != null && !runningJobDagCacheCleaner.isShutdown()) {
+                return;
+            }
+            runningJobDagCacheCleaner =
+                    Executors.newSingleThreadScheduledExecutor(
+                            r -> {
+                                Thread t = new Thread(r, "running-job-dag-cache-cleaner");
+                                t.setDaemon(true);
+                                return t;
+                            });
+            runningJobDagCacheCleaner.scheduleWithFixedDelay(
+                    () -> {
+                        try {
+                            cleanupRunningJobDagCache(System.currentTimeMillis(), true);
+                        } catch (Throwable t) {
+                            log.debug(
+                                    "Running job dag json cache cleanup failed: {}",
+                                    t.getMessage());
+                        }
+                    },
+                    RUNNING_JOB_DAG_CACHE_CLEANUP_INTERVAL_MS,
+                    RUNNING_JOB_DAG_CACHE_CLEANUP_INTERVAL_MS,
+                    TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public static void releaseRunningJobDagJsonCache() {
+        int remaining = RUNNING_JOB_DAG_CACHE_OWNER_COUNT.decrementAndGet();
+        if (remaining > 0) {
+            return;
+        }
+        RUNNING_JOB_DAG_CACHE_OWNER_COUNT.set(0);
+        synchronized (RUNNING_JOB_DAG_CACHE_LOCK) {
+            if (runningJobDagCacheCleaner != null) {
+                runningJobDagCacheCleaner.shutdownNow();
+                runningJobDagCacheCleaner = null;
+            }
+        }
+        RUNNING_JOB_DAG_JSON_CACHE.clear();
+        RUNNING_JOB_DAG_CACHE_LAST_CLEANUP_ON_ACCESS_MS.set(0L);
+        RUNNING_JOB_DAG_CACHE_LAST_LOG_MS.set(0L);
+    }
+
+    private static void maybeCleanupRunningJobDagCacheOnAccess(long nowMs) {
+        long last = RUNNING_JOB_DAG_CACHE_LAST_CLEANUP_ON_ACCESS_MS.get();
+        if (nowMs - last < RUNNING_JOB_DAG_CACHE_CLEANUP_THROTTLE_ON_ACCESS_MS) {
+            return;
+        }
+        if (!RUNNING_JOB_DAG_CACHE_LAST_CLEANUP_ON_ACCESS_MS.compareAndSet(last, nowMs)) {
+            return;
+        }
+        cleanupRunningJobDagCache(nowMs, false);
+    }
+
+    private static void cleanupRunningJobDagCache(long nowMs, boolean background) {
+        if (RUNNING_JOB_DAG_JSON_CACHE.isEmpty()) {
+            return;
+        }
+
+        int expiredRemoved = 0;
+        for (Map.Entry<Long, RunningJobDagJsonCacheEntry> e :
+                RUNNING_JOB_DAG_JSON_CACHE.entrySet()) {
+            RunningJobDagJsonCacheEntry entry = e.getValue();
+            if (entry == null) {
+                continue;
+            }
+            long lastAccessMs = entry.lastAccessMs;
+            if (lastAccessMs > 0
+                    && nowMs >= lastAccessMs
+                    && (nowMs - lastAccessMs) > RUNNING_JOB_DAG_CACHE_TTL_MS) {
+                if (RUNNING_JOB_DAG_JSON_CACHE.remove(e.getKey(), entry)) {
+                    expiredRemoved++;
+                }
+            }
+        }
+
+        int needEvict = RUNNING_JOB_DAG_JSON_CACHE.size() - RUNNING_JOB_DAG_CACHE_MAX_ENTRIES;
+        int evicted = 0;
+        if (needEvict > 0) {
+            List<Map.Entry<Long, RunningJobDagJsonCacheEntry>> entries =
+                    new ArrayList<>(RUNNING_JOB_DAG_JSON_CACHE.entrySet());
+            entries.sort(
+                    Comparator.comparingLong(
+                            a -> a.getValue() == null ? 0L : a.getValue().lastAccessMs));
+            for (Map.Entry<Long, RunningJobDagJsonCacheEntry> e : entries) {
+                if (needEvict <= 0) {
+                    break;
+                }
+                RunningJobDagJsonCacheEntry entry = e.getValue();
+                if (entry == null) {
+                    continue;
+                }
+                if (RUNNING_JOB_DAG_JSON_CACHE.remove(e.getKey(), entry)) {
+                    needEvict--;
+                    evicted++;
+                }
+            }
+        }
+
+        if (expiredRemoved <= 0 && evicted <= 0) {
+            return;
+        }
+        long lastLog = RUNNING_JOB_DAG_CACHE_LAST_LOG_MS.get();
+        if (nowMs - lastLog < RUNNING_JOB_DAG_CACHE_CLEANUP_INTERVAL_MS) {
+            return;
+        }
+        if (!RUNNING_JOB_DAG_CACHE_LAST_LOG_MS.compareAndSet(lastLog, nowMs)) {
+            return;
+        }
+
+        if (evicted > 0) {
+            log.warn(
+                    "Running job dag json cache evicted entries due to max size: evicted={}, expiredRemoved={}, remaining={}, background={}",
+                    evicted,
+                    expiredRemoved,
+                    RUNNING_JOB_DAG_JSON_CACHE.size(),
+                    background);
+        } else {
+            log.debug(
+                    "Running job dag json cache cleanup: expiredRemoved={}, remaining={}, background={}",
+                    expiredRemoved,
+                    RUNNING_JOB_DAG_JSON_CACHE.size(),
+                    background);
+        }
+    }
+
     protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
-        Map<String, Object> extensionServices =
-                nodeEngine.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        SeaTunnelServer seaTunnelServer = null;
+        try {
+            com.hazelcast.instance.impl.NodeExtension nodeExtension =
+                    nodeEngine.getNode().getNodeExtension();
+            if (nodeExtension instanceof org.apache.seatunnel.engine.server.NodeExtension) {
+                seaTunnelServer =
+                        ((org.apache.seatunnel.engine.server.NodeExtension) nodeExtension)
+                                .getSeaTunnelServer();
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+
+        if (seaTunnelServer == null) {
+            Map<String, Object> extensionServices =
+                    nodeEngine.getNode().getNodeExtension().createExtensionServices();
+            seaTunnelServer =
+                    (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
+        }
+
+        if (seaTunnelServer == null) {
+            return null;
+        }
         if (shouldBeMaster && !seaTunnelServer.isMasterNode()) {
             return null;
         }
@@ -140,12 +340,7 @@ public abstract class BaseService {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+                nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         ClassLoaderService classLoaderService =
@@ -178,16 +373,42 @@ public abstract class BaseService {
             jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
         }
 
-        JobDAGInfo jobDAGInfo =
-                DAGUtils.getJobDAGInfo(
-                        logicalDag,
-                        jobImmutableInformation,
-                        getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
-                        true,
-                        new ExecutionAddress(
-                                this.nodeEngine.getMasterAddress().getHost(),
-                                this.nodeEngine.getMasterAddress().getPort()),
-                        new HashSet<>());
+        long nowMs = System.currentTimeMillis();
+        RunningJobDagJsonCacheEntry cached = RUNNING_JOB_DAG_JSON_CACHE.get(jobId);
+        JsonObject jobDagJson = cached == null ? null : cached.dagJson;
+        JobDAGInfo jobDAGInfo = cached == null ? null : cached.dagInfo;
+        if (cached != null) {
+            cached.lastAccessMs = nowMs;
+        }
+        if (jobDagJson == null) {
+            jobDAGInfo = getRunningJobDAGInfo(jobId, seaTunnelServer);
+            if (jobDAGInfo == null) {
+                // fallback for compatibility: regenerate (may be slow and nondeterministic)
+                jobDAGInfo =
+                        DAGUtils.getJobDAGInfo(
+                                logicalDag,
+                                jobImmutableInformation,
+                                getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
+                                true,
+                                new ExecutionAddress(
+                                        this.nodeEngine.getMasterAddress().getHost(),
+                                        this.nodeEngine.getMasterAddress().getPort()),
+                                new HashSet<>());
+            }
+            jobDagJson = jobDAGInfo.toJsonObject();
+            RunningJobDagJsonCacheEntry entry =
+                    new RunningJobDagJsonCacheEntry(jobDagJson, jobDAGInfo, nowMs);
+            RunningJobDagJsonCacheEntry existing =
+                    RUNNING_JOB_DAG_JSON_CACHE.putIfAbsent(jobId, entry);
+            if (existing != null) {
+                jobDagJson = existing.dagJson;
+                if (existing.dagInfo != null) {
+                    jobDAGInfo = existing.dagInfo;
+                }
+                existing.lastAccessMs = nowMs;
+            }
+        }
+        maybeCleanupRunningJobDagCacheOnAccess(nowMs);
 
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
@@ -202,9 +423,7 @@ public abstract class BaseService {
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.START_TIME, getJobStartTime(jobId))
-                .add(
-                        RestConstant.JOB_DAG,
-                        jobDAGInfo != null ? jobDAGInfo.toJsonObject() : new JsonObject())
+                .add(RestConstant.JOB_DAG, jobDagJson)
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
@@ -224,7 +443,45 @@ public abstract class BaseService {
                         RestConstant.METRICS,
                         metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
+        if (jobStatus != null && jobStatus.isEndState()) {
+            RUNNING_JOB_DAG_JSON_CACHE.remove(jobId);
+        }
+
         return jobInfoJson;
+    }
+
+    private JobDAGInfo getRunningJobDAGInfo(long jobId, SeaTunnelServer masterSeaTunnelServer) {
+        try {
+            if (masterSeaTunnelServer != null && masterSeaTunnelServer.isMasterNode()) {
+                JobDAGInfo info = masterSeaTunnelServer.getCoordinatorService().getJobInfo(jobId);
+                if (info == null) {
+                    return null;
+                }
+                return info;
+            }
+        } catch (Throwable t) {
+            log.debug("Get running job dag info from coordinator failed: {}", t.getMessage());
+        }
+
+        try {
+            Object response =
+                    NodeEngineUtil.sendOperationToMasterNode(
+                                    nodeEngine, new GetJobInfoOperation(jobId))
+                            .join();
+            if (response == null) {
+                return null;
+            }
+            if (response instanceof JobDAGInfo) {
+                return (JobDAGInfo) response;
+            }
+            if (response instanceof Data) {
+                return nodeEngine.getSerializationService().toObject((Data) response);
+            }
+            return null;
+        } catch (Throwable t) {
+            log.debug("Get running job dag info from master operation failed: {}", t.getMessage());
+            return null;
+        }
     }
 
     private String getJobStartTime(long jobId) {
@@ -778,7 +1035,15 @@ public abstract class BaseService {
                     if (value instanceof Map) {
                         members.add(key, metricsToJsonObject((Map<String, Object>) value));
                     } else {
-                        members.add(key, value.toString());
+                        String strValue;
+                        if (value instanceof Float
+                                || value instanceof Double
+                                || value instanceof BigDecimal) {
+                            strValue = new BigDecimal(value.toString()).toPlainString();
+                        } else {
+                            strValue = value.toString();
+                        }
+                        members.add(key, strValue);
                     }
                 });
         return members;
@@ -929,17 +1194,71 @@ public abstract class BaseService {
 
                                         log.error("Failed to get cluster health metrics", e);
                                     }
-                                    String[] parts = input.split(", ");
-                                    JsonObject jobInfo = new JsonObject();
-                                    Arrays.stream(parts)
-                                            .forEach(
-                                                    part -> {
-                                                        String[] keyValue = part.split("=");
-                                                        jobInfo.add(keyValue[0], keyValue[1]);
-                                                    });
-                                    return jobInfo;
+                                    return parseSystemMonitoringMetrics(input, address);
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         return jsonValues;
+    }
+
+    private JsonObject parseSystemMonitoringMetrics(String input, Address memberAddress) {
+        JsonObject jobInfo = new JsonObject();
+        if (input == null || input.isEmpty()) {
+            return jobInfo;
+        }
+
+        String[] parts = input.split(",\\s+");
+        List<String> invalidTokens = new ArrayList<>();
+        for (String part : parts) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int equalIndex = trimmed.indexOf('=');
+            if (equalIndex <= 0) {
+                if (invalidTokens.size() < INVALID_METRICS_LOG_TOKEN_MAX_COUNT) {
+                    invalidTokens.add(truncateForLog(trimmed, INVALID_METRICS_LOG_TOKEN_MAX_LEN));
+                }
+                continue;
+            }
+            String key = trimmed.substring(0, equalIndex).trim();
+            if (key.isEmpty()) {
+                continue;
+            }
+            String value =
+                    equalIndex == trimmed.length() - 1
+                            ? ""
+                            : trimmed.substring(equalIndex + 1).trim();
+            jobInfo.add(key, value);
+        }
+
+        if (!invalidTokens.isEmpty() && log.isWarnEnabled() && shouldLogInvalidMetrics()) {
+            log.warn(
+                    "Ignored malformed cluster health metrics token(s) from member {}, tokens={}, rawPrefix={}",
+                    memberAddress == null ? "unknown" : memberAddress,
+                    invalidTokens,
+                    truncateForLog(input, INVALID_METRICS_LOG_PREFIX_MAX_LEN));
+        }
+
+        return jobInfo;
+    }
+
+    private static boolean shouldLogInvalidMetrics() {
+        long now = System.currentTimeMillis();
+        long last = LAST_INVALID_METRICS_LOG_TIME_MS.get();
+        if (now - last < INVALID_METRICS_LOG_INTERVAL_MS) {
+            return false;
+        }
+        return LAST_INVALID_METRICS_LOG_TIME_MS.compareAndSet(last, now);
+    }
+
+    private static String truncateForLog(String input, int maxLen) {
+        if (input == null || maxLen <= 0) {
+            return "";
+        }
+        String normalized = input.replace('\n', ' ').replace('\r', ' ');
+        return normalized.length() <= maxLen ? normalized : normalized.substring(0, maxLen) + "...";
     }
 }

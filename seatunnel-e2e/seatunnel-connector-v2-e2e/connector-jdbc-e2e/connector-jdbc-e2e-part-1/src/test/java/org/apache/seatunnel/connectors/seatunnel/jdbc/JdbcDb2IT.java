@@ -27,12 +27,14 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -187,6 +189,8 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                         .withDatabaseName(DB2_DATABASE)
                         .withUsername(DB2_USER)
                         .withPassword(DB2_PASSWORD)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                         .acceptLicense();

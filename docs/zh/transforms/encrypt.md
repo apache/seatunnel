@@ -1,10 +1,10 @@
-# Encrypt
+# 字段加解密
 
-> 加密 Transform 插件
+> FieldEncrypt：对指定字段执行加密或解密
 
 ## 描述
 
-Encrypt Transform 插件用于使用对称加密算法，对记录中指定的字段进行加密或解密。
+FieldEncrypt 转换插件用于使用对称加密算法，对记录中的指定字段进行加密或解密。
 
 ## 参数说明
 
@@ -41,7 +41,7 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 
 ### common options [string]
 
-Transform 插件的通用参数，请参考 [Transform Plugin](common-options.md)。
+Transform 插件的通用参数，请参考 [Transform Plugin](common-options/common-options.md)。
 
 ## 示例
 

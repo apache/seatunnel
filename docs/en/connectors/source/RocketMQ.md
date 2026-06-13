@@ -50,6 +50,7 @@ Source connector for Apache RocketMQ.
 | start.mode.timestamp                | Long    | no       |                            | The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".                                                                                                                                             |
 | partition.discovery.interval.millis | long    | no       | -1                         | The interval for dynamically discovering topics and partitions.                                                                                                                                                    |
 | ignore_parse_errors                 | Boolean | no       | false                      | Optional flag to skip parse errors instead of failing.                                                                                                                                                             |
+| consumer.poll.timeout.millis        | long    | no       | 5000                       | The poll timeout in milliseconds.                                                        |
 | common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                  |
 
 ### start.mode.offsets

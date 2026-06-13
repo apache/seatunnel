@@ -96,7 +96,7 @@ of `/v1/chat/completions` endpoint.
 ### api_key
 
 The API key to use for the model provider.
-If you use OpenAI model, please refer https://platform.openai.com/docs/api-reference/api-keys of how to get the API key.
+If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
 ### api_path
 
@@ -164,7 +164,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 ## tips
 The API interface usually has a rate limit, which can be configured with Seatunnel's speed limit to ensure smooth operation of the task.
-For details about Seatunnel speed limit Settings, please refer to [speed-limit](../introduction/concepts/speed-limit.md) for details.
+For details about Seatunnel speed limit Settings, please refer to [speed-limit](../introduction/configuration/speed-limit.md) for details.
 
 ## Example OPENAI
 

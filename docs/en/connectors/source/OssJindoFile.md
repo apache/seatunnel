@@ -87,6 +87,7 @@ It only supports hadoop version **2.9.X+**.
 | file_filter_modified_end   | string  | no       | -                           | 
 | quote_char                 | string  | no       | "                           | 
 | escape_char                | string  | no       | -                           |
+| sort_files_by_modification_time | boolean | no       | false                       |
 
 ### path [string]
 
@@ -196,6 +197,15 @@ Each element is converted to a row with the following schema:
 - `position_index`: Position index within the document
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
+
+When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
 
@@ -407,6 +417,14 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### common options
 

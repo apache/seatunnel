@@ -93,7 +93,23 @@ libfb303-xxx.jar
 | increment.scan-interval  | long    | 否   | 2000                 | 增量扫描的间隔（毫秒）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | 否   | -                    | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | query                    | String  | 否   | -                    | 用于选择 iceberg 数据的 select DML。它不能包含表名，也不支持别名。例如：`select * from table where f1 > 100`、`select fn from table where f1 > 100`。当前对 LIKE 语法的支持是有限的：LIKE 子句不应以 `%` 开头。支持的是：`select f1 from t where f2 like 'tom%'  `                                                                                                                                                                                                                                                       |
+| krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
 
+## 源选项说明
+
+### krb5_path [string]
+
+`krb5.conf` 文件的路径，用于 Kerberos 认证。
+
+### kerberos_principal [string]
+
+Kerberos 认证的 principal。
+
+### kerberos_keytab_path [string]
+
+Kerberos 认证的 keytab 文件路径。
 
 ## 任务示例
 
@@ -197,6 +213,34 @@ source {
   }
 }
 ```
+
+### Kerberos 认证
+
+以下示例演示了在使用 Hadoop Catalog 和 HDFS 时如何配置 Iceberg Source 的 Kerberos 认证：
+
+```hocon
+source {
+  Iceberg {
+    catalog_name = "seatunnel"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
+    namespace = "your_iceberg_database"
+    table = "your_iceberg_table"
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
+    plugin_output = "iceberg_kerberos"
+  }
+}
+```
+
+说明：
+
+- `krb5_path`：用于 Kerberos 认证的 `krb5.conf` 文件路径。
+- `kerberos_principal`：Kerberos 认证的 principal，格式为 `primary/instance@REALM`。
+- `kerberos_keytab_path`：Kerberos 认证的 keytab 文件路径。
 
 ### 列投影
 

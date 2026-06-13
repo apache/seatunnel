@@ -7,6 +7,25 @@
 
 SeaTunnel是一个多模态、超高性能、分布式的海量数据集成工具，每天可稳定高效同步数百亿数据，已被数千家企业应用于生产，以其高效和稳定性深受众多企业信赖。
 
+## 从这里开始
+
+如果你是第一次接触 SeaTunnel，建议按下面路径进入文档：
+
+- [快速入门总览](../getting-started/overview.md)，先建立整体路径
+- [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)，先跑通第一个本地任务
+- [作业配置指南](../getting-started/job-configuration-guide.md)，开始编写真实作业
+- [架构概览](../architecture/overview.md)，从系统层面理解 SeaTunnel
+
+## 获取帮助与加入社区
+
+如果你正在评估 SeaTunnel，或者在使用过程中遇到问题，建议优先从这些入口进入：
+
+- [常见问题解答](../faq.md)，快速解决常见使用、CDC 与配置问题
+- [开发环境搭建](../developer/setup.md)，如果你要本地构建或调试 SeaTunnel
+- [贡献路径](../developer/contribution-path.md)，如果你想从最小、最稳妥的范围开始参与贡献
+- [贡献插件](../developer/contribute-plugin.md)，如果你准备贡献 connector 或 transform
+- [GitHub Issues](https://github.com/apache/seatunnel/issues) 和 [dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)，如果你需要社区帮助
+
 ## 为什么需要 SeaTunnel
 
 SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成领域的常见问题：
@@ -22,7 +41,7 @@ SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成�
 ## SeaTunnel 相关特性
 
 * **丰富且可扩展的Connector**：SeaTunnel提供了不依赖于特定执行引擎的Connector API。 基于该API开发的Connector（Source、Transform、Sink）可以运行在很多不同的引擎上，例如目前支持的SeaTunnel引擎（Zeta）、Flink、Spark等。
-* **Connector插件**：插件式设计让用户可以轻松开发自己的Connector并将其集成到SeaTunnel项目中。 目前，SeaTunnel 支持超过 100 个连接器，并且数量正在激增。
+* **Connector插件**：插件式设计让用户可以轻松开发自己的Connector并将其集成到SeaTunnel项目中。 目前，SeaTunnel 已支持超过 160 个连接器，并且生态仍在持续扩展。
 * **批流集成**：基于SeaTunnel Connector API开发的Connector完美兼容离线同步、实时同步、全量同步、增量同步等场景。 它们大大降低了管理数据集成任务的难度。
 * **分布式快照**：支持分布式快照算法，保证数据一致性。
 * **多引擎支持**：SeaTunnel默认使用SeaTunnel引擎（Zeta）进行数据同步。 SeaTunnel还支持使用Flink或Spark作为Connector的执行引擎，以适应企业现有的技术组件。 SeaTunnel 支持 Spark 和 Flink 的多个版本。
@@ -55,7 +74,7 @@ SeaTunnel 使用的默认引擎是 [SeaTunnel Zeta Engine](../engines/zeta/about
 
 ## 谁在使用 SeaTunnel
 
-SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.  
+SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/zh-CN/user)中找到有关他们的更多信息.
 
 ## 展望
 

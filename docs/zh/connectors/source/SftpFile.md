@@ -83,7 +83,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | host                       | String  | 是    | -                   | 目标sftp主机是必需的                                                                                                                                                                                                                                       |
 | port                       | Int     | 是    | -                   | 目标sftp端口是必需的                                                                                                                                                                                                                                       |
 | user                       | String  | 是    | -                   | 目标sftp用户名是必需的                                                                                                                                                                                                                                      |
-| password                   | String  | 是    | -                   | 目标sftp密码是必需的                                                                                                                                                                                                                                       |
+| password                   | String  | 否    | -                   | 目标sftp密码。未配置 `keyfile` 时需要配置。                                                                                                                                                                                                                         |
+| keyfile                    | String  | 否    | -                   | 用于 SFTP 公钥认证的私钥文件路径。                                                                                                                                                                                                                              |
 | path                       | String  | 是    | -                   | 源文件路径。                                                                                                                                                                                                                                             |
 | file_format_type           | String  | 是    | -                   | 请查看下面的#file_format_type                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | 否    | -                   | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                       |
@@ -107,6 +108,9 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | null_format                | string  | 否    | -                   | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                                                                                                                   |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                               |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                                                                                                   |
+| discovery_mode             | string  | 否    | once                | 文件发现模式，支持：`once`（默认）、`continuous`。continuous 模式下将周期性扫描并处理新/变更文件（无界）。当前实现中 continuous 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。                                                                                                                            |
+| scan_interval              | string  | 否    | 10S | 仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，推荐使用简写格式 `10S`、`30S`；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。                                                                                                                                                                                                               |
+| start_mode                 | string  | 否    | earliest            | 仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。                                                                                                                                                                                                            |
 | sync_mode                  | string  | 否    | full                | 文件同步模式，支持：`full`（默认）、`update`。当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。                                                                                                                                                          |
 | target_path                | string  | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。                                                                                                                                                                                         |
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                                                                                     |
@@ -117,13 +121,13 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                         |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                            |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                   |
-| metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                                                                              |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### file_filter_pattern [string]
 
 文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
-该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
+该模式遵循标准正则表达式。详情请参考 [正则表达式](https://en.wikipedia.org/wiki/Regular_expression)。
 以下是一些示例。
 
 若`path`为`/data/seatunnel`,且文件结构示例：
@@ -253,6 +257,15 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
 在此要求下，您需要确保源和接收器同时使用`binary`格式进行文件同步。
 
@@ -296,6 +309,26 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 仅在file_format_type为binary时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。
+
+### discovery_mode [string]
+
+文件发现模式，支持：`once`（默认）、`continuous`。
+
+- `once`：启动时枚举一次文件并结束（有界）。
+- `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
+
+当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+
+### scan_interval [string]
+
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，取值必须大于 `0`。推荐使用简写格式 `10S`、`30S`（大小写不敏感，例如 `10s`）；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
+
+### start_mode [string]
+
+仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。
+
+- `earliest`：启动时读取已有文件。
+- `latest`：仅处理作业启动后修改的新文件。
 
 ### sync_mode [string]
 
@@ -343,17 +376,23 @@ compare_mode = "len_mtime"
 
 上游数据的schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
 
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
-#### metalake_type [string]
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
-Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
+### sort_files_by_modification_time [boolean]
 
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ## 如何创建Sftp数据同步作业
 
@@ -526,6 +565,53 @@ sink {
 
     path = "tmp/seatunnel/update/dst"
     tmp_path = "tmp/seatunnel/update/tmp"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 持续发现（discovery_mode=continuous）
+
+`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
+
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/watch/src"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "tmp/seatunnel/watch/dst"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/watch/dst"
+    tmp_path = "tmp/seatunnel/watch/tmp"
     file_format_type = "binary"
   }
 }
