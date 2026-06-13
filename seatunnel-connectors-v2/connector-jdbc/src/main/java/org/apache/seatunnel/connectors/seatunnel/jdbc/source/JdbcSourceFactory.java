@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -26,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
@@ -33,6 +38,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Slf4j
 @AutoService(Factory.class)
@@ -64,6 +70,15 @@ public class JdbcSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(JdbcSourceOptions.URL, JdbcSourceOptions.DRIVER)
                 .optional(
+                        JdbcSourceOptions.TABLE_LIST,
+                        Conditions.extension(
+                                JdbcSourceOptions.TABLE_LIST, new TableListExclusiveValidator()))
+                .optional(
+                        JdbcSourceOptions.WHERE_CONDITION,
+                        Conditions.extension(
+                                JdbcSourceOptions.WHERE_CONDITION,
+                                new WhereConditionPrefixValidator()))
+                .optional(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
                         JdbcSourceOptions.CONNECTION_CHECK_TIMEOUT_SEC,
@@ -82,8 +97,6 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SKIP_ANALYZE,
                         JdbcSourceOptions.USE_REGEX,
                         JdbcSourceOptions.TABLE_PATH,
-                        JdbcSourceOptions.WHERE_CONDITION,
-                        JdbcSourceOptions.TABLE_LIST,
                         JdbcSourceOptions.SPLIT_SIZE,
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
@@ -99,5 +112,41 @@ public class JdbcSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return JdbcSource.class;
+    }
+
+    static class TableListExclusiveValidator
+            implements ConditionExtension<List<JdbcSourceTableConfig>> {
+        @Override
+        public String description() {
+            return "'table_list' and 'table_path'/'query' are mutually exclusive";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<JdbcSourceTableConfig> value)
+                throws OptionValidationException {
+            if (config.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()
+                    || config.getOptional(JdbcSourceOptions.QUERY).isPresent()) {
+                throw new OptionValidationException(
+                        "Please configure either 'table_list' or 'table_path'/'query', not both");
+            }
+            return true;
+        }
+    }
+
+    static class WhereConditionPrefixValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "'where_condition' must start with 'where'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value)
+                throws OptionValidationException {
+            if (value != null && !value.toLowerCase().startsWith("where")) {
+                throw new OptionValidationException(
+                        "The where_condition must start with 'where'. value: " + value);
+            }
+            return true;
+        }
     }
 }

@@ -19,7 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import java.util.Map;
 
@@ -158,9 +163,34 @@ public class JdbcCommonOptions {
     public static final Option<String> REGION =
             Options.key("region").stringType().noDefaultValue().withDescription("region");
 
-    public static final OptionRule.Builder BASE_CATALOG_RULE =
-            OptionRule.builder()
-                    .required(URL)
-                    .required(USERNAME, PASSWORD)
-                    .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+    /** @deprecated Use {@link #baseCatalogRule()} instead to avoid shared mutable state. */
+    @Deprecated public static final OptionRule.Builder BASE_CATALOG_RULE = baseCatalogRule();
+
+    public static OptionRule.Builder baseCatalogRule() {
+        return OptionRule.builder()
+                .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
+                .required(USERNAME, PASSWORD)
+                .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+    }
+
+    public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "JDBC URL must contain a database name";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String url)
+                throws OptionValidationException {
+            if (url == null || url.trim().isEmpty()) {
+                throw new OptionValidationException("JDBC URL must not be blank");
+            }
+            JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
+            if (!urlInfo.getDefaultDatabase().isPresent()) {
+                throw new OptionValidationException(
+                        "JDBC URL must contain a database name: " + url);
+            }
+            return true;
+        }
+    }
 }
