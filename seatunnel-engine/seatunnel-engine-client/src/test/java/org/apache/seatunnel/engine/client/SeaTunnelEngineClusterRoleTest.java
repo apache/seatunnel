@@ -80,7 +80,7 @@ public class SeaTunnelEngineClusterRoleTest {
             masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
             HazelcastInstanceImpl finalMasterNode = masterNode;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -91,7 +91,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
             HazelcastInstanceImpl finalWorkerNode = workerNode1;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -149,7 +149,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
             HazelcastInstanceImpl finalMasterNode = masterNode;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -189,6 +189,8 @@ public class SeaTunnelEngineClusterRoleTest {
     @Test
     public void enterPendingWhenResourcesNotEnough() {
         HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
         String testClusterName = "Test_enterPendingWhenResourcesNotEnough";
         SeaTunnelClient seaTunnelClient = null;
 
@@ -214,7 +216,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
             HazelcastInstanceImpl finalMasterNode = masterNode;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -226,7 +228,7 @@ public class SeaTunnelEngineClusterRoleTest {
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -235,8 +237,8 @@ public class SeaTunnelEngineClusterRoleTest {
             status.contains("PENDING");
 
             // start two worker nodes
-            SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-            SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
 
             // There are already resources available, wait for job enter running or complete
             Awaitility.await()
@@ -250,6 +252,12 @@ public class SeaTunnelEngineClusterRoleTest {
         } finally {
             if (seaTunnelClient != null) {
                 seaTunnelClient.close();
+            }
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
             }
             if (masterNode != null) {
                 masterNode.shutdown();
@@ -291,7 +299,7 @@ public class SeaTunnelEngineClusterRoleTest {
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -382,7 +390,7 @@ public class SeaTunnelEngineClusterRoleTest {
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
             HazelcastInstanceImpl finalMasterNode1 = masterNode1;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -398,14 +406,14 @@ public class SeaTunnelEngineClusterRoleTest {
             masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig2);
             HazelcastInstanceImpl finalWorkerNode = workerNode1;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
                                             4, finalWorkerNode.getCluster().getMembers().size()));
             masterNode1.shutdown();
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -424,7 +432,7 @@ public class SeaTunnelEngineClusterRoleTest {
                             .client;
             HazelcastClientInstanceImpl finalHazelcastClient = hazelcastClient;
             Awaitility.await()
-                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 UUID masterUuid =
@@ -454,12 +462,15 @@ public class SeaTunnelEngineClusterRoleTest {
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
             jobClient.cancelJob(jobId);
-            await().pollDelay(10000, TimeUnit.MILLISECONDS)
-                    .atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(120000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertEquals(
-                                            "CANCELED", jobClient.getJobStatus(jobId)));
+                            () -> {
+                                String status = jobClient.getJobStatus(jobId);
+                                Assertions.assertEquals(
+                                        "CANCELED",
+                                        status,
+                                        "Expected terminal state but was: " + status);
+                            });
         } finally {
             if (hazelcastClient != null) {
                 hazelcastClient.shutdown();

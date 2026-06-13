@@ -282,9 +282,13 @@ public class OptionRulesService extends BaseService {
                         : null;
         String conditionOperator = (op != null) ? op.name() : null;
         String conditionOperatorCategory = (op != null) ? op.getCategory().name() : null;
+        Object expectValue = condition.getExpectValue();
+        if (op == ConditionOperator.EXTENSION && condition.getExtension() != null) {
+            expectValue = condition.getExtension().description();
+        }
         return new OptionRuleResponse.ConditionNode(
                 toOptionMetadata(condition.getOption()),
-                condition.getExpectValue(),
+                expectValue,
                 compareOperatorSymbol,
                 compareOptionMeta,
                 conditionOperator,

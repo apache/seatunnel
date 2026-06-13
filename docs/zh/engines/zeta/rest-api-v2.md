@@ -4,9 +4,30 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path，
-同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为开启，
-如果`enable-dynamic-port`为`true`，我们将使用`port`和`port`+`port-range`范围内未使用的端口，默认范围是100。
+v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相同的接口规范。只有当
+`seatunnel.engine.http.enable-http = true` 或 `enable-https = true` 时，Jetty 才会启动。
+
+这里需要区分两个容易混淆的“默认值”来源：
+
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`
+- 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
+
+因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
+`http://<host>:8080/`。如果你是自己精简配置文件、按代码默认值装配配置，或者把
+`enable-http` 删掉了，那么 Jetty 默认不会启动。
+
+固定端口示例如下：
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+如需在 `port` 到 `port + port-range` 范围内自动挑选空闲端口，再显式开启动态端口：
 
 ```yaml
 
@@ -19,7 +40,7 @@ seatunnel:
       port-range: 100
 ```
 
-同时也可以配置context-path,配置如下：
+同时也可以配置 `context-path`，配置如下：
 
 ```yaml
 
@@ -30,6 +51,13 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+## Web UI 与 8080 排查
+
+- 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。
+- 如果开启了 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以启动日志 `SeaTunnel REST service will start on port xxx` 为准。
+- 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
+- Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
 
 ## 开启 HTTPS
 
@@ -108,6 +136,10 @@ seatunnel:
               ]
             },
             "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
             "operator": null,
             "next": null
           },
@@ -137,6 +169,26 @@ seatunnel:
           "operator": null,
           "next": null
         }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
       }
     ]
   }
@@ -149,8 +201,9 @@ seatunnel:
 - `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
 - `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
-- 在 `conditionTree` 中，`compareOperator` 字段（如 `>=`、`<`、`>`）和 `compareOption` 字段用于数值比较和跨字段比较场景；对于等值判断及其他非比较类条件，这两个字段为 `null`。
-- `conditionOperator` 字段提供稳定的、机器可读的操作符标识（如 `GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`），`conditionOperatorCategory` 字段标明操作符所属分类（如 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`）。这两个字段专为前端应用和自动化工具的程序化消费而设计。
+- 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
+- `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
+- 对于 `EXTENSION` 条件，`expectValue` 承载的是 `ConditionExtension.description()` 返回的规则说明文本。
 
 </details>
 

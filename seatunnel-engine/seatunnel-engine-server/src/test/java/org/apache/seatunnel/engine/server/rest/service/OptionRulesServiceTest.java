@@ -20,7 +20,9 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
@@ -358,6 +360,47 @@ class OptionRulesServiceTest {
         assertEquals("<", tree.getCompareOperator());
         assertNotNull(tree.getCompareOption());
         assertEquals("end_ts", tree.getCompareOption().getKey());
+    }
+
+    @Test
+    void shouldPreserveExtensionConstraintMetadata() {
+        Option<Integer> port =
+                Options.key("port").intType().noDefaultValue().withDescription("Port number");
+        ConditionExtension<Integer> portRangeExtension =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be between 1 and 65535";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value >= 1 && value <= 65535;
+                    }
+                };
+
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .required(port, Conditions.extension(port, portRangeExtension))
+                        .build();
+
+        OptionRuleResponse response =
+                service.buildResponse(
+                        PluginIdentifier.of("seatunnel", "source", "ExtensionSource"), optionRule);
+
+        List<OptionRuleResponse.ValueConstraintMetadata> constraints =
+                response.getOptionRule().getValueConstraints();
+        assertEquals(1, constraints.size());
+
+        OptionRuleResponse.ValueConstraintMetadata constraint = constraints.get(0);
+        assertTrue(constraint.getExpression().contains("must be between 1 and 65535"));
+
+        OptionRuleResponse.ConditionNode tree = constraint.getConditionTree();
+        assertNotNull(tree);
+        assertEquals("must be between 1 and 65535", tree.getExpectValue());
+        assertEquals("extension", tree.getCompareOperator());
+        assertEquals("EXTENSION", tree.getConditionOperator());
+        assertEquals("EXTENSION", tree.getConditionOperatorCategory());
     }
 
     private enum AuthMode {
