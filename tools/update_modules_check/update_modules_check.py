@@ -17,6 +17,11 @@
 import json
 import sys
 
+DEDICATED_LONG_CONNECTOR_V2_IT_MODULES = [
+    "connector-iceberg-e2e",
+    "connector-hbase-e2e",
+]
+
 
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
@@ -141,6 +146,14 @@ def get_deleted_modules(files):
     print(output_module)
 
 
+def get_dedicated_long_connector_v2_it_modules():
+    return list(DEDICATED_LONG_CONNECTOR_V2_IT_MODULES)
+
+
+def get_dedicated_long_connector_v2_it_modules_output():
+    print(",".join([":" + module for module in get_dedicated_long_connector_v2_it_modules()]))
+
+
 def filter_excluded_modules(modules_arr, excluded_modules):
     # Keep dedicated long-running suites out of the dynamic shards.
     if excluded_modules is None or len(excluded_modules.strip()) == 0:
@@ -152,6 +165,8 @@ def filter_excluded_modules(modules_arr, excluded_modules):
 
 
 def get_sub_it_modules(modules, total_num, current_num, excluded_modules=None):
+    if excluded_modules is None:
+        excluded_modules = ",".join(get_dedicated_long_connector_v2_it_modules())
     modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr.remove("connector-jdbc-e2e")
     modules_arr.remove("connector-kafka-e2e")
@@ -247,6 +262,8 @@ def main(argv):
     elif argv[1] == "sub_it_module":
         excluded_modules = argv[5] if len(argv) > 5 else None
         get_sub_it_modules(argv[2], argv[3], argv[4], excluded_modules)
+    elif argv[1] == "dedicated_connector_v2_it_module":
+        get_dedicated_long_connector_v2_it_modules_output()
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
 

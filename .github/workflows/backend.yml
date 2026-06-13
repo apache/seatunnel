@@ -31,7 +31,6 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
-  DEDICATED_LONG_CONNECTOR_V2_IT_MODULES: connector-iceberg-e2e,connector-hbase-e2e
 
 jobs:
   license-header:
@@ -822,8 +821,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 0 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 0`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-1 after dedicated exclusions."
             exit 0
@@ -860,8 +858,7 @@ jobs:
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           # Keep the heaviest suites excluded inside the shard helper so every dynamic shard stays
           # aligned with the dedicated part-8 job even if module ordering changes in the future.
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-2 after dedicated exclusions."
             exit 0
@@ -896,8 +893,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 2 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 2`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-3 after dedicated exclusions."
             exit 0
@@ -932,8 +928,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 3 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 3`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-4 after dedicated exclusions."
             exit 0
@@ -968,8 +963,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 4 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 4`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-5 after dedicated exclusions."
             exit 0
@@ -1004,8 +998,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 5 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 5`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-6 after dedicated exclusions."
             exit 0
@@ -1040,8 +1033,7 @@ jobs:
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          excluded_modules="$DEDICATED_LONG_CONNECTOR_V2_IT_MODULES"
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6 "$excluded_modules"`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
           if [ -z "$run_it_modules" ]; then
             echo "No connector-v2 integration modules assigned to part-7 after dedicated exclusions."
             exit 0
@@ -1075,7 +1067,7 @@ jobs:
       - name: run connector-v2 integration test (part-8)
         run: |
           # These two suites dominated part-2 and triggered hosted-runner heartbeat loss.
-          dedicated_it_modules=":${DEDICATED_LONG_CONNECTOR_V2_IT_MODULES//,/,:}"
+          dedicated_it_modules=`python tools/update_modules_check/update_modules_check.py dedicated_connector_v2_it_module`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $dedicated_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
