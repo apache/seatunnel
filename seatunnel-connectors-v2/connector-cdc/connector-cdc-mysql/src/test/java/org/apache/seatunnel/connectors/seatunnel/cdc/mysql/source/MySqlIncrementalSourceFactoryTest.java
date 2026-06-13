@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 
@@ -25,6 +27,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MySqlIncrementalSourceFactoryTest {
     @Test
@@ -49,5 +54,23 @@ public class MySqlIncrementalSourceFactoryTest {
                                                         StartupMode.TIMESTAMP),
                                                 ((SingleChoiceOption<StartupMode>) option)
                                                         .getOptionValues()));
+    }
+
+    @Test
+    public void testSnapshotModeRejectsStopOptions() {
+        // snapshot mode owns its bounded stop boundary, so explicit stop.* options must be
+        // rejected at validation time rather than silently ignored at runtime.
+        Map<String, Object> options = new HashMap<>();
+        options.put(SourceOptions.STARTUP_MODE_KEY, "snapshot");
+        options.put(SourceOptions.STOP_TIMESTAMP.key(), "1000");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                new MySqlIncrementalSource<>(
+                                        config, Collections.<CatalogTable>emptyList()));
+        Assertions.assertTrue(exception.getMessage().contains("stop offset options"));
     }
 }

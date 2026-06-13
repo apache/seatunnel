@@ -157,6 +157,18 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
                             SourceOptions.STARTUP_TIMESTAMP.key()));
         }
+        if (readonlyConfig.getOptional(SourceOptions.STOP_TIMESTAMP).isPresent()
+                || readonlyConfig.getOptional(SourceOptions.STOP_SPECIFIC_OFFSET_FILE).isPresent()
+                || readonlyConfig.getOptional(SourceOptions.STOP_SPECIFIC_OFFSET_POS).isPresent()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The '%s' startup mode manages its own bounded stop boundary, so it "
+                                    + "cannot be combined with stop offset options (%s, %s, %s).",
+                            StartupMode.SNAPSHOT,
+                            SourceOptions.STOP_TIMESTAMP.key(),
+                            SourceOptions.STOP_SPECIFIC_OFFSET_FILE.key(),
+                            SourceOptions.STOP_SPECIFIC_OFFSET_POS.key()));
+        }
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
