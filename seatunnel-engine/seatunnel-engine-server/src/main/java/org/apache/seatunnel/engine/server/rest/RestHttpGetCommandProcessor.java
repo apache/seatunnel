@@ -70,6 +70,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTI
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
@@ -132,7 +133,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         String uri = httpGetCommand.getURI();
 
         try {
-            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
+            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS_SUMMARY)) {
+                handleRunningJobsSummaryInfo(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_FINISHED_JOBS)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
@@ -229,6 +232,10 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
         this.prepareResponse(command, jobInfoService.getRunningJobsJson());
+    }
+
+    private void handleRunningJobsSummaryInfo(HttpGetCommand command) {
+        this.prepareResponse(command, jobInfoService.getRunningJobsSummaryJson());
     }
 
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {

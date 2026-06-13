@@ -127,8 +127,41 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 | poll.await.time.ms                 | Long   | 否       | 1000  | 在检查更改流上的新结果之前等待的时间量。                                                                  |
 | heartbeat.interval.ms              | String | 否       | 0     | 发送心跳消息之间的时间长度（毫秒）。使用0禁用。                                                              |
 | incremental.snapshot.chunk.size.mb | Long   | 否       | 64    | 增量快照的块大小（mb）。                                                                         |
+| startup.mode                       | Enum   | 否       | INITIAL | MongoDB CDC 消费者的可选启动模式，有效枚举为 `initial`、`latest` 和 `timestamp`。详见下方[启动模式](#启动模式)章节。      |
+| startup.timestamp                  | Long   | 否       | -     | 从指定的纪元时间戳（毫秒）开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                  |
 | exactly_once                       | Boolean| 否       | false | 启用精确一次语义，若开启在大表快照阶段恢复时会有内存溢出风险。                                                       |
 | common-options                     |        | 否       | -     | 源插件常用参数，请参考 [Source Common Options](../common-options/source-common-options.md)                      |
+
+### 启动模式
+
+`startup.mode` 选项控制作业提交时连接器从哪里开始读取：
+
+- `initial`（默认）：先读取所监视集合的快照，然后切换到变更流。
+- `latest`：完全跳过快照，从最新的变更流位置开始，只捕获作业启动之后产生的变更。在该模式下，与快照相关的选项（如 `incremental.snapshot.chunk.size.mb`）将被忽略。
+- `timestamp`：跳过快照，从 `startup.timestamp` 指定的位置开始读取变更流。
+
+当作业从检查点或保存点恢复时，无论 `startup.mode` 为何值，都会从检查点记录的变更流位置继续消费，重启不会回退到重新执行快照。
+
+例如，只消费作业启动之后产生的变更：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "latest"
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
 
 ### 提示
 

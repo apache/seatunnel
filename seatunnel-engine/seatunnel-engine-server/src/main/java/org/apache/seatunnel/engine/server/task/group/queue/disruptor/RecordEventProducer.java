@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
 import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
+import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.RingBuffer;
 
 /** Publishes records into the Disruptor-backed intermediate queue while marking queue-in stages. */
@@ -36,7 +38,15 @@ public class RecordEventProducer {
     public static void onData(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
-            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter putBlockedNs,
+            Counter totalQueueSize,
+            Counter queueSize) {
+
+        boolean metricsEnabled =
+                intermediateQueueFlowLifeCycle != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask() != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask().isObservabilityEnabled();
 
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
@@ -51,7 +61,18 @@ public class RecordEventProducer {
             }
         }
 
-        long sequence = ringBuffer.next();
+        long sequence;
+        if (metricsEnabled) {
+            try {
+                sequence = ringBuffer.tryNext();
+            } catch (InsufficientCapacityException ignored) {
+                long blockedStartNs = System.nanoTime();
+                sequence = ringBuffer.next();
+                putBlockedNs.inc(System.nanoTime() - blockedStartNs);
+            }
+        } else {
+            sequence = ringBuffer.next();
+        }
         try {
             RecordEvent recordEvent = ringBuffer.get(sequence);
             recordEvent.setRecord(record);
@@ -69,6 +90,10 @@ public class RecordEventProducer {
             }
         } finally {
             ringBuffer.publish(sequence);
+            totalQueueSize.inc();
+            if (metricsEnabled) {
+                queueSize.inc();
+            }
         }
     }
 }

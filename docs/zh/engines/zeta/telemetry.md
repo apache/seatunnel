@@ -68,6 +68,70 @@ PromQL 示例：
 sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 ```
 
+### 引擎状态存储逻辑指标
+
+这些指标暴露特定引擎状态存储的业务语义计数。它们仅由当前 active master 输出。指标名保持 backend-neutral，
+但当前实现仍会带上 `backend="hazelcast"` 标签。
+
+| MetricName                                               | Type    | Labels                                      | 描述 |
+|----------------------------------------------------------|---------|---------------------------------------------|------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**，状态存储后端。                  | `engine_runningJobMetrics` 中当前保存的 task metric context 总数。 |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**，状态存储后端。                | `engine_runningJobMetrics` 中当前非空的顶层分桶 key 数。 |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**，状态存储后端。                  | `engine_checkpoint_monitor` 中当前跟踪的 job 数。 |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**，状态存储后端。              | `engine_checkpoint_monitor` 中当前 in-progress checkpoint 数。 |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**，状态存储后端。            | `engine_checkpoint_monitor` 中当前保留的 checkpoint history 条目数。 |
+| engine_state_store_finished_job_records                  | Gauge   | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 相关状态存储中的当前记录数。 |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 状态存储因过期而发生的清理总次数。 |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前被跟踪的 connector jar 数。 |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前所有 connector jar 引用计数之和。 |
+
+这些逻辑指标与上面的本地 Hazelcast store 指标互为补充：
+
+- 当你想看每个节点上的数据分布和内存占用时，使用 `engine_state_store_local_*` 指标。
+- 当你想看 checkpoint 积压、finished job 保留、connector jar 复用等引擎语义时，使用 `engine_state_store_*` 逻辑指标。
+
+PromQL 示例：
+
+```promql
+# 按 store 聚合后的状态存储总 entry 数
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# 当前 checkpoint 积压
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# 最近 15 分钟 finished job cleanup 增长量
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# connector jar 引用压力
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Grafana 面板示例：
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### 线程池状态
 
 | MetricName                          | Type    | Labels                                  | 描述                             |

@@ -224,4 +224,13 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
+
+    public static final Option<Boolean> SORT_FILES_BY_MOD_TIME =
+            Options.key("sort_files_by_modification_time")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Sort files by modification time in descending order. "
+                                    + "Enable this when reading evolving schemas to ensure schema inference uses the latest file. "
+                                    + "Disabled by default to avoid performance overhead for large file directories.");
 }

@@ -41,6 +41,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.PendingJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.RealtimeMetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningThreadsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
@@ -78,8 +79,10 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTION_RULES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_PENDING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_REALTIME_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
@@ -209,6 +212,8 @@ public class JettyService {
         ServletHolder allLogNameServlet = new ServletHolder(new AllLogNameServlet(nodeEngine));
 
         ServletHolder metricsServlet = new ServletHolder(new MetricsServlet(nodeEngine));
+        ServletHolder realtimeMetricsServlet =
+                new ServletHolder(new RealtimeMetricsServlet(nodeEngine));
         ServletHolder optionRulesHolder = new ServletHolder(new OptionRulesServlet(nodeEngine));
         ServletHolder checkpointOverviewHolder =
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
@@ -217,6 +222,7 @@ public class JettyService {
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
+        context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS_SUMMARY));
         context.addServlet(pendingJobsHolder, convertUrlToPath(REST_URL_PENDING_JOBS));
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
         context.addServlet(
@@ -242,6 +248,7 @@ public class JettyService {
         context.addServlet(allLogNameServlet, convertUrlToPath(REST_URL_GET_ALL_LOG_NAME));
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_METRICS));
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_OPEN_METRICS));
+        context.addServlet(realtimeMetricsServlet, convertUrlToPath(REST_URL_REALTIME_METRICS));
         context.addServlet(optionRulesHolder, convertUrlToPath(REST_URL_OPTION_RULES));
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));

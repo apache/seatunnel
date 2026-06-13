@@ -18,30 +18,30 @@ bin/seatunnel.sh -h
 
 Usage: seatunnel.sh [options]
   Options:
-    --async                                   Run the job asynchronously, when the job 
-                                              is submitted, the client will exit 
+    --async                                   Run the job asynchronously, when the job
+                                              is submitted, the client will exit
                                               (default: false)
     -can, --cancel, --cancel-job              Cancel job(s) by JobId
     -f, --force-cancel, --force-cancel-job    Force Cancel job(s) by jobId
     --check                                   Whether check config (default: false)
-    -cj, --close, --close-job                 Close client the task will also be closed 
+    -cj, --close, --close-job                 Close client the task will also be closed
                                               (default: true)
     -cn, --cluster                            The name of cluster
     -c, --config                              Config file
-    --decrypt                                 Decrypt config file, When both --decrypt 
-                                              and --encrypt are specified, only 
-                                              --encrypt will take effect (default: 
-                                              false) 
+    --decrypt                                 Decrypt config file, When both --decrypt
+                                              and --encrypt are specified, only
+                                              --encrypt will take effect (default:
+                                              false)
     -d, --dry-run                             Run the job in dry-run mode (目前仅支持
                                               'static')
-    -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support 
+    -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
-    --encrypt                                 Encrypt config file, when both --decrypt 
-                                              and --encrypt are specified, only 
-                                              --encrypt will take effect (default: 
-                                              false) 
-    --get_running_job_metrics                 Gets metrics for running jobs (default: 
-                                              false) 
+    --encrypt                                 Encrypt config file, when both --decrypt
+                                              and --encrypt are specified, only
+                                              --encrypt will take effect (default:
+                                              false)
+    --get_running_job_metrics                 Gets metrics for running jobs (default:
+                                              false)
     -h, --help                                Show the usage message
     -j, --job-id                              Get job status by JobId
     -l, --list                                list job status (default: false)
@@ -49,10 +49,10 @@ Usage: seatunnel.sh [options]
     -n, --name                                SeaTunnel job name (default: SeaTunnel)
     -r, --restore, --restore-job              restore with savepoint by jobId
     -s, --savepoint, --savepoint-job          savepoint job by jobId
-    -i, --variable                            Variable substitution, such as -i 
-                                              city=beijing, or -i date=20190318.We use 
-                                              ',' as separator, when inside "", ',' are 
-                                              treated as normal characters instead of 
+    -i, --variable                            Variable substitution, such as -i
+                                              city=beijing, or -i date=20190318.We use
+                                              ',' as separator, when inside "", ',' are
+                                              treated as normal characters instead of
                                               delimiters. (default: [])
 
 ```

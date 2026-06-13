@@ -85,6 +85,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | file_filter_modified_end    | string  | 否    | -                   | 
 | quote_char                  | string  | 否    | "                   | 
 | escape_char                 | string  | 否    | -                   |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+
 ### host [string]
 
 目标 FTP 主机地址，必填项。
@@ -505,6 +507,14 @@ compare_mode = "len_mtime"
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ### 通用选项
 
