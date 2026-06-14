@@ -32,15 +32,25 @@ public class Condition<T> {
     private final T expectValue;
     private final ConditionOperator operator;
     private final Option<?> compareOption;
+    private final ConditionExtension<T> extension;
     private Boolean and = null;
     private Condition<?> next = null;
 
     Condition(Option<T> option, T expectValue) {
-        this(option, ConditionOperator.EQUAL, expectValue, null);
+        this(option, ConditionOperator.EQUAL, expectValue, null, null);
     }
 
     Condition(
             Option<T> option, ConditionOperator operator, T expectValue, Option<?> compareOption) {
+        this(option, operator, expectValue, compareOption, null);
+    }
+
+    Condition(
+            Option<T> option,
+            ConditionOperator operator,
+            T expectValue,
+            Option<?> compareOption,
+            ConditionExtension<T> extension) {
         if (option == null) {
             throw new IllegalArgumentException("Condition option must not be null");
         }
@@ -61,10 +71,15 @@ public class Condition<T> {
                             "Operator %s requires an expectValue, but expectValue is null",
                             operator.name()));
         }
+        if (operator == ConditionOperator.EXTENSION && extension == null) {
+            throw new IllegalArgumentException(
+                    "Operator EXTENSION requires a non-null ConditionExtension");
+        }
         this.option = option;
         this.operator = operator;
         this.expectValue = expectValue;
         this.compareOption = compareOption;
+        this.extension = extension;
     }
 
     public static <T> Condition<T> of(Option<T> option, T expectValue) {
@@ -219,6 +234,9 @@ public class Condition<T> {
         ConditionOperator op = cond.operator;
         String key = "'" + cond.option.key() + "'";
 
+        if (op == ConditionOperator.EXTENSION) {
+            return key + " " + cond.extension.description();
+        }
         if (op.getSource() == ConditionOperator.Source.FIELD) {
             return key + " " + op.getSymbol() + " '" + cond.compareOption.key() + "'";
         }

@@ -266,7 +266,8 @@ const sidebars = {
                 "transforms/table-filter",
                 "transforms/table-merge",
                 "transforms/table-rename",
-                "transforms/transform-multi-table"
+                "transforms/transform-multi-table",
+                "transforms/multi-table-transform-and-join-boundary"
             ]
         },
         {

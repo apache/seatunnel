@@ -109,6 +109,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -121,6 +122,10 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
+    private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
+    private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
+    private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
+
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_HOST = "kafkaCluster";
@@ -134,6 +139,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     private KafkaContainer kafkaContainer;
 
     private List<ConsumerRecord<String, String>> nativeData;
+
+    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     @BeforeAll
     @Override
@@ -266,6 +274,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
+        if (!dynamicTopics.isEmpty()) {
+            try (AdminClient adminClient = createKafkaAdmin()) {
+                adminClient.deleteTopics(dynamicTopics).all().get();
+                log.info("Deleted {} dynamic test topics", dynamicTopics.size());
+            } catch (Exception e) {
+                log.warn("Failed to delete dynamic test topics: {}", e.getMessage());
+            }
+        }
         if (producer != null) {
             producer.close();
         }
@@ -1579,11 +1595,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             value = {})
     public void testRestoreKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
             throws InterruptedException, IOException {
-
-        String producerTopic = "kafka_topic_exactly_once_1";
-        String consumerTopic = "kafka_topic_exactly_once_2";
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        final String jobId = "18696753645413";
+        final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -1596,7 +1617,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.executeJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -1630,7 +1653,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.restoreJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -1655,9 +1680,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             type = EngineType.SPARK,
             value = {})
     public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container) {
-
-        String producerTopic = "kafka_topic_exactly_once_1";
-        String consumerTopic = "kafka_topic_exactly_once_2";
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
@@ -1671,7 +1701,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/kafka/kafka_to_kafka_exactly_once_streaming.conf");
+                        container.executeJob(
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                exactlyOnceVariables);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -2011,6 +2043,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String bootstrapServers = kafkaContainer.getBootstrapServers();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         return AdminClient.create(props);
+    }
+
+    /**
+     * Create a dedicated Kafka topic for the exactly-once tests so each method reads its own data
+     * and never reuses offsets from earlier runs in the same class.
+     */
+    private void createKafkaTopic(String topicName) {
+        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        topic.configs(Collections.singletonMap("retention.ms", "-1"));
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient.createTopics(Collections.singletonList(topic)).all().get();
+            dynamicTopics.add(topicName);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while creating Kafka topic " + topicName, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    private List<String> buildExactlyOnceStreamingVariables(
+            String sourceTopic, String sinkTopic, String consumerGroup) {
+        return Arrays.asList(
+                EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE + "=" + sourceTopic,
+                EXACTLY_ONCE_SINK_TOPIC_VARIABLE + "=" + sinkTopic,
+                EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE + "=" + consumerGroup);
     }
 
     private void initKafkaProducer() {

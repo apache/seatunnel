@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 
 public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
 
@@ -48,6 +48,12 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
     private static final String http = "http://";
 
     private static final String colon = ":";
+
+    /**
+     * Disable-cache mode creates fresh classloaders for each submitted job, but the growth should
+     * stay linear relative to the cluster's initial classloader baseline.
+     */
+    private static final int DISABLE_CACHE_MODE_CLASSLOADERS_PER_JOB = 2;
 
     abstract boolean cacheMode();
 
@@ -60,16 +66,12 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
     @Test
     public void testFakeSourceToInMemorySink() throws IOException, InterruptedException {
         LOG.info("test classloader with cache mode: {}", cacheMode());
+        int initialClassLoaderCount = getClassLoaderCount();
         for (int i = 0; i < 10; i++) {
             // load in memory sink which already leak thread with classloader
             Container.ExecResult execResult = executeJob(server, CONF_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertTrue(containsDaemonThread());
-            if (cacheMode()) {
-                Assertions.assertTrue(3 >= getClassLoaderCount());
-            } else {
-                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
-            }
+            assertClassLoaderStateEventuallyStable(initialClassLoaderCount, i);
         }
     }
 
@@ -99,46 +101,51 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
                             Assertions.assertEquals(
                                     1, response.jsonPath().getList("members").size());
                         });
+        int initialClassLoaderCount = getClassLoaderCount();
         for (int i = 0; i < 10; i++) {
             // load in memory sink which already leak thread with classloader
-            given().body(
-                            "{\n"
-                                    + "\t\"env\": {\n"
-                                    + "\t\t\"parallelism\": 10,\n"
-                                    + "\t\t\"job.mode\": \"BATCH\"\n"
-                                    + "\t},\n"
-                                    + "\t\"source\": [\n"
-                                    + "\t\t{\n"
-                                    + "\t\t\t\"plugin_name\": \"FakeSource\",\n"
-                                    + "\t\t\t\"plugin_output\": \"fake\",\n"
-                                    + "\t\t\t\"parallelism\": 10,\n"
-                                    + "\t\t\t\"schema\": {\n"
-                                    + "\t\t\t\t\"fields\": {\n"
-                                    + "\t\t\t\t\t\"name\": \"string\",\n"
-                                    + "\t\t\t\t\t\"age\": \"int\",\n"
-                                    + "\t\t\t\t\t\"score\": \"double\"\n"
-                                    + "\t\t\t\t}\n"
-                                    + "\t\t\t}\n"
-                                    + "\t\t}\n"
-                                    + "\t],\n"
-                                    + "\t\"transform\": [],\n"
-                                    + "\t\"sink\": [\n"
-                                    + "\t\t{\n"
-                                    + "\t\t\t\"plugin_name\": \"InMemory\",\n"
-                                    + "\t\t\t\"plugin_input\": \"fake\"\n"
-                                    + "\t\t}\n"
-                                    + "\t]\n"
-                                    + "}")
-                    .header("Content-Type", "application/json; charset=utf-8")
-                    .post(
-                            http
-                                    + server.getHost()
-                                    + colon
-                                    + server.getFirstMappedPort()
-                                    + RestConstant.CONTEXT_PATH
-                                    + RestConstant.REST_URL_SUBMIT_JOB)
-                    .then()
-                    .statusCode(200);
+            String jobId =
+                    given().body(
+                                    "{\n"
+                                            + "\t\"env\": {\n"
+                                            + "\t\t\"parallelism\": 10,\n"
+                                            + "\t\t\"job.mode\": \"BATCH\"\n"
+                                            + "\t},\n"
+                                            + "\t\"source\": [\n"
+                                            + "\t\t{\n"
+                                            + "\t\t\t\"plugin_name\": \"FakeSource\",\n"
+                                            + "\t\t\t\"plugin_output\": \"fake\",\n"
+                                            + "\t\t\t\"parallelism\": 10,\n"
+                                            + "\t\t\t\"schema\": {\n"
+                                            + "\t\t\t\t\"fields\": {\n"
+                                            + "\t\t\t\t\t\"name\": \"string\",\n"
+                                            + "\t\t\t\t\t\"age\": \"int\",\n"
+                                            + "\t\t\t\t\t\"score\": \"double\"\n"
+                                            + "\t\t\t\t}\n"
+                                            + "\t\t\t}\n"
+                                            + "\t\t}\n"
+                                            + "\t],\n"
+                                            + "\t\"transform\": [],\n"
+                                            + "\t\"sink\": [\n"
+                                            + "\t\t{\n"
+                                            + "\t\t\t\"plugin_name\": \"InMemory\",\n"
+                                            + "\t\t\t\"plugin_input\": \"fake\"\n"
+                                            + "\t\t}\n"
+                                            + "\t]\n"
+                                            + "}")
+                            .header("Content-Type", "application/json; charset=utf-8")
+                            .post(
+                                    http
+                                            + server.getHost()
+                                            + colon
+                                            + server.getFirstMappedPort()
+                                            + RestConstant.CONTEXT_PATH
+                                            + RestConstant.REST_URL_SUBMIT_JOB)
+                            .then()
+                            .statusCode(200)
+                            .extract()
+                            .jsonPath()
+                            .getString("jobId");
 
             Awaitility.await()
                     .atMost(2, TimeUnit.MINUTES)
@@ -154,15 +161,30 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
                                                             + "/FINISHED")
                                             .then()
                                             .statusCode(200)
-                                            .body("[0].jobStatus", equalTo("FINISHED")));
-            Thread.sleep(5000);
-            Assertions.assertTrue(containsDaemonThread());
-            if (cacheMode()) {
-                Assertions.assertTrue(3 >= getClassLoaderCount());
-            } else {
-                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
-            }
+                                            .body("jobId", hasItem(jobId)));
+            assertClassLoaderStateEventuallyStable(initialClassLoaderCount, i);
         }
+    }
+
+    private void assertClassLoaderStateEventuallyStable(
+            int initialClassLoaderCount, int iteration) {
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(containsDaemonThread());
+                            Assertions.assertTrue(
+                                    getClassLoaderCount()
+                                            <= getClassLoaderUpperBound(
+                                                    initialClassLoaderCount, iteration));
+                        });
+    }
+
+    private int getClassLoaderUpperBound(int initialClassLoaderCount, int iteration) {
+        if (cacheMode()) {
+            return initialClassLoaderCount;
+        }
+        return initialClassLoaderCount + DISABLE_CACHE_MODE_CLASSLOADERS_PER_JOB * (iteration + 1);
     }
 
     private int getClassLoaderCount() throws IOException, InterruptedException {

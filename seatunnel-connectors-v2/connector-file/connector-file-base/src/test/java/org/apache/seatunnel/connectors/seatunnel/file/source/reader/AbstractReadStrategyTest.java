@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Schema;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -379,6 +381,84 @@ public class AbstractReadStrategyTest {
             Assertions.assertEquals(
                     "dt", csvRowType.getFieldNames()[csvRowType.getTotalFields() - 1]);
         }
+    }
+
+    @Test
+    void testTextReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        TempCollector collector = new TempCollector();
+
+        try (TextReadStrategy textReadStrategy = new TextReadStrategy()) {
+            textReadStrategy.setPluginConfig(ConfigFactory.empty());
+            textReadStrategy.setCatalogTable(catalogTable);
+            textReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.txt"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "alice\n").getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.txt");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
+    }
+
+    @Test
+    void testJsonReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        TempCollector collector = new TempCollector();
+
+        try (JsonReadStrategy jsonReadStrategy = new JsonReadStrategy()) {
+            jsonReadStrategy.setPluginConfig(ConfigFactory.empty());
+            jsonReadStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            jsonReadStrategy.setCatalogTable(catalogTable);
+            jsonReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.json"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "{\"name\":\"alice\"}\n").getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.json");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
+    }
+
+    @Test
+    void testXmlReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        Map<String, Object> pluginConfig = new HashMap<>();
+        pluginConfig.put(FileBaseSourceOptions.XML_ROW_TAG.key(), "row");
+        pluginConfig.put(FileBaseSourceOptions.XML_USE_ATTR_FORMAT.key(), false);
+        TempCollector collector = new TempCollector();
+
+        try (XmlReadStrategy xmlReadStrategy = new XmlReadStrategy()) {
+            xmlReadStrategy.setPluginConfig(ConfigFactory.parseMap(pluginConfig));
+            xmlReadStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            xmlReadStrategy.setCatalogTable(catalogTable);
+            xmlReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.xml"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "<rows><row><name>alice</name></row></rows>")
+                                    .getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.xml");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
     }
 
     @Test

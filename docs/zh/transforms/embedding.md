@@ -1,10 +1,10 @@
-# Embedding
+# 向量化嵌入
 
-> Embedding Transform Plugin
+> Embedding：将文本、图片或视频等内容转换为向量表示
 
 ## 描述
 
-`Embedding` 转换插件利用 embedding 模型将文本和多模态数据转换为向量化表示。此转换可以应用于各种字段，包括文本、图片和视频。该插件支持多种模型提供商，并且可以与不同的API集成。
+Embedding 转换插件利用 embedding 模型将文本和多模态数据转换为向量化表示。此转换可以应用于各种字段，包括文本、图片和视频。该插件支持多种模型提供商，并且可以与不同的 API 集成。
 
 > **重要提示：** 当前 embedding 精确度仅支持 float32
 

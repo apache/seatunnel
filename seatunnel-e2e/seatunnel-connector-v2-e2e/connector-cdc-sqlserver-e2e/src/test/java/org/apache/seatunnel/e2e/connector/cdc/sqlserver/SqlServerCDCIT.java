@@ -98,12 +98,20 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "EXEC sys.sp_cdc_disable_db";
     private static final String SOURCE_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types";
+    // Additional source table used to verify multi-table CDC capture in one job.
+    private static final String SOURCE_TABLE_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_2";
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_no_primary_key";
     private static final String SOURCE_TABLE_CUSTOM_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_custom_primary_key";
     private static final String SINK_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_sink";
+    // Sink tables are derived from the source names with the configured sink_ prefix.
+    private static final String MULTI_TABLE_SINK_1 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types";
+    private static final String MULTI_TABLE_SINK_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types_2";
 
     private static final String SELECT_SOURCE_SQL =
             "select\n"
@@ -257,6 +265,67 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
+    }
+
+    /**
+     * Verifies that a single SqlServer CDC source can capture multiple tables and route them to
+     * different sink tables in the same database.
+     *
+     * <p>The sink tables are pre-created so this regression stays focused on multi-table routing
+     * instead of SQL Server auto-create type derivation while still exercising Jdbc table-mode
+     * writes.
+     */
+    @TestTemplate
+    public void testSqlServerCdcMultiTableE2e(TestContainer container) {
+        initializeSqlServerTable(DATABASE_NAME);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_to_sqlserver_with_multi_table_mode_two_table.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
+
+        updateSourceTable(SOURCE_TABLE);
+        updateSourceTable(SOURCE_TABLE_2);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
     }
 
     @TestTemplate

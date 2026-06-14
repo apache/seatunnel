@@ -47,6 +47,8 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
@@ -55,12 +57,15 @@ import org.apache.hadoop.fs.Seekable;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -600,6 +605,22 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return in;
         }
         return new BoundedInputStream(in, length);
+    }
+
+    protected static BufferedReader createBomAwareBufferedReader(
+            InputStream inputStream, String encoding) throws IOException {
+        BOMInputStream bomInputStream =
+                new BOMInputStream(
+                        inputStream,
+                        ByteOrderMark.UTF_8,
+                        ByteOrderMark.UTF_16BE,
+                        ByteOrderMark.UTF_16LE,
+                        ByteOrderMark.UTF_32BE,
+                        ByteOrderMark.UTF_32LE);
+        ByteOrderMark bom = bomInputStream.getBOM();
+        Charset charset =
+                bom == null ? Charset.forName(encoding) : Charset.forName(bom.getCharsetName());
+        return new BufferedReader(new InputStreamReader(bomInputStream, charset));
     }
 
     @Override
