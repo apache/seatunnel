@@ -65,6 +65,7 @@ class IntermediateBlockingQueueSignalTest {
 
         SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
         Mockito.when(task.getTaskLocation()).thenReturn(TASK_LOCATION);
+        Mockito.when(task.isObservabilityEnabled()).thenReturn(true);
 
         flow = Mockito.mock(IntermediateQueueFlowLifeCycle.class);
         final boolean[] prepareClose = {false};

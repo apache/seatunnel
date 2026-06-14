@@ -55,14 +55,16 @@ public class FlushSignalMetricsFlowTest {
         Mockito.when(task.getMetricsContext()).thenReturn(metricsContext);
 
         BlockingQueue<Record<?>> backing = new ArrayBlockingQueue<>(16);
+        Counter successCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+        Counter failureCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
         IntermediateBlockingQueue queue =
                 new IntermediateBlockingQueue(
                         backing,
                         new ThreadSafeCounter("totalQueueSize"),
                         new ThreadSafeCounter("queueSize"),
                         new ThreadSafeCounter("putBlockedNs"),
-                        new ThreadSafeCounter("flushSignalQueueSuccess"),
-                        new ThreadSafeCounter("flushSignalQueueFailure"));
+                        successCtr,
+                        failureCtr);
 
         IntermediateQueueFlowLifeCycle<?> flow =
                 new IntermediateQueueFlowLifeCycle<>(task, new CompletableFuture<>(), queue);
@@ -85,14 +87,16 @@ public class FlushSignalMetricsFlowTest {
         Mockito.when(task.getMetricsContext()).thenReturn(metricsContext);
 
         BlockingQueue<Record<?>> backing = new ArrayBlockingQueue<>(1);
+        Counter successCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+        Counter failureCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
         IntermediateBlockingQueue queue =
                 new IntermediateBlockingQueue(
                         backing,
                         new ThreadSafeCounter("totalQueueSize"),
                         new ThreadSafeCounter("queueSize"),
                         new ThreadSafeCounter("putBlockedNs"),
-                        new ThreadSafeCounter("flushSignalQueueSuccess"),
-                        new ThreadSafeCounter("flushSignalQueueFailure"));
+                        successCtr,
+                        failureCtr);
 
         IntermediateQueueFlowLifeCycle<?> flow =
                 new IntermediateQueueFlowLifeCycle<>(task, new CompletableFuture<>(), queue);
@@ -118,14 +122,16 @@ public class FlushSignalMetricsFlowTest {
         Mockito.when(task.getMetricsContext()).thenReturn(metricsContext);
 
         BlockingQueue<Record<?>> backing = new ArrayBlockingQueue<>(16);
+        Counter successCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+        Counter failureCtr = metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
         IntermediateBlockingQueue queue =
                 new IntermediateBlockingQueue(
                         backing,
                         new ThreadSafeCounter("totalQueueSize"),
                         new ThreadSafeCounter("queueSize"),
                         new ThreadSafeCounter("putBlockedNs"),
-                        new ThreadSafeCounter("flushSignalQueueSuccess"),
-                        new ThreadSafeCounter("flushSignalQueueFailure"));
+                        successCtr,
+                        failureCtr);
 
         IntermediateQueueFlowLifeCycle<?> flow =
                 new IntermediateQueueFlowLifeCycle<>(task, new CompletableFuture<>(), queue);

@@ -23,7 +23,11 @@ import {
   NDataTable,
   type DataTableColumns,
   NDrawer,
-  NDrawerContent
+  NDrawerContent,
+  NCard,
+  NGrid,
+  NGi,
+  NStatistic
 } from 'naive-ui'
 import {computed, defineComponent, onUnmounted, reactive, ref, watch} from 'vue'
 import { getJobInfo } from '@/service/job'
