@@ -59,6 +59,10 @@ import java.util.stream.Collectors;
  *
  * <p>This class multiplies writers per subtask using {@code replicaNum} to fill blocking write
  * queues in {@link MultiTableSinkWriter}, improving throughput for multi-table workloads.
+ *
+ * <p>Optimization: When multiple source tables resolve to the same destination table, only one
+ * SinkWriter is created per replica instead of one per source table, avoiding hundreds of redundant
+ * connections.
  */
 public class MultiTableSink
         implements SeaTunnelSink<
@@ -76,16 +80,6 @@ public class MultiTableSink
     private final int tableRetryIntervalSeconds;
     private JobContext jobContext;
 
-    /**
-     * Constructs a MultiTableSink from the given factory context.
-     *
-     * <p>The {@code sinks} map is populated directly from {@link
-     * MultiTableFactoryContext#getSinks()}, keyed by {@link TablePath}. The {@code replicaNum}
-     * controls how many writers are created per table per subtask. Each subtask creates {@code
-     * replicaNum} writers to fill the blocking queues in {@link MultiTableSinkWriter}.
-     *
-     * @param context the factory context containing per-table sinks and configuration options
-     */
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
         this.replicaNum =
@@ -112,10 +106,10 @@ public class MultiTableSink
     /**
      * Creates a new {@link MultiTableSinkWriter} with freshly initialized per-table writers.
      *
-     * <p>For each table and each replica, a writer is created with a computed index using the
-     * formula {@code index = subtaskIndex * replicaNum + i}. This scatters writers across the
-     * blocking queues inside {@link MultiTableSinkWriter}, ensuring even distribution of write
-     * load.
+     * <p>Optimized to detect cases where multiple source tables map to the same destination table
+     * (e.g., sharded MySQL tables -> one Paimon table). In such cases, only one SinkWriter is
+     * created per destination per replica, preventing the creation of hundreds of unnecessary
+     * connections.
      *
      * @param context the sink writer context providing subtask index and parallelism info
      * @return a new {@link MultiTableSinkWriter} wrapping all per-table writers
@@ -126,17 +120,41 @@ public class MultiTableSink
             SinkWriter.Context context) throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+
+        // Map to track unique destination writers: "destTablePath_replicaIndex" -> SinkWriter
+        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
+        Map<String, SinkWriter.Context> destinationContexts = new HashMap<>();
+
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 String tableIdentifier = tablePath.toString();
-                writers.put(
-                        SinkIdentifier.of(tableIdentifier, index),
-                        sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
-                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
+
+                // Determine the actual destination table path for deduplication
+                String destKey = getDestinationKey(tablePath, i);
+
+                // Reuse existing writer for the same destination, or create a new one
+                SinkWriter<SeaTunnelRow, ?, ?> writer =
+                        destinationWriters.computeIfAbsent(
+                                destKey,
+                                k -> {
+                                    try {
+                                        return sink.createWriter(
+                                                new SinkContextProxy(index, replicaNum, context));
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+
+                SinkWriter.Context ctx =
+                        destinationContexts.computeIfAbsent(destKey, k -> context);
+
+                writers.put(SinkIdentifier.of(tableIdentifier, index), writer);
+                sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), ctx);
             }
         }
+
         return new MultiTableSinkWriter(
                 writers,
                 replicaNum,
@@ -149,17 +167,8 @@ public class MultiTableSink
     }
 
     /**
-     * Restores a {@link MultiTableSinkWriter} from previously checkpointed states.
-     *
-     * <p>Checkpoint states are matched back to per-table writers using {@link SinkIdentifier}
-     * (composed of table identifier and computed index). If no matching state is found for a given
-     * table and replica, a fresh writer is created instead via {@link
-     * SeaTunnelSink#createWriter(SinkWriter.Context)}.
-     *
-     * @param context the sink writer context providing subtask index and parallelism info
-     * @param states the list of checkpoint states from a previous snapshot
-     * @return a restored {@link MultiTableSinkWriter} with per-table writers rebuilt from state
-     * @throws IOException if any per-table writer restoration fails
+     * Restores a {@link MultiTableSinkWriter} from previously checkpointed states, using the same
+     * deduplication optimization as {@link #createWriter(SinkWriter.Context)}.
      */
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoreWriter(
@@ -167,32 +176,58 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
 
+        // Map to track unique destination writers: "destTablePath_replicaIndex" -> SinkWriter
+        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
+        Map<String, SinkWriter.Context> destinationContexts = new HashMap<>();
+
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
-                List<?> state =
-                        states.stream()
-                                .map(
-                                        multiTableState ->
-                                                multiTableState.getStates().get(sinkIdentifier))
-                                .filter(Objects::nonNull)
-                                .flatMap(Collection::stream)
-                                .collect(Collectors.toList());
-                if (state.isEmpty()) {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.createWriter(new SinkContextProxy(index, replicaNum, context)));
-                } else {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.restoreWriter(
-                                    new SinkContextProxy(index, replicaNum, context), state));
-                }
-                sinkWritersContext.put(sinkIdentifier, context);
+                String destKey = getDestinationKey(tablePath, i);
+
+                // Reuse existing writer for the same destination, or restore/create a new one
+                SinkWriter<SeaTunnelRow, ?, ?> writer =
+                        destinationWriters.computeIfAbsent(
+                                destKey,
+                                k -> {
+                                    try {
+                                        List<?> state =
+                                                states.stream()
+                                                        .map(
+                                                                multiTableState ->
+                                                                        multiTableState
+                                                                                .getStates()
+                                                                                .get(
+                                                                                        sinkIdentifier))
+                                                        .filter(Objects::nonNull)
+                                                        .flatMap(Collection::stream)
+                                                        .collect(Collectors.toList());
+
+                                        if (state.isEmpty()) {
+                                            return sink.createWriter(
+                                                    new SinkContextProxy(
+                                                            index, replicaNum, context));
+                                        } else {
+                                            return sink.restoreWriter(
+                                                    new SinkContextProxy(
+                                                            index, replicaNum, context),
+                                                    state);
+                                        }
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+
+                SinkWriter.Context ctx =
+                        destinationContexts.computeIfAbsent(destKey, k -> context);
+
+                writers.put(sinkIdentifier, writer);
+                sinkWritersContext.put(sinkIdentifier, ctx);
             }
         }
+
         return new MultiTableSinkWriter(
                 writers,
                 replicaNum,
@@ -204,21 +239,24 @@ public class MultiTableSink
                 tableRetryIntervalSeconds);
     }
 
+    /**
+     * Builds a unique key for a destination table and replica index, used for writer
+     * deduplication.
+     */
+    private String getDestinationKey(TablePath tablePath, int replicaIndex) {
+        SeaTunnelSink sink = sinks.get(tablePath);
+        String destTable =
+                sink.getWriteCatalogTable()
+                        .map(t -> ((CatalogTable) t).getTablePath().toString())
+                        .orElse(tablePath.toString());
+        return destTable + "_" + replicaIndex;
+    }
+
     @Override
     public Optional<Serializer<MultiTableState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 
-    /**
-     * Creates a {@link MultiTableSinkCommitter} that aggregates per-table {@link SinkCommitter}
-     * instances.
-     *
-     * <p>Iterates over all registered sinks and collects their committers. If none of the sub-sinks
-     * provide a committer, returns {@link Optional#empty()}.
-     *
-     * @return an optional containing the aggregated committer, or empty if no sub-sink has one
-     * @throws IOException if any per-table committer creation fails
-     */
     @Override
     public Optional<SinkCommitter<MultiTableCommitInfo>> createCommitter() throws IOException {
         Map<String, SinkCommitter<?>> committers = new HashMap<>();
@@ -241,16 +279,6 @@ public class MultiTableSink
         return Optional.of(new DefaultSerializer<>());
     }
 
-    /**
-     * Creates a {@link MultiTableSinkAggregatedCommitter} that aggregates per-table {@link
-     * SinkAggregatedCommitter} instances across all sub-sinks.
-     *
-     * <p>If none of the sub-sinks provide an aggregated committer, returns {@link
-     * Optional#empty()}.
-     *
-     * @return an optional containing the aggregated committer, or empty if no sub-sink has one
-     * @throws IOException if any per-table aggregated committer creation fails
-     */
     @Override
     public Optional<SinkAggregatedCommitter<MultiTableCommitInfo, MultiTableAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
@@ -268,25 +296,10 @@ public class MultiTableSink
         return Optional.of(new MultiTableSinkAggregatedCommitter(aggCommitters));
     }
 
-    /**
-     * Returns the list of resolved sink {@link TablePath}s for all tables managed by this sink.
-     *
-     * <p>Delegates to {@link #getSinkTableMapping()} and returns its values as a list.
-     *
-     * @return the list of resolved sink table paths
-     */
     public List<TablePath> getSinkTables() {
         return new ArrayList<>(getSinkTableMapping().values());
     }
 
-    /**
-     * Returns a mapping from upstream {@link TablePath} keys to their resolved sink table paths.
-     *
-     * <p>For each sub-sink, if {@link SeaTunnelSink#getWriteCatalogTable()} is present, the
-     * resolved path comes from the catalog table. Otherwise, the upstream key is used as-is.
-     *
-     * @return a map of upstream table paths to resolved sink table paths
-     */
     public Map<TablePath, TablePath> getSinkTableMapping() {
         Map<TablePath, TablePath> mapping = new HashMap<>();
         for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
@@ -333,31 +346,11 @@ public class MultiTableSink
         }
     }
 
-    /**
-     * Always returns empty in multi-table context.
-     *
-     * <p>In a multi-table sink, catalog tables are managed individually by each sub-sink rather
-     * than at the top level. This method delegates to the parent interface default, which returns
-     * {@link Optional#empty()}.
-     *
-     * @return {@link Optional#empty()}, always
-     */
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return SeaTunnelSink.super.getWriteCatalogTable();
     }
 
-    /**
-     * Delegates schema evolution support to the first sub-sink.
-     *
-     * <p>Precondition: the sinks map must contain at least one entry.
-     *
-     * <p>If the first sub-sink implements {@link SupportSchemaEvolutionSink}, returns its supported
-     * {@link SchemaChangeType} list. Otherwise returns an empty list, indicating no schema
-     * evolution support.
-     *
-     * @return the list of supported schema change types, or empty if not supported
-     */
     @Override
     public List<SchemaChangeType> supports() {
         SeaTunnelSink firstSink = sinks.entrySet().iterator().next().getValue();

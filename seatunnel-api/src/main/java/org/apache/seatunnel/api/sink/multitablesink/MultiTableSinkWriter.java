@@ -66,9 +66,8 @@ import java.util.stream.Collectors;
  * checkpoint/commit operations is coordinated through locks on each {@link
  * MultiTableWriterRunnable} instance.
  *
- * <p>When multiple source tables write to the same destination table, SinkWriter instances are
- * shared via {@link #sharedWriterCache} to avoid creating hundreds of redundant writers that
- * each independently open heavy connections (HiveCatalog, Hadoop, etc.).
+ * <p>Writer deduplication is handled upstream in {@link MultiTableSink} — multiple source tables
+ * writing to the same destination reuse one SinkWriter before it reaches this class.
  */
 @Slf4j
 public class MultiTableSinkWriter
@@ -97,13 +96,6 @@ public class MultiTableSinkWriter
     private volatile boolean submitted = false;
     private volatile Throwable fatalThrowable;
     private volatile String fatalTableId;
-
-    // Cache: destinationTableId -> shared SinkWriter
-    // When 200+ sharded source tables write to the same Paimon target,
-    // they all reuse one underlying writer instead of creating 200+
-    // individual connections.
-    private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> sharedWriterCache =
-            new ConcurrentHashMap<>();
 
     /**
      * Creates a MultiTableSinkWriter that distributes writes across multiple queues.
@@ -227,13 +219,8 @@ public class MultiTableSinkWriter
                     .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
                     .forEach(entry -> {
                         String destKey = entry.getKey().getTableIdentifier();
-                        // Reuse shared writer for same destination to avoid
-                        // creating 200+ individual PaimonSinkWriter connections
-                        SinkWriter<SeaTunnelRow, ?, ?> sharedWriter =
-                                sharedWriterCache.computeIfAbsent(
-                                        destKey, k -> entry.getValue());
-                        tableIdWriterMap.put(destKey, sharedWriter);
-                        sinkIdentifierMap.put(entry.getKey(), sharedWriter);
+                        tableIdWriterMap.put(destKey, entry.getValue());
+                        sinkIdentifierMap.put(entry.getKey(), entry.getValue());
                         sinkIdentifiersByTable
                                 .computeIfAbsent(
                                         destKey,
@@ -587,41 +574,19 @@ public class MultiTableSinkWriter
         executorService.shutdownNow();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
-                Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
-                        sinkIdentifierSinkWriterMap = sinkWritersWithIndex.get(i);
-                sinkIdentifierSinkWriterMap.forEach(
-                        (identifier, sinkWriter) -> {
-                            try {
-                                // Only close if this writer is NOT managed by shared cache
-                                // (shared writers are closed separately below)
-                                if (!sharedWriterCache.containsKey(
-                                                identifier.getTableIdentifier())
-                                        || sharedWriterCache
-                                                        .get(identifier
-                                                                .getTableIdentifier())
-                                                != sinkWriter) {
-                                    sinkWriter.close();
-                                }
-                            } catch (Throwable e) {
-                                if (firstE[0] == null) {
-                                    firstE[0] = e;
-                                }
-                                log.error("close error", e);
-                            }
-                        });
+                for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
+                        sinkWritersWithIndex.get(i).values()) {
+                    try {
+                        sinkWriter.close();
+                    } catch (Throwable e) {
+                        if (firstE[0] == null) {
+                            firstE[0] = e;
+                        }
+                        log.error("close error", e);
+                    }
+                }
             }
         }
-        // Close shared writers once after all synchronized blocks
-        sharedWriterCache.values().forEach(
-                writer -> {
-                    try {
-                        writer.close();
-                    } catch (Throwable e) {
-                        log.error("close shared writer error", e);
-                    }
-                });
-        sharedWriterCache.clear();
-
         try {
             if (resourceManager != null) {
                 resourceManager.close();
@@ -866,8 +831,6 @@ public class MultiTableSinkWriter
                 }
             }
         }
-        // Clean up shared writer cache for this table
-        sharedWriterCache.remove(tableId);
     }
 
     @FunctionalInterface
