@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -79,6 +81,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
     private SeaTunnelDataType rowType;
     private FlowControlGate flowControlGate;
+    private final SchemaChangeBehavior schemaChangeBehavior;
 
     private final long sourceTaskId;
     private final int stainTraceMaxEntriesPerTrace;
@@ -115,6 +118,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 engineConfig,
                 null,
                 null,
+                SchemaChangeBehavior.EVOLVE,
                 System::currentTimeMillis);
     }
 
@@ -139,6 +143,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 engineConfig,
                 null,
                 null,
+                SchemaChangeBehavior.EVOLVE,
                 currentTimeMillisSupplier);
     }
 
@@ -164,6 +169,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 engineConfig,
                 taskEnvOption,
                 null,
+                SchemaChangeBehavior.EVOLVE,
                 System::currentTimeMillis);
     }
 
@@ -189,10 +195,38 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 engineConfig,
                 taskEnvOption,
                 dryRunSampleComplete,
+                SchemaChangeBehavior.EVOLVE,
                 System::currentTimeMillis);
     }
 
-    SeaTunnelSourceCollector(
+    public SeaTunnelSourceCollector(
+            Object checkpointLock,
+            List<OneInputFlowLifeCycle<Record<?>>> outputs,
+            MetricsContext metricsContext,
+            FlowControlStrategy flowControlStrategy,
+            SeaTunnelDataType rowType,
+            List<TablePath> tablePaths,
+            SeaTunnelTask runningTask,
+            EngineConfig engineConfig,
+            Map<String, Object> taskEnvOption,
+            SchemaChangeBehavior schemaChangeBehavior,
+            LongSupplier currentTimeMillisSupplier) {
+        this(
+                checkpointLock,
+                outputs,
+                metricsContext,
+                flowControlStrategy,
+                rowType,
+                tablePaths,
+                runningTask,
+                engineConfig,
+                taskEnvOption,
+                null,
+                schemaChangeBehavior,
+                currentTimeMillisSupplier);
+    }
+
+    public SeaTunnelSourceCollector(
             Object checkpointLock,
             List<OneInputFlowLifeCycle<Record<?>>> outputs,
             MetricsContext metricsContext,
@@ -203,10 +237,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             EngineConfig engineConfig,
             Map<String, Object> taskEnvOption,
             Runnable dryRunSampleComplete,
+            SchemaChangeBehavior schemaChangeBehavior,
             LongSupplier currentTimeMillisSupplier) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.rowType = rowType;
+        this.schemaChangeBehavior = schemaChangeBehavior;
         this.currentTimeMillisSupplier =
                 currentTimeMillisSupplier != null
                         ? currentTimeMillisSupplier
@@ -329,6 +365,15 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(SchemaChangeEvent event) {
         try {
+            SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, event.getJobId());
+            SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, event.getJobId());
+            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
+                log.info(
+                        "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
+                        event.getEventType(),
+                        event.tableIdentifier());
+                return;
+            }
             if (rowType instanceof SeaTunnelRowType) {
                 rowType = dataTypeChangeEventHandler.reset((SeaTunnelRowType) rowType).apply(event);
             } else if (rowType instanceof MultipleRowType) {

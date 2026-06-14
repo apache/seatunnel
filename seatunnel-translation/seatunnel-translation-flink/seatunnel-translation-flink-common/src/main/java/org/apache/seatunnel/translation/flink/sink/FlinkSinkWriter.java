@@ -142,11 +142,15 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                 schemaChangeEvent.tableIdentifier());
 
         if (!(sinkWriter instanceof SupportSchemaEvolutionSinkWriter)) {
-            log.warn(
-                    "Sink writer {} does not support schema evolution, ignoring SchemaChangeEvent for table: {}",
-                    sinkWriter.getClass().getSimpleName(),
-                    schemaChangeEvent.tableIdentifier());
-            return;
+            throw new SinkWriterSchemaException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    String.format(
+                            "Sink writer %s does not support schema evolution for event %s.",
+                            sinkWriter.getClass().getSimpleName(),
+                            schemaChangeEvent.getEventType()),
+                    schemaChangeEvent.tableIdentifier(),
+                    schemaChangeEvent.getJobId(),
+                    null);
         }
 
         Long subtaskIdObj = (Long) options.get("schema_subtask_id");

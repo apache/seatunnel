@@ -137,6 +137,28 @@ sink {
 }
 ```
 
+## Schema change behavior
+
+CDC sources can configure `schema-changes.behavior` when `schema-changes.enabled = true`.
+The default value is `evolve`, so existing jobs that only set `schema-changes.enabled = true` keep the closest existing behavior.
+When `schema-changes.enabled = false`, schema change events are not sent downstream and the behavior option does not change the current behavior.
+
+| Value | Runtime contract |
+| --- | --- |
+| `strict` | Fail the job as soon as a schema change event is observed, before downstream schema coordination or sink-side schema mutation is attempted. |
+| `evolve` | Forward supported schema change events through the normal schema coordination path. Unsupported event types, unsupported sink capabilities, and sink-side apply failures are fatal. |
+| `ignore` | Consume the schema change event and drop it before downstream schema coordination and sink-side schema evolution. The job continues only for schema changes that can be safely ignored by the current row encoding; otherwise it fails fast. |
+
+Behavior matrix:
+
+| Case | `strict` | `evolve` | `ignore` |
+| --- | --- | --- | --- |
+| Source emits supported schema change type | Fail before downstream propagation | Coordinate and apply through the sink | Drop before downstream propagation only if safe to ignore |
+| Source emits unsupported schema change type | Fail before downstream propagation | Fail before sink-side apply | Fail unless the event is safe to ignore |
+| Sink supports schema evolution | Not reached | Apply through `SupportSchemaEvolutionSinkWriter` | Not reached |
+| Sink does not support schema evolution | Not reached | Fail before deprecated sink fallback/default no-op handling | Not reached |
+| Sink apply throws at runtime | Not reached | Fail the job with the sink apply error | Not reached |
+
 ## Examples
 
 ### Mysql-CDC -> Jdbc-Mysql
@@ -159,6 +181,7 @@ source {
     url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
+    schema-changes.behavior = evolve
   }
 }
 

@@ -126,6 +126,28 @@ sink {
 }
 ```
 
+## Schema change behavior
+
+CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `schema-changes.behavior`。
+默认值是 `evolve`，因此已有作业只配置 `schema-changes.enabled = true` 时，会保持最接近现有语义的行为。
+当 `schema-changes.enabled = false` 时，schema change event 不会发送到下游，该选项不会改变当前行为。
+
+| 值 | 运行时契约 |
+| --- | --- |
+| `strict` | 一旦观察到 schema change event，立即让作业失败，并且不会尝试下游 schema 协调或 Sink 侧 schema 变更。 |
+| `evolve` | 将受支持的 schema change event 转发到正常的 schema 协调路径。不支持的事件类型、不支持 schema evolution 的 Sink 能力，以及 Sink 侧 apply 失败都会让作业失败。 |
+| `ignore` | 消费 schema change event，但在下游 schema 协调和 Sink 侧 schema evolution 之前丢弃。只有当前行编码可以安全忽略该变更时，作业才会继续；否则会快速失败。 |
+
+行为矩阵：
+
+| 场景 | `strict` | `evolve` | `ignore` |
+| --- | --- | --- | --- |
+| Source 发出受支持的 schema change 类型 | 在下游传播前失败 | 通过 Sink 协调并应用 | 仅在可以安全忽略时，在下游传播前丢弃 |
+| Source 发出不支持的 schema change 类型 | 在下游传播前失败 | 在 Sink 侧 apply 前失败 | 除非事件可以安全忽略，否则失败 |
+| Sink 支持 schema evolution | 不会到达 Sink | 通过 `SupportSchemaEvolutionSinkWriter` 应用 | 不会到达 Sink |
+| Sink 不支持 schema evolution | 不会到达 Sink | 在 deprecated Sink fallback/default no-op 处理前失败 | 不会到达 Sink |
+| Sink apply 在运行时抛出异常 | 不会到达 Sink | 使用 Sink apply 错误让作业失败 | 不会到达 Sink |
+
 ## 示例
 
 ### Mysql-CDC -> Jdbc-Mysql
@@ -148,6 +170,7 @@ source {
     url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
+    schema-changes.behavior = evolve
   }
 }
 

@@ -19,9 +19,11 @@ package org.apache.seatunnel.translation.flink.schema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
@@ -200,6 +202,79 @@ public class SchemaOperatorTest {
         assertEquals(row, context.output.records.get(1).getValue());
     }
 
+    @Test
+    void testStrictBehaviorFailsWhenSchemaChangeDetected() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.STRICT,
+                        false);
+
+        assertThrows(
+                SchemaEvolutionException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testEvolveBehaviorFailsForUnsupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        assertThrows(
+                SchemaEvolutionException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorDropsSafeCommentSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-ignored-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 500L));
+        context.operator.processElement(new StreamRecord<>(row, 501L));
+
+        assertEquals(1, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
+    void testIgnoreBehaviorFailsForUnsafeSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.IGNORE,
+                        false);
+
+        assertThrows(
+                SchemaEvolutionException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(context.output.records.isEmpty());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
     /**
      * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
      * checkpoint-completion safety fence even when called from a stall-detection timer.
@@ -290,8 +365,24 @@ public class SchemaOperatorTest {
             List<SchemaChangeType> supportedTypes,
             boolean restored)
             throws Exception {
-        SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
+        return createOperator(stateStore, supportedTypes, SchemaChangeBehavior.EVOLVE, restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, SchemaChangeBehavior behavior, boolean restored)
+            throws Exception {
+        return createOperator(new OperatorStateStoreStub(), supportedTypes, behavior, restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
+            SchemaChangeBehavior behavior,
+            boolean restored)
+            throws Exception {
+        SupportSchemaEvolutionSource source = Mockito.mock(SupportSchemaEvolutionSource.class);
         Mockito.when(source.supports()).thenReturn(supportedTypes);
+        Mockito.when(source.getSchemaChangeBehavior()).thenReturn(behavior);
 
         SchemaOperator operator =
                 new SchemaOperator(
@@ -419,6 +510,9 @@ public class SchemaOperatorTest {
             this.output = output;
         }
     }
+
+    private interface SupportSchemaEvolutionSource
+            extends SupportSchemaEvolution, SupportSchemaChangeBehavior {}
 
     private static final class CollectingOutput implements Output<StreamRecord<SeaTunnelRow>> {
         private final List<StreamRecord<SeaTunnelRow>> records = new ArrayList<>();

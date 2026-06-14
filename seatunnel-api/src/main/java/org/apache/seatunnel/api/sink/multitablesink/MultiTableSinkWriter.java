@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -532,8 +534,15 @@ public class MultiTableSinkWriter
                         ((SupportSchemaEvolutionSinkWriter) dispatchTarget.getWriter())
                                 .applySchemaChange(event);
                     } else {
-                        // TODO remove deprecated method
-                        dispatchTarget.getWriter().applySchemaChange(event);
+                        throw new SinkWriterSchemaException(
+                                SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                                String.format(
+                                        "Sink writer %s does not support schema evolution for event %s.",
+                                        dispatchTarget.getWriter().getClass().getSimpleName(),
+                                        event.getEventType()),
+                                event.tableIdentifier(),
+                                event.getJobId(),
+                                null);
                     }
                     return null;
                 });
