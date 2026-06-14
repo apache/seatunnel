@@ -23,11 +23,7 @@ import {
   NDataTable,
   type DataTableColumns,
   NDrawer,
-  NDrawerContent,
-  NCard,
-  NGrid,
-  NGi,
-  NStatistic
+  NDrawerContent
 } from 'naive-ui'
 import {computed, defineComponent, onUnmounted, reactive, ref, watch} from 'vue'
 import { getJobInfo } from '@/service/job'
@@ -598,25 +594,6 @@ export default defineComponent({
                 realtimeVertexStats={realtimeVertexStats.value}
                 realtimeTick={realtimeTick.value}
               />
-              <NCard title="Flush Signal Metrics" class="my-4" bordered={false} size="small">
-                <NGrid cols={5} xGap={12}>
-                  <NGi>
-                    <NStatistic label="Total" value={job.metrics?.FlushSignalTotal || '0'} />
-                  </NGi>
-                  <NGi>
-                    <NStatistic label="Queue Success" value={job.metrics?.FlushSignalQueueSuccessTotal || '0'} />
-                  </NGi>
-                  <NGi>
-                    <NStatistic label="Queue Failure" value={job.metrics?.FlushSignalQueueFailureTotal || '0'} />
-                  </NGi>
-                  <NGi>
-                    <NStatistic label="Sink Success" value={job.metrics?.FlushSignalSinkSuccessTotal || '0'} />
-                  </NGi>
-                  <NGi>
-                    <NStatistic label="Sink Failure" value={job.metrics?.FlushSignalSinkFailureTotal || '0'} />
-                  </NGi>
-                </NGrid>
-              </NCard>
               <NDataTable
                 columns={columns}
                 data={tableData.value}
