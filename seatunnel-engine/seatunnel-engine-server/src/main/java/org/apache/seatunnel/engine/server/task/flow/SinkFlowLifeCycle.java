@@ -30,12 +30,14 @@ import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
@@ -825,6 +827,18 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
+        if (!(sinkAction.getSink() instanceof SupportSchemaEvolutionSink)) {
+            throw new SinkWriterSchemaException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    String.format(
+                            "Sink %s does not advertise schema evolution support for event %s.",
+                            sinkAction.getSink().getPluginName(), event.getEventType()),
+                    event.tableIdentifier(),
+                    event.getJobId(),
+                    null);
+        }
+        SchemaChangePolicy.validateSupported(
+                event, ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports(), event.getJobId());
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
         } else {
