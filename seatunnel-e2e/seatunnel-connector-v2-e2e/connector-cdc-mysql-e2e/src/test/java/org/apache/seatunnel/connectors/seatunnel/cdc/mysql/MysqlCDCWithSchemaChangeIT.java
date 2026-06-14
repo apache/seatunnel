@@ -94,6 +94,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+    private static final String SINK_TABLE_STRICT =
+            "mysql_cdc_e2e_sink_table_with_schema_change_strict";
     private static final String SINK_TABLE_IGNORE =
             "mysql_cdc_e2e_sink_table_with_schema_change_ignore";
     /** Stable projection used after add-column evolution to compare source and sink rows. */
@@ -438,6 +440,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                         container,
                                         "/mysqlcdc_to_mysql_with_schema_change_strict.conf",
                                         jobId));
+
+        awaitStrictPolicyTrigger(jobFuture, SINK_TABLE_STRICT);
+        if (!jobFuture.isDone()) {
+            shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        }
 
         Container.ExecResult result = awaitJobFinished(jobFuture);
         Assertions.assertNotEquals(
@@ -841,6 +848,21 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 Assertions.assertIterableEquals(
                                         query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
                                         query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
+
+    private void awaitStrictPolicyTrigger(
+            CompletableFuture<Container.ExecResult> jobFuture, String sinkTable) {
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .until(() -> jobFuture.isDone() || initialSnapshotMatches(sinkTable));
+    }
+
+    private boolean initialSnapshotMatches(String sinkTable) {
+        try {
+            return query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE))
+                    .equals(query(String.format(QUERY, MYSQL_DATABASE, sinkTable)));
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private Container.ExecResult executeJob(

@@ -48,7 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class SinkFlowLifeCycleSchemaChangePolicyTest {
+public class SinkFlowLifeCycleSchemaChangePolicyTest {
 
     @Test
     void testSupportedSchemaChangeIsApplied() throws Exception {

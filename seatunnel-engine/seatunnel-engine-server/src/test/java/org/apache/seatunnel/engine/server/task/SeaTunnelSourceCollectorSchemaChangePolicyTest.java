@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.common.metrics.ThreadSafeQPSMeter;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
@@ -43,7 +44,7 @@ import org.mockito.Mockito;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class SeaTunnelSourceCollectorSchemaChangePolicyTest {
+public class SeaTunnelSourceCollectorSchemaChangePolicyTest {
 
     @Test
     void testStrictBehaviorFailsBeforeForwardingSchemaChange() {
@@ -140,7 +141,7 @@ class SeaTunnelSourceCollectorSchemaChangePolicyTest {
 
         @Override
         public Meter meter(String name) {
-            return null;
+            return new ThreadSafeQPSMeter(name);
         }
 
         @Override

@@ -50,6 +50,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -90,6 +91,7 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
+    private static final String MYSQL_SOURCE_USER_NAME = "st_user_source";
 
     private static final String DESC = "desc %s.%s";
     private static final String PROJECTION_QUERY =
@@ -195,6 +197,11 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 executeJob(
                                         container,
                                         "/mysqlcdc_to_mysql_with_flink_schema_change_strict.conf"));
+
+        awaitBinlogReaderStarted(jobFuture);
+        if (!jobFuture.isDone()) {
+            shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        }
 
         Container.ExecResult result = awaitJobFinished(jobFuture);
         Assertions.assertNotEquals(
@@ -385,6 +392,27 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 Assertions.assertIterableEquals(
                                         query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
                                         query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
+
+    private void awaitBinlogReaderStarted(CompletableFuture<Container.ExecResult> jobFuture) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .until(() -> jobFuture.isDone() || binlogReaderStarted());
+    }
+
+    private boolean binlogReaderStarted() {
+        try {
+            return query(
+                            "select COMMAND from information_schema.processlist where USER = '"
+                                    + MYSQL_SOURCE_USER_NAME
+                                    + "'")
+                    .stream()
+                    .flatMap(List::stream)
+                    .filter(command -> command != null)
+                    .map(command -> command.toString().toLowerCase(Locale.ROOT))
+                    .anyMatch(command -> command.contains("binlog dump"));
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private Container.ExecResult executeJob(TestContainer container, String jobConfigFile) {
