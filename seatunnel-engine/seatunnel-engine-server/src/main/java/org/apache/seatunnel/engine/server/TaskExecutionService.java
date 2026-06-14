@@ -198,7 +198,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             new ConcurrentHashMap<>();
 
     /** SeaTunnel configuration for this engine. */
-
     private final ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
             timerFlushFutures = new ConcurrentHashMap<>();
 
