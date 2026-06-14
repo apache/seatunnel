@@ -332,6 +332,8 @@ public class JdbcSink
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
-                SchemaChangeType.UPDATE_COLUMN);
+                SchemaChangeType.UPDATE_COLUMN,
+                SchemaChangeType.ALTER_TABLE_COMMENT,
+                SchemaChangeType.ALTER_COLUMN_COMMENT);
     }
 }
