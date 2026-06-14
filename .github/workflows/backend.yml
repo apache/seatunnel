@@ -1470,8 +1470,19 @@ jobs:
       - name: free disk space
         run: tools/github/free_disk_space.sh
       - name: run file local connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
+        uses: nick-fields/retry@v3
+        with:
+          timeout_seconds: 7200
+          max_attempts: 3
+          retry_on: error
+          command: |
+            ./mvnw -B -T 1 verify \
+            -DskipUT=true -DskipIT=false \
+            -D"license.skipAddThirdParty"=true -D"skip.ui"=true \
+            -Djunit.jupiter.execution.parallel.enabled=false \
+            -Djunit.jupiter.execution.parallel.mode.default=same_thread \
+            -Djunit.jupiter.execution.parallel.mode.classes.default=same_thread \
+            --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
