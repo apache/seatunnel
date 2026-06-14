@@ -276,9 +276,22 @@ public class SchemaOperatorTest {
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
+        return createOperator(
+                stateStore, Collections.singletonList(SchemaChangeType.ADD_COLUMN), restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
+        return createOperator(new OperatorStateStoreStub(), supportedTypes, restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
+            boolean restored)
+            throws Exception {
         SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
-        Mockito.when(source.supports())
-                .thenReturn(Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+        Mockito.when(source.supports()).thenReturn(supportedTypes);
 
         SchemaOperator operator =
                 new SchemaOperator(
