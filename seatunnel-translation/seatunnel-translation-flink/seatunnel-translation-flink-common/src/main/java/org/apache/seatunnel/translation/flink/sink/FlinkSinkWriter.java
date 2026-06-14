@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
@@ -69,6 +71,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     private long checkpointId;
 
     private MultiTableResourceManager resourceManager;
+    private final List<SchemaChangeType> supportedSchemaChangeTypes;
 
     /**
      * Cached writer states produced together with {@link #prepareCommit(boolean)}.
@@ -87,9 +90,18 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
             org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+        this(sinkWriter, checkpointId, context, null);
+    }
+
+    FlinkSinkWriter(
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
+            long checkpointId,
+            org.apache.seatunnel.api.sink.SinkWriter.Context context,
+            List<SchemaChangeType> supportedSchemaChangeTypes) {
         this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
+        this.supportedSchemaChangeTypes = supportedSchemaChangeTypes;
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -151,6 +163,10 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
                     null);
+        }
+        if (supportedSchemaChangeTypes != null) {
+            SchemaChangePolicy.validateSupported(
+                    schemaChangeEvent, supportedSchemaChangeTypes, schemaChangeEvent.getJobId());
         }
 
         Long subtaskIdObj = (Long) options.get("schema_subtask_id");

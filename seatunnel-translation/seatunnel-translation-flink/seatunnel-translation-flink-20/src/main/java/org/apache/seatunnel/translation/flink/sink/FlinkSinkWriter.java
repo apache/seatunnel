@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
@@ -59,12 +61,13 @@ public class FlinkSinkWriter<CommT, WriterStateT>
     private MultiTableResourceManager resourceManager;
     private boolean closed = false;
     private boolean isMultiTableSink = false;
+    private final List<SchemaChangeType> supportedSchemaChangeTypes;
 
     public FlinkSinkWriter(
             SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             WriterInitContext initContext,
             SinkWriter.Context context) {
-        this(sinkWriter, initContext, context, 1);
+        this(sinkWriter, initContext, context, 1, null);
     }
 
     public FlinkSinkWriter(
@@ -72,9 +75,19 @@ public class FlinkSinkWriter<CommT, WriterStateT>
             WriterInitContext initContext,
             SinkWriter.Context context,
             long checkpointId) {
+        this(sinkWriter, initContext, context, checkpointId, null);
+    }
+
+    public FlinkSinkWriter(
+            SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
+            WriterInitContext initContext,
+            SinkWriter.Context context,
+            long checkpointId,
+            List<SchemaChangeType> supportedSchemaChangeTypes) {
         this.sinkWriter = sinkWriter;
         this.context = context;
         this.checkpointId = checkpointId;
+        this.supportedSchemaChangeTypes = supportedSchemaChangeTypes;
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -140,6 +153,10 @@ public class FlinkSinkWriter<CommT, WriterStateT>
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
                     null);
+        }
+        if (supportedSchemaChangeTypes != null) {
+            SchemaChangePolicy.validateSupported(
+                    schemaChangeEvent, supportedSchemaChangeTypes, schemaChangeEvent.getJobId());
         }
 
         Long subtaskIdObj = (Long) options.get("schema_subtask_id");

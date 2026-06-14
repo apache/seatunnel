@@ -171,6 +171,9 @@ class SinkFlowLifeCycleSchemaChangePolicyTest {
         }
 
         @Override
+        public void abortPrepare() {}
+
+        @Override
         public void applySchemaChange(
                 org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
             appliedCount.incrementAndGet();

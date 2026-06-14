@@ -19,7 +19,9 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.CommitWrapperSerializer;
 import org.apache.seatunnel.translation.flink.serialization.EmptyFlinkWriterStateSerializer;
@@ -37,6 +39,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -79,7 +82,8 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
         org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                 seatunnelWriter = seaTunnelSink.createWriter(writerContext);
 
-        return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
+        return new FlinkSinkWriter<>(
+                seatunnelWriter, context, writerContext, 1, resolveSinkSupportedTypes());
     }
 
     @Override
@@ -147,7 +151,8 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
             // No state to restore, create new writer
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                     seatunnelWriter = seaTunnelSink.createWriter(writerContext);
-            return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
+            return new FlinkSinkWriter<>(
+                    seatunnelWriter, context, writerContext, 1, resolveSinkSupportedTypes());
         } else {
             // Restore from state
             List<WriterStateT> states =
@@ -168,8 +173,20 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
             // Start from the next checkpoint ID after the maximum recovered checkpoint
             long nextCheckpointId = maxCheckpointId + 1;
 
-            return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext, nextCheckpointId);
+            return new FlinkSinkWriter<>(
+                    seatunnelWriter,
+                    context,
+                    writerContext,
+                    nextCheckpointId,
+                    resolveSinkSupportedTypes());
         }
+    }
+
+    private List<SchemaChangeType> resolveSinkSupportedTypes() {
+        if (seaTunnelSink instanceof SupportSchemaEvolutionSink) {
+            return ((SupportSchemaEvolutionSink) seaTunnelSink).supports();
+        }
+        return Collections.emptyList();
     }
 
     @Override

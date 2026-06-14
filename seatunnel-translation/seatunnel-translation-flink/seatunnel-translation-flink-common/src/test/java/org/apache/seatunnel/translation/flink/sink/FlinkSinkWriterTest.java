@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -162,6 +164,29 @@ class FlinkSinkWriterTest {
 
         Assertions.assertTrue(error.getMessage().contains("Failed to apply schema change"));
         Assertions.assertTrue(delegate.writtenRows.isEmpty());
+    }
+
+    @Test
+    void testSchemaChangeEventFailsWhenSinkDoesNotAdvertiseEventSupport() {
+        SchemaAwareRecordingSinkWriter delegate = new SchemaAwareRecordingSinkWriter();
+        RecordingContext context = new RecordingContext();
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(
+                        delegate,
+                        7L,
+                        context,
+                        Collections.singletonList(SchemaChangeType.DROP_COLUMN));
+
+        SchemaEvolutionException error =
+                Assertions.assertThrows(
+                        SchemaEvolutionException.class,
+                        () ->
+                                flinkSinkWriter.write(
+                                        createSchemaChangeRow(createAddColumnEvent()), null));
+
+        Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
+        Assertions.assertTrue(delegate.writtenRows.isEmpty());
+        Assertions.assertTrue(delegate.appliedSchemaChanges.isEmpty());
     }
 
     private static AlterTableAddColumnEvent createAddColumnEvent() {

@@ -109,7 +109,7 @@ class SeaTunnelSourceCollectorSchemaChangePolicyTest {
                 new TestMetricsContext(),
                 FlowControlStrategy.builder().build(),
                 rowType,
-                Collections.singletonList(TablePath.DEFAULT),
+                Collections.singletonList(TablePath.of("database", "table")),
                 sourceTask,
                 new EngineConfig(),
                 null,

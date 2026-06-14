@@ -58,6 +58,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,7 +94,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
-
+    private static final String SINK_TABLE_IGNORE =
+            "mysql_cdc_e2e_sink_table_with_schema_change_ignore";
     /** Stable projection used after add-column evolution to compare source and sink rows. */
     private static final String STABLE_QUERY =
             "select id,name,description,weight from %s.%s order by id";
@@ -424,7 +426,54 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 "drop.column was excluded, so the sink must keep the column the source dropped");
     }
 
-    // Asserts the sink row with the given id exists and its name matches expectedName.
+    @Order(5)
+    @TestTemplate
+    public void testStrictSchemaChangeBehaviorFailsOnSchemaChange(TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () ->
+                                executeJob(
+                                        container,
+                                        "/mysqlcdc_to_mysql_with_schema_change_strict.conf",
+                                        jobId));
+
+        Container.ExecResult result = awaitJobFinished(jobFuture);
+        Assertions.assertNotEquals(
+                0,
+                result.getExitCode(),
+                "strict schema change behavior should fail when a schema change event is observed");
+        Assertions.assertTrue(
+                result.getStderr().contains("Schema change behavior is STRICT")
+                        || result.getStdout().contains("Schema change behavior is STRICT"),
+                "strict failure should report the schema change behavior contract");
+    }
+
+    @Order(6)
+    @TestTemplate
+    public void testIgnoreSchemaChangeBehaviorDropsCommentOnlySchemaChange(
+            TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture.runAsync(
+                () ->
+                        executeJob(
+                                container,
+                                "/mysqlcdc_to_mysql_with_schema_change_ignore.conf",
+                                jobId));
+
+        awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
+
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+
+        cancelJob(container, jobId);
+    }
+
+    /** Asserts the sink row with the given id exists and its {@code name} matches expectedName. */
     private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
         Optional<List<Object>> row =
                 sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();
@@ -783,6 +832,47 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         List<List<Object>> normalizedRows = new ArrayList<>(descRows);
         normalizedRows.sort(Comparator.comparing(row -> String.valueOf(row.get(0))));
         return normalizedRows;
+    }
+
+    private void awaitInitialSnapshot(String sinkTable) {
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
+
+    private Container.ExecResult executeJob(
+            TestContainer container, String jobConfigFile, String jobId) {
+        try {
+            return container.executeJob(jobConfigFile, jobId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Container.ExecResult awaitJobFinished(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            return jobFuture.get(180, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new RuntimeException(
+                    "Timed out waiting for schema change policy job to finish", e);
+        }
+    }
+
+    private void cancelJob(TestContainer container, String jobId) {
+        try {
+            Assertions.assertEquals(0, container.cancelJob(jobId).getExitCode());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {

@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -84,6 +85,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    private static final String SINK_TABLE_IGNORE =
+            "mysql_cdc_e2e_sink_table_with_schema_change_ignore";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -182,13 +185,53 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
+    @Order(3)
+    @TestTemplate
+    public void testStrictSchemaChangeBehaviorFailsOnSchemaChange(TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () ->
+                                executeJob(
+                                        container,
+                                        "/mysqlcdc_to_mysql_with_flink_schema_change_strict.conf"));
+
+        Container.ExecResult result = awaitJobFinished(jobFuture);
+        Assertions.assertNotEquals(
+                0,
+                result.getExitCode(),
+                "strict schema change behavior should fail when a schema change event is observed");
+        Assertions.assertTrue(
+                result.getStderr().contains("Schema change behavior is STRICT")
+                        || result.getStdout().contains("Schema change behavior is STRICT"),
+                "strict failure should report the schema change behavior contract");
+    }
+
+    @Order(4)
+    @TestTemplate
+    public void testIgnoreSchemaChangeBehaviorDropsCommentOnlySchemaChange(
+            TestContainer container) {
+        resetDatabaseToInitialState();
+        CompletableFuture.runAsync(
+                () ->
+                        executeJob(
+                                container,
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_ignore.conf"));
+
+        awaitInitialSnapshot(SINK_TABLE_IGNORE);
+        shopDatabase.setTemplateName("comment_only_changes").createAndInitialize();
+
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_IGNORE);
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Ignored product catalog comment updated");
+    }
+
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
-        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -273,7 +316,6 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
-        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -336,34 +378,36 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                         database, sourceTable, sinkTable, null));
     }
 
-    /**
-     * Waits until the incremental binlog reader is active before issuing schema changes.
-     *
-     * <p>Snapshot rows can reach the sink before the binlog reader connects. If DDL is issued in
-     * that gap, Debezium can initialize from the post-DDL table schema and then replay pre-DDL row
-     * events with fewer columns.
-     */
-    private void awaitIncrementalStreamingReady(
-            String database, String sourceTable, String sinkTable) {
-        String source = quoteIdentifier(database) + "." + quoteIdentifier(sourceTable);
-        executeUpdate(
-                "insert into "
-                        + source
-                        + " (id, name, description, weight)"
-                        + " values (100, 'streaming-ready', 'streaming-ready', 0)");
-
-        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+    private void awaitInitialSnapshot(String sinkTable) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                assertTableDataEqualsBySourceColumnOrder(
-                                        database, sourceTable, sinkTable, "id = 100"));
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, sinkTable))));
+    }
 
-        executeUpdate("delete from " + source + " where id = 100");
-        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                assertTableDataEqualsBySourceColumnOrder(
-                                        database, sourceTable, sinkTable, "id = 100"));
+    private Container.ExecResult executeJob(TestContainer container, String jobConfigFile) {
+        try {
+            return container.executeJob(jobConfigFile);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Container.ExecResult awaitJobFinished(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            return jobFuture.get(180, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new RuntimeException(
+                    "Timed out waiting for schema change policy job to finish", e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -481,15 +525,6 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                     expectedComment,
                     rs.getString("TABLE_COMMENT"),
                     "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void executeUpdate(String sql) {
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
-            statement.executeUpdate(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
