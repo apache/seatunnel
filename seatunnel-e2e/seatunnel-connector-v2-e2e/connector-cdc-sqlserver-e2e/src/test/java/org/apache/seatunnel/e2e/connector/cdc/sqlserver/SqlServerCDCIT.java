@@ -620,16 +620,40 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
+        try {
             List<String> statements =
                     parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
             for (String stmt : statements) {
-                statement.execute(stmt);
+                executeWithDeadlockRetry(stmt);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void executeWithDeadlockRetry(String sql) {
+        Awaitility.await(
+                        "Executing: "
+                                + sql.substring(0, Math.min(80, sql.length()))
+                                        .replaceAll("\\s+", " "))
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try (Connection connection = getJdbcConnection();
+                                    Statement statement = connection.createStatement()) {
+                                statement.execute(sql);
+                                return true;
+                            } catch (SQLException e) {
+                                if (e.getMessage() != null
+                                        && (e.getMessage().contains("deadlock")
+                                                || e.getMessage().contains("Deadlock"))) {
+                                    log.warn("Deadlock detected, will retry: {}", sql);
+                                    return false;
+                                }
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     private void initializeSqlServerTable(String sqlFile) {

@@ -332,6 +332,10 @@ public class SeaTunnelEngineClusterRoleTest {
     @Test
     public void testStartMasterNodeWithTcpIp() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
+                        ContentFormatUtilTest.getClusterName("Test_testStartMasterNodeWithTcpIp"));
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
         Assertions.assertNotNull(instance);
@@ -343,6 +347,11 @@ public class SeaTunnelEngineClusterRoleTest {
     public void testStartMasterNodeWithMulticastJoin() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
+                        ContentFormatUtilTest.getClusterName(
+                                "Test_testStartMasterNodeWithMulticastJoin"));
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
         Assertions.assertNotNull(instance);
@@ -353,6 +362,11 @@ public class SeaTunnelEngineClusterRoleTest {
     @Test
     public void testCannotOnlyStartWorkerNodeWithTcpIp() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
+                        ContentFormatUtilTest.getClusterName(
+                                "Test_testCannotOnlyStartWorkerNodeWithTcpIp"));
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> {
@@ -364,6 +378,11 @@ public class SeaTunnelEngineClusterRoleTest {
     public void testCannotOnlyStartWorkerNodeWithMulticastJoin() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
+                        ContentFormatUtilTest.getClusterName(
+                                "Test_testCannotOnlyStartWorkerNodeWithMulticastJoin"));
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> {
