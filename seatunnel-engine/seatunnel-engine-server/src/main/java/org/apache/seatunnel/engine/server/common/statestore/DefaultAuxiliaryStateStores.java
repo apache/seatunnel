@@ -46,4 +46,21 @@ public class DefaultAuxiliaryStateStores implements AuxiliaryStateStores {
     public CheckpointOverviewStateStore checkpointOverviewStateStore() {
         return checkpointOverviewStateStore;
     }
+
+    @Override
+    public void close() {
+        closeIfPossible(checkpointOverviewStateStore);
+        closeIfPossible(metricsSnapshotStore);
+    }
+
+    private void closeIfPossible(Object store) {
+        if (!(store instanceof AutoCloseable)) {
+            return;
+        }
+        try {
+            ((AutoCloseable) store).close();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to close auxiliary state store", e);
+        }
+    }
 }

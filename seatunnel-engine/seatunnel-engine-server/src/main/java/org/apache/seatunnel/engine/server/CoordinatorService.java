@@ -69,13 +69,11 @@ import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -90,15 +88,11 @@ import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
-import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
-import com.hazelcast.map.listener.EntryAddedListener;
-import com.hazelcast.map.listener.EntryRemovedListener;
-import com.hazelcast.map.listener.EntryUpdatedListener;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
@@ -115,7 +109,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -198,8 +191,6 @@ public class CoordinatorService {
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
-    private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
-
     private IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap;
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
@@ -228,20 +219,6 @@ public class CoordinatorService {
     private final ScheduleStrategy scheduleStrategy;
 
     private final AtomicBoolean coordinatorServiceCleared = new AtomicBoolean(false);
-
-    private final AtomicLong runningJobMetricsPartitionKeyCount = new AtomicLong();
-
-    private final AtomicLong runningJobMetricsTaskContextCount = new AtomicLong();
-
-    private final Object runningJobMetricsStatsLock = new Object();
-
-    private final Set<Long> runningJobMetricsDirtyKeys = ConcurrentHashMap.newKeySet();
-
-    private final Map<Long, RunningJobMetricsStats> runningJobMetricsStatsByJobId = new HashMap<>();
-
-    private final AtomicBoolean runningJobMetricsInitializing = new AtomicBoolean(false);
-
-    private volatile UUID runningJobMetricsListenerId;
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
@@ -1111,7 +1088,6 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
-        removeRunningJobMetricsListener();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {
@@ -1639,7 +1615,6 @@ public class CoordinatorService {
         if (pipelineCleanupScheduler != null) {
             pipelineCleanupScheduler.shutdown();
         }
-        removeRunningJobMetricsListener();
         clearCoordinatorService();
         awaitSchedulerTermination("master active listener", masterActiveListener);
         awaitSchedulerTermination("pipeline cleanup scheduler", pipelineCleanupScheduler);
@@ -1930,135 +1905,6 @@ public class CoordinatorService {
         }
         for (Map.Entry<Long, JobCleanupRecord> entry : pendingJobCleanupIMap.entrySet()) {
             processPendingJobCleanup(entry.getKey(), entry.getValue());
-        }
-    }
-
-    private void initRunningJobMetricsStoreStats() {
-        removeRunningJobMetricsListener();
-        runningJobMetricsListenerId =
-                metricsImap.addEntryListener(new RunningJobMetricsEntryListener(), true);
-        runningJobMetricsInitializing.set(true);
-        runningJobMetricsDirtyKeys.clear();
-
-        Map<Long, RunningJobMetricsStats> snapshotStats = new HashMap<>();
-        metricsImap.forEach(
-                (partitionKey, metrics) ->
-                        snapshotStats.put(partitionKey, toRunningJobMetricsStats(metrics)));
-
-        Set<Long> dirtyKeys = new HashSet<>(runningJobMetricsDirtyKeys);
-        for (Long partitionKey : dirtyKeys) {
-            snapshotStats.put(
-                    partitionKey, toRunningJobMetricsStats(metricsImap.get(partitionKey)));
-        }
-
-        synchronized (runningJobMetricsStatsLock) {
-            runningJobMetricsStatsByJobId.clear();
-            runningJobMetricsPartitionKeyCount.set(0L);
-            runningJobMetricsTaskContextCount.set(0L);
-            snapshotStats.forEach(this::replaceRunningJobMetricsStatsLocked);
-            runningJobMetricsInitializing.set(false);
-
-            Set<Long> postSnapshotDirtyKeys = new HashSet<>(runningJobMetricsDirtyKeys);
-            runningJobMetricsDirtyKeys.clear();
-            for (Long partitionKey : postSnapshotDirtyKeys) {
-                replaceRunningJobMetricsStatsLocked(
-                        partitionKey, toRunningJobMetricsStats(metricsImap.get(partitionKey)));
-            }
-        }
-    }
-
-    private RunningJobMetricsStats toRunningJobMetricsStats(
-            Map<TaskLocation, SeaTunnelMetricsContext> metrics) {
-        if (metrics == null || metrics.isEmpty()) {
-            return RunningJobMetricsStats.EMPTY;
-        }
-        return new RunningJobMetricsStats(1L, metrics.size());
-    }
-
-    private void replaceRunningJobMetricsStatsLocked(
-            Long partitionKey, RunningJobMetricsStats stats) {
-        RunningJobMetricsStats currentStats = runningJobMetricsStatsByJobId.get(partitionKey);
-        if (currentStats != null) {
-            runningJobMetricsPartitionKeyCount.addAndGet(-currentStats.partitionKeyCount);
-            runningJobMetricsTaskContextCount.addAndGet(-currentStats.taskContextCount);
-        }
-
-        if (stats.isEmpty()) {
-            runningJobMetricsStatsByJobId.remove(partitionKey);
-            return;
-        }
-
-        runningJobMetricsStatsByJobId.put(partitionKey, stats);
-        runningJobMetricsPartitionKeyCount.addAndGet(stats.partitionKeyCount);
-        runningJobMetricsTaskContextCount.addAndGet(stats.taskContextCount);
-    }
-
-    private void removeRunningJobMetricsListener() {
-        if (metricsImap != null && runningJobMetricsListenerId != null) {
-            metricsImap.removeEntryListener(runningJobMetricsListenerId);
-            runningJobMetricsListenerId = null;
-        }
-        runningJobMetricsInitializing.set(false);
-        runningJobMetricsDirtyKeys.clear();
-        synchronized (runningJobMetricsStatsLock) {
-            runningJobMetricsStatsByJobId.clear();
-        }
-        runningJobMetricsPartitionKeyCount.set(0L);
-        runningJobMetricsTaskContextCount.set(0L);
-    }
-
-    private final class RunningJobMetricsEntryListener
-            implements EntryAddedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>,
-                    EntryUpdatedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>,
-                    EntryRemovedListener<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> {
-
-        @Override
-        public void entryAdded(
-                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
-            replaceRunningJobMetricsStats(event.getKey(), event.getValue());
-        }
-
-        @Override
-        public void entryUpdated(
-                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
-            replaceRunningJobMetricsStats(event.getKey(), event.getValue());
-        }
-
-        @Override
-        public void entryRemoved(
-                EntryEvent<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> event) {
-            replaceRunningJobMetricsStats(event.getKey(), null);
-        }
-    }
-
-    private void replaceRunningJobMetricsStats(
-            Long partitionKey, Map<TaskLocation, SeaTunnelMetricsContext> metrics) {
-        if (runningJobMetricsInitializing.get()) {
-            runningJobMetricsDirtyKeys.add(partitionKey);
-            return;
-        }
-        synchronized (runningJobMetricsStatsLock) {
-            if (runningJobMetricsInitializing.get()) {
-                runningJobMetricsDirtyKeys.add(partitionKey);
-                return;
-            }
-            replaceRunningJobMetricsStatsLocked(partitionKey, toRunningJobMetricsStats(metrics));
-        }
-    }
-
-    private static final class RunningJobMetricsStats {
-        private static final RunningJobMetricsStats EMPTY = new RunningJobMetricsStats(0L, 0L);
-
-        private final long partitionKeyCount;
-        private final long taskContextCount;
-
-        private RunningJobMetricsStats(long partitionKeyCount, long taskContextCount) {
-            this.partitionKeyCount = partitionKeyCount;
-            this.taskContextCount = taskContextCount;
-        }
-
-        private boolean isEmpty() {
-            return partitionKeyCount == 0L && taskContextCount == 0L;
         }
     }
 

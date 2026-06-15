@@ -90,6 +90,11 @@ public class HazelcastEngineStateStores implements EngineStateStores {
 
     @Override
     public void close() {
-        // no-op
+        if (auxiliaryStateStores != null) {
+            auxiliaryStateStores.close();
+        }
+        if (authoritativeStateStores != null) {
+            authoritativeStateStores.close();
+        }
     }
 }

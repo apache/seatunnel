@@ -27,7 +27,7 @@ import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnaps
  * <p>This group collects states that can often tolerate more staleness, or for which limited loss
  * is less likely to break system correctness immediately.
  */
-public interface AuxiliaryStateStores {
+public interface AuxiliaryStateStores extends AutoCloseable {
     /**
      * Returns the store for runtime task metrics snapshots.
      *
@@ -41,4 +41,14 @@ public interface AuxiliaryStateStores {
      * @return checkpoint overview state store
      */
     CheckpointOverviewStateStore checkpointOverviewStateStore();
+
+    /**
+     * Releases resources owned by auxiliary stores.
+     *
+     * <p>Implementations that only wrap non-closeable stores may keep the default no-op behavior.
+     */
+    @Override
+    default void close() {
+        // no-op
+    }
 }

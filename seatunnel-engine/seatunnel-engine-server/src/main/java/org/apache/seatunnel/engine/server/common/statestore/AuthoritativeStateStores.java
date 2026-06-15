@@ -24,4 +24,15 @@ package org.apache.seatunnel.engine.server.common.statestore;
  * storage backend may still be a local store, but the responsibility for deciding what is
  * authoritative belongs more strongly to this group.
  */
-public interface AuthoritativeStateStores {}
+public interface AuthoritativeStateStores extends AutoCloseable {
+
+    /**
+     * Releases resources owned by authoritative stores.
+     *
+     * <p>Implementations that only wrap non-closeable stores may keep the default no-op behavior.
+     */
+    @Override
+    default void close() {
+        // no-op
+    }
+}

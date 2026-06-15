@@ -61,7 +61,6 @@ public interface StateStore<K, V> {
      * Removes the value for the given key.
      *
      * @param key key to remove
-     * @return value before removal, or {@code null} if absent
      */
     void remove(K key);
 
