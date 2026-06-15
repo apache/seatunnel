@@ -45,7 +45,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | host                                  | string  | 是    | -                                          |                                                           |
 | port                                  | int     | 是    | -                                          |                                                           |
 | user                                  | string  | 是    | -                                          |                                                           |
-| password                              | string  | 是    | -                                          |                                                           |
+| password                              | string  | 否    | -                                          | 未配置 `keyfile` 时需要配置。                                      |
+| keyfile                               | string  | 否    | -                                          | 用于 SFTP 公钥认证的私钥文件路径。                                    |
 | path                                  | string  | 是    | -                                          |                                                           |
 | tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将临时目录剪切到目标目录。需要一个FTP目录。             |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                |
@@ -94,7 +95,11 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 ### password [string]
 
-目标sftp密码，必填。
+目标sftp密码。未配置 `keyfile` 时需要配置。
+
+### keyfile [string]
+
+用于 SFTP 公钥认证的私钥文件路径。
 
 ### path [string]
 

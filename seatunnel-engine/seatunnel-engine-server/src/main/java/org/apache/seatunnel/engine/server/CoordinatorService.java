@@ -112,10 +112,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -199,6 +201,7 @@ public class CoordinatorService {
     private volatile boolean isActive = false;
 
     private ExecutorService executorService;
+    private final ExecutorService metricsFetchExecutor;
 
     private final SeaTunnelServer seaTunnelServer;
 
@@ -230,6 +233,16 @@ public class CoordinatorService {
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
+
+        int metricsFetchThreads =
+                Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        this.metricsFetchExecutor =
+                Executors.newFixedThreadPool(
+                        metricsFetchThreads,
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("seatunnel-metrics-fetch-%d")
+                                .setDaemon(true)
+                                .build());
 
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
@@ -1058,15 +1071,18 @@ public class CoordinatorService {
                 initCoordinatorService();
                 isActive = true;
                 startPendingJobScheduleThread();
+                seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
                         "This node become leave active master node, begin clear coordinator service");
+                seaTunnelServer.stopRealtimeMetricsService();
                 clearCoordinatorService();
             }
         } catch (Exception e) {
             isActive = false;
             logger.severe("check new active master error, will retry later.", e);
+            seaTunnelServer.stopRealtimeMetricsService();
             try {
                 clearCoordinatorService();
             } catch (Exception ex) {
@@ -1390,19 +1406,8 @@ public class CoordinatorService {
 
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         final Set<Long> runningJobIds = runningJobMasterMap.keySet();
-
-        Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
-                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
-                                .values()
-                                .forEach(
-                                        ownedSlotProfile -> {
-                                            addresses.add(ownedSlotProfile.getWorker());
-                                        });
-                    }
-                });
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
 
         List<RawJobMetrics> metrics = new ArrayList<>();
 
@@ -1443,6 +1448,196 @@ public class CoordinatorService {
                 });
 
         return longJobMetricsMap;
+    }
+
+    /**
+     * Get metrics for the specified running jobs.
+     *
+     * <p>This method is best-effort: if a worker node is unreachable or times out, its metrics will
+     * be skipped.
+     */
+    public Map<Long, JobMetrics> getRunningJobMetrics(Set<Long> runningJobIds, long timeoutMs) {
+        return getRunningJobMetrics(runningJobIds, timeoutMs, null);
+    }
+
+    /**
+     * Get metrics for the specified running jobs with optional metric-name prefix filtering.
+     *
+     * <p>This method is best-effort: if a worker node is unreachable or times out, its metrics will
+     * be skipped.
+     */
+    public Map<Long, JobMetrics> getRunningJobMetrics(
+            Set<Long> runningJobIds, long timeoutMs, String[] metricNamePrefixes) {
+        if (runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        for (Address address : addresses) {
+            try {
+                if (nodeEngine.getClusterService().getMember(address) != null) {
+                    RawJobMetrics rawJobMetrics =
+                            (RawJobMetrics)
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                    nodeEngine,
+                                                    new GetMetricsOperation(
+                                                            runningJobIds, metricNamePrefixes),
+                                                    address)
+                                            .get(timeoutMs, TimeUnit.MILLISECONDS);
+                    metrics.add(rawJobMetrics);
+                }
+            } catch (TimeoutException e) {
+                logger.warning(String.format("get metrics timeout from worker %s", address));
+            } catch (HazelcastInstanceNotActiveException e) {
+                logger.warning(
+                        String.format(
+                                "get metrics with exception: %s.", ExceptionUtils.getMessage(e)));
+            } catch (Exception e) {
+                logger.warning(
+                        String.format(
+                                "get metrics from worker %s failed: %s",
+                                address, ExceptionUtils.getMessage(e)));
+            }
+        }
+
+        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+
+        longJobMetricsMap.forEach(
+                (jobId, jobMetrics) -> {
+                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+                    if (jobMetricsImap != JobMetrics.empty()) {
+                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
+                    }
+                });
+
+        return longJobMetricsMap;
+    }
+
+    /**
+     * Get raw metrics blobs for the specified running jobs.
+     *
+     * <p>This is used by lightweight services (e.g. realtime observability) to parse only required
+     * metrics without materializing {@link JobMetrics} (which may cause heavy allocations).
+     *
+     * <p>Note: {@code timeoutMs} is treated as an overall time budget for the whole fetch (not per
+     * worker). This avoids the master-side collector thread being blocked for {@code N * timeoutMs}
+     * in large clusters when many workers are slow or unreachable.
+     */
+    public List<RawJobMetrics> getRunningJobRawMetrics(
+            Set<Long> runningJobIds, long timeoutMs, String[] metricNamePrefixes) {
+        if (runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
+        if (addresses.isEmpty()) {
+            return Collections.emptyList();
+        }
+        long budgetMs = Math.max(0L, timeoutMs);
+        if (budgetMs == 0L) {
+            return Collections.emptyList();
+        }
+
+        List<java.util.concurrent.Callable<RawJobMetrics>> tasks =
+                new ArrayList<>(addresses.size());
+        for (Address address : addresses) {
+            tasks.add(
+                    () ->
+                            fetchRawMetricsFromWorker(
+                                    address, runningJobIds, metricNamePrefixes, budgetMs));
+        }
+
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        List<Future<RawJobMetrics>> futures;
+        try {
+            futures = metricsFetchExecutor.invokeAll(tasks, budgetMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Collections.emptyList();
+        }
+
+        for (Future<RawJobMetrics> f : futures) {
+            try {
+                if (f.isCancelled()) {
+                    continue;
+                }
+                RawJobMetrics m = f.get();
+                if (m != null) {
+                    metrics.add(m);
+                }
+            } catch (Exception ignored) {
+                // ignored: detailed warnings are logged in fetchRawMetricsFromWorker
+            }
+        }
+        return metrics;
+    }
+
+    @VisibleForTesting
+    static Set<Address> collectRunningWorkerAddresses(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            Set<Long> runningJobIds) {
+        if (ownedSlotProfiles == null || runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<Address> addresses = new HashSet<>();
+        // Realtime metrics polling can start before coordinator state is fully initialized.
+        ownedSlotProfiles.forEach(
+                (pipelineLocation, pipelineOwnedSlotProfiles) -> {
+                    if (pipelineLocation == null
+                            || pipelineOwnedSlotProfiles == null
+                            || !runningJobIds.contains(pipelineLocation.getJobId())) {
+                        return;
+                    }
+                    pipelineOwnedSlotProfiles
+                            .values()
+                            .forEach(
+                                    ownedSlotProfile -> {
+                                        if (ownedSlotProfile != null
+                                                && ownedSlotProfile.getWorker() != null) {
+                                            addresses.add(ownedSlotProfile.getWorker());
+                                        }
+                                    });
+                });
+        return addresses;
+    }
+
+    private RawJobMetrics fetchRawMetricsFromWorker(
+            Address address, Set<Long> runningJobIds, String[] metricNamePrefixes, long timeoutMs) {
+        try {
+            if (address == null) {
+                return null;
+            }
+            if (nodeEngine.getClusterService().getMember(address) == null) {
+                return null;
+            }
+            return (RawJobMetrics)
+                    NodeEngineUtil.sendOperationToMemberNode(
+                                    nodeEngine,
+                                    new GetMetricsOperation(runningJobIds, metricNamePrefixes),
+                                    address)
+                            .get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            logger.warning(String.format("get metrics timeout from worker %s", address));
+            return null;
+        } catch (HazelcastInstanceNotActiveException e) {
+            logger.warning(
+                    String.format("get metrics with exception: %s.", ExceptionUtils.getMessage(e)));
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "get metrics from worker %s failed: %s",
+                            address, ExceptionUtils.getMessage(e)));
+            return null;
+        }
     }
 
     public JobDAGInfo getJobInfo(long jobId) {
@@ -1611,6 +1806,9 @@ public class CoordinatorService {
         isActive = false;
         if (masterActiveListener != null) {
             masterActiveListener.shutdown();
+        }
+        if (metricsFetchExecutor != null) {
+            metricsFetchExecutor.shutdownNow();
         }
         if (pipelineCleanupScheduler != null) {
             pipelineCleanupScheduler.shutdown();

@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -80,8 +81,8 @@ public class ParquetWriteStrategyTest {
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
-        ParquetReadStrategyTest.LocalConf hadoopConf =
-                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);

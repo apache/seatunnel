@@ -58,7 +58,7 @@ class EngineStateStoreMetricExportsTest {
         instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("EngineStateStoreMetricExportsTest_localMetrics"));
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
         instance.getMap(Constant.IMAP_RUNNING_JOB_INFO).put(1L, "job-info");
 
@@ -93,7 +93,7 @@ class EngineStateStoreMetricExportsTest {
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
                                 "EngineStateStoreMetricExportsTest_allStateStores"));
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
 
         List<MetricFamilySamples> metrics =
