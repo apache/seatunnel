@@ -71,7 +71,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     }
 
     @Override
-    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         Writer writer = getOrCreateOutputStream(filePath);
@@ -97,7 +97,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
                 (k, v) -> {

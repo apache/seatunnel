@@ -191,7 +191,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     // ── Schema Evolution ──────────────────────────────────────────────────────────
 
     @Override
-    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+    public synchronized void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
             throw new UnsupportedOperationException(
                     "Received AlterTableEvent but schema_evolution_enabled=false at this sink. "
@@ -516,7 +516,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      */
     @SneakyThrows
     @Override
-    public Optional<FileCommitInfo> prepareCommit() {
+    public synchronized Optional<FileCommitInfo> prepareCommit() {
         if (this.needMoveFiles.isEmpty() && fileSinkConfig.isCreateEmptyFileWhenNoData()) {
             String filePath = createFilePathWithoutPartition();
             this.getOrCreateOutputStream(filePath);
@@ -614,7 +614,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      * @return the list of states
      */
     @Override
-    public List<FileSinkState> snapshotState(long checkpointId) {
+    public synchronized List<FileSinkState> snapshotState(long checkpointId) {
         LinkedHashMap<String, List<String>> commitMap =
                 this.partitionDirAndValuesMap.entrySet().stream()
                         .collect(

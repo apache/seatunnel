@@ -63,7 +63,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
     }
 
     @Override
-    public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
+    public synchronized void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         long partIndex = (long) seaTunnelRow.getField(2);
         if (partIndex == -1) {
             return;
@@ -152,7 +152,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
                 (key, value) -> {
                     try {
