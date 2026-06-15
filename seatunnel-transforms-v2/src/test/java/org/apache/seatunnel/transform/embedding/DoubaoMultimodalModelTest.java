@@ -344,6 +344,8 @@ public class DoubaoMultimodalModelTest {
 
     @Test
     void testUrlAutoDetectModality() {
+        // Explicitly configured modality (png) must be respected and NOT overridden by the runtime
+        // value suffix (.jpg).
         Map<String, Object> fieldConfig = new HashMap<>();
         fieldConfig.put("field", "image_field");
         fieldConfig.put("format", "url");
@@ -360,12 +362,13 @@ public class DoubaoMultimodalModelTest {
                                         "https://example.com/photo.jpg")));
 
         Assertions.assertEquals(
-                ModalityType.JPEG,
+                ModalityType.PNG,
                 multimodalFieldValue.getSrcFields().get(0).getFieldSpec().getModalityType());
         ObjectNode result = model.multimodalBody(multimodalFieldValue);
         ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("image_url", inputNode.get("type").asText());
 
+        // No modality configured -> auto-detect from the value suffix (.jpg -> jpeg).
         Map<String, Object> fieldConfig2 = new HashMap<>();
         fieldConfig2.put("field", "image_field");
         fieldConfig2.put("format", "url");
@@ -384,6 +387,65 @@ public class DoubaoMultimodalModelTest {
         result = model.multimodalBody(multimodalFieldValue);
         inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("image_url", inputNode.get("type").asText());
+    }
+
+    @Test
+    void testExplicitModalityNotOverriddenBySuffix() {
+        // Regression: modality = png + runtime value photo.jpg should stay png.
+        Map<String, Object> fieldConfig = new HashMap<>();
+        fieldConfig.put("field", "image_field");
+        fieldConfig.put("format", "url");
+        fieldConfig.put("modality", "png");
+        Map.Entry<String, Object> imageFieldEntry =
+                new java.util.AbstractMap.SimpleEntry<>("image_vector", fieldConfig);
+
+        VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(imageFieldEntry);
+        SrcField srcField =
+                new SrcField(
+                        vectorFieldSpec.getSrcFieldSpecs().get(0), "https://example.com/photo.jpg");
+
+        Assertions.assertEquals(ModalityType.PNG, srcField.getFieldSpec().getModalityType());
+        Assertions.assertTrue(srcField.getFieldSpec().isModalityTypeExplicitlyConfigured());
+    }
+
+    @Test
+    void testMixedConfigTextFieldWithImageSuffixStaysText() {
+        // Regression: in a mixed multimodal job, a plain text field whose value happens to end with
+        // a known image suffix (foo.jpg) must NOT be misclassified as an image.
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "jpeg");
+        imageFieldConfig.put("format", "url");
+
+        Map.Entry<String, Object> entry =
+                new java.util.AbstractMap.SimpleEntry<>(
+                        "mix_vector", Arrays.asList("text_field", imageFieldConfig));
+        VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(entry);
+
+        // first src field is the plain text field, with a value that ends with .jpg
+        SrcField textSrcField =
+                new SrcField(vectorFieldSpec.getSrcFieldSpecs().get(0), "this is foo.jpg");
+        Assertions.assertEquals(ModalityType.TEXT, textSrcField.getFieldSpec().getModalityType());
+        Assertions.assertFalse(textSrcField.getFieldSpec().isModalityTypeExplicitlyConfigured());
+
+        MultimodalFieldValue multimodalFieldValue =
+                new MultimodalFieldValue(Collections.singletonList(textSrcField));
+        ObjectNode result = model.multimodalBody(multimodalFieldValue);
+        ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
+        Assertions.assertEquals("text", inputNode.get("type").asText());
+        Assertions.assertEquals("this is foo.jpg", inputNode.get("text").asText());
+    }
+
+    @Test
+    void testNoModalityPlainTextValueStaysText() {
+        // No modality configured and value has no recognizable suffix -> stays TEXT.
+        Map.Entry<String, Object> entry =
+                new java.util.AbstractMap.SimpleEntry<>("text_vector", "hello world");
+        VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(entry);
+        SrcField srcField = new SrcField(vectorFieldSpec.getSrcFieldSpecs().get(0), "hello world");
+
+        Assertions.assertEquals(ModalityType.TEXT, srcField.getFieldSpec().getModalityType());
+        Assertions.assertFalse(srcField.getFieldSpec().isModalityTypeExplicitlyConfigured());
     }
 
     @Test

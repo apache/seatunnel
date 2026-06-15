@@ -214,7 +214,7 @@ vectorization_fields {
 - `binary` - Binary data format
 
 **Automatic Modality Detection:**
-When `modality` is not explicitly specified and `format` is not `binary`, the system automatically detects the modality type based on the file suffix of the field value:
+When `modality` is not explicitly specified and `format` is `url`, the system automatically detects the modality type based on the file suffix of the field value:
 
 > **Important:** When using multimodal fields (image or video), ensure your model provider supports multimodal embedding. Image and video fields must contain valid URLs or binary data. Currently, `DOUBAO` provider supports multimodal data processing.
 

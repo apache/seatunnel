@@ -34,6 +34,13 @@ public class SrcFieldSpec implements Serializable {
     private ModalityType modalityType;
     private PayloadFormat payloadFormat;
 
+    /**
+     * Whether the modality type was explicitly configured by the user. When false, the actual
+     * modality type can be auto-detected from the runtime value suffix; when true, the configured
+     * modality type must be respected and never overridden.
+     */
+    private boolean modalityTypeExplicitlyConfigured;
+
     /** Parse basic field spec: just the field name, defaults to TEXT modality and default format */
     public SrcFieldSpec(String fieldName) {
         if (fieldName == null || fieldName.trim().isEmpty()) {
@@ -42,6 +49,7 @@ public class SrcFieldSpec implements Serializable {
         this.fieldName = fieldName.trim();
         this.modalityType = ModalityType.TEXT;
         this.payloadFormat = PayloadFormat.TEXT;
+        this.modalityTypeExplicitlyConfigured = false;
     }
 
     /**
@@ -66,12 +74,14 @@ public class SrcFieldSpec implements Serializable {
         Object modalityObj = fieldConfig.get("modality");
         if (modalityObj != null) {
             this.modalityType = ModalityType.ofName(modalityObj.toString());
+            this.modalityTypeExplicitlyConfigured = true;
             Object formatObj = fieldConfig.get("format");
             if (formatObj != null) {
                 this.payloadFormat = PayloadFormat.ofName(formatObj.toString());
             }
         } else {
             this.modalityType = ModalityType.TEXT;
+            this.modalityTypeExplicitlyConfigured = false;
             Object formatObj = fieldConfig.get("format");
             if (formatObj != null) {
                 this.payloadFormat = PayloadFormat.ofName(formatObj.toString());
@@ -81,13 +91,22 @@ public class SrcFieldSpec implements Serializable {
         }
     }
 
-    public SrcFieldSpec(String fieldName, ModalityType modalityType, PayloadFormat payloadFormat) {
+    public SrcFieldSpec(
+            String fieldName,
+            ModalityType modalityType,
+            PayloadFormat payloadFormat,
+            boolean modalityTypeExplicitlyConfigured) {
         this.fieldName = fieldName;
         this.modalityType = modalityType;
         this.payloadFormat = payloadFormat;
+        this.modalityTypeExplicitlyConfigured = modalityTypeExplicitlyConfigured;
     }
 
     public boolean isBinary() {
         return PayloadFormat.BINARY.equals(payloadFormat);
+    }
+
+    public boolean isUrl() {
+        return PayloadFormat.URL.equals(payloadFormat);
     }
 }

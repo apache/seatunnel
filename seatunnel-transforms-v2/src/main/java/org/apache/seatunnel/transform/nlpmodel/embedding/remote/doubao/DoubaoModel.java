@@ -191,7 +191,9 @@ public class DoubaoModel extends MultimodalModel {
                                 new Object[] {
                                     new MultimodalFieldValue(
                                             Collections.singletonList(
-                                                    new SrcField(new SrcFieldSpec(DIMENSION_EXAMPLE), DIMENSION_EXAMPLE)))
+                                                    new SrcField(
+                                                            new SrcFieldSpec(DIMENSION_EXAMPLE),
+                                                            DIMENSION_EXAMPLE)))
                                 })
                         .get(0)
                         .size()
