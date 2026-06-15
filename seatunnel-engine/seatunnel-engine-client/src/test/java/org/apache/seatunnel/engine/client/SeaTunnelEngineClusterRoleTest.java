@@ -462,8 +462,9 @@ public class SeaTunnelEngineClusterRoleTest {
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
             jobClient.cancelJob(jobId);
-            // Master handoff can delay terminal status propagation on the slower JDK 8 CI lane.
             await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .pollDelay(5, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 String status = jobClient.getJobStatus(jobId);
