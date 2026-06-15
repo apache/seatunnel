@@ -35,7 +35,9 @@ The Metadata transform plugin is used to extract metadata information from data 
 
 ## Knowledge Sync Metadata Fields
 
-Knowledge Sync pipelines can use the following metadata keys to carry document and chunk identity before lifecycle sinks or sink partition routing. These keys are logical row metadata keys. They become real physical columns only after they are projected by the `Metadata` transform.
+Knowledge Sync pipelines can use the following logical metadata keys to carry document and chunk identity. These keys become physical fields only after they are explicitly projected by the `Metadata` transform.
+
+The `Metadata` transform does not generate Knowledge Sync metadata by itself. The upstream source or transform must declare these fields in `CatalogTable.metadataSchema` and write the corresponding values into `SeaTunnelRow.options`.
 
 | Metadata Key | Canonical Physical Field | Output Type | Description |
 |:---:|:---:|:---:|:---|
@@ -56,8 +58,8 @@ Knowledge Sync pipelines can use the following metadata keys to carry document a
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
-5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields` and declared in the input table metadata schema. If the target physical field already exists, the transform fails instead of overwriting it.
-6. **Markdown RAG compatibility**: This change does not rename existing Markdown RAG physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`, and it does not change the current `chunk_id` or `content_hash` generation formulas.
+5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
+6. **Markdown RAG compatibility**: Existing Markdown RAG output currently exposes physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`. This transform does not migrate those physical fields into logical Knowledge Sync metadata, and this change does not rename them.
 
 ## Options
 
@@ -97,7 +99,7 @@ metadata_fields {
 
 ### Knowledge Sync Projection Example
 
-Project Knowledge Sync logical metadata keys into canonical physical columns before a sink validates routing fields or lifecycle keys.
+Project Knowledge Sync logical metadata keys into canonical physical columns. The upstream producer must already provide the metadata values through row options and declare them in the table metadata schema.
 
 ```hocon
 transform {
@@ -115,7 +117,7 @@ transform {
 }
 ```
 
-After this transform, downstream sinks can validate `document_id`, `chunk_id`, and `chunk_hash` as regular physical fields in the input schema.
+After this transform, downstream components can read `document_id`, `chunk_id`, and `chunk_hash` as regular physical fields in the input schema.
 
 ## Complete Examples
 

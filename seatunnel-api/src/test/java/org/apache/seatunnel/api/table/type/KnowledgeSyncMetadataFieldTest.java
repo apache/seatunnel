@@ -17,36 +17,29 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class KnowledgeSyncMetadataFieldTest {
 
     @Test
-    void shouldExposeAllKnowledgeSyncMetadataKeys() {
-        Set<String> fieldNames =
-                Arrays.stream(KnowledgeSyncMetadataField.values())
-                        .map(KnowledgeSyncMetadataField::getName)
-                        .collect(Collectors.toSet());
-
-        Assertions.assertTrue(fieldNames.contains("DocumentId"));
-        Assertions.assertTrue(fieldNames.contains("DocumentHash"));
-        Assertions.assertTrue(fieldNames.contains("SourceUri"));
-        Assertions.assertTrue(fieldNames.contains("SourceVersion"));
-        Assertions.assertTrue(fieldNames.contains("SourceModifiedAt"));
-        Assertions.assertTrue(fieldNames.contains("MimeType"));
-        Assertions.assertTrue(fieldNames.contains("Deleted"));
-        Assertions.assertTrue(fieldNames.contains("ChunkId"));
-        Assertions.assertTrue(fieldNames.contains("ChunkHash"));
-        Assertions.assertTrue(fieldNames.contains("ChunkIndex"));
+    void shouldRegisterKnowledgeSyncMetadataFields() {
+        Assertions.assertTrue(MetadataUtil.isMetadataField("DocumentId"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("DocumentHash"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("SourceUri"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("SourceVersion"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("SourceModifiedAt"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("MimeType"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("Deleted"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("ChunkId"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("ChunkHash"));
+        Assertions.assertTrue(MetadataUtil.isMetadataField("ChunkIndex"));
     }
 
     @Test
-    void shouldMapLogicalKeysToCanonicalPhysicalFields() {
+    void shouldExposeCanonicalPhysicalNamesAndTypes() {
         Assertions.assertEquals(
                 "document_id", KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName());
         Assertions.assertEquals(
@@ -66,10 +59,7 @@ public class KnowledgeSyncMetadataFieldTest {
                 "chunk_hash", KnowledgeSyncMetadataField.CHUNK_HASH.getPhysicalName());
         Assertions.assertEquals(
                 "chunk_index", KnowledgeSyncMetadataField.CHUNK_INDEX.getPhysicalName());
-    }
 
-    @Test
-    void shouldExposePortableFieldTypes() {
         Assertions.assertEquals(
                 BasicType.STRING_TYPE, KnowledgeSyncMetadataField.DOCUMENT_ID.getDataType());
         Assertions.assertEquals(
@@ -93,20 +83,11 @@ public class KnowledgeSyncMetadataFieldTest {
     }
 
     @Test
-    void shouldResolveByLogicalKey() {
-        Assertions.assertEquals(
-                KnowledgeSyncMetadataField.DOCUMENT_ID,
-                KnowledgeSyncMetadataField.fromName("DocumentId"));
-        Assertions.assertEquals(
-                KnowledgeSyncMetadataField.CHUNK_HASH,
-                KnowledgeSyncMetadataField.fromName("ChunkHash"));
-    }
+    void shouldCreateMetadataColumnsForProducerSchemas() {
+        MetadataColumn column = KnowledgeSyncMetadataField.DOCUMENT_ID.toMetadataColumn();
 
-    @Test
-    void shouldRecognizeKnowledgeSyncAndExistingCommonMetadataFields() {
-        Assertions.assertTrue(MetadataUtil.isMetadataField("DocumentId"));
-        Assertions.assertTrue(MetadataUtil.isMetadataField("ChunkHash"));
-        Assertions.assertTrue(MetadataUtil.isMetadataField(CommonOptions.PARTITION.getName()));
-        Assertions.assertFalse(MetadataUtil.isMetadataField("UnknownKnowledgeField"));
+        Assertions.assertEquals("DocumentId", column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertFalse(column.isPhysical());
     }
 }

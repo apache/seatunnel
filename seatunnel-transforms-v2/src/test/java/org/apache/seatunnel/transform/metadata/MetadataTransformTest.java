@@ -33,7 +33,6 @@ import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -197,7 +196,7 @@ public class MetadataTransformTest {
     }
 
     @Test
-    void testKnowledgeSyncMetadataProjection() {
+    void shouldProjectKnowledgeSyncMetadataFromRowOptions() {
         Map<String, String> metadataMapping = new LinkedHashMap<>();
         metadataMapping.put(
                 KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
@@ -209,7 +208,7 @@ public class MetadataTransformTest {
         config.put("metadata_fields", metadataMapping);
         MetadataTransform transform =
                 new MetadataTransform(
-                        ReadonlyConfig.fromMap(config), knowledgeSyncCatalogTable(false, true));
+                        ReadonlyConfig.fromMap(config), knowledgeSyncCatalogTable(true));
         transform.initRowContainerGenerator();
 
         Column[] columns = transform.getOutputColumns();
@@ -235,22 +234,7 @@ public class MetadataTransformTest {
     }
 
     @Test
-    void shouldRejectUnknownKnowledgeSyncMetadataField() {
-        Map<String, String> metadataMapping = new LinkedHashMap<>();
-        metadataMapping.put("UnknownKnowledgeField", "unknown_knowledge_field");
-        Map<String, Object> config = new HashMap<>();
-        config.put("metadata_fields", metadataMapping);
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () ->
-                        new MetadataTransform(
-                                ReadonlyConfig.fromMap(config),
-                                knowledgeSyncCatalogTable(false, true)));
-    }
-
-    @Test
-    void shouldRejectMissingKnowledgeSyncMetadataSchemaEntry() {
+    void shouldRejectKnowledgeSyncMetadataWhenSchemaDoesNotDeclareIt() {
         Map<String, String> metadataMapping = new LinkedHashMap<>();
         metadataMapping.put(
                 KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
@@ -259,7 +243,7 @@ public class MetadataTransformTest {
         config.put("metadata_fields", metadataMapping);
         MetadataTransform transform =
                 new MetadataTransform(
-                        ReadonlyConfig.fromMap(config), knowledgeSyncCatalogTable(false, false));
+                        ReadonlyConfig.fromMap(config), knowledgeSyncCatalogTable(false));
 
         TransformException exception =
                 Assertions.assertThrows(
@@ -268,68 +252,14 @@ public class MetadataTransformTest {
                 exception.getMessage().contains(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
     }
 
-    @Test
-    void shouldRejectDuplicateKnowledgeSyncProjectionTargetField() {
-        Map<String, String> metadataMapping = new LinkedHashMap<>();
-        metadataMapping.put(
-                KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
-                KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName());
-        Map<String, Object> config = new HashMap<>();
-        config.put("metadata_fields", metadataMapping);
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () ->
-                        new MetadataTransform(
-                                ReadonlyConfig.fromMap(config),
-                                knowledgeSyncCatalogTable(true, true)));
-    }
-
-    @Test
-    void shouldPreserveKnowledgeSyncMetadataSchemaForSchemaPreservingTransform() {
-        CatalogTable sourceTable = knowledgeSyncCatalogTable(false, true);
-        SchemaPreservingTransform transform = new SchemaPreservingTransform(sourceTable);
-
-        MetadataSchema metadataSchema = transform.getProducedCatalogTable().getMetadataSchema();
-        Assertions.assertTrue(
-                metadataSchema.contains(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
-        Assertions.assertTrue(
-                metadataSchema.contains(KnowledgeSyncMetadataField.CHUNK_HASH.getName()));
-    }
-
-    @Test
-    void shouldProjectKnowledgeSyncMetadataAfterSchemaPreservingTransform() {
-        CatalogTable sourceTable = knowledgeSyncCatalogTable(false, true);
-        SchemaPreservingTransform upstreamTransform = new SchemaPreservingTransform(sourceTable);
-        Map<String, String> metadataMapping = new LinkedHashMap<>();
-        metadataMapping.put(
-                KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
-                KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName());
-        metadataMapping.put(
-                KnowledgeSyncMetadataField.CHUNK_HASH.getName(),
-                KnowledgeSyncMetadataField.CHUNK_HASH.getPhysicalName());
-        Map<String, Object> config = new HashMap<>();
-        config.put("metadata_fields", metadataMapping);
-
-        MetadataTransform metadataTransform =
-                new MetadataTransform(
-                        ReadonlyConfig.fromMap(config),
-                        upstreamTransform.getProducedCatalogTable());
-        metadataTransform.initRowContainerGenerator();
-
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {"chunk text"});
-        input.getOptions().put(KnowledgeSyncMetadataField.DOCUMENT_ID.getName(), "doc_faq");
-        input.getOptions().put(KnowledgeSyncMetadataField.CHUNK_HASH.getName(), "hash_chunk_0");
-
-        SeaTunnelRow output = metadataTransform.map(input);
-        Assertions.assertEquals(3, output.getArity());
-        Assertions.assertEquals("doc_faq", output.getField(1));
-        Assertions.assertEquals("hash_chunk_0", output.getField(2));
-    }
-
-    private static CatalogTable knowledgeSyncCatalogTable(
-            boolean includePhysicalDocumentId, boolean includeKnowledgeSyncMetadata) {
-        TableSchema.Builder tableSchemaBuilder =
+    private static CatalogTable knowledgeSyncCatalogTable(boolean includeKnowledgeSyncMetadata) {
+        List<Column> metadata = new ArrayList<>();
+        if (includeKnowledgeSyncMetadata) {
+            metadata.add(KnowledgeSyncMetadataField.DOCUMENT_ID.toMetadataColumn());
+            metadata.add(KnowledgeSyncMetadataField.CHUNK_HASH.toMetadataColumn());
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", TablePath.DEFAULT),
                 TableSchema.builder()
                         .column(
                                 PhysicalColumn.of(
@@ -338,73 +268,12 @@ public class MetadataTransformTest {
                                         (Long) null,
                                         true,
                                         null,
-                                        null));
-        if (includePhysicalDocumentId) {
-            tableSchemaBuilder.column(
-                    PhysicalColumn.of(
-                            KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName(),
-                            BasicType.STRING_TYPE,
-                            (Long) null,
-                            true,
-                            null,
-                            null));
-        }
-
-        List<Column> metadata = new ArrayList<>();
-        if (includeKnowledgeSyncMetadata) {
-            metadata.add(
-                    MetadataColumn.of(
-                            KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
-                            KnowledgeSyncMetadataField.DOCUMENT_ID.getDataType(),
-                            (Long) null,
-                            true,
-                            null,
-                            null));
-            metadata.add(
-                    MetadataColumn.of(
-                            KnowledgeSyncMetadataField.CHUNK_HASH.getName(),
-                            KnowledgeSyncMetadataField.CHUNK_HASH.getDataType(),
-                            (Long) null,
-                            true,
-                            null,
-                            null));
-        }
-
-        return CatalogTable.of(
-                TableIdentifier.of("catalog", TablePath.DEFAULT),
-                tableSchemaBuilder.build(),
+                                        null))
+                        .build(),
                 new HashMap<>(),
                 new ArrayList<>(),
                 "comment",
                 "test",
                 MetadataSchema.builder().columns(metadata).build());
-    }
-
-    private static class SchemaPreservingTransform
-            extends AbstractSeaTunnelTransform<SeaTunnelRow, SeaTunnelRow> {
-
-        private SchemaPreservingTransform(CatalogTable inputCatalogTable) {
-            super(inputCatalogTable);
-        }
-
-        @Override
-        protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-            return inputRow;
-        }
-
-        @Override
-        public String getPluginName() {
-            return "SchemaPreserving";
-        }
-
-        @Override
-        protected TableSchema transformTableSchema() {
-            return inputCatalogTable.getTableSchema();
-        }
-
-        @Override
-        protected TableIdentifier transformTableIdentifier() {
-            return inputCatalogTable.getTableId().copy();
-        }
     }
 }

@@ -17,13 +17,9 @@
 
 package org.apache.seatunnel.api.table.type;
 
-/**
- * Standard Knowledge Sync metadata keys.
- *
- * <p>The logical key is stored in {@link SeaTunnelRow#getOptions()} and MetadataSchema. The
- * physical field name is the canonical column name used when metadata is projected into the
- * downstream table schema.
- */
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+
+/** Standard metadata contract for Knowledge Sync document and chunk identity fields. */
 public enum KnowledgeSyncMetadataField {
     DOCUMENT_ID("DocumentId", "document_id", BasicType.STRING_TYPE),
     DOCUMENT_HASH("DocumentHash", "document_hash", BasicType.STRING_TYPE),
@@ -58,13 +54,8 @@ public enum KnowledgeSyncMetadataField {
         return dataType;
     }
 
-    public static KnowledgeSyncMetadataField fromName(String name) {
-        for (KnowledgeSyncMetadataField field : values()) {
-            if (field.getName().equals(name)) {
-                return field;
-            }
-        }
-        throw new IllegalArgumentException("Unknown Knowledge Sync metadata field: " + name);
+    public MetadataColumn toMetadataColumn() {
+        return MetadataColumn.of(name, dataType, (Long) null, true, null, null);
     }
 
     public static boolean isKnowledgeSyncMetadataField(String name) {
