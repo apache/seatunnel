@@ -81,6 +81,15 @@ sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
 | job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
 
+### Report Metrics Operation
+
+| MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
+|---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**, worker instance address,for example: "127.0.0.1:5801". **result**, one of "success" "failure" "interrupted" | The total number of `ReportMetricsOperation` invocations sent by a worker                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The number of task metrics included in the most recent `ReportMetricsOperation` payload sent by a worker        |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The most recent `ReportMetricsOperation` invocation latency in milliseconds measured on the worker              |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The maximum observed `ReportMetricsOperation` invocation latency in milliseconds since the worker started       |
+
 ### Job info detail
 
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |

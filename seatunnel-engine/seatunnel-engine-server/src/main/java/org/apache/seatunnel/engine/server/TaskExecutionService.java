@@ -53,6 +53,7 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -96,6 +97,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -138,6 +140,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
     private final SeaTunnelConfig seaTunnelConfig;
+    private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationFailureCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationInterruptedCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationLastPayloadTaskCount = new AtomicLong();
+    private final AtomicLong reportMetricsOperationLastInvocationLatencyMs = new AtomicLong();
+    private final AtomicLong reportMetricsOperationMaxInvocationLatencyMs = new AtomicLong();
 
     private final ScheduledExecutorService scheduledExecutorService;
 
@@ -591,24 +599,80 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             return;
         }
 
+        HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
+        long invocationStartNanos = System.nanoTime();
+        int payloadTaskCount = localMetricsMap.size();
         InvocationFuture<Object> invoke =
                 nodeEngine
                         .getOperationService()
                         .createInvocationBuilder(
                                 SeaTunnelServer.SERVICE_NAME,
-                                new ReportMetricsOperation(collectLocalMetricsMap()),
+                                new ReportMetricsOperation(localMetricsMap),
                                 nodeEngine.getMasterAddress())
                         .invoke();
 
         try {
             invoke.get();
+            recordReportMetricsOperationSuccess(
+                    payloadTaskCount, elapsedMillisSince(invocationStartNanos));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.severe("update metrics context stopped due to thread interruption.", e);
+            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
+            recordReportMetricsOperationInterruption(payloadTaskCount, elapsedMillis);
+            logger.severe(
+                    String.format(
+                            "update metrics context stopped due to thread interruption, "
+                                    + "payloadTaskCount=%d, invocationLatencyMs=%d.",
+                            payloadTaskCount, elapsedMillis),
+                    e);
         } catch (Exception e) {
-            logger.severe("failed to update metrics", e);
+            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
+            recordReportMetricsOperationFailure(payloadTaskCount, elapsedMillis);
+            logger.severe(
+                    String.format(
+                            "failed to update metrics, payloadTaskCount=%d, "
+                                    + "invocationLatencyMs=%d.",
+                            payloadTaskCount, elapsedMillis),
+                    e);
         }
         this.printTaskExecutionRuntimeInfo();
+    }
+
+    private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationSuccessCount.incrementAndGet();
+    }
+
+    private void recordReportMetricsOperationFailure(int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationFailureCount.incrementAndGet();
+    }
+
+    private void recordReportMetricsOperationInterruption(
+            int payloadTaskCount, long elapsedMillis) {
+        updateReportMetricsOperationObservability(payloadTaskCount, elapsedMillis);
+        reportMetricsOperationInterruptedCount.incrementAndGet();
+    }
+
+    private void updateReportMetricsOperationObservability(
+            int payloadTaskCount, long elapsedMillis) {
+        reportMetricsOperationLastPayloadTaskCount.set(payloadTaskCount);
+        reportMetricsOperationLastInvocationLatencyMs.set(elapsedMillis);
+        reportMetricsOperationMaxInvocationLatencyMs.accumulateAndGet(elapsedMillis, Math::max);
+    }
+
+    private long elapsedMillisSince(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+    }
+
+    public ReportMetricsOperationStats getReportMetricsOperationStats() {
+        return new ReportMetricsOperationStats(
+                reportMetricsOperationSuccessCount.get(),
+                reportMetricsOperationFailureCount.get(),
+                reportMetricsOperationInterruptedCount.get(),
+                reportMetricsOperationLastPayloadTaskCount.get(),
+                reportMetricsOperationLastInvocationLatencyMs.get(),
+                reportMetricsOperationMaxInvocationLatencyMs.get());
     }
 
     private HashMap<TaskLocation, SeaTunnelMetricsContext> collectLocalMetricsMap() {
