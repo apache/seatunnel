@@ -344,105 +344,94 @@ public class LocalFileIT extends TestSuiteBase {
             };
 
     @TestTemplate
-    public void testLocalFileReadAndWrite(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testLocalFileCsv(TestContainer container) throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         helper.execute("/csv/fake_to_local_csv.conf");
         helper.execute("/csv/local_csv_to_assert.conf");
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileExcel(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
         helper.execute("/excel/special_excel_to_assert.conf");
-        // test write local text file
+        helper.execute("/excel/local_filter_excel_to_assert.conf");
+        helper.execute("/excel/local_filter_regex_excel_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileText(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         helper.execute("/text/fake_to_local_file_text.conf");
         helper.execute("/text/local_file_text_lzo_to_assert.conf");
         helper.execute("/text/local_file_delimiter_assert.conf");
         helper.execute("/text/local_file_time_format_assert.conf");
-        // test read skip header
         helper.execute("/text/local_file_text_skip_headers.conf");
-        // test read local text file
         helper.execute("/text/local_file_text_to_assert.conf");
-        // test read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
-        // test read local csv file with assigning encoding
         helper.execute("/text/fake_to_local_file_with_encoding.conf");
-        // test read local csv file with assigning encoding
         helper.execute("/text/local_file_text_to_console_with_encoding.conf");
         helper.execute("/text/local_file_null_format_assert.conf");
+    }
 
-        // test write local json file
+    @TestTemplate
+    public void testLocalFileJson(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         helper.execute("/json/fake_to_local_file_json.conf");
-        // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
         helper.execute("/json/local_file_json_enable_split_to_assert.conf");
         helper.execute("/json/local_file_json_lzo_to_console.conf");
-        // test read local json file with assigning encoding
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
-        // test write local json file with assigning encoding
         helper.execute("/json/local_file_json_to_console_with_encoding.conf");
+        helper.execute("/json/local_file_to_console.conf");
+    }
 
-        // test write local orc file
+    @TestTemplate
+    public void testLocalFileOrcParquetBinaryXml(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         helper.execute("/orc/fake_to_local_file_orc.conf");
-        // test read local orc file
         helper.execute("/orc/local_file_orc_to_assert.conf");
-        // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
-        // test read local orc file with projection and type cast
         helper.execute("/orc/local_file_orc_to_assert_with_time_and_cast.conf");
-        // test write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
-        // test read local parquet file
         helper.execute("/parquet/local_file_parquet_to_assert.conf");
         helper.execute("/parquet/local_file_parquet_enable_split_to_assert.conf");
-        // test read local parquet file with projection
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
-        // test read filtered local file
-        helper.execute("/excel/local_filter_excel_to_assert.conf");
-        // test read filtered local file with regex
-        helper.execute("/excel/local_filter_regex_excel_to_assert.conf");
-
-        // test read empty directory
-        helper.execute("/json/local_file_to_console.conf");
         helper.execute("/parquet/local_file_to_console.conf");
-
-        // test binary file
         helper.execute("/binary/local_file_binary_to_local_file_binary.conf");
         if (!container.identifier().getEngineType().equals(EngineType.FLINK)) {
-            // the file generated by local_file_binary_to_local_file_binary in taskManager, so read
-            // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
-
         helper.execute("/xml/local_file_xml_to_assert.conf");
-        /** Compressed file test */
-        // test read single local text file with zip compression
+    }
+
+    @TestTemplate
+    public void testLocalFileCompressed(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         helper.execute("/text/local_file_zip_text_to_assert.conf");
         helper.execute("/text/local_file_gz_text_to_assert.conf");
-        // test read multi local text file with zip compression
         helper.execute("/text/local_file_multi_zip_text_to_assert.conf");
-        // test read single local text file with tar compression
         helper.execute("/text/local_file_tar_text_to_assert.conf");
         helper.execute("/text/local_file_text_enable_split_to_assert.conf");
-        // test read multi local text file with tar compression
         helper.execute("/text/local_file_multi_tar_text_to_assert.conf");
-        // test read single local text file with tar.gz compression
         helper.execute("/text/local_file_tar_gz_text_to_assert.conf");
-        // test read multi local text file with tar.gz compression
         helper.execute("/text/local_file_multi_tar_gz_text_to_assert.conf");
-        // test read single local json file with zip compression
         helper.execute("/json/local_file_json_zip_to_assert.conf");
         helper.execute("/json/local_file_json_gz_to_assert.conf");
-        // test read multi local json file with zip compression
         helper.execute("/json/local_file_json_multi_zip_to_assert.conf");
-        // test read single local xml file with zip compression
         helper.execute("/xml/local_file_zip_xml_to_assert.conf");
         helper.execute("/xml/local_file_gz_xml_to_assert.conf");
-        // test read single local excel file with zip compression
         helper.execute("/excel/local_excel_zip_to_assert.conf");
-        // test read multi local excel file with zip compression
         helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
         helper.execute("/excel/local_excel_xls_gz_to_assert.conf");
         helper.execute("/excel/local_excel_xlsx_gz_to_assert.conf");
