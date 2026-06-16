@@ -211,14 +211,14 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 "collect() must return metrics when task execution service exists");
         Collector.MetricFamilySamples totalMetric =
                 result.stream()
-                        .filter(s -> "report_metrics_operation_total".equals(s.name))
+                        .filter(s -> "report_metrics_operation".equals(s.name))
                         .findFirst()
                         .orElse(null);
         Assertions.assertNotNull(totalMetric);
         Assertions.assertEquals(3, totalMetric.samples.size());
-        assertMetricSample(totalMetric, "success", 3D);
-        assertMetricSample(totalMetric, "failure", 1D);
-        assertMetricSample(totalMetric, "interrupted", 1D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "success", 3D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "failure", 1D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "interrupted", 1D);
 
         Collector.MetricFamilySamples payloadMetric =
                 result.stream()
@@ -313,12 +313,16 @@ public class TelemetryCollectorCoordinatorGuardTest {
 
     private void assertMetricSample(
             Collector.MetricFamilySamples metricFamilySamples,
+            String expectedSampleName,
             String result,
             double expectedValue) {
         Collector.MetricFamilySamples.Sample sample =
                 metricFamilySamples.samples.stream()
                         .filter(
                                 s -> {
+                                    if (!expectedSampleName.equals(s.name)) {
+                                        return false;
+                                    }
                                     int resultLabelIndex = s.labelNames.indexOf("result");
                                     return resultLabelIndex >= 0
                                             && result.equals(s.labelValues.get(resultLabelIndex));
