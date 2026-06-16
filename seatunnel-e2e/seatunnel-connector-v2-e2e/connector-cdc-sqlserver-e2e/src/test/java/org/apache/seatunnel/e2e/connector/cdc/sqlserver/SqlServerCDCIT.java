@@ -623,15 +623,21 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         try {
             List<String> statements =
                     parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
+            String currentDatabase = null;
             for (String stmt : statements) {
-                executeWithDeadlockRetry(stmt);
+                String trimmed = stmt.trim();
+                if (trimmed.toUpperCase().startsWith("USE ")) {
+                    currentDatabase = trimmed.substring(4).replaceAll(";\\s*$", "").trim();
+                    continue;
+                }
+                executeWithDeadlockRetry(stmt, currentDatabase);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void executeWithDeadlockRetry(String sql) {
+    private void executeWithDeadlockRetry(String sql, String database) {
         Awaitility.await(
                         "Executing: "
                                 + sql.substring(0, Math.min(80, sql.length()))
@@ -642,6 +648,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         () -> {
                             try (Connection connection = getJdbcConnection();
                                     Statement statement = connection.createStatement()) {
+                                if (database != null) {
+                                    statement.execute("USE " + database);
+                                }
                                 statement.execute(sql);
                                 return true;
                             } catch (SQLException e) {
