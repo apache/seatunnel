@@ -258,7 +258,6 @@ Use these SeaTunnel-owned canonical names:
 | `modify.column`  | change a column's type/attributes, name unchanged    |
 | `change.column`  | rename a column, optionally re-type                  |
 | `update.columns` | group alias for all four column-level changes above  |
-| `rename.table`   | rename a table                                       |
 
 Precedence is deterministic:
 

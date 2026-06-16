@@ -46,7 +46,12 @@ public final class SchemaChangeEventType {
         map.put("modify.column", EventType.SCHEMA_CHANGE_MODIFY_COLUMN);
         map.put("change.column", EventType.SCHEMA_CHANGE_CHANGE_COLUMN);
         map.put("update.columns", EventType.SCHEMA_CHANGE_UPDATE_COLUMNS);
-        map.put("rename.table", EventType.SCHEMA_CHANGE_RENAME_TABLE);
+        // NOTE: rename.table (SCHEMA_CHANGE_RENAME_TABLE) is intentionally NOT exposed yet. CDC has
+        // no end-to-end handling for table renames: the DDL is never parsed into an
+        // AlterTableNameEvent, the schema handlers treat that event as a no-op, and no sink applies
+        // it. Exposing it as a filterable name would advertise a capability that does not exist.
+        // It should be added back only once table-rename is implemented end-to-end (see the
+        // rename-table design follow-up).
         CANONICAL_NAME_TO_EVENT_TYPE = Collections.unmodifiableMap(map);
     }
 

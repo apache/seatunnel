@@ -169,17 +169,27 @@ class SchemaChangeEventFilterTest {
     }
 
     @Test
-    void renameTableIsFilteredAsTableLevelEvent() {
-        TableIdentifier renamed = TableIdentifier.of("", "db", "tbl2");
-        AlterTableNameEvent rename = new AlterTableNameEvent(TABLE, renamed);
+    void renameTableIsNotAnExposedCanonicalName() {
+        // rename.table is intentionally not exposed: CDC has no end-to-end handling for table
+        // renames, so it must be rejected as an unknown name rather than advertised as filterable.
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> SchemaChangeEventType.fromCanonicalName("rename.table"));
+        Assertions.assertTrue(ex.getMessage().contains("rename.table"));
+    }
 
+    @Test
+    void strayTableLevelEventIsHandledDefensively() {
+        // No canonical name maps to a table-level type, so such an event is not produced by CDC
+        // today. The filter still handles it defensively: an active column-level include list
+        // drops it, and a no-op filter passes it through unchanged.
+        AlterTableNameEvent rename =
+                new AlterTableNameEvent(TABLE, TableIdentifier.of("", "db", "tbl2"));
         Assertions.assertNull(
                 filter(Arrays.asList("add.column"), Collections.emptyList()).filter(rename));
         Assertions.assertSame(
-                rename,
-                filter(Arrays.asList("rename.table"), Collections.emptyList()).filter(rename));
-        Assertions.assertNull(
-                filter(Collections.emptyList(), Arrays.asList("rename.table")).filter(rename));
+                rename, filter(Collections.emptyList(), Collections.emptyList()).filter(rename));
     }
 
     @Test
@@ -190,6 +200,48 @@ class SchemaChangeEventFilterTest {
                         () -> filter(Arrays.asList("create.table"), Collections.emptyList()));
         Assertions.assertTrue(ex.getMessage().contains("create.table"));
         Assertions.assertTrue(ex.getMessage().contains("add.column"));
+    }
+
+    @Test
+    void validateOptionsAcceptsValidNames() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("schema-changes.include", Arrays.asList("add.column"));
+        map.put("schema-changes.exclude", Arrays.asList("drop.column"));
+        Assertions.assertDoesNotThrow(
+                () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
+    }
+
+    @Test
+    void validateOptionsAcceptsEmptyConfig() {
+        Assertions.assertDoesNotThrow(
+                () ->
+                        SchemaChangeEventFilter.validateOptions(
+                                ReadonlyConfig.fromMap(new HashMap<>())));
+    }
+
+    @Test
+    void validateOptionsFailsFastOnUnknownIncludeName() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("schema-changes.include", Arrays.asList("rename.tabble"));
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
+        Assertions.assertTrue(ex.getMessage().contains("schema-changes.include"));
+        Assertions.assertTrue(ex.getMessage().contains("rename.tabble"));
+        Assertions.assertTrue(ex.getMessage().contains("add.column"));
+    }
+
+    @Test
+    void validateOptionsFailsFastOnUnknownExcludeName() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("schema-changes.exclude", Arrays.asList("drop.colum"));
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
+        Assertions.assertTrue(ex.getMessage().contains("schema-changes.exclude"));
+        Assertions.assertTrue(ex.getMessage().contains("drop.colum"));
     }
 
     @Test
@@ -222,10 +274,7 @@ class SchemaChangeEventFilterTest {
         Assertions.assertEquals(
                 EventType.SCHEMA_CHANGE_UPDATE_COLUMNS,
                 SchemaChangeEventType.fromCanonicalName("update.columns"));
-        Assertions.assertEquals(
-                EventType.SCHEMA_CHANGE_RENAME_TABLE,
-                SchemaChangeEventType.fromCanonicalName("rename.table"));
-        Assertions.assertEquals(6, SchemaChangeEventType.canonicalNames().size());
+        Assertions.assertEquals(5, SchemaChangeEventType.canonicalNames().size());
     }
 
     /**

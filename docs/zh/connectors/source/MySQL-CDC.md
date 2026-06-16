@@ -356,7 +356,6 @@ sink {
 | `modify.column`  | 修改列的类型/属性，列名不变                  |
 | `change.column`  | 列重命名，可同时改类型                       |
 | `update.columns` | 上述四种列级变更的分组别名                   |
-| `rename.table`   | 重命名表                                    |
 
 优先级规则（确定性）：
 
