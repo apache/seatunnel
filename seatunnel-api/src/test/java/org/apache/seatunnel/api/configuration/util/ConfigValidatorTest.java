@@ -296,8 +296,7 @@ public class ConfigValidatorTest {
         Map<String, Object> config = new HashMap<>();
         config.put(SINGLE_CHOICE_TEST.key(), "A");
         Executable executable = () -> validate(config, optionRule);
-        OptionValidationException ex =
-                assertThrows(OptionValidationException.class, executable);
+        OptionValidationException ex = assertThrows(OptionValidationException.class, executable);
         String msg = ex.getMessage();
         Assertions.assertTrue(
                 msg.contains("single_choice_test"), "Should mention option key: " + msg);
@@ -316,14 +315,12 @@ public class ConfigValidatorTest {
 
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "N");
         executable = () -> validate(config, optionRule);
-        OptionValidationException ex =
-                assertThrows(OptionValidationException.class, executable);
+        OptionValidationException ex = assertThrows(OptionValidationException.class, executable);
         String msg = ex.getMessage();
         Assertions.assertTrue(
                 msg.contains("single_choice_test"), "Should mention option key: " + msg);
         Assertions.assertTrue(
-                msg.contains("value(N) must be one of"),
-                "Should mention invalid value: " + msg);
+                msg.contains("value(N) must be one of"), "Should mention invalid value: " + msg);
     }
 
     @Test
@@ -3515,8 +3512,7 @@ public class ConfigValidatorTest {
         config.put("mode2", "INVALID2");
 
         OptionValidationException ex =
-                assertThrows(
-                        OptionValidationException.class, () -> validate(config, rule));
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
         String msg = ex.getMessage();
         Assertions.assertTrue(msg.contains("mode1"), "Should report mode1 error: " + msg);
         Assertions.assertTrue(msg.contains("mode2"), "Should report mode2 error: " + msg);
@@ -3548,11 +3544,9 @@ public class ConfigValidatorTest {
         config.put("port", 0);
 
         OptionValidationException ex =
-                assertThrows(
-                        OptionValidationException.class, () -> validate(config, rule));
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
         String msg = ex.getMessage();
-        Assertions.assertTrue(
-                msg.contains("host"), "Should report missing host: " + msg);
+        Assertions.assertTrue(msg.contains("host"), "Should report missing host: " + msg);
         Assertions.assertTrue(
                 msg.contains("format") && msg.contains("single_choice"),
                 "Should report single_choice error: " + msg);
