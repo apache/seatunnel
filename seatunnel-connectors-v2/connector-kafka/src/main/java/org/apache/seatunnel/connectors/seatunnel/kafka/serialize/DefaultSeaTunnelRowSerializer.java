@@ -129,13 +129,14 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             MessageFormat format,
             String delimiter,
             ReadonlyConfig pluginConfig) {
-        return create(topic, partition, null, rowType, format, delimiter, pluginConfig);
+        return create(topic, partition, null, null, rowType, format, delimiter, pluginConfig);
     }
 
     public static DefaultSeaTunnelRowSerializer create(
             String topic,
             Integer partition,
             List<String> headerFields,
+            List<String> messageValueFields,
             SeaTunnelRowType rowType,
             MessageFormat format,
             String delimiter,
@@ -145,7 +146,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 partitionExtractor(partition),
                 timestampExtractor(),
                 keyExtractor(null, rowType, format, delimiter, pluginConfig),
-                valueExtractor(headerFields, rowType, format, delimiter, pluginConfig),
+                valueExtractor(
+                        headerFields, messageValueFields, rowType, format, delimiter, pluginConfig),
                 headersExtractor(headerFields, rowType));
     }
 
@@ -156,13 +158,14 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             MessageFormat format,
             String delimiter,
             ReadonlyConfig pluginConfig) {
-        return create(topic, keyFields, null, rowType, format, delimiter, pluginConfig);
+        return create(topic, keyFields, null, null, rowType, format, delimiter, pluginConfig);
     }
 
     public static DefaultSeaTunnelRowSerializer create(
             String topic,
             List<String> keyFields,
             List<String> headerFields,
+            List<String> messageValueFields,
             SeaTunnelRowType rowType,
             MessageFormat format,
             String delimiter,
@@ -172,7 +175,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 partitionExtractor(null),
                 timestampExtractor(),
                 keyExtractor(keyFields, rowType, format, delimiter, pluginConfig),
-                valueExtractor(headerFields, rowType, format, delimiter, pluginConfig),
+                valueExtractor(
+                        headerFields, messageValueFields, rowType, format, delimiter, pluginConfig),
                 headersExtractor(headerFields, rowType));
     }
 
@@ -310,18 +314,21 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private static Function<SeaTunnelRow, byte[]> valueExtractor(
             List<String> headerFields,
+            List<String> messageValueFields,
             SeaTunnelRowType rowType,
             MessageFormat format,
             String delimiter,
             ReadonlyConfig pluginConfig) {
-        if (headerFields == null || headerFields.isEmpty()) {
+        if ((headerFields == null || headerFields.isEmpty())
+                && (messageValueFields == null || messageValueFields.isEmpty())) {
             return valueExtractor(rowType, format, delimiter, pluginConfig);
         }
 
-        // Create a new row type excluding header fields
-        SeaTunnelRowType valueRowType = createValueRowType(headerFields, rowType);
+        // Create a new row type excluding header fields or retaining only message value fields
+        SeaTunnelRowType valueRowType =
+                createValueRowType(headerFields, messageValueFields, rowType);
         Function<SeaTunnelRow, SeaTunnelRow> valueRowExtractor =
-                createValueRowExtractor(valueRowType, headerFields, rowType);
+                createValueRowExtractor(valueRowType, rowType);
         SerializationSchema serializationSchema =
                 createSerializationSchema(valueRowType, format, delimiter, false, pluginConfig);
         return row -> serializationSchema.serialize(valueRowExtractor.apply(row));
@@ -345,16 +352,24 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static SeaTunnelRowType createValueRowType(
-            List<String> headerFieldNames, SeaTunnelRowType rowType) {
-        // Create a row type excluding header fields
+            List<String> headerFieldNames,
+            List<String> messageValueFields,
+            SeaTunnelRowType rowType) {
         List<String> valueFieldNames = new java.util.ArrayList<>();
         List<SeaTunnelDataType> valueFieldTypes = new java.util.ArrayList<>();
 
-        for (int i = 0; i < rowType.getTotalFields(); i++) {
-            String fieldName = rowType.getFieldName(i);
-            if (!headerFieldNames.contains(fieldName)) {
+        if (messageValueFields != null && !messageValueFields.isEmpty()) {
+            for (String fieldName : messageValueFields) {
                 valueFieldNames.add(fieldName);
-                valueFieldTypes.add(rowType.getFieldType(i));
+                valueFieldTypes.add(rowType.getFieldType(rowType.indexOf(fieldName)));
+            }
+        } else {
+            for (int i = 0; i < rowType.getTotalFields(); i++) {
+                String fieldName = rowType.getFieldName(i);
+                if (headerFieldNames == null || !headerFieldNames.contains(fieldName)) {
+                    valueFieldNames.add(fieldName);
+                    valueFieldTypes.add(rowType.getFieldType(i));
+                }
             }
         }
 
@@ -383,7 +398,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static Function<SeaTunnelRow, SeaTunnelRow> createValueRowExtractor(
-            SeaTunnelRowType valueType, List<String> headerFieldNames, SeaTunnelRowType rowType) {
+            SeaTunnelRowType valueType, SeaTunnelRowType rowType) {
         int[] valueIndex = new int[valueType.getTotalFields()];
         for (int i = 0; i < valueType.getTotalFields(); i++) {
             valueIndex[i] = rowType.indexOf(valueType.getFieldName(i));
