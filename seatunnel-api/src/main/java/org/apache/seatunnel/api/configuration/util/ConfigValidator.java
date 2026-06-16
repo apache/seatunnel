@@ -30,7 +30,6 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -191,14 +190,14 @@ public class ConfigValidator {
                                     (RequiredOption.ConditionalRequiredOptions) requiredOption)) {
                         continue;
                     }
-                    validateSingleChoice(option);
+                    validateSingleChoice(option, errors);
                 }
             }
         }
 
         for (Option option : rule.getOptionalOptions()) {
             if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
-                validateSingleChoice(option);
+                validateSingleChoice(option, errors);
             }
         }
 
@@ -308,29 +307,31 @@ public class ConfigValidator {
         return false;
     }
 
-    void validateSingleChoice(Option option) {
+    void validateSingleChoice(Option option, List<String> errors) {
         SingleChoiceOption singleChoiceOption = (SingleChoiceOption) option;
         List optionValues = singleChoiceOption.getOptionValues();
         if (CollectionUtils.isEmpty(optionValues)) {
-            throw new OptionValidationException(
-                    "These options(%s) are SingleChoiceOption, the optionValues must not be null.",
-                    getOptionKeys(Collections.singletonList(singleChoiceOption)));
+            errors.add(
+                    String.format(
+                            "option: %s\n      type: singleChoice\n      constraint: optionValues must not be empty",
+                            option.key()));
+            return;
         }
 
         Object o = singleChoiceOption.defaultValue();
         if (o != null && !optionValues.contains(o)) {
-            throw new OptionValidationException(
-                    "These options(%s) are SingleChoiceOption, the defaultValue(%s) must be one of the optionValues(%s).",
-                    getOptionKeys(Collections.singletonList(singleChoiceOption)), o, optionValues);
+            errors.add(
+                    String.format(
+                            "option: %s\n      type: singleChoice\n      constraint: defaultValue(%s) must be one of %s",
+                            option.key(), o, optionValues));
         }
 
         Object value = config.get(option);
         if (value != null && !optionValues.contains(value)) {
-            throw new OptionValidationException(
-                    "These options(%s) are SingleChoiceOption, the value(%s) must be one of the optionValues(%s).",
-                    getOptionKeys(Collections.singletonList(singleChoiceOption)),
-                    value,
-                    optionValues);
+            errors.add(
+                    String.format(
+                            "option: %s\n      type: singleChoice\n      constraint: value(%s) must be one of %s",
+                            option.key(), value, optionValues));
         }
     }
 
