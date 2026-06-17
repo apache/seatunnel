@@ -3548,7 +3548,7 @@ public class ConfigValidatorTest {
         String msg = ex.getMessage();
         Assertions.assertTrue(msg.contains("host"), "Should report missing host: " + msg);
         Assertions.assertTrue(
-                msg.contains("format") && msg.contains("single_choice"),
+                msg.contains("format") && msg.contains("singleChoice"),
                 "Should report single_choice error: " + msg);
         Assertions.assertTrue(
                 msg.contains("port") && msg.contains("value"),
