@@ -20,4 +20,7 @@ export default {
   hour: '时',
   min: '分',
   second: '秒',
+  version: '版本',
+  commit: '提交',
+  language: '语言',
 }

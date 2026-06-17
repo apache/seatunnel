@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -59,9 +60,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 /**
@@ -85,6 +89,12 @@ import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStat
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle
         implements InternalCheckpointListener {
 
+    private static final long SCHEMA_CHANGE_SLEEP_MS = 200L;
+    private static final long SCHEMA_CHANGE_SLEEP_NS =
+            TimeUnit.MILLISECONDS.toNanos(SCHEMA_CHANGE_SLEEP_MS);
+    private static final long IDLE_SLEEP_MS = 100L;
+    private static final long IDLE_SLEEP_NS = TimeUnit.MILLISECONDS.toNanos(IDLE_SLEEP_MS);
+
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final TaskLocation enumeratorTaskLocation;
 
@@ -103,6 +113,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
     private SourceReader.Context context;
+
+    private transient Counter sourceReadNs;
+    private transient Counter sourceIdleNs;
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
@@ -147,6 +160,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         this,
                         metricsContext,
                         eventListener);
+        this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
+        this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         this.reader = sourceAction.getSource().createReader(context);
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
@@ -206,18 +221,31 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws Exception if polling or schema-change triggering fails
      */
     public void collect() throws Exception {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         if (!prepareClose) {
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
-
-                Thread.sleep(200);
+                if (metricsEnabled) {
+                    sourceIdleNs.inc(SCHEMA_CHANGE_SLEEP_NS);
+                }
+                Thread.sleep(SCHEMA_CHANGE_SLEEP_MS);
                 return;
             }
 
+            collector.resetEmptyThisPollNext();
+            long startNs = metricsEnabled ? System.nanoTime() : 0L;
             reader.pollNext(collector);
+            long pollCostNs = metricsEnabled ? (System.nanoTime() - startNs) : 0L;
             if (collector.isEmptyThisPollNext()) {
-                Thread.sleep(100);
+                if (metricsEnabled) {
+                    sourceIdleNs.inc(pollCostNs);
+                    sourceIdleNs.inc(IDLE_SLEEP_NS);
+                }
+                Thread.sleep(IDLE_SLEEP_MS);
             } else {
+                if (metricsEnabled) {
+                    sourceReadNs.inc(pollCostNs);
+                }
                 collector.resetEmptyThisPollNext();
                 /**
                  * The current thread obtain a checkpoint lock in the method {@link
@@ -249,7 +277,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 log.info("triggered schema-change-after checkpoint, stopping collect data");
             }
         } else {
-            Thread.sleep(100);
+            if (metricsEnabled) {
+                sourceIdleNs.inc(IDLE_SLEEP_NS);
+            }
+            Thread.sleep(IDLE_SLEEP_MS);
         }
     }
 

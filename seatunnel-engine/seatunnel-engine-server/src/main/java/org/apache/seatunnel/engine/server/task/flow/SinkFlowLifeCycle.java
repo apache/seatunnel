@@ -72,6 +72,11 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ABORT_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMIT_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_PREPARE_COMMIT_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_RECORDS_IN;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_NANOS;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
@@ -104,6 +109,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final ConnectorMetricsCalcContext connectorMetricsCalcContext;
 
+    private final Counter sinkWriteNs;
+    private final Counter sinkRecordsIn;
+    private final Counter sinkPrepareCommitNs;
+    private final Counter sinkCommitNs;
+    private final Counter sinkAbortNs;
+
     private final boolean containAggCommitter;
 
     private final EventListener eventListener;
@@ -132,6 +143,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.committerTaskLocation = committerTaskLocation;
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
+        long sinkId = sinkAction.getId();
+        this.sinkWriteNs = metricsContext.counter(SINK_WRITE_NANOS + "#" + sinkId);
+        this.sinkRecordsIn = metricsContext.counter(SINK_RECORDS_IN + "#" + sinkId);
+        this.sinkPrepareCommitNs = metricsContext.counter(SINK_PREPARE_COMMIT_NANOS + "#" + sinkId);
+        this.sinkCommitNs = metricsContext.counter(SINK_COMMIT_NANOS + "#" + sinkId);
+        this.sinkAbortNs = metricsContext.counter(SINK_ABORT_NANOS + "#" + sinkId);
         this.eventListener = new JobEventListener(taskLocation, runningTask.getExecutionContext());
         this.stainTraceEventsReportedTotal =
                 metricsContext.counter(StainTraceConstants.METRIC_EVENTS_REPORTED_TOTAL);
@@ -202,6 +219,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     @Override
     public void received(Record<?> record) {
         try {
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             if (record.getData() instanceof Barrier) {
                 long startTime = System.currentTimeMillis();
 
@@ -212,7 +230,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 if (barrier.snapshot()) {
                     try {
+                        long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
                         lastCommitInfo = writer.prepareCommit(barrier.getId());
+                        if (metricsEnabled) {
+                            sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
+                        }
                     } catch (Exception e) {
                         writer.abortPrepare();
                         throw e;
@@ -292,7 +314,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 String tableId;
+                long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
                 writer.write((T) record.getData());
+                if (metricsEnabled) {
+                    sinkWriteNs.inc(System.nanoTime() - writeStartNs);
+                    sinkRecordsIn.inc();
+                }
                 if (record.getData() instanceof SeaTunnelRow) {
                     SeaTunnelRow row = (SeaTunnelRow) record.getData();
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
@@ -356,7 +383,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+            long commitStartNs = metricsEnabled ? System.nanoTime() : 0L;
             committer.get().commit(Collections.singletonList(lastCommitInfo.get()));
+            if (metricsEnabled) {
+                sinkCommitNs.inc(System.nanoTime() - commitStartNs);
+            }
         }
         connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
     }
@@ -364,7 +396,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+            long abortStartNs = metricsEnabled ? System.nanoTime() : 0L;
             committer.get().abort(Collections.singletonList(lastCommitInfo.get()));
+            if (metricsEnabled) {
+                sinkAbortNs.inc(System.nanoTime() - abortStartNs);
+            }
         }
         connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
     }

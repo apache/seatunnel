@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -29,8 +30,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
@@ -88,7 +89,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -103,7 +105,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -118,7 +121,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -152,7 +156,8 @@ public class ParquetReadStrategyTest {
         String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
@@ -181,7 +186,8 @@ public class ParquetReadStrategyTest {
         String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
@@ -196,7 +202,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadArray() throws Exception {
         AutoGenerateParquetData.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(AutoGenerateParquetData.DATA_FILE_PATH);
@@ -231,7 +238,8 @@ public class ParquetReadStrategyTest {
         }
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(NativeParquetWriter.DATA_FILE_PATH);
@@ -247,7 +255,8 @@ public class ParquetReadStrategyTest {
         NativeParquetWriterWithAvroIncompatibleColumn.generateTestData();
         try {
             ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             SeaTunnelRowType rowType =
                     parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -274,7 +283,8 @@ public class ParquetReadStrategyTest {
         NativeParquetWriterWithAvroIncompatibleColumnAndList.generateTestData();
         try {
             ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             SeaTunnelRowType rowType =
                     parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -302,6 +312,40 @@ public class ParquetReadStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
+    public void testParquetReadColumnsWithNativeParquetFallback() throws Exception {
+        NativeParquetWriterWithAvroIncompatibleColumn.generateTestData();
+        try {
+            ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            parquetReadStrategy.init(localConf);
+            parquetReadStrategy.setPluginConfig(
+                    ConfigFactory.parseString(
+                            "read_columns = [job_blue-collar, id]\n"
+                                    + "parse_partition_from_path = false"));
+
+            SeaTunnelRowType rowType =
+                    parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                            NativeParquetWriterWithAvroIncompatibleColumn.DATA_FILE_PATH);
+            Assertions.assertEquals("job_blue-collar", rowType.getFieldName(0));
+            Assertions.assertEquals("id", rowType.getFieldName(1));
+
+            TestCollector testCollector = new TestCollector();
+            parquetReadStrategy.read(
+                    NativeParquetWriterWithAvroIncompatibleColumn.DATA_FILE_PATH,
+                    "",
+                    testCollector);
+            Assertions.assertEquals(1, testCollector.getRows().size());
+            SeaTunnelRow row = testCollector.getRows().get(0);
+            Assertions.assertEquals("engineer", row.getField(0));
+            Assertions.assertEquals(1, row.getField(1));
+        } finally {
+            NativeParquetWriterWithAvroIncompatibleColumn.deleteFile();
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
     public void testParquetWithUserConfigRowType() throws Exception {
         AutoGenerateParquetData.generateTestData();
         String path = AutoGenerateParquetData.DATA_FILE_PATH;
@@ -313,7 +357,8 @@ public class ParquetReadStrategyTest {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         SeaTunnelRowType configRowType = catalogTable.getSeaTunnelRowType();
@@ -382,25 +427,6 @@ public class ParquetReadStrategyTest {
         @Override
         public Object getCheckpointLock() {
             return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 
@@ -544,7 +570,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedArray() throws Exception {
         AutoGenerateParquetDataWithNestedArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -597,7 +624,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedBytesArray() throws Exception {
         AutoGenerateParquetDataWithNestedBytesArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         SeaTunnelRowType seaTunnelRowTypeInfo =
@@ -650,7 +678,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedArrayWithUserConfigRowType() throws Exception {
         AutoGenerateParquetDataWithNestedArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         ArrayType<String[], String> stringArrayType = ArrayType.STRING_ARRAY_TYPE;
@@ -728,7 +757,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadArrayOfMap() throws Exception {
         AutoGenerateParquetDataWithArrayOfMap.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -1087,6 +1117,136 @@ public class ParquetReadStrategyTest {
             File checksumFile = new File(DATA_FILE_PATH + ".crc");
             if (checksumFile.exists()) {
                 checksumFile.delete();
+            }
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetSchemaMerge() throws Exception {
+        AutoGenerateParquetDataWithSchemaMerge.generateTestData();
+
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+
+        Map<String, Object> props = new HashMap<>();
+        props.put(FileBaseSourceOptions.FILENAME_EXTENSION.key(), "parquet");
+        props.put(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key(), true);
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(props);
+
+        parquetReadStrategy.setPluginConfig(readonlyConfig.toConfig());
+
+        List<String> fileNames =
+                parquetReadStrategy.getFileNamesByPath(
+                        AutoGenerateParquetDataWithSchemaMerge.TMP_PATH);
+        Assertions.assertNotNull(fileNames);
+        Assertions.assertEquals(2, fileNames.size());
+
+        String firstFileName = fileNames.get(0);
+        Assertions.assertNotNull(firstFileName);
+
+        SeaTunnelRowType firstFileRowType =
+                parquetReadStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
+                        firstFileName, null);
+        Assertions.assertNotNull(firstFileRowType);
+        String[] fieldNames = firstFileRowType.getFieldNames();
+        Assertions.assertNotNull(fieldNames);
+        Assertions.assertEquals(5, fieldNames.length);
+        Assertions.assertEquals("id", fieldNames[0]);
+        Assertions.assertEquals("name", fieldNames[1]);
+        Assertions.assertEquals("age", fieldNames[2]);
+        Assertions.assertEquals("salary", fieldNames[3]);
+        Assertions.assertEquals("department", fieldNames[4]);
+
+        AutoGenerateParquetDataWithSchemaMerge.deleteFiles();
+    }
+
+    public static class AutoGenerateParquetDataWithSchemaMerge {
+
+        public static final String TMP_PATH = "/tmp/seatunnel/parquet/schemaMerge/";
+        public static final String OLD_FILE_PATH = TMP_PATH + "/old_data.parquet";
+        public static final String NEW_FILE_PATH = TMP_PATH + "/new_data.parquet";
+
+        public static void generateTestData() throws IOException {
+            deleteFiles();
+
+            generateOldParquetFile();
+            generateNewParquetFile();
+        }
+
+        public static void generateOldParquetFile() throws IOException {
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"age\",\"type\":\"int\"},"
+                            + "{\"name\":\"salary\",\"type\":\"float\"}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(OLD_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 1);
+            record.put("name", "Alice");
+            record.put("age", 30);
+            record.put("salary", 50000.0f);
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void generateNewParquetFile() throws IOException {
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"age\",\"type\":\"int\"},"
+                            + "{\"name\":\"salary\",\"type\":\"float\"},"
+                            + "{\"name\":\"department\",\"type\":\"string\"}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(NEW_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 2);
+            record.put("name", "Bob");
+            record.put("age", 35);
+            record.put("salary", 60000.0f);
+            record.put("department", "Engineering");
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void deleteFiles() {
+            File oldFile = new File(OLD_FILE_PATH);
+            if (oldFile.exists()) {
+                oldFile.delete();
+            }
+            File newFile = new File(NEW_FILE_PATH);
+            if (newFile.exists()) {
+                newFile.delete();
             }
         }
     }
