@@ -19,7 +19,7 @@ Multi-table Transform has no limitations on Transform capabilities; any Transfor
 | table_match_regex          | String | No       | .*      | A regular expression to match the tables that require transformation. By default, it matches all tables. Note that this table name refers to the actual upstream table name, not `plugin_output`.                                                               |
 | table_transform            | List   | No       | -       | You can use a list in `table_transform` to specify rules for individual tables. If a transformation rule is configured for a specific table in `table_transform`, the outer rules will not apply to that table. The rules in `table_transform` take precedence. |
 | table_transform.table_path | String | No       | -       | When configuring a transformation rule for a table in `table_transform`, you need to specify the table path using the `table_path` field. The table path should include `databaseName[.schemaName].tableName` and is matched exactly.                         |
-| rule_match_mode            | String | No       | FIRST_MATCH | Controls how multiple `table_transform` entries with the same exact `table_path` are evaluated. Supported values are `FIRST_MATCH` and `ALL_MATCH`.                                                                                                         |
+| rule_match_mode            | String | No       | -       | Controls how multiple `table_transform` entries with the same exact `table_path` are evaluated. Supported values are `FIRST_MATCH` and `ALL_MATCH`.                                                                                                         |
 
 ## Matching Logic
 
@@ -69,7 +69,8 @@ For each table, the priority of configuration is: `table_transform` > `table_mat
 
 `table_transform.table_path` uses exact table path matching. `rule_match_mode` only controls the case where multiple `table_transform` entries use the same exact `table_path`:
 
-- `FIRST_MATCH`: apply the first matching `table_transform` entry in declaration order. This is the default behavior.
+- If `rule_match_mode` is not configured, duplicate exact `table_path` entries are rejected during config resolution.
+- `FIRST_MATCH`: apply the first matching `table_transform` entry in declaration order.
 - `ALL_MATCH`: apply all matching `table_transform` entries in declaration order. The output of an earlier matching rule becomes the input of the next matching rule for the same table.
 
 For example, when `rule_match_mode` is `ALL_MATCH`, the following configuration first copies `name` to `name2` for `test.xyz`, and then copies `name2` to `name3` for the same table:

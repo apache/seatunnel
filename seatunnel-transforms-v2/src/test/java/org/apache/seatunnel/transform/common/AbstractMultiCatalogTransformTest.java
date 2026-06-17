@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -57,20 +59,52 @@ class AbstractMultiCatalogTransformTest {
                     .noDefaultValue()
                     .withDescription("Field that must exist before this rule is built");
 
+    private static final Option<Boolean> FILTER_SCHEMA_CHANGE_EVENT =
+            Options.key("filter_schema_change_event")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Return null for schema-change events");
+
+    private static final Option<Boolean> FAIL_ON_SCHEMA_CHANGE_EVENT =
+            Options.key("fail_on_schema_change_event")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Fail if a schema-change event reaches this rule");
+
     @Test
-    void defaultModeUsesFirstExactTablePathRule() {
+    void defaultModeRejectsDuplicateExactTablePathRules() {
         CatalogTable table = catalogTable();
         String tablePath = tablePath(table);
         ReadonlyConfig config =
                 config(tableRule(tablePath, "first"), tableRule(tablePath, "second"));
-        TestMapMultiCatalogTransform transform =
-                new TestMapMultiCatalogTransform(Collections.singletonList(table), config);
 
-        SeaTunnelRow output = transform.map(row(tablePath));
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                new TestMapMultiCatalogTransform(
+                                        Collections.singletonList(table), config));
 
-        Assertions.assertEquals(Arrays.asList("id", "first"), fieldNames(transform));
-        Assertions.assertEquals(2, output.getArity());
-        Assertions.assertEquals("first", output.getField(1));
+        Assertions.assertTrue(exception.getMessage().contains(tablePath));
+    }
+
+    @Test
+    void defaultModeRejectsDuplicateExactTablePathRulesBeforeTableMatching() {
+        CatalogTable table = catalogTable();
+        String duplicateTablePath = "database.schema.customers";
+        ReadonlyConfig config =
+                config(
+                        tableRule(duplicateTablePath, "first"),
+                        tableRule(duplicateTablePath, "second"));
+
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                new TestMapMultiCatalogTransform(
+                                        Collections.singletonList(table), config));
+
+        Assertions.assertTrue(exception.getMessage().contains(duplicateTablePath));
     }
 
     @Test
@@ -132,6 +166,42 @@ class AbstractMultiCatalogTransformTest {
         Assertions.assertEquals(1, outputRows.size());
         Assertions.assertEquals("first", outputRows.get(0).getField(1));
         Assertions.assertEquals("second", outputRows.get(0).getField(2));
+    }
+
+    @Test
+    void chainedMapTransformStopsSchemaChangeAfterFilteredEvent() {
+        CatalogTable table = catalogTable();
+        String tablePath = tablePath(table);
+        Map<String, Object> firstRule = tableRule(tablePath, "first");
+        firstRule.put(FILTER_SCHEMA_CHANGE_EVENT.key(), true);
+        Map<String, Object> secondRule = tableRule(tablePath, "second");
+        secondRule.put(FAIL_ON_SCHEMA_CHANGE_EVENT.key(), true);
+        ReadonlyConfig config =
+                config(TransformCommonOptions.RuleMatchMode.ALL_MATCH, firstRule, secondRule);
+        TestMapMultiCatalogTransform transform =
+                new TestMapMultiCatalogTransform(Collections.singletonList(table), config);
+
+        SchemaChangeEvent event = transform.mapSchemaChangeEvent(addColumnEvent(table));
+
+        Assertions.assertNull(event);
+    }
+
+    @Test
+    void chainedFlatMapTransformStopsSchemaChangeAfterFilteredEvent() {
+        CatalogTable table = catalogTable();
+        String tablePath = tablePath(table);
+        Map<String, Object> firstRule = tableRule(tablePath, "first");
+        firstRule.put(FILTER_SCHEMA_CHANGE_EVENT.key(), true);
+        Map<String, Object> secondRule = tableRule(tablePath, "second");
+        secondRule.put(FAIL_ON_SCHEMA_CHANGE_EVENT.key(), true);
+        ReadonlyConfig config =
+                config(TransformCommonOptions.RuleMatchMode.ALL_MATCH, firstRule, secondRule);
+        TestFlatMapMultiCatalogTransform transform =
+                new TestFlatMapMultiCatalogTransform(Collections.singletonList(table), config);
+
+        SchemaChangeEvent event = transform.mapSchemaChangeEvent(addColumnEvent(table));
+
+        Assertions.assertNull(event);
     }
 
     @Test
@@ -207,6 +277,12 @@ class AbstractMultiCatalogTransformTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
         row.setTableId(tablePath);
         return row;
+    }
+
+    private static SchemaChangeEvent addColumnEvent(CatalogTable table) {
+        return AlterTableAddColumnEvent.add(
+                table.getTableId(),
+                PhysicalColumn.of("created_at", BasicType.STRING_TYPE, 0L, true, null, null));
     }
 
     private static List<String> fieldNames(SeaTunnelTransform<SeaTunnelRow> transform) {
@@ -305,10 +381,16 @@ class AbstractMultiCatalogTransformTest {
 
         private final String fieldName;
 
+        private final boolean filterSchemaChangeEvent;
+
+        private final boolean failOnSchemaChangeEvent;
+
         private AppendFieldMapTransform(CatalogTable inputCatalogTable, ReadonlyConfig config) {
             super(inputCatalogTable);
             assertRequiredField(inputCatalogTable, config);
             this.fieldName = config.get(FIELD_NAME);
+            this.filterSchemaChangeEvent = config.get(FILTER_SCHEMA_CHANGE_EVENT);
+            this.failOnSchemaChangeEvent = config.get(FAIL_ON_SCHEMA_CHANGE_EVENT);
         }
 
         @Override
@@ -319,6 +401,17 @@ class AbstractMultiCatalogTransformTest {
         @Override
         protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
             return appendField(inputRow, fieldName);
+        }
+
+        @Override
+        public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+            if (failOnSchemaChangeEvent) {
+                throw new AssertionError("Schema-change event should not reach this rule");
+            }
+            if (filterSchemaChangeEvent) {
+                return null;
+            }
+            return super.mapSchemaChangeEvent(event);
         }
 
         @Override
@@ -337,10 +430,16 @@ class AbstractMultiCatalogTransformTest {
 
         private final String fieldName;
 
+        private final boolean filterSchemaChangeEvent;
+
+        private final boolean failOnSchemaChangeEvent;
+
         private AppendFieldFlatMapTransform(CatalogTable inputCatalogTable, ReadonlyConfig config) {
             super(inputCatalogTable);
             assertRequiredField(inputCatalogTable, config);
             this.fieldName = config.get(FIELD_NAME);
+            this.filterSchemaChangeEvent = config.get(FILTER_SCHEMA_CHANGE_EVENT);
+            this.failOnSchemaChangeEvent = config.get(FAIL_ON_SCHEMA_CHANGE_EVENT);
         }
 
         @Override
@@ -351,6 +450,17 @@ class AbstractMultiCatalogTransformTest {
         @Override
         protected List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
             return Collections.singletonList(appendField(inputRow, fieldName));
+        }
+
+        @Override
+        public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+            if (failOnSchemaChangeEvent) {
+                throw new AssertionError("Schema-change event should not reach this rule");
+            }
+            if (filterSchemaChangeEvent) {
+                return null;
+            }
+            return event;
         }
 
         @Override

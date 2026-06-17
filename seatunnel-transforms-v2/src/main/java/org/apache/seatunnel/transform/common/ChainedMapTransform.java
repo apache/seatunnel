@@ -72,6 +72,9 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
         for (int i = 0; i < transforms.size(); i++) {
             SeaTunnelTransform<SeaTunnelRow> transform = transforms.get(i);
             currentEvent = transform.mapSchemaChangeEvent(currentEvent);
+            if (currentEvent == null) {
+                return null;
+            }
             if (i + 1 < transforms.size()) {
                 setTransformInput(transforms.get(i + 1), transform.getProducedCatalogTable());
             }

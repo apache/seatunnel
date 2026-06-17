@@ -51,6 +51,8 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         this.transformMap = new HashMap<>();
         Pattern tableMatchRegex =
                 Pattern.compile(config.get(TransformCommonOptions.TABLE_MATCH_REGEX));
+        boolean ruleMatchModeConfigured =
+                config.getOptional(TransformCommonOptions.RULE_MATCH_MODE).isPresent();
         TransformCommonOptions.RuleMatchMode ruleMatchMode =
                 config.get(TransformCommonOptions.RULE_MATCH_MODE);
         List<ReadonlyConfig> singleTableConfigs =
@@ -58,6 +60,9 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
                         .map(ReadonlyConfig::fromMap)
                         .filter(c -> c.get(TransformCommonOptions.TABLE_PATH) != null)
                         .collect(Collectors.toList());
+        if (!ruleMatchModeConfigured) {
+            rejectDuplicateTablePaths(singleTableConfigs);
+        }
 
         inputCatalogTables.forEach(
                 inputCatalogTable -> {
@@ -100,6 +105,19 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     protected abstract SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config);
+
+    private void rejectDuplicateTablePaths(List<ReadonlyConfig> tableConfigs) {
+        Map<String, Boolean> tablePaths = new HashMap<>();
+        for (ReadonlyConfig tableConfig : tableConfigs) {
+            String tablePath = tableConfig.get(TransformCommonOptions.TABLE_PATH);
+            if (tablePaths.put(tablePath, true) != null) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Duplicate table_transform rules are configured for table_path [%s]",
+                                tablePath));
+            }
+        }
+    }
 
     private List<ReadonlyConfig> selectTableConfigs(
             List<ReadonlyConfig> tableConfigs, TransformCommonOptions.RuleMatchMode ruleMatchMode) {
@@ -158,18 +176,24 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
         String targetTableId = event.tablePath().toString();
         SeaTunnelTransform<SeaTunnelRow> targetTransform = transformMap.get(targetTableId);
         if (targetTransform != null) {
-            targetTransform.mapSchemaChangeEvent(event);
+            SchemaChangeEvent mappedEvent = targetTransform.mapSchemaChangeEvent(event);
+            if (mappedEvent == null) {
+                return null;
+            }
             refreshOutputCatalogTables();
             // Propagate this transform's actual produced catalog through the chain via the event's
             // changeAfter field (existing API designed for exactly this). Downstream transforms
             // and the sink read changeAfter to adopt upstream's actual row layout instead of
             // re-applying ALTER locally — which would diverge from the actual row order.
-            if (event instanceof AlterTableEvent) {
+            if (mappedEvent instanceof AlterTableEvent) {
                 outputCatalogTables.stream()
                         .filter(t -> t.getTableId().toTablePath().toString().equals(targetTableId))
                         .findFirst()
-                        .ifPresent(produced -> ((AlterTableEvent) event).setChangeAfter(produced));
+                        .ifPresent(
+                                produced ->
+                                        ((AlterTableEvent) mappedEvent).setChangeAfter(produced));
             }
+            return mappedEvent;
         }
         return event;
     }
