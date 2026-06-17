@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.enumerator;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceConfig;
@@ -32,6 +30,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,6 +41,8 @@ import java.util.Set;
 @Slf4j
 public class TiDBSourceSplitEnumerator
         implements SourceSplitEnumerator<TiDBSourceSplit, TiDBSourceCheckpointState> {
+
+    private static final String CDC_DIAG_PREFIX = "[TiDB-CDC-DIAG]";
 
     private final TiDBSourceConfig sourceConfig;
     private final Map<Integer, TiDBSourceSplit> assignedSplit;
@@ -82,6 +83,15 @@ public class TiDBSourceSplitEnumerator
                         .getCatalog()
                         .getTable(sourceConfig.getDatabaseName(), sourceConfig.getTableName())
                         .getId();
+        log.info(
+                "{} Enumerator opened, database={}, table={}, tableId={}, startupMode={},"
+                        + " parallelism={}.",
+                CDC_DIAG_PREFIX,
+                sourceConfig.getDatabaseName(),
+                sourceConfig.getTableName(),
+                tableId,
+                sourceConfig.getStartupMode(),
+                context.currentParallelism());
     }
 
     /** The method is executed by the engine only once. */
@@ -90,6 +100,12 @@ public class TiDBSourceSplitEnumerator
         Set<Integer> readers = context.registeredReaders();
         if (shouldEnumerate) {
             List<TiDBSourceSplit> sourceSplits = getTiDBSourceSplit();
+            log.info(
+                    "{} Enumerated TiDB CDC splits, database={}, table={}, splitCount={}.",
+                    CDC_DIAG_PREFIX,
+                    sourceConfig.getDatabaseName(),
+                    sourceConfig.getTableName(),
+                    sourceSplits.size());
             synchronized (stateLock) {
                 addPendingSplit(sourceSplits);
                 fetchAssignedSplit();
@@ -123,7 +139,12 @@ public class TiDBSourceSplitEnumerator
         for (Integer reader : readers) {
             final TiDBSourceSplit assignmentForReader = pendingSplit.remove(reader);
             if (assignmentForReader != null) {
-                log.debug("Assign splits {} to reader {}", assignmentForReader, reader);
+                log.info(
+                        "{} Assign split to reader, reader={}, split={}, remainingPending={}.",
+                        CDC_DIAG_PREFIX,
+                        reader,
+                        assignmentForReader,
+                        pendingSplit.size());
                 context.assignSplit(reader, assignmentForReader);
             }
         }
@@ -134,7 +155,7 @@ public class TiDBSourceSplitEnumerator
     }
 
     private List<TiDBSourceSplit> getTiDBSourceSplit() {
-        List<TiDBSourceSplit> sourceSplits = Lists.newArrayList();
+        List<TiDBSourceSplit> sourceSplits = new ArrayList<>();
         List<Coprocessor.KeyRange> keyRanges =
                 TableKeyRangeUtils.getTableKeyRanges(this.tableId, context.currentParallelism());
         for (Coprocessor.KeyRange keyRange : keyRanges) {
