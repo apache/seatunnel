@@ -176,6 +176,76 @@ public class SchemaOperatorTest {
         assertTrue(pendingQueue.peek().isSchemaChange);
     }
 
+    /**
+     * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
+     * checkpoint-completion safety fence even when called from a stall-detection timer.
+     *
+     * <p>The test invokes the handler directly (as if a processing-time timer fired) to keep the
+     * unit test independent of Flink's timer infrastructure. In production, the handler is called
+     * by {@link SchemaOperator13#scheduleFallbackTimer()} via {@code
+     * ProcessingTimeService.registerTimer}.
+     *
+     * <p>The base {@link SchemaOperator#scheduleFallbackTimer()} is a no-op; this test verifies
+     * only the handler logic, not the scheduling mechanism.
+     */
+    @Test
+    void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
+        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+        Mockito.when(
+                        coordinator.requestSchemaChange(
+                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(true);
+
+        OperatorTestContext context = createOperator(false);
+        setField(context.operator, "coordinator", coordinator);
+
+        AlterTableAddColumnEvent event = createSchemaChangeEvent();
+        SeaTunnelRow row = createDataRow("row-released-after-fallback");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+
+        // Simulate timer firing before any checkpoint has completed (firstSeenCheckpointId < 0).
+        // The handler must NOT apply the DDL — it must call scheduleFallbackTimer() to wait for
+        // the checkpoint-completion safety fence (guards XA/MDL conflicts).
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
+        assertTrue(context.output.records.isEmpty());
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+        assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Complete the first post-DDL checkpoint — sets firstSeenCheckpointId, not yet safe to
+        // apply (need one additional round, so notifyCheckpointComplete stops here).
+        context.operator.notifyCheckpointComplete(40L);
+
+        assertTrue(context.output.records.isEmpty());
+        assertEquals(40L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        Mockito.verifyNoInteractions(coordinator);
+
+        // Simulate checkpoint stall: move lastCheckpointCompletedMs into the past beyond
+        // CHECKPOINT_STALL_TIMEOUT_MS (15 s). This mirrors the Flink 1.13 behaviour where
+        // high-parallelism CDC jobs stop checkpointing after some source subtasks finish.
+        setField(
+                context.operator,
+                "lastCheckpointCompletedMs",
+                System.currentTimeMillis() - 20_000L);
+
+        // Simulate timer firing again. firstSeenCheckpointId >= 0 and checkpoint has stalled,
+        // so the safety fence is satisfied — the DDL can now be applied.
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+        Mockito.verify(coordinator)
+                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
+    }
+
     private static OperatorTestContext createOperator(boolean restored) throws Exception {
         return createOperator(new OperatorStateStoreStub(), restored);
     }
@@ -283,6 +353,12 @@ public class SchemaOperatorTest {
         Field field = owner.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static Object invokeNoArgMethod(Object target, String methodName) throws Exception {
+        java.lang.reflect.Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return method.invoke(target);
     }
 
     private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
