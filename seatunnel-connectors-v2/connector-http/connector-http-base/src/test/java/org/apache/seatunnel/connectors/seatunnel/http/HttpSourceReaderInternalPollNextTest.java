@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -37,15 +38,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class HttpSourceReaderInternalPollNextTest {
@@ -132,6 +137,46 @@ public class HttpSourceReaderInternalPollNextTest {
                 JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
         Assertions.assertEquals("2", bodyMap.get("page"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
+        httpSourceReader.close();
+    }
+
+    @Test
+    @Timeout(5)
+    public void testCursorPaginationStopsWhenCursorDoesNotAdvance() throws Exception {
+        AtomicInteger requestCount = new AtomicInteger();
+        when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            if (requestCount.incrementAndGet() == 1) {
+                                when(httpResponse.getContent())
+                                        .thenReturn(
+                                                "{\"data\":[{\"key1\":\"v1\",\"key2\":\"v2\"}],"
+                                                        + "\"next\":\"cursor-1\"}");
+                            } else {
+                                when(httpResponse.getContent())
+                                        .thenReturn("{\"data\":[],\"next\":\"cursor-1\"}");
+                            }
+                            when(httpResponse.getCode()).thenReturn(200);
+                            return httpResponse;
+                        });
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageType(HttpPaginationType.CURSOR.getCode());
+        pageInfo.setPageCursorResponseField("$.next");
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, deserializationSchema, null, "$.data", pageInfo);
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+        httpSourceReader.internalPollNext(collector);
+
+        Assertions.assertEquals(2, requestCount.get());
+        verify(context).signalNoMoreElement();
+        verify(httpClientProvider, times(2))
+                .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
         httpSourceReader.close();
     }
 
