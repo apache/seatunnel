@@ -33,6 +33,8 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 
+import java.util.concurrent.TimeUnit;
+
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -88,17 +90,30 @@ class HazelcastCheckpointOverviewStateStoreTest {
                     pipeline.addHistory(historyEntry(2L, 1, 203L), 8);
                 });
 
-        await().untilAsserted(() -> assertEquals(2L, store.getOverviewJobCount()));
-        assertEquals(3L, store.getInProgressCheckpointCount());
-        assertEquals(3L, store.getRetainedHistoryCount());
-        assertEquals(2, store.size());
+        awaitOverviewStats(store, 2L, 3L, 3L, 2);
 
         store.remove(1L);
 
-        await().untilAsserted(() -> assertEquals(1L, store.getOverviewJobCount()));
-        assertEquals(1L, store.getInProgressCheckpointCount());
-        assertEquals(1L, store.getRetainedHistoryCount());
-        assertEquals(1, store.size());
+        awaitOverviewStats(store, 1L, 1L, 1L, 1);
+    }
+
+    private static void awaitOverviewStats(
+            HazelcastCheckpointOverviewStateStore store,
+            long expectedOverviewJobCount,
+            long expectedInProgressCheckpointCount,
+            long expectedRetainedHistoryCount,
+            int expectedSize) {
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertEquals(expectedOverviewJobCount, store.getOverviewJobCount());
+                            assertEquals(
+                                    expectedInProgressCheckpointCount,
+                                    store.getInProgressCheckpointCount());
+                            assertEquals(
+                                    expectedRetainedHistoryCount, store.getRetainedHistoryCount());
+                            assertEquals(expectedSize, store.size());
+                        });
     }
 
     private static CheckpointHistoryEntry historyEntry(

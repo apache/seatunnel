@@ -34,7 +34,9 @@ import com.hazelcast.map.IMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -77,13 +79,13 @@ class HazelcastMetricsSnapshotStateStoreTest {
 
         assertCounterValue(1, store.get(taskOne));
         assertCounterValue(2, store.get(taskTwo));
-        assertEquals(2, store.size());
+        awaitSize(store, 2);
 
         store.merge(singletonSnapshot(taskOne, updatedMetricsOne));
 
         assertCounterValue(3, store.get(taskOne));
         assertCounterValue(2, store.get(taskTwo));
-        assertEquals(2, store.size());
+        awaitSize(store, 2);
     }
 
     @Test
@@ -107,12 +109,12 @@ class HazelcastMetricsSnapshotStateStoreTest {
 
         assertNull(store.get(taskOne));
         assertCounterValue(20, store.get(taskTwo));
-        assertEquals(1, store.size());
+        awaitSize(store, 1);
 
         store.remove(taskTwo);
 
         assertNull(store.get(taskTwo));
-        assertEquals(0, store.size());
+        awaitSize(store, 0);
     }
 
     @Test
@@ -142,7 +144,7 @@ class HazelcastMetricsSnapshotStateStoreTest {
         assertNull(store.get(removedOne));
         assertNull(store.get(removedTwo));
         assertCounterValue(300, store.get(kept));
-        assertEquals(1, store.size());
+        awaitSize(store, 1);
         assertEquals(pipelineToKeep, kept.getTaskGroupLocation().getPipelineLocation());
     }
 
@@ -162,7 +164,12 @@ class HazelcastMetricsSnapshotStateStoreTest {
         store.merge(snapshot);
 
         assertEquals(1, iMap.size());
-        assertEquals(2, store.size());
+        awaitSize(store, 2);
+    }
+
+    private static void awaitSize(HazelcastMetricsSnapshotStateStore store, int expectedSize) {
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(expectedSize, store.size()));
     }
 
     private static Map<TaskLocation, SeaTunnelMetricsContext> singletonSnapshot(
