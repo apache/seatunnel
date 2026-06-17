@@ -68,8 +68,9 @@ public class ReportMetricsOperationExports extends AbstractCollector {
         GaugeMetricFamily lastLatencyMetricFamily =
                 new GaugeMetricFamily(
                         "report_metrics_operation_last_invocation_latency_ms",
-                        "The most recent ReportMetricsOperation invocation latency in "
-                                + "milliseconds measured on the worker",
+                        "The most recent worker-side ReportMetricsOperation reporting latency "
+                                + "in milliseconds, including local metrics collection and "
+                                + "worker-to-master invocation",
                         clusterLabelNames(ADDRESS));
         lastLatencyMetricFamily.addMetric(labelValues(address), stats.getLastInvocationLatencyMs());
         mfs.add(lastLatencyMetricFamily);
@@ -77,8 +78,10 @@ public class ReportMetricsOperationExports extends AbstractCollector {
         GaugeMetricFamily maxLatencyMetricFamily =
                 new GaugeMetricFamily(
                         "report_metrics_operation_max_invocation_latency_ms",
-                        "The maximum observed ReportMetricsOperation invocation latency "
-                                + "in milliseconds since the worker started",
+                        "The maximum observed worker-side ReportMetricsOperation reporting "
+                                + "latency in milliseconds since the worker started, "
+                                + "including local metrics collection and worker-to-master "
+                                + "invocation",
                         clusterLabelNames(ADDRESS));
         maxLatencyMetricFamily.addMetric(labelValues(address), stats.getMaxInvocationLatencyMs());
         mfs.add(maxLatencyMetricFamily);

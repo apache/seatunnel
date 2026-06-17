@@ -20,13 +20,20 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+/** Snapshot of worker-side ReportMetricsOperation observability state. */
 @Data
 @AllArgsConstructor
 public class ReportMetricsOperationStats {
+    /** Total successful report invocations sent by this worker. */
     private long successCount;
+    /** Total failed report invocations sent by this worker. */
     private long failureCount;
+    /** Total interrupted report invocations sent by this worker. */
     private long interruptedCount;
+    /** Task metric count in the most recent report payload. */
     private long lastPayloadTaskCount;
+    /** Most recent worker-side reporting latency in milliseconds. */
     private long lastInvocationLatencyMs;
+    /** Maximum observed worker-side reporting latency in milliseconds. */
     private long maxInvocationLatencyMs;
 }

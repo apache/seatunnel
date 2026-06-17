@@ -140,6 +140,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
     private final SeaTunnelConfig seaTunnelConfig;
+    // Track worker-side metrics reporting cost without changing the report path semantics.
     private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationFailureCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationInterruptedCount = new AtomicLong();
@@ -599,8 +600,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             return;
         }
 
-        HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
         long invocationStartNanos = System.nanoTime();
+        HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
         int payloadTaskCount = localMetricsMap.size();
         InvocationFuture<Object> invoke =
                 nodeEngine
@@ -665,6 +666,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 
+    /** Returns the latest worker-side ReportMetricsOperation observability snapshot. */
     public ReportMetricsOperationStats getReportMetricsOperationStats() {
         return new ReportMetricsOperationStats(
                 reportMetricsOperationSuccessCount.get(),
