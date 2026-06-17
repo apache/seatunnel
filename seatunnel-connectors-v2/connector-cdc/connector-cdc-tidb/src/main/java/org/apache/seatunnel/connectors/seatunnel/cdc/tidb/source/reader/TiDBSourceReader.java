@@ -58,6 +58,8 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
     private static final String CDC_DIAG_PREFIX = "[TiDB-CDC-DIAG]";
     private static final long STREAMING_STATS_LOG_INTERVAL_MS = 10_000L;
     private static final long SLOW_STREAMING_BATCH_MS = 1_000L;
+    private static final int METADATA_DRAIN_ATTEMPT_MULTIPLIER = 10;
+    private static final long EMPTY_POLL_BREAK_THRESHOLD_MS = 50L;
 
     private final SourceReader.Context context;
     private final TiDBSourceConfig config;
@@ -224,23 +226,40 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         long startResolvedTs = resolvedTs;
         CDCClient cdcClient = getCdcClient(split, resolvedTs);
         int polledRows = 0;
+        int ignoredRows = 0;
         int resolvedTsAdvances = 0;
+        int metadataEvents = 0;
+        int emptyPolls = 0;
+        int pollAttempts = 0;
         long currentMaxResolvedTs = cdcClient.getMaxResolvedTs();
+        int maxPollAttempts = maxPollAttempts(config.getBatchSize());
         for (int i = 0, attempts = 0;
-                i < config.getBatchSize() && attempts < config.getBatchSize();
+                i < config.getBatchSize() && attempts < maxPollAttempts;
                 attempts++) {
             long beforeGetResolvedTs = currentMaxResolvedTs;
+            long singlePollStartNanos = System.nanoTime();
             final Cdcpb.Event.Row row = cdcClient.get();
+            pollAttempts++;
+            long singlePollCostMs = nanosToMillis(System.nanoTime() - singlePollStartNanos);
             currentMaxResolvedTs = cdcClient.getMaxResolvedTs();
             if (row == null) {
                 if (currentMaxResolvedTs != beforeGetResolvedTs) {
                     resolvedTsAdvances++;
+                    metadataEvents++;
                     continue;
                 }
+                if (singlePollCostMs < EMPTY_POLL_BREAK_THRESHOLD_MS) {
+                    metadataEvents++;
+                    continue;
+                }
+                emptyPolls++;
                 break;
             }
-            handleRow(row);
-            polledRows++;
+            if (handleRow(row)) {
+                polledRows++;
+            } else {
+                ignoredRows++;
+            }
             i++;
         }
         long pullCostMs = nanosToMillis(System.nanoTime() - pullStartNanos);
@@ -269,8 +288,13 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
                 startResolvedTs,
                 resolvedTs,
                 polledRows,
+                ignoredRows,
                 emittedRows,
                 resolvedTsAdvances,
+                metadataEvents,
+                emptyPolls,
+                pollAttempts,
+                maxPollAttempts,
                 pendingCommitsBeforeFlush,
                 committedEventsBeforeFlush,
                 pullCostMs,
@@ -336,10 +360,10 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
-    private void handleRow(final Cdcpb.Event.Row row) {
+    private boolean handleRow(final Cdcpb.Event.Row row) {
         if (!TableKeyRangeUtils.isRecordKey(row.getKey().toByteArray())) {
             // Don't handle index key for now
-            return;
+            return false;
         }
         log.debug("binlog record, type: {}, data: {}", row.getType(), row);
         switch (row.getType()) {
@@ -359,6 +383,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
             default:
                 log.warn("Unsupported row type:" + row.getType());
         }
+        return true;
     }
 
     protected long flushRows(final long resolvedTs) throws Exception {
@@ -390,8 +415,13 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
             long startResolvedTs,
             long endResolvedTs,
             int polledRows,
+            int ignoredRows,
             int emittedRows,
             int resolvedTsAdvances,
+            int metadataEvents,
+            int emptyPolls,
+            int pollAttempts,
+            int maxPollAttempts,
             int pendingCommitsBeforeFlush,
             int committedEventsBeforeFlush,
             long pullCostMs,
@@ -408,8 +438,10 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         lastStreamingStatsLogTime = now;
         log.info(
                 "{} Streaming stats, split={}, startResolvedTs={}, endResolvedTs={},"
-                        + " resolvedLagMs={}, polledRows={}, emittedRows={},"
-                        + " resolvedTsAdvances={}, pendingPrewrites={}, pendingCommitsBeforeFlush={},"
+                        + " resolvedLagMs={}, polledRows={}, ignoredRows={}, emittedRows={},"
+                        + " resolvedTsAdvances={}, metadataEvents={}, emptyPolls={},"
+                        + " pollAttempts={}, maxPollAttempts={}, pendingPrewrites={},"
+                        + " pendingCommitsBeforeFlush={},"
                         + " committedQueueBeforeEmit={}, committedQueueAfterEmit={},"
                         + " totalPolledRows={}, totalCommittedRows={}, totalEmittedRows={},"
                         + " pullCostMs={}, flushCostMs={}, emitCostMs={}, batchCostMs={}.",
@@ -419,8 +451,13 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
                 endResolvedTs,
                 resolvedLagMs(endResolvedTs),
                 polledRows,
+                ignoredRows,
                 emittedRows,
                 resolvedTsAdvances,
+                metadataEvents,
+                emptyPolls,
+                pollAttempts,
+                maxPollAttempts,
                 preWrites.size(),
                 pendingCommitsBeforeFlush,
                 committedEventsBeforeFlush,
@@ -432,6 +469,16 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
                 flushCostMs,
                 emitCostMs,
                 batchCostMs);
+    }
+
+    private int maxPollAttempts(int batchSize) {
+        if (batchSize <= 0) {
+            return 0;
+        }
+        if (batchSize > Integer.MAX_VALUE / METADATA_DRAIN_ATTEMPT_MULTIPLIER) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.max(batchSize, batchSize * METADATA_DRAIN_ATTEMPT_MULTIPLIER);
     }
 
     private long resolvedLagMs(long resolvedTs) {
