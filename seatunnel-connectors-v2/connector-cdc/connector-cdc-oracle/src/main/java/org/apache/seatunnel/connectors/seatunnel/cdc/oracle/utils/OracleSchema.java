@@ -66,22 +66,24 @@ public class OracleSchema {
         Tables tables = new Tables();
 
         try {
+            setSessionToPdbIfNeeded(oracleConnection);
             oracleConnection.readSchema(
                     tables,
                     tableId.catalog(),
                     tableId.schema(),
-                    connectorConfig.getTableFilters().dataCollectionFilter(),
+                    getSchemaReadTableFilter(tableId),
                     null,
                     false);
             for (TableId id : tables.tableIds()) {
-                if (tableMap.containsKey(id)) {
+                TableId tableMapId = getTableMapId(tableId, id);
+                if (tableMapId != null) {
                     Table table =
                             CatalogTableUtils.mergeCatalogTableConfig(
-                                    tables.forTable(id), tableMap.get(id));
+                                    tables.forTable(id), tableMap.get(tableMapId));
                     TableChanges.TableChange tableChange =
                             new TableChanges.TableChange(
                                     TableChanges.TableChangeType.CREATE, table);
-                    schemasByTableId.put(id, tableChange);
+                    schemasByTableId.put(tableMapId, tableChange);
                 }
             }
         } catch (SQLException e) {
@@ -91,9 +93,61 @@ public class OracleSchema {
 
         if (!schemasByTableId.containsKey(tableId)) {
             throw new SeaTunnelException(
-                    String.format("Can't obtain schema for table %s ", tableId));
+                    String.format(
+                            "Can't obtain schema for table %s. Read schema table ids: %s. Configured table ids: %s",
+                            tableId, tables.tableIds(), tableMap.keySet()));
         }
 
         return schemasByTableId.get(tableId);
+    }
+
+    private void setSessionToPdbIfNeeded(OracleConnection oracleConnection) throws SQLException {
+        String pdbName = connectorConfig.getPdbName();
+        if (pdbName != null) {
+            oracleConnection.setSessionToPdb(pdbName);
+        }
+    }
+
+    private Tables.TableFilter getSchemaReadTableFilter(TableId requestedTableId) {
+        Tables.TableFilter dataCollectionFilter =
+                connectorConfig.getTableFilters().dataCollectionFilter();
+        if (!tableMap.containsKey(requestedTableId)) {
+            return dataCollectionFilter;
+        }
+
+        return tableId ->
+                dataCollectionFilter.isIncluded(tableId)
+                        || hasSameSchemaAndTable(requestedTableId, tableId);
+    }
+
+    private TableId getTableMapId(TableId requestedTableId, TableId readTableId) {
+        if (tableMap.containsKey(readTableId)) {
+            return readTableId;
+        }
+
+        if (tableMap.containsKey(requestedTableId)
+                && hasSameSchemaAndTable(requestedTableId, readTableId)) {
+            return requestedTableId;
+        }
+
+        TableId readTableIdWithRequestedCatalog =
+                new TableId(requestedTableId.catalog(), readTableId.schema(), readTableId.table());
+        if (tableMap.containsKey(readTableIdWithRequestedCatalog)) {
+            return readTableIdWithRequestedCatalog;
+        }
+
+        return null;
+    }
+
+    private boolean hasSameSchemaAndTable(TableId left, TableId right) {
+        return equalsIgnoreCase(left.schema(), right.schema())
+                && equalsIgnoreCase(left.table(), right.table());
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.equalsIgnoreCase(right);
     }
 }
