@@ -145,7 +145,7 @@ connector-doris
 sh bin/install-plugin.sh
 ```
 
-#### 步骤2：放入 MySQL 驱动 
+#### 步骤2：放入 MySQL 驱动
 
 您需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 驱动，并放置在 `${SEATUNNEL_HOME}/lib/`目录下
 

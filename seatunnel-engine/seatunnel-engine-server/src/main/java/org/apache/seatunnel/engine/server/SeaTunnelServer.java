@@ -33,6 +33,8 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
+import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -94,6 +96,7 @@ public class SeaTunnelServer
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
+    private volatile RealtimeMetricsService realtimeMetricsService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
@@ -138,6 +141,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        BaseService.retainRunningJobDagJsonCache();
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
 
@@ -215,6 +219,7 @@ public class SeaTunnelServer
         if (jettyService != null) {
             jettyService.shutdownJettyServer();
         }
+        BaseService.releaseRunningJobDagJsonCache();
         if (taskExecutionService != null) {
             taskExecutionService.shutdown();
         }
@@ -230,6 +235,7 @@ public class SeaTunnelServer
         if (coordinatorService != null) {
             coordinatorService.shutdown();
         }
+        stopRealtimeMetricsService();
 
         if (eventService != null) {
             eventService.shutdownNow();
@@ -297,6 +303,26 @@ public class SeaTunnelServer
         } else {
             throw new SeaTunnelEngineException(
                     "Please don't get coordinator service from an inactive master node");
+        }
+    }
+
+    public RealtimeMetricsService getRealtimeMetricsService() {
+        return realtimeMetricsService;
+    }
+
+    synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {
+        if (realtimeMetricsService != null) {
+            return;
+        }
+        realtimeMetricsService =
+                new RealtimeMetricsService((NodeEngineImpl) nodeEngine, activeCoordinatorService);
+        realtimeMetricsService.start();
+    }
+
+    synchronized void stopRealtimeMetricsService() {
+        if (realtimeMetricsService != null) {
+            realtimeMetricsService.shutdown();
+            realtimeMetricsService = null;
         }
     }
 

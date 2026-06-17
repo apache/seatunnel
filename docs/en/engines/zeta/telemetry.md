@@ -68,6 +68,71 @@ Example PromQL:
 sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 ```
 
+### Engine State Store Logical Metrics
+
+These metrics expose business-aware logical counts for special engine state stores. They are exported by the active
+master only. The metric names remain backend-neutral, while the current implementation still labels them with
+`backend="hazelcast"`.
+
+| MetricName                                               | Type    | Labels                                      | DESCRIPTION                                                           |
+|----------------------------------------------------------|---------|---------------------------------------------|-----------------------------------------------------------------------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**, state store backend.           | Total task metric contexts currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**, state store backend.           | Active top-level partition buckets currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**, state store backend.           | Job count currently tracked in `engine_checkpoint_monitor`.          |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**, state store backend.       | In-progress checkpoint count currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**, state store backend.     | Retained checkpoint history entries currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_finished_job_records                  | Gauge   | **store**, finished job store name. **backend**, state store backend. | Current record count in finished job stores. |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**, finished job store name. **backend**, state store backend. | Total cleanup events observed from finished job store expiration. |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**, state store backend.           | Current tracked connector jar count in `engine_connectorJarRefCounters`. |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**, state store backend.           | Sum of connector jar reference counts in `engine_connectorJarRefCounters`. |
+
+Logical metrics complement the local Hazelcast store metrics above:
+
+- Use `engine_state_store_local_*` metrics when you want to understand data distribution and memory usage on each node.
+- Use `engine_state_store_*` logical metrics when you want to understand engine semantics such as checkpoint backlog, finished-job retention, or connector jar reuse.
+
+Example PromQL:
+
+```promql
+# Total state store entries by store
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# Current checkpoint backlog
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# Finished-job cleanup growth over the last 15 minutes
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# Connector jar reference pressure
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Example Grafana panels:
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### Thread Pool Status
 
 | MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |

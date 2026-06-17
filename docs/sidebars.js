@@ -117,6 +117,7 @@ const sidebars = {
                     ]
                 },
                 "getting-started/job-configuration-guide",
+                "getting-started/submit-job-to-remote-zeta-cluster",
                 {
                     "type": "category",
                     "label": "Docker",
@@ -141,7 +142,6 @@ const sidebars = {
                 "connectors/connector-isolated-dependency",
                 "connectors/connector-faq",
                 "connectors/cdc-production-cookbook",
-                "connectors/connector-faq",
                 {
                     "type": "category",
                     "label": "Source",
@@ -265,7 +265,8 @@ const sidebars = {
                 "transforms/table-filter",
                 "transforms/table-merge",
                 "transforms/table-rename",
-                "transforms/transform-multi-table"
+                "transforms/transform-multi-table",
+                "transforms/multi-table-transform-and-join-boundary"
             ]
         },
         {

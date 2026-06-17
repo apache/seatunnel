@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.OptionTest;
 import org.apache.seatunnel.api.configuration.Options;
@@ -407,7 +409,6 @@ public class ConfigValidatorTest {
     @Test
     public void testMultipleValueNestedRule() {
         OptionRule subOption1 = OptionRule.builder().required(KEY_USERNAME, KEY_PASSWORD).build();
-        OptionRule subOption2 = OptionRule.builder().required(KEY_BEARER_TOKEN).build();
         OptionRule optionRule =
                 OptionRule.builder()
                         .optional(SINGLE_CHOICE_VALUE_TEST)
@@ -452,9 +453,6 @@ public class ConfigValidatorTest {
 
     public static final Option<String> DB_NAME =
             Options.key("db_name").stringType().noDefaultValue().withDescription("database name");
-
-    public static final Option<String> DELIMITER =
-            Options.key("delimiter").stringType().noDefaultValue().withDescription("delimiter");
 
     public static final Option<Long> START_TS =
             Options.key("start_ts").longType().noDefaultValue().withDescription("start timestamp");
@@ -2753,7 +2751,7 @@ public class ConfigValidatorTest {
 
         // list option present with valid list -> pass
         Map<String, Object> config6 = new HashMap<>();
-        config6.put(TEST_TOPIC.key(), Arrays.asList("topic1"));
+        config6.put(TEST_TOPIC.key(), Collections.singletonList("topic1"));
         Assertions.assertDoesNotThrow(() -> validate(config6, rule));
     }
 
@@ -2786,5 +2784,703 @@ public class ConfigValidatorTest {
         config4.put(TEST_TOPIC_PATTERN.key(), "pattern.*");
         config4.put(TEST_TOPIC.key(), Collections.emptyList());
         assertThrows(OptionValidationException.class, () -> validate(config4, rule));
+    }
+
+    static final Option<Integer> EXT_PORT =
+            Options.key("ext.port").intType().noDefaultValue().withDescription("port");
+
+    static final Option<Integer> OPT_PORT =
+            Options.key("opt.port").intType().defaultValue(8080).withDescription("optional port");
+
+    static class PortRangeExtension implements ConditionExtension<Integer> {
+        @Override
+        public String description() {
+            return "must be between 1 and 65535";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Integer value)
+                throws OptionValidationException {
+            return value != null && value >= 1 && value <= 65535;
+        }
+    }
+
+    @Test
+    public void testExtensionRequiredPass() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                EXT_PORT, Conditions.extension(EXT_PORT, new PortRangeExtension()))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put("ext.port", 8080);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionRequiredFail() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                EXT_PORT, Conditions.extension(EXT_PORT, new PortRangeExtension()))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put("ext.port", 99999);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionOptionalAbsentSkip() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                OPT_PORT, Conditions.extension(OPT_PORT, new PortRangeExtension()))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionOptionalPresentPass() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                OPT_PORT, Conditions.extension(OPT_PORT, new PortRangeExtension()))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put("opt.port", 443);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionOptionalPresentFail() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                OPT_PORT, Conditions.extension(OPT_PORT, new PortRangeExtension()))
+                        .build();
+        Map<String, Object> config = new HashMap<>();
+        config.put("opt.port", 0);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionAndBuiltinCombined() {
+        Condition<Integer> combined =
+                greaterOrEqual(EXT_PORT, 1)
+                        .and(Conditions.extension(EXT_PORT, new PortRangeExtension()));
+        OptionRule rule = OptionRule.builder().required(EXT_PORT, combined).build();
+
+        Map<String, Object> pass = new HashMap<>();
+        pass.put("ext.port", 80);
+        Assertions.assertDoesNotThrow(() -> validate(pass, rule));
+
+        Map<String, Object> fail = new HashMap<>();
+        fail.put("ext.port", 70000);
+        assertThrows(OptionValidationException.class, () -> validate(fail, rule));
+    }
+
+    @Test
+    public void testExtensionOrBuiltinCombined() {
+        ConditionExtension<Integer> isWellKnown =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "is a well-known port (1-1023)";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value)
+                            throws OptionValidationException {
+                        return value != null && value >= 1 && value <= 1023;
+                    }
+                };
+        Condition<Integer> combined =
+                Conditions.extension(EXT_PORT, isWellKnown)
+                        .or(Condition.of(EXT_PORT, ConditionOperator.EQUAL, 8080));
+        OptionRule rule = OptionRule.builder().required(EXT_PORT, combined).build();
+
+        Map<String, Object> passWellKnown = new HashMap<>();
+        passWellKnown.put("ext.port", 443);
+        Assertions.assertDoesNotThrow(() -> validate(passWellKnown, rule));
+
+        Map<String, Object> passExact = new HashMap<>();
+        passExact.put("ext.port", 8080);
+        Assertions.assertDoesNotThrow(() -> validate(passExact, rule));
+
+        Map<String, Object> fail = new HashMap<>();
+        fail.put("ext.port", 5000);
+        assertThrows(OptionValidationException.class, () -> validate(fail, rule));
+    }
+
+    @Test
+    public void testExtensionConditionToString() {
+        Condition<Integer> cond = Conditions.extension(EXT_PORT, new PortRangeExtension());
+        assertEquals("'ext.port' must be between 1 and 65535", cond.toString());
+    }
+
+    @Test
+    public void testExtensionConditionEquals() {
+        Condition<Integer> a = Conditions.extension(EXT_PORT, new PortRangeExtension());
+        Condition<Integer> b = Conditions.extension(EXT_PORT, new PortRangeExtension());
+        assertEquals(a, b);
+        assertEquals(a.hashCode(), b.hashCode());
+
+        Condition<Integer> c =
+                Conditions.extension(
+                        EXT_PORT,
+                        new ConditionExtension<Integer>() {
+                            @Override
+                            public String description() {
+                                return "different impl";
+                            }
+
+                            @Override
+                            public boolean evaluate(ReadonlyConfig config, Integer value) {
+                                return value != null;
+                            }
+                        });
+        assertEquals(a, c);
+        assertEquals(a.hashCode(), c.hashCode());
+    }
+
+    static final Option<List<Map<String, Object>>> LIST_MAP_OPTION =
+            Options.key("rules")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("list of rule maps");
+
+    static final Option<Map<String, List<Map<String, Object>>>> NESTED_MAP_OPTION =
+            Options.key("nested.config")
+                    .type(new TypeReference<Map<String, List<Map<String, Object>>>>() {})
+                    .noDefaultValue()
+                    .withDescription("nested map of list of maps");
+
+    static class ListMapStructureExtension
+            implements ConditionExtension<List<Map<String, Object>>> {
+        @Override
+        public String description() {
+            return "each rule must contain 'field' and 'type' keys";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> value)
+                throws OptionValidationException {
+            if (value == null || value.isEmpty()) return false;
+            for (Map<String, Object> rule : value) {
+                if (!rule.containsKey("field") || !rule.containsKey("type")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    static class NestedMapExtension
+            implements ConditionExtension<Map<String, List<Map<String, Object>>>> {
+        @Override
+        public String description() {
+            return "each group must have non-empty rules with 'name' key";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Map<String, List<Map<String, Object>>> value)
+                throws OptionValidationException {
+            if (value == null || value.isEmpty()) return false;
+            for (Map.Entry<String, List<Map<String, Object>>> entry : value.entrySet()) {
+                List<Map<String, Object>> rules = entry.getValue();
+                if (rules == null || rules.isEmpty()) return false;
+                for (Map<String, Object> rule : rules) {
+                    if (!rule.containsKey("name")) return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    @Test
+    public void testExtensionListMapValidStructure() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> ruleItem1 = new HashMap<>();
+        ruleItem1.put("field", "name");
+        ruleItem1.put("type", "string");
+        Map<String, Object> ruleItem2 = new HashMap<>();
+        ruleItem2.put("field", "age");
+        ruleItem2.put("type", "int");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Arrays.asList(ruleItem1, ruleItem2));
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapMissingKey() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> ruleItem = new HashMap<>();
+        ruleItem.put("field", "name");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Collections.singletonList(ruleItem));
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapEmptyList() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Collections.emptyList());
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapNullValue() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", null);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapSingleItemValid() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> item = new HashMap<>();
+        item.put("field", "id");
+        item.put("type", "long");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Collections.singletonList(item));
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapPartialInvalid() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> good = new HashMap<>();
+        good.put("field", "id");
+        good.put("type", "long");
+        Map<String, Object> bad = new HashMap<>();
+        bad.put("field", "name");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Arrays.asList(good, bad));
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionNestedMapValid() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                NESTED_MAP_OPTION,
+                                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension()))
+                        .build();
+
+        Map<String, Object> item1 = new HashMap<>();
+        item1.put("name", "rule1");
+        Map<String, Object> item2 = new HashMap<>();
+        item2.put("name", "rule2");
+
+        Map<String, Object> nested = new HashMap<>();
+        nested.put("group_a", Arrays.asList(item1, item2));
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("nested.config", nested);
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionNestedMapEmptyGroup() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                NESTED_MAP_OPTION,
+                                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension()))
+                        .build();
+
+        Map<String, Object> nested = new HashMap<>();
+        nested.put("group_a", Collections.emptyList());
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("nested.config", nested);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionNestedMapMissingNameKey() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                NESTED_MAP_OPTION,
+                                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension()))
+                        .build();
+
+        Map<String, Object> item = new HashMap<>();
+        item.put("value", "something");
+        Map<String, Object> nested = new HashMap<>();
+        nested.put("group_a", Collections.singletonList(item));
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("nested.config", nested);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionNestedMapEmptyOuter() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                NESTED_MAP_OPTION,
+                                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension()))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("nested.config", Collections.emptyMap());
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionNestedMapMultiGroupPartialInvalid() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                NESTED_MAP_OPTION,
+                                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension()))
+                        .build();
+
+        Map<String, Object> good = new HashMap<>();
+        good.put("name", "ok");
+        Map<String, Object> bad = new HashMap<>();
+        bad.put("other", "missing name");
+        Map<String, Object> nested = new HashMap<>();
+        nested.put("group_a", Collections.singletonList(good));
+        nested.put("group_b", Collections.singletonList(bad));
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("nested.config", nested);
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionThrowsOptionValidationException() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(
+                                EXT_PORT,
+                                Conditions.extension(
+                                        EXT_PORT,
+                                        new ConditionExtension<Integer>() {
+                                            @Override
+                                            public String description() {
+                                                return "must be even";
+                                            }
+
+                                            @Override
+                                            public boolean evaluate(
+                                                    ReadonlyConfig config, Integer value)
+                                                    throws OptionValidationException {
+                                                if (value != null && value % 2 != 0) {
+                                                    throw new OptionValidationException(
+                                                            "Value %d is odd, must be even", value);
+                                                }
+                                                return value != null;
+                                            }
+                                        }))
+                        .build();
+
+        Map<String, Object> pass = new HashMap<>();
+        pass.put("ext.port", 80);
+        Assertions.assertDoesNotThrow(() -> validate(pass, rule));
+
+        Map<String, Object> fail = new HashMap<>();
+        fail.put("ext.port", 81);
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(fail, rule));
+        Assertions.assertTrue(ex.getMessage().contains("odd"));
+    }
+
+    @Test
+    public void testExtensionListMapOptionalAbsent() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(
+                                LIST_MAP_OPTION,
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config, rule));
+    }
+
+    @Test
+    public void testExtensionListMapToString() {
+        Condition<List<Map<String, Object>>> cond =
+                Conditions.extension(LIST_MAP_OPTION, new ListMapStructureExtension());
+        assertEquals("'rules' each rule must contain 'field' and 'type' keys", cond.toString());
+    }
+
+    @Test
+    public void testExtensionNestedMapToString() {
+        Condition<Map<String, List<Map<String, Object>>>> cond =
+                Conditions.extension(NESTED_MAP_OPTION, new NestedMapExtension());
+        assertEquals(
+                "'nested.config' each group must have non-empty rules with 'name' key",
+                cond.toString());
+    }
+
+    @Test
+    public void testExtensionListMapAndBuiltinChain() {
+        Condition<List<Map<String, Object>>> combined =
+                notEmpty(LIST_MAP_OPTION)
+                        .and(
+                                Conditions.extension(
+                                        LIST_MAP_OPTION, new ListMapStructureExtension()));
+        OptionRule rule = OptionRule.builder().required(LIST_MAP_OPTION, combined).build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("rules", Collections.emptyList());
+        assertThrows(OptionValidationException.class, () -> validate(config, rule));
+
+        Map<String, Object> good = new HashMap<>();
+        good.put("field", "x");
+        good.put("type", "y");
+        Map<String, Object> config2 = new HashMap<>();
+        config2.put("rules", Collections.singletonList(good));
+        Assertions.assertDoesNotThrow(() -> validate(config2, rule));
+    }
+
+    @Test
+    public void testExtensionAndExtensionChain() {
+        ConditionExtension<Integer> positiveExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value > 0;
+                    }
+                };
+        ConditionExtension<Integer> evenExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be even";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value % 2 == 0;
+                    }
+                };
+        Condition<Integer> combined =
+                Conditions.extension(EXT_PORT, positiveExt)
+                        .and(Conditions.extension(EXT_PORT, evenExt));
+        OptionRule rule = OptionRule.builder().required(EXT_PORT, combined).build();
+
+        Map<String, Object> pass = new HashMap<>();
+        pass.put("ext.port", 80);
+        Assertions.assertDoesNotThrow(() -> validate(pass, rule));
+
+        // positive but odd -> fail
+        Map<String, Object> failOdd = new HashMap<>();
+        failOdd.put("ext.port", 81);
+        assertThrows(OptionValidationException.class, () -> validate(failOdd, rule));
+
+        // even but negative -> fail
+        Map<String, Object> failNeg = new HashMap<>();
+        failNeg.put("ext.port", -2);
+        assertThrows(OptionValidationException.class, () -> validate(failNeg, rule));
+    }
+
+    @Test
+    public void testExtensionOrExtensionChain() {
+        ConditionExtension<Integer> wellKnownExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "well-known port (1-1023)";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value >= 1 && value <= 1023;
+                    }
+                };
+        ConditionExtension<Integer> highPortExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "high port (49152-65535)";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value >= 49152 && value <= 65535;
+                    }
+                };
+        Condition<Integer> combined =
+                Conditions.extension(EXT_PORT, wellKnownExt)
+                        .or(Conditions.extension(EXT_PORT, highPortExt));
+        OptionRule rule = OptionRule.builder().required(EXT_PORT, combined).build();
+
+        Map<String, Object> passWellKnown = new HashMap<>();
+        passWellKnown.put("ext.port", 443);
+        Assertions.assertDoesNotThrow(() -> validate(passWellKnown, rule));
+
+        Map<String, Object> passHigh = new HashMap<>();
+        passHigh.put("ext.port", 50000);
+        Assertions.assertDoesNotThrow(() -> validate(passHigh, rule));
+
+        // middle range -> fail both
+        Map<String, Object> fail = new HashMap<>();
+        fail.put("ext.port", 8080);
+        assertThrows(OptionValidationException.class, () -> validate(fail, rule));
+    }
+
+    @Test
+    public void testExtensionWithExclusiveOptional() {
+        ConditionExtension<String> patternExt =
+                new ConditionExtension<String>() {
+                    @Override
+                    public String description() {
+                        return "must start with a letter";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, String value) {
+                        return value != null
+                                && !value.isEmpty()
+                                && Character.isLetter(value.charAt(0));
+                    }
+                };
+        OptionRule rule =
+                OptionRule.builder()
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(
+                                TEST_TOPIC_PATTERN,
+                                Conditions.extension(TEST_TOPIC_PATTERN, patternExt))
+                        .optional(TEST_TOPIC, notEmpty(TEST_TOPIC))
+                        .build();
+
+        // neither present -> fails exclusive
+        Map<String, Object> config1 = new HashMap<>();
+        assertThrows(OptionValidationException.class, () -> validate(config1, rule));
+
+        // pattern present with valid value -> pass
+        Map<String, Object> config2 = new HashMap<>();
+        config2.put(TEST_TOPIC_PATTERN.key(), "topic.*");
+        Assertions.assertDoesNotThrow(() -> validate(config2, rule));
+
+        // pattern present but starts with digit -> fails extension
+        Map<String, Object> config3 = new HashMap<>();
+        config3.put(TEST_TOPIC_PATTERN.key(), "123topic");
+        assertThrows(OptionValidationException.class, () -> validate(config3, rule));
+
+        // both present -> fails exclusive
+        Map<String, Object> config4 = new HashMap<>();
+        config4.put(TEST_TOPIC_PATTERN.key(), "topic.*");
+        config4.put(TEST_TOPIC.key(), Collections.singletonList("t1"));
+        assertThrows(OptionValidationException.class, () -> validate(config4, rule));
+
+        // topic present with valid list -> pass
+        Map<String, Object> config5 = new HashMap<>();
+        config5.put(TEST_TOPIC.key(), Arrays.asList("t1", "t2"));
+        Assertions.assertDoesNotThrow(() -> validate(config5, rule));
+    }
+
+    @Test
+    public void testExtensionWithBundledOptional() {
+        ConditionExtension<String> patternExt =
+                new ConditionExtension<String>() {
+                    @Override
+                    public String description() {
+                        return "must contain a wildcard";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, String value) {
+                        return value != null && value.contains("*");
+                    }
+                };
+        OptionRule rule =
+                OptionRule.builder()
+                        .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(
+                                TEST_TOPIC_PATTERN,
+                                Conditions.extension(TEST_TOPIC_PATTERN, patternExt))
+                        .optional(TEST_TOPIC, notEmpty(TEST_TOPIC))
+                        .build();
+
+        // neither present -> pass (bundled group absent)
+        Map<String, Object> config1 = new HashMap<>();
+        Assertions.assertDoesNotThrow(() -> validate(config1, rule));
+
+        // both present with valid values -> pass
+        Map<String, Object> config2 = new HashMap<>();
+        config2.put(TEST_TOPIC_PATTERN.key(), "topic.*");
+        config2.put(TEST_TOPIC.key(), Collections.singletonList("t1"));
+        Assertions.assertDoesNotThrow(() -> validate(config2, rule));
+
+        // only one present -> fails bundled
+        Map<String, Object> config3 = new HashMap<>();
+        config3.put(TEST_TOPIC_PATTERN.key(), "topic.*");
+        assertThrows(OptionValidationException.class, () -> validate(config3, rule));
+
+        // both present but pattern has no wildcard -> fails extension
+        Map<String, Object> config4 = new HashMap<>();
+        config4.put(TEST_TOPIC_PATTERN.key(), "topic-fixed");
+        config4.put(TEST_TOPIC.key(), Collections.singletonList("t1"));
+        assertThrows(OptionValidationException.class, () -> validate(config4, rule));
+
+        // both present but topic is empty -> fails notEmpty
+        Map<String, Object> config5 = new HashMap<>();
+        config5.put(TEST_TOPIC_PATTERN.key(), "topic.*");
+        config5.put(TEST_TOPIC.key(), Collections.emptyList());
+        assertThrows(OptionValidationException.class, () -> validate(config5, rule));
     }
 }

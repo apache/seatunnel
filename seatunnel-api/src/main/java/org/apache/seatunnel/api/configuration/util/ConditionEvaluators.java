@@ -169,6 +169,14 @@ public final class ConditionEvaluators {
                     return compareNumbers(v, other) >= 0;
                 });
 
+        // Extension (custom logic delegated to ConditionExtension)
+        m.put(
+                ConditionOperator.EXTENSION,
+                (v, c, cfg) -> {
+                    ConditionExtension<Object> ext = (ConditionExtension<Object>) c.getExtension();
+                    return ext.evaluate(cfg, v);
+                });
+
         for (ConditionOperator op : ConditionOperator.values()) {
             if (!m.containsKey(op)) {
                 throw new IllegalStateException(

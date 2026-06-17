@@ -23,6 +23,7 @@
 connector-amazondynamodb
 connector-assert
 connector-cassandra
+connector-salesforce
 connector-cdc-mysql
 connector-cdc-mongodb
 connector-cdc-sqlserver
