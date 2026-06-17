@@ -1075,6 +1075,43 @@ public class CoordinatorService {
     }
 
     /**
+     * Removes pending pipeline cleanup records from an older execution round of the same job.
+     *
+     * <p>A savepoint-start submission reuses the same job id and pipeline ids, while pipeline
+     * cleanup records are keyed only by {@link PipelineLocation}. If a previous FAILED record
+     * survives into the restored round, it can delete metrics that the later savepoint-end round
+     * must retain.
+     *
+     * @param jobId job id that is entering a new savepoint-start execution round
+     */
+    @VisibleForTesting
+    void cleanupPendingPipelineCleanupForRestore(long jobId) {
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                pendingPipelineCleanupIMap;
+        if (pendingCleanupIMap == null || pendingCleanupIMap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<PipelineLocation, PipelineCleanupRecord> entry :
+                pendingCleanupIMap.entrySet()) {
+            PipelineLocation pipelineLocation = entry.getKey();
+            PipelineCleanupRecord record = entry.getValue();
+            boolean sameJob =
+                    (pipelineLocation != null && pipelineLocation.getJobId() == jobId)
+                            || (record != null
+                                    && record.getPipelineLocation() != null
+                                    && record.getPipelineLocation().getJobId() == jobId);
+            if (!sameJob) {
+                continue;
+            }
+            if (record == null) {
+                pendingCleanupIMap.remove(pipelineLocation);
+            } else {
+                pendingCleanupIMap.remove(pipelineLocation, record);
+            }
+        }
+    }
+
+    /**
      * Polls master ownership and reconciles the local coordinator lifecycle with cluster state.
      *
      * <p>When this node becomes the active master, the coordinator initializes distributed services
@@ -1209,6 +1246,9 @@ public class CoordinatorService {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
+                        if (isStartWithSavePoint) {
+                            cleanupPendingPipelineCleanupForRestore(jobId);
+                        }
                         JobCleanupRecord pendingCleanupRecord =
                                 pendingJobCleanupIMap != null
                                         ? pendingJobCleanupIMap.get(jobId)

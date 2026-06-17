@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
@@ -43,8 +44,7 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
 
     @Test
     void testCleanupRemovesMetricsAndRecordWhenNoTaskGroups() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -83,8 +83,7 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
 
     @Test
     void testCleanupRemovesMetricsAndRecordForFailedPipeline() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -123,8 +122,7 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
 
     @Test
     void testSkipCleanupWhenPipelineNotEndState() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -161,8 +159,7 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
 
     @Test
     void testRemoveRecordWhenShouldCleanupIsFalse() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -196,10 +193,54 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
                 "Should not clean metrics when record is removed due to shouldCleanup=false");
     }
 
+    /**
+     * Verifies that savepoint-start invalidates stale failed cleanup records from the previous
+     * round.
+     */
+    @Test
+    void testRestoreStartRemovesStaleFailedCleanupRecordForSameJob() {
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
+
+        long jobId = System.currentTimeMillis();
+        PipelineLocation restoredPipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineLocation otherPipelineLocation = new PipelineLocation(jobId + 1, 1);
+
+        upsertMetricsForPipeline(restoredPipelineLocation);
+        upsertMetricsForPipeline(otherPipelineLocation);
+        Assertions.assertTrue(hasMetricsForPipeline(restoredPipelineLocation));
+        Assertions.assertTrue(hasMetricsForPipeline(otherPipelineLocation));
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateIMap.put(restoredPipelineLocation, PipelineStatus.FINISHED);
+        runningJobStateIMap.put(otherPipelineLocation, PipelineStatus.FAILED);
+
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        pendingCleanupIMap.put(
+                restoredPipelineLocation,
+                newPipelineCleanupRecord(restoredPipelineLocation, PipelineStatus.FAILED, false));
+        pendingCleanupIMap.put(
+                otherPipelineLocation,
+                newPipelineCleanupRecord(otherPipelineLocation, PipelineStatus.FAILED, false));
+
+        coordinatorService.cleanupPendingPipelineCleanupForRestore(jobId);
+
+        Assertions.assertFalse(pendingCleanupIMap.containsKey(restoredPipelineLocation));
+        Assertions.assertTrue(pendingCleanupIMap.containsKey(otherPipelineLocation));
+
+        coordinatorService.runPendingPipelineCleanupOnce();
+
+        Assertions.assertTrue(
+                hasMetricsForPipeline(restoredPipelineLocation),
+                "Stale failed cleanup record must not delete savepoint-end metrics");
+        Assertions.assertFalse(hasMetricsForPipeline(otherPipelineLocation));
+        Assertions.assertFalse(pendingCleanupIMap.containsKey(otherPipelineLocation));
+    }
+
     @Test
     void testCleanupUpdatesRecordAndKeepsItWhenTaskGroupCannotBeCleaned() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -242,8 +283,7 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
 
     @Test
     void testCleanupRemovesRecordWhenAllTaskGroupsCleaned() {
-        CoordinatorService coordinatorService = server.getCoordinatorService();
-        awaitCoordinatorActive(coordinatorService);
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
 
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -291,6 +331,27 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
         server.updateMetrics(local);
     }
 
+    /**
+     * Creates a focused pending cleanup record without task-group cleanup requirements.
+     *
+     * <p>The cleanup tests use this helper to keep assertions focused on metric cleanup behavior.
+     */
+    private PipelineCleanupRecord newPipelineCleanupRecord(
+            PipelineLocation pipelineLocation,
+            PipelineStatus pipelineStatus,
+            boolean savepointEnd) {
+        return new PipelineCleanupRecord(
+                pipelineLocation,
+                pipelineStatus,
+                savepointEnd,
+                Collections.emptyMap(),
+                Collections.emptySet(),
+                false,
+                System.currentTimeMillis(),
+                0L,
+                0);
+    }
+
     private boolean hasMetricsForPipeline(PipelineLocation pipelineLocation) {
         IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
@@ -302,9 +363,23 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
                                         taskLocation.getTaskGroupLocation().getPipelineLocation()));
     }
 
-    private void awaitCoordinatorActive(CoordinatorService coordinatorService) {
-        await().atMost(30, TimeUnit.SECONDS)
+    /**
+     * Waits until the test server exposes an active coordinator service.
+     *
+     * <p>{@link SeaTunnelServer#getCoordinatorService()} throws before active-master initialization
+     * finishes, so tests must wait around the lookup itself instead of checking activity after the
+     * lookup succeeds.
+     */
+    private CoordinatorService awaitActiveCoordinatorService() {
+        AtomicReference<CoordinatorService> coordinatorServiceRef = new AtomicReference<>();
+        await().ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+                        () -> {
+                            CoordinatorService coordinatorService = server.getCoordinatorService();
+                            Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+                            coordinatorServiceRef.set(coordinatorService);
+                        });
+        return coordinatorServiceRef.get();
     }
 }
