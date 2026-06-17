@@ -41,18 +41,22 @@ import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.version.MemberVersion;
 import com.hazelcast.version.Version;
 import io.prometheus.client.Collector;
 
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 public class TelemetryCollectorCoordinatorGuardTest {
 
     private Node mockNode;
+    private NodeEngineImpl mockNodeEngine;
     private SeaTunnelServer mockServer;
     private CoordinatorService mockCoordinatorService;
     private ClusterServiceImpl mockClusterService;
@@ -66,7 +70,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         mockClusterService = Mockito.mock(ClusterServiceImpl.class);
         mockLogger = Mockito.mock(ILogger.class);
 
-        NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
+        mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
         MemberImpl mockMember = Mockito.mock(MemberImpl.class);
         Config mockConfig = Mockito.mock(Config.class);
 
@@ -74,6 +78,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.when(mockNodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
                 .thenReturn(mockServer);
         Mockito.when(mockNodeEngine.getLocalMember()).thenReturn(mockMember);
+        Mockito.when(mockNodeEngine.getClusterService()).thenReturn(mockClusterService);
         Mockito.when(mockNode.getClusterService()).thenReturn(mockClusterService);
         Mockito.when(mockNode.getLogger(Mockito.any(Class.class))).thenReturn(mockLogger);
         Mockito.when(mockNode.getConfig()).thenReturn(mockConfig);
@@ -103,8 +108,8 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobMetricExportsReturnsEmptyWhenCoordinatorNotReady() {
-        Mockito.when(mockNode.isMaster()).thenReturn(true);
+    void testJobMetricExportsReturnsEmptyWhenCoordinatorNotReady() throws UnknownHostException {
+        stubSeparatedClusterWithLocalCoordinator();
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(false);
 
         JobMetricExports exports = new JobMetricExports(mockNode);
@@ -118,8 +123,8 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobMetricExportsReturnsMetricsWhenCoordinatorReady() {
-        Mockito.when(mockNode.isMaster()).thenReturn(true);
+    void testJobMetricExportsReturnsMetricsWhenCoordinatorReady() throws UnknownHostException {
+        stubSeparatedClusterWithLocalCoordinator();
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
         Mockito.when(mockCoordinatorService.getJobCountMetrics())
                 .thenReturn(new JobCounter(0, 0, 0, 1, 0, 0, 0, 0, 0));
@@ -133,8 +138,8 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobMetricExportsReturnsEmptyWhenNotMaster() {
-        Mockito.when(mockNode.isMaster()).thenReturn(false);
+    void testJobMetricExportsReturnsEmptyWhenNotMaster() throws UnknownHostException {
+        stubSeparatedClusterWithLocalWorker();
 
         JobMetricExports exports = new JobMetricExports(mockNode);
         List<Collector.MetricFamilySamples> result = exports.collect();
@@ -144,8 +149,9 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobThreadPoolStatusExportsReturnsEmptyWhenCoordinatorNotReady() {
-        Mockito.when(mockNode.isMaster()).thenReturn(true);
+    void testJobThreadPoolStatusExportsReturnsEmptyWhenCoordinatorNotReady()
+            throws UnknownHostException {
+        stubSeparatedClusterWithLocalCoordinator();
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(false);
 
         JobThreadPoolStatusExports exports = new JobThreadPoolStatusExports(mockNode);
@@ -159,8 +165,9 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobThreadPoolStatusExportsReturnsMetricsWhenCoordinatorReady() {
-        Mockito.when(mockNode.isMaster()).thenReturn(true);
+    void testJobThreadPoolStatusExportsReturnsMetricsWhenCoordinatorReady()
+            throws UnknownHostException {
+        stubSeparatedClusterWithLocalCoordinator();
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
         ThreadPoolStatus status = new ThreadPoolStatus(1, 2, 10, 3, 100L, 110L, 0L, 0L);
         Mockito.when(mockServer.getThreadPoolStatusMetrics()).thenReturn(status);
@@ -174,8 +181,8 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
-    void testJobThreadPoolStatusExportsReturnsEmptyWhenNotMaster() {
-        Mockito.when(mockNode.isMaster()).thenReturn(false);
+    void testJobThreadPoolStatusExportsReturnsEmptyWhenNotMaster() throws UnknownHostException {
+        stubSeparatedClusterWithLocalWorker();
 
         JobThreadPoolStatusExports exports = new JobThreadPoolStatusExports(mockNode);
         List<Collector.MetricFamilySamples> result = exports.collect();
@@ -346,5 +353,50 @@ public class TelemetryCollectorCoordinatorGuardTest {
         int addressLabelIndex = sample.labelNames.indexOf("address");
         Assertions.assertTrue(addressLabelIndex >= 0, "metric sample must contain 'address' label");
         Assertions.assertEquals("127.0.0.1:5801", sample.labelValues.get(addressLabelIndex));
+    }
+
+    /**
+     * Simulates a separated deployment where Hazelcast mastership points to a lite worker, while
+     * the local node is the non-lite SeaTunnel coordinator chosen by active-master resolution.
+     */
+    private void stubSeparatedClusterWithLocalCoordinator() throws UnknownHostException {
+        Address workerAddress = new Address("127.0.0.1", 5801);
+        Address coordinatorAddress = new Address("127.0.0.1", 5802);
+        MemberImpl workerMember = newMember(workerAddress, true);
+        MemberImpl coordinatorMember = newMember(coordinatorAddress, false);
+        stubClusterMembership(coordinatorAddress, workerAddress, workerMember, coordinatorMember);
+    }
+
+    /**
+     * Simulates a separated deployment where the local node is still the lite worker, so telemetry
+     * collectors must not treat it as the active coordinator.
+     */
+    private void stubSeparatedClusterWithLocalWorker() throws UnknownHostException {
+        Address workerAddress = new Address("127.0.0.1", 5801);
+        Address coordinatorAddress = new Address("127.0.0.1", 5802);
+        MemberImpl workerMember = newMember(workerAddress, true);
+        MemberImpl coordinatorMember = newMember(coordinatorAddress, false);
+        stubClusterMembership(workerAddress, workerAddress, workerMember, coordinatorMember);
+    }
+
+    private void stubClusterMembership(
+            Address localAddress,
+            Address hazelcastMasterAddress,
+            MemberImpl hazelcastMasterMember,
+            MemberImpl... members)
+            throws UnknownHostException {
+        Mockito.when(mockNodeEngine.getThisAddress()).thenReturn(localAddress);
+        Mockito.when(mockNodeEngine.getMasterAddress()).thenReturn(hazelcastMasterAddress);
+        Mockito.when(mockClusterService.getMember(hazelcastMasterAddress))
+                .thenReturn(hazelcastMasterMember);
+        Mockito.when(mockClusterService.getMembers())
+                .thenReturn(new LinkedHashSet<>(Arrays.asList(members)));
+    }
+
+    private MemberImpl newMember(Address address, boolean liteMember) {
+        return new MemberImpl.Builder(address)
+                .version(MemberVersion.of(5, 1, 0))
+                .liteMember(liteMember)
+                .build();
     }
 }
