@@ -148,7 +148,6 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                 .jdbcConnectionConfig(connectionConfig)
                 .database("main")
                 .table("shared_users")
-                .writeMode(JdbcSinkConfig.WriteMode.SQL)
                 .build();
     }
 
