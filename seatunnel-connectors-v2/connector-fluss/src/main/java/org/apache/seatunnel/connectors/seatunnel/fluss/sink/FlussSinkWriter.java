@@ -69,39 +69,36 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public FlussSinkWriter(
             SinkWriter.Context context, CatalogTable catalogTable, ReadonlyConfig pluginConfig) {
         seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        String bootstrapServers = pluginConfig.get(FlussSinkOptions.BOOTSTRAP_SERVERS);
         Configuration flussConfig = new Configuration();
-        flussConfig.setString(
-                FlussSinkOptions.BOOTSTRAP_SERVERS.key(),
-                pluginConfig.get(FlussSinkOptions.BOOTSTRAP_SERVERS));
+        flussConfig.setString(FlussSinkOptions.BOOTSTRAP_SERVERS.key(), bootstrapServers);
         Optional<Map<String, String>> clientConfig =
                 pluginConfig.getOptional(FlussSinkOptions.CLIENT_CONFIG);
-        if (clientConfig.isPresent()) {
-            clientConfig
-                    .get()
-                    .forEach(
-                            (k, v) -> {
-                                flussConfig.setString(k, v);
-                            });
-        }
-        log.info("Connect to Fluss with config: {}", flussConfig);
-        connection = ConnectionFactory.createConnection(flussConfig);
-        log.info("Connect to Fluss success");
-        dbName =
-                pluginConfig
-                        .getOptional(FlussSinkOptions.DATABASE)
-                        .orElseGet(() -> catalogTable.getTableId().getDatabaseName());
-        tableName =
-                pluginConfig
-                        .getOptional(FlussSinkOptions.TABLE)
-                        .orElseGet(() -> catalogTable.getTableId().getTableName());
-        TablePath tablePath = TablePath.of(dbName, tableName);
-        table = connection.getTable(tablePath);
-        if (table.getTableInfo().hasPrimaryKey()) {
-            log.info("Table {} has primary key, use upsert writer", tableName);
-            writer = table.newUpsert().createWriter();
-        } else {
-            log.info("Table {} has no primary key, use append writer", tableName);
-            writer = table.newAppend().createWriter();
+        clientConfig.ifPresent(cfg -> cfg.forEach(flussConfig::setString));
+        log.info("Connect to Fluss with bootstrap.servers: {}", bootstrapServers);
+        try {
+            connection = ConnectionFactory.createConnection(flussConfig);
+            log.info("Connect to Fluss success");
+            dbName =
+                    pluginConfig
+                            .getOptional(FlussSinkOptions.DATABASE)
+                            .orElseGet(() -> catalogTable.getTableId().getDatabaseName());
+            tableName =
+                    pluginConfig
+                            .getOptional(FlussSinkOptions.TABLE)
+                            .orElseGet(() -> catalogTable.getTableId().getTableName());
+            TablePath tablePath = TablePath.of(dbName, tableName);
+            table = connection.getTable(tablePath);
+            if (table.getTableInfo().hasPrimaryKey()) {
+                log.info("Table {} has primary key, use upsert writer", tableName);
+                writer = table.newUpsert().createWriter();
+            } else {
+                log.info("Table {} has no primary key, use append writer", tableName);
+                writer = table.newAppend().createWriter();
+            }
+        } catch (Throwable t) {
+            closeQuietly();
+            throw t;
         }
     }
 
@@ -162,13 +159,14 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
+        Exception firstError = null;
         log.info("Close Fluss table.");
         try {
             if (table != null) {
                 table.close();
             }
         } catch (Exception e) {
-            throw CommonError.closeFailed("Close Fluss table failed.", e);
+            firstError = e;
         }
 
         log.info("Close Fluss connection.");
@@ -177,7 +175,30 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 connection.close();
             }
         } catch (Exception e) {
-            throw CommonError.closeFailed("Close Fluss connection failed.", e);
+            if (firstError == null) {
+                firstError = e;
+            } else {
+                firstError.addSuppressed(e);
+            }
+        }
+
+        if (firstError != null) {
+            throw CommonError.closeFailed(FlussSinkOptions.CONNECTOR_IDENTITY, firstError);
+        }
+    }
+
+    private void closeQuietly() {
+        try {
+            if (table != null) {
+                table.close();
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (Exception ignored) {
         }
     }
 
