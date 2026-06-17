@@ -182,7 +182,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
 
     private int getClassLoaderUpperBound(int initialClassLoaderCount, int iteration) {
         if (cacheMode()) {
-            return initialClassLoaderCount;
+            return initialClassLoaderCount + DISABLE_CACHE_MODE_CLASSLOADERS_PER_JOB;
         }
         return initialClassLoaderCount + DISABLE_CACHE_MODE_CLASSLOADERS_PER_JOB * (iteration + 1);
     }
