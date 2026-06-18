@@ -39,7 +39,7 @@ public final class ElasticsearchValidators {
 
     /**
      * Validates that {@code username} and {@code password} are either both present or both absent
-     * (basic auth must be configured as a pair).
+     * (basic auth must be configured as a pair), and when present, both are non-blank.
      *
      * <p>The generic parameter matches the option this validator is attached to (typically {@code
      * HOSTS} which is {@code Option<List<String>>}).
@@ -47,14 +47,20 @@ public final class ElasticsearchValidators {
     public static class BasicAuthPairValidator implements ConditionExtension<List<String>> {
         @Override
         public String description() {
-            return "'username' and 'password' must be provided together";
+            return "'username' and 'password' must be provided together and must not be blank";
         }
 
         @Override
         public boolean evaluate(ReadonlyConfig config, List<String> value) {
-            boolean hasUser = config.getOptional(ElasticsearchBaseOptions.USERNAME).isPresent();
-            boolean hasPass = config.getOptional(ElasticsearchBaseOptions.PASSWORD).isPresent();
-            return hasUser == hasPass;
+            String user = config.getOptional(ElasticsearchBaseOptions.USERNAME).orElse(null);
+            String pass = config.getOptional(ElasticsearchBaseOptions.PASSWORD).orElse(null);
+            if (user == null && pass == null) {
+                return true;
+            }
+            if (user == null || pass == null) {
+                return false;
+            }
+            return !user.trim().isEmpty() && !pass.trim().isEmpty();
         }
     }
 

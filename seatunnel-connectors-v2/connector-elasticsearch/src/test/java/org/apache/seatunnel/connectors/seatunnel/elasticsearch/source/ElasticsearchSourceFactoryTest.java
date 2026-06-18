@@ -165,6 +165,36 @@ class ElasticsearchSourceFactoryTest {
     }
 
     @Test
+    void testBasicAuthBlankUsernameFails() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("hosts", Arrays.asList("localhost:9200"));
+        config.put("index", "test_index");
+        config.put("username", "   ");
+        config.put("password", "secret");
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+        Assertions.assertTrue(
+                ex.getMessage().contains("username") || ex.getMessage().contains("blank"));
+    }
+
+    @Test
+    void testBasicAuthBlankPasswordFails() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("hosts", Arrays.asList("localhost:9200"));
+        config.put("index", "test_index");
+        config.put("username", "admin");
+        config.put("password", "   ");
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+        Assertions.assertTrue(
+                ex.getMessage().contains("password") || ex.getMessage().contains("blank"));
+    }
+
+    @Test
     void testApiKeyAuthMissingKeysFails() {
         Map<String, Object> config = new HashMap<>();
         config.put("hosts", Arrays.asList("localhost:9200"));
