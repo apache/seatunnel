@@ -45,8 +45,7 @@ public class TiDBSourceSplitEnumerator
     private static final String CDC_DIAG_PREFIX = "[TiDB-CDC-DIAG]";
 
     private final TiDBSourceConfig sourceConfig;
-    private final Map<Integer, TiDBSourceSplit> assignedSplit;
-    private final Map<Integer, TiDBSourceSplit> pendingSplit;
+    private final Map<Integer, List<TiDBSourceSplit>> pendingSplit;
     private final Context<TiDBSourceSplit> context;
     private TiSession tiSession;
     private long tableId;
@@ -66,7 +65,6 @@ public class TiDBSourceSplitEnumerator
             TiDBSourceCheckpointState restoreState) {
         this.context = context;
         this.sourceConfig = sourceConfig;
-        this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.shouldEnumerate = (restoreState == null);
         if (restoreState != null) {
@@ -108,7 +106,6 @@ public class TiDBSourceSplitEnumerator
                     sourceSplits.size());
             synchronized (stateLock) {
                 addPendingSplit(sourceSplits);
-                fetchAssignedSplit();
                 shouldEnumerate = false;
                 assignSplit(readers);
             }
@@ -118,33 +115,27 @@ public class TiDBSourceSplitEnumerator
         readers.forEach(context::signalNoMoreSplits);
     }
 
-    private void fetchAssignedSplit() {
-        for (Map.Entry<Integer, TiDBSourceSplit> split : pendingSplit.entrySet()) {
-            if (assignedSplit.containsKey(split.getKey())) {
-                // override split
-                pendingSplit.put(split.getKey(), split.getValue());
-            }
-        }
-    }
-
     private synchronized void addPendingSplit(List<TiDBSourceSplit> splits) {
         splits.forEach(
                 split -> {
-                    pendingSplit.put(
-                            getSplitOwner(split.splitId(), context.currentParallelism()), split);
+                    pendingSplit
+                            .computeIfAbsent(
+                                    getSplitOwner(split.splitId(), context.currentParallelism()),
+                                    ignored -> new ArrayList<>())
+                            .add(split);
                 });
     }
 
     private void assignSplit(Collection<Integer> readers) {
         for (Integer reader : readers) {
-            final TiDBSourceSplit assignmentForReader = pendingSplit.remove(reader);
-            if (assignmentForReader != null) {
+            final List<TiDBSourceSplit> assignmentForReader = pendingSplit.remove(reader);
+            if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
                 log.info(
-                        "{} Assign split to reader, reader={}, split={}, remainingPending={}.",
+                        "{} Assign split to reader, reader={}, splits={}, remainingPending={}.",
                         CDC_DIAG_PREFIX,
                         reader,
                         assignmentForReader,
-                        pendingSplit.size());
+                        currentUnassignedSplitSize());
                 context.assignSplit(reader, assignmentForReader);
             }
         }
@@ -211,7 +202,7 @@ public class TiDBSourceSplitEnumerator
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
+        return pendingSplit.values().stream().mapToInt(List::size).sum();
     }
 
     @Override

@@ -25,6 +25,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -34,5 +35,5 @@ import java.util.Map;
 public class TiDBSourceCheckpointState implements Serializable {
     private static final long serialVersionUID = 6292978509042158791L;
     private boolean shouldEnumerate;
-    private Map<Integer, TiDBSourceSplit> pendingSplit;
+    private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
 }
