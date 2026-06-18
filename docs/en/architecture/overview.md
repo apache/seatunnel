@@ -214,7 +214,7 @@ flowchart TD
 Jobs are divided into **Pipelines** (SubPlans):
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph pipeline1["Pipeline 1"]
         direction LR
         sourceA["Source A"] --> transformA["Transform 1"] --> sinkA["Sink A"]
@@ -224,6 +224,8 @@ flowchart LR
         direction LR
         sourceB["Source B"] --> transformB["Transform 2"] --> sinkB["Sink B"]
     end
+
+    transformA --> transformB
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;

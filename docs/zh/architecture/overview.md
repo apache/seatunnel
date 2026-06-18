@@ -193,7 +193,7 @@ flowchart TD
 作业被划分为**管道**（SubPlan）：
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph pipeline1["管道 1"]
         direction LR
         sourceA["数据 Source A"] --> transformA["转换 1"] --> sinkA["数据 Sink A"]
@@ -203,6 +203,8 @@ flowchart LR
         direction LR
         sourceB["数据 Source B"] --> transformB["转换 2"] --> sinkB["数据 Sink B"]
     end
+
+    transformA --> transformB
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;

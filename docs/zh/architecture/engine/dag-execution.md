@@ -224,8 +224,18 @@ sink {
 生成: **通常为 1 个流水线（包含分支）**
 生成结果:
 
-- `流水线 1`: `MySQL-CDC 数据源 → Elasticsearch 目标端`
-- `流水线 1`: `MySQL-CDC 数据源 → JDBC 目标端`
+```mermaid
+flowchart LR
+    source["MySQL-CDC 数据源"] --> elastic["Elasticsearch 目标端"]
+    source --> jdbc["JDBC 目标端"]
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerCyan;
+    class elastic,jdbc layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
+```
 
 ### 3.3 PhysicalPlan 生成
 

@@ -278,8 +278,18 @@ sink {
 Generated: **1 Pipeline**
 Generated result:
 
-- `Pipeline 1`: `MySQL-CDC Source → Elasticsearch Sink`
-- `Pipeline 1`: `MySQL-CDC Source → JDBC Sink`
+```mermaid
+flowchart LR
+    source["MySQL-CDC Source"] --> elastic["Elasticsearch Sink"]
+    source --> jdbc["JDBC Sink"]
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerCyan;
+    class elastic,jdbc layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
+```
 
 ### 3.3 PhysicalPlan Generation
 
