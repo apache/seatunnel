@@ -164,7 +164,7 @@ The `azure-kv` provider resolves sensitive configuration values from Azure Key V
    }
    ```
 
-The value after `${keyvault:azure:` is the Key Vault secret name. A full secret path is also accepted; the provider uses its last path segment as the secret name. Only options selected by `shade.options` or SeaTunnel's default sensitive option list are resolved.
+The value after `${keyvault:azure:` must be a plain Key Vault secret name. Full Azure secret identifiers and paths are not supported. Only options selected by `shade.options` or SeaTunnel's default sensitive option list are resolved.
 
 The `azure-kv` provider only resolves existing secrets during decryption. The `--encrypt` command does not create or update secrets in Azure Key Vault.
 

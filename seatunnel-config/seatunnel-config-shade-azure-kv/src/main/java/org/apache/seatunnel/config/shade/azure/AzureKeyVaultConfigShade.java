@@ -73,10 +73,9 @@ public class AzureKeyVaultConfigShade implements ConfigShade {
             String secretName =
                     content.substring(SECRET_REFERENCE_PREFIX.length(), content.length() - 1);
 
-            int slashIndex = secretName.lastIndexOf("/");
-
-            if (slashIndex >= 0) {
-                secretName = secretName.substring(slashIndex + 1);
+            if (secretName.contains("/")) {
+                throw new IllegalArgumentException(
+                        "Only plain Azure Key Vault secret names are supported");
             }
 
             return secretClient.getSecret(secretName).getValue();

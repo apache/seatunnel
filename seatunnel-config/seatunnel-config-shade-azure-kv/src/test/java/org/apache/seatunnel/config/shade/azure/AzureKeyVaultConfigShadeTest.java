@@ -76,16 +76,19 @@ class AzureKeyVaultConfigShadeTest {
     }
 
     @Test
-    void testSecretPathUsesLastSegment() {
+    void testFullSecretIdentifierIsRejected() {
         SecretClient secretClient = mock(SecretClient.class);
-        when(secretClient.getSecret("database-password"))
-                .thenReturn(new KeyVaultSecret("database-password", "resolved-value"));
         AzureKeyVaultConfigShade configShade = new AzureKeyVaultConfigShade(secretClient);
 
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                configShade.decrypt(
+                                        "${keyvault:azure:https://example.vault.azure.net/secrets/database-password/secret-version}"));
+
         assertEquals(
-                "resolved-value",
-                configShade.decrypt(
-                        "${keyvault:azure:https://example.vault.azure.net/secrets/database-password}"));
-        verify(secretClient).getSecret("database-password");
+                "Only plain Azure Key Vault secret names are supported", exception.getMessage());
+        verifyNoInteractions(secretClient);
     }
 }

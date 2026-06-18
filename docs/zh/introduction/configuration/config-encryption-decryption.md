@@ -165,7 +165,7 @@ Base64编码默认支持加密以下参数：
    }
    ```
 
-`${keyvault:azure:` 后面的值是 Key Vault 密钥名称。也可以使用完整的密钥路径，提供程序会将路径的最后一段作为密钥名称。只有 `shade.options` 指定的配置项或 SeaTunnel 默认的敏感配置项会被解析。
+`${keyvault:azure:` 后面的值必须是普通的 Key Vault 密钥名称。不支持完整的 Azure 密钥标识符或路径。只有 `shade.options` 指定的配置项或 SeaTunnel 默认的敏感配置项会被解析。
 
 `azure-kv` 提供程序只在解密时解析已有密钥。`--encrypt` 命令不会在 Azure Key Vault 中创建或更新密钥。
 
