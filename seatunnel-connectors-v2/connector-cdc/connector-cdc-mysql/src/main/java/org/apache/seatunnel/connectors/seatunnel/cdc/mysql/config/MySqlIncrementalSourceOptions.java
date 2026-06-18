@@ -37,6 +37,27 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                     .withDescription(
                             "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
 
+    public static final Option<String> STARTUP_SPECIFIC_OFFSET_GTID_SET =
+            Options.key("startup.specific-offset.gtid-set")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional GTID set used in case of \"specific\" startup mode.");
+
+    public static final Option<Long> STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS =
+            Options.key("startup.specific-offset.skip-events")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional number of binlog events to skip after the specific startup offset.");
+
+    public static final Option<Long> STARTUP_SPECIFIC_OFFSET_SKIP_ROWS =
+            Options.key("startup.specific-offset.skip-rows")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional number of rows to skip after the specific startup offset.");
+
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
