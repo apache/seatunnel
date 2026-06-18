@@ -42,7 +42,15 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
                 .conditional(
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
                         CompilePattern.SOURCE_CODE,
+                        DynamicCompileTransformConfig.SOURCE_CODE)
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.SOURCE_CODE,
                         Conditions.notBlank(DynamicCompileTransformConfig.SOURCE_CODE))
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.ABSOLUTE_PATH,
+                        DynamicCompileTransformConfig.ABSOLUTE_PATH)
                 .conditional(
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
                         CompilePattern.ABSOLUTE_PATH,

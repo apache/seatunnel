@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -30,6 +29,7 @@ import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
+import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 @AutoService(Factory.class)
@@ -73,17 +73,15 @@ public class TableFilterTransformFactory implements TableTransformFactory {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, String value)
-                throws OptionValidationException {
+        public boolean evaluate(ReadonlyConfig config, String value) {
             if (value == null || value.isEmpty()) {
                 return true;
             }
             try {
-                java.util.regex.Pattern.compile(value);
+                Pattern.compile(value);
                 return true;
             } catch (PatternSyntaxException e) {
-                throw new OptionValidationException(
-                        String.format("Invalid regex pattern '%s': %s", value, e.getDescription()));
+                return false;
             }
         }
     }

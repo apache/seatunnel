@@ -79,4 +79,27 @@ class DynamicCompileTransformFactoryTest {
         cfg.put("absolute_path", "  ");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
+
+    @Test
+    void testSourceCodeMissingKeyFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("compile_language", "JAVA");
+        cfg.put("compile_pattern", "SOURCE_CODE");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testAbsolutePathMissingKeyFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("compile_language", "JAVA");
+        cfg.put("compile_pattern", "ABSOLUTE_PATH");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testDefaultPatternMissingSourceCodeFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("compile_language", "JAVA");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
 }

@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -68,14 +67,9 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, String value)
-                throws OptionValidationException {
+        public boolean evaluate(ReadonlyConfig config, String value) {
             String destField = config.get(CopyTransformConfig.DEST_FIELD);
-            if (destField == null || destField.trim().isEmpty()) {
-                throw new OptionValidationException(
-                        "'dest_field' must be provided when using 'src_field'");
-            }
-            return true;
+            return destField != null && !destField.trim().isEmpty();
         }
     }
 }
