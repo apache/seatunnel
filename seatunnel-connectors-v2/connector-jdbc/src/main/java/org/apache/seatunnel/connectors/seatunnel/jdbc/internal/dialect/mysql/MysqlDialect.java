@@ -410,7 +410,7 @@ public class MysqlDialect implements JdbcDialect {
             throw new JdbcConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
-                            "Unsupported JDBC table-options for dialect '%s': %s. Supported keys: %s",
+                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
                             dialectName(),
                             String.join(", ", unsupportedOptions),
                             String.join(", ", SUPPORTED_TABLE_OPTIONS)));
