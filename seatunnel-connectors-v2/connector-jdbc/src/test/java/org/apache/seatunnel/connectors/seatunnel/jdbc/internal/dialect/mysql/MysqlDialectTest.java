@@ -70,7 +70,7 @@ public class MysqlDialectTest {
                 Assertions.assertThrows(
                         JdbcConnectorException.class,
                         () -> dialect.validateTableOptions(tableOptions));
-        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table-options"));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
     }
 
     @Test

@@ -35,7 +35,7 @@ public class SinkConnectorCommonOptions extends ConnectorCommonOptions {
 
     @Experimental
     public static Option<Map<String, String>> TABLE_OPTIONS =
-            Options.key("table-options")
+            Options.key("table_options")
                     .mapType()
                     .defaultValue(new HashMap<>())
                     .withDescription(

@@ -920,7 +920,7 @@ public interface JdbcDialect extends Serializable {
         throw new JdbcConnectorException(
                 SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 String.format(
-                        "JDBC table-options are not supported for dialect '%s' yet.",
+                        "JDBC table_options are not supported for dialect '%s' yet.",
                         dialectName()));
     }
 }

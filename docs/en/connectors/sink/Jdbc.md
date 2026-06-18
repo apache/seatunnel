@@ -60,7 +60,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
-| table-options                             | Map     | No       | -                            |
+| table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
@@ -231,7 +231,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
 
-### table-options [Map]
+### table_options [Map]
 
 Sink-specific table options applied when SaveMode creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect INSERT/UPSERT at runtime and do **not** run `ALTER TABLE` on existing tables.
 
@@ -240,7 +240,7 @@ Current support:
 | Dialect | Supported | Allowed keys |
 |---------|-----------|--------------|
 | MySQL / TiDB | Yes | `engine`, `charset`, `collate` |
-| Other JDBC dialects | No | Non-empty `table-options` fails validation at job submission |
+| Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
 
 Example (MySQL auto-create with engine and charset):
 
@@ -256,7 +256,7 @@ sink {
     generate_sink_sql = true
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     primary_keys = ["id"]
-    table-options = {
+    table_options = {
       "engine" = "InnoDB"
       "charset" = "utf8mb4"
       "collate" = "utf8mb4_general_ci"
