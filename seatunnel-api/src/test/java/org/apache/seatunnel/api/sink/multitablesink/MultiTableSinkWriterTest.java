@@ -45,6 +45,7 @@ import lombok.Data;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -52,10 +53,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
@@ -526,6 +529,74 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testCloseWaitsForExecutorTermination() throws Exception {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(TablePath.DEFAULT.toString(), 0);
+        sinkWriters.put(sinkIdentifier, onlyWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+        ExecutorService executorService = getExecutorService(multiTableSinkWriter);
+        CountDownLatch taskStarted = new CountDownLatch(1);
+        CountDownLatch taskInterrupted = new CountDownLatch(1);
+        CountDownLatch releaseTask = new CountDownLatch(1);
+        AtomicReference<Throwable> releaserFailure = new AtomicReference<>();
+        executorService.submit(
+                () -> {
+                    taskStarted.countDown();
+                    try {
+                        releaseTask.await();
+                    } catch (InterruptedException e) {
+                        taskInterrupted.countDown();
+                        try {
+                            releaseTask.await();
+                        } catch (InterruptedException ignored) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                });
+        Assertions.assertTrue(taskStarted.await(1, TimeUnit.SECONDS));
+
+        Thread delayedReleaser =
+                new Thread(
+                        () -> {
+                            try {
+                                if (!taskInterrupted.await(1, TimeUnit.SECONDS)) {
+                                    releaserFailure.set(
+                                            new AssertionError(
+                                                    "executor task was not interrupted by close"));
+                                    return;
+                                }
+                                Thread.sleep(500L);
+                                releaseTask.countDown();
+                            } catch (Throwable e) {
+                                if (e instanceof InterruptedException) {
+                                    Thread.currentThread().interrupt();
+                                }
+                                releaserFailure.set(e);
+                            }
+                        });
+        delayedReleaser.start();
+
+        try {
+            long startedAt = System.nanoTime();
+            multiTableSinkWriter.close();
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+
+            Assertions.assertTrue(
+                    elapsedMillis >= 400L, "close should wait for executor tasks to stop");
+            Assertions.assertTrue(executorService.isTerminated());
+        } finally {
+            releaseTask.countDown();
+            delayedReleaser.join(1000L);
+        }
+        Assertions.assertNull(releaserFailure.get());
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(
@@ -551,6 +622,13 @@ public class MultiTableSinkWriterTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
         return row;
+    }
+
+    private ExecutorService getExecutorService(MultiTableSinkWriter multiTableSinkWriter)
+            throws Exception {
+        Field executorServiceField = MultiTableSinkWriter.class.getDeclaredField("executorService");
+        executorServiceField.setAccessible(true);
+        return (ExecutorService) executorServiceField.get(multiTableSinkWriter);
     }
 
     static class TestSinkWriter

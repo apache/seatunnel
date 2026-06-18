@@ -71,6 +71,8 @@ public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
                 SupportSchemaEvolutionSinkWriter {
 
+    private static final long EXECUTOR_CLOSE_TIMEOUT_SECONDS = 60L;
+
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
@@ -648,7 +650,7 @@ public class MultiTableSinkWriter
      * <p>Drains remaining queues, then calls {@link ExecutorService#shutdownNow()} to interrupt all
      * consumer threads. Each sub-writer is closed under its respective {@link
      * MultiTableWriterRunnable} lock to avoid concurrent access. Finally, the shared {@link
-     * MultiTableResourceManager} is closed.
+     * MultiTableResourceManager} is closed and this method waits for the executor threads to stop.
      *
      * <p>Uses first-exception-wins error handling: if multiple sub-writers throw during close, only
      * the first exception is propagated. Resource manager close errors are logged but not
@@ -693,6 +695,28 @@ public class MultiTableSinkWriter
             }
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
+        }
+        try {
+            if (!executorService.awaitTermination(
+                    EXECUTOR_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                RuntimeException timeoutException =
+                        new RuntimeException(
+                                String.format(
+                                        "Timed out waiting %s seconds for multi-table sink writer threads to close",
+                                        EXECUTOR_CLOSE_TIMEOUT_SECONDS));
+                if (firstE[0] == null) {
+                    firstE[0] = timeoutException;
+                } else {
+                    firstE[0].addSuppressed(timeoutException);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (firstE[0] == null) {
+                firstE[0] = e;
+            } else {
+                firstE[0].addSuppressed(e);
+            }
         }
         if (firstE[0] == null
                 && failurePolicy.continueOtherTables()
