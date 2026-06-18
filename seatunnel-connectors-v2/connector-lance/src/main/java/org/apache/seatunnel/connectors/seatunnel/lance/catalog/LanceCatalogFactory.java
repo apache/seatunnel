@@ -35,6 +35,6 @@ public class LanceCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return null;
+        return OptionRule.builder().build();
     }
 }
