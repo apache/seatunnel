@@ -112,39 +112,107 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
 
-/** This class is responsible for the execution of the Task */
+/**
+ * This class is responsible for the execution of the Task.
+ *
+ * <p>TaskExecutionService manages the lifecycle of task execution in the SeaTunnel engine. It
+ * handles:
+ *
+ * <ul>
+ *   <li>Task deployment and deserialization.
+ *   <li>Task execution using cooperative multitasking (CooperativeTaskWorker) and blocking workers
+ *       (BlockingWorker).
+ *   <li>Class loader management for connector jars.
+ *   <li>Task cancellation and cleanup.
+ *   <li>Metrics collection and reporting.
+ * </ul>
+ *
+ * <p>The service supports two execution modes:
+ *
+ * <ul>
+ *   <li>Thread-share mode: Tasks share a common thread pool and are executed cooperatively.
+ *   <li>Blocking mode: Tasks run in dedicated threads for blocking operations.
+ * </ul>
+ *
+ * <p>Tasks are organized into TaskGroups, each tracked by a TaskGroupExecutionTracker that monitors
+ * execution state and handles completion/cancellation.
+ */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
+    /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
+
+    /** The NodeEngine implementation for this Hazelcast node. */
     private final NodeEngineImpl nodeEngine;
+
+    /** Service for managing class loaders for connector jars. */
     private final ClassLoaderService classLoaderService;
+
+    /** Logger for this service. */
     private final ILogger logger;
+
+    /** Flag indicating whether the service is running. */
     private volatile boolean isRunning = true;
+
+    /** Queue for tasks that can share threads (cooperative multitasking). */
     private final LinkedBlockingDeque<TaskTracker> threadShareTaskQueue =
             new LinkedBlockingDeque<>();
+
+    /** Executor service for running task workers. */
     private final ExecutorService executorService =
             newCachedThreadPool(new BlockingTaskThreadFactory());
+
+    /** Supplier for creating and running new BusWork threads. */
     private final RunBusWorkSupplier runBusWorkSupplier =
             new RunBusWorkSupplier(executorService, threadShareTaskQueue);
-    // key: TaskID
+
+    /**
+     * Cache of active execution contexts, keyed by TaskGroupLocation. Contains context for tasks
+     * currently being executed.
+     */
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
             new ConcurrentHashMap<>();
+
+    /**
+     * Cache of finished execution contexts, keyed by TaskGroupLocation. Contains context for tasks
+     * that have completed but have not been cleaned up yet.
+     */
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
             new ConcurrentHashMap<>();
 
+    /**
+     * Map of async function futures for each task group. Used to track and cancel async functions
+     * associated with a task group.
+     */
     private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
             taskAsyncFunctionFuture = new ConcurrentHashMap<>();
 
+    /**
+     * Map of cancellation futures for each task group. Used to cancel task group execution on
+     * request.
+     */
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
+
+    /** SeaTunnel configuration for this engine. */
     private final SeaTunnelConfig seaTunnelConfig;
 
+    /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
+    /** Client for managing connector packages on the server. */
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
+    /** Service for reporting events. */
     private final EventService eventService;
 
+    /**
+     * Creates a new TaskExecutionService.
+     *
+     * @param classLoaderService service for managing class loaders
+     * @param nodeEngine the Hazelcast node engine
+     * @param eventService service for reporting events
+     */
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
@@ -174,20 +242,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         this.eventService = eventService;
     }
 
+    /**
+     * Gets the Hazelcast node engine backing this task execution service.
+     *
+     * @return the Hazelcast node engine
+     */
     public NodeEngineImpl getNodeEngine() {
         return nodeEngine;
     }
 
+    /** Starts the task execution service by creating initial cooperative task worker threads. */
     public void start() {
         runBusWorkSupplier.runNewBusWork(false);
     }
 
+    /**
+     * Shuts down the task execution service. This method stops accepting new tasks and interrupts
+     * all running tasks.
+     */
     public void shutdown() {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
     }
 
+    /**
+     * Gets the execution context for a task group. First checks active execution contexts, then
+     * falls back to finished execution contexts.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @return the TaskGroupContext for the task group
+     * @throws TaskGroupContextNotFoundException if the task group is not found
+     */
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
         TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
 
@@ -201,6 +287,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    /**
+     * Gets the active execution context for a task group. Only checks active execution contexts,
+     * does not check finished contexts.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @return the TaskGroupContext for the task group
+     * @throws TaskGroupContextNotFoundException if the task group is not found or not active
+     */
     public TaskGroupContext getActiveExecutionContext(TaskGroupLocation taskGroupLocation) {
         TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
 
@@ -211,6 +305,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    /**
+     * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
+     * TaskTracker and initialized before being added to the queue.
+     *
+     * @param taskGroupExecutionTracker the tracker for the task group execution
+     * @param tasks the list of tasks to submit
+     */
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         Stream<TaskTracker> taskTrackerStream =
@@ -236,6 +337,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Submits tasks to the executor service for blocking execution. Each task runs in a dedicated
+     * thread using BlockingWorker. A CountDownLatch is used to ensure all workers have started
+     * before returning.
+     *
+     * @param taskGroupExecutionTracker the tracker for the task group execution
+     * @param tasks the list of tasks to submit
+     */
     private void submitBlockingTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
@@ -265,18 +374,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         uncheckRun(startedLatch::await);
     }
 
+    /**
+     * Deploys a task from serialized data.
+     *
+     * @param taskImmutableInformation serialized task information
+     * @return the deployment state indicating success or failure
+     */
     public TaskDeployState deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
     }
 
+    /**
+     * Gets a task by its location.
+     *
+     * @param taskLocation the location of the task
+     * @param <T> the task type
+     * @return the task
+     */
     public <T extends Task> T getTask(@NonNull TaskLocation taskLocation) {
         TaskGroupContext executionContext =
                 this.getActiveExecutionContext(taskLocation.getTaskGroupLocation());
         return executionContext.getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
+    /**
+     * Deploys a task group from TaskGroupImmutableInformation. This method handles task
+     * deserialization, class loader setup, and task group creation.
+     *
+     * @param taskImmutableInfo the task group information
+     * @return the deployment state indicating success or failure
+     */
     public TaskDeployState deployTask(@NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         logger.info(
                 String.format(
@@ -369,6 +498,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Deploys a task group locally. This method initializes the task group, creates execution
+     * contexts, and submits tasks for execution based on the configured thread share mode.
+     *
+     * @param taskGroup the task group to deploy
+     * @param classLoaders map of task IDs to class loaders
+     * @param jars map of task IDs to connector jars
+     * @return a future that completes with the task execution state
+     */
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
@@ -456,6 +594,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    /**
+     * Notifies the master node of the task execution state. This method retries indefinitely until
+     * successful or the service is shutdown.
+     *
+     * @param taskGroupLocation the location of the task group
+     * @param taskExecutionState the execution state to report
+     */
     private void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
@@ -518,6 +663,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Executes a function asynchronously in the context of a task group. The function is tracked
+     * and can be cancelled when the task group is cancelled.
+     *
+     * @param taskGroupLocation the task group location
+     * @param task the Runnable to execute
+     */
     public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
@@ -538,6 +690,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 });
     }
 
+    /**
+     * Notifies the service to clean up the execution context for a finished task group. This is
+     * called when the task group context is no longer needed.
+     *
+     * @param taskGroupLocation the task group location to clean up
+     */
     public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
         finishedExecutionContexts.remove(taskGroupLocation);
     }
@@ -641,6 +799,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return localMap;
     }
 
+    /**
+     * Prints task execution runtime information to the log. This includes thread pool status like
+     * active count, queue size, and task counts. Only logs when fine level logging is enabled.
+     */
     public void printTaskExecutionRuntimeInfo() {
         if (logger.isFineEnabled()) {
             ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
@@ -662,14 +824,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Reports an event to the event service.
+     *
+     * @param e the event to report
+     */
     public void reportEvent(Event e) {
         eventService.reportEvent(e);
     }
 
+    /**
+     * Gets the SeaTunnel configuration.
+     *
+     * @return the SeaTunnel configuration
+     */
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
     }
 
+    /**
+     * Worker that executes blocking tasks in a dedicated thread. Each BlockingWorker runs a single
+     * task to completion, suitable for I/O-bound operations that may block.
+     */
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;
@@ -680,6 +856,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.startedLatch = startedLatch;
         }
 
+        /**
+         * Executes the blocking task in a dedicated thread. The task runs to completion (or
+         * failure/cancellation) without preemption.
+         *
+         * <p>Execution flow:
+         *
+         * <ol>
+         *   <li>Set up the class loader for the task
+         *   <li>Signal that the worker has started via CountDownLatch
+         *   <li>Initialize the task via {@link Task#init()}
+         *   <li>Execute the task repeatedly via {@link Task#call()} until done
+         *   <li>Handle interrupts and exceptions, notifying the execution tracker
+         *   <li>Clean up by calling {@link Task#close()} if not completed
+         * </ol>
+         */
         @Override
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
@@ -728,6 +919,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * ThreadFactory for creating named threads used for SeaTunnel task execution. The shared
+     * executor service created with this factory may run blocking workers, cooperative workers, and
+     * asynchronous tasks. Threads are named with the pattern {@code
+     * hz.{instance}.seaTunnel.task.thread-{n}}.
+     */
     private final class BlockingTaskThreadFactory implements ThreadFactory {
         private final AtomicInteger seq = new AtomicInteger();
 
@@ -742,8 +939,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * CooperativeTaskWorker is used to poll the task call method, When a task times out, a new
-     * BusWork will be created to take over the execution of the task
+     * Cooperative task worker that polls tasks from the queue and executes them cooperatively. Uses
+     * a TaskCallTimer to detect stuck tasks. When a task times out, a new BusWork will be created
+     * to take over the execution.
+     *
+     * <p>In cooperative mode, multiple tasks share a single worker thread. Each task yields control
+     * by returning {@link ProgressState#isDone()} == false, allowing other tasks to run. This is
+     * efficient for CPU-bound tasks that don't block.
      */
     public final class CooperativeTaskWorker implements Runnable {
 
@@ -765,6 +967,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.futureBlockingQueue = futureBlockingQueue;
         }
 
+        /**
+         * Main execution loop for the cooperative task worker. Continuously polls tasks from the
+         * queue and executes them.
+         *
+         * <p>The execution flow:
+         *
+         * <ol>
+         *   <li>Wait for a task from the queue or exclusive tracker
+         *   <li>Check if execution completed exceptionally, handle accordingly
+         *   <li>Start the task call timer for timeout detection
+         *   <li>Execute the task via {@link Task#call()}
+         *   <li>Stop the timer and check the result
+         *   <li>If task is done, mark it complete; otherwise, re-queue for next iteration
+         * </ol>
+         */
         @SneakyThrows
         @Override
         public void run() {
@@ -851,7 +1068,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    /** Used to create a new BusWork and run */
+    /**
+     * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed. New
+     * workers are created either unconditionally or, when requested by the caller, only if the task
+     * queue currently contains pending tasks.
+     */
     public final class RunBusWorkSupplier {
 
         ExecutorService executorService;
@@ -863,6 +1084,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.taskQueue = taskqueue;
         }
 
+        /**
+         * Creates and submits a new CooperativeTaskWorker if conditions are met.
+         *
+         * @param checkTaskQueue if true, only creates a new worker if the task queue is not empty
+         * @return true if a new worker was created and submitted, false otherwise
+         */
         public boolean runNewBusWork(boolean checkTaskQueue) {
             if (!checkTaskQueue || !taskQueue.isEmpty()) {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
@@ -877,8 +1104,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Internal utility class to track the overall state of tasklet execution. There's one instance
-     * of this class per job.
+     * Internal utility class to track the overall state of a TaskGroup execution. There's one
+     * instance of this class per TaskGroup.
      */
     public final class TaskGroupExecutionTracker {
 
@@ -915,6 +1142,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             }));
         }
 
+        /**
+         * Records an exception that occurred during task execution. Uses compareAndSet to ensure
+         * only the first exception is recorded.
+         *
+         * @param t the exception that occurred
+         */
         void exception(Throwable t) {
             executionException.compareAndSet(null, t);
         }
@@ -942,6 +1175,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
+        /**
+         * Marks a task as done and handles completion logic for the task group.
+         *
+         * <p>When the last task completes (completionLatch reaches zero):
+         *
+         * <ol>
+         *   <li>Recycle the class loader
+         *   <li>Move execution context from active to finished
+         *   <li>Cancel async functions and update metrics
+         *   <li>Complete the future with final state (FINISHED, CANCELED, or FAILED)
+         * </ol>
+         *
+         * <p>If an exception occurred and the task group is not cancelled, cancels all remaining
+         * tasks in the group.
+         *
+         * @param task the task that completed
+         */
         void taskDone(Task task) {
             TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
             logger.info(
@@ -1007,10 +1257,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Gets the server connector package client for managing connector jars.
+     *
+     * @return the server connector package client
+     */
     public ServerConnectorPackageClient getServerConnectorPackageClient() {
         return serverConnectorPackageClient;
     }
 
+    /**
+     * A Runnable wrapper that sets a custom thread name before executing the task and restores the
+     * original name afterward.
+     */
     public static class NamedTaskWrapper implements Runnable {
         private final Runnable task;
         private final String threadName;

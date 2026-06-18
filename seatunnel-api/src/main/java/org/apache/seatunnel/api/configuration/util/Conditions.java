@@ -36,8 +36,6 @@ import java.util.List;
  *     .build();
  * }</pre>
  *
- * <p>Currently supported operators (19 total, 5 categories):
- *
  * <ul>
  *   <li><b>Numeric</b>: {@code greaterThan}, {@code greaterOrEqual}, {@code lessThan}, {@code
  *       lessOrEqual}
@@ -47,6 +45,7 @@ import java.util.List;
  *   <li><b>Map</b>: {@code mapNotEmpty}, {@code mapContainsKey}, {@code mapContainsKeys}
  *   <li><b>Cross-field</b>: {@code lessThanField}, {@code lessOrEqualField}, {@code
  *       greaterThanField}, {@code greaterOrEqualField}
+ *   <li><b>Extension</b>: {@code extension} (custom logic via {@link ConditionExtension})
  * </ul>
  *
  * <p>Additionally, equality checks are available via {@link Condition#of(Option, Object)} (EQUAL)
@@ -138,5 +137,11 @@ public final class Conditions {
 
     public static <T> Condition<T> greaterOrEqualField(Option<T> option, Option<T> other) {
         return new Condition<>(option, ConditionOperator.FIELD_GREATER_OR_EQUAL, null, other);
+    }
+
+    // ==================== Extension (pluggable validation) ====================
+
+    public static <T> Condition<T> extension(Option<T> option, ConditionExtension<T> ext) {
+        return new Condition<>(option, ConditionOperator.EXTENSION, null, null, ext);
     }
 }

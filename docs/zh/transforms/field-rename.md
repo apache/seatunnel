@@ -1,10 +1,10 @@
 # 字段重命名
 
-> FieldRename 转换插件
+> FieldRename：批量重命名字段名，统一输出字段命名
 
 ## 描述
 
-FieldRename 用于批量重命名字段名。
+FieldRename 转换插件用于批量重命名字段名。
 
 ## 选项
 
@@ -146,4 +146,3 @@ sink {
   }
 }
 ```
-
