@@ -93,7 +93,8 @@ public class Db2Dialect implements JdbcDataSourceDialect {
             List<TableId> tables =
                     TableDiscoveryUtils.listTables(
                             jdbcConnection, db2SourceConfig.getTableFilters());
-            this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            TableDiscoveryUtils.validateExplicitCaptureTables(
+                    db2SourceConfig.getTableList(), tables);
             return tables;
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
