@@ -42,49 +42,26 @@ If you are using this section to build architectural understanding, read in this
 
 SeaTunnel adopts a layered architecture that separates concerns and enables flexibility:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      User Configuration Layer                    │
-│                  (HOCON Config / SQL / Web UI)                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SeaTunnel API Layer                         │
-│         (Source API / Sink API / Transform API / Table API)      │
-│                                                                   │
-│  • SeaTunnelSource        • CatalogTable                         │
-│  • SeaTunnelSink          • TableSchema                          │
-│  • SeaTunnelTransform     • SchemaChangeEvent                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Connector Ecosystem                           │
-│                                                                   │
-│  [Jdbc] [Kafka] [MySQL-CDC] [Elasticsearch] [Iceberg] ...       │
-│                    (Connector Ecosystem)                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Translation Layer                            │
-│          (Adapts SeaTunnel API to Engine-Specific API)           │
-│                                                                   │
-│  • FlinkSource/FlinkSink     • SparkSource/SparkSink            │
-│  • Context Adapters          • Serialization Adapters           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  SeaTunnel   │      │    Apache    │      │    Apache    │
-│ Engine (Zeta)│      │     Flink    │      │     Spark    │
-│              │      │              │      │              │
-│ • Master     │      │ • JobManager │      │ • Driver     │
-│ • Worker     │      │ • TaskManager│      │ • Executor   │
-│ • Checkpoint │      │ • State      │      │ • RDD/DS     │
-└──────────────┘      └──────────────┘      └──────────────┘
+```mermaid
+flowchart TD
+    config["User Configuration Layer<br/>HOCON Config / SQL / Web UI"]
+    api["SeaTunnel API Layer<br/>Source API / Sink API / Transform API / Table API"]
+    connectors["Connector Ecosystem<br/>JDBC / Kafka / MySQL-CDC / Elasticsearch / Iceberg / ..."]
+    translation["Translation Layer<br/>Flink adapters / Spark adapters / Context wrappers / Serialization adapters"]
+
+    config --> api --> connectors --> translation
+    translation --> zeta["SeaTunnel Engine (Zeta)<br/>Master / Worker / Checkpoint"]
+    translation --> flink["Apache Flink<br/>JobManager / TaskManager / State"]
+    translation --> spark["Apache Spark<br/>Driver / Executor / RDD / Dataset"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,api layerBlue;
+    class connectors,translation layerCyan;
+    class zeta,flink,spark layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.1 Layer Responsibilities
@@ -159,8 +136,16 @@ The native execution engine provides:
 - **FlowLifeCycle**: Manages lifecycle of Source/Transform/Sink components
 
 #### Execution Model
-```
-LogicalDag → PhysicalPlan → SubPlan (Pipeline) → PhysicalVertex → TaskGroup → SeaTunnelTask
+```mermaid
+flowchart LR
+    logical["LogicalDag"] --> plan["PhysicalPlan"] --> pipeline["SubPlan<br/>(Pipeline)"] --> vertex["PhysicalVertex"] --> taskGroup["TaskGroup"] --> task["SeaTunnelTask"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class logical,plan,pipeline layerBlue;
+    class vertex,taskGroup,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 **Code Reference**:
@@ -183,20 +168,12 @@ Enables engine portability through adapter pattern:
 
 All connectors follow a standardized structure:
 
-```
-connector-[name]/
-├── src/main/java/.../
-│   ├── [Name]Source.java          # Implements SeaTunnelSource
-│   ├── [Name]SourceReader.java    # Implements SourceReader
-│   ├── [Name]SourceSplitEnumerator.java
-│   ├── [Name]SourceSplit.java
-│   ├── [Name]Sink.java            # Implements SeaTunnelSink
-│   ├── [Name]SinkWriter.java      # Implements SinkWriter
-│   └── config/[Name]Config.java
-└── src/main/resources/META-INF/services/
-    ├── org.apache.seatunnel.api.table.factory.TableSourceFactory
-    └── org.apache.seatunnel.api.table.factory.TableSinkFactory
-```
+| Area | Typical Files | Responsibility |
+|------|---------------|----------------|
+| Source entry | `[Name]Source.java`, `[Name]SourceReader.java`, `[Name]SourceSplitEnumerator.java`, `[Name]SourceSplit.java` | Read data, split work, and expose a unified Source contract |
+| Sink entry | `[Name]Sink.java`, `[Name]SinkWriter.java` | Buffer, write, and commit data to the target system |
+| Configuration | `config/[Name]Config.java` | Define connector options, validation rules, and defaults |
+| SPI registration | `META-INF/services/TableSourceFactory`, `META-INF/services/TableSinkFactory` | Register factories for discovery and runtime loading |
 
 **Discovery Mechanism**: Java SPI (Service Provider Interface) for dynamic connector loading.
 
@@ -204,47 +181,25 @@ connector-[name]/
 
 ### 4.1 Source Data Flow
 
-```
-Data Source
-    │
-    ▼
-┌─────────────────────┐
-│ SourceSplitEnumerator│ (Master Side)
-│  • Generate Splits   │
-│  • Assign to Readers │
-└─────────────────────┘
-    │ (Split Assignment)
-    ▼
-┌─────────────────────┐
-│   SourceReader      │ (Worker Side)
-│  • Read from Split  │
-│  • Emit Records     │
-└─────────────────────┘
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
- Transform Chain (Optional)
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
-┌─────────────────────┐
-│    SinkWriter       │ (Worker Side)
-│  • Buffer Records   │
-│  • Prepare Commit   │
-└─────────────────────┘
-    │ (CommitInfo)
-    ▼
-┌─────────────────────┐
-│   SinkCommitter     │ (Coordinator)
-│  • Commit Changes   │
-└─────────────────────┘
-    │
-    ▼
-Data Sink
+```mermaid
+flowchart TD
+    source["Data Source"] --> enumerator["SourceSplitEnumerator<br/>Master side<br/>Generate splits / Assign readers"]
+    enumerator -->|Split assignment| reader["SourceReader<br/>Worker side<br/>Read split / Emit records"]
+    reader --> rowIn["SeaTunnelRow"]
+    rowIn --> transform["Transform Chain<br/>(Optional)"]
+    transform --> rowOut["SeaTunnelRow"]
+    rowOut --> writer["SinkWriter<br/>Worker side<br/>Buffer records / Prepare commit"]
+    writer -->|CommitInfo| committer["SinkCommitter<br/>Coordinator<br/>Commit changes"]
+    committer --> sink["Data Sink"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink,rowIn,rowOut layerBlue;
+    class enumerator,reader,transform layerCyan;
+    class writer,committer layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 Split-based Parallelism
@@ -258,10 +213,26 @@ Data Sink
 
 Jobs are divided into **Pipelines** (SubPlans):
 
-```
-Pipeline 1: [Source A] → [Transform 1] → [Sink A]
-                                ↓
-Pipeline 2: [Source B] ───────→ [Transform 2] → [Sink B]
+```mermaid
+flowchart LR
+    subgraph pipeline1["Pipeline 1"]
+        direction LR
+        sourceA["Source A"] --> transformA["Transform 1"] --> sinkA["Sink A"]
+    end
+
+    subgraph pipeline2["Pipeline 2"]
+        direction LR
+        sourceB["Source B"] --> transformB["Transform 2"] --> sinkB["Sink B"]
+    end
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class sourceA,sourceB,transformA,transformB layerCyan;
+    class sinkA,sinkB layerPurple;
+    style pipeline1 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    style pipeline2 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Each pipeline:
@@ -315,19 +286,34 @@ sequenceDiagram
 ### 5.3 State Machine
 
 **Task State Transitions**:
-```
-CREATED → INIT → WAITING_RESTORE → READY_START → STARTING → RUNNING
-                                                                ↓
-                    FAILED ← ─────────────────────── → PREPARE_CLOSE → CLOSED
-                                                                ↓
-                                                             CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE
+    PREPARE_CLOSE --> CLOSED
+    RUNNING --> FAILED
+    PREPARE_CLOSE --> FAILED
+    RUNNING --> CANCELED
 ```
 
 **Job State Transitions**:
-```
-CREATED → SCHEDULED → RUNNING → FINISHED
-            ↓            ↓
-          FAILED      CANCELING → CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> SCHEDULED
+    SCHEDULED --> RUNNING
+    RUNNING --> FINISHED
+    SCHEDULED --> FAILED
+    RUNNING --> FAILED
+    RUNNING --> CANCELING
+    CANCELING --> CANCELED
 ```
 
 ## 6. Key Features

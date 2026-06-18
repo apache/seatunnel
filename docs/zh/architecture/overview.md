@@ -42,49 +42,26 @@ SeaTunnel 设计为分布式多模态数据集成工具，具有以下核心目�
 
 SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        用户配置层                                 │
-│                  (HOCON 配置 / SQL)                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SeaTunnel API 层                            │
-│         (数据源 API / 数据 Sink  API / 转换 API / 表 API)             │
-│                                                                   │
-│  • SeaTunnelSource        • CatalogTable                         │
-│  • SeaTunnelSink          • TableSchema                          │
-│  • SeaTunnelTransform     • SchemaChangeEvent                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       连接器生态系统                              │
-│                                                                   │
-│  [Jdbc] [Kafka] [MySQL-CDC] [Elasticsearch] [Iceberg] ...       │
-│                    (连接器生态)                                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        转换层                                     │
-│          (将 SeaTunnel API 适配到引擎特定 API)                    │
-│                                                                   │
-│  • FlinkSource/FlinkSink     • SparkSource/SparkSink            │
-│  • 上下文适配器                • 序列化适配器                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│  SeaTunnel   │      │    Apache    │      │    Apache    │
-│ Engine (Zeta)│      │     Flink    │      │     Spark    │
-│              │      │              │      │              │
-│ • 主节点      │      │ • JobManager │      │ • Driver     │
-│ • 工作节点    │      │ • TaskManager│      │ • Executor   │
-│ • 检查点      │      │ • State      │      │ • RDD/DS     │
-└──────────────┘      └──────────────┘      └──────────────┘
+```mermaid
+flowchart TD
+    config["用户配置层<br/>HOCON 配置 / SQL / Web UI"]
+    api["SeaTunnel API 层<br/>数据源 API / 数据 Sink API / 转换 API / 表 API"]
+    connectors["连接器生态系统<br/>JDBC / Kafka / MySQL-CDC / Elasticsearch / Iceberg / ..."]
+    translation["转换层<br/>Flink 适配器 / Spark 适配器 / 上下文包装器 / 序列化适配器"]
+
+    config --> api --> connectors --> translation
+    translation --> zeta["SeaTunnel Engine (Zeta)<br/>主节点 / 工作节点 / 检查点"]
+    translation --> flink["Apache Flink<br/>JobManager / TaskManager / State"]
+    translation --> spark["Apache Spark<br/>Driver / Executor / RDD / Dataset"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,api layerBlue;
+    class connectors,translation layerCyan;
+    class zeta,flink,spark layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.1 层级职责
@@ -145,8 +122,16 @@ API 层提供引擎独立的抽象：
 - **FlowLifeCycle**：管理数据源 Source/转换/数据 Sink 组件的生命周期
 
 #### 执行模型
-```
-LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGroup → SeaTunnelTask
+```mermaid
+flowchart LR
+    logical["LogicalDag"] --> plan["PhysicalPlan"] --> pipeline["SubPlan<br/>（管道）"] --> vertex["PhysicalVertex"] --> taskGroup["TaskGroup"] --> task["SeaTunnelTask"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class logical,plan,pipeline layerBlue;
+    class vertex,taskGroup,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.3 转换层
@@ -162,20 +147,12 @@ LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGrou
 
 所有连接器遵循标准化结构：
 
-```
-connector-[name]/
-├── src/main/java/.../
-│   ├── [Name]Source.java          # 实现 SeaTunnelSource
-│   ├── [Name]SourceReader.java    # 实现 SourceReader
-│   ├── [Name]SourceSplitEnumerator.java
-│   ├── [Name]SourceSplit.java
-│   ├── [Name]Sink.java            # 实现 SeaTunnelSink
-│   ├── [Name]SinkWriter.java      # 实现 SinkWriter
-│   └── config/[Name]Config.java
-└── src/main/resources/META-INF/services/
-    ├── org.apache.seatunnel.api.table.factory.TableSourceFactory
-    └── org.apache.seatunnel.api.table.factory.TableSinkFactory
-```
+| 区域 | 典型文件 | 职责 |
+|------|----------|------|
+| Source 入口 | `[Name]Source.java`、`[Name]SourceReader.java`、`[Name]SourceSplitEnumerator.java`、`[Name]SourceSplit.java` | 读取数据、切分任务并暴露统一的 Source 契约 |
+| Sink 入口 | `[Name]Sink.java`、`[Name]SinkWriter.java` | 缓冲、写入并向目标系统提交数据 |
+| 配置定义 | `config/[Name]Config.java` | 定义连接器参数、校验规则和默认值 |
+| SPI 注册 | `META-INF/services/TableSourceFactory`、`META-INF/services/TableSinkFactory` | 注册工厂，供运行时发现和装载 |
 
 **发现机制**：Java SPI（服务提供者接口）用于动态连接器加载。
 
@@ -183,47 +160,25 @@ connector-[name]/
 
 ### 4.1 数据读取 Source 端数据流
 
-```
-数据源 Source
-    │
-    ▼
-┌─────────────────────┐
-│ SourceSplitEnumerator│ (主节点侧)
-│  • 生成分片          │
-│  • 分配给读取器      │
-└─────────────────────┘
-    │ (分片分配)
-    ▼
-┌─────────────────────┐
-│   SourceReader      │ (工作节点侧)
-│  • 从分片读取       │
-│  • 发送记录         │
-└─────────────────────┘
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
- 转换链（可选）
-    │
-    ▼
- SeaTunnelRow
-    │
-    ▼
-┌─────────────────────┐
-│    SinkWriter       │ (工作节点侧)
-│  • 缓冲记录         │
-│  • 准备提交         │
-└─────────────────────┘
-    │ (CommitInfo)
-    ▼
-┌─────────────────────┐
-│   SinkCommitter     │ (协调器)
-│  • 提交变更         │
-└─────────────────────┘
-    │
-    ▼
-数据 Sink 
+```mermaid
+flowchart TD
+    source["数据源 Source"] --> enumerator["SourceSplitEnumerator<br/>主节点侧<br/>生成分片 / 分配读取器"]
+    enumerator -->|分片分配| reader["SourceReader<br/>工作节点侧<br/>从分片读取 / 发送记录"]
+    reader --> rowIn["SeaTunnelRow"]
+    rowIn --> transform["转换链<br/>（可选）"]
+    transform --> rowOut["SeaTunnelRow"]
+    rowOut --> writer["SinkWriter<br/>工作节点侧<br/>缓冲记录 / 准备提交"]
+    writer -->|CommitInfo| committer["SinkCommitter<br/>协调器<br/>提交变更"]
+    committer --> sink["数据 Sink"]
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink,rowIn,rowOut layerBlue;
+    class enumerator,reader,transform layerCyan;
+    class writer,committer layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 基于分片的并行度
@@ -237,10 +192,26 @@ connector-[name]/
 
 作业被划分为**管道**（SubPlan）：
 
-```
-管道 1: [数据 Source A] → [转换 1] → [数据 Sink  A]
-                                ↓
-管道 2: [数据 Source B] ───────→ [转换 2] → [数据 Sink  B]
+```mermaid
+flowchart LR
+    subgraph pipeline1["管道 1"]
+        direction LR
+        sourceA["数据 Source A"] --> transformA["转换 1"] --> sinkA["数据 Sink A"]
+    end
+
+    subgraph pipeline2["管道 2"]
+        direction LR
+        sourceB["数据 Source B"] --> transformB["转换 2"] --> sinkB["数据 Sink B"]
+    end
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class sourceA,sourceB,transformA,transformB layerCyan;
+    class sinkA,sinkB layerPurple;
+    style pipeline1 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    style pipeline2 fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 每个管道：
@@ -294,19 +265,34 @@ sequenceDiagram
 ### 5.3 状态机
 
 **任务状态转换**：
-```
-CREATED → INIT → WAITING_RESTORE → READY_START → STARTING → RUNNING
-                                                                ↓
-                    FAILED ← ─────────────────────── → PREPARE_CLOSE → CLOSED
-                                                                ↓
-                                                             CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE
+    PREPARE_CLOSE --> CLOSED
+    RUNNING --> FAILED
+    PREPARE_CLOSE --> FAILED
+    RUNNING --> CANCELED
 ```
 
 **作业状态转换**：
-```
-CREATED → SCHEDULED → RUNNING → FINISHED
-            ↓            ↓
-          FAILED      CANCELING → CANCELED
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> CREATED
+    CREATED --> SCHEDULED
+    SCHEDULED --> RUNNING
+    RUNNING --> FINISHED
+    SCHEDULED --> FAILED
+    RUNNING --> FAILED
+    RUNNING --> CANCELING
+    CANCELING --> CANCELED
 ```
 
 ## 6. 关键特性
