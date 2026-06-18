@@ -39,52 +39,32 @@ SeaTunnel's Sink API aims to:
 
 ### 2.1 Overall Architecture
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    TaskExecutionService (Worker Side)           │
-│                                                                  │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │       SinkWriter<IN, CommitInfoT, StateT>            │     │
-│   │                                                        │     │
-│   │  • Receive records from upstream                      │     │
-│   │  • Buffer and write data                              │     │
-│   │  • Produce commitInfo at checkpoint boundary          │     │
-│   │  • Snapshot writer state                              │     │
-│   │  • Cleanup/rollback on failure (engine-dependent)     │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                            │                                     │
-└────────────────────────────┼─────────────────────────────────────┘
-                             │ (CommitInfo)
-                             ▼
-┌────────────────────────────────────────────────────────────────┐
-│            Coordinator Side (control plane, engine-dependent)   │
-│                                                                  │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │         SinkCommitter<CommitInfoT> (Optional)        │     │
-│   │                                                        │     │
-│   │  • Receive commit infos from multiple writers        │     │
-│   │  • Commit each writer's changes independently        │     │
-│   │  • Retry failed commits                               │     │
-│   │  • Must be idempotent                                 │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                            │                                     │
-│                            │ (Optional: AggregatedCommitInfo)   │
-│                            ▼                                     │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │   SinkAggregatedCommitter<CommitInfoT,               │     │
-│   │                          AggregatedCommitInfoT>      │     │
-│   │                         (Optional)                    │     │
-│   │                                                        │     │
-│   │  • Aggregate commit infos from all writers           │     │
-│   │  • Perform single global commit operation            │     │
-│   │  • Single-threaded, global coordinator               │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-                    External Data Sink
-               (Database / File / Message Queue)
+```mermaid
+flowchart TD
+    subgraph worker["TaskExecutionService (Worker Side)"]
+        writer["SinkWriter&lt;IN, CommitInfoT, StateT&gt;<br/>Receive upstream records<br/>Buffer and write data<br/>Emit CommitInfo at checkpoint boundary<br/>Snapshot writer state"]
+    end
+
+    subgraph coordinator["Coordinator Side (control plane, engine-dependent)"]
+        committer["SinkCommitter&lt;CommitInfoT&gt; (Optional)<br/>Commit each writer change independently<br/>Retry failed commits<br/>Must be idempotent"]
+        aggregated["SinkAggregatedCommitter&lt;CommitInfoT, AggregatedCommitInfoT&gt; (Optional)<br/>Aggregate writer commit infos<br/>Perform single global commit"]
+    end
+
+    sink["External Data Sink<br/>Database / File / Message Queue"]
+
+    writer -- "CommitInfo" --> committer
+    committer --> sink
+    committer -. "Optional aggregated commit info" .-> aggregated
+    aggregated --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class worker,coordinator layerBlue;
+    class writer,committer layerCyan;
+    class aggregated,sink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 Core Components

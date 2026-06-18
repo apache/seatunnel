@@ -363,42 +363,16 @@ stateDiagram-v2
 
 ## 7. Module Structure
 
-```
-seatunnel/
-├── seatunnel-api/                 # Core API definitions
-│   ├── source/                    # Source API
-│   ├── sink/                      # Sink API
-│   ├── transform/                 # Transform API
-│   └── table/                     # Table and Schema API
-│
-├── seatunnel-connectors-v2/       # Connector implementations
-│   ├── connector-jdbc/            # JDBC connector
-│   ├── connector-kafka/           # Kafka connector
-│   ├── connector-cdc-mysql/       # MySQL CDC connector
-│   └── ...                        # connectors
-│
-├── seatunnel-transforms-v2/       # Transform implementations
-│   ├── transform-sql/             # SQL transform
-│   ├── transform-filter/          # Filter transform
-│   └── ...
-│
-├── seatunnel-engine/              # SeaTunnel Engine (Zeta)
-│   ├── seatunnel-engine-core/     # Core execution logic
-│   ├── seatunnel-engine-server/   # Server components (Master/Worker)
-│   └── seatunnel-engine-storage/  # Checkpoint storage
-│
-├── seatunnel-translation/         # Engine translation layers
-│   ├── seatunnel-translation-flink/
-│   └── seatunnel-translation-spark/
-│
-├── seatunnel-formats/             # Data format handlers
-│   ├── seatunnel-format-json/
-│   ├── seatunnel-format-avro/
-│   └── ...
-│
-├── seatunnel-core/                # Job submission and CLI
-└── seatunnel-e2e/                 # End-to-end tests
-```
+| Module | Representative subdirectories | Responsibility |
+|--------|-------------------------------|----------------|
+| `seatunnel-api` | `source`, `sink`, `transform`, `table` | Defines the core APIs, table model, and engine-neutral abstractions |
+| `seatunnel-connectors-v2` | `connector-jdbc`, `connector-kafka`, `connector-cdc-mysql` | Implements source and sink connectors |
+| `seatunnel-transforms-v2` | `transform-sql`, `transform-filter` | Provides reusable transform implementations |
+| `seatunnel-engine` | `seatunnel-engine-core`, `seatunnel-engine-server`, `seatunnel-engine-storage` | Hosts Zeta execution, scheduling, and checkpoint storage |
+| `seatunnel-translation` | `seatunnel-translation-flink`, `seatunnel-translation-spark` | Adapts SeaTunnel APIs to different execution engines |
+| `seatunnel-formats` | `seatunnel-format-json`, `seatunnel-format-avro` | Handles data format serialization and parsing |
+| `seatunnel-core` | CLI and submission entrypoints | Owns job submission and command-line capabilities |
+| `seatunnel-e2e` | End-to-end test suites | Covers critical regression scenarios |
 
 ## 8. Design Principles
 

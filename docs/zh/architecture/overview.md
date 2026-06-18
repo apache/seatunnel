@@ -342,42 +342,16 @@ stateDiagram-v2
 
 ## 7. 模块结构
 
-```
-seatunnel/
-├── seatunnel-api/                 # 核心 API 定义
-│   ├── source/                    # 数据源 API
-│   ├── sink/                      # 数据 Sink  API
-│   ├── transform/                 # 转换 API
-│   └── table/                     # 表和模式 API
-│
-├── seatunnel-connectors-v2/       # 连接器实现
-│   ├── connector-jdbc/            # JDBC 连接器
-│   ├── connector-kafka/           # Kafka 连接器
-│   ├── connector-cdc/             # CDC 连接器集合
-│   │   ├── connector-cdc-mysql/   # MySQL CDC 连接器
-│   └── ...                        # 更多连接器
-│
-├── seatunnel-transforms-v2/       # 转换实现
-│   ├── src/                       # Transform 实现源码（如：SQL、Filter 等）
-│   └── ...
-│
-├── seatunnel-engine/              # SeaTunnel Engine (Zeta)
-│   ├── seatunnel-engine-core/     # 核心执行逻辑
-│   ├── seatunnel-engine-server/   # 服务器组件（主节点/工作节点）
-│   └── seatunnel-engine-storage/  # 检查点存储
-│
-├── seatunnel-translation/         # 引擎转换层
-│   ├── seatunnel-translation-flink/
-│   └── seatunnel-translation-spark/
-│
-├── seatunnel-formats/             # 数据格式处理器
-│   ├── seatunnel-format-json/
-│   ├── seatunnel-format-avro/
-│   └── ...
-│
-├── seatunnel-core/                # 作业提交和 CLI
-└── seatunnel-e2e/                 # 端到端测试
-```
+| 模块 | 代表子目录 | 职责 |
+|------|------------|------|
+| `seatunnel-api` | `source`、`sink`、`transform`、`table` | 定义核心 API、表模型与跨引擎抽象 |
+| `seatunnel-connectors-v2` | `connector-jdbc`、`connector-kafka`、`connector-cdc-mysql` | 提供各类数据源与目标端连接器实现 |
+| `seatunnel-transforms-v2` | `src`（SQL、Filter 等） | 提供通用转换能力 |
+| `seatunnel-engine` | `seatunnel-engine-core`、`seatunnel-engine-server`、`seatunnel-engine-storage` | 承载 Zeta 执行、调度和检查点存储 |
+| `seatunnel-translation` | `seatunnel-translation-flink`、`seatunnel-translation-spark` | 负责多引擎适配层 |
+| `seatunnel-formats` | `seatunnel-format-json`、`seatunnel-format-avro` | 处理不同数据格式 |
+| `seatunnel-core` | CLI 与提交入口 | 负责作业提交和命令行能力 |
+| `seatunnel-e2e` | 端到端测试套件 | 保障关键链路回归 |
 
 ## 8. 设计原则
 
