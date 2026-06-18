@@ -73,6 +73,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
@@ -182,6 +183,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
+        catalogTable.getOptions().putAll(sinkTableOptions);
         catalogTable
                 .getOptions()
                 .put("fieldIde", fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
@@ -191,6 +193,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         sinkConfig.getJdbcConnectionConfig().getDialect(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+        dialect.validateTableOptions(sinkTableOptions);
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
@@ -245,6 +248,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.TABLE_PREFIX,
                         JdbcSinkOptions.TABLE_SUFFIX,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        SinkConnectorCommonOptions.TABLE_OPTIONS,
                         JdbcSinkOptions.DIALECT)
                 .conditional(
                         JdbcSinkOptions.IS_EXACTLY_ONCE,

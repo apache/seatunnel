@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.annotation.Experimental;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class SinkConnectorCommonOptions extends ConnectorCommonOptions {
 
     @Experimental
@@ -29,4 +32,12 @@ public class SinkConnectorCommonOptions extends ConnectorCommonOptions {
                     .intType()
                     .defaultValue(1)
                     .withDescription("The replica number of multi table sink writer");
+
+    @Experimental
+    public static Option<Map<String, String>> TABLE_OPTIONS =
+            Options.key("table-options")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription(
+                            "Sink-specific table options applied when auto-creating target tables.");
 }
