@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -114,6 +113,11 @@ public class JdbcSourceFactory implements TableSourceFactory {
         return JdbcSource.class;
     }
 
+    /**
+     * Submission-time validator that enforces mutual exclusion between {@code table_list} and the
+     * legacy {@code table_path}/{@code query} options. Users must choose one table selection mode,
+     * not both.
+     */
     static class TableListExclusiveValidator
             implements ConditionExtension<List<JdbcSourceTableConfig>> {
         @Override
@@ -122,17 +126,16 @@ public class JdbcSourceFactory implements TableSourceFactory {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, List<JdbcSourceTableConfig> value)
-                throws OptionValidationException {
-            if (config.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()
-                    || config.getOptional(JdbcSourceOptions.QUERY).isPresent()) {
-                throw new OptionValidationException(
-                        "Please configure either 'table_list' or 'table_path'/'query', not both");
-            }
-            return true;
+        public boolean evaluate(ReadonlyConfig config, List<JdbcSourceTableConfig> value) {
+            return !config.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()
+                    && !config.getOptional(JdbcSourceOptions.QUERY).isPresent();
         }
     }
 
+    /**
+     * Submission-time validator that ensures {@code where_condition} starts with the keyword {@code
+     * "where"} to avoid malformed SQL at runtime.
+     */
     static class WhereConditionPrefixValidator implements ConditionExtension<String> {
         @Override
         public String description() {
@@ -140,13 +143,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, String value)
-                throws OptionValidationException {
-            if (value != null && !value.toLowerCase().startsWith("where")) {
-                throw new OptionValidationException(
-                        "The where_condition must start with 'where'. value: " + value);
-            }
-            return true;
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            return value == null || value.toLowerCase().startsWith("where");
         }
     }
 }

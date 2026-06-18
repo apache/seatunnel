@@ -21,16 +21,27 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.connector.TableSink;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 class JdbcSinkFactoryTest {
 
-    private final OptionRule rule = new JdbcSinkFactory().optionRule();
+    private final JdbcSinkFactory factory = new JdbcSinkFactory();
+    private final OptionRule rule = factory.optionRule();
 
     private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
@@ -45,6 +56,38 @@ class JdbcSinkFactoryTest {
         cfg.put("generate_sink_sql", true);
         cfg.put("database", "ORCL");
         return cfg;
+    }
+
+    private CatalogTable createCatalogTable(boolean withPrimaryKey) {
+        TableSchema.Builder schemaBuilder =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"));
+        if (withPrimaryKey) {
+            schemaBuilder.primaryKey(PrimaryKey.of("pk_id", Collections.singletonList("id")));
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "ORCL", null, "TEST_TABLE"),
+                schemaBuilder.build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                null,
+                "catalog");
+    }
+
+    /**
+     * Simulates the FactoryUtil.createAndPrepareSink entry path: OptionRule validation followed by
+     * factory.createSink(context). This covers the real submission-time path end-to-end.
+     */
+    private TableSink createSinkViaFactoryContext(Map<String, Object> cfg, boolean withPrimaryKey) {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
+        ConfigValidator.of(config).validate(factory.optionRule());
+        CatalogTable catalogTable = createCatalogTable(withPrimaryKey);
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(catalogTable, config, getClass().getClassLoader());
+        return factory.createSink(context);
     }
 
     @Test
@@ -144,5 +187,59 @@ class JdbcSinkFactoryTest {
         cfg.put("schema_save_mode", "CREATE_SCHEMA_WHEN_NOT_EXIST");
         cfg.put("data_save_mode", "APPEND_DATA");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    // ---- Entry-level regression tests through factory-context path ----
+
+    @Test
+    void testFactoryContextPathValidConfig() {
+        Map<String, Object> cfg = baseConfig();
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, false));
+    }
+
+    @Test
+    void testFactoryContextPathAppendValuesValidConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("oracle_insert_mode", "APPEND_VALUES");
+        cfg.put("auto_commit", true);
+        cfg.put("is_exactly_once", false);
+        cfg.put("use_copy_statement", false);
+        cfg.put("support_upsert_by_insert_only", false);
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, false));
+    }
+
+    @Test
+    void testFactoryContextPathAppendValuesWithExactlyOnceFails() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("oracle_insert_mode", "APPEND_VALUES");
+        cfg.put("is_exactly_once", true);
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> createSinkViaFactoryContext(cfg, false));
+    }
+
+    /**
+     * Verifies the CatalogTable-derived primary keys + APPEND_VALUES scenario.
+     *
+     * <p>When the upstream CatalogTable carries a primary key but the user does not set {@code
+     * primary_keys} in config, {@link JdbcSinkFactory#createSink} auto-populates primary_keys from
+     * the catalog schema. The OptionRule validation passes because the primary_keys conflict cannot
+     * be detected at config time (it depends on the catalog schema). The runtime guard in {@code
+     * JdbcOutputFormatBuilder.validateOracleInsertMode} catches this case and rejects APPEND_VALUES
+     * with non-empty primary keys.
+     */
+    @Test
+    void testFactoryContextAppendValuesWithCatalogDerivedPrimaryKeys() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("oracle_insert_mode", "APPEND_VALUES");
+        cfg.put("auto_commit", true);
+        cfg.put("is_exactly_once", false);
+        cfg.put("use_copy_statement", false);
+        cfg.put("support_upsert_by_insert_only", false);
+
+        Assertions.assertDoesNotThrow(
+                () -> createSinkViaFactoryContext(cfg, true),
+                "Factory-level validation and createSink should succeed even when "
+                        + "CatalogTable has primary keys; the PK + APPEND_VALUES conflict "
+                        + "is guarded at runtime by JdbcOutputFormatBuilder.validateOracleInsertMode");
     }
 }

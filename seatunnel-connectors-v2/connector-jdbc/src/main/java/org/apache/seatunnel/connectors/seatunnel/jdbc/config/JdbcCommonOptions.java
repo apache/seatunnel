@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import java.util.Map;
@@ -166,6 +165,17 @@ public class JdbcCommonOptions {
     /** @deprecated Use {@link #baseCatalogRule()} instead to avoid shared mutable state. */
     @Deprecated public static final OptionRule.Builder BASE_CATALOG_RULE = baseCatalogRule();
 
+    /**
+     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by all JDBC
+     * catalog factories (MySQL, PostgreSQL, Oracle, etc.).
+     *
+     * <p>These rules are evaluated at <b>submission time</b> via {@code
+     * ConfigValidator.validate(factory.optionRule())} in the {@code FactoryUtil} entry path. They
+     * enforce that the JDBC URL contains a database name, and that username/password are provided.
+     *
+     * <p>Individual catalog factories may append additional rules (e.g. OceanBase requires {@code
+     * compatible_mode}) before calling {@code .build()}.
+     */
     public static OptionRule.Builder baseCatalogRule() {
         return OptionRule.builder()
                 .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
@@ -173,6 +183,13 @@ public class JdbcCommonOptions {
                 .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
     }
 
+    /**
+     * Submission-time validator that ensures the JDBC URL contains a database name.
+     *
+     * <p>This validator is attached to the {@code url} option via {@link
+     * Conditions#extension(Option, ConditionExtension)} and is evaluated by {@code ConfigValidator}
+     * before the catalog/source/sink factory creates its connector instance.
+     */
     public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
         @Override
         public String description() {
@@ -180,17 +197,15 @@ public class JdbcCommonOptions {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, String url)
-                throws OptionValidationException {
+        public boolean evaluate(ReadonlyConfig config, String url) {
             if (url == null || url.trim().isEmpty()) {
-                throw new OptionValidationException("JDBC URL must not be blank");
+                return false;
             }
-            JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
-            if (!urlInfo.getDefaultDatabase().isPresent()) {
-                throw new OptionValidationException(
-                        "JDBC URL must contain a database name: " + url);
+            try {
+                return JdbcUrlUtil.getUrlInfo(url).getDefaultDatabase().isPresent();
+            } catch (IllegalArgumentException e) {
+                return false;
             }
-            return true;
         }
     }
 }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,8 @@ import java.util.Map;
 
 class JdbcSourceFactoryTest {
 
-    private final OptionRule rule = new JdbcSourceFactory().optionRule();
+    private final JdbcSourceFactory factory = new JdbcSourceFactory();
+    private final OptionRule rule = factory.optionRule();
 
     private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
@@ -145,5 +147,39 @@ class JdbcSourceFactoryTest {
         cfg.put("url", "jdbc:mysql://localhost:3306/test");
         cfg.put("table_path", "test.users");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    // ---- Entry-level regression tests through factory-context path ----
+
+    /**
+     * Simulates the FactoryUtil.createAndPrepareSource entry path: OptionRule validation followed
+     * by factory.createSource(context). Verifies the real submission-time path end-to-end.
+     */
+    @Test
+    void testFactoryContextPathValidConfig() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table_path", "test.users");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
+        ConfigValidator.of(config).validate(factory.optionRule());
+
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(config, getClass().getClassLoader());
+        Assertions.assertDoesNotThrow(() -> factory.createSource(context));
+    }
+
+    @Test
+    void testFactoryContextPathTableListExclusionFails() {
+        Map<String, Object> cfg = baseConfig();
+        List<Map<String, String>> tableList = new ArrayList<>();
+        Map<String, String> entry = new HashMap<>();
+        entry.put("table_path", "test.users");
+        tableList.add(entry);
+        cfg.put("table_list", tableList);
+        cfg.put("table_path", "test.orders");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(cfg);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(config).validate(factory.optionRule()));
     }
 }

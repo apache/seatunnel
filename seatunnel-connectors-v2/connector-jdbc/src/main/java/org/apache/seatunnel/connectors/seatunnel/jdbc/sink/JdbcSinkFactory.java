@@ -262,6 +262,18 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 .build();
     }
 
+    /**
+     * Submission-time validator for {@code oracle_insert_mode=APPEND_VALUES}.
+     *
+     * <p>Enforces config-level incompatibilities that can be detected from the user-supplied
+     * options alone: copy statement, exactly-once, auto_commit=false, custom query, and insert-only
+     * upsert.
+     *
+     * <p><b>Note:</b> The {@code primary_keys} conflict is <em>not</em> checked here because
+     * primary keys may be derived from the upstream {@code CatalogTable} at factory time (inside
+     * {@link #createSink}), which happens after OptionRule validation. That case is guarded at
+     * runtime by {@code JdbcOutputFormatBuilder.validateOracleInsertMode}.
+     */
     static class OracleAppendValuesValidator
             implements ConditionExtension<JdbcSinkConfig.OracleInsertMode> {
         @Override
@@ -299,6 +311,12 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
     }
 
+    /**
+     * Submission-time validator for {@code is_exactly_once=true}.
+     *
+     * <p>JDBC XA sink does not support retries; {@code max_retries} must be 0 when exactly-once is
+     * enabled, otherwise duplicates may occur.
+     */
     static class ExactlyOnceMaxRetriesValidator implements ConditionExtension<Boolean> {
         @Override
         public String description() {
