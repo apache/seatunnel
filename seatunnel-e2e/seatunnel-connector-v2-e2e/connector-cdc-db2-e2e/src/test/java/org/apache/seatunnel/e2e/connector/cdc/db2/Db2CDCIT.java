@@ -82,18 +82,26 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
             "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=512m";
     private static final String SEATUNNEL_CLIENT_JVM_OPTION = "-Xms128m -Xmx256m";
 
-    // DB2 image used by Testcontainers.
-    private static final String DB2_IMAGE = "ibmcom/db2";
+    /**
+     * Use the fixed Testcontainers-supported DB2 tag instead of unversioned `latest` so the E2E
+     * does not drift as IBM updates the image.
+     */
+    private static final String DB2_IMAGE = "ibmcom/db2:11.5.0.0a";
 
     public static final Db2Container DB2_CONTAINER =
             new Db2Container(DB2_IMAGE)
                     .withDatabaseName(DATABASE)
                     .withUsername(USERNAME)
                     .withPassword(PASSWORD)
+                    // IBM's DB2 image is currently published only for amd64, so Apple Silicon
+                    // developers need an explicit platform override to run this E2E locally.
+                    .withCreateContainerCmdModifier(cmd -> cmd.withPlatform("linux/amd64"))
                     .withNetwork(NETWORK)
                     .withNetworkAliases(HOST)
                     .withExposedPorts(PORT)
-                    .withStartupTimeout(Duration.ofMinutes(10))
+                    // Apple Silicon runs the amd64 DB2 image under emulation, which can take
+                    // significantly longer than the default DB2Container wait budget.
+                    .withStartupTimeout(Duration.ofMinutes(30))
                     .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                     .acceptLicense();
 
