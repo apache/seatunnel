@@ -262,7 +262,7 @@ def _value_constraint_to_dict(constraint: dict) -> dict:
 
     expect_value = tree.get("expectValue")
     if expect_value is not None:
-        result["expect"] = str(expect_value)
+        result["expect"] = _constraint_value_to_text(expect_value)
 
     operator = tree.get("compareOperator")
     if operator:
@@ -273,6 +273,16 @@ def _value_constraint_to_dict(constraint: dict) -> dict:
         result["condition_operator"] = str(condition_operator)
 
     return result
+
+
+def _constraint_value_to_text(value) -> str:
+    """Return a stable, prompt-friendly string for a constraint expected value."""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        return str(value)
 
 
 # ─── Runtime JSON metadata (from Java exporter) ───
@@ -660,7 +670,9 @@ def _format_value_constraint(constraint: dict, prefix: str = "- ") -> str:
     expect = constraint.get("expect")
     expression = constraint.get("expression", "")
 
-    if key and operator and expect:
+    if key and operator and expect and str(operator).lower() == "extension":
+        line = f"{prefix}`{key}` {expect}"
+    elif key and operator and expect:
         line = f"{prefix}`{key}` {operator} {expect}"
     elif key and expect:
         line = f"{prefix}`{key}` {expect}"
@@ -669,7 +681,7 @@ def _format_value_constraint(constraint: dict, prefix: str = "- ") -> str:
     else:
         line = f"{prefix}<unspecified constraint>"
 
-    if expression and expression not in line:
+    if expression and expression not in line.replace("`", ""):
         line += f" ({expression})"
     return line
 
