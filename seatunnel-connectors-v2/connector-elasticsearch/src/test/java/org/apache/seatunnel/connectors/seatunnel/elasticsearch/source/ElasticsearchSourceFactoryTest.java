@@ -306,8 +306,8 @@ class ElasticsearchSourceFactoryTest {
     /**
      * Verify the error-aggregation contract: when multiple independent rules fail in one config,
      * all errors are reported together in a single exception message instead of fail-fast on the
-     * first one. Triggers (1) username-without-password, (2) search_type=SQL without sql_query, (3)
-     * auth_type=API_KEY without api_key_id/api_key.
+     * first one. Triggers (1) username-without-password (auth_type=BASIC), (2) search_type=SQL
+     * without sql_query.
      */
     @Test
     void testMultipleValidationErrorsAreAggregated() {
@@ -316,7 +316,6 @@ class ElasticsearchSourceFactoryTest {
         config.put("index", "test_index");
         config.put("username", "admin");
         config.put("search_type", "SQL");
-        config.put("auth_type", "API_KEY");
         OptionValidationException ex =
                 Assertions.assertThrows(
                         OptionValidationException.class,
@@ -326,8 +325,18 @@ class ElasticsearchSourceFactoryTest {
                 msg.contains("password") || msg.contains("username"),
                 "expected basic-auth pair error in: " + msg);
         Assertions.assertTrue(msg.contains("sql_query"), "expected sql_query error in: " + msg);
-        Assertions.assertTrue(
-                msg.contains("api_key_id") || msg.contains("api_key"),
-                "expected api_key error in: " + msg);
+    }
+
+    @Test
+    void testApiKeyAuthWithResidualUsernameDoesNotFail() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("hosts", Arrays.asList("localhost:9200"));
+        config.put("index", "test_index");
+        config.put("auth_type", "API_KEY");
+        config.put("auth.api_key_id", "my_key_id");
+        config.put("auth.api_key", "my_secret");
+        config.put("username", "residual_user");
+        Assertions.assertDoesNotThrow(
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
     }
 }

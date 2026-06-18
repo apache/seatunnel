@@ -25,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.List;
 
 /**
  * Reusable {@link ConditionExtension} validators shared by Elasticsearch Source / Sink / Catalog
@@ -36,33 +35,6 @@ import java.util.List;
  */
 @UtilityClass
 public final class ElasticsearchValidators {
-
-    /**
-     * Validates that {@code username} and {@code password} are either both present or both absent
-     * (basic auth must be configured as a pair), and when present, both are non-blank.
-     *
-     * <p>The generic parameter matches the option this validator is attached to (typically {@code
-     * HOSTS} which is {@code Option<List<String>>}).
-     */
-    public static class BasicAuthPairValidator implements ConditionExtension<List<String>> {
-        @Override
-        public String description() {
-            return "'username' and 'password' must be provided together and must not be blank";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, List<String> value) {
-            String user = config.getOptional(ElasticsearchBaseOptions.USERNAME).orElse(null);
-            String pass = config.getOptional(ElasticsearchBaseOptions.PASSWORD).orElse(null);
-            if (user == null && pass == null) {
-                return true;
-            }
-            if (user == null || pass == null) {
-                return false;
-            }
-            return !user.trim().isEmpty() && !pass.trim().isEmpty();
-        }
-    }
 
     /**
      * Validates that {@code auth.api_key_encoded} is a Base64-encoded {@code id:key} string.

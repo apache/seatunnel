@@ -203,4 +203,15 @@ class ElasticsearchSinkFactoryTest {
         Assertions.assertDoesNotThrow(
                 () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
     }
+
+    @Test
+    void testApiKeyAuthWithResidualUsernameDoesNotFail() {
+        Map<String, Object> config = validSinkConfig();
+        config.put("auth_type", "API_KEY");
+        config.put("auth.api_key_id", "my_key_id");
+        config.put("auth.api_key", "my_secret");
+        config.put("username", "residual_user");
+        Assertions.assertDoesNotThrow(
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+    }
 }

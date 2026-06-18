@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchValidators;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchValidators.ApiKeyEncodedFormatValidator;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
 
 import com.google.auto.service.AutoService;
@@ -74,14 +74,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        HOSTS,
-                        Conditions.extension(HOSTS, new RequireIndexValidator())
-                                .and(
-                                        Conditions.extension(
-                                                HOSTS,
-                                                new ElasticsearchValidators
-                                                        .BasicAuthPairValidator())))
+                .required(HOSTS, Conditions.extension(HOSTS, new RequireIndexValidator()))
                 .optional(
                         INDEX,
                         INDEX_LIST,
@@ -105,6 +98,12 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD)
                 .optional(AUTH_TYPE)
+                .conditionalRule(
+                        AUTH_TYPE,
+                        AuthTypeEnum.BASIC,
+                        OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+                .conditional(AUTH_TYPE, AuthTypeEnum.BASIC, Conditions.notBlank(USERNAME))
+                .conditional(AUTH_TYPE, AuthTypeEnum.BASIC, Conditions.notBlank(PASSWORD))
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY)
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, Conditions.notBlank(API_KEY_ID))
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, Conditions.notBlank(API_KEY))
@@ -116,9 +115,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                 .conditional(
                         AUTH_TYPE,
                         AuthTypeEnum.API_KEY_ENCODED,
-                        Conditions.extension(
-                                API_KEY_ENCODED,
-                                new ElasticsearchValidators.ApiKeyEncodedFormatValidator()))
+                        Conditions.extension(API_KEY_ENCODED, new ApiKeyEncodedFormatValidator()))
                 .conditional(SEARCH_TYPE, SearchTypeEnum.SQL, SQL_QUERY)
                 .conditional(SEARCH_TYPE, SearchTypeEnum.SQL, Conditions.notBlank(SQL_QUERY))
                 .build();
