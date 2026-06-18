@@ -33,42 +33,81 @@ public class MaxcomputeSourceSplitTest {
         long recordCount = 105000;
         int splitRow = 10000;
 
-        int splitRowNum = (int) Math.ceil((double) recordCount / numReaders); // 21000
         TablePath tablePath = TablePath.of("test_db", "test_schema", "test_table");
-
         Set<String> splitIds = new HashSet<>();
         int[] indexCounts = new int[numReaders];
         int totalSplits = 0;
-
+        int chunkIndex = 0;
         // Simulate the inner logic of MaxcomputeSourceSplitEnumerator.discoverySplits
-        for (int i = 0; i < numReaders; i++) {
-            int readerStart = i * splitRowNum;
-            int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
-            for (int num = readerStart; num < readerEnd; num += splitRow) {
+        for (long num = 0; num < recordCount; num += splitRow) {
+            int ownerReader = chunkIndex % numReaders;
+            MaxcomputeSourceSplit split =
+                    new MaxcomputeSourceSplit(
+                            num,
+                            Math.min((long) splitRow, recordCount - num),
+                            tablePath,
+                            ownerReader);
+
+            // Verify splitId uniqueness
+            Assertions.assertTrue(
+                    splitIds.add(split.splitId()), "Duplicate splitId found: " + split.splitId());
+
+            // Verify index assigned to the split matches the reader index
+            Assertions.assertEquals(ownerReader, split.getIndex());
+
+            indexCounts[ownerReader]++;
+            totalSplits++;
+            chunkIndex++;
+        }
+
+        // 105000 / 10000 = 10 full splits + 1 remainder split = 11 splits total!
+        Assertions.assertEquals(11, totalSplits);
+
+        // Verify index distribution (round-robin):
+        // 11 splits / 5 readers = 2 splits each, plus 1 remainder for reader 0.
+        Assertions.assertEquals(3, indexCounts[0], "Reader 0 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[1], "Reader 1 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[2], "Reader 2 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[3], "Reader 3 split count mismatch!");
+        Assertions.assertEquals(2, indexCounts[4], "Reader 4 split count mismatch!");
+    }
+
+    @Test
+    public void testMultiTableRoundRobinDistribution() {
+        int numReaders = 3;
+        int numTables = 5;
+        long recordCountPerTable = 15000;
+        int splitRow = 10000;
+
+        int[] indexCounts = new int[numReaders];
+        int chunkIndex = 0;
+        int totalSplits = 0;
+
+        // Simulate multiple tables with 15k rows each (2 splits per table: 10k + 5k)
+        for (int t = 0; t < numTables; t++) {
+            TablePath tablePath = TablePath.of("test_db", "test_schema", "test_table_" + t);
+            for (long num = 0; num < recordCountPerTable; num += splitRow) {
+                int ownerReader = chunkIndex % numReaders;
                 MaxcomputeSourceSplit split =
                         new MaxcomputeSourceSplit(
-                                num, Math.min(splitRow, readerEnd - num), tablePath, i);
+                                num,
+                                Math.min((long) splitRow, recordCountPerTable - num),
+                                tablePath,
+                                ownerReader);
 
-                // Verify splitId uniqueness
-                Assertions.assertTrue(
-                        splitIds.add(split.splitId()),
-                        "Duplicate splitId found: " + split.splitId());
-
-                // Verify index assigned to the split matches the reader index
-                Assertions.assertEquals(i, split.getIndex());
-
-                indexCounts[i]++;
+                Assertions.assertEquals(ownerReader, split.getIndex());
+                indexCounts[ownerReader]++;
                 totalSplits++;
+                chunkIndex++;
             }
         }
 
-        Assertions.assertTrue(totalSplits == 15);
+        // 5 tables * 2 splits = 10 total splits
+        Assertions.assertEquals(10, totalSplits);
 
-        // Verify index distribution:
-        // Record count 105000 / 5 readers = 21000 splits per reader.
-        // Split row is 10000. Loop steps: 0, 10000, 20000. So 3 splits per reader.
-        for (int i = 0; i < numReaders; i++) {
-            Assertions.assertEquals(3, indexCounts[i], "Reader " + i + " split count mismatch!");
-        }
+        // 10 splits / 3 readers = 3 splits each, plus 1 remainder for reader 0.
+        Assertions.assertEquals(4, indexCounts[0], "Reader 0 split count mismatch!");
+        Assertions.assertEquals(3, indexCounts[1], "Reader 1 split count mismatch!");
+        Assertions.assertEquals(3, indexCounts[2], "Reader 2 split count mismatch!");
     }
 }
