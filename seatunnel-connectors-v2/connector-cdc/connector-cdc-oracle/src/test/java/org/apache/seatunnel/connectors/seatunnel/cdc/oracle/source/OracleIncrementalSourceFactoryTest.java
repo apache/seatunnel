@@ -111,6 +111,25 @@ class OracleIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testDebeziumSchemaChangeBypassesSeaTunnelFlag() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("schema-changes.enabled", false);
+        Map<String, String> debezium = new HashMap<>();
+        debezium.put("include.schema.changes", "true");
+        debezium.put("log.mining.strategy", "online_catalog");
+        cfg.put("debezium", debezium);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+
+        Map<String, Object> cfgOk = validOracleConfig();
+        cfgOk.put("schema-changes.enabled", false);
+        Map<String, String> debeziumOk = new HashMap<>();
+        debeziumOk.put("include.schema.changes", "true");
+        debeziumOk.put("log.mining.strategy", "redo_log_catalog");
+        cfgOk.put("debezium", debeziumOk);
+        Assertions.assertDoesNotThrow(() -> validate(cfgOk));
+    }
+
+    @Test
     public void testDatabaseNamesRequired() {
         Map<String, Object> cfgMissing = validOracleConfig();
         cfgMissing.remove("database-names");

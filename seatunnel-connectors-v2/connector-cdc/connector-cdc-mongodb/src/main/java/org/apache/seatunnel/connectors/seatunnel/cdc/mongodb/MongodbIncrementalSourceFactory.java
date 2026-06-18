@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -42,6 +43,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 
 @AutoService(Factory.class)
 public class MongodbIncrementalSourceFactory implements TableSourceFactory {
@@ -165,6 +168,13 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                     return Collections.singletonList(
                             CatalogTable.of(updatedIdentifier, catalogTable));
                 }
+            } else if (!fullName.equals(collectionName)) {
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT,
+                        String.format(
+                                "Inconsistent naming found at index %d: "
+                                        + "The collection name '%s' must match the schema table name '%s'.",
+                                i, collectionName, fullName));
             }
         }
         return catalogTables;

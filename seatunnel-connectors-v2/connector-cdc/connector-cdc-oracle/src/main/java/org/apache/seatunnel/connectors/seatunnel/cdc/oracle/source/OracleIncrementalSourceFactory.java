@@ -72,10 +72,16 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
 
         @Override
         public boolean evaluate(ReadonlyConfig config, Boolean value) {
-            if (value == null || !value) {
+            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+            boolean schemaChangeEnabled = Boolean.TRUE.equals(value);
+            if (!schemaChangeEnabled && dbzProps != null) {
+                schemaChangeEnabled =
+                        Boolean.parseBoolean(
+                                dbzProps.get(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY));
+            }
+            if (!schemaChangeEnabled) {
                 return true;
             }
-            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
             if (dbzProps == null) {
                 return true;
             }
