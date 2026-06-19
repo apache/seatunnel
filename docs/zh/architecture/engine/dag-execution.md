@@ -226,8 +226,8 @@ sink {
 
 ```mermaid
 flowchart LR
-    source["MySQL-CDC 数据源"] --> elastic["下游目标系统<br/>Elasticsearch"]
-    source --> jdbc["下游目标系统<br/>JDBC"]
+    source["MySQL-CDC 数据源"] --> elastic["<div style='width:12em;text-align:center'>Elasticsearch</div>"]
+    source --> jdbc["<div style='width:12em;text-align:center'>JDBC</div>"]
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
