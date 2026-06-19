@@ -345,15 +345,16 @@ Each LogicalVertex with parallelism N generates N PhysicalVertices.
 
 Special vertices for coordination tasks:
 
-- **SourceSplitEnumerator**: Runs on master, assigns splits to readers
-- **SinkCommitter**: Runs on master, coordinates commits
-- **SinkAggregatedCommitter**: Runs on master, global commit coordination
+- **SourceSplitEnumerator**: Usually runs as a single coordination instance that assigns splits to readers (deployment is engine-specific)
+- **SinkAggregatedCommitter**: When a sink provides an aggregated committer, it usually runs as a single coordination instance for global commit orchestration (deployment is engine-specific)
+
+Note: `SinkCommitter` depends on the execution engine and does not necessarily appear as an independent coordinator vertex. In SeaTunnel Engine, for example, the committer can be triggered inside the sink task's checkpoint callback.
 
 **Example**:
 | Runtime scope | Instances |
 |---------------|-----------|
 | `physicalVertexList` | `JdbcSourceTask × 4`, `TransformTask × 4`, `ElasticsearchSinkTask × 4` |
-| `coordinatorVertexList` | `JdbcSourceSplitEnumerator × 1` on master, `ElasticsearchSinkCommitter × 1` on master |
+| `coordinatorVertexList` | `JdbcSourceSplitEnumerator × 1`, plus `ElasticsearchSinkAggregatedCommitter × 1` (optional) |
 
 ### 4.4 Independent Checkpointing
 
