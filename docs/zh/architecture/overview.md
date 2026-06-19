@@ -89,10 +89,10 @@ API 层提供引擎独立的抽象：
 **关键设计**：协调（枚举器）与执行（读取器）分离，实现高效的并行处理和容错。
 
 #### 数据 Sink  API
-- **SeaTunnelSink**：创建写入器和提交器的工厂接口
+- **SeaTunnelSink**：创建写入器和可选提交策略的工厂接口
 - **SinkWriter**：工作节点侧组件，负责写入数据
-- **SinkCommitter**：多个写入器的提交操作协调器
-- **SinkAggregatedCommitter**：聚合提交的全局协调器
+- **SinkCommitter**：工作节点侧的可选提交器，负责独立提交单个 writer 的变更
+- **SinkAggregatedCommitter**：协调端聚合提交路径上的可选全局提交器
 
 **关键设计**：两阶段提交协议（prepareCommit → commit）在外部系统支持事务/幂等提交且启用 checkpoint 的前提下，可提供一致性语义。
 
@@ -168,8 +168,11 @@ flowchart TD
     rowIn --> transform["转换链<br/>（可选）"]
     transform --> rowOut["SeaTunnelRow"]
     rowOut --> writer["SinkWriter<br/>工作节点侧<br/>缓冲记录 / 准备提交"]
-    writer -->|CommitInfo| committer["SinkCommitter<br/>协调器<br/>提交变更"]
+    writer -->|"可选的工作节点本地提交"| committer["SinkCommitter<br/>工作节点侧<br/>独立提交各 writer 的变更"]
+    writer -. "可选的聚合提交路径" .-> aggregatedTask["SinkAggregatedCommitterTask<br/>协调器侧<br/>收集各 writer 的 CommitInfo"]
+    aggregatedTask --> aggregated["SinkAggregatedCommitter<br/>协调器侧<br/>执行一次全局提交"]
     committer --> sink["数据 Sink"]
+    aggregated --> sink
 
     classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
@@ -177,7 +180,7 @@ flowchart TD
 
     class source,sink,rowIn,rowOut layerBlue;
     class enumerator,reader,transform layerCyan;
-    class writer,committer layerPurple;
+    class writer,committer,aggregatedTask,aggregated layerPurple;
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
@@ -261,7 +264,7 @@ sequenceDiagram
 
 4. **提交阶段**
    - SinkWriter 准备提交信息
-   - SinkCommitter 协调提交
+   - 默认由工作节点侧 `SinkCommitter` 独立提交各 writer 的变更；如果启用聚合提交，则改由协调端执行一次全局提交
    - 状态持久化到检查点存储
 
 ### 5.3 状态机
@@ -272,16 +275,24 @@ stateDiagram-v2
     direction LR
     [*] --> CREATED
     CREATED --> INIT
-    INIT --> WAITING_RESTORE
+    INIT --> WAITING_RESTORE: 恢复路径
+    INIT --> READY_START: 无需恢复
     WAITING_RESTORE --> READY_START
     READY_START --> STARTING
     STARTING --> RUNNING
-    RUNNING --> PREPARE_CLOSE
+    RUNNING --> PREPARE_CLOSE: 正常完成
     PREPARE_CLOSE --> CLOSED
-    RUNNING --> FAILED
-    PREPARE_CLOSE --> FAILED
-    RUNNING --> CANCELED
+    INIT --> CANCELLING: 外部取消
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
+
+**失败说明**：
+- `FAILED` 是运行时对不可恢复错误的结果标记，但“失败后是否重启”由更高层的恢复逻辑决定，不应在这个任务状态机图里画成 `FAILED → ...` 的直接边。
 
 **作业状态转换**：
 ```mermaid
@@ -316,10 +327,10 @@ stateDiagram-v2
 
 **两阶段提交协议**：
 1. **准备阶段**：SinkWriter 在检查点期间准备提交信息
-2. **提交阶段**：SinkCommitter 在检查点完成后提交
+2. **提交阶段**：默认由工作节点侧 `SinkCommitter` 独立提交各 writer 的变更；如果启用聚合提交，则在 checkpoint 成功后由协调端执行一次全局提交
 3. **中止处理**：在提交前失败时回滚
 
-**幂等性**：SinkCommitter 操作必须是幂等的以处理重试
+**幂等性**：`SinkCommitter` 与 `SinkAggregatedCommitter` 的提交操作都必须保持幂等，以便在重试场景下不重复生效
 
 ### 6.3 动态资源管理
 
@@ -360,7 +371,7 @@ stateDiagram-v2
 ### 8.1 关注点分离
 
 - **API vs 实现**：清晰的 API 边界支持多种实现
-- **协调 vs 执行**：枚举器/提交器（主节点）与读取器/写入器（工作节点）分离
+- **协调 vs 执行**：枚举器与聚合提交编排负责协调，读取器与写入器负责工作节点上的实际执行
 - **逻辑 vs 物理**：LogicalDag（用户意图）与 PhysicalPlan（执行细节）分离
 
 ### 8.2 插件架构

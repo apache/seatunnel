@@ -93,10 +93,10 @@ The API layer provides engine-independent abstractions:
 - [seatunnel-api/.../SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
 
 #### Sink API
-- **SeaTunnelSink**: Factory interface for creating writers and committers
+- **SeaTunnelSink**: Factory interface for creating writers and optional commit strategies
 - **SinkWriter**: Worker-side component for writing data
-- **SinkCommitter**: Coordinator for commit operations from multiple writers
-- **SinkAggregatedCommitter**: Global coordinator for aggregated commits
+- **SinkCommitter**: Optional worker-side committer for per-writer commit operations
+- **SinkAggregatedCommitter**: Optional global committer for coordinator-side aggregated commits
 
 **Key Design**: Two-phase commit protocol (prepareCommit → commit) ensures exactly-once semantics.
 
@@ -189,8 +189,11 @@ flowchart TD
     rowIn --> transform["Transform Chain<br/>(Optional)"]
     transform --> rowOut["SeaTunnelRow"]
     rowOut --> writer["SinkWriter<br/>Worker side<br/>Buffer records / Prepare commit"]
-    writer -->|CommitInfo| committer["SinkCommitter<br/>Coordinator<br/>Commit changes"]
+    writer -->|"optional worker-local commit"| committer["SinkCommitter<br/>Worker side<br/>Commit each writer change independently"]
+    writer -. "optional aggregated commit path" .-> aggregatedTask["SinkAggregatedCommitterTask<br/>Coordinator side<br/>Collect commit infos from writers"]
+    aggregatedTask --> aggregated["SinkAggregatedCommitter<br/>Coordinator side<br/>Perform one global commit"]
     committer --> sink["Data Sink"]
+    aggregated --> sink
 
     classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
@@ -198,7 +201,7 @@ flowchart TD
 
     class source,sink,rowIn,rowOut layerBlue;
     class enumerator,reader,transform layerCyan;
-    class writer,committer layerPurple;
+    class writer,committer,aggregatedTask,aggregated layerPurple;
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
@@ -282,7 +285,7 @@ sequenceDiagram
 
 4. **Commit Phase**
    - SinkWriter prepares commit information
-   - SinkCommitter coordinates commits
+   - A worker-local `SinkCommitter` commits each writer change independently, or a coordinator-side aggregated commit runs when configured
    - State persisted to checkpoint storage
 
 ### 5.3 State Machine
@@ -293,16 +296,24 @@ stateDiagram-v2
     direction LR
     [*] --> CREATED
     CREATED --> INIT
-    INIT --> WAITING_RESTORE
+    INIT --> WAITING_RESTORE: restore path
+    INIT --> READY_START: fresh start
     WAITING_RESTORE --> READY_START
     READY_START --> STARTING
     STARTING --> RUNNING
-    RUNNING --> PREPARE_CLOSE
+    RUNNING --> PREPARE_CLOSE: normal completion
     PREPARE_CLOSE --> CLOSED
-    RUNNING --> FAILED
-    PREPARE_CLOSE --> FAILED
-    RUNNING --> CANCELED
+    INIT --> CANCELLING: external cancel
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
+
+**Failure Note**:
+- `FAILED` exists as a runtime result, but task-level restart is handled by higher-level recovery logic rather than by a direct `FAILED → ...` edge in this state machine.
 
 **Job State Transitions**:
 ```mermaid
@@ -337,10 +348,10 @@ stateDiagram-v2
 
 **Two-Phase Commit Protocol**:
 1. **Prepare Phase**: SinkWriter prepares commit info during checkpoint
-2. **Commit Phase**: SinkCommitter commits after checkpoint completes
+2. **Commit Phase**: A worker-local `SinkCommitter` commits each writer change independently, or a coordinator-side aggregated commit performs one global commit after checkpoint success
 3. **Abort Handling**: Roll back on failure before commit
 
-**Idempotency**: SinkCommitter operations must be idempotent to handle retries
+**Idempotency**: `SinkCommitter` and `SinkAggregatedCommitter` operations must be idempotent to handle retries
 
 ### 6.3 Dynamic Resource Management
 
@@ -381,7 +392,7 @@ stateDiagram-v2
 ### 8.1 Separation of Concerns
 
 - **API vs Implementation**: Clean API boundaries enable multiple implementations
-- **Coordination vs Execution**: Enumerator/Committer (master) separate from Reader/Writer (worker)
+- **Coordination vs Execution**: Enumerator and aggregated-commit orchestration handle coordination, while Reader/Writer execute on workers
 - **Logical vs Physical**: LogicalDag (user intent) separate from PhysicalPlan (execution details)
 
 ### 8.2 Plugin Architecture
