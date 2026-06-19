@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -48,7 +49,8 @@ public class PulsarSinkFactory implements TableSinkFactory {
                         PulsarSinkOptions.SEMANTICS,
                         PulsarSinkOptions.TRANSACTION_TIMEOUT,
                         PulsarSinkOptions.PULSAR_CONFIG,
-                        PulsarSinkOptions.PARTITION_KEY_FIELDS)
+                        PulsarSinkOptions.PARTITION_KEY_FIELDS,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         PulsarSinkOptions.FORMAT,
                         PulsarSinkOptions.TEXT_FORMAT,

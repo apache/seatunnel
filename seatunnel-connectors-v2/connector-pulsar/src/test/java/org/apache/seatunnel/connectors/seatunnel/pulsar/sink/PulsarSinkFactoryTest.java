@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -35,9 +37,23 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PulsarSinkFactoryTest {
 
+    /** Guards the option metadata that connector specification checks validate in CI. */
+    @Test
+    public void testOptionRuleContainsMultiTableReplica() {
+        PulsarSinkFactory factory = new PulsarSinkFactory();
+        OptionRule optionRule = factory.optionRule();
+
+        assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA));
+    }
+
+    /** Verifies single-table Pulsar sinks still reject a missing topic. */
     @Test
     public void testCreateSinkRequiresTopicForSingleTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
@@ -50,6 +66,7 @@ public class PulsarSinkFactoryTest {
                                         getCatalogTable(), config(), getClass().getClassLoader())));
     }
 
+    /** Verifies multi-table Pulsar sinks can derive topics without a single-table topic option. */
     @Test
     public void testCreateSinkAllowsMissingTopicForMultiTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
@@ -61,6 +78,7 @@ public class PulsarSinkFactoryTest {
                                         null, config(), getClass().getClassLoader())));
     }
 
+    /** Builds the minimum valid configuration shared by the Pulsar sink factory tests. */
     private ReadonlyConfig config() {
         Map<String, Object> options = new HashMap<>();
         options.put("client.service-url", "pulsar://localhost:6650");
@@ -72,6 +90,7 @@ public class PulsarSinkFactoryTest {
         return ReadonlyConfig.fromMap(options);
     }
 
+    /** Creates a single-table catalog context so topic validation follows the production path. */
     private CatalogTable getCatalogTable() {
         List<Column> columns = new ArrayList<>();
         columns.add(
