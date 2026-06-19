@@ -29,6 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogO
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlOffsetContext;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +45,8 @@ public class MySqlIncrementalSourceStartupConfigTest {
     public void testOptionRuleAcceptsGtidSpecificStartup() {
         Map<String, Object> options = requiredOptions();
         options.put(SourceOptions.STARTUP_MODE_KEY, "specific");
+        options.put(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(), "mysql-bin.000123");
+        options.put(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(), 456789L);
         options.put(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET.key(), GTID_SET);
 
         ConfigValidator.of(ReadonlyConfig.fromMap(options))
@@ -54,6 +60,10 @@ public class MySqlIncrementalSourceStartupConfigTest {
                         config(
                                 SourceOptions.STARTUP_MODE_KEY,
                                 "specific",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                                "mysql-bin.000123",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                                456789L,
                                 MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET
                                         .key(),
                                 GTID_SET,
@@ -66,6 +76,11 @@ public class MySqlIncrementalSourceStartupConfigTest {
 
         Offset startupOffset = startupConfig.getStartupOffset(new TestOffsetFactory());
 
+        Assertions.assertEquals(
+                "mysql-bin.000123",
+                startupOffset.getOffset().get(BinlogOffset.BINLOG_FILENAME_OFFSET_KEY));
+        Assertions.assertEquals(
+                "456789", startupOffset.getOffset().get(BinlogOffset.BINLOG_POSITION_OFFSET_KEY));
         Assertions.assertEquals(GTID_SET, startupOffset.getOffset().get(BinlogOffset.GTID_SET_KEY));
         Assertions.assertEquals(
                 "3", startupOffset.getOffset().get(BinlogOffset.EVENTS_TO_SKIP_OFFSET_KEY));
@@ -102,7 +117,39 @@ public class MySqlIncrementalSourceStartupConfigTest {
     }
 
     @Test
-    public void testCreateStartupConfigRejectsGtidSetWithFilePosition() {
+    public void testSpecificStartupOffsetLoadsThroughDebeziumOffsetLoader() {
+        StartupConfig startupConfig =
+                MySqlIncrementalSource.createStartupConfig(
+                        config(
+                                SourceOptions.STARTUP_MODE_KEY,
+                                "specific",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                                "mysql-bin.000123",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                                456789L,
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET
+                                        .key(),
+                                GTID_SET,
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS
+                                        .key(),
+                                3L,
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS
+                                        .key(),
+                                10L));
+
+        Offset startupOffset = startupConfig.getStartupOffset(new TestOffsetFactory());
+        MySqlOffsetContext offsetContext =
+                new MySqlOffsetContext.Loader(debeziumConfig()).load(startupOffset.getOffset());
+
+        Assertions.assertEquals("mysql-bin.000123", offsetContext.getSource().binlogFilename());
+        Assertions.assertEquals(456789L, offsetContext.getSource().binlogPosition());
+        Assertions.assertEquals(GTID_SET, offsetContext.gtidSet());
+        Assertions.assertEquals(3L, offsetContext.eventsToSkipUponRestart());
+        Assertions.assertEquals(10, offsetContext.rowsToSkipUponRestart());
+    }
+
+    @Test
+    public void testCreateStartupConfigRejectsGtidSetWithoutFilePosition() {
         IllegalArgumentException exception =
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
@@ -114,18 +161,10 @@ public class MySqlIncrementalSourceStartupConfigTest {
                                                 MySqlIncrementalSourceOptions
                                                         .STARTUP_SPECIFIC_OFFSET_GTID_SET
                                                         .key(),
-                                                GTID_SET,
-                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
-                                                "mysql-bin.000123",
-                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
-                                                456789L)));
+                                                GTID_SET)));
 
         Assertions.assertTrue(
-                exception
-                        .getMessage()
-                        .contains(
-                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET
-                                        .key()));
+                exception.getMessage().contains(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key()));
     }
 
     @Test
@@ -137,7 +176,7 @@ public class MySqlIncrementalSourceStartupConfigTest {
                                 MySqlIncrementalSource.createStartupConfig(
                                         config(SourceOptions.STARTUP_MODE_KEY, "specific")));
 
-        Assertions.assertTrue(exception.getMessage().contains("requires either"));
+        Assertions.assertTrue(exception.getMessage().contains("requires"));
     }
 
     @Test
@@ -168,6 +207,10 @@ public class MySqlIncrementalSourceStartupConfigTest {
                                         config(
                                                 SourceOptions.STARTUP_MODE_KEY,
                                                 "specific",
+                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                                                "mysql-bin.000123",
+                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                                                456789L,
                                                 MySqlIncrementalSourceOptions
                                                         .STARTUP_SPECIFIC_OFFSET_GTID_SET
                                                         .key(),
@@ -186,6 +229,10 @@ public class MySqlIncrementalSourceStartupConfigTest {
                                         config(
                                                 SourceOptions.STARTUP_MODE_KEY,
                                                 "specific",
+                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                                                "mysql-bin.000123",
+                                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                                                456789L,
                                                 MySqlIncrementalSourceOptions
                                                         .STARTUP_SPECIFIC_OFFSET_GTID_SET
                                                         .key(),
@@ -204,6 +251,16 @@ public class MySqlIncrementalSourceStartupConfigTest {
             options.put((String) keysAndValues[i], keysAndValues[i + 1]);
         }
         return ReadonlyConfig.fromMap(options);
+    }
+
+    private static MySqlConnectorConfig debeziumConfig() {
+        return new MySqlConnectorConfig(
+                Configuration.create()
+                        .with(MySqlConnectorConfig.SERVER_NAME, "test_server")
+                        .with(MySqlConnectorConfig.HOSTNAME, "localhost")
+                        .with(MySqlConnectorConfig.USER, "test")
+                        .with(MySqlConnectorConfig.PASSWORD, "test")
+                        .build());
     }
 
     private static Map<String, Object> requiredOptions() {

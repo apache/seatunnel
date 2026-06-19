@@ -190,6 +190,8 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
             throws IOException, InterruptedException {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_earliest_offset.conf";
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
         purgeBinaryLogs();
         // Insert data
         executeSql(
@@ -427,10 +429,16 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         clearTable(MYSQL_DATABASE, SINK_TABLE);
         purgeBinaryLogs();
 
-        String gtidSet = getCurrentBinlogOffset().getGtidSet();
+        BinlogOffset binlogOffset = getCurrentBinlogOffset();
+        String gtidSet = binlogOffset.getGtidSet();
         Assertions.assertNotNull(gtidSet);
         Assertions.assertFalse(gtidSet.trim().isEmpty());
-        String[] variables = {"specific_offset_gtid_set=" + gtidSet, "specific_offset_skip_rows=1"};
+        String[] variables = {
+            "specific_offset_file=" + binlogOffset.getFilename(),
+            "specific_offset_pos=" + binlogOffset.getPosition(),
+            "specific_offset_gtid_set=" + gtidSet,
+            "specific_offset_skip_rows=1"
+        };
 
         executeSql(
                 String.format(

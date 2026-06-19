@@ -79,6 +79,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         return createStartupConfig(config);
     }
 
+    /* Route MySQL specific startup through the map-based offset path for GTID and skip metadata. */
     static StartupConfig createStartupConfig(ReadonlyConfig config) {
         StartupMode startupMode = config.get(MySqlIncrementalSourceOptions.STARTUP_MODE);
         if (StartupMode.SPECIFIC.equals(startupMode)) {
@@ -93,22 +94,17 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
     }
 
+    /*
+     * Debezium's MySqlOffsetContext.Loader requires file and pos for a specific startup offset.
+     * GTID and skip fields are optional metadata on that same offset, not an alternative anchor.
+     */
     private static Map<String, String> createSpecificStartupOffset(ReadonlyConfig config) {
         Optional<String> gtidSet = getValidatedGtidSet(config);
         boolean hasFile =
                 config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent();
         boolean hasPos = config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent();
 
-        if (gtidSet.isPresent() && (hasFile || hasPos)) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "'%s' cannot be used together with '%s' or '%s'.",
-                            MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET.key(),
-                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
-                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
-        }
-
-        if (!gtidSet.isPresent() && hasFile != hasPos) {
+        if (hasFile != hasPos) {
             throw new IllegalArgumentException(
                     String.format(
                             "'%s' and '%s' must be configured together when '%s' is 'specific'.",
@@ -117,14 +113,13 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                             SourceOptions.STARTUP_MODE_KEY));
         }
 
-        if (!gtidSet.isPresent() && !hasFile) {
+        if (!hasFile) {
             throw new IllegalArgumentException(
                     String.format(
-                            "'%s' requires either '%s' with '%s', or '%s'.",
+                            "'%s' requires '%s' with '%s' when the mode is 'specific'.",
                             SourceOptions.STARTUP_MODE_KEY,
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
-                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
-                            MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET.key()));
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
         }
 
         long skipEvents =
@@ -135,26 +130,26 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         config, MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS);
 
         Map<String, String> offset = new LinkedHashMap<>();
+        String file = config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+        if (StringUtils.isBlank(file)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' must not be blank.",
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key()));
+        }
+        offset.put(BinlogOffset.BINLOG_FILENAME_OFFSET_KEY, file);
+        offset.put(
+                BinlogOffset.BINLOG_POSITION_OFFSET_KEY,
+                String.valueOf(config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)));
         if (gtidSet.isPresent()) {
             offset.put(BinlogOffset.GTID_SET_KEY, gtidSet.get());
-        } else {
-            String file = config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
-            if (StringUtils.isBlank(file)) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "'%s' must not be blank.",
-                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key()));
-            }
-            offset.put(BinlogOffset.BINLOG_FILENAME_OFFSET_KEY, file);
-            offset.put(
-                    BinlogOffset.BINLOG_POSITION_OFFSET_KEY,
-                    String.valueOf(config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)));
         }
         offset.put(BinlogOffset.EVENTS_TO_SKIP_OFFSET_KEY, String.valueOf(skipEvents));
         offset.put(BinlogOffset.ROWS_TO_SKIP_OFFSET_KEY, String.valueOf(skipRows));
         return offset;
     }
 
+    /* Validate the configured GTID set before adding it to Debezium's offset map. */
     private static Optional<String> getValidatedGtidSet(ReadonlyConfig config) {
         Optional<String> configuredGtidSet =
                 config.getOptional(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET);

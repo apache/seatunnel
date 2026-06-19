@@ -42,7 +42,7 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Optional GTID set used in case of \"specific\" startup mode.");
+                            "Optional GTID set used with file and position in case of \"specific\" startup mode.");
 
     public static final Option<Long> STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS =
             Options.key("startup.specific-offset.skip-events")
