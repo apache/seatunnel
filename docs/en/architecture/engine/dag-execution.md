@@ -280,8 +280,8 @@ Generated result:
 
 ```mermaid
 flowchart LR
-    source["MySQL-CDC Source"] --> elastic["Elasticsearch Sink"]
-    source --> jdbc["JDBC Sink"]
+    source["MySQL-CDC Source"] --> elastic["Downstream Target<br/>Elasticsearch"]
+    source --> jdbc["Downstream Target<br/>JDBC"]
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
