@@ -29,55 +29,22 @@ SeaTunnel's resource management system aims to:
 
 ### 1.3 Architecture Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                         JobMaster                             │
-│                                                                │
-│  ┌────────────────────────────────────────────────────┐      │
-│  │  Request Resources                                  │      │
-│  │  • Calculate required slots                        │      │
-│  │  • Specify resource profiles (CPU, memory)         │      │
-│  │  • Apply tag filters (optional)                    │      │
-│  └────────────────────────────────────────────────────┘      │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     ResourceManager                           │
-│                                                                │
-│  ┌────────────────────────────────────────────────────┐      │
-│  │  Worker Registry                                    │      │
-│  │  • WorkerProfile (per worker)                      │      │
-│  │    - Total resources                               │      │
-│  │    - Available resources                           │      │
-│  │    - Assigned slots                                │      │
-│  │    - Unassigned slots                              │      │
-│  └────────────────────────────────────────────────────┘      │
-│                                                                │
-│  ┌────────────────────────────────────────────────────┐      │
-│  │  Allocation Strategies                              │      │
-│  │  • RandomStrategy / SlotRatioStrategy / SystemLoadStrategy │
-│  └────────────────────────────────────────────────────┘      │
-│                                                                │
-│  ┌────────────────────────────────────────────────────┐      │
-│  │  Slot Management                                    │      │
-│  │  • Allocate slots                                  │      │
-│  │  • Release slots                                   │      │
-│  │  • Track slot usage                                │      │
-│  └────────────────────────────────────────────────────┘      │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                      Worker Nodes                             │
-│                                                                │
-│  Worker 1                Worker 2                Worker N     │
-│  ┌──────────┐           ┌──────────┐           ┌──────────┐  │
-│  │ Slot 1   │           │ Slot 1   │           │ Slot 1   │  │
-│  │ Slot 2   │           │ Slot 2   │           │ Slot 2   │  │
-│  │ ...      │           │ ...      │           │ ...      │  │
-│  └──────────┘           └──────────┘           └──────────┘  │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    jobMaster["JobMaster<br/>Request resources<br/>Calculate required slots<br/>Specify resource profiles<br/>Apply optional tag filters"]
+    resource["ResourceManager<br/>Maintain worker registry<br/>Apply allocation strategies<br/>Allocate and release slots<br/>Track slot usage"]
+    workers["Worker Nodes<br/>Worker 1 / Worker 2 / Worker N<br/>Each worker exposes slot inventory"]
+
+    jobMaster --> resource --> workers
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class jobMaster layerBlue;
+    class resource layerCyan;
+    class workers layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 2. Core Concepts
@@ -448,24 +415,17 @@ seatunnel:
 ### 9.2 Observability
 
 **Resource Dashboard Example**:
-```
-Cluster Resources:
-  Workers: 10 (all healthy)
-  Total Slots: 20
-  Available Slots: 8
-  Utilization: 60%
+**Resource Dashboard Example**:
 
-Top Resource Consumers:
-  job-123: 6 slots (mysql-cdc → elasticsearch)
-  job-456: 4 slots (kafka → jdbc)
-  job-789: 2 slots (file → s3)
-
-Worker Distribution:
-  worker-1: 2/2 slots (100%)
-  worker-2: 1/2 slots (50%)
-  worker-3: 2/2 slots (100%)
-  ...
-```
+| Scope | Metric | Example |
+|-------|--------|---------|
+| Cluster | Workers | `10` healthy workers |
+| Cluster | Total slots | `20` |
+| Cluster | Available slots | `8` |
+| Cluster | Utilization | `60%` |
+| Job | Top consumer | `job-123` using `6` slots for `mysql-cdc → elasticsearch` |
+| Job | Next consumer | `job-456` using `4` slots for `kafka → jdbc` |
+| Worker | Slot distribution | `worker-1: 2/2`, `worker-2: 1/2`, `worker-3: 2/2` |
 
 ## 10. Best Practices
 

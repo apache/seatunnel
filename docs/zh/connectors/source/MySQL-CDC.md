@@ -214,6 +214,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
+| schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
+| schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
@@ -339,6 +341,42 @@ sink {
 }
 
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。
+
+使用以下 SeaTunnel 统一的规范名称
+
+| 规范名称        | 操作                                                        |
+|-----------------|-------------------------------------------------------------|
+| `add.column`    | 新增列                                                      |
+| `drop.column`   | 删除列                                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
 ### 表名支持正则以读取多个表
 
 > `table-pattern` 和 `table-names` 只能选择一个
@@ -370,7 +408,63 @@ sink {
 }
 ```
 
+## 常见问题
+
+### MySQL CDC 需要哪些权限？
+
+MySQL 用户需要以下权限：
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+同时需要在 `my.cnf` / `my.ini` 中开启 binlog：
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### SeaTunnel 能从 MySQL 从库读取 CDC 数据吗？
+
+可以。SeaTunnel 通过订阅 binlog 工作，从库也有 binlog 流。将 SeaTunnel 指向从库可以减轻主库压力。需确保从库开启了 binlog，并在配置中设置 `log_slave_updates = ON`。
+
+### MySQL CDC 是否支持无主键表？
+
+默认要求主键。如果源表没有声明主键，但存在其他可唯一标识记录的列，可以像当前文档中的
+source options 示例那样，通过 `table-names-config.primaryKeys` 指定自定义主键。若没有稳定的
+唯一键，下游就无法安全处理 UPDATE / DELETE 事件。
+
+### 全量快照阶段如何工作？何时切换为增量读取？
+
+首次启动时，SeaTunnel 对已配置的表做一次一致性全量快照。快照完成后，自动从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失任何变更事件。
+
+### MySQL CDC 是否支持 DDL 传播？
+
+支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
+[Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
+目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+
+### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
+
+每个 CDC 任务必须使用唯一的 `server-id` 或不重叠的范围。重复的 `server-id` 会导致 MySQL 服务器断开其中一个客户端连接。建议为每个任务分配独立的范围，例如一个任务用 `5400-5600`，另一个用 `5601-5800`。
+
+### 初始快照为什么很慢？
+
+快照速度取决于表大小、JDBC fetch size 和网络带宽。可以通过调整 `snapshot.split.size`
+和 `snapshot.fetch.size` 来控制快照切分与抓取行为。对于不需要历史数据的大表，可将
+`startup.mode` 设为 `"latest"`，从最新 offset 启动并跳过初始快照。
+
+### 如何处理时区和字符集问题？
+
+将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
+
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 更新日志
 
 <ChangeLog />
-

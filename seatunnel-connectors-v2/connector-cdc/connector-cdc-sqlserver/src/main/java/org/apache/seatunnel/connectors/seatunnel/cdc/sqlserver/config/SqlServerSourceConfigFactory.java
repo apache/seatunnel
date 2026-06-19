@@ -33,6 +33,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final String DATABASE_SERVER_NAME = "sqlserver_transaction_log_source";
     private static final String DRIVER_CLASS_NAME = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     @Override
     public SqlServerSourceConfig create(int subtask) {
@@ -58,8 +59,8 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        // TODO Not yet supported
-        props.setProperty("include.schema.changes", String.valueOf(false));
+        // Emit Debezium schema change records only when schema evolution is enabled.
+        props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
 
         if (databaseList != null) {
             props.setProperty("database.include.list", String.join(",", databaseList));

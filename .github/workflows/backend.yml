@@ -79,6 +79,13 @@ jobs:
           else
             echo "No .class files found in git repository."
           fi
+      - name: Check connector registration completeness
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
+          else
+            echo "GITHUB_BASE_REF is not set (push event), skipping connector registration check."
+          fi
 
   helm-chart-check:
     name: Check Helm Chart Syntax
@@ -87,7 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Helm
-        uses: azure/setup-helm@v4.3.0
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
         id: install
       - name: Lint Chart
         run: helm lint deploy/kubernetes/seatunnel
@@ -119,7 +126,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     outputs:
       api: ${{ steps.filter.outputs.api }}
       engine: ${{ steps.filter.outputs.engine }}
@@ -256,6 +263,16 @@ jobs:
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          if [[ "zz"$connector_modules == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already route the full downstream engine test set through engine=true.
+            # Keep the fixed smoke modules as the output without resolving the Maven dependency tree.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
@@ -284,6 +301,20 @@ jobs:
           fi
           
           if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-e2e-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-flink-e2e-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-spark-e2e-modules.outputs.modules }}'
+          engine_e2e_modules='${{ steps.engine-e2e-modules.outputs.modules }}'
+          if [[ "zz${connector_modules}${engine_e2e_modules}" == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already trigger the broad downstream integration jobs through engine=true.
+            # Avoid a second Maven dependency tree pass when no connector or engine-e2e module changed.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
             exit 0
           fi
           
@@ -429,7 +460,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
@@ -491,7 +522,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
@@ -552,7 +583,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -582,7 +613,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -612,7 +643,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
@@ -643,7 +674,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -653,7 +684,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -818,6 +849,13 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
+          # Keep the longest Iceberg and HBase suites in a dedicated shard so this hosted runner
+          # does not lose heartbeat before the rest of the part-2 modules finish.
+          # Handle both first-position (no leading comma) and mid/last-position (leading comma).
+          run_it_modules=${run_it_modules//:connector-iceberg-e2e,/}
+          run_it_modules=${run_it_modules//,:connector-iceberg-e2e/}
+          run_it_modules=${run_it_modules//:connector-hbase-e2e,/}
+          run_it_modules=${run_it_modules//,:connector-hbase-e2e/}
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -974,6 +1012,35 @@ jobs:
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-8:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ${{ matrix.os }}
+    env:
+      RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
+      RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run connector-v2 integration test (part-8)
+        run: |
+          # These two suites dominated part-2 and triggered hosted-runner heartbeat loss.
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e,:connector-hbase-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -1209,7 +1276,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    # Kudu E2E expands each @TestTemplate case across several PR test containers.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}

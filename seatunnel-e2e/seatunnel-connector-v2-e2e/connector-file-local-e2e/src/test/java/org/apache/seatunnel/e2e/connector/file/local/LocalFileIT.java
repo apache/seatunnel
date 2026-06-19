@@ -324,6 +324,22 @@ public class LocalFileIT extends TestSuiteBase {
                         "-c",
                         "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e.txt", "/seatunnel/read/recursive/e2e.txt", container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e.txt", "/seatunnel/read/recursive/subdir/e2e.txt", container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e.txt",
+                        "/seatunnel/read/recursive/subdir/deeper/e2e.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e.txt",
+                        "/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
+                        container);
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -430,6 +446,10 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
         helper.execute("/excel/local_excel_xls_gz_to_assert.conf");
         helper.execute("/excel/local_excel_xlsx_gz_to_assert.conf");
+
+        // test read recursive file path
+        helper.execute("/text/local_file_text_recursive_to_assert.conf");
+        helper.execute("/text/local_file_text_non_recursive_to_assert.conf");
     }
 
     @TestTemplate
@@ -562,6 +582,108 @@ public class LocalFileIT extends TestSuiteBase {
 
     @TestTemplate
     @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_non_recursive.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        putLocalFile("/tmp/seatunnel/continuous/src/root.bin", "root");
+        putLocalFile("/tmp/seatunnel/continuous/src/subdir/nested.bin", "nested");
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "root",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/root.bin")));
+
+        Thread.sleep(3000);
+        Assertions.assertFalse(
+                isLocalFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
+        putLocalFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-updated-v2");
+        putLocalFile("/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-stale-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_non_recursive_distcp.conf");
+
+        Assertions.assertEquals(
+                "root-updated-v2", readLocalFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-stale-v1", readLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/root.bin", "root-same-v1");
+        putLocalFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_non_recursive_strict_checksum.conf");
+
+        Assertions.assertEquals(
+                "root-same-v1", readLocalFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-old-v1", readLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
             type = {EngineType.FLINK},
             disabledReason =
@@ -664,6 +786,12 @@ public class LocalFileIT extends TestSuiteBase {
                 baseContainer.execInContainer("sh", "-c", "cat '" + filePath + "'");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         return result.getStdout() == null ? "" : result.getStdout().trim();
+    }
+
+    private boolean isLocalFileExists(String filePath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer("sh", "-c", "test -f '" + filePath + "'");
+        return result.getExitCode() == 0;
     }
 
     private long getLocalFileMtimeSeconds(String filePath)

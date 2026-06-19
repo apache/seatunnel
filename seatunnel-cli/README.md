@@ -10,6 +10,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 - **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
+- **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
 - **Skill Framework** -- Three-layer generation: Skill SOP -> Golden Example -> Connector Metadata
 - **Auto-Save** -- Generated configs automatically saved to `.data/last_job.conf` (co-located with CLI)
 - **Auto-Fix** -- `/check` and `/run` failures trigger automatic LLM-powered diagnosis and config repair
@@ -101,6 +102,9 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 # export AWS_SECRET_ACCESS_KEY=...
 ```
 
+The Bedrock provider preserves Claude `reasoningContent` blocks in streamed
+Converse responses when Bedrock returns them.
+
 #### Option B: Anthropic API
 
 ```bash
@@ -111,6 +115,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-4-5-20251001
 ```
+
+The Anthropic provider preserves Claude thinking blocks (`thinking`, `signature`, and
+`redacted_thinking`) in assistant history when the API returns them.
 
 #### Option C: OpenAI API
 
@@ -124,6 +131,9 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 
 # Custom base URL for compatible APIs (Azure OpenAI, local models, etc.)
 # export OPENAI_BASE_URL=https://your-endpoint.openai.azure.com/
+
+# Keep enabled for compatible reasoning models that require reasoning_content replay
+# export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
 ### SEATUNNEL_HOME
@@ -173,6 +183,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
+| `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
@@ -231,7 +242,7 @@ Options:
 | `/save <path>` | Save config to custom path (auto-saved to `.data/last_job.conf` on generation) |
 | `/check` | Dry-run validate last config; auto-diagnoses and fixes on failure |
 | `/run` | Execute last config via REST API or `seatunnel.sh`; auto-diagnoses on failure |
-| `/connectors` | List all available sources, sinks, and transforms |
+| `/connectors` | List all available sources, sinks, and transforms; transform option rules and constraints are supported during generation |
 | `/sessions` | List recent conversation sessions |
 | `/resume [id]` | Resume a previous session |
 | `/new` | Start a fresh session |
@@ -361,7 +372,9 @@ User Input (natural language)
 Two-tier resolution with intelligent fallback:
 
 1. **Runtime API** -- Live metadata from running SeaTunnel engine (`/option-rules` endpoint). Always accurate, zero maintenance.
-2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. 150 connectors with full option rules, exported from SeaTunnel engine via reflection. Zero LLM token cost.
+2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. Source, sink, and transform plugins include full option rules and value constraints exported from SeaTunnel engine via reflection. Zero LLM token cost.
+
+Transform metadata is resolved through the same path as source and sink metadata, so prompts can include transform-specific required options and constraints such as non-blank SQL queries.
 
 ### Memory System
 
@@ -384,7 +397,7 @@ Memory is stored locally at `.data/memory.json` (co-located with the CLI package
 
 ## Connector Metadata
 
-The CLI ships with `connector_metadata.json` (150 connectors), exported from the SeaTunnel engine via runtime reflection. No extra steps needed.
+The CLI ships with `connector_metadata.json`, exported from the SeaTunnel engine via runtime reflection. It includes source, sink, and transform plugin option rules, conditional options, and value constraints. No extra steps needed.
 
 To re-export for a different SeaTunnel version (requires a running engine):
 

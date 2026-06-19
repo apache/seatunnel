@@ -99,6 +99,19 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    /**
+     * Whether this dialect can reliably read primary-key metadata through {@link
+     * java.sql.DatabaseMetaData#getPrimaryKeys(String, String, String)}.
+     */
+    default boolean supportsPrimaryKeyMetadata() {
+        return true;
+    }
+
+    default List<String> getPartitionKeys(Connection connection, TablePath tablePath)
+            throws SQLException {
+        return new ArrayList<>();
+    }
+
     default String hashModForField(String nativeType, String fieldName, int mod) {
         return hashModForField(fieldName, mod);
     }

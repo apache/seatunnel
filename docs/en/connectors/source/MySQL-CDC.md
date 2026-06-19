@@ -215,6 +215,8 @@ When an initial consistent snapshot is made for large databases, your establishe
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for MySQL CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                              |
+| schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | debezium                                  | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                        |
 | int_type_narrowing                        | Boolean  | No       | true    | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -340,6 +342,43 @@ sink {
 }
 
 ```
+
+### Schema change event filtering
+
+When `schema-changes.enabled = true`, you can further control which schema change event types are
+propagated downstream using `schema-changes.include` / `schema-changes.exclude`. 
+
+Use these SeaTunnel-owned canonical names:
+
+| Canonical name  | Operation                                                                 |
+|-----------------|---------------------------------------------------------------------------|
+| `add.column`    | add a column                                                              |
+| `drop.column`   | drop a column                                                             |
+| `modify.column` | change a column's type/attributes, name unchanged                         |
+| `change.column` | rename a column, optionally re-type                                       |
+| `update.columns`| group alias for all four column-level changes above                        |
+
+Precedence is deterministic:
+
+1. if `schema-changes.include` is set, only included event types are eligible;
+2. `schema-changes.exclude` is then applied;
+3. **exclude wins** when a type appears in both lists.
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
+will fail at the sink.
+
 ### Support table-pattern for multi-table reading
 
 > `table-pattern` and `table-names` are mutually exclusive
@@ -372,7 +411,68 @@ sink {
 }
 ```
 
+## FAQ
+
+### What MySQL permissions are required for CDC?
+
+The MySQL user must have the following privileges:
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+Also enable binary logging in `my.cnf` / `my.ini`:
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### Can SeaTunnel read CDC from a MySQL replica?
+
+Yes. SeaTunnel subscribes to MySQL binary logs, which are also streamed to replicas. You can point SeaTunnel at a replica to offload the primary. Ensure the replica has binary logging enabled and `log_slave_updates = ON` set in its configuration.
+
+### Does MySQL CDC support tables without primary keys?
+
+By default, MySQL CDC expects primary keys. If the source table does not declare a primary key but
+does have another unique column that can identify rows, you can override it with
+`table-names-config.primaryKeys` as shown in the existing source options example. Without a stable
+unique key, UPDATE and DELETE events cannot be applied safely downstream.
+
+### How does the full snapshot phase work, and when does it switch to incremental reading?
+
+On first startup, SeaTunnel takes a consistent full snapshot of the configured tables. After the snapshot completes, it automatically switches to reading binlog from the position recorded at the beginning of the snapshot, ensuring no events are lost during the transition.
+
+### Does MySQL CDC support DDL propagation?
+
+Yes, but only in a limited form. Enable `schema-changes.enabled = true`, then follow the current
+schema evolution contract already documented on this page and in the
+[Schema Evolution guide](../../introduction/configuration/schema-evolution.md). The current
+documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
+
+### How do I avoid `server-id` conflicts when running multiple CDC jobs?
+
+Each CDC job must use a unique `server-id` or a non-overlapping range. Duplicate `server-id` values cause the MySQL server to disconnect one of the clients. Assign distinct ranges, for example `5400-5600` for one job and `5601-5800` for another.
+
+### Why is the initial snapshot very slow?
+
+Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune
+`snapshot.split.size` and `snapshot.fetch.size` to control chunking and fetch behavior. For very
+large tables where historical data is not needed, set `startup.mode = "latest"` to start from the
+latest offset and skip the initial snapshot.
+
+### How do I handle timezone and character set issues?
+
+Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/Shanghai"`. For character set issues, append `characterEncoding=UTF-8&useUnicode=true` to the JDBC connection URL.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
+
 ## Changelog
 
 <ChangeLog />
-

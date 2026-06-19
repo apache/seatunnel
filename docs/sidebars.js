@@ -117,6 +117,7 @@ const sidebars = {
                     ]
                 },
                 "getting-started/job-configuration-guide",
+                "getting-started/submit-job-to-remote-zeta-cluster",
                 {
                     "type": "category",
                     "label": "Docker",
@@ -139,6 +140,8 @@ const sidebars = {
             "label": "Connectors",
             "items": [
                 "connectors/connector-isolated-dependency",
+                "connectors/connector-faq",
+                "connectors/cdc-production-cookbook",
                 {
                     "type": "category",
                     "label": "Source",
@@ -262,7 +265,8 @@ const sidebars = {
                 "transforms/table-filter",
                 "transforms/table-merge",
                 "transforms/table-rename",
-                "transforms/transform-multi-table"
+                "transforms/transform-multi-table",
+                "transforms/multi-table-transform-and-join-boundary"
             ]
         },
         {
@@ -288,6 +292,7 @@ const sidebars = {
                             ]
                         },
                         "engines/zeta/checkpoint-storage",
+                        "engines/zeta/state-storage-and-recovery",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
@@ -298,7 +303,9 @@ const sidebars = {
                             "items": [
                                 "engines/zeta/rest-api-v1",
                                 "engines/zeta/rest-api-v2",
-                                "engines/zeta/security"
+                                "engines/zeta/rest-api-job-lifecycle",
+                                "engines/zeta/security",
+                                "engines/zeta/python-sdk"
                             ]
                         },
                         "engines/zeta/user-command",

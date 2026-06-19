@@ -25,6 +25,23 @@ import TabItem from '@theme/TabItem';
 minikube start --kubernetes-version=v1.23.3
 ```
 
+## 托管 Kubernetes 注意事项
+
+下面的示例使用 Minikube，但相同的 manifest 可以适配到各种托管 Kubernetes 服务，例如 Amazon EKS、Google Kubernetes Engine (GKE)、Azure Kubernetes Service (AKS)、阿里云 ACK、腾讯云 TKE、华为云 CCE、火山引擎 VKE 和 Red Hat OpenShift。在将 manifest 应用到托管集群之前，请按下表检查与平台相关的设置。
+
+| 项目 | 需要确认的内容 |
+| --- | --- |
+| 镜像仓库 | 将 SeaTunnel 镜像推送到集群可访问的镜像仓库，例如 ECR、Artifact Registry、ACR、ACK 容器镜像服务、TCR、SWR、Volcengine Container Registry 或 OpenShift 内置镜像仓库。当镜像为私有镜像时，需要同步更新 `image` 与 `imagePullSecrets`。 |
+| 命名空间与权限 | 为 SeaTunnel 创建专用命名空间，并在该命名空间下绑定所需的 ServiceAccount、Role 与 RoleBinding。在 OpenShift 上部署时，可能还需要配置与容器用户兼容的 SecurityContextConstraint。 |
+| 配置与密钥 | 将非敏感的 SeaTunnel 配置放入 ConfigMap，通过 Secret 或云厂商的密钥管理服务挂载凭据，避免把连接器凭据直接写入任务的 ConfigMap。 |
+| 连接器打包 | 对于稳定的部署，建议将常用连接器一并打入镜像；当连接器组合经常变更时，可以通过 PersistentVolume 或对象存储 + init 容器的方式挂载连接器依赖。 |
+| 存储与 Checkpoint | 选择与所在云相匹配的存储服务，例如 S3、GCS、Azure Blob Storage、OSS、COS、OBS、TOS，或 Kubernetes PersistentVolume。确保 SeaTunnel Pod 对所选 checkpoint / state 路径同时具有网络可达性和访问凭据。 |
+| 网络访问 | 集群内部访问使用 `ClusterIP`，外部访问使用 `LoadBalancer` 或 Ingress；当需要指定负载均衡器类型、子网或证书时，请使用对应云厂商的 annotation。 |
+| 资源调度 | 在混合节点池的集群上，按需要设置 CPU、内存 request、node selector、toleration 与 affinity；如果开启了集群自动扩缩容，请确保 worker Pod 的资源 request 足以触发节点扩容后再提交任务。 |
+| 可观测性 | 将 Pod 日志和 SeaTunnel 指标接入云厂商的日志与监控栈，例如 CloudWatch、Cloud Logging、Azure Monitor、阿里云日志服务 SLS、腾讯云 CLS、华为云 LTS、火山引擎 TLS 或 OpenShift 内置监控。 |
+
+对于生产环境，请固定 SeaTunnel 镜像 tag，把云厂商相关的 values 单独维护在独立的 manifest 或 Helm values 文件中，并在改动正在运行的集群之前，先在 staging 命名空间中验证升级。
+
 ## 安装
 
 ### SeaTunnel Docker 镜像

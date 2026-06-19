@@ -123,14 +123,16 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
+        SeaTunnelRow outputRow = inputRow.copy();
+
         for (int index : replaceFieldIndexes) {
-            Object value = inputRow.getField(index);
+            Object value = outputRow.getField(index);
             if (value == null) {
                 continue;
             }
-            inputRow.setField(index, applyReplacement(value.toString()));
+            outputRow.setField(index, applyReplacement(value.toString()));
         }
-        return inputRow;
+        return outputRow;
     }
 
     private String applyReplacement(String value) {

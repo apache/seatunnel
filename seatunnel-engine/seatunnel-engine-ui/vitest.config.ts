@@ -19,13 +19,23 @@ import { fileURLToPath } from 'node:url'
 import { mergeConfig, defineConfig, configDefaults } from 'vitest/config'
 import viteConfig from './vite.config'
 
-export default mergeConfig(
-  viteConfig,
-  defineConfig({
-    test: {
-      environment: 'jsdom',
-      exclude: [...configDefaults.exclude, 'e2e/**'],
-      root: fileURLToPath(new URL('./', import.meta.url))
-    }
-  })
-)
+const resolveViteConfig = async () => {
+  if (typeof viteConfig === 'function') {
+    return await viteConfig({ command: 'test', mode: 'test' } as any)
+  }
+  return viteConfig
+}
+
+export default defineConfig(async () => {
+  const base = await resolveViteConfig()
+  return mergeConfig(
+    base as any,
+    defineConfig({
+      test: {
+        environment: 'jsdom',
+        exclude: [...configDefaults.exclude, 'e2e/**'],
+        root: fileURLToPath(new URL('./', import.meta.url))
+      }
+    })
+  )
+})

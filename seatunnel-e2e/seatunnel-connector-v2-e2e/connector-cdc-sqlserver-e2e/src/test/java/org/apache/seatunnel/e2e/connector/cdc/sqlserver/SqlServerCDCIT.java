@@ -88,18 +88,30 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 
     public static final String DATABASE_NAME = "column_type_test";
     public static final String SCHEMA_NAME = "dbo";
+    public static final String SCHEMA_EVOLUTION_DATABASE_NAME = "schema_change_test";
+    private static final String SCHEMA_EVOLUTION_SOURCE_TABLE = "products";
+    private static final String SCHEMA_EVOLUTION_SINK_TABLE = "products_sink";
+    private static final int INCREMENTAL_MARKER_ID = 1000;
 
     private static final String DISABLE_DB_CDC =
             "IF EXISTS(select 1 from sys.databases where name='#' AND is_cdc_enabled=1)\n"
                     + "EXEC sys.sp_cdc_disable_db";
     private static final String SOURCE_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types";
+    // Additional source table used to verify multi-table CDC capture in one job.
+    private static final String SOURCE_TABLE_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_2";
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_no_primary_key";
     private static final String SOURCE_TABLE_CUSTOM_PRIMARY_KEY =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_custom_primary_key";
     private static final String SINK_TABLE =
             DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_sink";
+    // Sink tables are derived from the source names with the configured sink_ prefix.
+    private static final String MULTI_TABLE_SINK_1 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types";
+    private static final String MULTI_TABLE_SINK_2 =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "sink_full_types_2";
 
     private static final String SELECT_SOURCE_SQL =
             "select\n"
@@ -161,6 +173,16 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     + "  CONVERT(varchar(100), val_varbinary) as val_varbinary,\n"
                     + "  val_udtdecimal\n"
                     + "from %s order by id asc";
+    private static final String SELECT_SCHEMA_EVOLUTION_DATA_SQL =
+            "SELECT * FROM %s ORDER BY id ASC";
+    private static final String SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL =
+            "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, "
+                    + "COALESCE(CAST(CHARACTER_MAXIMUM_LENGTH AS VARCHAR(20)), 'null'), "
+                    + "COALESCE(CAST(NUMERIC_PRECISION AS VARCHAR(20)), 'null'), "
+                    + "COALESCE(CAST(NUMERIC_SCALE AS VARCHAR(20)), 'null') "
+                    + "FROM INFORMATION_SCHEMA.COLUMNS "
+                    + "WHERE TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' "
+                    + "ORDER BY ORDINAL_POSITION";
 
     public static final MSSQLServerContainer MSSQL_SERVER_CONTAINER =
             new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest")
@@ -243,6 +265,67 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
+    }
+
+    /**
+     * Verifies that a single SqlServer CDC source can capture multiple tables and route them to
+     * different sink tables in the same database.
+     *
+     * <p>The sink tables are pre-created so this regression stays focused on multi-table routing
+     * instead of SQL Server auto-create type derivation while still exercising Jdbc table-mode
+     * writes.
+     */
+    @TestTemplate
+    public void testSqlServerCdcMultiTableE2e(TestContainer container) {
+        initializeSqlServerTable(DATABASE_NAME);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_to_sqlserver_with_multi_table_mode_two_table.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
+
+        updateSourceTable(SOURCE_TABLE);
+        updateSourceTable(SOURCE_TABLE_2);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_1)),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_2),
+                                                        querySql(
+                                                                SELECT_SINK_SQL,
+                                                                MULTI_TABLE_SINK_2))));
     }
 
     @TestTemplate
@@ -505,6 +588,83 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
      * Executes a JDBC statement using the default jdbc config without autocommitting the
      * connection.
      */
+    private void assertSchemaEvolutionTableStructureAndData(
+            String databaseName, String sourceTable, String sinkTable) {
+        String sourceTablePath = databaseName + "." + SCHEMA_NAME + "." + sourceTable;
+        String sinkTablePath = databaseName + "." + SCHEMA_NAME + "." + sinkTable;
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySql(SELECT_SCHEMA_EVOLUTION_DATA_SQL, sourceTablePath),
+                                        querySql(SELECT_SCHEMA_EVOLUTION_DATA_SQL, sinkTablePath)));
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySql(
+                                                String.format(
+                                                        SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL,
+                                                        databaseName,
+                                                        SCHEMA_NAME,
+                                                        sourceTable)),
+                                        querySql(
+                                                String.format(
+                                                        SELECT_SCHEMA_EVOLUTION_COLUMNS_SQL,
+                                                        databaseName,
+                                                        SCHEMA_NAME,
+                                                        sinkTable))));
+    }
+
+    private void executeSqlFile(String sqlFile) {
+        final String ddlFile = String.format("ddl/%s.sql", sqlFile);
+        final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
+        Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
+        try {
+            List<String> statements =
+                    parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
+            String currentDatabase = null;
+            for (String stmt : statements) {
+                String trimmed = stmt.trim();
+                if (trimmed.toUpperCase().startsWith("USE ")) {
+                    currentDatabase = trimmed.substring(4).replaceAll(";\\s*$", "").trim();
+                    continue;
+                }
+                executeWithDeadlockRetry(stmt, currentDatabase);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void executeWithDeadlockRetry(String sql, String database) {
+        Awaitility.await(
+                        "Executing: "
+                                + sql.substring(0, Math.min(80, sql.length()))
+                                        .replaceAll("\\s+", " "))
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try (Connection connection = getJdbcConnection();
+                                    Statement statement = connection.createStatement()) {
+                                if (database != null) {
+                                    statement.execute("USE " + database);
+                                }
+                                statement.execute(sql);
+                                return true;
+                            } catch (SQLException e) {
+                                if (e.getMessage() != null
+                                        && (e.getMessage().contains("deadlock")
+                                                || e.getMessage().contains("Deadlock"))) {
+                                    log.warn("Deadlock detected, will retry: {}", sql);
+                                    return false;
+                                }
+                                throw new RuntimeException(e);
+                            }
+                        });
+    }
+
     private void initializeSqlServerTable(String sqlFile) {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
@@ -515,26 +675,30 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             String ddlContent = String.join("\n", ddlLines);
             String actualDatabaseName = extractDatabaseName(ddlContent);
             dropTestDatabase(connection, actualDatabaseName);
-            final List<String> statements =
-                    Arrays.stream(
-                                    ddlLines.stream()
-                                            .map(String::trim)
-                                            .filter(x -> !x.startsWith("--") && !x.isEmpty())
-                                            .map(
-                                                    x -> {
-                                                        final Matcher m =
-                                                                COMMENT_PATTERN.matcher(x);
-                                                        return m.matches() ? m.group(1) : x;
-                                                    })
-                                            .collect(Collectors.joining("\n"))
-                                            .split(";"))
-                            .collect(Collectors.toList());
+            final List<String> statements = parseStatements(ddlLines);
             for (String stmt : statements) {
                 statement.execute(stmt);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private List<String> parseStatements(List<String> ddlLines) {
+        return Arrays.stream(
+                        ddlLines.stream()
+                                .map(String::trim)
+                                .filter(x -> !x.startsWith("--") && !x.isEmpty())
+                                .map(
+                                        x -> {
+                                            final Matcher m = COMMENT_PATTERN.matcher(x);
+                                            return m.matches() ? m.group(1) : x;
+                                        })
+                                .collect(Collectors.joining("\n"))
+                                .split(";"))
+                .map(String::trim)
+                .filter(x -> !x.isEmpty())
+                .collect(Collectors.toList());
     }
 
     private String extractDatabaseName(String ddlContent) {
@@ -597,8 +761,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -717,6 +882,94 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(selectSql, sourceTable),
                                     querySql(selectSql, sinkTable));
                         });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "This case validates SqlServer CDC schema evolution on the Flink engine & zeta engine.")
+    public void testWithSchemaEvolution(TestContainer container) {
+        initializeSqlServerTable("schema_change_test");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/sqlservercdc_to_sqlserver_with_schema_change.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        waitForSchemaEvolutionIncrementalStarted();
+
+        executeSqlFile("sqlserver_schema_change_add_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_drop_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_rename_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        executeSqlFile("sqlserver_schema_change_modify_columns");
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+    }
+
+    private void waitForSchemaEvolutionIncrementalStarted() {
+        String sourceTablePath =
+                SCHEMA_EVOLUTION_DATABASE_NAME
+                        + "."
+                        + SCHEMA_NAME
+                        + "."
+                        + SCHEMA_EVOLUTION_SOURCE_TABLE;
+        String sinkTablePath =
+                SCHEMA_EVOLUTION_DATABASE_NAME
+                        + "."
+                        + SCHEMA_NAME
+                        + "."
+                        + SCHEMA_EVOLUTION_SINK_TABLE;
+        executeSql(
+                String.format(
+                        "INSERT INTO %s VALUES (%d, 'incremental-marker', 'ensure-stream-phase', 9.9)",
+                        sourceTablePath, INCREMENTAL_MARKER_ID));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        querySql(
+                                                        String.format(
+                                                                "SELECT COUNT(1) FROM %s WHERE id = %d",
+                                                                sourceTablePath,
+                                                                INCREMENTAL_MARKER_ID))
+                                                .get(0)
+                                                .get(0),
+                                        querySql(
+                                                        String.format(
+                                                                "SELECT COUNT(1) FROM %s WHERE id = %d",
+                                                                sinkTablePath,
+                                                                INCREMENTAL_MARKER_ID))
+                                                .get(0)
+                                                .get(0)));
     }
 
     @TestTemplate

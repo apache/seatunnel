@@ -120,13 +120,13 @@ source {
 
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 transform {
 
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -138,7 +138,7 @@ sink {
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
 
   }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 
@@ -177,7 +177,7 @@ Jdbc {
     xa_data_source_class_name = "com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
 
   }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 
 ```
 

@@ -135,6 +135,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Before turning on the synchronous task, do different treatment of the target path                                                                                               |
 | data_save_mode                        | Enum    | no       | APPEND_DATA                                | Before opening the synchronous task, the data file in the target path is differently processed                                                                                  |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### path [string]
 
@@ -581,6 +582,35 @@ sink {
 ### Tips
 
 > 1.[SeaTunnel Deployment Document](../../getting-started/locally/deployment.md).
+
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## Changelog
 

@@ -254,6 +254,8 @@ exit;
 | skip_analyze                              | Boolean  | No        | false   | Skip the analysis of table count in full stage.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | format                                    | Enum     | No        | DEFAULT | Optional output format for Oracle CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | schema-changes.enabled                    | Boolean  | No        | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | No        | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                             |
+| schema-changes.exclude                     | List     | No        | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | debezium                                  | Config   | No        | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from Oracle server.                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | no        | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | decimal_type_narrowing                    | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -363,9 +365,109 @@ source {
 }
 ```
 
+### Schema change event filtering
+
+When `schema-changes.enabled = true`, you can further control which schema change event types are
+propagated downstream using `schema-changes.include` / `schema-changes.exclude`.
+
+Use these SeaTunnel-owned canonical names:
+
+| Canonical name   | Operation                                            |
+|------------------|------------------------------------------------------|
+| `add.column`     | add a column                                         |
+| `drop.column`    | drop a column                                        |
+| `modify.column`  | change a column's type/attributes, name unchanged    |
+| `change.column`  | rename a column, optionally re-type                  |
+| `update.columns` | group alias for all four column-level changes above  |
+
+Precedence is deterministic:
+
+1. if `schema-changes.include` is set, only included event types are eligible;
+2. `schema-changes.exclude` is then applied;
+3. **exclude wins** when a type appears in both lists.
+
+```hocon
+source {
+  Oracle-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
+will fail at the sink.
+
 ### Support debezium-compatible format send to kafka
 
 > Must be used with kafka connector sink, see [compatible debezium format](../formats/cdc-compatible-debezium-json.md) for details
+
+## FAQ
+
+### What Oracle permissions are required for CDC?
+
+The LogMiner user needs the following privileges:
+
+```sql
+GRANT CREATE SESSION TO logminer_user;
+GRANT SET CONTAINER TO logminer_user;
+GRANT SELECT ON V_$DATABASE TO logminer_user;
+GRANT FLASHBACK ANY TABLE TO logminer_user;
+GRANT SELECT ANY TABLE TO logminer_user;
+GRANT SELECT_CATALOG_ROLE TO logminer_user;
+GRANT EXECUTE_CATALOG_ROLE TO logminer_user;
+GRANT SELECT ANY TRANSACTION TO logminer_user;
+GRANT LOGMINING TO logminer_user;
+GRANT CREATE TABLE TO logminer_user;
+GRANT LOCK ANY TABLE TO logminer_user;
+GRANT CREATE SEQUENCE TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
+GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+GRANT SELECT ON V_$LOG TO logminer_user;
+GRANT SELECT ON V_$LOG_HISTORY TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_LOGS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_CONTENTS TO logminer_user;
+GRANT SELECT ON V_$LOGMNR_PARAMETERS TO logminer_user;
+GRANT SELECT ON V_$LOGFILE TO logminer_user;
+GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
+GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
+GRANT SELECT ON V_$TRANSACTION TO logminer_user;
+```
+
+Also enable supplemental logging at the database and table level:
+
+```sql
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
+ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+### Does Oracle CDC support multi-tenant (CDB/PDB) databases?
+
+Yes. Set `database-names` to the CDB name and configure the JDBC URL to point to the CDB root. The user must be a common user (prefixed with `C##`) with the above privileges granted in all containers (`CONTAINER = ALL`).
+
+### Does Oracle CDC support tables without primary keys?
+
+By default, Oracle CDC requires primary keys. You can specify a custom primary key column via `table-names-config` with the `primaryKeys` field if the table has a suitable unique column.
+
+### How do I improve LogMiner performance?
+
+Treat this primarily as a database and redo-log tuning topic. Reuse the LogMiner setup and
+supplemental logging sections above first, enable logging only for the required tables, and add
+Debezium passthrough tuning only after validating that those properties are supported in the exact
+Oracle CDC runtime you are deploying.
+
+### Which Oracle versions are supported?
+
+Oracle CDC is supported on Oracle Database 11g, 12c, 19c, and 21c. For 12c and later multi-tenant configurations, use the CDB root connection with a common user.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
 
 ## Changelog
 

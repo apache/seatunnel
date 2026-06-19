@@ -28,7 +28,7 @@ Sink connector for Apache Pulsar.
 
 |         Name         |  Type  | Required |       Default       |                                                   Description                                                    |
 |----------------------|--------|----------|---------------------|------------------------------------------------------------------------------------------------------------------|
-| topic                | String | Yes      | -                   | sink pulsar topic                                                                                                |
+| topic                | String | No       | -                   | Sink Pulsar topic. Required for single-table writes and optional when records provide `SeaTunnelRow.tableId`.   |
 | client.service-url   | String | Yes      | -                   | Service URL provider for Pulsar service.                                                                         |
 | admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                              |
 | auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                               |
@@ -76,6 +76,15 @@ If you customize the delimiter, add the "field_delimiter" option.
 ### field_delimiter [String]
 
 Customize the field delimiter for data format.The default field_delimiter is ','.
+
+### topic [String]
+
+The default Pulsar topic used by the sink.
+
+For single-table pipelines, this option is required.
+For multi-table pipelines, the sink will use `SeaTunnelRow.getTableId()` as the target topic when it is present, and fall back to `topic` only when the row does not carry a table id.
+
+If neither `SeaTunnelRow.getTableId()` nor `topic` is available, the sink fails fast with a configuration error.
 
 ### semantics [Enum]
 
@@ -167,6 +176,20 @@ sink {
     pulsar.config = {
         sendTimeoutMs = 30000
     }
+  }
+}
+```
+
+### Multi-table
+
+> This example routes each row to the Pulsar topic carried in `SeaTunnelRow.tableId`. In this mode, `topic` can be omitted.
+
+```hocon
+sink {
+  Pulsar {
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    plugin_output = "test"
   }
 }
 ```

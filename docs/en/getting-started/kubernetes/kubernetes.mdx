@@ -25,6 +25,23 @@ Take kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) as an examp
 minikube start --kubernetes-version=v1.23.3
 ```
 
+## Managed Kubernetes Notes
+
+The examples below use Minikube, but the same manifests can be adapted to managed Kubernetes services such as Amazon EKS, Google Kubernetes Engine (GKE), Azure Kubernetes Service (AKS), Alibaba Cloud ACK, Tencent TKE, Huawei Cloud CCE, Volcengine VKE, and Red Hat OpenShift. Before applying the manifests to a managed cluster, check the following platform-specific settings.
+
+| Area | What to verify |
+| --- | --- |
+| Image registry | Push the SeaTunnel image to a registry reachable by the cluster, such as ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or the internal OpenShift registry. Update `image` and `imagePullSecrets` when the image is private. |
+| Namespace and access | Create a dedicated namespace for SeaTunnel and bind the required ServiceAccount, Role, and RoleBinding there. OpenShift deployments may also need a SecurityContextConstraint compatible with the container user. |
+| Config and secrets | Keep non-sensitive SeaTunnel configuration in ConfigMaps and mount credentials through Secrets or the cloud provider's secret integration. Avoid putting connector credentials directly into the job ConfigMap. |
+| Connector packaging | Package commonly used connectors in the image for repeatable deployments, or mount connector libraries from a PersistentVolume or object-storage backed init step when connector sets change frequently. |
+| Storage and checkpoints | Use the storage service that matches the cloud, such as S3, GCS, Azure Blob Storage, OSS, COS, OBS, TOS, or a Kubernetes PersistentVolume. Confirm that the SeaTunnel pods have both network access and credentials for the chosen checkpoint or state path. |
+| Networking | Use `ClusterIP` for in-cluster access, `LoadBalancer` or Ingress for external access, and the cloud provider's annotations when a specific load balancer type, subnet, or certificate is required. |
+| Scheduling | Set CPU and memory requests, node selectors, tolerations, or affinity rules when the cluster has mixed node pools. If cluster autoscaling is enabled, make sure worker pods have enough requested resources to trigger scale-out before jobs are submitted. |
+| Observability | Send pod logs and SeaTunnel metrics to the managed logging and monitoring stack. For example, use CloudWatch, Cloud Logging, Azure Monitor, Alibaba Cloud Log Service, Tencent CLS, Huawei LTS, Volcengine TLS, or OpenShift monitoring. |
+
+For production environments, pin the SeaTunnel image tag, keep platform-specific values in separate manifests or Helm values files, and test upgrades in a staging namespace before changing the running cluster.
+
 ## Installation
 
 ### SeaTunnel Docker Image
