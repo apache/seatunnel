@@ -213,6 +213,8 @@ flowchart TD
 
 Jobs are divided into **Pipelines** (SubPlans):
 
+The example below shows two independent subplans inside the same job. They do not directly exchange records with each other.
+
 ```mermaid
 flowchart TB
     subgraph pipeline1["Pipeline 1"]
@@ -224,8 +226,6 @@ flowchart TB
         direction LR
         sourceB["Source B"] --> transformB["Transform 2"] --> sinkB["Sink B"]
     end
-
-    transformA --> transformB
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;

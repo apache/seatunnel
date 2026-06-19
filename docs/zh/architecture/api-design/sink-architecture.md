@@ -40,21 +40,23 @@ SeaTunnel 的数据 Sink 旨在：
 ### 2.1 整体架构
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph worker["执行引擎任务侧（数据面）"]
         writer["SinkWriter&lt;IN, CommitInfoT, StateT&gt;<br/>接收上游记录<br/>缓冲并写入数据<br/>在 checkpoint 边界产出 CommitInfo<br/>快照写入器状态"]
+        committer["SinkCommitter&lt;CommitInfoT&gt;（可选）<br/>由 createCommitter() 创建<br/>在 checkpoint 成功后触发提交<br/>独立提交每个 writer 的变更"]
     end
 
-    subgraph coordinator["执行引擎协调侧（控制面）"]
-        committer["SinkCommitter&lt;CommitInfoT&gt;（可选）<br/>使 prepare 的变更对外可见<br/>失败可重试<br/>要求幂等"]
+    subgraph coordinator["执行引擎协调侧（仅聚合提交路径）"]
+        aggregatedTask["SinkAggregatedCommitterTask（可选）<br/>收集各 writer 的 CommitInfo<br/>在协调端执行单次全局提交"]
         aggregated["SinkAggregatedCommitter&lt;CommitInfoT, AggregatedCommitInfoT&gt;（可选）<br/>聚合多个 writer 的 CommitInfo<br/>执行一次全局提交"]
     end
 
     sink["外部数据系统<br/>数据库 / 文件 / 消息队列"]
 
-    writer -- "CommitInfo" --> committer
+    writer -- "工作节点本地提交路径" --> committer
     committer --> sink
-    committer -. "可选：聚合提交信息" .-> aggregated
+    writer -. "聚合提交路径" .-> aggregatedTask
+    aggregatedTask --> aggregated
     aggregated --> sink
 
     classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
@@ -63,7 +65,7 @@ flowchart TD
 
     class worker,coordinator layerBlue;
     class writer,committer layerCyan;
-    class aggregated,sink layerPurple;
+    class aggregatedTask,aggregated,sink layerPurple;
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 

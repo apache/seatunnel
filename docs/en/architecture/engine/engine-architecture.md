@@ -293,29 +293,34 @@ Multiple actions can be fused into single TaskGroup for efficiency:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created
-    Created --> INIT
-    INIT --> WAITING_RESTORE: recovering
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE: restore path
     INIT --> READY_START: fresh start
     WAITING_RESTORE --> READY_START
     READY_START --> STARTING
     STARTING --> RUNNING
     RUNNING --> PREPARE_CLOSE: normal completion
     PREPARE_CLOSE --> CLOSED
-    RUNNING --> FAILED: exception
-    FAILED --> READY_START: restart
-    CLOSED --> CANCELED: job canceled
+    INIT --> CANCELLING: external cancel
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
 **State Transitions**:
-1. **CREATED → INIT**: Task created, initializing resources
-2. **INIT → WAITING_RESTORE**: Recovering from checkpoint
-3. **WAITING_RESTORE → READY_START**: State restored
-4. **READY_START → STARTING**: Opening Source/Transform/Sink
-5. **STARTING → RUNNING**: Data processing started
-6. **RUNNING → PREPARE_CLOSE**: Normal completion
-7. **PREPARE_CLOSE → CLOSED**: Resources cleaned up
-8. **RUNNING → FAILED**: Exception occurred
+1. **CREATED → INIT**: Task created and runtime resources initialized
+2. **INIT → WAITING_RESTORE / READY_START**: Decide between restore path and fresh start
+3. **WAITING_RESTORE → READY_START**: Restore is complete and flows are ready to open
+4. **READY_START → STARTING → RUNNING**: The task receives the start signal and enters the main processing loop
+5. **RUNNING → PREPARE_CLOSE → CLOSED**: Normal completion path after barriers and cleanup
+6. **Active state → CANCELLING → CANCELED**: External cancellation path handled outside the normal completion flow
+
+**Failure Note**:
+- `FAILED` exists as a runtime result, but task-level restart is handled by higher-level recovery logic rather than by a direct `FAILED → ...` edge in this state machine.
 
 ### 4.2 SeaTunnelTask Execution
 

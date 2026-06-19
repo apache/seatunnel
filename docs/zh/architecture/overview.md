@@ -192,6 +192,8 @@ flowchart TD
 
 作业被划分为**管道**（SubPlan）：
 
+下图表示同一个作业中的两个独立子计划，它们之间不存在直接的数据记录流转。
+
 ```mermaid
 flowchart TB
     subgraph pipeline1["管道 1"]
@@ -203,8 +205,6 @@ flowchart TB
         direction LR
         sourceB["数据 Source B"] --> transformB["转换 2"] --> sinkB["数据 Sink B"]
     end
-
-    transformA --> transformB
 
     classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
     classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;

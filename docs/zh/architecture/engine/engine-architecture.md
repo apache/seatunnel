@@ -247,29 +247,34 @@ sink {
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created
-    Created --> INIT
+    [*] --> CREATED
+    CREATED --> INIT
     INIT --> WAITING_RESTORE: 恢复路径
     INIT --> READY_START: 无需恢复
     WAITING_RESTORE --> READY_START
     READY_START --> STARTING
     STARTING --> RUNNING
-    RUNNING --> FAILED: 异常
-    FAILED --> INIT: 重启
     RUNNING --> PREPARE_CLOSE: 正常完成
     PREPARE_CLOSE --> CLOSED
-    CLOSED --> CANCELED: 作业取消
+    INIT --> CANCELLING: 外部取消
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
 **状态转换**：
-1. **CREATED → INIT**：任务已创建，初始化资源
-2. **INIT → WAITING_RESTORE**：从检查点恢复
-3. **WAITING_RESTORE → READY_START**：状态已恢复
-4. **READY_START → STARTING**：打开数据源/转换/数据 Sink 
-5. **STARTING → RUNNING**：数据处理已启动
-6. **RUNNING → PREPARE_CLOSE**：正常完成
-7. **PREPARE_CLOSE → CLOSED**：资源已清理
-8. **RUNNING → FAILED**：发生异常
+1. **CREATED → INIT**：任务已创建，并完成运行时资源初始化
+2. **INIT → WAITING_RESTORE / READY_START**：根据是否需要恢复，进入恢复路径或直接启动路径
+3. **WAITING_RESTORE → READY_START**：状态恢复完成，准备打开各生命周期组件
+4. **READY_START → STARTING → RUNNING**：收到启动信号后进入正式处理阶段
+5. **RUNNING → PREPARE_CLOSE → CLOSED**：正常完成并清理资源
+6. **活动状态 → CANCELLING → CANCELED**：外部取消路径，与正常完成链路分开处理
+
+**失败说明**：
+- `FAILED` 是运行时对不可恢复错误的结果标记，但“失败后是否重启”由更高层的恢复逻辑决定，不应在这个任务状态机图里画成 `FAILED → ...` 的直接边。
 
 ### 4.2 SeaTunnelTask 执行
 
