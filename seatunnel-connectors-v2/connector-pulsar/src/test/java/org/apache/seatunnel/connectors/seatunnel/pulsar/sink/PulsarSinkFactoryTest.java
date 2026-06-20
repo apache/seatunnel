@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -76,6 +78,22 @@ public class PulsarSinkFactoryTest {
                         factory.createSink(
                                 new TableSinkFactoryContext(
                                         null, config(), getClass().getClassLoader())));
+    }
+
+    /** Mirrors the connector specification contract enforced by the CI reflection checks. */
+    @Test
+    public void testCreateWriterReturnsMultiTableSinkWriterType() throws NoSuchMethodException {
+        Class<?> createWriterReturnType =
+                PulsarSink.class
+                        .getDeclaredMethod("createWriter", SinkWriter.Context.class)
+                        .getReturnType();
+        Class<?> restoreWriterReturnType =
+                PulsarSink.class
+                        .getDeclaredMethod("restoreWriter", SinkWriter.Context.class, List.class)
+                        .getReturnType();
+
+        assertTrue(SupportMultiTableSinkWriter.class.isAssignableFrom(createWriterReturnType));
+        assertTrue(SupportMultiTableSinkWriter.class.isAssignableFrom(restoreWriterReturnType));
     }
 
     /** Builds the minimum valid configuration shared by the Pulsar sink factory tests. */
