@@ -26,14 +26,21 @@ public class BigtableSourceState implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final Set<BigtableSourceSplit> assignedSplits;
+    private final Set<BigtableSourceSplit> pendingSplits;
 
-    public BigtableSourceState(Set<BigtableSourceSplit> assignedSplits) {
-        // Defensive copy: never alias the enumerator's live mutable set into checkpoint state,
+    public BigtableSourceState(
+            Set<BigtableSourceSplit> assignedSplits, Set<BigtableSourceSplit> pendingSplits) {
+        // Defensive copies: never alias the enumerator's live mutable sets into checkpoint state,
         // otherwise later mutations could corrupt an already-snapshotted state object.
         this.assignedSplits = new HashSet<>(assignedSplits);
+        this.pendingSplits = new HashSet<>(pendingSplits);
     }
 
     public Set<BigtableSourceSplit> getAssignedSplits() {
         return assignedSplits;
+    }
+
+    public Set<BigtableSourceSplit> getPendingSplits() {
+        return pendingSplits;
     }
 }

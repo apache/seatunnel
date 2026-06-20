@@ -56,29 +56,31 @@ public class BigtableSourceSplitEnumerator
 
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context, BigtableParameters parameters) {
-        this(context, parameters, new HashSet<>());
+        this(context, parameters, null);
     }
 
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context,
             BigtableParameters parameters,
             BigtableSourceState sourceState) {
-        this(context, parameters, sourceState.getAssignedSplits());
-    }
-
-    private BigtableSourceSplitEnumerator(
-            Context<BigtableSourceSplit> context,
-            BigtableParameters parameters,
-            Set<BigtableSourceSplit> assignedSplits) {
         this.context = context;
         this.parameters = parameters;
-        this.assignedSplits = new HashSet<>(assignedSplits);
+        if (sourceState == null) {
+            this.assignedSplits = new HashSet<>();
+            this.pendingSplits = new HashSet<>();
+            this.initialized = false;
+        } else {
+            this.assignedSplits = new HashSet<>(sourceState.getAssignedSplits());
+            // Restore pending splits first so a returned-but-not-yet-reassigned split survives
+            // recovery even when its ID is already present in assignedSplits.
+            this.pendingSplits = new HashSet<>(sourceState.getPendingSplits());
+            this.initialized = true;
+        }
     }
 
     @Override
     public void open() {
-        this.pendingSplits = new HashSet<>();
-        this.initialized = false;
+        // State is fully initialized in the constructor; nothing to reset on open().
     }
 
     @Override
@@ -119,7 +121,7 @@ public class BigtableSourceSplitEnumerator
     @Override
     public BigtableSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new BigtableSourceState(assignedSplits);
+            return new BigtableSourceState(assignedSplits, pendingSplits);
         }
     }
 
