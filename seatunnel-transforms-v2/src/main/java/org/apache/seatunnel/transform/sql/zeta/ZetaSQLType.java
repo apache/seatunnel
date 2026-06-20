@@ -164,7 +164,7 @@ public class ZetaSQLType {
             return getTimeKeyExprType((TimeKeyExpression) expression);
         }
         if (expression instanceof ExtractExpression) {
-            return BasicType.INT_TYPE;
+            return getExtractType((ExtractExpression) expression);
         }
         if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
@@ -317,6 +317,13 @@ public class ZetaSQLType {
             types.add(getExpressionType(caseExpression.getElseExpression()));
         }
         return getMaxType(types);
+    }
+
+    private SeaTunnelDataType<?> getExtractType(ExtractExpression expression) {
+        if ("EPOCH".equalsIgnoreCase(expression.getName())) {
+            return BasicType.LONG_TYPE;
+        }
+        return BasicType.INT_TYPE;
     }
 
     private SeaTunnelDataType<?> getFunctionType(Function function) {
