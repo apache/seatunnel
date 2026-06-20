@@ -22,32 +22,61 @@ import java.util.concurrent.TimeUnit;
 
 final class EpochTimeUtils {
 
-    private static final long EPOCH_MILLIS_LOWER_BOUND = 10_000_000_000L;
-    private static final long EPOCH_MICROS_LOWER_BOUND = 10_000_000_000_000L;
-    private static final long EPOCH_NANOS_LOWER_BOUND = 10_000_000_000_000_000L;
+    private static final long LEGACY_EPOCH_MILLIS_LOWER_BOUND = 999_999_999L;
     private static final long MICROSECONDS_PER_SECOND = TimeUnit.SECONDS.toMicros(1);
     private static final long NANOSECONDS_PER_SECOND = TimeUnit.SECONDS.toNanos(1);
 
     private EpochTimeUtils() {}
 
+    /**
+     * Converts a numeric epoch value using timestamp precision metadata when it is available. Scale
+     * 0, 3, 6 and 9 are treated as seconds, milliseconds, microseconds and nanoseconds. Other
+     * scales fall back to the legacy shared heuristic.
+     */
+    static Instant convertToInstant(Object typeDefine, Number value) {
+        if (!(typeDefine instanceof BasicTypeDefine)) {
+            return convertToInstant(value);
+        }
+        Integer scale = ((BasicTypeDefine<?>) typeDefine).getScale();
+        if (scale == null) {
+            return convertToInstant(value);
+        }
+        switch (scale) {
+            case 0:
+                return Instant.ofEpochSecond(value.longValue());
+            case 3:
+                return Instant.ofEpochMilli(value.longValue());
+            case 6:
+                return ofEpochMicro(value.longValue());
+            case 9:
+                return ofEpochNano(value.longValue());
+            default:
+                return convertToInstant(value);
+        }
+    }
+
+    /**
+     * Preserves the existing no-metadata conversion contract: values below 999999999 are epoch
+     * seconds, while larger values are epoch milliseconds. This keeps early-epoch millisecond
+     * values such as 1000000000 from being reinterpreted as seconds.
+     */
     static Instant convertToInstant(Number value) {
         long epochValue = value.longValue();
-        long absoluteEpochValue =
-                epochValue == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(epochValue);
-        // Choose by decimal precision so modern epoch seconds are not treated as milliseconds.
-        if (absoluteEpochValue < EPOCH_MILLIS_LOWER_BOUND) {
+        if (epochValue < LEGACY_EPOCH_MILLIS_LOWER_BOUND) {
             return Instant.ofEpochSecond(epochValue);
         }
-        if (absoluteEpochValue < EPOCH_MICROS_LOWER_BOUND) {
-            return Instant.ofEpochMilli(epochValue);
-        }
-        if (absoluteEpochValue < EPOCH_NANOS_LOWER_BOUND) {
-            long seconds = Math.floorDiv(epochValue, MICROSECONDS_PER_SECOND);
-            long micros = Math.floorMod(epochValue, MICROSECONDS_PER_SECOND);
-            return Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(micros));
-        }
-        long seconds = Math.floorDiv(epochValue, NANOSECONDS_PER_SECOND);
-        long nanos = Math.floorMod(epochValue, NANOSECONDS_PER_SECOND);
+        return Instant.ofEpochMilli(epochValue);
+    }
+
+    private static Instant ofEpochMicro(long epochMicro) {
+        long seconds = Math.floorDiv(epochMicro, MICROSECONDS_PER_SECOND);
+        long micros = Math.floorMod(epochMicro, MICROSECONDS_PER_SECOND);
+        return Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(micros));
+    }
+
+    private static Instant ofEpochNano(long epochNano) {
+        long seconds = Math.floorDiv(epochNano, NANOSECONDS_PER_SECOND);
+        long nanos = Math.floorMod(epochNano, NANOSECONDS_PER_SECOND);
         return Instant.ofEpochSecond(seconds, nanos);
     }
 }

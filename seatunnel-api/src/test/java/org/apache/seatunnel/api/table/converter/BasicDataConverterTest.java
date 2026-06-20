@@ -41,7 +41,7 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDateTime(Instant.ofEpochSecond(epochSeconds)),
-                CONVERTER.convertLocalDateTime(epochSeconds));
+                CONVERTER.convertLocalDateTime(timestampWithScale(0), epochSeconds));
     }
 
     @Test
@@ -50,7 +50,7 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDateTime(Instant.ofEpochMilli(epochMillis)),
-                CONVERTER.convertLocalDateTime(epochMillis));
+                CONVERTER.convertLocalDateTime(timestampWithScale(3), epochMillis));
     }
 
     @Test
@@ -59,7 +59,7 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDateTime(Instant.ofEpochSecond(1_700_000_000L)),
-                CONVERTER.convertLocalDateTime(epochMicros));
+                CONVERTER.convertLocalDateTime(timestampWithScale(6), epochMicros));
     }
 
     @Test
@@ -68,7 +68,16 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDateTime(Instant.ofEpochSecond(1_700_000_000L)),
-                CONVERTER.convertLocalDateTime(epochNanos));
+                CONVERTER.convertLocalDateTime(timestampWithScale(9), epochNanos));
+    }
+
+    @Test
+    void testConvertEarlyEpochMillisWithoutScaleToLocalDateTime() {
+        long epochMillis = 1_000_000_000L;
+
+        Assertions.assertEquals(
+                toLocalDateTime(Instant.ofEpochMilli(epochMillis)),
+                CONVERTER.convertLocalDateTime(epochMillis));
     }
 
     @Test
@@ -77,7 +86,7 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDate(Instant.ofEpochSecond(epochSeconds)),
-                CONVERTER.convertLocalDate(epochSeconds));
+                CONVERTER.convertLocalDate(timestampWithScale(0), epochSeconds));
     }
 
     @Test
@@ -86,7 +95,20 @@ public class BasicDataConverterTest {
 
         Assertions.assertEquals(
                 toLocalDate(Instant.ofEpochMilli(epochMillis)),
+                CONVERTER.convertLocalDate(timestampWithScale(3), epochMillis));
+    }
+
+    @Test
+    void testConvertEarlyEpochMillisWithoutScaleToLocalDate() {
+        long epochMillis = 1_000_000_000L;
+
+        Assertions.assertEquals(
+                toLocalDate(Instant.ofEpochMilli(epochMillis)),
                 CONVERTER.convertLocalDate(epochMillis));
+    }
+
+    private static BasicTypeDefine<?> timestampWithScale(int scale) {
+        return BasicTypeDefine.builder().scale(scale).build();
     }
 
     private static LocalDateTime toLocalDateTime(Instant instant) {
