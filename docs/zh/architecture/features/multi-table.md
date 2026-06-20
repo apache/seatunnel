@@ -165,16 +165,10 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 
 **解决方案**: 每张表多个副本写入器用于并行写入。
 
-```
-无副本:
-  orders 表(1000 写入/秒) → [单个写入器] → 瓶颈
-
-有副本(replicaNum=4):
-  orders 表(1000 写入/秒) → [写入器 0] (250 写入/秒)
-                          → [写入器 1] (250 写入/秒)
-                          → [写入器 2] (250 写入/秒)
-                          → [写入器 3] (250 写入/秒)
-```
+| 模式 | 写入形态 | 结果 |
+|------|----------|------|
+| 无副本 | `orders` 表 `1000` 写入/秒全部落到单个写入器 | 单点写入器成为瓶颈 |
+| `replicaNum = 4` | `orders` 表流量平均分散到 `4` 个写入器，每个约 `250` 写入/秒 | 吞吐更平稳，可横向扩展 |
 
 ### 5.2 副本配置
 
@@ -223,43 +217,38 @@ sink {
 
 ### 7.1 完整流水线
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    MySQL CDC 数据源                           │
-│  • 从 100 张表捕获变更                                         │
-│  • 用 TablePath 标记每行                                      │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-         ┌─────────────────────────────────────┐
-         │ SeaTunnelRow (带 TablePath)         │
-         │  tableId: "my_db.public.orders"     │
-         │  fields: [1, "order-001", 99.99]    │
-         └─────────────────────────────────────┘
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  MultiTableSinkWriter                        │
-│  • 从行中提取 TablePath                                        │
-│  • 选择副本（按主键哈希或随机）                                  │
-│  • 路由到正确的写入器                                           │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-        ┌──────────────────┼──────────────────┐
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ orders       │   │ users        │   │ products     │
-│ 写入器 0      │   │ 写入器 0      │   │ 写入器 0      │
-│ 写入器 1      │   │ 写入器 1      │   │ 写入器 1      │
-│ 写入器 2      │   │              │   │              │
-│ 写入器 3      │   │              │   │              │
-└──────────────┘   └──────────────┘   └──────────────┘
-        │                  │                  │
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ PostgreSQL   │   │ PostgreSQL   │   │ PostgreSQL   │
-│ orders       │   │ users        │   │ products     │
-└──────────────┘   └──────────────┘   └──────────────┘
+```mermaid
+flowchart TD
+    source["MySQL CDC 数据源<br/>从 100 张表捕获变更<br/>每行携带 TablePath"]
+    row["SeaTunnelRow<br/>tableId = my_db.public.orders<br/>fields = [1, order-001, 99.99]"]
+    writer["MultiTableSinkWriter<br/>提取 TablePath<br/>选择副本（主键哈希或随机）<br/>路由到正确写入器"]
+
+    subgraph tables["按表拆分的写入器副本"]
+        direction LR
+        orders["orders<br/>写入器 0 / 1 / 2 / 3"]
+        users["users<br/>写入器 0 / 1"]
+        products["products<br/>写入器 0 / 1"]
+    end
+
+    sink["PostgreSQL 目标表<br/>orders / users / products"]
+
+    source --> row --> writer
+    writer --> orders
+    writer --> users
+    writer --> products
+    orders --> sink
+    users --> sink
+    products --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,row layerBlue;
+    class writer layerCyan;
+    class orders,users,products,sink layerPurple;
+    style tables fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 7.2 写入流程

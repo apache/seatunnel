@@ -41,73 +41,39 @@ SeaTunnel Engine (Zeta) is designed as a native execution engine with:
 
 ### 2.1 Master-Worker Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Master Node                              │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │              CoordinatorService                       │     │
-│   │  • Manages all running jobs                           │     │
-│   │  • Job submission and lifecycle management            │     │
-│   │  • Maintains job state (IMap)                         │     │
-│   │  • Resource manager factory                           │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         JobMaster (one per job)                       │     │
-│   │  • Generates physical execution plan                  │     │
-│   │  • Requests resources from ResourceManager            │     │
-│   │  • Deploys tasks to workers                           │     │
-│   │  • Coordinates checkpoints                            │     │
-│   │  • Handles failover and recovery                      │     │
-│   └───────────────────────────────────────────────────────┘     │
-│           │                         │                            │
-│           │ (Task Deploy)           │ (Resource Request)         │
-│           ▼                         ▼                            │
-│   ┌─────────────────┐      ┌────────────────────────────┐      │
-│   │ CheckpointManager│     │   ResourceManager          │      │
-│   │ (per pipeline)  │      │   • Slot allocation        │      │
-│   └─────────────────┘      │   • Worker registration     │      │
-│                             │   • Load balancing          │      │
-│                             └────────────────────────────┘      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (Hazelcast Cluster)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Worker Nodes                             │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │          TaskExecutionService                         │     │
-│   │  • Deploys and executes tasks                         │     │
-│   │  • Manages task lifecycle                             │     │
-│   │  • Reports heartbeat                                  │     │
-│   │  • Slot resource management                           │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                            │                                      │
-│                            ▼                                      │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         SeaTunnelTask (multiple per worker)           │     │
-│   │                                                         │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  SourceFlowLifeCycle                        │      │     │
-│   │  │  • SourceReader                             │      │     │
-│   │  │  • SeaTunnelSourceCollector                 │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   │                      │                                 │     │
-│   │                      ▼                                 │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  TransformFlowLifeCycle                     │      │     │
-│   │  │  • Transform chain                          │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   │                      │                                 │     │
-│   │                      ▼                                 │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  SinkFlowLifeCycle                          │      │     │
-│   │  │  • SinkWriter                               │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   └───────────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph master["Master Node"]
+        coordinator["CoordinatorService<br/>Manage running jobs<br/>Handle submission and lifecycle<br/>Maintain distributed job state"]
+        jobMaster["JobMaster (one per job)<br/>Generate physical execution plan<br/>Request resources<br/>Deploy tasks and coordinate checkpoints"]
+        checkpoint["CheckpointManager<br/>Per pipeline"]
+        resource["ResourceManager<br/>Slot allocation<br/>Worker registration<br/>Load balancing"]
+
+        coordinator --> jobMaster
+        jobMaster --> checkpoint
+        jobMaster --> resource
+    end
+
+    subgraph workers["Worker Nodes"]
+        tes["TaskExecutionService<br/>Deploy and execute tasks<br/>Manage task lifecycle<br/>Report heartbeat"]
+        sourceFlow["SourceFlowLifeCycle<br/>SourceReader / Collector"]
+        transformFlow["TransformFlowLifeCycle<br/>Transform chain"]
+        sinkFlow["SinkFlowLifeCycle<br/>SinkWriter"]
+
+        tes --> sourceFlow --> transformFlow --> sinkFlow
+    end
+
+    resource -- "Hazelcast cluster / slot assignment" --> tes
+    jobMaster -- "Task deployment" --> tes
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class master,workers layerBlue;
+    class coordinator,jobMaster,checkpoint,resource layerCyan;
+    class tes,sourceFlow,transformFlow,sinkFlow layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 Core Components
@@ -150,9 +116,7 @@ Manages single job execution lifecycle.
 - Handle task failures and reschedule
 
 **Lifecycle**:
-```
-Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
-```
+`Created → Initialized → Scheduled → Running → Finished / Failed / Canceled`
 
 **Key Operations**:
 1. `init()`: Generate physical plan, create checkpoint coordinators
@@ -188,50 +152,26 @@ Manages worker resources and slot allocation.
 
 ### 3.1 Execution Plan Transformation
 
-```
-User Config (HOCON)
-    │
-    ▼
-┌───────────────┐
-│  LogicalDag   │  • Logical vertices (Source/Transform/Sink)
-│               │  • Logical edges (data flow)
-│               │  • Parallelism (per vertex)
-└───────────────┘
-    │ (JobMaster.generatePhysicalPlan())
-    ▼
-┌───────────────┐
-│ PhysicalPlan  │  • List of SubPlan (pipelines)
-│               │  • JobImmutableInformation
-│               │  • Resource requirements
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│   SubPlan     │  • Pipeline (independent execution unit)
-│  (Pipeline)   │  • List of PhysicalVertex
-│               │  • CheckpointCoordinator
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│PhysicalVertex │  • TaskGroup (co-located tasks)
-│               │  • Assigned SlotProfile
-│               │  • ExecutionState
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│  TaskGroup    │  • Multiple SeaTunnelTask instances
-│               │  • Shared network buffer
-│               │  • Thread pool
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│ SeaTunnelTask │  • Single task execution
-│               │  • Source/Transform/Sink lifecycle
-│               │  • Task state machine
-└───────────────┘
+```mermaid
+flowchart TD
+    config["User Config<br/>HOCON"]
+    logical["LogicalDag<br/>Logical vertices<br/>Logical edges<br/>Parallelism hints"]
+    physical["PhysicalPlan<br/>SubPlan list<br/>Immutable job info<br/>Resource requirements"]
+    subplan["SubPlan (Pipeline)<br/>Independent execution unit<br/>PhysicalVertex list<br/>CheckpointCoordinator"]
+    vertex["PhysicalVertex<br/>TaskGroup<br/>Assigned SlotProfile<br/>ExecutionState"]
+    taskGroup["TaskGroup<br/>Multiple SeaTunnelTask instances<br/>Shared buffers / thread pool"]
+    task["SeaTunnelTask<br/>Single task execution<br/>Source / Transform / Sink lifecycle"]
+
+    config --> logical --> physical --> subplan --> vertex --> taskGroup --> task
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,logical,physical layerBlue;
+    class subplan,vertex layerCyan;
+    class taskGroup,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.2 LogicalDag
@@ -323,10 +263,10 @@ sink {
 ```
 
 **Generated Pipelines**:
-```
-Pipeline 1: MySQL-CDC → Transform → Elasticsearch
-Pipeline 2: Kafka → Transform → JDBC
-```
+Generated pipelines:
+
+- `Pipeline 1`: `MySQL-CDC → Transform → Elasticsearch`
+- `Pipeline 2`: `Kafka → Transform → JDBC`
 
 **Benefits**:
 - Independent checkpoint coordination
@@ -337,13 +277,10 @@ Pipeline 2: Kafka → Transform → JDBC
 
 Multiple actions can be fused into single TaskGroup for efficiency:
 
-```
-Without Fusion:
-[Source Task] → Network → [Transform Task] → Network → [Sink Task]
-
-With Fusion:
-[TaskGroup: Source → Transform → Sink] (single thread, no network)
-```
+| Mode | Runtime shape | Trade-off |
+|------|---------------|-----------|
+| Without fusion | `Source Task → Network → Transform Task → Network → Sink Task` | Clear stage separation, but more network serialization overhead |
+| With fusion | `TaskGroup: Source → Transform → Sink` in one thread | Lower network cost and better locality, but less scheduling flexibility |
 
 **Fusion Conditions**:
 - Same parallelism
@@ -354,43 +291,36 @@ With Fusion:
 
 ### 4.1 Task State Machine
 
-```
-   [Created]
-       │
-       ▼
-    [INIT] ────────────────────────────────────┐
-       │                                        │
-       ▼                                        │
-[WAITING_RESTORE] (if recovering)              │
-       │                                        │
-       ▼                                        │
-  [READY_START]                                │
-       │                                        │
-       ▼                                        │
-   [STARTING] ──────────────┐                  │
-       │                     │                  │
-       ▼                     ▼                  ▼
-   [RUNNING] ──────────> [FAILED] ─────> (Restart)
-       │
-       ▼
-[PREPARE_CLOSE]
-       │
-       ▼
-    [CLOSED]
-       │
-       ▼
-   [CANCELED] (if job canceled)
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE: restore path
+    INIT --> READY_START: fresh start
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE: normal completion
+    PREPARE_CLOSE --> CLOSED
+    INIT --> CANCELLING: external cancel
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
 **State Transitions**:
-1. **CREATED → INIT**: Task created, initializing resources
-2. **INIT → WAITING_RESTORE**: Recovering from checkpoint
-3. **WAITING_RESTORE → READY_START**: State restored
-4. **READY_START → STARTING**: Opening Source/Transform/Sink
-5. **STARTING → RUNNING**: Data processing started
-6. **RUNNING → PREPARE_CLOSE**: Normal completion
-7. **PREPARE_CLOSE → CLOSED**: Resources cleaned up
-8. **RUNNING → FAILED**: Exception occurred
+1. **CREATED → INIT**: Task created and runtime resources initialized
+2. **INIT → WAITING_RESTORE / READY_START**: Decide between restore path and fresh start
+3. **WAITING_RESTORE → READY_START**: Restore is complete and flows are ready to open
+4. **READY_START → STARTING → RUNNING**: The task receives the start signal and enters the main processing loop
+5. **RUNNING → PREPARE_CLOSE → CLOSED**: Normal completion path after barriers and cleanup
+6. **Active state → CANCELLING → CANCELED**: External cancellation path handled outside the normal completion flow
+
+**Failure Note**:
+- `FAILED` exists as a runtime result, but task-level restart is handled by higher-level recovery logic rather than by a direct `FAILED → ...` edge in this state machine.
 
 ### 4.2 SeaTunnelTask Execution
 
