@@ -7,7 +7,7 @@ sidebar_position: 15
 本文为大家介绍 SeaTunnel Engine 的调优方法，帮助用户根据实际需求优化 SeaTunnel Engine 的性能和稳定性。
 阅读次篇前请知晓，当前指南结合的是大部分用户的真实使用情况总结而成，可能并不适用于所有场景，用户可以根据实际情况进行调整。
 
-SeaTunnel Engine 是基于 [JVM] (https://zh.wikipedia.org/wiki/Java%E8%99%9A%E6%8B%9F%E6%9C%BA) 运行的数据集成引擎，所以 JVM 部分的调优对 SeaTunnel Engine 同样适用，这里就不再赘述。
+SeaTunnel Engine 是基于 [JVM](https://zh.wikipedia.org/wiki/Java%E8%99%9A%E6%8B%9F%E6%9C%BA) 运行的数据集成引擎，所以 JVM 部分的调优对 SeaTunnel Engine 同样适用，这里就不再赘述。
 
 ## 集群响应缓慢或假死
 

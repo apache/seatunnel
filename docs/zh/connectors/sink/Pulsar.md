@@ -92,9 +92,9 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### message.routing.mode [Enum]
 
-要分区的消息的默认路由模式。可用选项包括 SinglePartition、RoundRobinPartition。
-如果选择 SinglePartition，如果未提供密钥，分区生产者将随机选择一个分区并将所有消息发布到该分区中，如果消息上提供了密钥，则分区生产者将对密钥进行哈希处理并将消息分配给特定分区。
-如果选择 RoundRobinPartition，则如果未提供密钥，则生产者将以循环方式跨所有分区发布消息，以实现最大吞吐量。请注意，轮询不是按单个消息完成的，而是设置为相同的批处理延迟边界，以确保批处理有效。
+分区消息的默认路由模式。可用选项包括 `SinglePartition` 和 `RoundRobinPartition`。
+选择 `SinglePartition` 且未提供 key 时，分区生产者会随机选择一个分区，并将所有消息发布到该分区。提供 key 时，生产者会对 key 做哈希，并将消息发送到对应分区。
+选择 `RoundRobinPartition` 且未提供 key 时，生产者会以轮询方式将消息发布到所有分区，以获得最大吞吐量。请注意，轮询不是逐条消息执行，而是在批处理延迟边界上执行，以确保批处理仍然有效。
 
 ### partition_key_fields [String]
 

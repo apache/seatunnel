@@ -112,29 +112,21 @@ Column 通常由以下信息构成:
 
 ### 4.1 数据源 → 转换器 → 目标端流程
 
-```
-┌──────────────┐
-│数据源(source) │
-│              │
-│  生产         │
-│ CatalogTable │
-└──────┬───────┘
-       │
-       ▼ (输入模式)
-┌──────────────┐
-│   转换器      │
-│              │
-│  修改         │
-│ CatalogTable │
-└──────┬───────┘
-       │
-       ▼ (输出模式)
-┌──────────────┐
-│   目标端      │
-│              │
-│  验证         │
-│ CatalogTable │
-└──────────────┘
+```mermaid
+flowchart LR
+    source["数据源<br/>产出 CatalogTable"]
+    transform["转换器<br/>更新 CatalogTable"]
+    sink["目标端<br/>校验 CatalogTable"]
+
+    source -- "输入模式" --> transform
+    transform -- "输出模式" --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,sink layerBlue;
+    class transform layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 4.2 数据源模式生产

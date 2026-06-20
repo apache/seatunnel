@@ -42,73 +42,41 @@ SeaTunnel 引擎（Zeta）设计为原生执行引擎，具有：
 
 ### 2.1 主-工架构
 
+```mermaid
+flowchart TB
+    subgraph master["主节点"]
+        direction TB
+        coordinator["CoordinatorService<br/>管理运行作业 / 生命周期 / IMap 状态"]
+        jobmaster["JobMaster（每个作业一个）<br/>生成物理计划 / 请求资源 / 部署任务 / 协调检查点"]
+        checkpoint["CheckpointManager<br/>每条管道一个"]
+        resource["ResourceManager<br/>槽位分配 / 工作节点注册 / 负载均衡"]
+        coordinator --> jobmaster
+        jobmaster --> checkpoint
+        jobmaster --> resource
+    end
+
+    subgraph worker["工作节点"]
+        direction TB
+        execution["TaskExecutionService<br/>部署执行任务 / 生命周期 / 心跳 / 槽位资源"]
+        source["SourceFlowLifeCycle<br/>SourceReader / SeaTunnelSourceCollector"]
+        transform["TransformFlowLifeCycle<br/>转换链"]
+        sink["SinkFlowLifeCycle<br/>SinkWriter"]
+        execution --> source --> transform --> sink
+    end
+
+    resource -. "Hazelcast 集群" .-> execution
+    jobmaster -. "任务部署" .-> execution
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class coordinator,jobmaster,checkpoint layerBlue;
+    class resource,execution layerCyan;
+    class source,transform,sink layerPurple;
+    style master fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
+    style worker fill:#081425,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff;
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         主节点                                    │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │              CoordinatorService                       │     │
-│   │  • 管理所有运行中的作业                               │     │
-│   │  • 作业提交和生命周期管理                             │     │
-│   │  • 维护作业状态（IMap）                               │     │
-│   │  • 资源管理器工厂                                     │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         JobMaster（每个作业一个）                     │     │
-│   │  • 生成物理执行计划                                   │     │
-│   │  • 从 ResourceManager 请求资源                        │     │
-│   │  • 将任务部署到工作节点                               │     │
-│   │  • 协调检查点                                         │     │
-│   │  • 处理故障转移和恢复                                 │     │
-│   └───────────────────────────────────────────────────────┘     │
-│           │                         │                            │
-│           │ (任务部署)              │ (资源请求)                 │
-│           ▼                         ▼                            │
-│   ┌─────────────────┐      ┌────────────────────────────┐      │
-│   │ CheckpointManager│     │   ResourceManager          │      │
-│   │ (每个管道)      │      │   • 槽位分配               │      │
-│   └─────────────────┘      │   • 工作节点注册           │      │
-│                             │   • 负载均衡               │      │
-│                             └────────────────────────────┘      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             │ (Hazelcast 集群)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         工作节点                                  │
-│                                                                   │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │          TaskExecutionService                         │     │
-│   │  • 部署和执行任务                                     │     │
-│   │  • 管理任务生命周期                                   │     │
-│   │  • 报告心跳                                           │     │
-│   │  • 槽位资源管理                                       │     │
-│   └───────────────────────────────────────────────────────┘     │
-│                            │                                      │
-│                            ▼                                      │
-│   ┌───────────────────────────────────────────────────────┐     │
-│   │         SeaTunnelTask（每个工作节点多个）             │     │
-│   │                                                         │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  SourceFlowLifeCycle                        │      │     │
-│   │  │  • SourceReader                             │      │     │
-│   │  │  • SeaTunnelSourceCollector                 │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   │                      │                                 │     │
-│   │                      ▼                                 │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  TransformFlowLifeCycle                     │      │     │
-│   │  │  • 转换链                                   │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   │                      │                                 │     │
-│   │                      ▼                                 │     │
-│   │  ┌─────────────────────────────────────────────┐      │     │
-│   │  │  SinkFlowLifeCycle                          │      │     │
-│   │  │  • SinkWriter                               │      │     │
-│   │  └─────────────────────────────────────────────┘      │     │
-│   └───────────────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 核心组件
@@ -142,9 +110,7 @@ SeaTunnel 引擎（Zeta）设计为原生执行引擎，具有：
 - 处理任务失败并重新调度
 
 **生命周期**：
-```
-Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
-```
+`Created → Initialized → Scheduled → Running → Finished / Failed / Canceled`
 
 **关键操作**：
 1. `init()`：生成物理计划，创建检查点协调器
@@ -172,50 +138,26 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 
 ### 3.1 执行计划转换
 
-```
-用户配置（HOCON）
-    │
-    ▼
-┌───────────────┐
-│  LogicalDag   │  • 逻辑顶点（数据源/转换/数据 Sink ）
-│               │  • 逻辑边（数据流）
-│               │  • 并行度（每个顶点）
-└───────────────┘
-    │ (JobMaster.generatePhysicalPlan())
-    ▼
-┌───────────────┐
-│ PhysicalPlan  │  • SubPlan 列表（管道）
-│               │  • JobImmutableInformation
-│               │  • 资源要求
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│   SubPlan     │  • 管道（独立执行单元）
-│  (Pipeline)   │  • PhysicalVertex 列表
-│               │  • CheckpointCoordinator
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│PhysicalVertex │  • TaskGroup（共存任务）
-│               │  • 分配的 SlotProfile
-│               │  • ExecutionState
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│  TaskGroup    │  • 多个 SeaTunnelTask 实例
-│               │  • 共享网络缓冲区
-│               │  • 线程池
-└───────────────┘
-    │
-    ▼
-┌───────────────┐
-│ SeaTunnelTask │  • 单个任务执行
-│               │  • 数据源/转换/数据 Sink 生命周期
-│               │  • 任务状态机
-└───────────────┘
+```mermaid
+flowchart TD
+    config["用户配置<br/>HOCON"]
+    logical["LogicalDag<br/>逻辑顶点 / 逻辑边 / 并行度"]
+    plan["PhysicalPlan<br/>SubPlan 列表 / JobImmutableInformation / 资源要求"]
+    subplan["SubPlan（Pipeline）<br/>独立执行单元 / PhysicalVertex 列表 / CheckpointCoordinator"]
+    vertex["PhysicalVertex<br/>TaskGroup / SlotProfile / ExecutionState"]
+    group["TaskGroup<br/>多个 SeaTunnelTask 实例 / 共享缓冲区 / 线程池"]
+    task["SeaTunnelTask<br/>任务执行 / 生命周期 / 状态机"]
+
+    config --> logical --> plan --> subplan --> vertex --> group --> task
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,logical,plan layerBlue;
+    class subplan,vertex layerCyan;
+    class group,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.2 LogicalDag
@@ -303,43 +245,36 @@ sink {
 
 ### 4.1 任务状态机
 
-```
-   [Created]
-       │
-       ▼
-    [INIT] ────────────────────────────────────┐
-       │                                        │
-       ▼                                        │
-[WAITING_RESTORE]（如果恢复中）                │
-       │                                        │
-       ▼                                        │
-  [READY_START]                                │
-       │                                        │
-       ▼                                        │
-   [STARTING] ──────────────┐                  │
-       │                     │                  │
-       ▼                     ▼                  ▼
-   [RUNNING] ──────────> [FAILED] ─────> (重启)
-       │
-       ▼
-[PREPARE_CLOSE]
-       │
-       ▼
-    [CLOSED]
-       │
-       ▼
-   [CANCELED]（如果作业取消）
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> INIT
+    INIT --> WAITING_RESTORE: 恢复路径
+    INIT --> READY_START: 无需恢复
+    WAITING_RESTORE --> READY_START
+    READY_START --> STARTING
+    STARTING --> RUNNING
+    RUNNING --> PREPARE_CLOSE: 正常完成
+    PREPARE_CLOSE --> CLOSED
+    INIT --> CANCELLING: 外部取消
+    WAITING_RESTORE --> CANCELLING
+    READY_START --> CANCELLING
+    STARTING --> CANCELLING
+    RUNNING --> CANCELLING
+    PREPARE_CLOSE --> CANCELLING
+    CANCELLING --> CANCELED
 ```
 
 **状态转换**：
-1. **CREATED → INIT**：任务已创建，初始化资源
-2. **INIT → WAITING_RESTORE**：从检查点恢复
-3. **WAITING_RESTORE → READY_START**：状态已恢复
-4. **READY_START → STARTING**：打开数据源/转换/数据 Sink 
-5. **STARTING → RUNNING**：数据处理已启动
-6. **RUNNING → PREPARE_CLOSE**：正常完成
-7. **PREPARE_CLOSE → CLOSED**：资源已清理
-8. **RUNNING → FAILED**：发生异常
+1. **CREATED → INIT**：任务已创建，并完成运行时资源初始化
+2. **INIT → WAITING_RESTORE / READY_START**：根据是否需要恢复，进入恢复路径或直接启动路径
+3. **WAITING_RESTORE → READY_START**：状态恢复完成，准备打开各生命周期组件
+4. **READY_START → STARTING → RUNNING**：收到启动信号后进入正式处理阶段
+5. **RUNNING → PREPARE_CLOSE → CLOSED**：正常完成并清理资源
+6. **活动状态 → CANCELLING → CANCELED**：外部取消路径，与正常完成链路分开处理
+
+**失败说明**：
+- `FAILED` 是运行时对不可恢复错误的结果标记，但“失败后是否重启”由更高层的恢复逻辑决定，不应在这个任务状态机图里画成 `FAILED → ...` 的直接边。
 
 ### 4.2 SeaTunnelTask 执行
 
