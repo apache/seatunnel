@@ -74,7 +74,10 @@ public class BigtableSourceSplitEnumerator
             // Restore pending splits first so a returned-but-not-yet-reassigned split survives
             // recovery even when its ID is already present in assignedSplits.
             this.pendingSplits = new HashSet<>(sourceState.getPendingSplits());
-            this.initialized = true;
+            // Only skip table-split discovery when the checkpoint captured real enumerator
+            // progress.
+            // An empty-empty checkpoint (before any reader registered) must still discover splits.
+            this.initialized = !this.assignedSplits.isEmpty() || !this.pendingSplits.isEmpty();
         }
     }
 
