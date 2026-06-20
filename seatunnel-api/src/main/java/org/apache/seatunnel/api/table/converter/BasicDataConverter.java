@@ -604,14 +604,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDateTime convertLocalDateTime(Number value) {
-        if (value.longValue() < 999999999) {
-            return LocalDateTime.ofEpochSecond(
-                    value.longValue(),
-                    0,
-                    ZoneId.systemDefault().getRules().getOffset(LocalDateTime.now()));
-        }
-        return new Date(value.longValue())
-                .toInstant()
+        return EpochTimeUtils.convertToInstant(value)
                 .atZone(ZoneId.systemDefault())
                 .toLocalDateTime();
     }
@@ -798,14 +791,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDate convertLocalDate(Number value) {
-        if (value.longValue() < 999999999) {
-            return LocalDateTime.ofEpochSecond(
-                            value.longValue(),
-                            0,
-                            ZoneId.systemDefault().getRules().getOffset(LocalDateTime.now()))
-                    .toLocalDate();
-        }
-        return new Date(value.longValue()).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        return EpochTimeUtils.convertToInstant(value).atZone(ZoneId.systemDefault()).toLocalDate();
     }
 
     default BigDecimal convertDecimal(T typeDefine, Object value)
