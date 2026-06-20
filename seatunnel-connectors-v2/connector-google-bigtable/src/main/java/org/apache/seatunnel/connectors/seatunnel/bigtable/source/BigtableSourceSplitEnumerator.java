@@ -47,6 +47,13 @@ public class BigtableSourceSplitEnumerator
     private Set<BigtableSourceSplit> pendingSplits;
     private boolean initialized = false;
 
+    /**
+     * Guards the shared assignment state ({@code assignedSplits}, {@code pendingSplits}, {@code
+     * initialized}) against concurrent enumerator callbacks. {@link #initializePendingSplits()} and
+     * {@link #assignSplit(int)} must only run while this lock is held.
+     */
+    private final Object stateLock = new Object();
+
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context, BigtableParameters parameters) {
         this(context, parameters, new HashSet<>());
@@ -87,9 +94,11 @@ public class BigtableSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<BigtableSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplits.addAll(splits);
-            if (context.registeredReaders().contains(subtaskId)) {
-                assignSplit(subtaskId);
+            synchronized (stateLock) {
+                pendingSplits.addAll(splits);
+                if (context.registeredReaders().contains(subtaskId)) {
+                    assignSplit(subtaskId);
+                }
             }
         }
     }
@@ -101,13 +110,17 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        initializePendingSplits();
-        assignSplit(subtaskId);
+        synchronized (stateLock) {
+            initializePendingSplits();
+            assignSplit(subtaskId);
+        }
     }
 
     @Override
     public BigtableSourceState snapshotState(long checkpointId) throws Exception {
-        return new BigtableSourceState(assignedSplits);
+        synchronized (stateLock) {
+            return new BigtableSourceState(assignedSplits);
+        }
     }
 
     @Override

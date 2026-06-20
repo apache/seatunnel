@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Set;
 
 public class BigtableSourceState implements Serializable {
@@ -27,7 +28,9 @@ public class BigtableSourceState implements Serializable {
     private final Set<BigtableSourceSplit> assignedSplits;
 
     public BigtableSourceState(Set<BigtableSourceSplit> assignedSplits) {
-        this.assignedSplits = assignedSplits;
+        // Defensive copy: never alias the enumerator's live mutable set into checkpoint state,
+        // otherwise later mutations could corrupt an already-snapshotted state object.
+        this.assignedSplits = new HashSet<>(assignedSplits);
     }
 
     public Set<BigtableSourceSplit> getAssignedSplits() {
