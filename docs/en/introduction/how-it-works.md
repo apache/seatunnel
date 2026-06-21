@@ -10,30 +10,29 @@ SeaTunnel is a distributed multimodal data integration tool with a pluggable arc
 
 This page is the shortest bridge between first-run docs and deeper architecture docs. Read it when you already know SeaTunnel at a high level but still need a practical mental model of how job config, plugins, and engines connect.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Job Configuration                       │
-│                   (HOCON / SQL / Web UI)                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     SeaTunnel Core                           │
-│              (Job Parser, Coordinator, Scheduler)            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│    Source     │────▶│   Transform   │────▶│     Sink      │
-│  Connectors   │     │  (Optional)   │     │  Connectors   │
-└───────────────┘     └───────────────┘     └───────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Execution Engine                          │
-│         SeaTunnel Engine (Zeta) / Flink / Spark              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    config["Job Configuration<br/>HOCON / SQL / Web UI"]
+    core["SeaTunnel Core<br/>Job parser / coordinator / scheduler"]
+    source["Source Connectors"]
+    transform["Transform (Optional)"]
+    sink["Sink Connectors"]
+    engine["Execution Engine<br/>SeaTunnel Engine (Zeta) / Flink / Spark"]
+
+    config --> core
+    core --> source
+    source --> transform
+    transform --> sink
+    sink --> engine
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,core layerBlue;
+    class source,transform,sink layerCyan;
+    class engine layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## Recommended Reading Path
@@ -73,14 +72,19 @@ Translates SeaTunnel's unified API to engine-specific implementations, enabling 
 
 ## Data Flow
 
-```
-Source ──▶ [Split] ──▶ Reader ──▶ Transform ──▶ Writer ──▶ Sink
-  │                       │                        │
-  │                       ▼                        │
-  │              Checkpoint/State                  │
-  │                       │                        │
-  └───────────────────────┴────────────────────────┘
-                    Fault Tolerance
+```mermaid
+flowchart LR
+    source["Source"] --> split["Split"] --> reader["Reader"] --> transform["Transform"] --> writer["Writer"] --> sink["Sink"]
+    reader -. "Checkpoint / state" .-> recovery["Fault tolerance"]
+    writer -. "Checkpoint / commit" .-> recovery
+    source -. "Replay / re-read" .-> recovery
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+
+    class source,split,reader,transform,writer,sink layerBlue;
+    class recovery layerCyan;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 **Key Features:**
@@ -90,17 +94,16 @@ Source ──▶ [Split] ──▶ Reader ──▶ Transform ──▶ Writer �
 
 ## Module Structure
 
-```
-seatunnel/
-├── seatunnel-api/           # Core API definitions
-├── seatunnel-connectors-v2/ # Source & Sink connectors
-├── seatunnel-transforms-v2/ # Transform plugins
-├── seatunnel-engine/        # SeaTunnel Engine (Zeta)
-├── seatunnel-translation/   # Engine adapters (Flink/Spark)
-├── seatunnel-core/          # Job submission & CLI
-├── seatunnel-formats/       # Data format handlers
-└── seatunnel-e2e/           # End-to-end tests
-```
+| Module | Responsibility |
+|--------|----------------|
+| `seatunnel-api` | Core API definitions |
+| `seatunnel-connectors-v2` | Source and sink connectors |
+| `seatunnel-transforms-v2` | Transform plugins |
+| `seatunnel-engine` | SeaTunnel Engine (Zeta) |
+| `seatunnel-translation` | Engine adapters for Flink and Spark |
+| `seatunnel-core` | Job submission and CLI |
+| `seatunnel-formats` | Data format handlers |
+| `seatunnel-e2e` | End-to-end tests |
 
 ## Job Execution Flow
 

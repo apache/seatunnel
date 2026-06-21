@@ -28,6 +28,10 @@ different API endpoints.
 | custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`.                                                             |
 | custom_request_headers         | map    | no       |               | Custom headers for the request to the model.                                                                                                                            |
 | custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`.                                                                                         |
+| model_retry_max_attempts       | int    | no       | 1             | Maximum attempts for one remote model request. The default value `1` keeps the previous no-retry behavior.                                                              |
+| model_retry_backoff_ms         | long   | no       | 1000          | Initial backoff in milliseconds before retrying a remote model request.                                                                                                  |
+| model_retry_max_backoff_ms     | long   | no       | 10000         | Maximum backoff in milliseconds before retrying a remote model request.                                                                                                  |
+| model_request_timeout_ms       | int    | no       | 20000         | Request timeout in milliseconds for remote model calls.                                                                                                                  |
 
 ## Precision Support
 
@@ -52,9 +56,49 @@ The secret key used for additional authentication. Some providers may require th
 
 ### single_vectorized_input_number
 
-Specifies how many inputs are processed in a single vectorization request. The default is 1. Adjust based on your
-processing
-capacity and the model provider's API limitations.
+Specifies how many model inputs are included in one remote vectorization request. The default is 1. Adjust based on your
+processing capacity and the model provider's API limitations.
+
+This is request-level batching inside one row's vectorization inputs. It is not row-level transform micro-batching, and
+it does not mean that the transform will collect multiple SeaTunnel rows before calling the provider.
+
+### Model invocation reliability
+
+Embedding providers use a common model invocation runtime for remote calls. The provider is still responsible for
+provider-specific request body, headers, authentication, response parsing, and provider error conversion. The common
+runtime handles timeout propagation, retry, error classification, response count validation, safe logs, metrics hooks,
+and the cache boundary.
+
+The default retry behavior is compatible with previous jobs: `model_retry_max_attempts = 1` means each request is tried
+once. When you configure a value greater than 1, retryable failures such as rate limiting, timeout, and temporary remote
+service errors can be retried with backoff. Authentication failures, configuration errors, response parse failures, and
+response count mismatches are not retried.
+
+For every request batch, the number of returned vectors must match the number of inputs. If the provider returns fewer or
+more vectors than requested, the request fails and the transform does not emit possibly misaligned vectors.
+
+Retries are performed for the same remote request payload. The transform only emits vectors after a successful response,
+but providers can still charge or apply side effects per attempt. Downstream sink idempotency is not changed by this
+option.
+
+The runtime records safe diagnostic context such as provider, model, batch size, attempt number, error category,
+retryable flag, and elapsed time. It does not log API keys, secret keys, full source text chunks, binary payloads, or full
+provider response bodies.
+
+Bedrock now uses the same common runtime path as the other embedding providers, so retry, timeout, response parsing,
+and response-count validation behave consistently across providers.
+
+The runtime also has a cache boundary. When a cache implementation is wired in, keys are built from provider, model,
+output configuration, modality, format, normalized metadata, and a SHA-256 digest of normalized input content. The
+default production wiring still uses `ModelInvocationCache.NOOP`, so existing jobs keep the previous behavior unless an
+integration layer enables caching. Existing binary multimodal cache state is unchanged and still only reassembles file
+chunks before vectorization.
+
+Compatibility notes:
+
+- The default values for `model_retry_max_attempts`, `model_retry_backoff_ms`, and `model_request_timeout_ms` remain unchanged.
+- No user-facing config names were renamed or removed in this update.
+- The cache integration is additive and does not change the default execution path.
 
 ### vectorization_fields
 

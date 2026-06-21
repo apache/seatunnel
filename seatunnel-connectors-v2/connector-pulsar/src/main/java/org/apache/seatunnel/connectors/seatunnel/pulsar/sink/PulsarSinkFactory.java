@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -36,11 +39,9 @@ public class PulsarSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        PulsarSinkOptions.CLIENT_SERVICE_URL,
-                        PulsarSinkOptions.ADMIN_SERVICE_URL,
-                        PulsarSinkOptions.TOPIC)
+                .required(PulsarSinkOptions.CLIENT_SERVICE_URL, PulsarSinkOptions.ADMIN_SERVICE_URL)
                 .optional(
+                        PulsarSinkOptions.TOPIC,
                         PulsarSinkOptions.FORMAT,
                         PulsarSinkOptions.FIELD_DELIMITER,
                         PulsarSinkOptions.MESSAGE_ROUTING_MODE,
@@ -58,6 +59,17 @@ public class PulsarSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
+        validateSingleTableTopic(context);
         return () -> new PulsarSink(context.getOptions(), context.getCatalogTable());
+    }
+
+    private void validateSingleTableTopic(TableSinkFactoryContext context) {
+        ReadonlyConfig options = context.getOptions();
+        if (context.getCatalogTable() != null
+                && !options.getOptional(PulsarSinkOptions.TOPIC).isPresent()) {
+            throw new PulsarConnectorException(
+                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Topic must be configured for single-table Pulsar sink.");
+        }
     }
 }

@@ -343,14 +343,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-
-            Container.ExecResult execResult;
-            try {
-                execResult = jobFuture.get(120, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException("Wait continuous job exit failed.", e);
-            }
-            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
@@ -402,14 +395,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-
-            Container.ExecResult execResult;
-            try {
-                execResult = jobFuture.get(120, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException("Wait continuous job exit failed.", e);
-            }
-            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
@@ -581,6 +567,31 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult result =
                 sftpContainer.execInContainer("sh", "-c", "test -f '" + containerPath + "'");
         return result.getExitCode() == 0;
+    }
+
+    /**
+     * Wait for the continuous discovery job to enter the terminal canceled state and for the
+     * asynchronous execute call to finish its post-job thread cleanup.
+     */
+    private void waitContinuousJobExit(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Awaitility.await()
+                .atMost(180, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(jobFuture::isDone);
+        try {
+            Container.ExecResult execResult = jobFuture.get(30, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
     }
 
     private void waitUntilContainerTimeAfter(long epochSeconds) {

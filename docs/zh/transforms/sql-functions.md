@@ -94,6 +94,42 @@ HEXTORAW(DATA)
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+将字符串或字节编码为 Base64。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+对于字节输入，不支持 charset 参数，因为该值已经是原始字节。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+将 Base64 字符串解码为文本。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```

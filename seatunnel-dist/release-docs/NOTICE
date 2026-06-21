@@ -717,6 +717,23 @@ originating from the Calcite project (https://github.com/apache/calcite).
 
 =========================================================================
 
+Apache Calcite NOTICE
+
+=========================================================================
+
+Apache Calcite
+Copyright 2012-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+This product is based on source code originally developed
+by DynamoBI Corporation, LucidEra Inc., SQLstream Inc. and others
+under the auspices of the Eigenbase Foundation
+and released as the LucidDB project.
+
+=========================================================================
+
 Apache Hadoop NOTICE
 
 =========================================================================

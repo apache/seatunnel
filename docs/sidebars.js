@@ -243,6 +243,8 @@ const sidebars = {
                         "transforms/common-options/common-options"
                     ]
                 },
+                "transforms/calcite",
+                "transforms/calcite-udf",
                 "transforms/copy",
                 "transforms/data-validator",
                 "transforms/define-sink-type",
