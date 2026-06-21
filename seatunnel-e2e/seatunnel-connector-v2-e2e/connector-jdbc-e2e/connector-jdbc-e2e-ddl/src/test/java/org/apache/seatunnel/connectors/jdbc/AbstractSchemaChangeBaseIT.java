@@ -321,34 +321,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertIterableEquals(
-                                    querySource(
-                                            String.format(QUERY, SOURCE_DATABASE, sourceTable)
-                                                    + " where id >= 128"),
-                                    querySink(
-                                            String.format(
-                                                            QUERY,
-                                                            schemaChangeCase.getSchemaName(),
-                                                            sinkTable)
-                                                    + " where id >= 128"
-                                                    + ORDER_BY));
-
-                            Assertions.assertIterableEquals(
-                                    querySource(
-                                            String.format(
-                                                    PROJECTION_QUERY,
-                                                    SOURCE_DATABASE,
-                                                    sourceTable)),
-                                    querySink(
-                                            String.format(
-                                                            PROJECTION_QUERY,
-                                                            schemaChangeCase.getSchemaName(),
-                                                            sinkTable)
-                                                    + ORDER_BY));
-                        });
+        assertAddColumnsDataSynced(sourceTable, sinkTable);
 
         // case2 drop columns with cdc data at same time
         assertCaseByDdlName("drop_columns");
@@ -381,20 +354,36 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        given().pollDelay(Duration.ofSeconds(5))
-                .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+        waitForSinkColumnsCatchUp(sourceTable, sinkTable);
+        assertAddColumnsDataSynced(sourceTable, sinkTable);
+    }
+
+    /**
+     * Schema-change sinks can publish the new rows before the sink table metadata is fully updated.
+     * Waiting for the column list first avoids racing the add-columns data assertions.
+     */
+    private void waitForSinkColumnsCatchUp(String sourceTable, String sinkTable) {
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         querySource(
-                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
+                                                String.format(
+                                                        SOURCE_QUERY_COLUMNS,
+                                                        SOURCE_DATABASE,
+                                                        sourceTable)),
                                         querySink(
                                                 String.format(
-                                                                QUERY,
-                                                                schemaChangeCase.getSchemaName(),
-                                                                sinkTable)
-                                                        + ORDER_BY)));
+                                                        schemaChangeCase.getSinkQueryColumns(),
+                                                        schemaChangeCase.getSchemaName(),
+                                                        sinkTable))));
+    }
+
+    /**
+     * Validates both the new add-columns rows and the projected full-table view once schema
+     * evolution has settled on the sink side.
+     */
+    private void assertAddColumnsDataSynced(String sourceTable, String sinkTable) {
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
