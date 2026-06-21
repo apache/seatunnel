@@ -30,7 +30,7 @@ import java.util.List;
 
 public class AzureCosmosDBSource
         implements SeaTunnelSource<
-                        SeaTunnelRow, AzureCosmosDBSourceSplit, AzureCosmosDBSourceState> {
+                SeaTunnelRow, AzureCosmosDBSourceSplit, AzureCosmosDBSourceState> {
 
     private final AzureCosmosDBConfig config;
     private final CatalogTable catalogTable;

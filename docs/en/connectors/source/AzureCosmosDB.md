@@ -10,7 +10,7 @@ Read data from Azure Cosmos DB (SQL API) containers.
 
 V1 scope:
 
-- source side of the Azure Cosmos DB SQL API connector
+- source only
 - bounded/batch reads
 - schema required
 - catalog out of scope

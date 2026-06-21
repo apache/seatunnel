@@ -70,6 +70,8 @@ public class AzureCosmosDBSourceReader
                     new CosmosClientBuilder()
                             .endpoint(config.getResolvedEndpoint())
                             .key(config.getResolvedKey())
+                            .endpointDiscoveryEnabled(false)
+                            .gatewayMode()
                             .buildClient();
             this.container =
                     client.getDatabase(config.getDatabase()).getContainer(config.getContainer());
