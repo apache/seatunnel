@@ -255,7 +255,7 @@ sink {
 }
 ```
 
-> **注意（schema 演进 + 2PC）：** 当 `sink.enable-2pc = "true"` 时，发生在 checkpoint 中途的 schema 变更**不会**先 flush 在途的 stream load（2PC 每个 checkpoint 只维护一个事务）。DDL 之前缓冲的数据会在同一个事务里按变更后的表结构提交。由于 `format = "json"` 按列名匹配，Doris 能够容忍（如上例）。对于 CSV 等位置敏感格式，或需要严格保证 schema 变更正确性时，请设置 `sink.enable-2pc = "false"`：此时 sink 会在应用 DDL 之前先 flush 已缓冲的数据。
+> **注意（schema 演进 + 2PC）：** 当 `sink.enable-2pc = "true"` 时，Doris schema 演进仅支持 `format = "json"`，因为 JSON load 会按列名匹配。CSV 等位置敏感格式在启用 2PC 的 schema 演进场景下会被运行时拒绝。请使用 `format = "json"`，或设置 `sink.enable-2pc = "false"`，让 sink 可以在应用 DDL 前先 flush 已缓冲的数据。
 
 ### Mysql-CDC -> Jdbc-Postgres
 ```hocon

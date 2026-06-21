@@ -254,7 +254,7 @@ sink {
 }
 ```
 
-> **Note (schema evolution + 2PC):** With `sink.enable-2pc = "true"`, a schema change that arrives in the middle of a checkpoint is applied **without** first flushing the in-flight stream load, because 2PC keeps a single transaction per checkpoint. Rows buffered before the DDL are then committed against the altered table within the same transaction. Because `format = "json"` matches columns by name, Doris tolerates this (as in the example above). For positional formats such as CSV, or when you need strict correctness around schema changes, set `sink.enable-2pc = "false"`: the sink then flushes the buffered rows before applying the DDL.
+> **Note (schema evolution + 2PC):** With `sink.enable-2pc = "true"`, Doris schema evolution only supports `format = "json"` because JSON loads match columns by name. Positional formats such as CSV are rejected at runtime for schema evolution with 2PC enabled. Use `format = "json"` or set `sink.enable-2pc = "false"` so the sink can flush buffered rows before applying the DDL.
 
 ### Mysql-CDC -> Jdbc-Postgres
 ```hocon

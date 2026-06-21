@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisSchemaChangeException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
@@ -286,7 +287,50 @@ public class DorisSinkWriterTest {
         }
     }
 
+    @Test
+    void testApplySchemaChangeRejectsTwoPhaseCommitWithCsvFormat() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        doNothing().when(frontendLoad).abortPreCommit(anyString(), anyLong());
+        SchemaChangeManager schemaChangeManager = mock(SchemaChangeManager.class);
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+
+        DorisSinkWriter writer = null;
+        try {
+            writer =
+                    new DorisSinkWriter(
+                            new DefaultSinkWriterContext(0, 1),
+                            new ArrayList<>(),
+                            mockCatalogTable(),
+                            createSinkConfig(false, true, "csv"),
+                            "job_1",
+                            factory);
+            writer.setSchemaChangeManager(schemaChangeManager);
+
+            DorisSinkWriter schemaChangeWriter = writer;
+            DorisSchemaChangeException exception =
+                    Assertions.assertThrows(
+                            DorisSchemaChangeException.class,
+                            () -> schemaChangeWriter.applySchemaChange(addColumnEvent()));
+            Assertions.assertTrue(exception.getMessage().contains("format=json"));
+
+            verify(frontendLoad, never()).stopLoad();
+            verify(frontendLoad, times(1)).startLoad(anyString());
+            verify(schemaChangeManager, never())
+                    .applySchemaChange(any(TablePath.class), any(SchemaChangeEvent.class));
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
+
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC) {
+        return createSinkConfig(directToBe, enable2PC, "json");
+    }
+
+    private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC, String format) {
         Map<String, Object> options = new HashMap<>();
         options.put("fenodes", "fe1:8030");
         options.put("benodes", "be1:8040");
@@ -297,13 +341,13 @@ public class DorisSinkWriterTest {
         options.put("database", "test_db");
         options.put("table", "test_table");
         options.put("sink.label-prefix", "test_job");
-        options.put("doris.config", createStreamLoadProperties());
+        options.put("doris.config", createStreamLoadProperties(format));
         return DorisSinkConfig.of(ReadonlyConfig.fromMap(options));
     }
 
-    private Map<String, String> createStreamLoadProperties() {
+    private Map<String, String> createStreamLoadProperties(String format) {
         Map<String, String> properties = new HashMap<>();
-        properties.put("format", "json");
+        properties.put("format", format);
         properties.put("read_json_by_line", "true");
         return properties;
     }
