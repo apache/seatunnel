@@ -88,15 +88,7 @@ public class JdbcSourceConfig implements Serializable {
                 config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
-                .ifPresent(
-                        whereConditionClause -> {
-                            if (!whereConditionClause.toLowerCase().startsWith("where")) {
-                                throw new IllegalArgumentException(
-                                        "The where condition clause must start with 'where'. value: "
-                                                + whereConditionClause);
-                            }
-                            builder.whereConditionClause(whereConditionClause);
-                        });
+                .ifPresent(builder::whereConditionClause);
 
         return builder.build();
     }

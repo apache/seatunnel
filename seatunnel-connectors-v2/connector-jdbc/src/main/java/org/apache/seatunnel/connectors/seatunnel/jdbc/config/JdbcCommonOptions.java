@@ -19,7 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import java.util.Map;
 
@@ -158,9 +162,50 @@ public class JdbcCommonOptions {
     public static final Option<String> REGION =
             Options.key("region").stringType().noDefaultValue().withDescription("region");
 
-    public static final OptionRule.Builder BASE_CATALOG_RULE =
-            OptionRule.builder()
-                    .required(URL)
-                    .required(USERNAME, PASSWORD)
-                    .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+    /** @deprecated Use {@link #baseCatalogRule()} instead to avoid shared mutable state. */
+    @Deprecated public static final OptionRule.Builder BASE_CATALOG_RULE = baseCatalogRule();
+
+    /**
+     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by all JDBC
+     * catalog factories (MySQL, PostgreSQL, Oracle, etc.).
+     *
+     * <p>These rules are evaluated at <b>submission time</b> via {@code
+     * ConfigValidator.validate(factory.optionRule())} in the {@code FactoryUtil} entry path. They
+     * enforce that the JDBC URL contains a database name, and that username/password are provided.
+     *
+     * <p>Individual catalog factories may append additional rules (e.g. OceanBase requires {@code
+     * compatible_mode}) before calling {@code .build()}.
+     */
+    public static OptionRule.Builder baseCatalogRule() {
+        return OptionRule.builder()
+                .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
+                .required(USERNAME, PASSWORD)
+                .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+    }
+
+    /**
+     * Submission-time validator that ensures the JDBC URL contains a database name.
+     *
+     * <p>This validator is attached to the {@code url} option via {@link
+     * Conditions#extension(Option, ConditionExtension)} and is evaluated by {@code ConfigValidator}
+     * before the catalog/source/sink factory creates its connector instance.
+     */
+    public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "JDBC URL must contain a database name";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String url) {
+            if (url == null || url.trim().isEmpty()) {
+                return false;
+            }
+            try {
+                return JdbcUrlUtil.getUrlInfo(url).getDefaultDatabase().isPresent();
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
+    }
 }
