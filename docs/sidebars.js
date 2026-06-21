@@ -116,6 +116,14 @@ const sidebars = {
         {
             "type": "category",
             "label": "Connectors",
+            "link": {
+                "type": "generated-index",
+                "title": "Connectors",
+                "description": "Browse source, sink, format, and connector reference docs for Apache SeaTunnel.",
+                "slug": "/connectors",
+                "keywords": ["connectors"],
+                "image": "/img/favicon.ico"
+            },
             "items": [
                 "connectors/connector-isolated-dependency",
                 "connectors/connector-faq",
