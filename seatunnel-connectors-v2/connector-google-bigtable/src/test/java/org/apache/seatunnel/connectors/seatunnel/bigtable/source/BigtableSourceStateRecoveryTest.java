@@ -41,6 +41,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,6 +66,13 @@ import static org.mockito.Mockito.when;
  * Deep regression tests for Bigtable source checkpoint / recovery semantics introduced in #11144.
  */
 class BigtableSourceStateRecoveryTest {
+
+    /**
+     * Bytes from the pre-#11144 {@code BigtableSourceState} (assignedSplits only, same
+     * serialVersionUID) for split {@code bigtable_source_split_0} with row range [start, end).
+     */
+    private static final String LEGACY_ASSIGNED_ONLY_STATE_BASE64 =
+            "rO0ABXNyAE1vcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5iaWd0YWJsZS5zb3VyY2UuQmlndGFibGVTb3VyY2VTdGF0ZQAAAAAAAAABAgABTAAOYXNzaWduZWRTcGxpdHN0AA9MamF2YS91dGlsL1NldDt4cHNyABFqYXZhLnV0aWwuSGFzaFNldLpEhZWWuLc0AwAAeHB3DAAAABA/QAAAAAAAAXNyAE1vcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5iaWd0YWJsZS5zb3VyY2UuQmlndGFibGVTb3VyY2VTcGxpdAAAAAAAAAABAgADTAAJZW5kUm93S2V5dAASTGphdmEvbGFuZy9TdHJpbmc7TAAHc3BsaXRJZHEAfgAGTAALc3RhcnRSb3dLZXlxAH4ABnhwdAADZW5kdAAXYmlndGFibGVfc291cmNlX3NwbGl0XzB0AAVzdGFydHg=";
 
     private static final BigtableParameters PARAMETERS =
             BigtableParameters.builder()
@@ -136,6 +144,61 @@ class BigtableSourceStateRecoveryTest {
                 0,
                 restoreContext.getAssignedSplitCount(0),
                 "Without pendingSplits in checkpoint, returned split is dropped on restore");
+    }
+
+    /**
+     * Checkpoints written before #11144 only serialized assignedSplits. After Java deserialization
+     * into the new class shape, pendingSplits is null; restore must not fail.
+     */
+    @Test
+    void testLegacyCheckpointWithNullPendingSplitsRestoresEnumerator() throws Exception {
+        BigtableSourceSplit split = new BigtableSourceSplit(0, "start", "end");
+        BigtableSourceState legacyState =
+                new BigtableSourceState(
+                        new HashSet<>(Collections.singleton(split)), Collections.emptySet());
+        java.lang.reflect.Field pendingField =
+                BigtableSourceState.class.getDeclaredField("pendingSplits");
+        pendingField.setAccessible(true);
+        pendingField.set(legacyState, null);
+
+        assertTrue(legacyState.getPendingSplits().isEmpty());
+
+        TestingContext context = new TestingContext(1);
+        BigtableSourceSplitEnumerator restored =
+                new BigtableSourceSplitEnumerator(context, PARAMETERS, legacyState);
+        restored.open();
+
+        context.registerReaderForTest(0);
+        restored.registerReader(0);
+
+        assertEquals(0, restored.currentUnassignedSplitSize());
+    }
+
+    /**
+     * Round-trip bytes produced by the pre-#11144 single-field {@code BigtableSourceState} shape
+     * (same {@code serialVersionUID}) must deserialize into the new class without restore failure.
+     */
+    @Test
+    void testDeserializePrePatchBigtableSourceStateBytes() throws Exception {
+        byte[] legacyBytes = Base64.getDecoder().decode(LEGACY_ASSIGNED_ONLY_STATE_BASE64);
+
+        BigtableSourceState deserialized;
+        try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(legacyBytes))) {
+            deserialized = (BigtableSourceState) ois.readObject();
+        }
+
+        assertEquals(1, deserialized.getAssignedSplits().size());
+        assertTrue(deserialized.getPendingSplits().isEmpty());
+
+        TestingContext context = new TestingContext(1);
+        BigtableSourceSplitEnumerator restored =
+                new BigtableSourceSplitEnumerator(context, PARAMETERS, deserialized);
+        restored.open();
+
+        context.registerReaderForTest(0);
+        restored.registerReader(0);
+
+        assertEquals(0, restored.currentUnassignedSplitSize());
     }
 
     /**
