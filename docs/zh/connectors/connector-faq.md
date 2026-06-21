@@ -2,20 +2,20 @@
 sidebar_position: 10
 ---
 
-# Connector 常见问题
+# 连接器常见问题
 
-本页面是按 Connector 类别组织的常见问题索引，每个条目均链接到对应 Connector 文档页面的 FAQ 小节。
+本页面是按连接器类别组织的常见问题索引，每个条目均链接到对应连接器文档页面的 FAQ 小节。
 
 这些 FAQ 的定位是“快速导航”，不是另一套独立事实源。涉及精确配置项名称、默认值和完整示例时，应以
-各 Connector 页面中的 option 表和对应详细章节为准。
+各连接器页面中的参数表和对应详细章节为准。
 
 关于 SeaTunnel 通用问题（引擎部署、变量替换、调度等），请查阅[通用 FAQ](../faq.md)。
 
 ---
 
-## CDC 类 Connector
+## CDC 类连接器
 
-CDC（变更数据捕获）Connector 从数据库事务日志中实时读取 INSERT / UPDATE / DELETE 变更事件。
+CDC（变更数据捕获）连接器从数据库事务日志中实时读取 INSERT / UPDATE / DELETE 变更事件。
 
 | Connector | 常见问题主题 |
 |---|---|
@@ -25,7 +25,7 @@ CDC（变更数据捕获）Connector 从数据库事务日志中实时读取 INS
 
 ---
 
-## 消息队列类 Connector
+## 消息队列类连接器
 
 | Connector | 常见问题主题 |
 |---|---|
@@ -34,7 +34,7 @@ CDC（变更数据捕获）Connector 从数据库事务日志中实时读取 INS
 
 ---
 
-## Sink 类 Connector
+## Sink 类连接器
 
 ### OLAP / 分析型存储
 
@@ -60,6 +60,6 @@ CDC（变更数据捕获）Connector 从数据库事务日志中实时读取 INS
 
 ## 找答案的建议
 
-1. **Connector 特定问题** → 直接进入对应 Connector 页面，滚动到 **FAQ** 小节。
-2. **跨 Connector 通用问题**（如"SeaTunnel 是否支持 CDC？""什么是 `schema_save_mode`？"）→ 查阅[通用 FAQ](../faq.md)。
+1. **连接器特定问题** → 直接进入对应连接器页面，滚动到 **FAQ** 小节。
+2. **跨连接器通用问题**（如"SeaTunnel 是否支持 CDC？""什么是 `schema_save_mode`？"）→ 查阅[通用 FAQ](../faq.md)。
 3. **仍未解决？** → 搜索 [GitHub Issues](https://github.com/apache/seatunnel/issues) 或通过[邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)联系社区。

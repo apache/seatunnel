@@ -12,6 +12,7 @@ This page is the shortest path for choosing the right SeaTunnel connector entry 
 | --- | --- |
 | Read data from an external system | [Source Connectors](./source/overview.md) |
 | Write data into a target system | [Sink Connectors](./sink/overview.md) |
+| Follow a real source-to-sink example | [Scenario Recipes](../getting-started/recipes/overview.md) |
 | Understand shared connector parameters | [Source Common Options](./common-options/source-common-options.md) and [Sink Common Options](./common-options/sink-common-options.md) |
 | Build a CDC pipeline | [CDC Production Cookbook](./cdc-production-cookbook.md) |
 | Troubleshoot plugin installation or dependency conflicts | [Connector FAQ](./connector-faq.md) and [Connector Isolated Dependency Loading](./connector-isolated-dependency.md) |
@@ -33,5 +34,6 @@ This page is the shortest path for choosing the right SeaTunnel connector entry 
 ## Useful Next Pages
 
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md)
+- [Scenario Recipes](../getting-started/recipes/overview.md)
 - [Transforms Overview](../transforms)
 - [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md)

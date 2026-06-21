@@ -15,15 +15,15 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 - 多表同步或全库迁移
 - 结构化、非结构化和二进制数据的多模态集成
 
-如果你是第一次评估 SeaTunnel，建议优先从内置的 **SeaTunnel Engine (Zeta)** 开始。它的部署路径最短，也是新项目的默认推荐执行引擎。
+如果你是第一次评估 SeaTunnel，建议优先从内置的 **SeaTunnel 引擎（Zeta）** 开始。它的部署路径最短，也是新项目的默认推荐执行引擎。
 
 ## 如何选择执行引擎
 
 | 引擎 | 适用场景 | 推荐入口 |
 | --- | --- | --- |
-| SeaTunnel Engine (Zeta) | 新项目、CDC、低资源环境、本地快速验证 | [SeaTunnel 引擎快速开始](./locally/quick-start-seatunnel-engine.md) |
-| Flink | 已有 Flink 集群和运维体系 | [Flink 快速开始](./locally/quick-start-flink.md) |
-| Spark | 已有 Spark 集群和运维体系 | [Spark 快速开始](./locally/quick-start-spark.md) |
+| SeaTunnel 引擎（Zeta） | 新项目、CDC、低资源环境、本地快速验证 | [SeaTunnel 引擎快速开始](./locally/quick-start-seatunnel-engine.md) |
+| Flink 引擎 | 已有 Flink 集群和运维体系 | [Flink 快速开始](./locally/quick-start-flink.md) |
+| Spark 引擎 | 已有 Spark 集群和运维体系 | [Spark 快速开始](./locally/quick-start-spark.md) |
 
 如需更完整的引擎比较，请查看 [执行引擎概览](../engines/overview.md)。
 
@@ -34,7 +34,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 1. 阅读 [安装部署](./locally/deployment.md)，完成二进制包安装。
 2. 安装示例任务所需的插件。
 3. 使用 `FakeSource -> FieldMapper -> Console` 跑通本地 SeaTunnel Engine 快速开始。
-4. 示例成功后，再替换成真实的 Source 和 Sink。
+4. 示例成功后，再替换成真实连接器，开始编写真正的同步链路。
 
 ## 推荐阅读路径
 
@@ -47,9 +47,10 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 ### 路径 B：我已经知道要接什么数据源
 
 - [作业配置指南](./job-configuration-guide.md)
-- [数据来源连接器](../connectors/source/overview.md)
-- [数据写入连接器](../connectors/sink/overview.md)
-- [数据转换目录](../transforms)
+- [数据来源连接器总览](../connectors/source/overview.md)
+- [数据写入连接器总览](../connectors/sink/overview.md)
+- [数据转换总览](../transforms)
+- [场景示例](./recipes/overview.md)
 
 ### 路径 C：我想先理解整体架构
 
@@ -77,5 +78,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 推荐继续阅读：
 
 - [作业配置指南](./job-configuration-guide.md)
-- [SeaTunnel Engine(Zeta) 安装部署](../engines/zeta/deployment.md)
+- [场景示例](./recipes/overview.md)
+- [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
 - [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

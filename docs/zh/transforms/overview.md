@@ -10,11 +10,11 @@ Transform 位于 source 和 sink 之间，用来做字段映射、过滤、SQL �
 
 | 目标 | 推荐入口 |
 | --- | --- |
-| 先理解 transform 如何连接数据集 | [Transform 通用参数](./common-options/common-options.md) |
-| 做行过滤或字段裁剪 | [Filter](./filter.md) 和 [Field Mapper](./field-mapper.md) |
-| 用 SQL 表达式处理数据 | [SQL](./sql.md) 和 [SQL Functions](./sql-functions.md) |
-| 重命名或重组字段 | [Field Rename](./field-rename.md) 和 [Split](./split.md) |
-| 处理多表链路 | [Transform Multi Table](./transform-multi-table.md) 和 [Table Merge](./table-merge.md) |
+| 先理解 transform 如何连接数据集 | [转换通用参数](./common-options/common-options.md) |
+| 做行过滤或字段裁剪 | [数据过滤（Filter）](./filter.md) 和 [字段映射（Field Mapper）](./field-mapper.md) |
+| 用 SQL 表达式处理数据 | [SQL 转换](./sql.md) 和 [SQL 函数](./sql-functions.md) |
+| 重命名或重组字段 | [字段重命名（Field Rename）](./field-rename.md) 和 [字段拆分（Split）](./split.md) |
+| 处理多表链路 | [多表转换（Transform Multi Table）](./transform-multi-table.md) 和 [表合并（Table Merge）](./table-merge.md) |
 
 ## 新用户推荐顺序
 

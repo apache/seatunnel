@@ -58,24 +58,6 @@ const sidebars = {
                 },
                 {
                     "type": "category",
-                    "label": "Recipes",
-                    "link": {
-                        "type": "doc",
-                        "id": "getting-started/recipes/overview"
-                    },
-                    "items": [
-                        "getting-started/recipes/mysql-cdc-to-doris",
-                        "getting-started/recipes/jdbc-to-s3",
-                        "getting-started/recipes/kafka-to-iceberg",
-                        "getting-started/recipes/http-to-jdbc",
-                        "getting-started/recipes/file-to-starrocks",
-                        "getting-started/recipes/multi-table-cdc"
-                    ]
-                },
-                "getting-started/job-configuration-guide",
-                "getting-started/submit-job-to-remote-zeta-cluster",
-                {
-                    "type": "category",
                     "label": "Docker",
                     "items": [
                         "getting-started/docker/docker"
@@ -96,6 +78,7 @@ const sidebars = {
             "label": "Configuration",
             "items": [
                 "introduction/concepts/config",
+                "getting-started/job-configuration-guide",
                 "introduction/configuration/JobEnvConfig",
                 "introduction/configuration/sql-config",
                 "introduction/configuration/config-encryption-decryption",
@@ -113,9 +96,6 @@ const sidebars = {
                 "id": "connectors/overview"
             },
             "items": [
-                "connectors/connector-isolated-dependency",
-                "connectors/connector-faq",
-                "connectors/cdc-production-cookbook",
                 {
                     "type": "category",
                     "label": "Source",
@@ -144,6 +124,7 @@ const sidebars = {
                         }
                     ]
                 },
+                "getting-started/recipes/overview",
                 {
                     "type": "category",
                     "label": "Common Options",
@@ -166,6 +147,9 @@ const sidebars = {
                         }
                     ]
                 },
+                "connectors/cdc-production-cookbook",
+                "connectors/connector-faq",
+                "connectors/connector-isolated-dependency",
                 {
                     "type": "category",
                     "label": "Changelog",
@@ -247,12 +231,13 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
+                        "engines/zeta/rest-api-and-web-ui",
+                        "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
-                        "engines/zeta/rest-api-and-web-ui",
                         {
                             "type": "category",
                             "label": "REST API",
