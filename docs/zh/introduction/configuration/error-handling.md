@@ -104,6 +104,8 @@ env {
 
 在 Zeta 中，`ROUTE` 模式会在 checkpoint ack 前等待待写入的错误记录写入完成，并 flush 已配置的错误 Sink writer。若错误 Sink 写入或关闭失败，任务会失败，而不是仅记录日志后表现为正常关闭。
 
+当前实验性实现仅支持不需要 writer state、committer、aggregated committer 或 commit-info serializer 的错误 Sink。若配置的错误 Sink 启用了这类生命周期能力，作业会在初始化阶段快速失败，而不是在 checkpoint/commit 语义不完整的情况下继续运行。例如，JDBC 错误 Sink 在 `ROUTE` 模式下不应开启 exactly-once/XA 相关选项。
+
 该能力仍属于实验性功能。错误记录的最终投递语义取决于所配置错误 Sink Connector 自身的事务和提交行为，因此不应将其视为通用的 exactly-once DLQ 保证。
 
 ### Transform 阶段发生行级错误时会怎样

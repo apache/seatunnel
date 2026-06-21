@@ -104,6 +104,8 @@ Only Connectors/Transforms that implement `SupportRowLevelErrorClassifier` can t
 
 In Zeta, `ROUTE` mode drains pending error rows and flushes the configured error sink writer before checkpoint acknowledgement. If writing or closing the error sink fails, the task fails instead of silently reporting a clean shutdown.
 
+The current experimental implementation supports only error sinks that do not require writer state, committer, aggregated committer, or commit-info serializers. If the configured error sink enables such lifecycle capabilities, the job fails fast during initialization instead of running with incomplete checkpoint/commit semantics. For example, a JDBC error sink should not enable exactly-once/XA options in `ROUTE` mode.
+
 This is still an experimental capability. The final delivery semantics of routed error records depend on the configured error sink connector and its own transaction/commit behavior, so this should not be treated as a general exactly-once DLQ guarantee.
 
 ### What Happens When Row-Level Error Occurs in Transform Stage (Important)

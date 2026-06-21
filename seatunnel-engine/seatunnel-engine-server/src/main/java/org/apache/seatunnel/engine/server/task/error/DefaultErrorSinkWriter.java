@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -52,6 +53,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -310,6 +312,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             }
 
             this.errorSink = sink;
+            validateSupportedErrorSinkLifecycle(sinkConfig.getPluginName(), sink);
             SinkWriter.Context writerContext =
                     new SimpleWriterContext(new NoopMetricsContext(), event -> {}, subtaskIndex);
             @SuppressWarnings("unchecked")
@@ -356,6 +359,41 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                             .WRITER_OPERATION_FAILED,
                     "Failed to initialize error sink writer",
                     e);
+        }
+    }
+
+    static void validateSupportedErrorSinkLifecycle(
+            String pluginName, SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink) throws Exception {
+        List<String> unsupportedFeatures = new ArrayList<>();
+        if (sink.getWriterStateSerializer().isPresent()) {
+            unsupportedFeatures.add("writer state serializer");
+        }
+        if (sink.getCommitInfoSerializer().isPresent()) {
+            unsupportedFeatures.add("commit info serializer");
+        }
+        if (sink.getAggregatedCommitInfoSerializer().isPresent()) {
+            unsupportedFeatures.add("aggregated commit info serializer");
+        }
+        if (sink.createCommitter().isPresent()) {
+            unsupportedFeatures.add("committer");
+        }
+
+        Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitter =
+                sink.createAggregatedCommitter();
+        if (aggregatedCommitter.isPresent()) {
+            unsupportedFeatures.add("aggregated committer");
+            aggregatedCommitter.get().close();
+        }
+
+        if (!unsupportedFeatures.isEmpty()) {
+            throw new SeaTunnelRuntimeException(
+                    org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated
+                            .WRITER_OPERATION_FAILED,
+                    String.format(
+                            "ROUTE error sink currently supports only sinks that do not require "
+                                    + "writer state or committer lifecycle. pluginName=%s, unsupported=%s. "
+                                    + "Disable transactional/exactly-once options for the error sink or use a simple error sink.",
+                            pluginName, unsupportedFeatures));
         }
     }
 
