@@ -8,7 +8,7 @@ sidebar_position: 1
 
 ## SeaTunnel 能帮你做什么
 
-SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型处理异构系统之间的数据流转。常见场景包括：
+SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处理异构系统之间的数据流转。常见场景包括：
 
 - 数据库、文件、数据仓库之间的批量同步
 - CDC 与实时同步
@@ -47,9 +47,9 @@ SeaTunnel 是一个分布式数据集成平台，用统一的 Connector 模型�
 ### 路径 B：我已经知道要接什么数据源
 
 - [作业配置指南](./job-configuration-guide.md)
-- [Source 连接器列表](../connectors/source)
-- [Sink 连接器列表](../connectors/sink)
-- [Transform 列表](../transforms)
+- [数据来源连接器](../connectors/source/overview.md)
+- [数据写入连接器](../connectors/sink/overview.md)
+- [数据转换目录](../transforms)
 
 ### 路径 C：我想先理解整体架构
 
