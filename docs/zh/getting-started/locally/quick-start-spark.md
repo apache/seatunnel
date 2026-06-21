@@ -4,6 +4,12 @@ sidebar_position: 4
 
 # Spark 引擎快速开始
 
+:::tip 提示
+
+这篇更适合已经在使用 Spark 的团队。如果您只是第一次接触 SeaTunnel，建议先从 [SeaTunnel 引擎快速开始](quick-start-seatunnel-engine.md) 入手。
+
+:::
+
 ## 步骤 1: 部署SeaTunnel及连接器
 
 在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
@@ -58,7 +64,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置文件简介](../../introduction/concepts/config.md)
 
 ## 步骤 4: 运行SeaTunnel应用程序
 
@@ -111,7 +117,6 @@ row=16 : SGZCr, 94186144
 
 ## 此外
 
-- 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
-- 如果您想要了解更多关于SeaTunnel运行在Spark上的信息，请参阅[基于Spark的SeaTunnel](../../other-engine/spark.md)。
-- SeaTunnel有内置的`Zeta`引擎，它是作为SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
-
+- 现在就可以开始编写自己的配置文件，选择您要使用的[连接器](../../connectors/source)，并按照连接器文档完成参数配置。
+- 如果您想了解更多 SeaTunnel 运行在 Spark 上的说明，请参阅[基于 Spark 的 SeaTunnel](../../engines/spark.md)。
+- SeaTunnel 内置了 `Zeta` 引擎，它也是默认引擎。您可以参考[SeaTunnel 引擎快速开始](quick-start-seatunnel-engine.md)来配置和运行同步作业。

@@ -4,6 +4,12 @@ sidebar_position: 4
 
 # Quick Start With Spark
 
+:::tip
+
+Choose this guide when you already run Spark in your environment. If you are only getting started with SeaTunnel, use [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md) first.
+
+:::
+
 ## Step 1: Deployment SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
@@ -58,7 +64,7 @@ sink {
 
 ```
 
-More information about config please check [Config Concept](../../concept/config.md)
+More information about config please check [Intro To Config File](../../introduction/concepts/config.md)
 
 ## Step 4: Run SeaTunnel Application
 
@@ -112,7 +118,6 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel With Spark](../../other-engine/spark.md) if you want to know more about SeaTunnel With Spark.
-- SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
-
+- Start writing your own config file now, choose the [connector](../../connectors/source) you want to use, and configure it according to the connector documentation.
+- See [SeaTunnel With Spark](../../engines/spark.md) if you want to know more about the Spark engine path.
+- SeaTunnel has a builtin engine named `Zeta`, and it is the default engine of SeaTunnel. You can follow [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

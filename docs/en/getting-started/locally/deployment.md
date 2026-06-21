@@ -83,6 +83,13 @@ When built from the source code, all the connector plugins and some necessary de
 
 Now you have downloaded the SeaTunnel binary package and the connector plugins. Next, you can choose different engine option to run synchronization tasks.
 
+:::tip
+
+If you are new to SeaTunnel, start with [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md).
+It is the default engine and usually the shortest path to a successful first run.
+
+:::
+
 If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start With Flink](quick-start-flink.md) to run your synchronization task.
 
 If you use Spark to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start With Spark](quick-start-spark.md) to run your synchronization task.

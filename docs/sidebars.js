@@ -30,64 +30,8 @@ const sidebars = {
                     "type": "category",
                     "label": "Concepts",
                     "items": [
-                        "introduction/concepts/config",
                         "introduction/concepts/connector-v2-features",
                         "introduction/concepts/schema-feature"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Configuration",
-                    "items": [
-                        "introduction/configuration/JobEnvConfig",
-                        "introduction/configuration/sql-config",
-                        "introduction/configuration/config-encryption-decryption",
-                        "introduction/configuration/metalake",
-                        "introduction/configuration/sink-options-placeholders",
-                        "introduction/configuration/schema-evolution",
-                        "introduction/configuration/speed-limit"
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "category",
-            "label": "Architecture",
-            "items": [
-                "architecture/overview",
-                "architecture/design-philosophy",
-                {
-                    "type": "category",
-                    "label": "API Design",
-                    "items": [
-                        "architecture/api-design/source-architecture",
-                        "architecture/api-design/sink-architecture",
-                        "architecture/api-design/catalog-table",
-                        "architecture/api-design/translation-layer"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Engine",
-                    "items": [
-                        "architecture/engine/engine-architecture",
-                        "architecture/engine/dag-execution",
-                        "architecture/engine/resource-management"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Fault Tolerance",
-                    "items": [
-                        "architecture/fault-tolerance/checkpoint-mechanism",
-                        "architecture/fault-tolerance/exactly-once"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Features",
-                    "items": [
-                        "architecture/features/multi-table"
                     ]
                 }
             ]
@@ -121,6 +65,20 @@ const sidebars = {
                         "getting-started/kubernetes/helm"
                     ]
                 }
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Configuration",
+            "items": [
+                "introduction/concepts/config",
+                "introduction/configuration/JobEnvConfig",
+                "introduction/configuration/sql-config",
+                "introduction/configuration/sink-options-placeholders",
+                "introduction/configuration/schema-evolution",
+                "introduction/configuration/speed-limit",
+                "introduction/configuration/config-encryption-decryption",
+                "introduction/configuration/metalake"
             ]
         },
         {
@@ -307,6 +265,48 @@ const sidebars = {
                 },
                 "engines/flink",
                 "engines/spark"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Architecture",
+            "items": [
+                "architecture/overview",
+                "architecture/design-philosophy",
+                {
+                    "type": "category",
+                    "label": "API Design",
+                    "items": [
+                        "architecture/api-design/source-architecture",
+                        "architecture/api-design/sink-architecture",
+                        "architecture/api-design/catalog-table",
+                        "architecture/api-design/translation-layer"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Engine",
+                    "items": [
+                        "architecture/engine/engine-architecture",
+                        "architecture/engine/dag-execution",
+                        "architecture/engine/resource-management"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Fault Tolerance",
+                    "items": [
+                        "architecture/fault-tolerance/checkpoint-mechanism",
+                        "architecture/fault-tolerance/exactly-once"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Features",
+                    "items": [
+                        "architecture/features/multi-table"
+                    ]
+                }
             ]
         },
         {

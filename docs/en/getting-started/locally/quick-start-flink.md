@@ -4,6 +4,12 @@ sidebar_position: 3
 
 # Quick Start With Flink
 
+:::tip
+
+Choose this guide when you already have Flink in your environment. If you are only evaluating SeaTunnel, start with [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md) first.
+
+:::
+
 ## Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
@@ -57,7 +63,7 @@ sink {
 
 ```
 
-More information about config please check [Config Concept](../../concept/config.md)
+More information about config please check [Intro To Config File](../../introduction/concepts/config.md)
 
 ## Step 4: Run SeaTunnel Application
 
@@ -105,7 +111,6 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel With Flink](../../other-engine/flink.md) if you want to know more about SeaTunnel With Flink.
-- SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
-
+- Start writing your own config file now, choose the [connector](../../connectors/source) you want to use, and configure it according to the connector documentation.
+- See [SeaTunnel With Flink](../../engines/flink.md) if you want to know more about the Flink engine path.
+- SeaTunnel has a builtin engine named `Zeta`, and it is the default engine of SeaTunnel. You can follow [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.

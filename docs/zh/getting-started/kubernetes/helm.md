@@ -76,5 +76,6 @@ curl http://127.0.0.1:5801/system-monitoring-information
 后面就可以使用[rest-api-v2](../../engines/zeta/rest-api-v2.md)提交任务了。
 
 ## 下一步
-到现在为止，您已经安装好Seatunnel集群了，你可以查看Seatunnel有哪些[连接器](../../connector-v2).
-或者选择其他方式 [部署](../../engines/zeta/deployment.md).
+
+到现在为止，您已经安装好 SeaTunnel 集群了。接下来可以先查看 SeaTunnel 支持哪些[连接器](../../connectors/source)。
+如果您想了解其他部署方式，也可以继续阅读[部署](../../engines/zeta/deployment.md)。

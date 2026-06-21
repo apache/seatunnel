@@ -4,6 +4,12 @@ sidebar_position: 2
 
 # SeaTunnel 引擎快速开始
 
+:::tip 提示
+
+如果您是第一次接触 SeaTunnel，推荐先从这篇开始，因为 SeaTunnel Engine (Zeta) 是默认引擎，外部依赖也最少。
+
+:::
+
 ## 步骤 1: 部署SeaTunnel及连接器
 
 在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
@@ -51,7 +57,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置文件简介](../../introduction/concepts/config.md)
 
 ## 步骤 3: 运行SeaTunnel应用程序
 
@@ -155,7 +161,7 @@ sink {
 }
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置文件简介](../../introduction/concepts/config.md)
 
 ### 步骤 4: 运行SeaTunnel应用程序
 
@@ -193,6 +199,5 @@ Total Failed Count        :                   0
 
 ## 此外
 
-- 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
-- 如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../engines/zeta/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。
-
+- 现在就可以开始编写自己的配置文件，选择您要使用的[连接器](../../connectors/source)，并按照连接器文档完成参数配置。
+- 如果您想进一步了解部署方式、集群模式和引擎能力，请继续阅读[SeaTunnel 引擎](../../engines/zeta/about.md)。

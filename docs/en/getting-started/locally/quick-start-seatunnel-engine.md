@@ -4,6 +4,12 @@ sidebar_position: 2
 
 # Quick Start With SeaTunnel Engine
 
+:::tip
+
+This is the recommended first quick start for new users because SeaTunnel Engine (Zeta) is the default engine and needs the least external setup.
+
+:::
+
 ## Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
@@ -51,7 +57,7 @@ sink {
 
 ```
 
-More information can be found in [Config Concept](../../concept/config.md)
+More information can be found in [Intro To Config File](../../introduction/concepts/config.md)
 
 ## Step 3: Run SeaTunnel Application
 
@@ -157,7 +163,7 @@ sink {
 }
 ```
 
-For more information about the configuration, please refer to [Basic Concepts of Configuration](../../concept/config.md).
+For more information about the configuration, please refer to [Intro To Config File](../../introduction/concepts/config.md).
 
 ### Step 4: Run the SeaTunnel Application
 
@@ -188,13 +194,12 @@ Total Failed Count        :                   0
 
 :::tip
 
-If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../connector-v2/source/Mysql.md) and [Sink-Doris](../../connector-v2/sink/Doris.md).
+If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../connectors/source/Mysql.md) and [Sink-Doris](../../connectors/sink/Doris.md).
 
 :::
 
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
-
+- Start writing your own config file now, choose the [connector](../../connectors/source) you want to use, and configure it according to the connector documentation.
+- See [SeaTunnel Engine (Zeta)](../../engines/zeta/about.md) if you want to learn more about cluster mode, deployment, and engine-specific capabilities.
