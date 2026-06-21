@@ -181,7 +181,7 @@ schema {
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
-当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式。
+当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式，且不支持分页（`pageing`）。
 
 示例：通过 HTTP 下载文件并写入 LocalFileSink：
 
@@ -253,6 +253,110 @@ body="{"id":1,"name":"seatunnel"}"
 headers {
     Content-Type = "application/x-www-form-urlencoded"
 }
+```
+
+### 分页与最终请求形态排查
+
+下面几条规则最容易混淆，建议先按“最终发出的 HTTP 请求长什么样”来理解：
+
+1. `GET` 请求：`params` 一定会被拼到 URL 查询串里。
+2. `POST` 且 `keep_params_as_form = false`：
+   - `params` 仍然会拼到 URL 查询串里
+   - 在默认的非 form 分支上，`body` 会作为 JSON body 发送
+   - 如果没有配置 `body`，并且请求仍然走这个默认非 form 分支，运行时会发送一个空 JSON 对象 `{}` 作为请求体
+   - 如果你显式把 `Content-Type` 设为 `application/x-www-form-urlencoded`，运行时会改走 form-body 分支，而不是默认 JSON 分支
+3. `POST` 且 `keep_params_as_form = true`：
+   - `params` 会并入表单 body
+   - 如果未显式设置 `Content-Type`，SeaTunnel 会自动补 `application/x-www-form-urlencoded`
+   - 如果 `body` 与 `params` 出现同名键，`params` 的值会覆盖 `body` 中同名键
+4. `keep_page_param_as_http_param = true`：分页字段会直接写入 `params`
+5. `keep_page_param_as_http_param = false`：SeaTunnel 只会更新 headers、params、body 里已经存在的同名键或占位符，不会凭空新增分页字段
+6. `pageing.use_placeholder_replacement = true`：支持 `${page}`、`${cursor}` 占位符，也支持 `"10${page}" -> "105"` 这种带前后缀的替换；为 `false` 时只做按 key 的整值替换
+
+示例 1：GET 分页，页码写入查询参数
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders"
+    method = "GET"
+    params = {
+      page = "${page}"
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+GET https://api.example.com/orders?page=3&size=100
+```
+
+示例 2：POST JSON（默认非 form 分支），请求参数进 URL，分页字段留在 body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = false
+    params = {
+      tenant = "acme"
+    }
+    body = """{"page":"${page}","pageSize":100}"""
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+POST https://api.example.com/orders/search?tenant=acme
+Content-Type: application/json
+Body: {"page":"3","pageSize":100}
+```
+
+示例 3：POST 表单，请求参数和分页字段都写入表单 body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = true
+    keep_page_param_as_http_param = true
+    params = {
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+POST https://api.example.com/orders/search
+Content-Type: application/x-www-form-urlencoded
+Body: size=100&page=3
 ```
 
 ### content_field

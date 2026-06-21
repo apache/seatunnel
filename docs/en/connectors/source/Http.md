@@ -192,7 +192,7 @@ connector will generate data as the following:
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
-when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode.
+when you assign format is `binary`, the HTTP response body is treated as raw bytes for downloading files (PDF, images, ZIP, etc.). The output schema is fixed as `(data: bytes, relativePath: string, partIndex: long)`. Large files are automatically split into multiple rows based on `binary_chunk_size`. Only supports BATCH mode and does not support pagination (`pageing`).
 
 Example: Download a file via HTTP and write to LocalFileSink:
 
@@ -264,6 +264,110 @@ For form submissions,please set the content-type as follows.
 headers {
     Content-Type = "application/x-www-form-urlencoded"
 }
+```
+
+### Pagination and final request shape
+
+The easiest way to troubleshoot the Http source is to reason from the final outbound request:
+
+1. For `GET`, `params` are always appended to the URL query string.
+2. For `POST` with `keep_params_as_form = false`:
+   - `params` still go to the URL query string
+   - on the default non-form path, `body` is serialized as the JSON request body
+   - if `body` is not configured and the request stays on that default non-form path, the runtime sends an empty JSON object `{}` as the request body
+   - if you explicitly force `Content-Type: application/x-www-form-urlencoded`, the runtime follows the form-body branch instead of the default JSON branch
+3. For `POST` with `keep_params_as_form = true`:
+   - `params` are merged into the form body
+   - if `Content-Type` is not set explicitly, SeaTunnel adds `application/x-www-form-urlencoded`
+   - if `body` and `params` contain the same key, the value from `params` overrides the value in `body`
+4. `keep_page_param_as_http_param = true` writes the paging field directly into `params`
+5. `keep_page_param_as_http_param = false` only updates existing keys or placeholders in headers, params, and body; it does not invent new paging fields automatically
+6. `pageing.use_placeholder_replacement = true` supports `${page}` and `${cursor}` placeholders, and also prefixed/suffixed replacements such as `"10${page}" -> "105"`; when `false`, only key-based replacement is applied
+
+Example 1: GET pagination with the page number in query parameters
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders"
+    method = "GET"
+    params = {
+      page = "${page}"
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+GET https://api.example.com/orders?page=3&size=100
+```
+
+Example 2: POST JSON on the default non-form path, with URL query parameters and the paging field inside the body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = false
+    params = {
+      tenant = "acme"
+    }
+    body = """{"page":"${page}","pageSize":100}"""
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+POST https://api.example.com/orders/search?tenant=acme
+Content-Type: application/json
+Body: {"page":"3","pageSize":100}
+```
+
+Example 3: POST form submission with paging fields merged into the form body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = true
+    keep_page_param_as_http_param = true
+    params = {
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+    }
+  }
+}
+```
+
+When the page advances to `3`, the final request is:
+
+```text
+POST https://api.example.com/orders/search
+Content-Type: application/x-www-form-urlencoded
+Body: size=100&page=3
 ```
 
 ### content_field

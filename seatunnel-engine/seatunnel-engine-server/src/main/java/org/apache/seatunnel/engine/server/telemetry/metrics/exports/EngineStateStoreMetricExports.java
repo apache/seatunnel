@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
@@ -39,11 +40,11 @@ public class EngineStateStoreMetricExports extends AbstractCollector {
                     Constant.IMAP_RUNNING_JOB_STATE,
                     Constant.IMAP_STATE_TIMESTAMPS,
                     Constant.IMAP_OWNED_SLOT_PROFILES,
-                    Constant.IMAP_RUNNING_JOB_METRICS,
+                    EngineStateStoreNames.RUNNING_JOB_METRICS,
                     Constant.IMAP_FINISHED_JOB_STATE,
                     Constant.IMAP_FINISHED_JOB_METRICS,
                     Constant.IMAP_FINISHED_JOB_VERTEX_INFO,
-                    Constant.IMAP_CHECKPOINT_MONITOR,
+                    EngineStateStoreNames.CHECKPOINT_MONITOR,
                     Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS,
                     Constant.IMAP_CHECKPOINT_ID,
                     Constant.IMAP_PENDING_PIPELINE_CLEANUP);

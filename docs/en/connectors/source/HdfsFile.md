@@ -95,6 +95,8 @@ Read data from hdfs file system.
 | file_split_size            | long    | no       | 134217728                   | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | quote_char                 | string  | no       | "                           | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                        |
 | escape_char                | string  | no       | -                           | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                   |
+| metalake_type              | string  | no       | gravitino                  | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                |
+| recursive_file_scan        | boolean | no       | true                        | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                       |
 | sort_files_by_modification_time | boolean | no   | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_format_type [string]
@@ -320,6 +322,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
 
 ### sort_files_by_modification_time [boolean]
 

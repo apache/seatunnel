@@ -569,7 +569,9 @@ Not all databases support XA transactions. Verify that your database and JDBC dr
 
 ### How do I configure upsert (INSERT or UPDATE) behavior?
 
-Specify `primary_keys` to enable upsert behavior. SeaTunnel generates an INSERT ... ON DUPLICATE KEY UPDATE (or equivalent) statement based on the target database dialect:
+SeaTunnel only enters the upsert / update path after it has a final key set. That key can come from explicit `primary_keys`, or, when `primary_keys` is omitted, from upstream catalog metadata. If no primary key is available, SeaTunnel also tries to inherit the first unique key.
+
+When a final key set exists and `enable_upsert = true`, SeaTunnel prefers the database-native upsert statement provided by the target dialect. For example, PostgreSQL generates `INSERT ... ON CONFLICT (...) DO UPDATE` (or `DO NOTHING` when every column is part of the key and there is nothing left to update):
 
 ```hocon
 sink {
@@ -582,7 +584,29 @@ sink {
 }
 ```
 
-Without `primary_keys`, JDBC Sink performs plain INSERTs and does not handle duplicate key conflicts.
+When a final key set exists but `enable_upsert = false`, SeaTunnel stops using native database upsert SQL and falls back to the row-kind-driven insert/update path:
+
+- `INSERT` rows are written as plain INSERTs
+- CDC `UPDATE_AFTER` rows are written as UPDATEs
+- CDC `DELETE` rows are written as DELETEs
+
+As a result, `enable_upsert = false` is not appropriate for ordinary batch imports that rely on duplicate-key overwrite behavior.
+
+### What happens if I do not configure `primary_keys`?
+
+If `primary_keys` is not configured, SeaTunnel first tries to inherit the primary key from upstream catalog metadata. If there is no primary key, it then tries the first unique key.
+
+JDBC Sink falls back to plain INSERT only when there is no explicit key and nothing usable can be inherited from upstream metadata. In that keyless mode, no database-native upsert SQL is generated, and the sink no longer uses row-kind-aware UPDATE / DELETE executors. For CDC inputs, the write path therefore effectively degrades to plain INSERT batching, and duplicate-key behavior depends entirely on the target table constraints.
+
+### When should I enable `use_copy_statement`?
+
+`use_copy_statement = true` makes JDBC Sink prefer the `COPY <table> (...) FROM STDIN WITH CSV` path instead of regular INSERT / UPSERT SQL. This happens before the normal primary-key-based write path, so COPY is still chosen even if `primary_keys` is configured.
+
+This option is mainly for high-volume PostgreSQL imports, and it has three important constraints:
+
+- the JDBC driver connection must expose `getCopyAPI()`, otherwise the job fails and tells you to switch `use_copy_statement` back to `false`
+- it is not a replacement for `ON CONFLICT`, so it does not provide duplicate-key overwrite semantics
+- `MAP`, `ARRAY`, and `ROW` types are not supported
 
 ### How do I write to multiple tables in a single job?
 

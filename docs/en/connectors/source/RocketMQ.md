@@ -108,7 +108,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -160,7 +160,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 sink {
   Console {
@@ -215,7 +215,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -274,7 +274,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {

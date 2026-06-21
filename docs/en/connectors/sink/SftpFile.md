@@ -46,7 +46,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | host                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
 | port                                  | int     | yes      | -                                          |                                                                                                                                                                                 |
 | user                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
-| password                              | string  | yes      | -                                          |                                                                                                                                                                                 |
+| password                              | string  | no       | -                                          | Required when `keyfile` is not set.                                                                                                                                             |
+| keyfile                               | string  | no       | -                                          | Private key file path used for SFTP public key authentication.                                                                                                                   |
 | path                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                               |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                            |
@@ -97,7 +98,11 @@ The target sftp user is required
 
 ### password [string]
 
-The target sftp password is required
+The target sftp password. Required when `keyfile` is not set.
+
+### keyfile [string]
+
+The private key file path used for SFTP public key authentication.
 
 ### path [string]
 

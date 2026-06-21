@@ -68,8 +68,10 @@ TOOLS = [
         "toolSpec": {
             "name": "get_connector_info",
             "description": "Get detailed info about a specific connector including parameters and examples. "
-                           "IMPORTANT: Always specify connector_type ('source' or 'sink') to get the correct "
-                           "type-specific options. Source and sink connectors have different required/optional parameters.",
+                           "IMPORTANT: Always specify connector_type "
+                           "('source', 'sink', or 'transform') to get the correct "
+                           "type-specific options. Source, sink, and transform plugins can "
+                           "have different required/optional parameters.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -80,9 +82,10 @@ TOOLS = [
                         },
                         "connector_type": {
                             "type": "string",
-                            "enum": ["source", "sink"],
-                            "description": "Whether this connector is used as 'source' or 'sink'. "
-                                           "Source and sink have different options — always specify this.",
+                            "enum": ["source", "sink", "transform"],
+                            "description": "Whether this plugin is used as 'source', 'sink', "
+                                           "or 'transform'. These plugin types have different "
+                                           "options — always specify this.",
                         },
                     },
                     "required": ["connector_name"],
