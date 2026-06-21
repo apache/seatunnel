@@ -82,24 +82,6 @@ public class SourceRecordUtilsTest {
                 value);
     }
 
-    @Test
-    public void testPostgresSchemaChangeEventKey() {
-        Schema keySchema =
-                SchemaBuilder.struct()
-                        .name("io.debezium.connector.postgresql.SchemaChangeKey")
-                        .build();
-        SourceRecord record =
-                new SourceRecord(
-                        Collections.emptyMap(),
-                        Collections.emptyMap(),
-                        "test-topic",
-                        keySchema,
-                        null,
-                        null,
-                        null);
-        Assertions.assertTrue(SourceRecordUtils.isSchemaChangeEvent(record));
-    }
-
     // -----------------------------------------------------------------------
     // getBinlogFile
     // -----------------------------------------------------------------------

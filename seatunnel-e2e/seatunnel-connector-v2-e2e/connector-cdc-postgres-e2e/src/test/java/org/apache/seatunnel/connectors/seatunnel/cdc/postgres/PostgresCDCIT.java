@@ -119,9 +119,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE_3 = "sink_postgres_cdc_table_3";
     private static final String SINK_TABLE_4 = "sink_postgres_cdc_table_4";
     private static final String SINK_TABLE_5 = "sink_postgres_cdc_table_5";
-    private static final String SCHEMA_EVOLUTION_SOURCE_TABLE = "postgres_cdc_schema_evolution";
-    private static final String SCHEMA_EVOLUTION_SINK_TABLE = "sink_postgres_cdc_schema_evolution";
-
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM =
@@ -744,65 +741,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @Disabled("Debezium PostgreSQL 1.9 cannot emit DDL schema change events to consumers.")
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
-                    "Currently only the zeta engine supports schema evolution for PostgreSQL CDC.")
-    public void testPostgresCdcWithSchemaEvolution(TestContainer container) {
-        Long jobId = JobIdGenerator.newJobId();
-        try {
-            resetSchemaEvolutionTables();
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            container.executeJob(
-                                    "/postgrescdc_to_postgres_with_schema_change.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                    });
-
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-
-            updateRowBeforeSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-
-            addFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            insertRowAfterAddField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-
-            dropFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            insertRowAfterDropField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-
-            renameFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            insertRowAfterRenameField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-
-            modifyFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            insertRowAfterModifyField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
-        } finally {
-            try {
-                container.cancelJob(String.valueOf(jobId));
-            } catch (Exception e) {
-                log.warn("Failed to cancel schema evolution job {}", jobId, e);
-            }
-            clearSchemaEvolutionTables();
-        }
-    }
-
-    @TestTemplate
     public void testPostgresCdcCheckDataWithNoPrimaryKey(TestContainer container) throws Exception {
 
         try {
@@ -1060,93 +998,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
     }
 
-    private void addFieldForSchemaEvolution(String database, String tableName) {
-        executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
-    }
-
-    private void resetSchemaEvolutionTables() {
-        clearSchemaEvolutionTables();
-        executeSql(
-                "CREATE TABLE inventory."
-                        + SCHEMA_EVOLUTION_SOURCE_TABLE
-                        + " (id INTEGER NOT NULL, f_bytea BYTEA, f_small SMALLINT, f_int INTEGER, PRIMARY KEY (id))");
-        executeSql(
-                "ALTER TABLE inventory."
-                        + SCHEMA_EVOLUTION_SOURCE_TABLE
-                        + " REPLICA IDENTITY FULL");
-        executeSql(
-                "CREATE TABLE inventory."
-                        + SCHEMA_EVOLUTION_SINK_TABLE
-                        + " (id INTEGER NOT NULL, f_bytea BYTEA, f_small SMALLINT, f_int INTEGER, PRIMARY KEY (id))");
-        executeSql(
-                "INSERT INTO inventory."
-                        + SCHEMA_EVOLUTION_SOURCE_TABLE
-                        + " VALUES (1, '2', 32767, 65535)");
-    }
-
-    private void clearSchemaEvolutionTables() {
-        executeSql("DROP TABLE IF EXISTS inventory." + SCHEMA_EVOLUTION_SINK_TABLE);
-        executeSql("DROP TABLE IF EXISTS inventory." + SCHEMA_EVOLUTION_SOURCE_TABLE);
-    }
-
-    private void updateRowBeforeSchemaEvolution(String database, String tableName) {
-        executeSql("UPDATE " + database + "." + tableName + " SET f_int = 65536 WHERE id = 1;");
-    }
-
-    private void dropFieldForSchemaEvolution(String database, String tableName) {
-        executeSql("ALTER TABLE " + database + "." + tableName + " DROP COLUMN f_small");
-    }
-
-    private void renameFieldForSchemaEvolution(String database, String tableName) {
-        executeSql(
-                "ALTER TABLE " + database + "." + tableName + " RENAME COLUMN f_int TO f_integer");
-    }
-
-    private void modifyFieldForSchemaEvolution(String database, String tableName) {
-        executeSql(
-                "ALTER TABLE "
-                        + database
-                        + "."
-                        + tableName
-                        + " ALTER COLUMN f_integer TYPE BIGINT");
-    }
-
-    private void insertRowAfterAddField(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " VALUES (2, '2', 32767, 65535, 2147483647);");
-    }
-
-    private void insertRowAfterDropField(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " (id, f_bytea, f_int, f_big) VALUES (3, '3', 65535, 2147483647);");
-    }
-
-    private void insertRowAfterRenameField(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " (id, f_bytea, f_integer, f_big) VALUES (4, '4', 65536, 2147483648);");
-    }
-
-    private void insertRowAfterModifyField(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " (id, f_bytea, f_integer, f_big) VALUES (5, '5', 2147483648, 2147483649);");
-    }
-
     private void insertSourceTableForAddFields(String database, String tableName) {
         executeSql(
                 "INSERT INTO "
@@ -1183,32 +1034,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
-    }
-
-    private String getSchemaQuerySQL(String database, String tableName) {
-        return "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = '"
-                + database
-                + "' AND table_name = '"
-                + tableName
-                + "' ORDER BY ordinal_position";
-    }
-
-    private void assertTableSchemaAndDataEquals(
-            String database, String sourceTableName, String sinkTableName) {
-        await().ignoreExceptions()
-                .atMost(5, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        query(getQuerySQL(database, sourceTableName)),
-                                        query(getQuerySQL(database, sinkTableName))));
-        await().ignoreExceptions()
-                .atMost(3, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        query(getSchemaQuerySQL(database, sourceTableName)),
-                                        query(getSchemaQuerySQL(database, sinkTableName))));
     }
 
     @Override

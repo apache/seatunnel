@@ -115,8 +115,6 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
-                        .setSchemaChangeResolver(
-                                new PostgresSchemaChangeResolver(createSourceConfigFactory(config)))
                         .build();
     }
 

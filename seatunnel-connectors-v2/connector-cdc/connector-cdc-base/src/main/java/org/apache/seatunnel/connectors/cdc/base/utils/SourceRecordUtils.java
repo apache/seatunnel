@@ -47,14 +47,11 @@ public class SourceRecordUtils {
 
     private SourceRecordUtils() {}
 
-    /** Todo: Support more schema change event key name, currently only support JDBC CDC sources. */
+    /** Todo: Support more schema change event key name, currently only support MySQL and Oracle. */
     public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
             Arrays.asList(
                     "io.debezium.connector.mysql.SchemaChangeKey",
                     "io.debezium.connector.oracle.SchemaChangeKey",
-                    "io.debezium.connector.postgresql.SchemaChangeKey",
-                    "io.debezium.connector.postgres.SchemaChangeKey",
-                    "io.debezium.connector.postgres-cdc.SchemaChangeKey",
                     "io.debezium.connector.sqlserver.SchemaChangeKey");
 
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
