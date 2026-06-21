@@ -309,20 +309,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        querySource(
-                                                String.format(
-                                                        SOURCE_QUERY_COLUMNS,
-                                                        SOURCE_DATABASE,
-                                                        sourceTable)),
-                                        querySink(
-                                                String.format(
-                                                        schemaChangeCase.getSinkQueryColumns(),
-                                                        schemaChangeCase.getSchemaName(),
-                                                        sinkTable))));
+        waitForSinkColumnsCatchUp(sourceTable, sinkTable);
         assertAddColumnsDataSynced(sourceTable, sinkTable);
 
         // case2 drop columns with cdc data at same time
