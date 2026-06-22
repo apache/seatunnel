@@ -145,6 +145,15 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | job_thread_pool_task_total          | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的总任务数   |
 | job_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的拒绝任务总数 |
 
+### ReportMetricsOperation 指标
+
+| MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
+|---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**，worker 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "failure" "interrupted" | worker 发送的 `ReportMetricsOperation` 调用总次数                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | 最近一次 `ReportMetricsOperation` payload 中包含的 task metrics 数量                    |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 侧最近一次 `ReportMetricsOperation` 上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 启动以来观测到的 `ReportMetricsOperation` 最大上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+
 ### 作业信息详细
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
