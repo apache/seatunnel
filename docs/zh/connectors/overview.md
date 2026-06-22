@@ -10,8 +10,8 @@ slug: /connectors
 
 | 你现在要做什么 | 先看这里 |
 | --- | --- |
-| 从外部系统读取数据 | [数据来源连接器](./source/overview.md) |
-| 把数据写入目标系统 | [数据写入连接器](./sink/overview.md) |
+| 从外部系统读取数据 | [数据来源连接器](./source-overview.md) |
+| 把数据写入目标系统 | [数据写入连接器](./sink-overview.md) |
 | 先找一条接近真实业务的链路示例 | [场景示例](../getting-started/recipes/overview.md) |
 | 先理解连接器共有参数 | [来源端通用参数](./common-options/source-common-options.md) 和 [写入端通用参数](./common-options/sink-common-options.md) |
 | 构建 CDC 链路 | [CDC 生产实战手册](./cdc-production-cookbook.md) |

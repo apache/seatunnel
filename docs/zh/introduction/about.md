@@ -74,8 +74,8 @@ SeaTunnel 面向的是数据团队最常见、也最先要交付的几类任务�
 
 ### 2. 连接器决定读什么、写到哪里
 
-SeaTunnel 提供了丰富的 [源连接器](../connectors/source/overview.md)、
-[目标连接器](../connectors/sink/overview.md) 和 [数据转换](../transforms)。
+SeaTunnel 提供了丰富的 [源连接器](../connectors/source-overview.md)、
+[目标连接器](../connectors/sink-overview.md) 和 [数据转换](../transforms)。
 如果有特殊需求，您也可以自行扩展这些插件类型。
 
 ### 3. 引擎决定这条作业跑在哪儿

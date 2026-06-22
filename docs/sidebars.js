@@ -101,7 +101,7 @@ const sidebars = {
                     "label": "Source",
                     "link": {
                         "type": "doc",
-                        "id": "connectors/source/overview"
+                        "id": "connectors/source-overview"
                     },
                     "items": [
                         {
@@ -115,7 +115,7 @@ const sidebars = {
                     "label": "Sink",
                     "link": {
                         "type": "doc",
-                        "id": "connectors/sink/overview"
+                        "id": "connectors/sink-overview"
                     },
                     "items": [
                         {

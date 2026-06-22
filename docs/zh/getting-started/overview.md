@@ -47,8 +47,8 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 ### 路径 B：我已经知道要接什么数据源
 
 - [作业配置指南](./job-configuration-guide.md)
-- [数据来源连接器总览](../connectors/source/overview.md)
-- [数据写入连接器总览](../connectors/sink/overview.md)
+- [数据来源连接器总览](../connectors/source-overview.md)
+- [数据写入连接器总览](../connectors/sink-overview.md)
 - [数据转换总览](../transforms)
 - [场景示例](./recipes/overview.md)
 

@@ -76,7 +76,7 @@ sink {
 
 `source` 用来定义 SeaTunnel 从哪里读取数据。一个作业中可以同时声明多个 source。每个连接器都有自己的参数，同时也有一些通用的链路字段，例如 `plugin_output`，它用于给当前 source 产出的数据集命名，方便后续模块引用。
 
-完整列表请查看 [数据来源连接器](../../connectors/source/overview.md)。
+完整列表请查看 [数据来源连接器](../../connectors/source-overview.md)。
 
 ### `transform`：中间处理步骤
 
@@ -120,7 +120,7 @@ sink {
 
 `sink` 用来定义处理后的数据写到哪里去。它和 source 很相似，但更关注写入行为、目标表结构、提交方式以及投递保证。
 
-完整列表请查看 [数据写入连接器](../../connectors/sink/overview.md)。
+完整列表请查看 [数据写入连接器](../../connectors/sink-overview.md)。
 
 ### `plugin_output` 和 `plugin_input` 是怎么工作的
 
@@ -320,6 +320,6 @@ sink {
 - 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`、`${partition_keys}`。具体可参考[Sink参数占位符](../configuration/sink-options-placeholders.md)
 ## 此外
 
-- 现在就可以开始写自己的配置文件，选择要使用的 [连接器](../../connectors/source/overview.md)，再按对应文档填写参数。
+- 现在就可以开始写自己的配置文件，选择要使用的 [连接器](../../connectors/source-overview.md)，再按对应文档填写参数。
 - 如果您需要按引擎配置参数，请继续阅读 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 - 如果您想了解更完整的语法细节，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。

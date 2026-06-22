@@ -10,8 +10,8 @@ This page is the shortest path for choosing the right SeaTunnel connector entry 
 
 | What you need right now | Start here |
 | --- | --- |
-| Read data from an external system | [Source Connectors](./source/overview.md) |
-| Write data into a target system | [Sink Connectors](./sink/overview.md) |
+| Read data from an external system | [Source Connectors](./source-overview.md) |
+| Write data into a target system | [Sink Connectors](./sink-overview.md) |
 | Follow a real source-to-sink example | [Scenario Recipes](../getting-started/recipes/overview.md) |
 | Understand shared connector parameters | [Source Common Options](./common-options/source-common-options.md) and [Sink Common Options](./common-options/sink-common-options.md) |
 | Build a CDC pipeline | [CDC Production Cookbook](./cdc-production-cookbook.md) |
