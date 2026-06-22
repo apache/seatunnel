@@ -41,7 +41,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.TableIdentifierConfig;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
@@ -59,7 +58,6 @@ import org.apache.seatunnel.format.protobuf.SchemaRegistryAwareProtobufDeseriali
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
-import org.apache.commons.collections4.MapUtils;
 import org.apache.kafka.common.TopicPartition;
 
 import lombok.Getter;
@@ -131,11 +129,6 @@ public class KafkaSourceConfig implements Serializable {
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
         this.readerCacheQueueSize = readonlyConfig.get(READER_CACHE_QUEUE_SIZE);
         this.ignoreNoLeaderPartition = readonlyConfig.get(IGNORE_NO_LEADER_PARTITION);
-        if (this.ignoreNoLeaderPartition && this.discoveryIntervalMillis <= 0) {
-            throw new IllegalArgumentException(
-                    "partition-discovery.interval-millis must be configured when ignore_no_leader_partition is set to true. "
-                            + "Please provide a positive value for partition-discovery.interval-millis.");
-        }
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -195,10 +188,11 @@ public class KafkaSourceConfig implements Serializable {
                                     long startOffsetsTimestamp =
                                             readonlyConfig.get(START_MODE_TIMESTAMP);
                                     long currentTimestamp = System.currentTimeMillis();
-                                    if (startOffsetsTimestamp < 0
-                                            || startOffsetsTimestamp > currentTimestamp) {
+                                    // Runtime check: cannot be declarative (depends on current
+                                    // time)
+                                    if (startOffsetsTimestamp > currentTimestamp) {
                                         throw new IllegalArgumentException(
-                                                "start_mode.timestamp The value is smaller than 0 or smaller than the current time");
+                                                "start_mode.timestamp must not be greater than the current time");
                                     }
                                     consumerMetadata.setStartOffsetsTimestamp(
                                             startOffsetsTimestamp);
@@ -206,25 +200,19 @@ public class KafkaSourceConfig implements Serializable {
                                             readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
                                         long endOffsetsTimestamp =
                                                 readonlyConfig.get(START_MODE_END_TIMESTAMP);
-                                        if (endOffsetsTimestamp < 0
-                                                || endOffsetsTimestamp > currentTimestamp) {
+                                        // Runtime check: cannot be declarative (depends on current
+                                        // time)
+                                        if (endOffsetsTimestamp > currentTimestamp) {
                                             throw new IllegalArgumentException(
-                                                    "start_mode.endTimestamp The value is smaller than 0 or smaller than the current time");
+                                                    "start_mode.end_timestamp must not be greater than the current time");
                                         }
                                         consumerMetadata.setEndOffsetsTimestamp(
                                                 endOffsetsTimestamp);
                                     }
                                     break;
                                 case SPECIFIC_OFFSETS:
-                                    // Key is topic-partition, value is offset
                                     Map<String, Long> offsetMap =
                                             readonlyConfig.get(START_MODE_OFFSETS);
-                                    if (MapUtils.isEmpty(offsetMap)) {
-                                        throw new IllegalArgumentException(
-                                                "start mode is "
-                                                        + StartMode.SPECIFIC_OFFSETS
-                                                        + "but no specific offsets were specified.");
-                                    }
                                     Map<TopicPartition, Long> specificStartOffsets =
                                             new HashMap<>();
                                     offsetMap.forEach(

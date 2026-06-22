@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -66,13 +67,25 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         StartMode.TIMESTAMP,
                         KafkaSourceOptions.START_MODE_TIMESTAMP)
                 .conditional(
+                        KafkaSourceOptions.START_MODE,
+                        StartMode.TIMESTAMP,
+                        Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_TIMESTAMP, 0L))
+                .optional(
+                        KafkaSourceOptions.START_MODE_END_TIMESTAMP,
+                        Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
+                .conditional(
                         KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
                         Boolean.TRUE,
-                        KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
+                        Conditions.greaterThan(
+                                KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, 0L))
                 .conditional(
                         KafkaSourceOptions.START_MODE,
                         StartMode.SPECIFIC_OFFSETS,
                         KafkaSourceOptions.START_MODE_OFFSETS)
+                .conditional(
+                        KafkaSourceOptions.START_MODE,
+                        StartMode.SPECIFIC_OFFSETS,
+                        Conditions.mapNotEmpty(KafkaSourceOptions.START_MODE_OFFSETS))
                 .conditional(
                         KafkaSourceOptions.FORMAT,
                         MessageFormat.PROTOBUF,

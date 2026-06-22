@@ -17,17 +17,85 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 class KafkaFactoryTest {
+
+    private final OptionRule sourceRule = new KafkaSourceFactory().optionRule();
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sourceRule);
+    }
+
+    private Map<String, Object> validTimestampConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+        cfg.put("topic", "test-topic");
+        cfg.put("start_mode", "TIMESTAMP");
+        cfg.put("start_mode.timestamp", 1000L);
+        return cfg;
+    }
+
+    private Map<String, Object> validSpecificOffsetsConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+        cfg.put("topic", "test-topic");
+        cfg.put("start_mode", "SPECIFIC_OFFSETS");
+        Map<String, Long> offsets = new HashMap<>();
+        offsets.put("test-topic-0", 100L);
+        cfg.put("start_mode.offsets", offsets);
+        return cfg;
+    }
 
     @Test
     void optionRule() {
         Assertions.assertNotNull((new KafkaSourceFactory()).optionRule());
         Assertions.assertNotNull((new KafkaSinkFactory()).optionRule());
+    }
+
+    @Test
+    void testValidTimestampConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(validTimestampConfig()));
+    }
+
+    @Test
+    void testNegativeTimestampRejected() {
+        Map<String, Object> cfg = validTimestampConfig();
+        cfg.put("start_mode.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testNegativeEndTimestampRejected() {
+        Map<String, Object> cfg = validTimestampConfig();
+        cfg.put("start_mode.end_timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testValidSpecificOffsetsConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(validSpecificOffsetsConfig()));
+    }
+
+    @Test
+    void testEmptyOffsetsMapRejected() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+        cfg.put("topic", "test-topic");
+        cfg.put("start_mode", "SPECIFIC_OFFSETS");
+        cfg.put("start_mode.offsets", Collections.emptyMap());
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 }
