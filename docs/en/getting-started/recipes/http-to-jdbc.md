@@ -1,9 +1,9 @@
 ---
 sidebar_position: 4
-title: Http to JDBC
+title: HTTP to JDBC
 ---
 
-# Http to JDBC
+# HTTP to JDBC
 
 Use this recipe when you want to pull structured data from an HTTP API and store the result in a relational database.
 

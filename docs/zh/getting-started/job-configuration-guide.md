@@ -172,6 +172,7 @@ SeaTunnel 支持多种配置方式：
 ## 下一步
 
 - 需要先跑通一个可执行示例：查看 [SeaTunnel 引擎快速开始](./locally/quick-start-seatunnel-engine.md)
-- 需要具体参数说明：查看 [Source 连接器](../connectors/source) 和 [Sink 连接器](../connectors/sink)
-- 需要了解转换能力：查看 [Transforms](../transforms)
+- 需要看一条更接近真实业务的完整链路：查看 [场景示例](./recipes/overview.md)
+- 需要具体参数说明：查看 [数据来源连接器总览](../connectors/source-overview.md) 和 [数据写入连接器总览](../connectors/sink-overview.md)
+- 需要了解转换能力：查看 [数据转换总览](../transforms)
 - 需要理解引擎差异：查看 [执行引擎概览](../engines/overview.md)
