@@ -89,8 +89,7 @@ class ParallelSourceTest {
         MockSource source = new MockSource(Collections.emptyList());
         Map<Integer, List<byte[]>> restoredState = new HashMap<>();
         restoredState.put(-1, Collections.singletonList(toBytes(Integer.valueOf(7))));
-        restoredState.put(
-                0, Collections.singletonList(toBytes(new MockSplit("restored-split-0"))));
+        restoredState.put(0, Collections.singletonList(toBytes(new MockSplit("restored-split-0"))));
 
         ParallelSource<String, MockSplit, Integer> parallelSource =
                 new ParallelSource<>(source, restoredState, 4, "parallel-source-restore", 0);
