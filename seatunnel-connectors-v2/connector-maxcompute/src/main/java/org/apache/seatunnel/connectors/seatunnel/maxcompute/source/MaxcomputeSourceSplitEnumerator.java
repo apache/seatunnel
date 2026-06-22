@@ -109,35 +109,51 @@ public class MaxcomputeSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {}
 
-    private void discoverySplits() throws TunnelException {
-        int numReaders = enumeratorContext.currentParallelism();
+    // visible for testing
+    static Set<MaxcomputeSourceSplit> computeSplits(
+            int numReaders,
+            Collection<SourceTableInfo> sourceTableInfos,
+            Map<TablePath, Long> tableRecordCounts) {
         Set<MaxcomputeSourceSplit> allSplit = new LinkedHashSet<>();
         int chunkIndex = 0;
-        for (SourceTableInfo sourceTableInfo : sourceTableInfos.values()) {
-            Set<MaxcomputeSourceSplit> splits = new LinkedHashSet<>();
-            TableTunnel.DownloadSession session =
-                    MaxcomputeUtil.getDownloadSession(
-                            readonlyConfig,
-                            sourceTableInfo.getCatalogTable().getTablePath(),
-                            sourceTableInfo.getPartitionSpec());
-            long recordCount = session.getRecordCount();
+        for (SourceTableInfo sourceTableInfo : sourceTableInfos) {
+            TablePath tablePath = sourceTableInfo.getCatalogTable().getTablePath();
+            long recordCount = tableRecordCounts.get(tablePath);
             int splitRow = MaxcomputeSourceOptions.SPLIT_ROW.defaultValue();
             if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
                 splitRow = sourceTableInfo.getSplitRow();
             }
             for (long num = 0; num < recordCount; num += splitRow) {
                 int ownerReader = chunkIndex % numReaders;
-                splits.add(
+                allSplit.add(
                         new MaxcomputeSourceSplit(
                                 num,
                                 Math.min((long) splitRow, recordCount - num),
-                                sourceTableInfo.getCatalogTable().getTablePath(),
+                                tablePath,
                                 ownerReader));
                 chunkIndex++;
             }
-            assignedSplits.forEach(splits::remove);
-            allSplit.addAll(splits);
         }
+        return allSplit;
+    }
+
+    private void discoverySplits() throws TunnelException {
+        int numReaders = enumeratorContext.currentParallelism();
+        Map<TablePath, Long> tableRecordCounts = new HashMap<>();
+        for (SourceTableInfo sourceTableInfo : sourceTableInfos.values()) {
+            TableTunnel.DownloadSession session =
+                    MaxcomputeUtil.getDownloadSession(
+                            readonlyConfig,
+                            sourceTableInfo.getCatalogTable().getTablePath(),
+                            sourceTableInfo.getPartitionSpec());
+            tableRecordCounts.put(
+                    sourceTableInfo.getCatalogTable().getTablePath(), session.getRecordCount());
+        }
+
+        Set<MaxcomputeSourceSplit> allSplit =
+                computeSplits(numReaders, sourceTableInfos.values(), tableRecordCounts);
+        assignedSplits.forEach(allSplit::remove);
+
         addSplitChangeToPendingAssignments(allSplit);
         log.debug("Assigned {} to {} readers.", allSplit, numReaders);
         log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
