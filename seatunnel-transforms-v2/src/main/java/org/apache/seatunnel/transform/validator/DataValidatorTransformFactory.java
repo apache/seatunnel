@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.transform.validator;
 
+import com.google.auto.service.AutoService;
+import java.util.List;
+import java.util.Map;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
@@ -28,14 +31,12 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
-import com.google.auto.service.AutoService;
-
-import java.util.List;
-import java.util.Map;
 
 import static org.apache.seatunnel.transform.validator.DataValidatorTransformConfig.FIELD_RULES;
 
-/** Factory for creating DataValidator Transform instances. */
+/**
+ * Factory for creating DataValidator Transform instances.
+ */
 @AutoService(Factory.class)
 public class DataValidatorTransformFactory implements TableTransformFactory {
 

@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -71,19 +70,12 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
         }
 
         @Override
-        public boolean evaluate(ReadonlyConfig config, List<String> value)
-                throws OptionValidationException {
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
             if (value == null) {
                 return true;
             }
             List<String> outputFields = config.get(RegexExtractTransformConfig.KEY_OUTPUT_FIELDS);
-            if (outputFields != null && value.size() != outputFields.size()) {
-                throw new OptionValidationException(
-                        String.format(
-                                "'default_values' has %d elements but 'output_fields' has %d elements — they must match",
-                                value.size(), outputFields.size()));
-            }
-            return true;
+            return outputFields == null || value.size() == outputFields.size();
         }
     }
 }
