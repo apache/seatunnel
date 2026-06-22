@@ -52,17 +52,17 @@ public interface ConditionExtension<T> {
      * <p>Return {@code false} for simple failure — the framework composes the error from {@link
      * #description()} automatically and continues collecting other validation errors.
      *
-     * <p>Throw {@link OptionValidationException} when a richer, context-specific message is needed
-     * <b>and</b> you want to abort remaining validation immediately. Note: throwing will stop the
-     * framework from collecting subsequent errors — the user will only see this single error.
-     * Prefer returning {@code false} when possible to give users a complete error report.
+     * <p>Throw {@link OptionValidationException} when a richer, context-specific message is needed.
+     * The framework catches the exception, extracts its message, and adds it to the aggregated
+     * error list — subsequent validations still run. Use this when you need a more descriptive
+     * error message than {@link #description()} alone provides.
      *
      * <p>Avoid other unchecked exceptions — they propagate unwrapped.
      *
      * @param config full configuration context (read-only), available for cross-field checks
      * @param value the resolved option value; may be {@code null}
      * @return {@code true} if valid
-     * @throws OptionValidationException for fail-fast validation with a detailed message
+     * @throws OptionValidationException for detailed, context-specific error reporting
      */
     boolean evaluate(ReadonlyConfig config, T value) throws OptionValidationException;
 }
