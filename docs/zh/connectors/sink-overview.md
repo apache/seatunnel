@@ -16,6 +16,6 @@ sidebar_position: 1
 
 ## 常用下一步
 
-- [Sink 常用选项](../common-options/sink-common-options.md)
-- [连接器常见问题](../connector-faq.md)
-- [连接器依赖隔离加载机制](../connector-isolated-dependency.md)
+- [Sink 常用选项](./common-options/sink-common-options.md)
+- [连接器常见问题](./connector-faq.md)
+- [连接器依赖隔离加载机制](./connector-isolated-dependency.md)
