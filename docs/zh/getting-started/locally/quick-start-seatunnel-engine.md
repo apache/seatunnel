@@ -108,7 +108,7 @@ cd "apache-seatunnel-${version}"
 SeaTunnel控制台将会打印一些如下日志信息:
 
 ```shell
-2022-12-19 11:01:45,417 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: name<STRING>, age<INT>
+2022-12-19 11:01:45,417 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: new_name<STRING>, age<INT>
 2022-12-19 11:01:46,489 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=1:  SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: CpiOd, 8520946
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=2: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: eQqTs, 1256802974
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=3: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: UsRgO, 2053193072
@@ -243,6 +243,7 @@ Total Failed Count        :                   0
 
 - 如果你想先建立整体路径感，可以返回阅读[快速入门总览](../overview.md)。
 - 当你准备把示例 Source 和 Sink 替换成真实连接器时，建议继续阅读[作业配置指南](../job-configuration-guide.md)。
+- 如果你下一步就想看可直接照着改的源端到目标端示例，可以继续看 [MySQL CDC 到 Doris](../recipes/mysql-cdc-to-doris.md)、[JDBC 到 S3](../recipes/jdbc-to-s3.md)、[Kafka 到 Iceberg](../recipes/kafka-to-iceberg.md)、[Http 到 JDBC](../recipes/http-to-jdbc.md)、[File 到 StarRocks](../recipes/file-to-starrocks.md) 和 [多表 CDC](../recipes/multi-table-cdc.md)。
 - 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
 - 如果您要部署多节点 SeaTunnel Engine 集群，请继续阅读[SeaTunnel Engine(Zeta) 安装部署](../../engines/zeta/deployment.md)。
 - 如果您想进一步了解 SeaTunnel Engine，请参阅[SeaTunnel引擎](../../engines/zeta/about.md)。
