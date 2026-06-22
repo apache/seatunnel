@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalogFactory;
@@ -86,19 +87,36 @@ class JdbcCatalogFactoryTest {
     }
 
     @Test
-    void testMissingUsernameFails() {
+    void testCatalogConfigWithUrlOnly() {
         Map<String, Object> cfg = new HashMap<>();
-        cfg.put("url", "jdbc:mysql://host:3306/mydb");
-        cfg.put("password", "pass");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(mysqlRule, cfg));
+        cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
+        Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
     }
 
     @Test
-    void testMissingPasswordFails() {
+    void testCatalogConfigWithUsernameOnly() {
         Map<String, Object> cfg = new HashMap<>();
-        cfg.put("url", "jdbc:mysql://host:3306/mydb");
+        cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
         cfg.put("username", "root");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(mysqlRule, cfg));
+        Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
+    }
+
+    @Test
+    void testCatalogConfigMimicsExtractCatalogConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
+        cfg.put("username", "root");
+        cfg.put("decimal_type_narrowing", true);
+        cfg.put("handle_blob_as_string", false);
+        Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
+    }
+
+    @Test
+    void testPostgresCatalogConfigWithoutPassword() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:postgresql://localhost:5432/mydb");
+        cfg.put("username", "postgres");
+        Assertions.assertDoesNotThrow(() -> validate(pgRule, cfg));
     }
 
     @Test
@@ -109,5 +127,23 @@ class JdbcCatalogFactoryTest {
         cfg.put("username", "root");
         cfg.put("password", "pass");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(obRule, cfg));
+    }
+
+    @Test
+    void testOceanBaseCatalogConfigWithoutPassword() {
+        OptionRule obRule = new OceanBaseCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:oceanbase://localhost:2881/mydb");
+        cfg.put("username", "root");
+        cfg.put("compatible_mode", "mysql");
+        Assertions.assertDoesNotThrow(() -> validate(obRule, cfg));
+    }
+
+    @Test
+    void testDuckDBCatalogConfigNoCredentials() {
+        OptionRule rule = new DuckDBCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:duckdb:/tmp/test.db");
+        Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
     }
 }

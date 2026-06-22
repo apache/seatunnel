@@ -169,9 +169,13 @@ public class JdbcCommonOptions {
      * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by all JDBC
      * catalog factories (MySQL, PostgreSQL, Oracle, etc.).
      *
-     * <p>These rules are evaluated at <b>submission time</b> via {@code
+     * <p>These rules are evaluated at <b>catalog creation time</b> via {@code
      * ConfigValidator.validate(factory.optionRule())} in the {@code FactoryUtil} entry path. They
-     * enforce that the JDBC URL contains a database name, and that username/password are provided.
+     * enforce that the JDBC URL contains a database name.
+     *
+     * <p>Username and password are optional because JDBC connections may use alternative
+     * authentication (Kerberos, passwordless local DB, OS authentication, etc.). The catalog
+     * implementation validates credentials at connection time.
      *
      * <p>Individual catalog factories may append additional rules (e.g. OceanBase requires {@code
      * compatible_mode}) before calling {@code .build()}.
@@ -179,8 +183,8 @@ public class JdbcCommonOptions {
     public static OptionRule.Builder baseCatalogRule() {
         return OptionRule.builder()
                 .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
-                .required(USERNAME, PASSWORD)
-                .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+                .optional(
+                        USERNAME, PASSWORD, SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
     }
 
     /**
