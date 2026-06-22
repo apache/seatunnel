@@ -77,7 +77,6 @@ flowchart TB
     style master fill:#081425,stroke:#5db8e2,stroke-width:1.5px,color:#f8fbff;
     style worker fill:#081425,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff;
 ```
-```
 
 ### 2.2 核心组件
 
