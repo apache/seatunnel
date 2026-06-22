@@ -19,21 +19,76 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.enumerator;
 
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Getter
-@Setter
-@AllArgsConstructor
 @ToString
 public class TiDBSourceCheckpointState implements Serializable {
     private static final long serialVersionUID = 6292978509042158791L;
     private boolean shouldEnumerate;
     private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
+
+    public TiDBSourceCheckpointState(
+            boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
+        this.shouldEnumerate = shouldEnumerate;
+        this.pendingSplit = normalizePendingSplit(pendingSplit);
+    }
+
+    public void setShouldEnumerate(boolean shouldEnumerate) {
+        this.shouldEnumerate = shouldEnumerate;
+    }
+
+    public void setPendingSplit(Map<Integer, ?> pendingSplit) {
+        this.pendingSplit = normalizePendingSplit(pendingSplit);
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        try {
+            pendingSplit = normalizePendingSplit(pendingSplit);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Unsupported TiDB CDC pending split checkpoint state.", e);
+        }
+    }
+
+    private static Map<Integer, List<TiDBSourceSplit>> normalizePendingSplit(
+            Map<Integer, ?> pendingSplit) {
+        Map<Integer, List<TiDBSourceSplit>> normalizedPendingSplit = new HashMap<>();
+        if (pendingSplit == null) {
+            return normalizedPendingSplit;
+        }
+        for (Map.Entry<Integer, ?> entry : pendingSplit.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof TiDBSourceSplit) {
+                normalizedPendingSplit.put(
+                        entry.getKey(),
+                        new ArrayList<>(Collections.singletonList((TiDBSourceSplit) value)));
+            } else if (value instanceof List) {
+                normalizedPendingSplit.put(entry.getKey(), copyPendingSplits((List<?>) value));
+            } else if (value == null) {
+                normalizedPendingSplit.put(entry.getKey(), new ArrayList<>());
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Unsupported pending split value type %s for reader %s.",
+                                value.getClass().getName(), entry.getKey()));
+            }
+        }
+        return normalizedPendingSplit;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<TiDBSourceSplit> copyPendingSplits(List<?> pendingSplits) {
+        return new ArrayList<>((List<TiDBSourceSplit>) pendingSplits);
+    }
 }

@@ -42,9 +42,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
-    private static final String JDBC_DIAG_PREFIX = "[JDBC-SINK-DIAG]";
-    private static final long FLUSH_STATS_LOG_INTERVAL_MS = 10_000L;
-    private static final long SLOW_FLUSH_MS = 1_000L;
 
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
@@ -54,8 +51,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient volatile boolean closed = false;
     private transient volatile Exception flushException;
     private transient long lastFlushTimeMs;
-    private transient long lastFlushStatsLogTimeMs;
-    private transient long totalFlushedRecords;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -131,12 +126,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         final int sleepMs = 1000;
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
-                int flushedRecords = batchCount;
-                long flushStartNanos = System.nanoTime();
                 attemptFlush();
-                long flushCostMs = (System.nanoTime() - flushStartNanos) / 1_000_000L;
-                totalFlushedRecords += flushedRecords;
-                logFlushStats(flushedRecords, flushCostMs, i);
                 batchCount = 0;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
@@ -174,22 +164,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     protected void attemptFlush() throws SQLException {
         jdbcStatementExecutor.executeBatch();
-    }
-
-    private void logFlushStats(int flushedRecords, long flushCostMs, int attempt) {
-        long now = System.currentTimeMillis();
-        if (flushCostMs < SLOW_FLUSH_MS
-                && now - lastFlushStatsLogTimeMs < FLUSH_STATS_LOG_INTERVAL_MS) {
-            return;
-        }
-        lastFlushStatsLogTimeMs = now;
-        LOG.info(
-                "{} Flush success, records={}, totalFlushedRecords={}, flushCostMs={}, attempt={}.",
-                JDBC_DIAG_PREFIX,
-                flushedRecords,
-                totalFlushedRecords,
-                flushCostMs,
-                attempt);
     }
 
     /** Executes prepared statement and closes all resources of this instance. */
