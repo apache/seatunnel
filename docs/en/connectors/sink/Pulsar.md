@@ -108,11 +108,11 @@ covering all the producer parameters specified in the official Pulsar document.
 
 ### message.routing.mode [Enum]
 
-Default routing mode for messages to partition.
-Available options are SinglePartition,RoundRobinPartition.
-If you choose SinglePartition, If no key is provided, The partitioned producer will randomly pick one single partition and publish all the messages into that partition, If a key is provided on the message, the partitioned producer will hash the key and assign message to a particular partition.
-If you choose RoundRobinPartition, If no key is provided, the producer will publish messages across all partitions in round-robin fashion to achieve maximum throughput.
-Please note that round-robin is not done per individual message but rather it's set to the same boundary of batching delay, to ensure batching is effective.
+Default routing mode for partitioned messages.
+Available options are `SinglePartition` and `RoundRobinPartition`.
+When `SinglePartition` is selected and no key is provided, the partitioned producer randomly selects one partition and publishes all messages to that partition. When a key is provided, the producer hashes the key and sends the message to the selected partition.
+When `RoundRobinPartition` is selected and no key is provided, the producer publishes messages across all partitions in round-robin order to achieve maximum throughput.
+Round-robin routing is applied at the batching delay boundary rather than per individual message, so batching remains effective.
 
 ### partition_key_fields [String]
 
