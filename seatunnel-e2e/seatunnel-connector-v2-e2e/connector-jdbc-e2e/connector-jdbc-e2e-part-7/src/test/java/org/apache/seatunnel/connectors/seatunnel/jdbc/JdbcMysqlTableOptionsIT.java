@@ -17,34 +17,42 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.stream.Stream;
 
-public class JdbcMysqlTableOptionsIT extends AbstractJdbcIT {
+@Slf4j
+public class JdbcMysqlTableOptionsIT extends TestSuiteBase implements TestResource {
+
+    private static final String MYSQL_DRIVER_JAR =
+            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-table-options";
@@ -54,97 +62,44 @@ public class JdbcMysqlTableOptionsIT extends AbstractJdbcIT {
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 33064;
-    private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
-    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    private static final String CONFIG_FILE = "/jdbc_mysql_sink_with_table_options.conf";
 
-    private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_mysql_sink_with_table_options.conf");
-
-    private static final String CREATE_SQL =
-            "CREATE TABLE IF NOT EXISTS %s (\n"
+    private static final String CREATE_SOURCE_TABLE_SQL =
+            "CREATE TABLE IF NOT EXISTS `"
+                    + MYSQL_SOURCE
+                    + "` (\n"
                     + "    `id`   BIGINT       NOT NULL,\n"
                     + "    `name` VARCHAR(255) DEFAULT NULL,\n"
                     + "    PRIMARY KEY (`id`)\n"
                     + ");";
 
-    @Override
-    JdbcCase getJdbcCase() {
-        Map<String, String> containerEnv = new HashMap<>();
-        String jdbcUrl = String.format(MYSQL_URL, MYSQL_PORT, MYSQL_DATABASE);
-        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
-        String[] fieldNames = testDataSet.getKey();
-        String insertSql = insertTable(MYSQL_DATABASE, MYSQL_SOURCE, fieldNames);
+    private static final String INSERT_SOURCE_SQL =
+            "INSERT INTO `"
+                    + MYSQL_SOURCE
+                    + "` (`id`, `name`) VALUES (1, 'name_1'), (2, 'name_2'), (3, 'name_3');";
 
-        return JdbcCase.builder()
-                .dockerImage(MYSQL_IMAGE)
-                .networkAliases(MYSQL_CONTAINER_HOST)
-                .containerEnv(containerEnv)
-                .driverClass(DRIVER_CLASS)
-                .host(HOST)
-                .port(MYSQL_PORT)
-                .localPort(MYSQL_PORT)
-                .jdbcTemplate(MYSQL_URL)
-                .jdbcUrl(jdbcUrl)
-                .userName(MYSQL_USERNAME)
-                .password(MYSQL_PASSWORD)
-                .database(MYSQL_DATABASE)
-                .sourceTable(MYSQL_SOURCE)
-                .sinkTable(MYSQL_SINK)
-                .createSql(CREATE_SQL)
-                .configFile(CONFIG_FILE)
-                .insertSql(insertSql)
-                .testData(testDataSet)
-                .useSaveModeCreateTable(true)
-                .build();
-    }
+    // MySQL 8.0.43 cold start may exceed the default 120s JDBC wait in Testcontainers.
+    private static final int MYSQL_STARTUP_TIMEOUT_SECONDS =
+            (int) Duration.ofMinutes(10).getSeconds();
 
-    @Override
-    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
-        try (Statement statement = connection.createStatement()) {
-            ResultSet createTableResult =
-                    statement.executeQuery(
-                            String.format(
-                                    "SHOW CREATE TABLE `%s`.`%s`", MYSQL_DATABASE, MYSQL_SINK));
-            Assertions.assertTrue(createTableResult.next());
-            String createTableSql = createTableResult.getString(2).toLowerCase();
-            Assertions.assertTrue(createTableSql.contains("engine=innodb"), createTableSql);
-            Assertions.assertTrue(createTableSql.contains("charset=utf8mb4"), createTableSql);
-            Assertions.assertTrue(
-                    createTableSql.contains("collate=utf8mb4_unicode_ci"), createTableSql);
+    private MySQLContainer<?> mysqlContainer;
 
-            ResultSet countResult =
-                    statement.executeQuery(
-                            String.format(
-                                    "SELECT COUNT(*) FROM `%s`.`%s`", MYSQL_DATABASE, MYSQL_SINK));
-            Assertions.assertTrue(countResult.next());
-            Assertions.assertEquals(3, countResult.getInt(1));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + MYSQL_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
 
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    @Override
-    Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames = new String[] {"id", "name"};
-        List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 1; i <= 3; i++) {
-            rows.add(new SeaTunnelRow(new Object[] {(long) i, "name_" + i}));
-        }
-        return Pair.of(fieldNames, rows);
-    }
-
-    @Override
-    protected GenericContainer<?> initContainer() {
+    void initContainer() {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
-
-        GenericContainer<?> container =
+        mysqlContainer =
                 new MySQLContainer<>(imageName)
                         .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
                         .withUsername(MYSQL_USERNAME)
@@ -152,26 +107,97 @@ public class JdbcMysqlTableOptionsIT extends AbstractJdbcIT {
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withStartupTimeoutSeconds(MYSQL_STARTUP_TIMEOUT_SECONDS)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
-
-        return container;
+        Startables.deepStart(Stream.of(mysqlContainer)).join();
     }
 
     @Override
-    protected void initCatalog() {
-        catalog =
-                new MySqlCatalog(
-                        "mysql",
-                        jdbcCase.getUserName(),
-                        jdbcCase.getPassword(),
-                        JdbcUrlUtil.getUrlInfo(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
-                        null);
-        catalog.open();
+    @BeforeAll
+    public void startUp() throws Exception {
+        initContainer();
+        initializeJdbcTable();
+    }
+
+    @Override
+    @AfterAll
+    public void tearDown() {
+        if (mysqlContainer != null) {
+            mysqlContainer.close();
+        }
+    }
+
+    @TestTemplate
+    public void testTableOptionsSink(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        try {
+            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            assertSinkTableOptions();
+        } finally {
+            clearSinkTable();
+        }
+    }
+
+    private void assertSinkTableOptions() throws SQLException {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            ResultSet createTableResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SHOW CREATE TABLE `%s`.`%s`", MYSQL_DATABASE, MYSQL_SINK));
+            Assertions.assertTrue(createTableResult.next());
+            String createTableSql = createTableResult.getString(2).toLowerCase();
+            Assertions.assertTrue(
+                    createTableSql.contains(
+                            MySqlCatalog.TABLE_OPTION_ENGINE.toLowerCase() + "=innodb"),
+                    createTableSql);
+            Assertions.assertTrue(
+                    createTableSql.contains(
+                            MySqlCatalog.TABLE_OPTION_CHARSET.toLowerCase() + "=utf8mb4"),
+                    createTableSql);
+            Assertions.assertTrue(
+                    createTableSql.contains(
+                            MySqlCatalog.TABLE_OPTION_COLLATE.toLowerCase()
+                                    + "=utf8mb4_unicode_ci"),
+                    createTableSql);
+
+            ResultSet countResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT COUNT(*) FROM `%s`.`%s`", MYSQL_DATABASE, MYSQL_SINK));
+            Assertions.assertTrue(countResult.next());
+            Assertions.assertEquals(3, countResult.getInt(1));
+        }
+    }
+
+    private Connection getJdbcConnection() throws SQLException {
+        return DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+    }
+
+    private void initializeJdbcTable() {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(CREATE_SOURCE_TABLE_SQL);
+            statement.execute(INSERT_SOURCE_SQL);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing MySQL table failed!", e);
+        }
+    }
+
+    private void clearSinkTable() {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format("DROP TABLE IF EXISTS `%s`.`%s`", MYSQL_DATABASE, MYSQL_SINK));
+        } catch (SQLException e) {
+            throw new RuntimeException("Clearing sink table failed!", e);
+        }
     }
 }
