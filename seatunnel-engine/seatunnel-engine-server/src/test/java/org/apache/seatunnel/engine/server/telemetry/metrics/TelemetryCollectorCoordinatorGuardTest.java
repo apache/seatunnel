@@ -19,11 +19,14 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ReportMetricsOperationExports;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -181,6 +184,76 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.verify(mockServer, Mockito.never()).isCoordinatorActive();
     }
 
+    @Test
+    void testReportMetricsOperationExportsReturnsEmptyWhenTaskExecutionServiceMissing() {
+        Mockito.when(mockServer.getTaskExecutionService()).thenReturn(null);
+
+        ReportMetricsOperationExports exports = new ReportMetricsOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must return empty when task execution service is unavailable");
+    }
+
+    @Test
+    void testReportMetricsOperationExportsReturnsMetricsWhenTaskExecutionServiceAvailable() {
+        TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
+        Mockito.when(mockServer.getTaskExecutionService()).thenReturn(taskExecutionService);
+        Mockito.when(taskExecutionService.getReportMetricsOperationStats())
+                .thenReturn(new ReportMetricsOperationStats(3L, 1L, 1L, 9L, 15L, 27L));
+
+        ReportMetricsOperationExports exports = new ReportMetricsOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertFalse(
+                result.isEmpty(),
+                "collect() must return metrics when task execution service exists");
+        Collector.MetricFamilySamples totalMetric =
+                result.stream()
+                        .filter(s -> "report_metrics_operation".equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(totalMetric);
+        Assertions.assertEquals(3, totalMetric.samples.size());
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "success", 3D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "failure", 1D);
+        assertMetricSample(totalMetric, "report_metrics_operation_total", "interrupted", 1D);
+
+        Collector.MetricFamilySamples payloadMetric =
+                result.stream()
+                        .filter(
+                                s ->
+                                        "report_metrics_operation_last_payload_task_count"
+                                                .equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(payloadMetric);
+        assertSingleMetricSample(payloadMetric, 9D);
+
+        Collector.MetricFamilySamples lastLatencyMetric =
+                result.stream()
+                        .filter(
+                                s ->
+                                        "report_metrics_operation_last_invocation_latency_ms"
+                                                .equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(lastLatencyMetric);
+        assertSingleMetricSample(lastLatencyMetric, 15D);
+
+        Collector.MetricFamilySamples maxLatencyMetric =
+                result.stream()
+                        .filter(
+                                s ->
+                                        "report_metrics_operation_max_invocation_latency_ms"
+                                                .equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(maxLatencyMetric);
+        assertSingleMetricSample(maxLatencyMetric, 27D);
+    }
+
     // -------------------------------------------------------------------------
     // ClusterMetricExports
     // -------------------------------------------------------------------------
@@ -236,5 +309,42 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 .warning(
                         Mockito.eq("Skip cluster_info metric: unable to resolve master address"),
                         Mockito.any(UnknownHostException.class));
+    }
+
+    private void assertMetricSample(
+            Collector.MetricFamilySamples metricFamilySamples,
+            String expectedSampleName,
+            String result,
+            double expectedValue) {
+        Collector.MetricFamilySamples.Sample sample =
+                metricFamilySamples.samples.stream()
+                        .filter(
+                                s -> {
+                                    if (!expectedSampleName.equals(s.name)) {
+                                        return false;
+                                    }
+                                    int resultLabelIndex = s.labelNames.indexOf("result");
+                                    return resultLabelIndex >= 0
+                                            && result.equals(s.labelValues.get(resultLabelIndex));
+                                })
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(sample);
+        assertAddressLabel(sample);
+        Assertions.assertEquals(expectedValue, sample.value);
+    }
+
+    private void assertSingleMetricSample(
+            Collector.MetricFamilySamples metricFamilySamples, double expectedValue) {
+        Assertions.assertEquals(1, metricFamilySamples.samples.size());
+        Collector.MetricFamilySamples.Sample sample = metricFamilySamples.samples.get(0);
+        assertAddressLabel(sample);
+        Assertions.assertEquals(expectedValue, sample.value);
+    }
+
+    private void assertAddressLabel(Collector.MetricFamilySamples.Sample sample) {
+        int addressLabelIndex = sample.labelNames.indexOf("address");
+        Assertions.assertTrue(addressLabelIndex >= 0, "metric sample must contain 'address' label");
+        Assertions.assertEquals("127.0.0.1:5801", sample.labelValues.get(addressLabelIndex));
     }
 }
