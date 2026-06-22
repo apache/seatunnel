@@ -286,17 +286,13 @@ public final class FactoryUtil {
 
     public static Optional<Catalog> createOptionalCatalog(
             String catalogName,
-            ReadonlyConfig readonlyConfig,
+            ReadonlyConfig options,
             ClassLoader classLoader,
             String factoryIdentifier) {
         Optional<CatalogFactory> optionalFactory =
                 discoverOptionalFactory(classLoader, CatalogFactory.class, factoryIdentifier);
-
         return optionalFactory.map(
-                catalogFactory -> {
-                    ConfigValidator.of(readonlyConfig).validate(catalogFactory.optionRule());
-                    return catalogFactory.createCatalog(catalogName, readonlyConfig);
-                });
+                catalogFactory -> catalogFactory.createCatalog(catalogName, options));
     }
 
     public static <T extends Factory> URL getFactoryUrl(T factory) {
