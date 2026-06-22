@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-title: 文件到 StarRocks
+title: File 到 StarRocks
 ---
 
 # 文件到 StarRocks
