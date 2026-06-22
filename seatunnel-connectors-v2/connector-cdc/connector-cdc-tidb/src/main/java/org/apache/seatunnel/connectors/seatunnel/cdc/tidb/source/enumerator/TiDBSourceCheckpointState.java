@@ -38,8 +38,7 @@ public class TiDBSourceCheckpointState implements Serializable {
     private boolean shouldEnumerate;
     private Map<Integer, List<TiDBSourceSplit>> pendingSplit;
 
-    public TiDBSourceCheckpointState(
-            boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
+    public TiDBSourceCheckpointState(boolean shouldEnumerate, Map<Integer, ?> pendingSplit) {
         this.shouldEnumerate = shouldEnumerate;
         this.pendingSplit = normalizePendingSplit(pendingSplit);
     }
