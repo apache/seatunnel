@@ -27,8 +27,10 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class KafkaFactoryTest {
@@ -96,6 +98,60 @@ class KafkaFactoryTest {
         cfg.put("topic", "test-topic");
         cfg.put("start_mode", "SPECIFIC_OFFSETS");
         cfg.put("start_mode.offsets", Collections.emptyMap());
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    // --- Multi-table (tables_configs) tests ---
+
+    private Map<String, Object> validMultiTableConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("topic", "multi-topic");
+        entry.put("start_mode", "TIMESTAMP");
+        entry.put("start_mode.timestamp", 5000L);
+        List<Map<String, Object>> tables = new ArrayList<>();
+        tables.add(entry);
+        cfg.put("tables_configs", tables);
+        return cfg;
+    }
+
+    @Test
+    void testMultiTableValidConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(validMultiTableConfig()));
+    }
+
+    @Test
+    void testMultiTableNegativeTimestampRejected() {
+        Map<String, Object> cfg = validMultiTableConfig();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tables = (List<Map<String, Object>>) cfg.get("tables_configs");
+        tables.get(0).put("start_mode.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testMultiTableNegativeEndTimestampRejected() {
+        Map<String, Object> cfg = validMultiTableConfig();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tables = (List<Map<String, Object>>) cfg.get("tables_configs");
+        tables.get(0).put("start_mode.end_timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testMultiTableEmptyOffsetsRejected() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("topic", "multi-topic");
+        entry.put("start_mode", "SPECIFIC_OFFSETS");
+        entry.put("start_mode.offsets", Collections.emptyMap());
+        List<Map<String, Object>> tables = new ArrayList<>();
+        tables.add(entry);
+        cfg.put("tables_configs", tables);
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 }

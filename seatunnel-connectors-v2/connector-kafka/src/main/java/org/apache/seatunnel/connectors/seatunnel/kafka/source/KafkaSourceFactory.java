@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -32,6 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 @AutoService(Factory.class)
 public class KafkaSourceFactory implements TableSourceFactory {
@@ -86,6 +91,14 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.START_MODE,
                         StartMode.SPECIFIC_OFFSETS,
                         Conditions.mapNotEmpty(KafkaSourceOptions.START_MODE_OFFSETS))
+                .optional(
+                        KafkaSourceOptions.TABLE_CONFIGS,
+                        Conditions.extension(
+                                KafkaSourceOptions.TABLE_CONFIGS, new TableConfigsValidator()))
+                .optional(
+                        KafkaSourceOptions.TABLE_LIST,
+                        Conditions.extension(
+                                KafkaSourceOptions.TABLE_LIST, new TableConfigsValidator()))
                 .conditional(
                         KafkaSourceOptions.FORMAT,
                         MessageFormat.PROTOBUF,
@@ -102,5 +115,59 @@ public class KafkaSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return KafkaSource.class;
+    }
+
+    static class TableConfigsValidator implements ConditionExtension<List<Map<String, Object>>> {
+
+        @Override
+        public String description() {
+            return "each tables_configs entry: start_mode.timestamp >= 0 when TIMESTAMP, "
+                    + "non-empty start_mode.offsets when SPECIFIC_OFFSETS";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> entries)
+                throws OptionValidationException {
+            if (entries == null || entries.isEmpty()) {
+                return true;
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                ReadonlyConfig entryConfig = ReadonlyConfig.fromMap(entries.get(i));
+                StartMode startMode =
+                        entryConfig.getOptional(KafkaSourceOptions.START_MODE).orElse(null);
+                if (startMode == StartMode.TIMESTAMP) {
+                    Long ts =
+                            entryConfig
+                                    .getOptional(KafkaSourceOptions.START_MODE_TIMESTAMP)
+                                    .orElse(null);
+                    if (ts != null && ts < 0) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start_mode.timestamp' must be >= 0, got: %d",
+                                i, ts);
+                    }
+                    Long endTs =
+                            entryConfig
+                                    .getOptional(KafkaSourceOptions.START_MODE_END_TIMESTAMP)
+                                    .orElse(null);
+                    if (endTs != null && endTs < 0) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start_mode.end_timestamp' must be >= 0, got: %d",
+                                i, endTs);
+                    }
+                } else if (startMode == StartMode.SPECIFIC_OFFSETS) {
+                    Map<String, Long> offsets =
+                            entryConfig
+                                    .getOptional(KafkaSourceOptions.START_MODE_OFFSETS)
+                                    .orElse(null);
+                    if (offsets != null && offsets.isEmpty()) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start_mode.offsets' must not be empty "
+                                        + "when start_mode=SPECIFIC_OFFSETS",
+                                i);
+                    }
+                }
+            }
+            return true;
+        }
     }
 }
