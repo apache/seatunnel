@@ -3554,4 +3554,48 @@ public class ConfigValidatorTest {
                 msg.contains("port") && msg.contains("value"),
                 "Should report value constraint error: " + msg);
     }
+
+    @Test
+    public void testExtensionExceptionIsAggregatedNotFailFast() {
+        ConditionExtension<Integer> throwingExtension =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value)
+                            throws OptionValidationException {
+                        if (value != null && value <= 0) {
+                            throw new OptionValidationException(
+                                    "port value %d is not positive", value);
+                        }
+                        return true;
+                    }
+                };
+
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(HOST, notBlank(HOST))
+                        .required(PORT, Conditions.extension(PORT, throwingExtension))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "");
+        config.put(PORT.key(), -1);
+
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"), "both errors should be aggregated: " + msg);
+        Assertions.assertTrue(
+                msg.contains("host") && msg.contains("is not blank"),
+                "host notBlank error should appear: " + msg);
+        Assertions.assertTrue(
+                msg.contains("port value -1 is not positive"),
+                "extension exception message should be preserved: " + msg);
+    }
 }

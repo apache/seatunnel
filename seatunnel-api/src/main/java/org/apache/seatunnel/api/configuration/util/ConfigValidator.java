@@ -36,10 +36,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.configuration.util.OptionUtil.formatError;
+import static org.apache.seatunnel.api.configuration.util.OptionUtil.formatOptionsError;
 import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
 
 public class ConfigValidator {
     private final ReadonlyConfig config;
+
+    /** Closed set of validation error categories used in formatted error messages. */
+    private static final String TYPE_REQUIRED = "required";
+
+    private static final String TYPE_VALUE = "value";
+    private static final String TYPE_BUNDLED = "bundled";
+    private static final String TYPE_EXCLUSIVE = "exclusive";
+    private static final String TYPE_CONDITIONAL = "conditional";
+    private static final String TYPE_SINGLE_CHOICE = "singleChoice";
 
     private static final Set<String> COMMON_KEYS = new HashSet<>();
 
@@ -211,11 +222,20 @@ public class ConfigValidator {
             if (structurallyAbsentKeys.contains(constraint.getOption().key())) {
                 continue;
             }
-            if (isConstraintApplicable(constraint, rule) && !validate(constraint)) {
+            if (!isConstraintApplicable(constraint, rule)) {
+                continue;
+            }
+            try {
+                if (!validate(constraint)) {
+                    errors.add(
+                            formatError(
+                                    constraint.getOption().key(),
+                                    TYPE_VALUE,
+                                    constraint.toString()));
+                }
+            } catch (OptionValidationException e) {
                 errors.add(
-                        String.format(
-                                "option: %s\n      type: value\n      constraint: %s",
-                                constraint.getOption().key(), constraint.toString()));
+                        formatError(constraint.getOption().key(), TYPE_VALUE, e.getRawMessage()));
             }
         }
     }
@@ -312,26 +332,27 @@ public class ConfigValidator {
         List optionValues = singleChoiceOption.getOptionValues();
         if (CollectionUtils.isEmpty(optionValues)) {
             errors.add(
-                    String.format(
-                            "option: %s\n      type: singleChoice\n      constraint: optionValues must not be empty",
-                            option.key()));
+                    formatError(
+                            option.key(), TYPE_SINGLE_CHOICE, "optionValues must not be empty"));
             return;
         }
 
         Object o = singleChoiceOption.defaultValue();
         if (o != null && !optionValues.contains(o)) {
             errors.add(
-                    String.format(
-                            "option: %s\n      type: singleChoice\n      constraint: defaultValue(%s) must be one of %s",
-                            option.key(), o, optionValues));
+                    formatError(
+                            option.key(),
+                            TYPE_SINGLE_CHOICE,
+                            String.format("defaultValue(%s) must be one of %s", o, optionValues)));
         }
 
         Object value = config.get(option);
         if (value != null && !optionValues.contains(value)) {
             errors.add(
-                    String.format(
-                            "option: %s\n      type: singleChoice\n      constraint: value(%s) must be one of %s",
-                            option.key(), value, optionValues));
+                    formatError(
+                            option.key(),
+                            TYPE_SINGLE_CHOICE,
+                            String.format("value(%s) must be one of %s", value, optionValues)));
         }
     }
 
@@ -372,9 +393,10 @@ public class ConfigValidator {
             return null;
         }
         String hint = expression == null ? "" : " when [" + expression + "]";
-        return String.format(
-                "option: %s\n      type: required\n      constraint: required option is not configured%s",
-                getOptionKeys(absentOptions), hint);
+        return formatError(
+                getOptionKeys(absentOptions),
+                TYPE_REQUIRED,
+                "required option is not configured" + hint);
     }
 
     boolean hasOption(Option<?> option) {
@@ -395,9 +417,12 @@ public class ConfigValidator {
         if (present.size() == bundledOptions.size() || absent.size() == bundledOptions.size()) {
             return null;
         }
-        return String.format(
-                "options: %s\n      type: bundled\n      constraint: bundled options must be present or absent together (present: [%s], absent: [%s])",
-                getOptionKeys(bundledOptions), getOptionKeys(present), getOptionKeys(absent));
+        return formatOptionsError(
+                getOptionKeys(bundledOptions),
+                TYPE_BUNDLED,
+                String.format(
+                        "bundled options must be present or absent together (present: [%s], absent: [%s])",
+                        getOptionKeys(present), getOptionKeys(absent)));
     }
 
     String checkExclusive(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
@@ -412,14 +437,17 @@ public class ConfigValidator {
             return null;
         }
         if (count == 0) {
-            return String.format(
-                    "options: %s\n      type: exclusive\n      constraint: exactly one option must be set, but none are configured",
-                    getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
+            return formatOptionsError(
+                    getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()),
+                    TYPE_EXCLUSIVE,
+                    "exactly one option must be set, but none are configured");
         }
-        return String.format(
-                "options: %s\n      type: exclusive\n      constraint: mutually exclusive, but multiple are set: [%s]",
+        return formatOptionsError(
                 getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()),
-                getOptionKeys(presentOptions));
+                TYPE_EXCLUSIVE,
+                String.format(
+                        "mutually exclusive, but multiple are set: [%s]",
+                        getOptionKeys(presentOptions)));
     }
 
     String checkConditional(RequiredOption.ConditionalRequiredOptions conditionalRequiredOptions) {
@@ -432,10 +460,12 @@ public class ConfigValidator {
         if (absentOptions.isEmpty()) {
             return null;
         }
-        return String.format(
-                "option: %s\n      type: conditional\n      constraint: required because [%s] is true",
+        return formatError(
                 getOptionKeys(absentOptions),
-                conditionalRequiredOptions.getExpression().toString());
+                TYPE_CONDITIONAL,
+                String.format(
+                        "required because [%s] is true",
+                        conditionalRequiredOptions.getExpression().toString()));
     }
 
     private boolean validate(Expression expression) {
