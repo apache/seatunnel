@@ -83,6 +83,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.Postg
 public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private static final String CONTEXT_NAME = "postgres-cdc-connector-task";
+    private static final String DUPLICATE_OBJECT_SQL_STATE = "42710";
 
     private final PostgresConnection dataConnection;
 
@@ -212,7 +213,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         replicationConnection.createReplicationSlot().orElse(null);
                     } catch (SQLException ex) {
                         String message = "Creation of replication slot failed";
-                        if (ex.getMessage().contains("already exists")) {
+                        if (isReplicationSlotAlreadyExists(ex)) {
                             message +=
                                     "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
                             log.warn(message);
@@ -283,6 +284,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         } finally {
             previousContext.restore();
         }
+    }
+
+    public static boolean isReplicationSlotAlreadyExists(SQLException ex) {
+        String message = ex.getMessage();
+        return DUPLICATE_OBJECT_SQL_STATE.equals(ex.getSQLState())
+                || (message != null && message.contains("already exists"));
     }
 
     @Override
