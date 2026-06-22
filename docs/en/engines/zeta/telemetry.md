@@ -146,6 +146,15 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
 | job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
 
+### Report Metrics Operation
+
+| MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
+|---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**, worker instance address,for example: "127.0.0.1:5801". **result**, one of "success" "failure" "interrupted" | The total number of `ReportMetricsOperation` invocations sent by a worker                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The number of task metrics included in the most recent `ReportMetricsOperation` payload sent by a worker        |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The most recent worker-side `ReportMetricsOperation` reporting latency in milliseconds, including local metrics collection and worker-to-master invocation |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The maximum observed worker-side `ReportMetricsOperation` reporting latency in milliseconds since the worker started, including local metrics collection and worker-to-master invocation |
+
 ### Job info detail
 
 | MetricName | Type  | Labels                                                                                                                      | DESCRIPTION                         |
