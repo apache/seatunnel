@@ -75,9 +75,17 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         SqlServerIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
+                .optional(
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                        Conditions.extension(
+                                SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
+                .optional(
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
                 .optional(
                         SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(

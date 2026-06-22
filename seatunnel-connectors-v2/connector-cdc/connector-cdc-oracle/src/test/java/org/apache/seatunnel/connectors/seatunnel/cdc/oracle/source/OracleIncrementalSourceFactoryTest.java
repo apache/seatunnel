@@ -172,4 +172,27 @@ class OracleIncrementalSourceFactoryTest {
         cfgHostNoPort.remove("port");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgHostNoPort));
     }
+
+    @Test
+    public void testSchemaChangesValidNamesAccepted() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("schema-changes.enabled", true);
+        cfg.put("schema-changes.include", Arrays.asList("add.column", "drop.column"));
+        cfg.put("schema-changes.exclude", Arrays.asList("modify.column"));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidNameFailsFast() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("schema-changes.include", Arrays.asList("rename.tabble"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidExcludeNameFailsFast() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
 }

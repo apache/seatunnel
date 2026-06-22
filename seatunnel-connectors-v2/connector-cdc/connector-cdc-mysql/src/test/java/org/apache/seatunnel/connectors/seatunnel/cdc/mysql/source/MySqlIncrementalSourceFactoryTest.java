@@ -126,4 +126,41 @@ public class MySqlIncrementalSourceFactoryTest {
         cfgValid.put("table-names", Arrays.asList("db1.t1", "db1.t2"));
         Assertions.assertDoesNotThrow(() -> validate(cfgValid));
     }
+
+    @Test
+    public void testThreeSegmentTableNameRejected() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("table-names", Arrays.asList("db.schema.table"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testSingleSegmentTableNameRejected() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("table-names", Arrays.asList("table_only"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesValidNamesAccepted() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("schema-changes.enabled", true);
+        cfg.put("schema-changes.include", Arrays.asList("add.column", "drop.column"));
+        cfg.put("schema-changes.exclude", Arrays.asList("modify.column"));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidNameFailsFast() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("schema-changes.include", Arrays.asList("rename.tabble"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidExcludeNameFailsFast() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
 }

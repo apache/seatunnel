@@ -136,7 +136,14 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                 new SchemaChangeLogMiningValidator()))
                 .optional(
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
+                .optional(
+                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
                 .optional(
                         OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(

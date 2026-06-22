@@ -160,8 +160,35 @@ public class SourceOptions {
     }
 
     /**
+     * Validates that every entry in {@code schema-changes.include} or {@code
+     * schema-changes.exclude} is a recognized canonical event name.
+     */
+    public static class SchemaChangeNameValidator implements ConditionExtension<List<String>> {
+
+        @Override
+        public String description() {
+            return "each value must be a valid schema change event name: "
+                    + SchemaChangeEventType.validNames();
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return true;
+            }
+            try {
+                SchemaChangeEventType.fromCanonicalNames(value);
+                return true;
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
+    }
+
+    /**
      * Validates that every table name follows the qualified format: {@code schema.table} or {@code
-     * db.schema.table}. Shared across all JDBC-based CDC connectors.
+     * db.schema.table}. Used by connectors that accept both two-segment and three-segment
+     * identifiers (e.g. Oracle, SQLServer).
      */
     public static class QualifiedTableNameValidator implements ConditionExtension<List<String>> {
 

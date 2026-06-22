@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -69,7 +70,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 .and(
                                         Conditions.extension(
                                                 MySqlIncrementalSourceOptions.TABLE_NAMES,
-                                                new SourceOptions.QualifiedTableNameValidator())))
+                                                new MysqlTableNameValidator())))
                 .optional(
                         MySqlIncrementalSourceOptions.DATABASE_NAMES,
                         MySqlIncrementalSourceOptions.SERVER_TIME_ZONE,
@@ -80,9 +81,17 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
-                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
+                .optional(
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
+                .optional(
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                new SourceOptions.SchemaChangeNameValidator()))
                 .optional(
                         MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(
@@ -187,5 +196,42 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MySqlIncrementalSource<>(config, catalogTables);
         };
+    }
+
+    /**
+     * MySQL-specific table name validator that only accepts the two-segment {@code database.table}
+     * format. MySQL does not have a separate schema namespace, so three-segment identifiers are
+     * invalid.
+     */
+    static class MysqlTableNameValidator implements ConditionExtension<List<String>> {
+
+        @Override
+        public String description() {
+            return "each table name must be in 'database.table' format (exactly two segments)";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            return value.stream().allMatch(MysqlTableNameValidator::isTwoSegmentName);
+        }
+
+        private static boolean isTwoSegmentName(String name) {
+            if (name == null || name.isEmpty()) {
+                return false;
+            }
+            String[] segments = name.split("\\.", -1);
+            if (segments.length != 2) {
+                return false;
+            }
+            for (String seg : segments) {
+                if (seg.trim().isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

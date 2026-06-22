@@ -112,6 +112,29 @@ class SqlServerIncrementalSourceFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(cfgValid));
     }
 
+    @Test
+    public void testSchemaChangesValidNamesAccepted() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("schema-changes.enabled", true);
+        cfg.put("schema-changes.include", Arrays.asList("add.column", "drop.column"));
+        cfg.put("schema-changes.exclude", Arrays.asList("modify.column"));
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidNameFailsFast() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("schema-changes.include", Arrays.asList("rename.tabble"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testSchemaChangesInvalidExcludeNameFailsFast() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
     /**
      * SQLServer CDC source creation must accept the driver-specific databaseName URL syntax during
      * the submission-time catalog validation step.
