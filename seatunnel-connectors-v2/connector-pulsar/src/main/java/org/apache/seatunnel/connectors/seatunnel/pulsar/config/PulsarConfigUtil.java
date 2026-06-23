@@ -43,12 +43,19 @@ import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
 import org.apache.pulsar.client.impl.transaction.TransactionImpl;
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class PulsarConfigUtil {
+
+    private static final String[] DEFERRED_CLEANUP_CLASS_NAMES = {
+        "org.apache.pulsar.shade.org.jvnet.hk2.internal.SingletonContext$GenerationComparator",
+        "org.apache.pulsar.shade.io.netty.buffer.PoolArena$1"
+    };
 
     private PulsarConfigUtil() {}
 
@@ -57,6 +64,7 @@ public class PulsarConfigUtil {
         builder.serviceHttpUrl(config.getAdminUrl());
         builder.authentication(createAuthentication(config));
         try {
+            preloadDeferredCleanupClasses(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED);
             return builder.build();
         } catch (PulsarClientException e) {
             throw new PulsarConnectorException(
@@ -73,11 +81,37 @@ public class PulsarConfigUtil {
             builder.enableTransaction(true);
         }
         try {
+            preloadDeferredCleanupClasses(PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED);
             return builder.build();
         } catch (PulsarClientException e) {
             throw new PulsarConnectorException(
                     PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
         }
+    }
+
+    /**
+     * Preload shutdown-only runtime helpers while the connector classloader is still active.
+     *
+     * <p>Pulsar may initialize these helper classes lazily from cleanup threads after Flink has
+     * started tearing down the user-code classloader. Loading them eagerly prevents cleanup-time
+     * {@code ClassNotFoundException} and {@code NoClassDefFoundError} failures after a successful
+     * job execution.
+     */
+    static List<Class<?>> preloadDeferredCleanupClasses(PulsarConnectorErrorCode errorCode) {
+        ClassLoader classLoader = PulsarConfigUtil.class.getClassLoader();
+        List<Class<?>> loadedClasses = new ArrayList<>(DEFERRED_CLEANUP_CLASS_NAMES.length);
+        for (String className : DEFERRED_CLEANUP_CLASS_NAMES) {
+            try {
+                loadedClasses.add(Class.forName(className, false, classLoader));
+            } catch (ClassNotFoundException e) {
+                throw new PulsarConnectorException(
+                        errorCode,
+                        String.format(
+                                "Failed to preload Pulsar cleanup runtime class '%s'.", className),
+                        e);
+            }
+        }
+        return loadedClasses;
     }
 
     public static ConsumerBuilder<byte[]> createConsumerBuilder(
