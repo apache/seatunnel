@@ -4,6 +4,18 @@ sidebar_position: 2
 
 # How it works
 
+## What New Users Should Know First
+
+You do not need to understand every internal module before running SeaTunnel.
+For most first-time users, the practical order is:
+
+1. run one job locally
+2. learn the config structure
+3. choose the right connectors and engine
+4. come back here when you want to understand the runtime model better
+
+SeaTunnel is easiest to understand as a config-driven pipeline that runs on a chosen execution engine.
+
 ## Overview
 
 SeaTunnel is a distributed multimodal data integration tool with a pluggable architecture. It decouples the connector layer from the execution engine, allowing the same connectors to run on different engines.
@@ -34,6 +46,28 @@ flowchart TD
     class engine layerPurple;
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
+
+## The Four Building Blocks
+
+### 1. Job Configuration
+
+Your config file describes what to read, how to transform it, where to write it, and which engine settings should be used.
+
+### 2. SeaTunnel Core
+
+SeaTunnel parses the config, builds an execution plan, loads plugins, and coordinates submission to the selected engine.
+
+### 3. Source -> Transform -> Sink
+
+This is the data path most users should remember first:
+
+- **Source** reads from external systems
+- **Transform** optionally reshapes or filters the data
+- **Sink** writes the result to the target system
+
+### 4. Execution Engine
+
+The engine decides where the job runs. Most new users should start with [SeaTunnel Engine (Zeta)](../engines/zeta/about.md), then move to Flink or Spark only when their environment already depends on those platforms.
 
 ## Recommended Reading Path
 

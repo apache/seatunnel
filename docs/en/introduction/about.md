@@ -5,11 +5,12 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel is a multimodal, ultra-high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
+SeaTunnel is a multimodal, high-performance, distributed data integration platform.
+It helps teams move and synchronize data across databases, files, data lakes, and streaming systems with one unified job model.
 
 ## Start Here
 
-If you are new to SeaTunnel, use this short reading path:
+If this is your first time using SeaTunnel, follow this reading path:
 
 <div
   style={{
@@ -38,77 +39,73 @@ If you are new to SeaTunnel, use this short reading path:
 - [Getting Started Overview](../getting-started/overview.md) for the shortest path into the docs
 - [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md) for the first local run
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md) for writing real jobs
-- [Architecture Overview](../architecture/overview.md) if you want the system view first
+- [How It Works](how-it-works.md) for the execution model before going deeper
 
-## Get Help And Join The Community
+If you already operate Flink or Spark clusters, you can also jump directly to
+[Quick Start With Flink](../getting-started/locally/quick-start-flink.md) or
+[Quick Start With Spark](../getting-started/locally/quick-start-spark.md).
 
-If you are evaluating SeaTunnel or running into issues, use these entry points first:
+## What SeaTunnel Helps You Do
 
-- [FAQ](../faq.md) for common usage, CDC, and configuration questions
-- [Developer Setup](../developer/setup.md) if you want to build or debug SeaTunnel locally
-- [Contribution Path](../developer/contribution-path.md) if you want to start contributing with the smallest reasonable scope
-- [Contribute Plugin](../developer/contribute-plugin.md) if you want to contribute a connector or transform
-- [GitHub Issues](https://github.com/apache/seatunnel/issues), and the [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) if you need community help
+SeaTunnel is designed for the jobs data teams usually need to deliver first:
 
-## Why We Need SeaTunnel
+- **Move data between many systems**: databases, message queues, file systems, object storage, data lakes, and SaaS systems
+- **Handle both batch and streaming workloads**: one connector model can serve full loads, incremental loads, CDC, and real-time synchronization
+- **Keep job definitions understandable**: a SeaTunnel job is still mainly `env`, `source`, `transform`, and `sink`
+- **Reduce operational cost**: SeaTunnel focuses on high throughput, lower dependency overhead, and practical observability
 
-SeaTunnel focuses on data integration and data synchronization, and is mainly designed to solve common problems in the field of data integration:
+## Why Teams Choose SeaTunnel
 
-* **Various data sources**: There are hundreds of commonly-used data sources with incompatible versions. With the emergence of new technologies, more data sources are appearing. It is difficult for users to find a tool that can fully and quickly support these data sources.
-* **Multimodal data integration**: In addition to structured data, users also need to integrate video, images, binary files, structured and unstructured text data. However, existing data integration tools are mainly focused on structured data.
-* **Complex synchronization scenarios**: Data synchronization needs to support various synchronization scenarios such as offline-full synchronization, offline-incremental synchronization, CDC, real-time synchronization, and full database synchronization.
-* **High resource demand**: Existing data integration and data synchronization tools often require vast computing resources or JDBC connection resources to complete real-time synchronization of massive small tables. This has increased the burden on enterprises.
-* **Lack of quality and monitoring**: Data integration and synchronization processes often experience loss or duplication of data. The synchronization process lacks monitoring, and it is impossible to intuitively understand the real situation of the data during the task process.
-* **Complex technology stack**: The technology components used by enterprises are different, and users need to develop corresponding synchronization programs for different components to complete data integration.
-* **Difficulty in management and maintenance**: Limited to different underlying technology components (Flink/Spark), offline synchronization and real-time synchronization often have be developed and managed separately, which increases the difficulty of management and maintenance.
+- **Connector-first design**: SeaTunnel provides a unified Connector API, so Source, Transform, and Sink plugins can be reused across engines
+- **Flexible engine choice**: start with SeaTunnel Engine (Zeta), or run on Flink or Spark when that better fits your environment
+- **Built for data synchronization**: multi-table sync, CDC scenarios, and large-scale job execution are first-class use cases
+- **Operational visibility**: jobs expose runtime metrics and task information that help you understand throughput and stability
+- **Room to grow**: teams can begin with a single local job and later move to larger clusters and more advanced deployments
 
-## Features Of SeaTunnel
-
-* **Rich and extensible Connector**: SeaTunnel provides a Connector API that does not depend on a specific execution engine. Connectors (Source, Transform, Sink) developed based on this API can run on many different engines, such as SeaTunnel Engine(Zeta), Flink, and Spark.
-* **Connector plugin**: The plugin design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. SeaTunnel currently supports more than 160 connectors, and the ecosystem continues to expand.
-* **Batch-stream integration**: Connectors developed based on the SeaTunnel Connector API are perfectly compatible with offline synchronization, real-time synchronization, full-synchronization, incremental synchronization and other scenarios. They greatly reduce the difficulty of managing data integration tasks.
-* **Distributed snapshot**: Supports a distributed snapshot algorithm to ensure data consistency.
-* **Multi-engine support**: SeaTunnel uses the SeaTunnel Engine(Zeta) for data synchronization by default. SeaTunnel also supports the use of Flink or Spark as the execution engine of the Connector to adapt to the enterprise's existing technical components. SeaTunnel supports multiple versions of Spark and Flink.
-* **JDBC multiplexing, database log multi-table parsing**: SeaTunnel supports multi-table or whole database synchronization, which solves the problem of over-JDBC connections; and supports multi-table or whole database log reading and parsing, which solves the need for CDC multi-table synchronization scenarios to deal with problems with repeated reading and parsing of logs.
-* **High throughput and low latency**: SeaTunnel supports parallel reading and writing, providing stable and reliable data synchronization capabilities with high throughput and low latency.
-* **Perfect real-time monitoring**: SeaTunnel supports detailed monitoring information of each step in the data synchronization process, allowing users to easily understand the number of data, data size, QPS and other information read and written by the synchronization task.
-* **Two job development methods are supported**: coding and canvas design. The SeaTunnel web project https://github.com/apache/seatunnel-web provides visual management of jobs, scheduling, running and monitoring capabilities.
-
-## SeaTunnel Work Flowchart
+## Understand SeaTunnel In One Picture
 
 ![SeaTunnel Work Flowchart](../../images/architecture_diagram.png)
 
-The runtime process of SeaTunnel is shown in the figure above.
+You can understand the runtime flow in three ideas:
 
-The user configures the job information and selects the execution engine to submit the job.
+### 1. A SeaTunnel job is a pipeline
 
-The Source Connector is responsible for parallel reading and sending the data to the downstream Transform or directly to the Sink, and the Sink writes the data to the destination. It is worth noting that Source, Transform and Sink can be easily developed and extended by yourself.
+You describe the job in a config file, then SeaTunnel runs a pipeline from **Source** to **Transform** to **Sink**.
 
-SeaTunnel is an EtL(T) data integration tool. Therefore, in SeaTunnel, transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
+### 2. Connectors define what you read and write
 
-The default engine used by SeaTunnel is [SeaTunnel Engine](../engines/zeta/about.md). If you choose to use the Flink or Spark engine, SeaTunnel will package the Connector into a Flink or Spark program and submit it to Flink or Spark to run.
+SeaTunnel supports a broad set of [source connectors](../connectors/source),
+[sink connectors](../connectors/sink), and [transforms](../transforms).
+If you need custom behavior, you can also extend these plugin types.
 
-## Connector
+### 3. The engine defines where the job runs
 
-- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [Here](../connectors/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
+[SeaTunnel Engine (Zeta)](../engines/zeta/about.md) is the default choice and the recommended starting point for most new users.
+If you already rely on Flink or Spark, SeaTunnel can submit the same connector-based job model there as well.
 
-- **Transform Connector** If the schema is different between source and Sink, You can use the Transform Connector to change the schema read from source and make it the same as the Sink schema.
+## Choose An Engine
 
-- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [Here](../connectors/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
+| Engine | Best starting point | When to use it |
+| --- | --- | --- |
+| [SeaTunnel Engine (Zeta)](../engines/zeta/about.md) | Recommended for most new users | You want the simplest path to run SeaTunnel jobs end to end |
+| [Apache Flink](../engines/flink.md) | Good for existing Flink users | You already operate Flink and want SeaTunnel to fit that platform |
+| [Apache Spark](../engines/spark.md) | Good for existing Spark users | You already run Spark for batch workloads and want to reuse that stack |
+
+## Continue Learning
+
+- [How It Works](how-it-works.md) for the runtime model without the full architecture deep dive
+- [Intro To Config File](concepts/config.md) for how to write real jobs
+- [Connector documentation](../connectors/source) for choosing the systems you want to read from and write to
+- [Architecture Overview](../architecture/overview.md) for the deeper system design
+- [FAQ](../faq.md) for common usage, CDC, and configuration questions
+
+## Get Help And Join The Community
+
+- [Developer Setup](../developer/setup.md) if you want to build or debug SeaTunnel locally
+- [Contribution Path](../developer/contribution-path.md) if you want to start contributing with the smallest reasonable scope
+- [Contribute Plugin](../developer/contribute-plugin.md) if you want to contribute a connector or transform
+- [GitHub Issues](https://github.com/apache/seatunnel/issues), [Slack](https://s.apache.org/seatunnel-slack), and the [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) if you need community help
 
 ## Who Uses SeaTunnel
 
 SeaTunnel has lots of users. You can find more information about them in [Users](https://seatunnel.apache.org/user).
-
-## Landscapes
-
-<p align="center">
-<br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
-<br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/?item=app-definition-and-development--streaming-messaging--seatunnel">CNCF CLOUD NATIVE Landscape</a >.
-</p >
-
-## Learn more
-
-You can see [Run your first job](../getting-started/locally/run-your-first-job.md) for the next steps.

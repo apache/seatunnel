@@ -27,8 +27,9 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.12.15.jar
-scala-compiler-2.13.11.jar
-scala-reflect-2.13.11.jar
+scala-compiler-2.12.15.jar
+scala-reflect-2.12.15.jar
+scala-xml_2.12-1.0.6.jar
 seatunnel-scala-compiler-3.0.0-SNAPSHOT-optional.jar
 seatunnel-jackson-3.0.0-SNAPSHOT-optional.jar
 seatunnel-guava-3.0.0-SNAPSHOT-optional.jar
@@ -76,7 +77,6 @@ jetty-util-9.4.56.v20240826.jar
 jetty-util-ajax-9.4.56.v20240826.jar
 javax.servlet-api-3.1.0.jar
 seatunnel-jetty9-9.4.56-3.0.0-SNAPSHOT-optional.jar
-jna-5.13.0.jar
 jna-5.15.0.jar
 jna-platform-5.15.0.jar
 oshi-core-6.6.5.jar
@@ -128,5 +128,3 @@ netty-common-4.1.118.Final.jar
 netty-handler-4.1.118.Final.jar
 netty-resolver-4.1.118.Final.jar
 eventstream-1.0.1.jar
-java-diff-utils-4.12.jar
-jline-3.22.0.jar
