@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -75,6 +77,40 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
                 Assertions.assertThrows(
                         RuntimeException.class,
                         () -> sinkFlow.received(new Record<>(createAddColumnEvent())));
+
+        Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
+        Assertions.assertEquals(0, writer.appliedCount.get());
+    }
+
+    /**
+     * Regression test for the composite {@link AlterTableColumnsEvent} capability check.
+     *
+     * <p>A sink that only advertises {@link SchemaChangeType#ADD_COLUMN} must be rejected at the
+     * policy gate when the incoming composite event also contains a DROP_COLUMN sub-event. Before
+     * the fix, the OR-based check returned {@code true} as long as ANY one capability matched,
+     * allowing mixed DDL to slip through and fail later inside the sink writer.
+     */
+    @Test
+    void testMixedCompositeEventFailsAtPolicyGateForPartiallySupportedSink() throws Exception {
+        RecordingSchemaEvolutionWriter writer = new RecordingSchemaEvolutionWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
+                createSinkFlow(new SchemaEvolutionSink(writer, SchemaChangeType.ADD_COLUMN));
+        sinkFlow.init();
+        sinkFlow.restoreState(Collections.emptyList());
+
+        TableIdentifier tableId = TableIdentifier.of("catalog", "database", "table");
+        AlterTableColumnsEvent mixedEvent = new AlterTableColumnsEvent(tableId);
+        mixedEvent.addEvent(
+                AlterTableAddColumnEvent.add(
+                        tableId,
+                        PhysicalColumn.of(
+                                "new_col", BasicType.STRING_TYPE, 64L, true, null, null)));
+        mixedEvent.addEvent(new AlterTableDropColumnEvent(tableId, "old_col"));
+        mixedEvent.setJobId("job-under-test");
+
+        RuntimeException error =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> sinkFlow.received(new Record<>(mixedEvent)));
 
         Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
         Assertions.assertEquals(0, writer.appliedCount.get());

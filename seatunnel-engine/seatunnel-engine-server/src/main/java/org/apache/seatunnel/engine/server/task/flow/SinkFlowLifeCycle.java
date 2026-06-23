@@ -838,7 +838,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     null);
         }
         SchemaChangePolicy.validateSupported(
-                event, ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports(), event.getJobId());
+                event,
+                ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports(),
+                event.getJobId());
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
         } else {

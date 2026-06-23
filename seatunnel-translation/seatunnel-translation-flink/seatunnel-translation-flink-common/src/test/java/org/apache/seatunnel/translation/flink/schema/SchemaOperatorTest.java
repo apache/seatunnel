@@ -26,7 +26,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
@@ -255,6 +257,42 @@ public class SchemaOperatorTest {
 
         assertEquals(1, context.output.records.size());
         assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    /**
+     * Regression test for the composite {@link AlterTableColumnsEvent} capability check.
+     *
+     * <p>When a sink only advertises {@link SchemaChangeType#ADD_COLUMN}, a composite DDL event
+     * containing both ADD and DROP sub-events must be rejected at the {@link SchemaOperator} policy
+     * gate. Before the fix, the OR-based check in {@code SchemaChangePolicy.isSupported()} returned
+     * {@code true} as long as any one capability matched, allowing mixed DDL to pass the gate and
+     * fail later inside the sink writer.
+     */
+    @Test
+    void testEvolveBehaviorFailsMixedCompositeEventAgainstPartiallySupportedSink()
+            throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+
+        TableIdentifier tableId = TableIdentifier.of("catalog", "database", "table");
+        AlterTableColumnsEvent mixedEvent = new AlterTableColumnsEvent(tableId);
+        mixedEvent.addEvent(
+                AlterTableAddColumnEvent.add(
+                        tableId,
+                        PhysicalColumn.of(
+                                "new_col", BasicType.STRING_TYPE, 64L, true, null, null)));
+        mixedEvent.addEvent(new AlterTableDropColumnEvent(tableId, "old_col"));
+
+        assertThrows(
+                SchemaEvolutionException.class,
+                () ->
+                        context.operator.processElement(
+                                new StreamRecord<>(createSchemaRow(mixedEvent))));
+        assertTrue(context.output.records.isEmpty());
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
     }
 

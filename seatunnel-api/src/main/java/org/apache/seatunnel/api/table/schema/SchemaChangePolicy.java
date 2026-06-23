@@ -18,6 +18,8 @@
 package org.apache.seatunnel.api.table.schema;
 
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
@@ -83,11 +85,12 @@ public final class SchemaChangePolicy {
             case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:
                 return supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
             case SCHEMA_CHANGE_UPDATE_COLUMNS:
-                return supportedTypes.contains(SchemaChangeType.ADD_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.DROP_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.RENAME_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
+                AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+                if (columnsEvent.getEvents().isEmpty()) {
+                    return true;
+                }
+                return columnsEvent.getEvents().stream()
+                        .allMatch(subEvent -> isSubEventSupported(subEvent, supportedTypes));
             default:
                 return false;
         }
@@ -110,6 +113,28 @@ public final class SchemaChangePolicy {
             case SCHEMA_CHANGE_ALTER_TABLE_COMMENT:
             case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:
                 return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Returns whether a single sub-event inside an {@link AlterTableColumnsEvent} is supported by
+     * the given list of sink-advertised capabilities.
+     */
+    private static boolean isSubEventSupported(
+            AlterTableColumnEvent subEvent, List<SchemaChangeType> supportedTypes) {
+        switch (subEvent.getEventType()) {
+            case SCHEMA_CHANGE_ADD_COLUMN:
+                return supportedTypes.contains(SchemaChangeType.ADD_COLUMN);
+            case SCHEMA_CHANGE_DROP_COLUMN:
+                return supportedTypes.contains(SchemaChangeType.DROP_COLUMN);
+            case SCHEMA_CHANGE_MODIFY_COLUMN:
+                return supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN);
+            case SCHEMA_CHANGE_CHANGE_COLUMN:
+                return supportedTypes.contains(SchemaChangeType.RENAME_COLUMN);
+            case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:
+                return supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
             default:
                 return false;
         }
