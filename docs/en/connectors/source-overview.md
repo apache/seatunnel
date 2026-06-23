@@ -16,6 +16,6 @@ Use this page when your first question is "where should SeaTunnel read data from
 
 ## Useful Next Pages
 
-- [Source Common Options](../common-options/source-common-options.md)
-- [CDC Production Cookbook](../cdc-production-cookbook.md)
-- [Connector FAQ](../connector-faq.md)
+- [Source Common Options](./common-options/source-common-options.md)
+- [CDC Production Cookbook](./cdc-production-cookbook.md)
+- [Connector FAQ](./connector-faq.md)
