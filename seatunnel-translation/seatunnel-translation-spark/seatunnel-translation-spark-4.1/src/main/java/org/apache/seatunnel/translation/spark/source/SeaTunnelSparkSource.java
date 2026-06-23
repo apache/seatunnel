@@ -24,9 +24,12 @@ import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Map;
 
 /** SeaTunnel source class of Spark 4+, can be used as source */
+@AutoService(DataSourceRegister.class)
 public class SeaTunnelSparkSource implements DataSourceRegister, TableProvider {
     private static final String SOURCE_NAME = "SeaTunnelSource";
 

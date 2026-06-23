@@ -24,9 +24,12 @@ import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Map;
 
 /** SeaTunnel sink class of Spark 4+, can be used as sink */
+@AutoService(DataSourceRegister.class)
 public class SeaTunnelSparkSink implements DataSourceRegister, TableProvider {
 
     private static final String SINK_NAME = "SeaTunnelSink";
