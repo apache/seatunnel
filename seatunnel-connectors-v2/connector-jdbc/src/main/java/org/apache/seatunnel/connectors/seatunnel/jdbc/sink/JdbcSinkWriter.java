@@ -72,9 +72,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
-        if (jdbcSinkConfig.isEnableTimerFlush()) {
-            context.registerFlushAction(this::timerFlush);
-        }
+        context.registerFlushAction(this::timerFlush);
     }
 
     @Override

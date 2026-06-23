@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.shade.com.google.common.base.Throwables;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.SerializationUtils;
-
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import javax.transaction.xa.Xid;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -39,16 +41,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XidGenerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-
+import org.apache.seatunnel.shade.com.google.common.base.Throwables;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.transaction.xa.Xid;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
@@ -99,9 +96,11 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         this.xaFacade = (XaFacade) this.connectionProvider;
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, xaFacade, jdbcSinkConfig, tableSchema, databaseTableSchema)
+                        dialect, xaFacade, jdbcSinkConfig, tableSchema, databaseTableSchema)
                         .build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
+
+        sinkcontext.registerFlushAction(this::timerFlush);
     }
 
     JdbcExactlyOnceSinkWriter(
@@ -143,6 +142,19 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             }
         }
     }
+
+    private void timerFlush() throws IOException {
+        //1.提交
+        Optional<XidInfo> xidInfo = this.prepareCommit(System.currentTimeMillis());
+        if(xidInfo.isPresent()){
+            LOG.warn("");
+            return;
+        }
+
+        //2.开启新事物
+        this.beginTx(System.currentTimeMillis());
+    }
+
 
     @Override
     public List<JdbcSinkState> snapshotState(long checkpointId) {
@@ -340,7 +352,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         } finally {
             if (endAndPrepareException == null
                     || Throwables.getRootCause(endAndPrepareException)
-                            instanceof XaFacade.EmptyXaTransactionException) {
+                    instanceof XaFacade.EmptyXaTransactionException) {
                 prepareXid = currentXid;
             }
         }
