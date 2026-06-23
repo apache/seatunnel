@@ -35,6 +35,9 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -804,6 +807,25 @@ public class JdbcCatalogUtilsTest {
                     actualTablePathSet.isEmpty(),
                     "Expected empty result for pattern: " + databasePattern + "." + tablePattern);
         }
+    }
+
+    @Test
+    public void testExtractCatalogConfigIncludesExplicitDatabase() {
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:sqlserver://host:1433")
+                        .username("sa")
+                        .password("pass")
+                        .build();
+
+        ReadonlyConfig catalogConfig =
+                JdbcCatalogUtils.extractCatalogConfig(jdbcConnectionConfig, "schema_change_test");
+
+        Assertions.assertEquals(
+                "jdbc:sqlserver://host:1433", catalogConfig.get(JdbcCommonOptions.URL));
+        Assertions.assertEquals("sa", catalogConfig.get(JdbcCommonOptions.USERNAME));
+        Assertions.assertEquals("pass", catalogConfig.get(JdbcCommonOptions.PASSWORD));
+        Assertions.assertEquals("schema_change_test", catalogConfig.get(JdbcSinkOptions.DATABASE));
     }
 
     private static class TestCatalog implements Catalog {

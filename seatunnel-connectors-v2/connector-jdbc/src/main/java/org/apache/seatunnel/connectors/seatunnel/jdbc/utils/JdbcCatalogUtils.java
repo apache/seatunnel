@@ -43,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -486,7 +487,16 @@ public class JdbcCatalogUtils {
     }
 
     public static Optional<Catalog> findCatalog(JdbcConnectionConfig config, JdbcDialect dialect) {
-        ReadonlyConfig catalogConfig = extractCatalogConfig(config);
+        return findCatalog(config, dialect, null);
+    }
+
+    /**
+     * Builds catalog options from the JDBC connection settings and the explicit sink database when
+     * the JDBC URL itself does not embed one.
+     */
+    public static Optional<Catalog> findCatalog(
+            JdbcConnectionConfig config, JdbcDialect dialect, String database) {
+        ReadonlyConfig catalogConfig = extractCatalogConfig(config, database);
         return FactoryUtil.createOptionalCatalog(
                 dialect.dialectName(),
                 catalogConfig,
@@ -494,7 +504,7 @@ public class JdbcCatalogUtils {
                 dialect.dialectName());
     }
 
-    private static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config) {
+    static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config, String database) {
         Map<String, Object> catalogConfig = new HashMap<>();
         catalogConfig.put(JdbcCommonOptions.URL.key(), config.getUrl());
         config.getUsername()
@@ -508,6 +518,9 @@ public class JdbcCatalogUtils {
         catalogConfig.put(JdbcCommonOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
         catalogConfig.put(
                 JdbcCommonOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
+        if (StringUtils.isNotBlank(database)) {
+            catalogConfig.put(JdbcSinkOptions.DATABASE.key(), database);
+        }
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 
