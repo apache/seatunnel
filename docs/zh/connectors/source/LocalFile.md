@@ -254,25 +254,51 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 ### date_format [string]
 
-日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：
+日期类型格式，用于告诉连接器如何将字符串转换为日期。
+
+当显式配置时，仅使用指定的格式。支持的格式：
 
 `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+
+当未配置时，系统会从以下候选格式中自动检测：
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd` `M/d/yyyy` `M-d-yyyy`
 
 默认 `yyyy-MM-dd`
 
 ### datetime_format [string]
 
-日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：
+日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间。
 
-`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+当显式配置时，仅使用指定的格式。支持的格式：
+
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss`
+
+当未配置时，系统会从更广泛的候选格式中自动检测，包括：
+
+- 标准格式：`yyyy-MM-dd HH:mm:ss`、`yyyy-MM-dd'T'HH:mm:ss`
+- 斜杠分隔：`yyyy/MM/dd HH:mm:ss`
+- 点分隔：`yyyy.MM.dd HH:mm:ss`
+- 紧凑格式：`yyyyMMddHHmmss`
+- 单数字月/日：`yyyy-M-d HH:mm`、`yyyy-M-d H:mm:ss`
+- 中文格式：`yyyy年MM月dd日HH时mm分ss秒`
+- 反转格式：`M/d/yyyy HH:mm:ss`、`M-d-yyyy HH:mm:ss`
+- 带毫秒（1-9位）：`yyyy-MM-dd HH:mm:ss.SSS`
+- 带时区：`yyyy-MM-dd HH:mm:ss+HH:mm`、`yyyy-MM-dd HH:mm:ssZ`
 
 默认 `yyyy-MM-dd HH:mm:ss`
 
 ### time_format [string]
 
-时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：
+时间类型格式，用于告诉连接器如何将字符串转换为时间。
+
+当显式配置时，仅使用指定的格式。支持的格式：
 
 `HH:mm:ss` `HH:mm:ss.SSS`
+
+当未配置时，系统会从以下候选格式中自动检测：
+
+`HH:mm:ss` `HH:mm:ss.SSS` `H:mm:ss` `H:mm`
 
 默认 `HH:mm:ss`
 

@@ -81,6 +81,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     CLOSE_FAILED("COMMON-36", "'<identifier>' close failed."),
     SEATUNNEL_ROW_SERIALIZE_FAILED("COMMON-37", "Seatunnel row serialize failed. Row={ '<row>' }"),
     VALIDATION_FAILED("COMMON-38", "Data validation failed: '<message>'"),
+    FORMAT_TIME_ERROR(
+            "COMMON-39",
+            "The time format '<time>' of field '<field>' is not supported. Please check the time format."),
     ;
 
     private final String code;

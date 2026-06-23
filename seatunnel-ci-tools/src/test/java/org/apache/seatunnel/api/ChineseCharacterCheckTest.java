@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -47,6 +48,7 @@ public class ChineseCharacterCheckTest {
 
     private static final Pattern CHINESE_PATTERN = Pattern.compile("[\\u4e00-\\u9fa5]");
 
+    private static final List<String> whiteList = new ArrayList<>();
     /** Defines what content should be checked for Chinese characters */
     public enum CheckScope {
         /** Check both comments and code */
@@ -55,6 +57,14 @@ public class ChineseCharacterCheckTest {
         COMMENTS_ONLY,
         /** Check only code (string literals) */
         CODE_ONLY
+    }
+
+    @BeforeAll
+    public static void init() {
+        whiteList.add(
+                "seatunnel-common/src/main/java/org/apache/seatunnel/common/utils/DateTimeUtils.java");
+        whiteList.add(
+                "seatunnel-common\\src\\main\\java\\org\\apache\\seatunnel\\common\\utils\\DateTimeUtils.java");
     }
 
     @Disabled("Currently only checking comments")
@@ -87,6 +97,7 @@ public class ChineseCharacterCheckTest {
                             path -> {
                                 String pathString = path.toString();
                                 return pathString.endsWith(".java")
+                                        && whiteList.stream().noneMatch(pathString::contains)
                                         && (pathString.contains(mainPathFragment)
                                                 || pathString.contains(testPathFragment2));
                             })
