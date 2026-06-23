@@ -152,10 +152,13 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 如果您需要添加其他选项，可以在此处添加，并参考此[链接](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
+当多个任务使用不同的 `fs.s3a.buffer.dir` 时，建议设置 `"fs.s3a.impl.disable.cache" = "true"`。否则 S3A 文件系统实例可能会从缓存中复用，并继续使用缓存中的 `fs.s3a.buffer.dir` 路径；如果该路径已不存在，任务可能会抛出异常。
+
 ```
 hadoop_s3_properties {
       "fs.s3a.buffer.dir" = "/data/st_test/s3a"
       "fs.s3a.fast.upload.buffer" = "disk"
+      "fs.s3a.impl.disable.cache" = "true"
    }
 ```
 
@@ -399,6 +402,7 @@ sink {
       hadoop_s3_properties {
         "fs.s3a.buffer.dir" = "/data/st_test/s3a"
         "fs.s3a.fast.upload.buffer" = "disk"
+        "fs.s3a.impl.disable.cache" = "true"
       }
   }
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的接收插件列表，
@@ -430,6 +434,7 @@ S3File {
   hadoop_s3_properties {
     "fs.s3a.buffer.dir" = "/data/st_test/s3a"
     "fs.s3a.fast.upload.buffer" = "disk"
+    "fs.s3a.impl.disable.cache" = "true"
   }
 }
 ```
@@ -449,6 +454,7 @@ S3File {
   hadoop_s3_properties {
     "fs.s3a.buffer.dir" = "/data/st_test/s3a"
     "fs.s3a.fast.upload.buffer" = "disk"
+    "fs.s3a.impl.disable.cache" = "true"
   }
 }
 ```

@@ -155,10 +155,13 @@ Store the path of the data file to support variable replacement. For example: pa
 
 If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
+When multiple jobs use different `fs.s3a.buffer.dir` values, it is recommended to set `"fs.s3a.impl.disable.cache" = "true"`. Otherwise, the S3A file system instance may be reused from the cache and continue using the cached `fs.s3a.buffer.dir` path. If that path no longer exists, the job may throw an exception.
+
 ```
 hadoop_s3_properties {
       "fs.s3a.buffer.dir" = "/data/st_test/s3a"
       "fs.s3a.fast.upload.buffer" = "disk"
+      "fs.s3a.impl.disable.cache" = "true"
    }
 ```
 
@@ -403,6 +406,7 @@ sink {
       hadoop_s3_properties {
         "fs.s3a.buffer.dir" = "/data/st_test/s3a"
         "fs.s3a.fast.upload.buffer" = "disk"
+        "fs.s3a.impl.disable.cache" = "true"
       }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
@@ -436,6 +440,7 @@ and `com.amazonaws.auth.InstanceProfileCredentialsProvider`
     hadoop_s3_properties {
       "fs.s3a.buffer.dir" = "/data/st_test/s3a"
       "fs.s3a.fast.upload.buffer" = "disk"
+      "fs.s3a.impl.disable.cache" = "true"
     }
   }
 
@@ -457,6 +462,7 @@ For parquet file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCr
     hadoop_s3_properties {
       "fs.s3a.buffer.dir" = "/data/st_test/s3a"
       "fs.s3a.fast.upload.buffer" = "disk"
+      "fs.s3a.impl.disable.cache" = "true"
     }
   }
 
