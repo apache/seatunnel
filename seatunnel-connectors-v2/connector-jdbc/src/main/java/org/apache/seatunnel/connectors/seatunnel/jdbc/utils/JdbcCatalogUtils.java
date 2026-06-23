@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -69,6 +70,8 @@ import java.util.stream.Collectors;
 public class JdbcCatalogUtils {
     private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
     private static final String DOT_PLACEHOLDER = "__$DOT$__";
+    private static final String DATABASE_NAME_REQUIRED_MESSAGE =
+            "JDBC URL must contain a database name";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig,
@@ -497,11 +500,26 @@ public class JdbcCatalogUtils {
     public static Optional<Catalog> findCatalog(
             JdbcConnectionConfig config, JdbcDialect dialect, String database) {
         ReadonlyConfig catalogConfig = extractCatalogConfig(config, database);
-        return FactoryUtil.createOptionalCatalog(
-                dialect.dialectName(),
-                catalogConfig,
-                JdbcCatalogUtils.class.getClassLoader(),
-                dialect.dialectName());
+        try {
+            return FactoryUtil.createOptionalCatalog(
+                    dialect.dialectName(),
+                    catalogConfig,
+                    JdbcCatalogUtils.class.getClassLoader(),
+                    dialect.dialectName());
+        } catch (OptionValidationException e) {
+            if (StringUtils.isBlank(database)
+                    && e.getRawMessage() != null
+                    && e.getRawMessage().contains(DATABASE_NAME_REQUIRED_MESSAGE)) {
+                // Source-side table discovery can still read metadata through a direct JDBC
+                // connection, so only skip the optional catalog shortcut for this specific URL
+                // validation failure.
+                log.info(
+                        "Skip optional JDBC catalog for url {} because it does not embed a database; fallback to direct JDBC metadata discovery.",
+                        config.getUrl());
+                return Optional.empty();
+            }
+            throw e;
+        }
     }
 
     static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config, String database) {
