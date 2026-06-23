@@ -53,7 +53,7 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String PULSAR_IMAGE_NAME = "apachepulsar/pulsar:2.3.1";
     public static final String PULSAR_HOST = "pulsar.e2e.sink";
-    public static final String TOPIC = "topic-test02";
+    public static final String TOPIC = "topic_test02";
     private PulsarContainer pulsarContainer;
 
     @Override
