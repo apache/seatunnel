@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
-
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
