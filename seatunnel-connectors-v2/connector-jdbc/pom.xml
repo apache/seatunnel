@@ -36,6 +36,7 @@
         <sqlserver.version>9.2.1.jre8</sqlserver.version>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <oracle.version>12.2.0.1</oracle.version>
+        <oscar.version>4.1.152</oscar.version>
         <sqlite.version>3.39.3.0</sqlite.version>
         <db2.version>db2jcc4</db2.version>
         <sqlite.version>3.39.3.0</sqlite.version>
@@ -121,6 +122,12 @@
                 <groupId>com.oracle.database.xml</groupId>
                 <artifactId>xmlparserv2</artifactId>
                 <version>${oracle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.shentongdata</groupId>
+                <artifactId>oscarJDBC8</artifactId>
+                <version>${oscar.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -306,6 +313,10 @@
         <dependency>
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xmlparserv2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.shentongdata</groupId>
+            <artifactId>oscarJDBC8</artifactId>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>

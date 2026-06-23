@@ -39,6 +39,7 @@ import java.sql.Date;
 import java.sql.Driver;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -48,106 +49,106 @@ import java.util.Map;
 import java.util.Properties;
 
 @Slf4j
-public class JdbcDmUpsetIT extends AbstractJdbcIT {
+public class JdbcOscarUpsetIT extends AbstractJdbcIT {
 
-    private static final String DM_IMAGE = "laglangyue/" + "dmdb8";
-    private static final String DM_CONTAINER_HOST = "e2e_dmdb_upset";
+    private static final String OSCAR_IMAGE = "shentongdata/shentongdb:251217-825.2-linux64";
+    private static final String OSCAR_CONTAINER_HOST = "e2e_shentongdb_upset";
 
-    private static final String DM_DATABASE = "SYSDBA2";
-    private static final String DM_SOURCE = "E2E_TABLE_SOURCE_UPSET";
-    private static final String DM_SINK = "E2E_TABLE_SINK_UPSET";
-    private static final String DM_USERNAME = "SYSDBA2";
-    private static final String DM_PASSWORD = "testPassword";
-    private static final int DOCKET_PORT = 5236;
-    private static final int JDBC_PORT = 5236;
-    private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
+    private static final String OSCAR_DATABASE = "OSRDB";
+    private static final String OSCAR_SCHEMA = "SYSDBA2";
+    private static final String OSCAR_SOURCE = "E2E_TABLE_SOURCE_UPSET";
+    private static final String OSCAR_SINK = "E2E_TABLE_SINK_UPSET";
+    private static final String OSCAR_USERNAME = "SYSDBA2";
+    private static final String OSCAR_PASSWORD = "testPassword";
+    private static final int DOCKET_PORT = 2003;
+    private static final int JDBC_PORT = 2003;
+    private static final String OSCAR_URL = "jdbc:oscar://" + HOST + ":%s";
 
-    private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
+    private static final String DRIVER_CLASS = "com.oscar.Driver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_dm_upset_sink.conf");
+            Lists.newArrayList("/jdbc_oscar_source_and_oscar_upset_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
-                    + "    DM_BIT              BIT,\n"
-                    + "    DM_INT              INT,\n"
-                    + "    DM_INTEGER          INTEGER,\n"
-                    + "    DM_TINYINT          TINYINT,\n"
+                    + "    OSCAR_BIT              BIT,\n"
+                    + "    OSCAR_INT              INT,\n"
+                    + "    OSCAR_INTEGER          INTEGER,\n"
+                    + "    OSCAR_TINYINT          TINYINT,\n"
                     + "\n"
-                    + "    DM_BYTE             BYTE,\n"
-                    + "    DM_SMALLINT         SMALLINT,\n"
-                    + "    DM_BIGINT           BIGINT,\n"
+                    + "    OSCAR_SMALLINT         SMALLINT,\n"
+                    + "    OSCAR_BIGINT           BIGINT,\n"
                     + "\n"
-                    + "    DM_NUMBER           NUMBER,\n"
-                    + "    DM_DECIMAL          DECIMAL,\n"
-                    + "    DM_FLOAT            FLOAT,\n"
-                    + "    DM_DOUBLE_PRECISION DOUBLE PRECISION,\n"
-                    + "    DM_DOUBLE           DOUBLE,\n"
+                    + "    OSCAR_NUMBER           NUMBER,\n"
+                    + "    OSCAR_DECIMAL          DECIMAL,\n"
+                    + "    OSCAR_FLOAT            FLOAT,\n"
+                    + "    OSCAR_DOUBLE_PRECISION DOUBLE PRECISION,\n"
+                    + "    OSCAR_DOUBLE           DOUBLE,\n"
                     + "\n"
-                    + "    DM_CHAR             CHAR,\n"
-                    + "    DM_VARCHAR          VARCHAR,\n"
-                    + "    DM_VARCHAR2         VARCHAR2,\n"
-                    + "    DM_TEXT             TEXT,\n"
-                    + "    DM_LONG             LONG,\n"
+                    + "    OSCAR_CHAR             CHAR,\n"
+                    + "    OSCAR_VARCHAR          VARCHAR(10),\n"
+                    + "    OSCAR_VARCHAR2         VARCHAR(10),\n"
+                    + "    OSCAR_TEXT             TEXT,\n"
+                    + "    OSCAR_LONG             LONG,\n"
                     + "\n"
-                    + "    DM_TIMESTAMP        TIMESTAMP,\n"
-                    + "    DM_DATETIME         DATETIME,\n"
-                    + "    DM_DATE             DATE\n"
+                    + "    OSCAR_TIMESTAMP        TIMESTAMP,\n"
+                    + "    OSCAR_DATETIME         DATETIME,\n"
+                    + "    OSCAR_DATE             DATE\n"
                     + ")";
     private static final String CREATE_SINKTABLE_SQL =
             "create table if not exists %s"
                     + "(\n"
-                    + "    DM_BIT              BIT,\n"
-                    + "    DM_INT              INT,\n"
-                    + "    DM_INTEGER          INTEGER,\n"
-                    + "    DM_TINYINT          TINYINT,\n"
+                    + "    OSCAR_BIT              BIT,\n"
+                    + "    OSCAR_INT              INT,\n"
+                    + "    OSCAR_INTEGER          INTEGER,\n"
+                    + "    OSCAR_TINYINT          TINYINT,\n"
                     + "\n"
-                    + "    DM_BYTE             BYTE,\n"
-                    + "    DM_SMALLINT         SMALLINT,\n"
-                    + "    DM_BIGINT           BIGINT,\n"
+                    + "    OSCAR_SMALLINT         SMALLINT,\n"
+                    + "    OSCAR_BIGINT           BIGINT,\n"
                     + "\n"
-                    + "    DM_NUMBER           NUMBER,\n"
-                    + "    DM_DECIMAL          DECIMAL,\n"
-                    + "    DM_FLOAT            FLOAT,\n"
-                    + "    DM_DOUBLE_PRECISION DOUBLE PRECISION,\n"
-                    + "    DM_DOUBLE           DOUBLE,\n"
+                    + "    OSCAR_NUMBER           NUMBER,\n"
+                    + "    OSCAR_DECIMAL          DECIMAL,\n"
+                    + "    OSCAR_FLOAT            FLOAT,\n"
+                    + "    OSCAR_DOUBLE_PRECISION DOUBLE PRECISION,\n"
+                    + "    OSCAR_DOUBLE           DOUBLE,\n"
                     + "\n"
-                    + "    DM_CHAR             CHAR,\n"
-                    + "    DM_VARCHAR          VARCHAR,\n"
-                    + "    DM_VARCHAR2         VARCHAR2,\n"
-                    + "    DM_TEXT             TEXT,\n"
-                    + "    DM_LONG             LONG,\n"
+                    + "    OSCAR_CHAR             CHAR,\n"
+                    + "    OSCAR_VARCHAR          VARCHAR,\n"
+                    + "    OSCAR_VARCHAR2         VARCHAR2,\n"
+                    + "    OSCAR_TEXT             TEXT,\n"
+                    + "    OSCAR_LONG             LONG,\n"
                     + "\n"
-                    + "    DM_TIMESTAMP        TIMESTAMP,\n"
-                    + "    DM_DATETIME         DATETIME,\n"
-                    + "    DM_DATE             DATE,\n"
-                    + "    CONSTRAINT DMPKID PRIMARY KEY (DM_BIT) \n"
+                    + "    OSCAR_TIMESTAMP        TIMESTAMP,\n"
+                    + "    OSCAR_DATETIME         DATETIME,\n"
+                    + "    OSCAR_DATE             DATE,\n"
+                    + "    CONSTRAINT OSCARPKID PRIMARY KEY (OSCAR_BIT) \n"
                     + ")";
 
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
-        String jdbcUrl = String.format(DM_URL, JDBC_PORT);
+        String jdbcUrl = String.format(OSCAR_URL, JDBC_PORT);
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
 
-        String insertSql = insertTable(DM_DATABASE, DM_SOURCE, fieldNames);
+        String insertSql = insertTable(OSCAR_SCHEMA, OSCAR_SOURCE, fieldNames);
 
         return JdbcCase.builder()
-                .dockerImage(DM_IMAGE)
-                .networkAliases(DM_CONTAINER_HOST)
+                .dockerImage(OSCAR_IMAGE)
+                .networkAliases(OSCAR_CONTAINER_HOST)
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
                 .port(DOCKET_PORT)
                 .localPort(DOCKET_PORT)
-                .jdbcTemplate(DM_URL)
+                .jdbcTemplate(OSCAR_URL)
                 .jdbcUrl(jdbcUrl)
-                .userName(DM_USERNAME)
-                .password(DM_PASSWORD)
-                .database(DM_DATABASE)
-                .sourceTable(DM_SOURCE)
-                .sinkTable(DM_SINK)
+                .userName(OSCAR_USERNAME)
+                .password(OSCAR_PASSWORD)
+                .database(OSCAR_DATABASE)
+                .schema(OSCAR_SCHEMA)
+                .sourceTable(OSCAR_SOURCE)
+                .sinkTable(OSCAR_SINK)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
@@ -164,12 +165,12 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
+                                    jdbcCase.getSchema(), jdbcCase.getSourceTable()));
             String createSink =
                     String.format(
                             CREATE_SINKTABLE_SQL,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSinkTable()));
+                                    jdbcCase.getSchema(), jdbcCase.getSinkTable()));
 
             statement.execute(createSource);
             statement.execute(createSink);
@@ -181,33 +182,32 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
+        return "https://repo1.maven.org/maven2/com/shentongdata/oscarJDBC8/4.1.152/oscarJDBC8-4.1.152.jar";
     }
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                    "DM_BIT",
-                    "DM_INT",
-                    "DM_INTEGER",
-                    "DM_TINYINT",
-                    "DM_BYTE",
-                    "DM_SMALLINT",
-                    "DM_BIGINT",
-                    "DM_NUMBER",
-                    "DM_DECIMAL",
-                    "DM_FLOAT",
-                    "DM_DOUBLE_PRECISION",
-                    "DM_DOUBLE",
-                    "DM_CHAR",
-                    "DM_VARCHAR",
-                    "DM_VARCHAR2",
-                    "DM_TEXT",
-                    "DM_LONG",
-                    "DM_TIMESTAMP",
-                    "DM_DATETIME",
-                    "DM_DATE"
+                    "OSCAR_BIT",
+                    "OSCAR_INT",
+                    "OSCAR_INTEGER",
+                    "OSCAR_TINYINT",
+                    "OSCAR_SMALLINT",
+                    "OSCAR_BIGINT",
+                    "OSCAR_NUMBER",
+                    "OSCAR_DECIMAL",
+                    "OSCAR_FLOAT",
+                    "OSCAR_DOUBLE_PRECISION",
+                    "OSCAR_DOUBLE",
+                    "OSCAR_CHAR",
+                    "OSCAR_VARCHAR",
+                    "OSCAR_VARCHAR2",
+                    "OSCAR_TEXT",
+                    "OSCAR_LONG",
+                    "OSCAR_TIMESTAMP",
+                    "OSCAR_DATETIME",
+                    "OSCAR_DATE"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -215,12 +215,11 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                i % 2 == 0,
                                 i,
                                 i,
                                 Short.valueOf("1"),
                                 Byte.valueOf("1"),
-                                i,
                                 Long.parseLong("1"),
                                 BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
@@ -245,12 +244,13 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     @Override
     protected GenericContainer<?> initContainer() {
         GenericContainer<?> container =
-                new GenericContainer<>(DM_IMAGE)
+                new GenericContainer<>(OSCAR_IMAGE)
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(DM_CONTAINER_HOST)
+                        .withNetworkAliases(OSCAR_CONTAINER_HOST)
                         .withExposedPorts(JDBC_PORT)
+                        .withStartupTimeout(Duration.ofSeconds(3600))
                         .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(OSCAR_IMAGE)));
         container.setPortBindings(
                 Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKET_PORT)));
         return container;
@@ -277,16 +277,16 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
             }
 
             if (StringUtils.isNotBlank(jdbcCase.getPassword())) {
-                props.put("password", "SYSDBA");
+                props.put("password", "szoscar55");
             }
 
-            Connection dmCon =
+            Connection oscarCon =
                     driver.connect(
-                            String.format(DM_URL, DOCKET_PORT).replace(HOST, dbServer.getHost()),
+                            String.format(OSCAR_URL, DOCKET_PORT).replace(HOST, dbServer.getHost()),
                             props);
-            dmCon.setAutoCommit(false);
+            oscarCon.setAutoCommit(false);
 
-            createDBAUser(dmCon);
+            createDBAUser(oscarCon);
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, e);
         }
@@ -295,8 +295,9 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     protected void createDBAUser(Connection dnCon) {
         try (Statement statement = dnCon.createStatement()) {
 
-            String createUser = "CREATE USER SYSDBA2 IDENTIFIED BY testPassword;";
-            String updateUserDBA = "GRANT DBA TO SYSDBA2;";
+            String createUser =
+                    "CREATE USER SYSDBA2 WITH  DEFAULT TABLESPACE USERS PASSWORD 'testPassword';";
+            String updateUserDBA = "GRANT ROLE SYSDBA TO USER SYSDBA2;";
             statement.execute(createUser);
             statement.execute(updateUserDBA);
 
