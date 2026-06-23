@@ -42,6 +42,8 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| tablePrefix                               | String  | No       | -                            |
+| tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
@@ -128,7 +130,7 @@ Use `database` and this `table-name` auto-generate sql and receive upstream inpu
 
 This option is mutually exclusive with `query` and has a higher priority.
 
-The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+The table parameter can fill in the target table name, which will eventually be used as the created or written table name, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the table name passed to the target side.
 
 mysql sink for example:
 
@@ -143,6 +145,14 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 3. public.sink_table
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
+
+### tablePrefix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
+### tableSuffix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
 
 ### primary_keys [array]
 
