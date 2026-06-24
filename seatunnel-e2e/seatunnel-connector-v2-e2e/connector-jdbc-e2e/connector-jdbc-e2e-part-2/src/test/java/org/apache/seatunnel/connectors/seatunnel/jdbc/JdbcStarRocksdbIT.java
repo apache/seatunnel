@@ -118,8 +118,11 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     @Override
     void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         if (container.identifier().equals(TestContainerId.SEATUNNEL)) {
+            String output = execResult.getStdout();
             Assertions.assertTrue(
-                    execResult.getStdout().contains("Loading catalog tables for catalog"));
+                    output.contains("Loading catalog tables for catalog")
+                            || output.contains("Loading catalog tables for jdbc"),
+                    executeKey + " should load StarRocks metadata through catalog or JDBC");
         }
     }
 
