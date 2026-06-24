@@ -67,7 +67,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.READER_CACHE_QUEUE_SIZE)
                 .optional(
                         KafkaSourceOptions.START_MODE_END_TIMESTAMP,
-                        Conditions.greaterThan(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
+                        Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
                 .optional(
                         KafkaSourceOptions.TABLE_CONFIGS,
                         Conditions.extension(
