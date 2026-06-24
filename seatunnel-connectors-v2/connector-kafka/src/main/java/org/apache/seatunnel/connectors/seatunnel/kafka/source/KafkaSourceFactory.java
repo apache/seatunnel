@@ -134,7 +134,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                 throws OptionValidationException {
             if (StartMode.TIMESTAMP == value) {
                 Long startModeTimestamp = config.get(KafkaSourceOptions.START_MODE_TIMESTAMP);
-                return startModeTimestamp != null && startModeTimestamp > 0L;
+                return startModeTimestamp != null && startModeTimestamp >= 0L;
 
             } else if (StartMode.SPECIFIC_OFFSETS == value) {
                 Map<String, Long> startModeOffsets =
@@ -166,7 +166,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         entryConfig.getOptional(KafkaSourceOptions.START_MODE).orElse(null);
                 if (startMode == StartMode.TIMESTAMP) {
                     Long ts = entryConfig.get(KafkaSourceOptions.START_MODE_TIMESTAMP);
-                    if (ts == null || ts <= 0) {
+                    if (ts == null || ts < 0) {
                         throw new OptionValidationException(
                                 "tables_configs[%d]: 'start_mode.timestamp' must be >= 0, got: %d",
                                 i, ts);
