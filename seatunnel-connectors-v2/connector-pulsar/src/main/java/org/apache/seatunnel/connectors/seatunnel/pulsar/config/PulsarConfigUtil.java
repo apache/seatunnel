@@ -53,8 +53,8 @@ import java.util.concurrent.TimeUnit;
 public class PulsarConfigUtil {
 
     private static final String[] DEFERRED_CLEANUP_CLASS_NAMES = {
-        "org.apache.pulsar.shade.org.jvnet.hk2.internal.SingletonContext$GenerationComparator",
-        "org.apache.pulsar.shade.io.netty.buffer.PoolArena$1"
+        "org.apache.pulsar.shade.io.netty.util.concurrent.DefaultPromise$1",
+        "org.apache.pulsar.shade.org.jvnet.hk2.internal.ServiceLocatorImpl$7"
     };
 
     private PulsarConfigUtil() {}
@@ -92,10 +92,11 @@ public class PulsarConfigUtil {
     /**
      * Preload shutdown-only runtime helpers while the connector classloader is still active.
      *
-     * <p>Pulsar may initialize these helper classes lazily from cleanup threads after Flink has
-     * started tearing down the user-code classloader. Loading them eagerly prevents cleanup-time
-     * {@code ClassNotFoundException} and {@code NoClassDefFoundError} failures after a successful
-     * job execution.
+     * <p>Pulsar may initialize these helper classes lazily from async cleanup threads and Jersey
+     * shutdown hooks after Flink has started tearing down the user-code classloader. Loading the
+     * verified cleanup-time helper classes eagerly prevents shutdown-only {@code
+     * ClassNotFoundException} and {@code NoClassDefFoundError} failures after a successful job
+     * execution.
      */
     static List<Class<?>> preloadDeferredCleanupClasses(PulsarConnectorErrorCode errorCode) {
         ClassLoader classLoader = PulsarConfigUtil.class.getClassLoader();

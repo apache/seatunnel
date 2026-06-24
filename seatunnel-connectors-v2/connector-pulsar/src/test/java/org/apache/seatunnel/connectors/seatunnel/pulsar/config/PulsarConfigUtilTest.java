@@ -36,8 +36,8 @@ class PulsarConfigUtilTest {
 
         Assertions.assertEquals(
                 Arrays.asList(
-                        "org.apache.pulsar.shade.org.jvnet.hk2.internal.SingletonContext$GenerationComparator",
-                        "org.apache.pulsar.shade.io.netty.buffer.PoolArena$1"),
+                        "org.apache.pulsar.shade.io.netty.util.concurrent.DefaultPromise$1",
+                        "org.apache.pulsar.shade.org.jvnet.hk2.internal.ServiceLocatorImpl$7"),
                 loadedClasses.stream().map(Class::getName).collect(Collectors.toList()));
     }
 }
