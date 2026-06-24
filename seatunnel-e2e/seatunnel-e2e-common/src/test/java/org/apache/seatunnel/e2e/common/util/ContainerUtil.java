@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_18;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_20;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_3_3;
+import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_4_1;
 
 @Slf4j
 public final class ContainerUtil {
@@ -382,6 +383,12 @@ public final class ContainerUtil {
                         .filter(container -> container.identifier().isTestInPR())
                         .filter(
                                 container -> {
+                                    if (container.identifier().equals(SPARK_4_1)) {
+                                        return Boolean.parseBoolean(
+                                                System.getenv()
+                                                        .getOrDefault(
+                                                                "RUN_SPARK_41_CONTAINER", "false"));
+                                    }
                                     if (testAllContainer
                                             || container.identifier().equals(FLINK_1_18)
                                             || container.identifier().equals(FLINK_1_20)

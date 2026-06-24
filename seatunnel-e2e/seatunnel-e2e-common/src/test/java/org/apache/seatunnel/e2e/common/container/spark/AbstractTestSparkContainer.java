@@ -60,7 +60,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                         .withNetwork(NETWORK)
                         .withNetworkAliases("spark-master")
                         .withExposedPorts()
-                        .withEnv("SPARK_MODE", "master")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(getDockerImage())))
@@ -73,6 +72,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Master: Starting Spark master at.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
+        configureSparkMasterContainer(master);
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
 
@@ -112,6 +112,11 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local", "--deploy-mode client");
+    }
+
+    /** Configures the Spark master container before startup. */
+    protected void configureSparkMasterContainer(GenericContainer<?> container) {
+        container.withEnv("SPARK_MODE", "master");
     }
 
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)

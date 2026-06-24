@@ -20,6 +20,8 @@ package org.apache.seatunnel.e2e.common.container.spark;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
+import org.testcontainers.containers.GenericContainer;
+
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
@@ -67,5 +69,18 @@ public class Spark4Container extends AbstractTestSparkContainer {
     @Override
     protected String getConnectorNamePrefix() {
         return "connector-";
+    }
+
+    /**
+     * The official apache/spark image does not support Bitnami's SPARK_MODE env var. Start the
+     * master process explicitly instead.
+     */
+    @Override
+    protected void configureSparkMasterContainer(GenericContainer<?> container) {
+        container.withCommand(
+                "/opt/spark/bin/spark-class",
+                "org.apache.spark.deploy.master.Master",
+                "--host",
+                "0.0.0.0");
     }
 }
