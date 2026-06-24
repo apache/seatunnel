@@ -185,7 +185,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                             previousDelivery == null
                                     ? CompletableFuture.completedFuture(null)
                                     : previousDelivery;
-                    return orderedDelivery.thenCompose(unused -> splitDeliverySupplier.get());
+                    return new CompletableFuture<>(
+                            orderedDelivery.thenCompose(unused -> splitDeliverySupplier.get()));
                 });
     }
 
