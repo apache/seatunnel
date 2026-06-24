@@ -115,7 +115,7 @@ public class SFTPFileSystem extends FileSystem {
         }
 
         int connectionMax = conf.getInt(FS_SFTP_CONNECTION_MAX, DEFAULT_MAX_CONNECTION);
-        connectionPool = new SFTPConnectionPool(connectionMax, connectionMax);
+        connectionPool = new SFTPConnectionPool(connectionMax, 0);
     }
 
     private ChannelSftp connect() throws IOException {

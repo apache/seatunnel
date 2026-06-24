@@ -60,7 +60,10 @@ public class SFTPConnectionPool {
             Iterator<ChannelSftp> it = cons.iterator();
             if (it.hasNext()) {
                 channel = it.next();
-                idleConnections.remove(info);
+                it.remove();
+                if (cons.isEmpty()) {
+                    idleConnections.remove(info);
+                }
                 return channel;
             } else {
                 throw new IOException("Connection pool error.");
@@ -125,11 +128,9 @@ public class SFTPConnectionPool {
             if (channel.isConnected()) {
                 return channel;
             } else {
+                removeTrackedChannel(channel);
+                closeChannel(channel);
                 channel = null;
-                synchronized (this) {
-                    --liveConnectionCount;
-                    con2infoMap.remove(channel);
-                }
             }
         }
 
@@ -189,19 +190,45 @@ public class SFTPConnectionPool {
                 }
             }
             if (closeConnection) {
-                if (channel.isConnected()) {
-                    try {
-                        Session session = channel.getSession();
-                        channel.disconnect();
-                        session.disconnect();
-                    } catch (JSchException e) {
-                        throw new IOException(StringUtils.stringifyException(e));
-                    }
-                }
-
+                closeChannel(channel);
             } else {
                 returnToPool(channel);
             }
+        }
+    }
+
+    /**
+     * Remove bookkeeping for a channel that can no longer be reused before we create a replacement
+     * connection.
+     */
+    synchronized void removeTrackedChannel(ChannelSftp channel) {
+        ConnectionInfo info = con2infoMap.remove(channel);
+        if (info != null) {
+            Set<ChannelSftp> cons = idleConnections.get(info);
+            if (cons != null) {
+                cons.remove(channel);
+                if (cons.isEmpty()) {
+                    idleConnections.remove(info);
+                }
+            }
+        }
+        if (liveConnectionCount > 0) {
+            liveConnectionCount--;
+        }
+    }
+
+    /** Close both the SFTP channel and its backing SSH session when they are still open. */
+    private void closeChannel(ChannelSftp channel) throws IOException {
+        try {
+            Session session = channel.getSession();
+            if (channel.isConnected()) {
+                channel.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        } catch (JSchException e) {
+            throw new IOException(StringUtils.stringifyException(e));
         }
     }
 
