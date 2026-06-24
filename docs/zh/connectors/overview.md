@@ -8,14 +8,14 @@ slug: /connectors
 
 ## 先按任务目标选入口
 
-| 你现在要做什么 | 先看这里 |
-| --- | --- |
-| 从外部系统读取数据 | [数据来源连接器](./source-overview.md) |
-| 把数据写入目标系统 | [数据写入连接器](./sink-overview.md) |
-| 先找一条接近真实业务的链路示例 | [场景示例](../getting-started/recipes/overview.md) |
+| 你现在要做什么 | 先看这里                                                                                                      |
+| --- |-----------------------------------------------------------------------------------------------------------|
+| 从外部系统读取数据 | [数据来源连接器](./source-overview.md)                                                                           |
+| 把数据写入目标系统 | [数据写入连接器](./sink-overview.md)                                                                             |
+| 先找一条接近真实业务的链路示例 | [场景示例](../getting-started/recipes/overview.md)                                                            |
 | 先理解连接器共有参数 | [来源端通用参数](./common-options/source-common-options.md) 和 [写入端通用参数](./common-options/sink-common-options.md) |
-| 构建 CDC 链路 | [CDC 生产实战手册](./cdc-production-cookbook.md) |
-| 排查插件安装或依赖冲突 | [连接器常见问题](./connector-faq.md) 和 [连接器依赖隔离加载机制](./connector-isolated-dependency.md) |
+| 构建 CDC 链路 | [CDC 生产实战手册](./cdc-production-cookbook.md)                                                                |
+| 排查插件安装或依赖冲突 | [连接器常见问题](./connector-faq.md) 和 [连接器依赖隔离加载机制](./connector-isolated-dependency.md)                        |
 
 ## 新用户推荐顺序
 
@@ -35,5 +35,5 @@ slug: /connectors
 
 - [作业配置指南](../getting-started/job-configuration-guide.md)
 - [场景示例](../getting-started/recipes/overview.md)
-- [数据转换总览](../transforms)
+- [数据转换总览](../transforms/overview.md)
 - [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)

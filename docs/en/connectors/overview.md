@@ -35,5 +35,5 @@ This page is the shortest path for choosing the right SeaTunnel connector entry 
 
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md)
 - [Scenario Recipes](../getting-started/recipes/overview.md)
-- [Transforms Overview](../transforms)
+- [Transforms Overview](../transforms/overview.md)
 - [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md)
