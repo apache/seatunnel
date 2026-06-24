@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -24,6 +26,9 @@ import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.saphana.SapHanaURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
 import java.util.Map;
 
@@ -206,10 +211,30 @@ public class JdbcCommonOptions {
                 return false;
             }
             try {
-                return JdbcUrlUtil.getUrlInfo(url).getDefaultDatabase().isPresent();
+                JdbcUrlUtil.UrlInfo urlInfo = parseUrlInfo(url);
+                return urlInfo != null
+                        && StringUtils.isNotBlank(urlInfo.getHost())
+                        && urlInfo.getDefaultDatabase().isPresent();
             } catch (IllegalArgumentException e) {
                 return false;
             }
+        }
+
+        /**
+         * Delegate to the dialect-specific parser when the catalog URL does not follow the generic
+         * host:port/database JDBC shape.
+         */
+        private JdbcUrlUtil.UrlInfo parseUrlInfo(String url) {
+            if (url.startsWith("jdbc:sqlserver:")) {
+                return SqlServerURLParser.parse(url);
+            }
+            if (url.startsWith("jdbc:oracle:")) {
+                return OracleURLParser.parse(url);
+            }
+            if (url.startsWith("jdbc:sap:")) {
+                return SapHanaURLParser.parse(url);
+            }
+            return JdbcUrlUtil.getUrlInfo(url);
         }
     }
 }

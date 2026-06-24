@@ -24,7 +24,10 @@ import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.saphana.SapHanaCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalogFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -145,5 +148,58 @@ class JdbcCatalogFactoryTest {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:duckdb:/tmp/test.db");
         Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
+    }
+
+    /**
+     * SQLServer catalog validation must understand the databaseName property syntax used by the
+     * JDBC driver and the CDC E2E configs.
+     */
+    @Test
+    void testSqlServerCatalogUrlWithDatabaseNameProperty() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:sqlserver://localhost:1433;databaseName=seatunnel");
+        cfg.put("username", "sa");
+        cfg.put("password", "Password!");
+        Assertions.assertDoesNotThrow(
+                () -> validate(new SqlServerCatalogFactory().optionRule(), cfg));
+    }
+
+    /** SQLServer catalog validation should still reject URLs that omit the target database. */
+    @Test
+    void testSqlServerCatalogUrlWithoutDatabaseFails() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:sqlserver://localhost:1433;encrypt=false");
+        cfg.put("username", "sa");
+        cfg.put("password", "Password!");
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> validate(new SqlServerCatalogFactory().optionRule(), cfg));
+    }
+
+    /**
+     * Oracle thin URLs may omit the double-slash segment, so catalog validation must not rely on
+     * the generic host:port/database parser.
+     */
+    @Test
+    void testOracleCatalogThinUrlWithoutDoubleSlash() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:oracle:thin:@localhost:1521/ORCLCDB");
+        cfg.put("username", "system");
+        cfg.put("password", "oracle");
+        Assertions.assertDoesNotThrow(() -> validate(new OracleCatalogFactory().optionRule(), cfg));
+    }
+
+    /**
+     * SAP HANA catalog discovery uses the fixed SYSTEM database even when the JDBC URL only
+     * contains the host and port.
+     */
+    @Test
+    void testSapHanaCatalogHostOnlyUrl() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:sap://localhost:39017");
+        cfg.put("username", "SYSTEM");
+        cfg.put("password", "Password1");
+        Assertions.assertDoesNotThrow(
+                () -> validate(new SapHanaCatalogFactory().optionRule(), cfg));
     }
 }

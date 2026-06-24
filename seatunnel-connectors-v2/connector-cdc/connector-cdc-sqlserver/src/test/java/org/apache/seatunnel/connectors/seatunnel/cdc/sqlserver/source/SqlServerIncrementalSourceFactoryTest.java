@@ -17,12 +17,45 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 class SqlServerIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new SqlServerIncrementalSourceFactory()).optionRule());
+    }
+
+    /**
+     * SQLServer CDC source creation must accept the driver-specific databaseName URL syntax during
+     * the submission-time catalog validation step.
+     */
+    @Test
+    public void testCreateOptionalCatalogWithSqlServerStyleUrl() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", "jdbc:sqlserver://localhost:1433;databaseName=seatunnel");
+        config.put("username", "sa");
+        config.put("password", "Password!");
+        config.put("database-names", Arrays.asList("seatunnel"));
+        config.put("table-names", Arrays.asList("seatunnel.dbo.orders"));
+
+        Optional<Catalog> catalog =
+                FactoryUtil.createOptionalCatalog(
+                        "SqlServer",
+                        ReadonlyConfig.fromMap(config),
+                        Thread.currentThread().getContextClassLoader(),
+                        "SqlServer");
+
+        Assertions.assertTrue(catalog.isPresent());
+        catalog.ifPresent(Catalog::close);
     }
 }
