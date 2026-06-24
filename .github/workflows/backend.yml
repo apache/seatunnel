@@ -376,6 +376,9 @@ jobs:
         with:
           node-version: 18.20.7
       - name: Run docusaurus build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd seatunnel-website
           npm set strict-ssl false

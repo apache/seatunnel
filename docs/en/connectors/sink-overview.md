@@ -16,6 +16,6 @@ Use this page when your first question is "where should SeaTunnel write data?" S
 
 ## Useful Next Pages
 
-- [Sink Common Options](../common-options/sink-common-options.md)
-- [Connector FAQ](../connector-faq.md)
-- [Connector Isolated Dependency Loading](../connector-isolated-dependency.md)
+- [Sink Common Options](./common-options/sink-common-options.md)
+- [Connector FAQ](./connector-faq.md)
+- [Connector Isolated Dependency Loading](./connector-isolated-dependency.md)
