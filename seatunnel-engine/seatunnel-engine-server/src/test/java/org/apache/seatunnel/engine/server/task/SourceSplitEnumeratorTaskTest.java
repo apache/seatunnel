@@ -440,6 +440,7 @@ public class SourceSplitEnumeratorTaskTest {
         SeaTunnelSplitEnumeratorContext<DummySplit> enumeratorContext = enumeratorContextRef.get();
         Assertions.assertNotNull(enumeratorContext);
 
+        enumeratorContext.signalNoMoreSplits(readerLocation.getTaskIndex());
         IllegalStateException exception =
                 Assertions.assertThrows(
                         IllegalStateException.class, enumeratorContext::throwIfSplitDeliveryFailed);
