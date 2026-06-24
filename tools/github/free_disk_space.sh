@@ -16,54 +16,109 @@
 # limitations under the License.
 #
 
+
+log_time_and_space() {
+    local operation=$1
+    local start_time=$2
+    local start_space=$3
+    # shellcheck disable=SC2155
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    # shellcheck disable=SC2155
+    local end_space=$(df -P / | tail -n 1 | awk '{print $4}')
+    local freed_space=$((end_space - start_space))
+    # shellcheck disable=SC2155
+    local freed_gb=$(echo "scale=2; $freed_space / 1024 / 1024" | bc)
+    echo "------------------------------------------------------------------------------"
+    echo "Operation: $operation"
+    echo "Time taken: $duration seconds"
+    echo "Freed disk space: $freed_gb GB"
+    echo "------------------------------------------------------------------------------"
+    echo
+}
+
+get_available_space() {
+    df -P / | tail -n 1 | awk '{print $4}'
+}
+
 echo "=============================================================================="
 echo "Freeing up disk space on CI system"
 echo "=============================================================================="
-
-echo "Listing 100 largest packages"
-dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n | tail -n 100
 df -h
 
-echo "Removing large directories in the background"
-# These directories are not managed by dpkg, so removing them cannot race with
-# the apt-get removals below. Run them in the background so the (slow) rm of the
-# large Android SDK etc. overlaps with the (slow) apt-get transactions instead of
-# running after them. The exact same paths are removed as before; only the
-# ordering changes. dotnet/powershell are intentionally excluded here because
-# they also have apt packages and are removed after the apt step to avoid racing
-# apt's package post-removal scripts.
-(
-  sudo rm -rf /usr/local/graalvm/
-  sudo rm -rf /usr/local/.ghcup/
-  sudo rm -rf /usr/local/share/chromium
-  sudo rm -rf /usr/local/share/boost
-  sudo rm -rf /usr/local/lib/android
-  sudo rm -rf /usr/local/lib/node_modules
-  sudo rm -rf /opt/hostedtoolcache/CodeQL
-  sudo rm -rf /opt/ghc
-) &
-rm_dirs_pid=$!
+# List 100 largest packages
+start_time=$(date +%s)
+start_space=$(get_available_space)
+echo "Listing 100 largest packages"
+dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -nr | head -n 100
 
-echo "Removing large packages"
-# Each apt-get remove is intentionally a separate invocation: apt treats multiple
-# patterns as a single transaction, so one non-matching pattern would abort the
-# whole command and remove nothing. Keeping them separate preserves the original
-# best-effort behavior where an unmatched pattern is tolerated.
-sudo apt-get remove -y '^dotnet-.*'
-sudo apt-get remove -y '^llvm-.*'
-sudo apt-get remove -y 'php.*'
-sudo apt-get remove -y '^mongodb-.*'
-sudo apt-get remove -y '^mysql-.*'
-sudo apt-get remove -y azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
-sudo apt-get autoremove -y
-sudo apt-get clean
+# Uninstall the faster ones first to preload and improve overall unloading efficiency.
+# Clean up MongoDB
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo apt-get remove -y --purge '^mongodb-.*' > /dev/null 2>&1
+log_time_and_space "Remove MongoDB related packages" $start_time $start_space
 
-# Wait for the background directory removals to finish before removing paths that
-# overlap with apt-managed packages, so we never race apt's post-removal scripts.
-wait "$rm_dirs_pid"
+# Clean up .NET
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo apt-get remove -y --purge '^dotnet-.*' > /dev/null 2>&1
+log_time_and_space "Remove .NET related packages" $start_time $start_space
 
-sudo rm -rf /usr/share/dotnet/
-sudo rm -rf /usr/local/share/powershell
+# Clean up LLVM
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo apt-get remove -y --purge '^llvm-.*' > /dev/null 2>&1
+log_time_and_space "Remove LLVM related packages" $start_time $start_space
 
-echo "Disk space after cleanup:"
+# Clean up MySQL
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo apt-get remove -y --purge '^mysql-.*' > /dev/null 2>&1
+log_time_and_space "Remove MySQL related packages" $start_time $start_space
+
+# Clean up large packages
+packages_to_check="ruby3.2-doc powershell azure-cli google-cloud-sdk hhvm google-chrome-stable firefox mono-devel libgl1-mesa-dri"
+for package in $packages_to_check; do
+  start_time=$(date +%s)
+  start_space=$(get_available_space)
+  if dpkg -l | grep -q "$package"; then
+      sudo apt-get -o APT::Install-Suggests="false" remove -y --purge "$package" > /dev/null 2>&1
+      log_time_and_space "Remove $package packages" $start_time $start_space
+  fi
+done
+
+# Clean up apt cache
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo apt-get autoremove -y > /dev/null 2>&1
+sudo apt-get clean > /dev/null 2>&1
+log_time_and_space "Remove apt cache" $start_time $start_space
+
+# Clean up Android directories
+#start_time=$(date +%s)
+#start_space=$(get_available_space)
+#sudo nohup rm -rf /usr/local/lib/android > /dev/null 2>&1 &
+#log_time_and_space "Remove android directories" $start_time $start_space
+
+# Clean up large directories
+directories=(
+    "/usr/local/.ghcup/"
+    "/usr/share/dotnet/"
+    "/usr/local/graalvm/"
+    "/usr/local/share/powershell"
+    "/usr/local/share/chromium"
+    "/usr/local/share/boost"
+    "/usr/local/lib/node_modules"
+    "/opt/hostedtoolcache/CodeQL"
+    "/opt/ghc"
+)
+start_time=$(date +%s)
+start_space=$(get_available_space)
+sudo bash -c 'for dir in "${@}"; do [ -d "$dir" ] && rm -rf "$dir" & done; wait' _ "${directories[@]}"
+log_time_and_space "Remove other large directories" $start_time $start_space
+
+echo "=============================================================================="
+echo "Disk cleanup completed"
+echo "=============================================================================="
 df -h

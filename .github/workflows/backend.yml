@@ -94,7 +94,7 @@ jobs:
 
   helm-chart-check:
     name: Check Helm Chart Syntax
-    needs: [ license-header, code-style]
+    needs: [ license-header, code-style ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -377,10 +377,22 @@ jobs:
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
+  # Long-running jobs start immediately; shorter jobs depend on this 20s delay
+  # so that CI resources are prioritized for heavier tasks first.
+  # Intentionally NOT used by: updated-modules-it, engine-v2-it, transform-v2-it,
+  # redis/kafka/file-local/doris/paimon/iceberg connector-it (higher priority or shorter).
+  delayed-scheduling:
+    name: Delayed Scheduling
+    needs: [ changes, sanity-check ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sleep for 10 seconds
+        run: sleep 10s
+
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -405,7 +417,7 @@ jobs:
 
   document:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     name: Build website
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -437,10 +449,10 @@ jobs:
 
   seatunnel-ui:
     if: needs.changes.outputs.api == 'true'
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     name: Build SeaTunnel UI
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
@@ -462,7 +474,7 @@ jobs:
           npm run build
 
   unit-test:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
@@ -546,8 +558,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-1)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
@@ -569,7 +580,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -578,8 +589,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-2)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
@@ -601,7 +611,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 300
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -610,8 +620,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-3)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
@@ -642,8 +651,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-4)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
@@ -664,7 +672,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -673,8 +681,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-5)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
@@ -695,7 +702,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -704,8 +711,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-6)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
@@ -735,8 +741,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-7)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
@@ -767,8 +772,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run updated modules integration test (part-8)
         run: |
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
@@ -799,8 +803,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run seatunnel zeta integration test
         run: |
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e -am -Pci
@@ -825,8 +828,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run seatunnel edge agent integration test
         run: |
           ./mvnw -T 1 -B verify -DskipUT=false -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
@@ -834,7 +836,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   engine-k8s-it:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
@@ -853,8 +855,7 @@ jobs:
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       - uses: actions/checkout@v4
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
@@ -880,7 +881,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -889,8 +890,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run transform-v2 integration test (part-1)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
@@ -918,8 +918,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run transform-v2 integration test (part-2)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
@@ -927,7 +926,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-1:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -938,7 +937,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -947,19 +946,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-1)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 0`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 0`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-2:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -979,19 +978,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-2)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 1`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-3:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1002,7 +1001,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 240
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1011,19 +1010,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-3)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 2`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 2`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-4:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1034,7 +1033,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 270
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1043,19 +1042,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-4)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 3`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 3`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-5:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1066,7 +1065,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 270
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1075,19 +1074,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-5)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 4`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 4`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-6:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1098,7 +1097,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1107,19 +1106,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-6)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 5`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 5`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   all-connectors-it-7:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1130,7 +1129,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1139,13 +1138,13 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-7)
         run: |
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
-          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 6`
+          echo $run_it_modules
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -1171,17 +1170,19 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run connector-v2 integration test (part-8)
         run: |
-          # These two suites dominated part-2 and triggered hosted-runner heartbeat loss.
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e,:connector-hbase-e2e -am -Pci
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 8 7`
+          echo $run_it_modules
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-1:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1201,8 +1202,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-1)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-1 -am -Pci
@@ -1210,7 +1210,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-2:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1221,7 +1221,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1230,8 +1230,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-2)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-2 -am -Pci
@@ -1239,7 +1238,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-3:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1250,7 +1249,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1259,8 +1258,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-3)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-3 -am -Pci
@@ -1268,7 +1266,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-4:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1279,7 +1277,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1288,8 +1286,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-4)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-4 -am -Pci
@@ -1297,7 +1294,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-5:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1308,7 +1305,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1317,8 +1314,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-5)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-5 -am -Pci
@@ -1326,7 +1322,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-6:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1337,7 +1333,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1346,8 +1342,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-6)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-6 -am -Pci
@@ -1355,7 +1350,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-part-7:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling  ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1375,8 +1370,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (part-7)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-7 -am -Pci
@@ -1384,7 +1378,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
   jdbc-connectors-it-ddl:
-    needs: [ changes, sanity-check ]
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ${{ matrix.os }}
     env:
@@ -1395,7 +1389,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1404,25 +1398,22 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run jdbc connectors integration test (sink ddl)
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-jdbc-e2e-ddl -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  kudu-connector-it:
+  connector-redis-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # Kudu E2E expands each @TestTemplate case across several PR test containers.
-    timeout-minutes: 90
+    timeout-minutes: 160
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1431,15 +1422,62 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run kudu connector integration test
+      - uses: ./.github/actions/free-disk-space
+      - name: run redis connector integration test
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-redis-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  amazonSqs-connector-it:
+  connector-file-local-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run file local connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-file-sftp-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run file sftp connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-sftp-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-amazonSqs-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
@@ -1457,15 +1495,14 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run amazonsqs connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-amazonsqs-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  kafka-connector-it:
+  connector-kafka-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
@@ -1483,15 +1520,14 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run kafka connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kafka-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  rocketmq-connector-it:
+  connector-rocketmq-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
@@ -1509,68 +1545,14 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run rocket connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-rocketmq-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  elasticsearch-connector-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-elasticsearch-e2e')
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run elasticsearch connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-elasticsearch-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-  mysql-cdc-connector-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-mysql-e2e')
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run mysql cdc connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-mysql-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-
-  doris-connector-it:
+  connector-doris-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
@@ -1588,15 +1570,14 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run doris connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  paimon-connector-it:
+  connector-paimon-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
@@ -1614,16 +1595,15 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run paimon connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-paimon-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  oracle-cdc-connector-it:
-    needs: [ changes, sanity-check ]
+  connector-oracle-cdc-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
@@ -1631,7 +1611,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1641,8 +1621,7 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run oracle cdc connector integration test
         uses: nick-fields/retry@v3
         with:
@@ -1653,16 +1632,16 @@ jobs:
             echo 'running oracle cdc connector integration test...' && \
             ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci
 
-  connector-file-local-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
+  connector-kudu-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1671,63 +1650,10 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run file local connector integration test
+      - uses: ./.github/actions/free-disk-space
+      - name: run kudu connector integration test
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-local-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-  connector-file-sftp-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run file sftp connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-file-sftp-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m
-
-  connector-redis-it:
-    needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
-      - name: run redis connector integration test
-        run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-redis-e2e -am -Pci
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -1749,10 +1675,178 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: free disk space
-        run: tools/github/free_disk_space.sh
+      - uses: ./.github/actions/free-disk-space
       - name: run sensorsdata connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-sensorsdata-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-http-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-http-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run http connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-http-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-hbase-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-hbase-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run hbase connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-hbase-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-mongodb-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-mongodb-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run mongodb connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-mongodb-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-mysql-cdc-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-mysql-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run mysql-cdc connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-cdc-mysql-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-elasticsearch-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-elasticsearch-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run elasticsearch connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-elasticsearch-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-clickhouse-it:
+    needs: [ changes, sanity-check, delayed-scheduling ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-clickhouse-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run clickhouse connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-clickhouse-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  connector-iceberg-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-iceberg-e2e') || contains(needs.changes.outputs.it-modules, 'connector-iceberg-hadoop3-e2e') || contains(needs.changes.outputs.it-modules, 'connector-iceberg-s3-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - uses: ./.github/actions/free-disk-space
+      - name: run iceberg connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e,:connector-iceberg-hadoop3-e2e,:connector-iceberg-s3-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
