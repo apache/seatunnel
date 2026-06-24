@@ -86,6 +86,7 @@ public class Db2SourceConfigFactory extends JdbcSourceConfigFactory {
                 distributionFactorLower,
                 sampleShardingThreshold,
                 inverseSamplingRate,
+                sampleShardingAllow,
                 props,
                 DRIVER_CLASS_NAME,
                 hostname,
