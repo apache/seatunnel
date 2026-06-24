@@ -121,6 +121,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(DATABASE)
+                // HANA uses TEST as the target schema, so sink save-mode SQL and test cleanup
+                // must qualify the table with the same schema name.
+                .schema(DATABASE)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SOURCE_TABLE + "_SINK")
                 .createSql(CREATE_SOURCE_SQL)
