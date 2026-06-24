@@ -1726,7 +1726,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  spark-4.1-unit-test:
+  spark-4-1-unit-test:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-latest
@@ -1745,7 +1745,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  spark-4.1-it:
+  spark-4-1-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-latest
