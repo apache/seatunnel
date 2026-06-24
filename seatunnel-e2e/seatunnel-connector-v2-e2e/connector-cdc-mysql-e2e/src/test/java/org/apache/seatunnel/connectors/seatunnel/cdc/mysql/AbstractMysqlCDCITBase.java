@@ -920,48 +920,6 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
-                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
-    public void testJdbcSinkTimerFlushDisabled(TestContainer container) throws Exception {
-        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
-        clearTable(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE);
-
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_timer_flush_disabled.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-
-        // insert update delete
-        upsertDeleteSourceTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
-
-        // sink.flush.interval fires but enable_timer_flush=false — no rows must appear
-        // during the entire polling window (checkpoint.interval=300s ensures no ck commit either)
-        await().atMost(15, TimeUnit.SECONDS)
-                .pollInterval(1000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            log.info(
-                                    query(getSourceQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
-                                            .toString());
-                            Assertions.assertEquals(
-                                    0,
-                                    query(getSinkQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
-                                            .size(),
-                                    "With enable_timer_flush=false no rows must appear in sink"
-                                            + " while the job is running.");
-                        });
-    }
-
-    @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
                     "engine-level timer flush and savepoint/restore are only supported on Zeta engine")
     public void testJdbcSinkTimerFlushRestore(TestContainer container) throws Exception {
         inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();

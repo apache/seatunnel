@@ -234,8 +234,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.TABLE_PREFIX,
                         JdbcSinkOptions.TABLE_SUFFIX,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        JdbcSinkOptions.DIALECT,
-                        JdbcSinkOptions.ENABLE_TIMER_FLUSH)
+                        JdbcSinkOptions.DIALECT)
                 .conditional(
                         JdbcSinkOptions.IS_EXACTLY_ONCE,
                         true,

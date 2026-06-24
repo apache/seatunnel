@@ -268,14 +268,6 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
 
-### enable_timer_flush [boolean]
-
-Whether to enable timer-based flush. Default value is `false`.
-
-When set to `true` and the environment variable `sink.flush.interval` is configured (in milliseconds), the engine periodically injects a `FlushSignal` into the record stream for this sink. Upon receiving the signal, the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
-
-Note: This option is not supported when `is_exactly_once = true`.
-
 ## tips
 
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
@@ -351,7 +343,13 @@ jdbc {
 
 Timer flush
 
-Enable timer-based flush by setting `enable_timer_flush` and configuring `sink.flush.interval`
+Enable timer-based flush by configuring `sink.flush.interval` in the `env` block. The JDBC sink automatically supports timer flush — when `sink.flush.interval` is set, the engine periodically injects a `FlushSignal` into the record stream, and the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
+
+:::tip
+
+Timer flush is not supported when `is_exactly_once = true`. In exactly-once mode the sink uses XA transactions whose boundaries are managed by checkpoints; a timer-triggered flush would break transactional guarantees.
+
+:::
 
 ```hocon
 env {
@@ -370,7 +368,6 @@ sink {
     table = "sink_table"
     primary_keys = ["id"]
     batch_size = 10000
-    enable_timer_flush = true
   }
 }
 ```
