@@ -55,7 +55,6 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.TABLE_CONFIGS,
                         KafkaSourceOptions.TABLE_LIST)
                 .optional(
-                        KafkaSourceOptions.START_MODE,
                         KafkaSourceOptions.PATTERN,
                         KafkaSourceOptions.CONSUMER_GROUP,
                         KafkaSourceOptions.COMMIT_ON_CHECKPOINT,
@@ -65,44 +64,31 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA,
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
-                        KafkaSourceOptions.READER_CACHE_QUEUE_SIZE,
-                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION)
-                .conditional(
-                        KafkaSourceOptions.START_MODE,
-                        StartMode.TIMESTAMP,
-                        KafkaSourceOptions.START_MODE_TIMESTAMP)
-                .conditional(
-                        KafkaSourceOptions.START_MODE,
-                        StartMode.TIMESTAMP,
-                        Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_TIMESTAMP, 0L))
+                        KafkaSourceOptions.READER_CACHE_QUEUE_SIZE)
                 .optional(
                         KafkaSourceOptions.START_MODE_END_TIMESTAMP,
-                        Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
-                .conditional(
-                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
-                        Boolean.TRUE,
-                        Conditions.greaterThan(
-                                KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, 0L))
-                .conditional(
-                        KafkaSourceOptions.START_MODE,
-                        StartMode.SPECIFIC_OFFSETS,
-                        KafkaSourceOptions.START_MODE_OFFSETS)
-                .conditional(
-                        KafkaSourceOptions.START_MODE,
-                        StartMode.SPECIFIC_OFFSETS,
-                        Conditions.mapNotEmpty(KafkaSourceOptions.START_MODE_OFFSETS))
+                        Conditions.greaterThan(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
                 .optional(
                         KafkaSourceOptions.TABLE_CONFIGS,
                         Conditions.extension(
-                                KafkaSourceOptions.TABLE_CONFIGS, new TableConfigsValidator()))
+                                KafkaSourceOptions.TABLE_CONFIGS, new KafkaTableConfigsValidator()))
                 .optional(
                         KafkaSourceOptions.TABLE_LIST,
                         Conditions.extension(
-                                KafkaSourceOptions.TABLE_LIST, new TableConfigsValidator()))
+                                KafkaSourceOptions.TABLE_LIST, new KafkaTableConfigsValidator()))
                 .conditional(
                         KafkaSourceOptions.FORMAT,
                         MessageFormat.PROTOBUF,
                         KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER)
+                .optional(
+                        KafkaSourceOptions.START_MODE,
+                        Conditions.extension(
+                                KafkaSourceOptions.START_MODE, new KafkaStartModeValidator()))
+                .optional(
+                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
+                        Conditions.extension(
+                                KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
+                                new KafkaPartitionDiscoveryValidator()))
                 .build();
     }
 
@@ -117,7 +103,50 @@ public class KafkaSourceFactory implements TableSourceFactory {
         return KafkaSource.class;
     }
 
-    static class TableConfigsValidator implements ConditionExtension<List<Map<String, Object>>> {
+    private static class KafkaPartitionDiscoveryValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "If [ignore_no_leader_partition] is true, "
+                    + "then [partition-discovery.interval-millis] must not be null and greater than 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value)
+                throws OptionValidationException {
+            if (!value) {
+                return true;
+            }
+            Long partitionDiscoveryIntervalMillis =
+                    config.get(KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
+            return partitionDiscoveryIntervalMillis != null && partitionDiscoveryIntervalMillis > 0;
+        }
+    }
+
+    private static class KafkaStartModeValidator implements ConditionExtension<StartMode> {
+        @Override
+        public String description() {
+            return "if [start_mode] is timestamp than [start_mode.timestamp] must not be null and greater than 0, "
+                    + "if [start_mode] is specific_offsets than [start_mode.offsets] must not be null and map is not empty";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartMode value)
+                throws OptionValidationException {
+            if (StartMode.TIMESTAMP == value) {
+                Long startModeTimestamp = config.get(KafkaSourceOptions.START_MODE_TIMESTAMP);
+                return startModeTimestamp != null && startModeTimestamp > 0L;
+
+            } else if (StartMode.SPECIFIC_OFFSETS == value) {
+                Map<String, Long> startModeOffsets =
+                        config.get(KafkaSourceOptions.START_MODE_OFFSETS);
+                return startModeOffsets != null && !startModeOffsets.isEmpty();
+            }
+            return true;
+        }
+    }
+
+    private static class KafkaTableConfigsValidator
+            implements ConditionExtension<List<Map<String, Object>>> {
 
         @Override
         public String description() {
@@ -136,19 +165,13 @@ public class KafkaSourceFactory implements TableSourceFactory {
                 StartMode startMode =
                         entryConfig.getOptional(KafkaSourceOptions.START_MODE).orElse(null);
                 if (startMode == StartMode.TIMESTAMP) {
-                    Long ts =
-                            entryConfig
-                                    .getOptional(KafkaSourceOptions.START_MODE_TIMESTAMP)
-                                    .orElse(null);
-                    if (ts != null && ts < 0) {
+                    Long ts = entryConfig.get(KafkaSourceOptions.START_MODE_TIMESTAMP);
+                    if (ts == null || ts <= 0) {
                         throw new OptionValidationException(
                                 "tables_configs[%d]: 'start_mode.timestamp' must be >= 0, got: %d",
                                 i, ts);
                     }
-                    Long endTs =
-                            entryConfig
-                                    .getOptional(KafkaSourceOptions.START_MODE_END_TIMESTAMP)
-                                    .orElse(null);
+                    Long endTs = entryConfig.get(KafkaSourceOptions.START_MODE_END_TIMESTAMP);
                     if (endTs != null && endTs < 0) {
                         throw new OptionValidationException(
                                 "tables_configs[%d]: 'start_mode.end_timestamp' must be >= 0, got: %d",
@@ -156,10 +179,8 @@ public class KafkaSourceFactory implements TableSourceFactory {
                     }
                 } else if (startMode == StartMode.SPECIFIC_OFFSETS) {
                     Map<String, Long> offsets =
-                            entryConfig
-                                    .getOptional(KafkaSourceOptions.START_MODE_OFFSETS)
-                                    .orElse(null);
-                    if (offsets != null && offsets.isEmpty()) {
+                            entryConfig.get(KafkaSourceOptions.START_MODE_OFFSETS);
+                    if (offsets == null || offsets.isEmpty()) {
                         throw new OptionValidationException(
                                 "tables_configs[%d]: 'start_mode.offsets' must not be empty "
                                         + "when start_mode=SPECIFIC_OFFSETS",

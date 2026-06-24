@@ -101,6 +101,24 @@ class KafkaFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
+    @Test
+    void testIgnoreNoLeaderPartition() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+        cfg.put("topic", "test-topic");
+        cfg.put("ignore_no_leader_partition", false);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+
+        cfg.put("ignore_no_leader_partition", true);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+
+        cfg.put("partition-discovery.interval-millis", 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+
+        cfg.put("partition-discovery.interval-millis", 10);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
     // --- Multi-table (tables_configs) tests ---
 
     private Map<String, Object> validMultiTableConfig() {
@@ -127,7 +145,7 @@ class KafkaFactoryTest {
         Map<String, Object> cfg = validMultiTableConfig();
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tables = (List<Map<String, Object>>) cfg.get("tables_configs");
-        tables.get(0).put("start_mode.timestamp", -1L);
+        tables.get(0).put("start_mode.timestamp", null);
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
