@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaDeferredCleanupClassPreloader;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
@@ -44,6 +45,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     public KafkaInternalProducer(Properties properties, String transactionId) {
         super(properties);
+        KafkaDeferredCleanupClassPreloader.preloadDeferredCleanupClasses();
         this.transactionalId = transactionId;
     }
 

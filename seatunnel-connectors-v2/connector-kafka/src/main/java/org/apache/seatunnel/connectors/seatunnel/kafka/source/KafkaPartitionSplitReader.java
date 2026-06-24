@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsChange;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaDeferredCleanupClassPreloader;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -343,6 +344,7 @@ public class KafkaPartitionSplitReader
 
             // Disable auto create topics feature
             props.setProperty(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");
+            KafkaDeferredCleanupClassPreloader.preloadDeferredCleanupClasses();
             return new KafkaConsumer<>(props);
         }
     }
