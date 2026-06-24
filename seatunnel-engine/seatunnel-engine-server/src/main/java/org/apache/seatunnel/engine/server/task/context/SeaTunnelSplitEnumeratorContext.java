@@ -31,7 +31,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -48,6 +53,14 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     private final EventListener eventListener;
 
     private final Set<Integer> noMoreSplitsSignaledReaders = ConcurrentHashMap.newKeySet();
+
+    /** Preserves per-reader split-delivery ordering without blocking the enumerator loop. */
+    private final ConcurrentHashMap<Integer, CompletableFuture<Void>> splitDeliveryChains =
+            new ConcurrentHashMap<>();
+
+    /** Stores the first asynchronous split-delivery failure for later propagation. */
+    private final AtomicReference<IllegalStateException> splitDeliveryFailure =
+            new AtomicReference<>();
 
     public SeaTunnelSplitEnumeratorContext(
             int parallelism,
@@ -81,24 +94,40 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                 splits.stream()
                         .map(split -> sneaky(() -> task.getSplitSerializer().serialize(split)))
                         .collect(Collectors.toList());
-        task.getExecutionContext()
-                .sendToMember(
-                        new AssignSplitOperation<>(
-                                task.getTaskMemberLocationByIndex(subtaskIndex), splitBytes),
-                        task.getTaskMemberAddressByIndex(subtaskIndex))
-                .join();
+        enqueueSplitDelivery(
+                subtaskIndex,
+                "assign splits",
+                () ->
+                        registerSplitDelivery(
+                                task.getExecutionContext()
+                                        .sendToMember(
+                                                new AssignSplitOperation<>(
+                                                        task.getTaskMemberLocationByIndex(
+                                                                subtaskIndex),
+                                                        splitBytes),
+                                                task.getTaskMemberAddressByIndex(subtaskIndex)),
+                                subtaskIndex,
+                                "assign splits"));
     }
 
     @Override
     public void signalNoMoreSplits(int subtaskIndex) {
         noMoreSplitsSignaledReaders.add(subtaskIndex);
         List<byte[]> emptySplits = Collections.emptyList();
-        task.getExecutionContext()
-                .sendToMember(
-                        new AssignSplitOperation<>(
-                                task.getTaskMemberLocationByIndex(subtaskIndex), emptySplits),
-                        task.getTaskMemberAddressByIndex(subtaskIndex))
-                .join();
+        enqueueSplitDelivery(
+                subtaskIndex,
+                "signal no more splits",
+                () ->
+                        registerSplitDelivery(
+                                task.getExecutionContext()
+                                        .sendToMember(
+                                                new AssignSplitOperation<>(
+                                                        task.getTaskMemberLocationByIndex(
+                                                                subtaskIndex),
+                                                        emptySplits),
+                                                task.getTaskMemberAddressByIndex(subtaskIndex)),
+                                subtaskIndex,
+                                "signal no more splits"));
     }
 
     @Override
@@ -116,5 +145,85 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     public boolean hasNoMoreSplitsSignaled(int subtaskIndex) {
         return noMoreSplitsSignaledReaders.contains(subtaskIndex);
+    }
+
+    /**
+     * Waits for all split-delivery operations that were already queued before a checkpoint
+     * snapshot. This keeps enumerator state snapshots consistent with acknowledged split delivery.
+     */
+    public void awaitPendingSplitDeliveries() throws InterruptedException, ExecutionException {
+        for (CompletableFuture<Void> splitDeliveryChain : splitDeliveryChains.values()) {
+            splitDeliveryChain.get();
+        }
+        throwIfSplitDeliveryFailed();
+    }
+
+    /**
+     * Surfaces the first asynchronous split-delivery failure on the enumerator task thread so the
+     * task can fail instead of remaining stuck in canceling/running state.
+     */
+    public void throwIfSplitDeliveryFailed() {
+        IllegalStateException failure = splitDeliveryFailure.get();
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    /**
+     * Chains split-delivery operations per reader so assign/no-more-splits events keep their
+     * original ordering without blocking the enumerator task thread.
+     */
+    private void enqueueSplitDelivery(
+            int subtaskIndex,
+            String action,
+            Supplier<CompletableFuture<Void>> splitDeliverySupplier) {
+        throwIfSplitDeliveryFailed();
+        splitDeliveryChains.compute(
+                subtaskIndex,
+                (ignored, previousDelivery) -> {
+                    CompletableFuture<Void> orderedDelivery =
+                            previousDelivery == null
+                                    ? CompletableFuture.completedFuture(null)
+                                    : previousDelivery;
+                    return orderedDelivery.thenCompose(unused -> splitDeliverySupplier.get());
+                });
+    }
+
+    /**
+     * Tracks the completion of a remote split-delivery operation so later task loops and
+     * checkpoints can observe both completion and failure.
+     */
+    private CompletableFuture<Void> registerSplitDelivery(
+            java.util.concurrent.CompletionStage<?> splitDeliveryStage,
+            int subtaskIndex,
+            String action) {
+        CompletableFuture<Void> splitDeliveryFuture = new CompletableFuture<>();
+        splitDeliveryStage.whenComplete(
+                (ignored, throwable) -> {
+                    if (throwable == null) {
+                        splitDeliveryFuture.complete(null);
+                        return;
+                    }
+                    IllegalStateException failure =
+                            new IllegalStateException(
+                                    String.format(
+                                            "Failed to %s for reader %s", action, subtaskIndex),
+                                    unwrapSplitDeliveryThrowable(throwable));
+                    splitDeliveryFailure.compareAndSet(null, failure);
+                    splitDeliveryFuture.completeExceptionally(failure);
+                });
+        return splitDeliveryFuture;
+    }
+
+    /** Unwraps nested async wrappers and exposes the original split-delivery failure cause. */
+    private Throwable unwrapSplitDeliveryThrowable(Throwable throwable) {
+        Throwable current = throwable;
+        while (current instanceof CompletionException || current instanceof ExecutionException) {
+            if (current.getCause() == null) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return current;
     }
 }

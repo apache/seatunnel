@@ -138,6 +138,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @NonNull @Override
     public ProgressState call() throws Exception {
+        enumeratorContext.throwIfSplitDeliveryFailed();
         stateProcess();
         return progress.toState();
     }
@@ -156,6 +157,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         byte[] serialize = null;
         // Do not modify this lock object, as it is also used in the SourceSplitEnumerator.
         synchronized (enumeratorContext) {
+            enumeratorContext.awaitPendingSplitDeliveries();
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
                 serialize = enumeratorStateSerializer.serialize(snapshotState);
