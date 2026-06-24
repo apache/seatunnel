@@ -26,7 +26,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 。你可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
