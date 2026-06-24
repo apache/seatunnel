@@ -62,7 +62,7 @@ public class DamengCatalogFactory implements CatalogFactory {
     static class DamengUrlValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "Dameng JDBC URL must be a valid jdbc:dm://host:port format";
+            return "Dameng JDBC URL must be a valid format (e.g. jdbc:dm://host:port)";
         }
 
         @Override
@@ -72,9 +72,13 @@ public class DamengCatalogFactory implements CatalogFactory {
             }
             try {
                 JdbcUrlUtil.UrlInfo info = JdbcUrlUtil.getUrlInfo(url);
-                return info != null && StringUtils.isNotBlank(info.getHost());
+                return StringUtils.isNotBlank(info.getHost());
             } catch (IllegalArgumentException e) {
-                throw new OptionValidationException("Invalid Dameng JDBC URL format: " + url, e);
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid Dameng JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:dm://host:port",
+                                url));
             }
         }
     }

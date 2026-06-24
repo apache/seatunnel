@@ -63,7 +63,7 @@ public class OracleCatalogFactory implements CatalogFactory {
     static class OracleUrlValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "Oracle JDBC URL must contain a database/service name";
+            return "Oracle JDBC URL must contain a service name (e.g. jdbc:oracle:thin:@host:port/service)";
         }
 
         @Override
@@ -73,11 +73,14 @@ public class OracleCatalogFactory implements CatalogFactory {
             }
             try {
                 JdbcUrlUtil.UrlInfo info = OracleURLParser.parse(url);
-                return info != null
-                        && StringUtils.isNotBlank(info.getHost())
+                return StringUtils.isNotBlank(info.getHost())
                         && info.getDefaultDatabase().isPresent();
             } catch (IllegalArgumentException e) {
-                throw new OptionValidationException("Invalid Oracle JDBC URL format: " + url, e);
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid Oracle JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:oracle:thin:@host:port/service",
+                                url));
             }
         }
     }

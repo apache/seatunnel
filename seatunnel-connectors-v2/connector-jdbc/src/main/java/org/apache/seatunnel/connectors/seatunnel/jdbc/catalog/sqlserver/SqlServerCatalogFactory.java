@@ -62,7 +62,7 @@ public class SqlServerCatalogFactory implements CatalogFactory {
     static class SqlServerUrlValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "SqlServer JDBC URL must be a valid jdbc:sqlserver://host format";
+            return "SqlServer JDBC URL must be a valid format (e.g. jdbc:sqlserver://host:port;databaseName=db)";
         }
 
         @Override
@@ -74,7 +74,11 @@ public class SqlServerCatalogFactory implements CatalogFactory {
                 JdbcUrlUtil.UrlInfo info = SqlServerURLParser.parse(url);
                 return info != null && StringUtils.isNotBlank(info.getHost());
             } catch (IllegalArgumentException e) {
-                throw new OptionValidationException("Invalid SqlServer JDBC URL format: " + url, e);
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid SqlServer JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:sqlserver://host:port[;databaseName=db]",
+                                url));
             }
         }
     }

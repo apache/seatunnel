@@ -61,7 +61,7 @@ public class SapHanaCatalogFactory implements CatalogFactory {
     static class SapHanaUrlValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "SapHana JDBC URL must contain a database name";
+            return "SAP HANA JDBC URL must be a valid format (e.g. jdbc:sap://host:port)";
         }
 
         @Override
@@ -71,11 +71,14 @@ public class SapHanaCatalogFactory implements CatalogFactory {
             }
             try {
                 JdbcUrlUtil.UrlInfo info = SapHanaURLParser.parse(url);
-                return info != null
-                        && StringUtils.isNotBlank(info.getHost())
+                return StringUtils.isNotBlank(info.getHost())
                         && info.getDefaultDatabase().isPresent();
             } catch (IllegalArgumentException e) {
-                throw new OptionValidationException("Invalid SapHana JDBC URL format: " + url, e);
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid SAP HANA JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:sap://host:port",
+                                url));
             }
         }
     }

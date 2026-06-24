@@ -200,7 +200,7 @@ public class JdbcCommonOptions {
     public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "JDBC URL must contain a database name";
+            return "JDBC URL must contain a database name, expected pattern: jdbc:<scheme>://host:port/database";
         }
 
         @Override
@@ -213,7 +213,11 @@ public class JdbcCommonOptions {
                 return StringUtils.isNotBlank(urlInfo.getHost())
                         && urlInfo.getDefaultDatabase().isPresent();
             } catch (IllegalArgumentException e) {
-                throw new OptionValidationException("Invalid JDBC URL format: " + url, e);
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:<scheme>://host:port/database",
+                                url));
             }
         }
     }
