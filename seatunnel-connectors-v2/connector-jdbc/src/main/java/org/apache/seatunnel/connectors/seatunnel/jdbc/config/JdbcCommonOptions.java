@@ -25,10 +25,8 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.saphana.SapHanaURLParser;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
 import java.util.Map;
 
@@ -167,37 +165,37 @@ public class JdbcCommonOptions {
     public static final Option<String> REGION =
             Options.key("region").stringType().noDefaultValue().withDescription("region");
 
-    /** @deprecated Use {@link #baseCatalogRule()} instead to avoid shared mutable state. */
-    @Deprecated public static final OptionRule.Builder BASE_CATALOG_RULE = baseCatalogRule();
-
     /**
-     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by all JDBC
-     * catalog factories (MySQL, PostgreSQL, Oracle, etc.).
+     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by standard
+     * JDBC catalog factories (MySQL, PostgreSQL, etc.) that use generic {@code host:port/database}
+     * URL format and require username/password authentication.
      *
-     * <p>These rules are evaluated at <b>catalog creation time</b> via {@code
-     * ConfigValidator.validate(factory.optionRule())} in the {@code FactoryUtil} entry path. They
-     * enforce that the JDBC URL contains a database name.
+     * <p>Catalog factories with non-standard URL formats (SqlServer, Oracle, SapHana) should use
+     * {@link #baseCatalogRule(ConditionExtension)} with their own URL validator.
      *
-     * <p>Username and password are optional because JDBC connections may use alternative
-     * authentication (Kerberos, passwordless local DB, OS authentication, etc.). The catalog
-     * implementation validates credentials at connection time.
-     *
-     * <p>Individual catalog factories may append additional rules (e.g. OceanBase requires {@code
-     * compatible_mode}) before calling {@code .build()}.
+     * <p>Catalog factories that do not require authentication (e.g. DuckDB) should define their own
+     * {@code optionRule()} directly.
      */
     public static OptionRule.Builder baseCatalogRule() {
-        return OptionRule.builder()
-                .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
-                .optional(
-                        USERNAME, PASSWORD, SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+        return baseCatalogRule(new UrlContainsDatabaseValidator());
     }
 
     /**
-     * Submission-time validator that ensures the JDBC URL contains a database name.
-     *
-     * <p>This validator is attached to the {@code url} option via {@link
-     * Conditions#extension(Option, ConditionExtension)} and is evaluated by {@code ConfigValidator}
-     * before the catalog/source/sink factory creates its connector instance.
+     * Returns a fresh {@link OptionRule.Builder} with a custom URL validator. Use this for
+     * databases whose JDBC URL does not follow the standard {@code host:port/database} format (e.g.
+     * SqlServer, Oracle, SapHana).
+     */
+    public static OptionRule.Builder baseCatalogRule(ConditionExtension<String> urlValidator) {
+        return OptionRule.builder()
+                .required(URL, Conditions.extension(URL, urlValidator))
+                .required(USERNAME, PASSWORD)
+                .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
+    }
+
+    /**
+     * Validates that the JDBC URL contains a database name for standard {@code host:port/database}
+     * URLs. Dialect-specific CatalogFactories (SqlServer, Oracle, SapHana) provide their own
+     * validators via {@link #baseCatalogRule(ConditionExtension)}.
      */
     public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
         @Override
@@ -211,30 +209,12 @@ public class JdbcCommonOptions {
                 return false;
             }
             try {
-                JdbcUrlUtil.UrlInfo urlInfo = parseUrlInfo(url);
-                return urlInfo != null
-                        && StringUtils.isNotBlank(urlInfo.getHost())
+                JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
+                return StringUtils.isNotBlank(urlInfo.getHost())
                         && urlInfo.getDefaultDatabase().isPresent();
             } catch (IllegalArgumentException e) {
-                return false;
+                throw new OptionValidationException("Invalid JDBC URL format: " + url, e);
             }
-        }
-
-        /**
-         * Delegate to the dialect-specific parser when the catalog URL does not follow the generic
-         * host:port/database JDBC shape.
-         */
-        private JdbcUrlUtil.UrlInfo parseUrlInfo(String url) {
-            if (url.startsWith("jdbc:sqlserver:")) {
-                return SqlServerURLParser.parse(url);
-            }
-            if (url.startsWith("jdbc:oracle:")) {
-                return OracleURLParser.parse(url);
-            }
-            if (url.startsWith("jdbc:sap:")) {
-                return SapHanaURLParser.parse(url);
-            }
-            return JdbcUrlUtil.getUrlInfo(url);
         }
     }
 }

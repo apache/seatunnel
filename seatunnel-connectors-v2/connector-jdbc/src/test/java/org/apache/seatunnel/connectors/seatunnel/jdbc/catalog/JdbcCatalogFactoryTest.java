@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseCatalogFactory;
@@ -43,6 +44,8 @@ class JdbcCatalogFactoryTest {
     private void validate(OptionRule rule, Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
     }
+
+    // ==================== Standard URL validators (MySQL / Postgres) ====================
 
     @Test
     void testValidCatalogConfig() {
@@ -90,18 +93,18 @@ class JdbcCatalogFactoryTest {
     }
 
     @Test
-    void testCatalogConfigWithUrlOnly() {
+    void testMissingCredentialsFails() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
-        Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(mysqlRule, cfg));
     }
 
     @Test
-    void testCatalogConfigWithUsernameOnly() {
+    void testMissingPasswordFails() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
         cfg.put("username", "root");
-        Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(mysqlRule, cfg));
     }
 
     @Test
@@ -109,18 +112,13 @@ class JdbcCatalogFactoryTest {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:mysql://localhost:3306/mydb");
         cfg.put("username", "root");
+        cfg.put("password", "pass");
         cfg.put("decimal_type_narrowing", true);
         cfg.put("handle_blob_as_string", false);
         Assertions.assertDoesNotThrow(() -> validate(mysqlRule, cfg));
     }
 
-    @Test
-    void testPostgresCatalogConfigWithoutPassword() {
-        Map<String, Object> cfg = new HashMap<>();
-        cfg.put("url", "jdbc:postgresql://localhost:5432/mydb");
-        cfg.put("username", "postgres");
-        Assertions.assertDoesNotThrow(() -> validate(pgRule, cfg));
-    }
+    // ==================== OceanBase ====================
 
     @Test
     void testOceanBaseWithoutCompatibleModeFails() {
@@ -133,14 +131,29 @@ class JdbcCatalogFactoryTest {
     }
 
     @Test
-    void testOceanBaseCatalogConfigWithoutPassword() {
+    void testOceanBaseValidConfig() {
         OptionRule obRule = new OceanBaseCatalogFactory().optionRule();
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:oceanbase://localhost:2881/mydb");
         cfg.put("username", "root");
+        cfg.put("password", "pass");
         cfg.put("compatible_mode", "mysql");
         Assertions.assertDoesNotThrow(() -> validate(obRule, cfg));
     }
+
+    // ==================== Dameng (no database in URL) ====================
+
+    @Test
+    void testDamengCatalogUrlWithoutDatabase() {
+        OptionRule dmRule = new DamengCatalogFactory().optionRule();
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:dm://e2e_dmdb:5236");
+        cfg.put("username", "SYSDBA");
+        cfg.put("password", "SYSDBA");
+        Assertions.assertDoesNotThrow(() -> validate(dmRule, cfg));
+    }
+
+    // ==================== DuckDB (no credentials required) ====================
 
     @Test
     void testDuckDBCatalogConfigNoCredentials() {
@@ -150,10 +163,8 @@ class JdbcCatalogFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(rule, cfg));
     }
 
-    /**
-     * SQLServer catalog validation must understand the databaseName property syntax used by the
-     * JDBC driver and the CDC E2E configs.
-     */
+    // ==================== SqlServer dialect validator ====================
+
     @Test
     void testSqlServerCatalogUrlWithDatabaseNameProperty() {
         Map<String, Object> cfg = new HashMap<>();
@@ -164,22 +175,18 @@ class JdbcCatalogFactoryTest {
                 () -> validate(new SqlServerCatalogFactory().optionRule(), cfg));
     }
 
-    /** SQLServer catalog validation should still reject URLs that omit the target database. */
     @Test
-    void testSqlServerCatalogUrlWithoutDatabaseFails() {
+    void testSqlServerCatalogUrlWithoutDatabasePasses() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:sqlserver://localhost:1433;encrypt=false");
         cfg.put("username", "sa");
         cfg.put("password", "Password!");
-        Assertions.assertThrows(
-                OptionValidationException.class,
+        Assertions.assertDoesNotThrow(
                 () -> validate(new SqlServerCatalogFactory().optionRule(), cfg));
     }
 
-    /**
-     * Oracle thin URLs may omit the double-slash segment, so catalog validation must not rely on
-     * the generic host:port/database parser.
-     */
+    // ==================== Oracle dialect validator ====================
+
     @Test
     void testOracleCatalogThinUrlWithoutDoubleSlash() {
         Map<String, Object> cfg = new HashMap<>();
@@ -189,14 +196,22 @@ class JdbcCatalogFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(new OracleCatalogFactory().optionRule(), cfg));
     }
 
-    /**
-     * SAP HANA catalog discovery uses the fixed SYSTEM database even when the JDBC URL only
-     * contains the host and port.
-     */
+    // ==================== SapHana dialect validator ====================
+
     @Test
     void testSapHanaCatalogHostOnlyUrl() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "jdbc:sap://localhost:39017");
+        cfg.put("username", "SYSTEM");
+        cfg.put("password", "Password1");
+        Assertions.assertDoesNotThrow(
+                () -> validate(new SapHanaCatalogFactory().optionRule(), cfg));
+    }
+
+    @Test
+    void testSapHanaCatalogWithDatabaseParam() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:sap://localhost:39017/?databaseName=HXE");
         cfg.put("username", "SYSTEM");
         cfg.put("password", "Password1");
         Assertions.assertDoesNotThrow(

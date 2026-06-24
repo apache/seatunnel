@@ -28,13 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.DECIMAL_TYPE_NARROWING;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.HANDLE_BLOB_AS_STRING;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.URL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.USERNAME;
-
 /** Factory for {@link DuckDBCatalog} */
 @AutoService(Factory.class)
 public class DuckDBCatalogFactory implements CatalogFactory {
@@ -58,8 +51,13 @@ public class DuckDBCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL)
-                .optional(USERNAME, PASSWORD, SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING)
+                .required(JdbcCommonOptions.URL)
+                .optional(
+                        JdbcCommonOptions.USERNAME,
+                        JdbcCommonOptions.PASSWORD,
+                        JdbcCommonOptions.SCHEMA,
+                        JdbcCommonOptions.DECIMAL_TYPE_NARROWING,
+                        JdbcCommonOptions.HANDLE_BLOB_AS_STRING)
                 .build();
     }
 }
