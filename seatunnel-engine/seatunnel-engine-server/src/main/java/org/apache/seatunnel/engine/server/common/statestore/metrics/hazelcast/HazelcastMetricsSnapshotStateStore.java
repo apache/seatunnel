@@ -120,8 +120,7 @@ public class HazelcastMetricsSnapshotStateStore
                         if (current == null || current.isEmpty()) {
                             return current;
                         }
-                        Map<TaskLocation, SeaTunnelMetricsContext> updated =
-                                new HashMap<>(current);
+                        Map<TaskLocation, SeaTunnelMetricsContext> updated = new HashMap<>(current);
                         updated.entrySet()
                                 .removeIf(
                                         entry ->
