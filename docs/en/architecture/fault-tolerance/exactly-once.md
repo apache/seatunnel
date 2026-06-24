@@ -16,15 +16,10 @@ Distributed data processing faces fundamental delivery guarantees challenges:
 - **Exactly-Once**: Each record processed exactly once (ideal but complex)
 
 **Real-World Impact**:
-```
-Scenario: Financial transaction processing
-
-At-Least-Once:
-  Transaction $100 processed twice → User charged $200 ❌
-
-Exactly-Once:
-  Transaction $100 processed once → User charged $100 ✅
-```
+| Scenario | Outcome | Result |
+|----------|---------|--------|
+| At-least-once | `Transaction $100` processed twice | User is charged `$200` |
+| Exactly-once | `Transaction $100` processed once | User is charged `$100` |
 
 ### 1.2 Design Goals
 
@@ -75,48 +70,28 @@ SeaTunnel's exactly-once semantics aims to:
 
 ### 3.1 End-to-End Pipeline
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                       Source                                  │
-│  • Read from external system                                  │
-│  • Track offsets/positions                                    │
-│  • Snapshot offsets in checkpoint                             │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼ Checkpoint Barrier
-┌──────────────────────────────────────────────────────────────┐
-│                     Transform                                 │
-│  • Process records                                            │
-│  • Snapshot transform state (if any)                          │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼ Checkpoint Barrier
-┌──────────────────────────────────────────────────────────────┐
-│                     Sink Writer                               │
-│  • Buffer writes                                              │
-│  • prepareCommit(checkpointId) → Generate CommitInfo (PHASE 1)│
-│  • Snapshot writer state                                      │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           │ CommitInfo
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│              CheckpointCoordinator                            │
-│  • Collect all CommitInfos                                    │
-│  • Persist CompletedCheckpoint                                │
-│  • Trigger commit phase                                       │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Sink Committer                             │
-│  • commit(CommitInfos) → Apply changes (PHASE 2)              │
-│  • Must be idempotent                                         │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-                    External Sink
-                 (Changes visible)
+```mermaid
+flowchart TD
+    source["Source<br/>Read external data<br/>Track offsets or positions<br/>Snapshot offsets in checkpoint"]
+    transform["Transform<br/>Process records<br/>Snapshot transform state if needed"]
+    writer["Sink Writer<br/>Buffer writes<br/>prepareCommit(checkpointId)<br/>Snapshot writer state"]
+    coordinator["CheckpointCoordinator<br/>Collect CommitInfos<br/>Persist CompletedCheckpoint<br/>Trigger commit phase"]
+    committer["Sink Committer<br/>commit(CommitInfos)<br/>Must be idempotent"]
+    external["External Sink<br/>Changes become visible"]
+
+    source -- "Checkpoint barrier" --> transform
+    transform -- "Checkpoint barrier" --> writer
+    writer -- "CommitInfo" --> coordinator
+    coordinator --> committer --> external
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,transform layerBlue;
+    class writer,coordinator layerCyan;
+    class committer,external layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.2 Key Components
@@ -393,69 +368,69 @@ public class FileSinkCommitter {
 
 ### 5.1 Task Failure Before Checkpoint
 
-```
-Timeline:
-  t0: Checkpoint N completed
-  t1: Process records [1000-2000]
-  t2: Task fails ❌
-  t3: Restore from Checkpoint N
-  t4: Reprocess records [1000-2000]
+| Time | Event |
+|------|-------|
+| `t0` | Checkpoint `N` completes |
+| `t1` | Records `[1000-2000]` are processed |
+| `t2` | Task fails before the next successful checkpoint |
+| `t3` | Job restores from checkpoint `N` |
+| `t4` | Records `[1000-2000]` are reprocessed |
 
 Result:
-  ✅ No data loss (records reprocessed)
-  ✅ No duplication (nothing committed before failure)
-```
+
+- No data loss because the records are replayed after recovery.
+- No duplication because nothing was committed before the failure.
 
 ### 5.2 Task Failure After prepareCommit
 
-```
-Timeline:
-  t0: Checkpoint N in progress
-  t1: SinkWriter.prepareCommit(checkpointId) → XID-123 prepared
-  t2: Task fails ❌ (before commit)
-  t3: Restore from Checkpoint N-1
-  t4: Reprocess records
-  t5: New prepareCommit(checkpointId) → XID-124 prepared
-  t6: Committer commits XID-124
+| Time | Event |
+|------|-------|
+| `t0` | Checkpoint `N` is in progress |
+| `t1` | `SinkWriter.prepareCommit(...)` prepares `XID-123` |
+| `t2` | Task fails before the commit step |
+| `t3` | Job restores from checkpoint `N-1` |
+| `t4` | Records are reprocessed |
+| `t5` | A new `prepareCommit(...)` prepares `XID-124` |
+| `t6` | The committer commits `XID-124` |
 
 Result:
-  ✅ XID-123 never committed (automatically rolled back after timeout)
-  ✅ XID-124 committed (correct data)
-```
+
+- `XID-123` never becomes externally visible.
+- `XID-124` is the only committed transaction for this checkpoint boundary.
 
 ### 5.3 Committer Failure During Commit
 
-```
-Timeline:
-  t0: Checkpoint N completed
-  t1: Committer starts committing [XID-100, XID-101, XID-102]
-  t2: Commits XID-100 ✅
-  t3: Committer fails ❌ (XID-101, XID-102 not committed)
-  t4: New committer retries [XID-100, XID-101, XID-102]
-  t5: Commits XID-100 (already committed, idempotent) ✅
-  t6: Commits XID-101 ✅
-  t7: Commits XID-102 ✅
+| Time | Event |
+|------|-------|
+| `t0` | Checkpoint `N` completes |
+| `t1` | The committer starts committing `XID-100`, `XID-101`, `XID-102` |
+| `t2` | `XID-100` commits successfully |
+| `t3` | The committer fails before `XID-101` and `XID-102` finish |
+| `t4` | A new committer retries the whole batch |
+| `t5` | `XID-100` is seen as already committed and treated idempotently |
+| `t6` | `XID-101` commits successfully |
+| `t7` | `XID-102` commits successfully |
 
 Result:
-  ✅ All XIDs eventually committed
-  ✅ No duplication (idempotent commit)
-```
+
+- Every prepared transaction is eventually committed.
+- Idempotent commit logic prevents duplicates during retry.
 
 ### 5.4 Network Partition
 
-```
-Timeline:
-  t0: SinkWriter prepares XID-200
-  t1: Checkpoint completes
-  t2: Committer sends commit(XID-200)
-  t3: Network partition ⚠️ (commit success, but ACK lost)
-  t4: Committer retries commit(XID-200)
-  t5: XID-200 already committed (idempotent)
+| Time | Event |
+|------|-------|
+| `t0` | `SinkWriter` prepares `XID-200` |
+| `t1` | The checkpoint completes |
+| `t2` | The committer sends `commit(XID-200)` |
+| `t3` | A network partition causes the ACK to be lost |
+| `t4` | The committer retries `commit(XID-200)` |
+| `t5` | The sink reports that `XID-200` is already committed |
 
 Result:
-  ✅ Data committed exactly once
-  ✅ Idempotency prevents duplication
-```
+
+- The external system still sees exactly one committed transaction.
+- Idempotency absorbs the duplicate commit attempt safely.
 
 ## 6. Idempotency Requirements
 
@@ -529,17 +504,10 @@ try {
 
 ### 7.1 Checkpoint Interval Trade-offs
 
-```
-Short Interval (10-30s):
-  ✅ Fast recovery (less reprocessing)
-  ❌ Higher overhead (frequent snapshots)
-  ❌ More commit operations
-
-Long Interval (5-10min):
-  ✅ Lower overhead (less frequent snapshots)
-  ❌ Slower recovery (more reprocessing)
-  ✅ Fewer commit operations
-```
+| Checkpoint interval | Strengths | Trade-offs |
+|---------------------|-----------|------------|
+| Short (`10-30s`) | Faster recovery and less reprocessing | Higher snapshot overhead and more commit operations |
+| Long (`5-10min`) | Lower steady-state overhead and fewer commits | Slower recovery and more reprocessing after failure |
 
 **Recommendation**: 60-120 seconds for most workloads
 
@@ -700,15 +668,13 @@ public void testExactlyOnceUnderChaos() {
 
 ### 9.3 Monitoring Verification
 
-```
-Metrics to Track:
+| Metric | Example value | Expectation |
+|--------|---------------|-------------|
+| `source.records_read` | `1,000,000` | Should match committed sink records |
+| `sink.records_written` | `1,000,000` | Should match source reads after retries settle |
+| `sink.records_committed` | `1,000,000` | Should match source reads for exactly-once verification |
 
-source.records_read = 1,000,000
-sink.records_written = 1,000,000
-sink.records_committed = 1,000,000
-
-✅ All counts match → Exactly-once verified
-```
+When all three counters converge, the end-to-end path is behaving as expected.
 
 ## 10. Best Practices
 
@@ -752,11 +718,11 @@ public void write(SeaTunnelRow element) {
 - `checkpoint.size`: Monitor growth over time
 
 **Alerts**:
-```
-Alert if checkpoint.duration > 300s
-Alert if checkpoint.failure_rate > 5%
-Alert if no checkpoint in 2x interval
-```
+Recommended alerts:
+
+- Alert when `checkpoint.duration > 300s`
+- Alert when `checkpoint.failure_rate > 5%`
+- Alert when no checkpoint completes within `2x` the configured interval
 
 ## 11. Related Resources
 

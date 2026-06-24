@@ -50,6 +50,7 @@ If you want to validate your installation in the shortest path:
 - [Source Connectors](../connectors/source)
 - [Sink Connectors](../connectors/sink)
 - [Transforms](../transforms)
+- [Scenario Recipes](./recipes/overview.md)
 
 ### Path C: I need to understand architecture first
 
@@ -77,5 +78,7 @@ Once the sample job is working, the next step is usually one of these:
 Use these pages next:
 
 - [Job Configuration Guide](./job-configuration-guide.md)
+- [Scenario Recipes](./recipes/overview.md)
 - [SeaTunnel Engine(Zeta) Deployment](../engines/zeta/deployment.md)
 - [REST API And Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [Submitting Jobs to a Remote Zeta Cluster](../getting-started/submit-job-to-remote-zeta-cluster.md)

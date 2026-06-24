@@ -376,6 +376,9 @@ jobs:
         with:
           node-version: 18.20.7
       - name: Run docusaurus build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd seatunnel-website
           npm set strict-ssl false
@@ -460,7 +463,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
@@ -522,7 +525,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
@@ -583,7 +586,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -613,7 +616,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -643,7 +646,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
@@ -674,7 +677,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   engine-v2-it:
     needs: [ changes, sanity-check ]

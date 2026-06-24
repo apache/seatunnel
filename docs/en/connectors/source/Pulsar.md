@@ -117,7 +117,7 @@ The maximum time (in ms) to wait when fetching records. A longer time increases 
 
 ### poll.interval [Long]
 
-The interval time(in ms) when fetcing records. A shorter time increases throughput, but also increases CPU load.
+The interval time (in ms) when fetching records. A shorter time increases throughput, but also increases CPU load.
 
 ### poll.batch.size [Integer]
 

@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.engine.server.common.statestore;
 
-/** Utility methods for distributed job metrics partitioning. */
-public final class JobMetricsPartitionUtils {
-
-    private JobMetricsPartitionUtils() {}
+/**
+ * Bundle of authoritative control state that a new leader must trust during leader handoff.
+ *
+ * <p>This layer groups states that are likely to live on top of a consensus layer. The actual
+ * storage backend may still be a local store, but the responsibility for deciding what is
+ * authoritative belongs more strongly to this group.
+ */
+public interface AuthoritativeStateStores extends AutoCloseable {
 
     /**
-     * Use the same hash rule everywhere so metrics writes, reads and cleanup always hit the same
-     * distributed bucket.
+     * Releases resources owned by authoritative stores.
+     *
+     * <p>Implementations that only wrap non-closeable stores may keep the default no-op behavior.
      */
-    public static long getMetricsImapPartition(Object metricsKey, int partitionCount) {
-        return (metricsKey.hashCode() & Integer.MAX_VALUE) % partitionCount;
+    @Override
+    default void close() {
+        // no-op
     }
 }

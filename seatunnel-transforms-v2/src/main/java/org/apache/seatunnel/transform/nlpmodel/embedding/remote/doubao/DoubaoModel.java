@@ -23,6 +23,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationContext;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.ProviderAdapter;
 import org.apache.seatunnel.transform.nlpmodel.embedding.FieldSpec;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.ModalityType;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalFieldValue;
@@ -53,7 +58,14 @@ public class DoubaoModel extends MultimodalModel {
     private final String BASE64_PARAM_TEMPLATE = "data:%s/%s;base64,%s";
 
     public DoubaoModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
-        this(apiKey, model, apiPath, vectorizedNumber, false, HttpClients.createDefault());
+        this(
+                apiKey,
+                model,
+                apiPath,
+                vectorizedNumber,
+                false,
+                ModelInvocationOptions.defaults(),
+                HttpClients.createDefault());
     }
 
     public DoubaoModel(
@@ -68,6 +80,24 @@ public class DoubaoModel extends MultimodalModel {
                 apiPath,
                 vectorizedNumber,
                 isMultimodalFields,
+                ModelInvocationOptions.defaults(),
+                HttpClients.createDefault());
+    }
+
+    public DoubaoModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            boolean isMultimodalFields,
+            ModelInvocationOptions invocationOptions) {
+        this(
+                apiKey,
+                model,
+                apiPath,
+                vectorizedNumber,
+                isMultimodalFields,
+                invocationOptions,
                 HttpClients.createDefault());
     }
 
@@ -78,7 +108,25 @@ public class DoubaoModel extends MultimodalModel {
             Integer vectorizedNumber,
             boolean isMultimodalFields,
             CloseableHttpClient client) {
-        super(vectorizedNumber);
+        this(
+                apiKey,
+                model,
+                apiPath,
+                vectorizedNumber,
+                isMultimodalFields,
+                ModelInvocationOptions.defaults(),
+                client);
+    }
+
+    public DoubaoModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            boolean isMultimodalFields,
+            ModelInvocationOptions invocationOptions,
+            CloseableHttpClient client) {
+        super(vectorizedNumber, invocationOptions);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
@@ -88,7 +136,7 @@ public class DoubaoModel extends MultimodalModel {
 
     @Override
     protected List<List<Float>> textVector(Object[] fields) throws IOException {
-        return textVectorGeneration(fields);
+        return invocationRuntime.invoke(fields, textVectorAdapter(true));
     }
 
     @Override
@@ -99,7 +147,37 @@ public class DoubaoModel extends MultimodalModel {
         }
         List<List<Float>> vectors = new ArrayList<>();
         for (Object field : fields) {
-            vectors.add(multimodalVectorGeneration((MultimodalFieldValue) field));
+            vectors.addAll(
+                    invocationRuntime.invoke(
+                            new Object[] {field},
+                            new ProviderAdapter<List<List<Float>>>() {
+                                @Override
+                                public List<List<Float>> invoke(
+                                        Object[] inputs, ModelInvocationContext context)
+                                        throws IOException {
+                                    List<List<Float>> result = new ArrayList<>();
+                                    result.add(
+                                            multimodalVectorGeneration(
+                                                    (MultimodalFieldValue) inputs[0],
+                                                    context.getRequestTimeoutMs()));
+                                    return result;
+                                }
+
+                                @Override
+                                public int getOutputCount(List<List<Float>> output) {
+                                    return output == null ? 0 : output.size();
+                                }
+
+                                @Override
+                                public String getProvider() {
+                                    return "DOUBAO";
+                                }
+
+                                @Override
+                                public String getModel() {
+                                    return model;
+                                }
+                            }));
         }
         return vectors;
     }
@@ -107,44 +185,96 @@ public class DoubaoModel extends MultimodalModel {
     @Override
     public Integer dimension() throws IOException {
         return isMultimodalFields
-                ? multimodalVectorGeneration(
-                                new MultimodalFieldValue(
-                                        new FieldSpec(DIMENSION_EXAMPLE), DIMENSION_EXAMPLE))
+                ? multimodalVector(
+                                new Object[] {
+                                    new MultimodalFieldValue(
+                                            new FieldSpec(DIMENSION_EXAMPLE), DIMENSION_EXAMPLE)
+                                })
+                        .get(0)
                         .size()
-                : textVectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
+                : invocationRuntime
+                        .invoke(new Object[] {DIMENSION_EXAMPLE}, textVectorAdapter(false))
+                        .get(0)
+                        .size();
     }
 
-    private List<List<Float>> textVectorGeneration(Object[] fields) throws IOException {
+    private ProviderAdapter<List<List<Float>>> textVectorAdapter(boolean validateOutputCount) {
+        return new ProviderAdapter<List<List<Float>>>() {
+            @Override
+            public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                    throws IOException {
+                return textVectorGeneration(inputs, context.getRequestTimeoutMs());
+            }
+
+            @Override
+            public int getOutputCount(List<List<Float>> output) {
+                return output == null ? 0 : output.size();
+            }
+
+            @Override
+            public String getProvider() {
+                return "DOUBAO";
+            }
+
+            @Override
+            public String getModel() {
+                return model;
+            }
+
+            @Override
+            public boolean validateOutputCount() {
+                return validateOutputCount;
+            }
+        };
+    }
+
+    private List<List<Float>> textVectorGeneration(Object[] fields, int requestTimeoutMs)
+            throws IOException {
         HttpPost post = new HttpPost(apiPath);
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
         post.setConfig(
-                RequestConfig.custom().setConnectTimeout(20000).setSocketTimeout(20000).build());
+                RequestConfig.custom()
+                        .setConnectTimeout(requestTimeoutMs)
+                        .setSocketTimeout(requestTimeoutMs)
+                        .build());
 
         post.setEntity(
                 new StringEntity(
                         OBJECT_MAPPER.writeValueAsString(createJsonNodeFromData(fields)), "UTF-8"));
 
-        CloseableHttpResponse response = client.execute(post);
-        String responseStr = EntityUtils.toString(response.getEntity());
+        try (CloseableHttpResponse response = client.execute(post)) {
+            String responseStr = EntityUtils.toString(response.getEntity());
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from doubao, response: " + responseStr);
-        }
+            if (response.getStatusLine().getStatusCode() != 200) {
+                throw ModelInvocationException.fromHttpStatus(
+                        "DOUBAO", model, response.getStatusLine().getStatusCode(), responseStr);
+            }
 
-        JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Float>> embeddings = new ArrayList<>();
+            try {
+                JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
+                List<List<Float>> embeddings = new ArrayList<>();
 
-        if (data.isArray()) {
-            for (JsonNode node : data) {
-                JsonNode embeddingNode = node.get("embedding");
-                List<Float> embedding =
-                        OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
-                embeddings.add(embedding);
+                if (data.isArray()) {
+                    for (JsonNode node : data) {
+                        JsonNode embeddingNode = node.get("embedding");
+                        List<Float> embedding =
+                                OBJECT_MAPPER.readValue(
+                                        embeddingNode.traverse(),
+                                        new TypeReference<List<Float>>() {});
+                        embeddings.add(embedding);
+                    }
+                }
+                return embeddings;
+            } catch (IOException | RuntimeException e) {
+                throw ModelInvocationException.nonRetryable(
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        "DOUBAO",
+                        model,
+                        "Failed to parse Doubao embedding response",
+                        e);
             }
         }
-        return embeddings;
     }
 
     @VisibleForTesting
@@ -153,12 +283,17 @@ public class DoubaoModel extends MultimodalModel {
         return OBJECT_MAPPER.createObjectNode().put("model", model).set("input", arrayNode);
     }
 
-    protected List<Float> multimodalVectorGeneration(MultimodalFieldValue field)
-            throws IOException {
+    protected List<Float> multimodalVectorGeneration(
+            MultimodalFieldValue field, int requestTimeoutMs) throws IOException {
 
         HttpPost httpPost = new HttpPost(apiPath);
         httpPost.setHeader("Authorization", "Bearer " + apiKey);
         httpPost.setHeader("Content-Type", "application/json");
+        httpPost.setConfig(
+                RequestConfig.custom()
+                        .setConnectTimeout(requestTimeoutMs)
+                        .setSocketTimeout(requestTimeoutMs)
+                        .build());
 
         StringEntity entity =
                 new StringEntity(
@@ -171,14 +306,20 @@ public class DoubaoModel extends MultimodalModel {
                     EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 
             if (response.getStatusLine().getStatusCode() != 200) {
-                throw new IOException(
-                        "HTTP error "
-                                + response.getStatusLine().getStatusCode()
-                                + ": "
-                                + responseBody);
+                throw ModelInvocationException.fromHttpStatus(
+                        "DOUBAO", model, response.getStatusLine().getStatusCode(), responseBody);
             }
 
-            return parseMultimodalVectorResponse(responseBody);
+            try {
+                return parseMultimodalVectorResponse(responseBody);
+            } catch (IOException | RuntimeException e) {
+                throw ModelInvocationException.nonRetryable(
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        "DOUBAO",
+                        model,
+                        "Failed to parse Doubao multimodal embedding response",
+                        e);
+            }
         }
     }
 

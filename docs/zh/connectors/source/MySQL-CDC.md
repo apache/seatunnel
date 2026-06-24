@@ -214,6 +214,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
+| schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
+| schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
@@ -339,6 +341,42 @@ sink {
 }
 
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。
+
+使用以下 SeaTunnel 统一的规范名称
+
+| 规范名称        | 操作                                                        |
+|-----------------|-------------------------------------------------------------|
+| `add.column`    | 新增列                                                      |
+| `drop.column`   | 删除列                                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
 ### 表名支持正则以读取多个表
 
 > `table-pattern` 和 `table-names` 只能选择一个

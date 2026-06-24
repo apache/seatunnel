@@ -19,12 +19,28 @@ In a standard single-table pipeline, one Source feeds one Transform chain feeds 
 In a multi-table pipeline, a single Source (e.g., MySQL-CDC) emits records from **many tables**
 simultaneously, and each downstream Transform or Sink must declare which table(s) it applies to.
 
-```
-MySQL-CDC ──► FieldMapper (orders table)  ──► Kafka Sink (orders topic)
-           │
-           ├──► FieldMapper (users table)  ──► Kafka Sink (users topic)
-           │
-           └──► (unmatched tables pass through) ──► Elasticsearch Sink
+```mermaid
+flowchart LR
+    source["MySQL-CDC"]
+    ordersMap["FieldMapper<br/>orders table"]
+    ordersSink["Kafka Sink<br/>orders topic"]
+    usersMap["FieldMapper<br/>users table"]
+    usersSink["Kafka Sink<br/>users topic"]
+    passthrough["Unmatched tables<br/>pass through"]
+    esSink["Elasticsearch Sink"]
+
+    source --> ordersMap --> ordersSink
+    source --> usersMap --> usersSink
+    source --> passthrough --> esSink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerBlue;
+    class ordersMap,usersMap,passthrough layerCyan;
+    class ordersSink,usersSink,esSink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ---
@@ -202,18 +218,23 @@ This works only when all three tables (`orders`, `payments`, `refunds`) share `c
 **EtLT** (Extract, light-transform, Load, then Transform in the warehouse) is the recommended
 pattern when SeaTunnel's transform layer cannot fulfil the full transformation requirement:
 
-```
-CDC Source
-   │
-   ▼
-Light transforms (field rename, type cast, row filter)
-   │
-   ▼
-Data Lake / Warehouse (Hudi / Iceberg / ClickHouse)
-   │
-   ▼
-Heavy transforms (JOINs, aggregations, complex SQL)
-in dbt / Flink SQL / Spark SQL
+```mermaid
+flowchart TD
+    cdc["CDC Source"]
+    light["Light transforms<br/>Field rename / type cast / row filter"]
+    lake["Data Lake / Warehouse<br/>Hudi / Iceberg / ClickHouse"]
+    heavy["Heavy transforms<br/>JOINs / aggregations / complex SQL<br/>dbt / Flink SQL / Spark SQL"]
+
+    cdc --> light --> lake --> heavy
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class cdc layerBlue;
+    class light layerCyan;
+    class lake,heavy layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Use SeaTunnel's transform layer for:

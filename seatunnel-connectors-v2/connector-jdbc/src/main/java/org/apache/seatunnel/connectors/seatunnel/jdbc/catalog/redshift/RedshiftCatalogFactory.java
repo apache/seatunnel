@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.redshift;
 
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -31,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
-
-import java.util.Optional;
 
 @AutoService(Factory.class)
 public class RedshiftCatalogFactory implements CatalogFactory {
@@ -45,14 +39,7 @@ public class RedshiftCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
-        Preconditions.checkArgument(
-                StringUtils.isNotBlank(urlWithDatabase),
-                "Miss config <url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
-        Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
-        if (!defaultDatabase.isPresent()) {
-            throw new OptionValidationException(JdbcCommonOptions.URL);
-        }
         return new RedshiftCatalog(
                 catalogName,
                 options.get(JdbcCommonOptions.USERNAME),

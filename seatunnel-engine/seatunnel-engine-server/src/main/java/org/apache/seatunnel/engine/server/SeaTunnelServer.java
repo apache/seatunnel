@@ -24,10 +24,13 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
-import org.apache.seatunnel.engine.common.utils.JobMetricsPartitionUtils;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
+import org.apache.seatunnel.engine.server.common.statestore.hazelcast.HazelcastEngineStateStores;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -59,7 +62,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -86,6 +88,7 @@ public class SeaTunnelServer
 
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
+    @Getter private SeaTunnelEngineContext engineContext;
     private NodeEngineImpl nodeEngine;
     private final LiveOperationRegistry liveOperationRegistry;
 
@@ -145,6 +148,12 @@ public class SeaTunnelServer
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
 
+        EngineStateStores stateStores =
+                new HazelcastEngineStateStores(
+                        nodeEngine,
+                        seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount());
+        this.engineContext = SeaTunnelEngineContext.builder(stateStores).build();
+
         classLoaderService =
                 new DefaultClassLoaderService(
                         seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(), nodeEngine);
@@ -190,10 +199,11 @@ public class SeaTunnelServer
     private void startMaster() {
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
-        checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
+        checkpointMonitorService = new CheckpointMonitorService(engineContext, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
-                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
+                new CoordinatorService(
+                        nodeEngine, this, engineContext, seaTunnelConfig.getEngineConfig());
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,
@@ -203,7 +213,8 @@ public class SeaTunnelServer
 
     private void startWorker() {
         taskExecutionService =
-                new TaskExecutionService(classLoaderService, nodeEngine, eventService);
+                new TaskExecutionService(
+                        classLoaderService, nodeEngine, engineContext, eventService);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -242,6 +253,7 @@ public class SeaTunnelServer
         }
 
         MetadataProviderManager.closeProviders();
+        engineContext.close();
     }
 
     @Override
@@ -375,59 +387,15 @@ public class SeaTunnelServer
     }
 
     public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
-        if (localMap == null || localMap.isEmpty()) {
-            return;
-        }
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-
-        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
-        localMap.forEach(
-                (key, value) -> {
-                    long partition =
-                            JobMetricsPartitionUtils.getMetricsImapPartition(key, partitionCount);
-                    partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
-                });
-
-        partitioned
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            metricsImap.compute(
-                                    entry.getKey(),
-                                    (k, oldVal) -> {
-                                        if (oldVal == null) oldVal = new HashMap<>();
-                                        oldVal.putAll(entry.getValue());
-                                        return oldVal;
-                                    });
-                        });
+        MetricsSnapshotStateStore metricsSnapshotStateStore =
+                engineContext.getStateStores().metricsSnapshotStore();
+        metricsSnapshotStateStore.merge(localMap);
     }
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-        for (long partition = 0; partition < partitionCount; partition++) {
-            // Clean each metrics bucket in one compute to avoid full-map scans and removal races.
-            metricsImap.compute(
-                    partition,
-                    (k, oldVal) -> {
-                        if (oldVal == null || oldVal.isEmpty()) {
-                            return oldVal;
-                        }
-                        oldVal.entrySet()
-                                .removeIf(
-                                        entry ->
-                                                pipelineLocation.equals(
-                                                        entry.getKey()
-                                                                .getTaskGroupLocation()
-                                                                .getPipelineLocation()));
-                        return oldVal.isEmpty() ? null : oldVal;
-                    });
-        }
+        MetricsSnapshotStateStore metricsSnapshotStateStore =
+                engineContext.getStateStores().metricsSnapshotStore();
+        metricsSnapshotStateStore.removePipeline(pipelineLocation);
     }
 
     public boolean isCoordinatorActive() {

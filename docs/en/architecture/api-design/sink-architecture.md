@@ -39,52 +39,34 @@ SeaTunnel's Sink API aims to:
 
 ### 2.1 Overall Architecture
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    TaskExecutionService (Worker Side)           │
-│                                                                  │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │       SinkWriter<IN, CommitInfoT, StateT>            │     │
-│   │                                                        │     │
-│   │  • Receive records from upstream                      │     │
-│   │  • Buffer and write data                              │     │
-│   │  • Produce commitInfo at checkpoint boundary          │     │
-│   │  • Snapshot writer state                              │     │
-│   │  • Cleanup/rollback on failure (engine-dependent)     │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                            │                                     │
-└────────────────────────────┼─────────────────────────────────────┘
-                             │ (CommitInfo)
-                             ▼
-┌────────────────────────────────────────────────────────────────┐
-│            Coordinator Side (control plane, engine-dependent)   │
-│                                                                  │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │         SinkCommitter<CommitInfoT> (Optional)        │     │
-│   │                                                        │     │
-│   │  • Receive commit infos from multiple writers        │     │
-│   │  • Commit each writer's changes independently        │     │
-│   │  • Retry failed commits                               │     │
-│   │  • Must be idempotent                                 │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                            │                                     │
-│                            │ (Optional: AggregatedCommitInfo)   │
-│                            ▼                                     │
-│   ┌──────────────────────────────────────────────────────┐     │
-│   │   SinkAggregatedCommitter<CommitInfoT,               │     │
-│   │                          AggregatedCommitInfoT>      │     │
-│   │                         (Optional)                    │     │
-│   │                                                        │     │
-│   │  • Aggregate commit infos from all writers           │     │
-│   │  • Perform single global commit operation            │     │
-│   │  • Single-threaded, global coordinator               │     │
-│   └──────────────────────────────────────────────────────┘     │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-                    External Data Sink
-               (Database / File / Message Queue)
+```mermaid
+flowchart LR
+    subgraph worker["TaskExecutionService (Worker Side)"]
+        writer["SinkWriter&lt;IN, CommitInfoT, StateT&gt;<br/>Receive upstream records<br/>Buffer and write data<br/>Emit CommitInfo at checkpoint boundary<br/>Snapshot writer state"]
+        committer["SinkCommitter&lt;CommitInfoT&gt; (Optional)<br/>Created by createCommitter()<br/>Triggered after checkpoint success<br/>Commit each writer change independently"]
+    end
+
+    subgraph coordinator["Coordinator Side (aggregated commit only)"]
+        aggregatedTask["SinkAggregatedCommitterTask (Optional)<br/>Collect commit infos from writers<br/>Run single coordinator-side commit"]
+        aggregated["SinkAggregatedCommitter&lt;CommitInfoT, AggregatedCommitInfoT&gt; (Optional)<br/>Aggregate writer commit infos<br/>Perform one global commit"]
+    end
+
+    sink["External Data Sink<br/>Database / File / Message Queue"]
+
+    writer -- "worker-local commit path" --> committer
+    committer --> sink
+    writer -. "aggregated commit path" .-> aggregatedTask
+    aggregatedTask --> aggregated
+    aggregated --> sink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class worker,coordinator layerBlue;
+    class writer,committer layerCyan;
+    class aggregatedTask,aggregated,sink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 2.2 Core Components
@@ -158,9 +140,9 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
 ```
 
 **Key Design Points**:
-- Three-tier commit architecture: Writer → Committer → AggregatedCommitter
-- Committer and AggregatedCommitter are optional (depends on sink requirements)
 - Writer is always required (performs actual data writing)
+- SinkCommitter and SinkAggregatedCommitter are optional commit strategies
+- In SeaTunnel Engine, SinkCommitter runs on the worker side, while aggregated commit uses a coordinator-side `SinkAggregatedCommitterTask`
 
 ### 2.3 Interaction Flow
 
@@ -643,15 +625,15 @@ public class HiveAggregatedCommitter
 - Sink doesn't support transactions
 - Ultra-low latency required
 
-#### Three-Tier vs Two-Tier Commit
+#### Per-Writer Commit vs Aggregated Commit
 
-**Two-Tier (Writer → Committer)**:
+**Per-Writer Commit (Writer + SinkCommitter)**:
 - Each writer's commit handled independently
-- Parallel commit operations
+- Commit callback runs on the writer side in SeaTunnel Engine
 - Suitable for most sinks
 
-**Three-Tier (Writer → Committer → AggregatedCommitter)**:
-- All writers' commits aggregated into single operation
+**Aggregated Commit (Writer + SinkAggregatedCommitterTask)**:
+- Writers forward commit infos for one coordinator-side commit
 - Single global commit point
 - Required for table-level transactions (Hive, Iceberg)
 
@@ -810,10 +792,9 @@ public class TransactionalSink implements SeaTunnelSink<...> {
     Optional<SinkCommitter> createCommitter() { return Optional.of(new Committer()); }
 }
 
-// Table sink: Writer + Committer + AggregatedCommitter
+// Table sink: Writer + AggregatedCommitter (global commit)
 public class TableSink implements SeaTunnelSink<...> {
     SinkWriter createWriter(...) { return new TableWriter(); }
-    Optional<SinkCommitter> createCommitter() { return Optional.of(new Committer()); }
     Optional<SinkAggregatedCommitter> createAggregatedCommitter() {
         return Optional.of(new AggregatedCommitter());
     }

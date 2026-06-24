@@ -447,13 +447,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     private boolean hasMetricsForPipeline(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        return metricsIMap.entrySet().stream()
-                .flatMap(entry -> entry.getValue().keySet().stream())
-                .anyMatch(
-                        taskLocation ->
-                                pipelineLocation.equals(
-                                        taskLocation.getTaskGroupLocation().getPipelineLocation()));
+        return server.getEngineContext()
+                .getStateStores()
+                .metricsSnapshotStore()
+                .containsPipeline(pipelineLocation);
     }
 }
