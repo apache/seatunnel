@@ -32,6 +32,10 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -48,6 +52,10 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     private static final String DATA_BEFORE = "before";
     private static final String DATA_AFTER = "after";
     private static final String DATA_TS = "ts_ms";
+    private static final String DATA_SCHEMA = "schema";
+    private static final String SCHEMA_FIELD = "field";
+    private static final String SCHEMA_FIELDS = "fields";
+    private static final String SCHEMA_NAME = "name";
 
     private static final String REPLICA_IDENTITY_EXCEPTION =
             "The \"before\" field of %s operation is null, "
@@ -102,8 +110,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
 
         try {
-            JsonNode payload = getPayload(jsonDeserializer.deserializeToJsonNode(message));
-            parsePayload(out, tablePath, payload);
+            JsonNode root = jsonDeserializer.deserializeToJsonNode(message);
+            JsonNode payload = getPayload(root);
+            parsePayload(out, tablePath, root, payload);
         } catch (Exception e) {
             // a big try catch to protect the processing.
             if (!ignoreParseErrors) {
@@ -116,7 +125,33 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         parsePayload(out, tablePath, payload);
     }
 
+    void parsePayload(Collector<SeaTunnelRow> out, JsonNode root, JsonNode payload)
+            throws IOException {
+        parsePayload(out, tablePath, root, payload);
+    }
+
+    void parsePayload(
+            Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode root, JsonNode payload)
+            throws IOException {
+        parsePayload(
+                out,
+                tablePath,
+                payload,
+                extractFieldSchemaNames(root, DATA_BEFORE),
+                extractFieldSchemaNames(root, DATA_AFTER));
+    }
+
     private void parsePayload(Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode payload)
+            throws IOException {
+        parsePayload(out, tablePath, payload, Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    private void parsePayload(
+            Collector<SeaTunnelRow> out,
+            TablePath tablePath,
+            JsonNode payload,
+            Map<String, String> beforeFieldSchemaNames,
+            Map<String, String> afterFieldSchemaNames)
             throws IOException {
         String op = payload.get(OP_KEY).asText();
         JsonNode tsNode = payload.get(DATA_TS);
@@ -124,7 +159,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         switch (op) {
             case OP_CREATE:
             case OP_READ:
-                SeaTunnelRow insert = debeziumRowConverter.parse(payload.get(DATA_AFTER));
+                SeaTunnelRow insert =
+                        debeziumRowConverter.parse(payload.get(DATA_AFTER), afterFieldSchemaNames);
                 insert.setRowKind(RowKind.INSERT);
                 if (tablePath != null) {
                     insert.setTableId(tablePath.toString());
@@ -135,7 +171,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 out.collect(insert);
                 break;
             case OP_UPDATE:
-                SeaTunnelRow before = debeziumRowConverter.parse(payload.get(DATA_BEFORE));
+                SeaTunnelRow before =
+                        debeziumRowConverter.parse(
+                                payload.get(DATA_BEFORE), beforeFieldSchemaNames);
                 if (before == null) {
                     throw new IllegalStateException(
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
@@ -148,7 +186,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                     MetadataUtil.setEventTime(before, tsNode.asLong());
                 }
 
-                SeaTunnelRow after = debeziumRowConverter.parse(payload.get(DATA_AFTER));
+                SeaTunnelRow after =
+                        debeziumRowConverter.parse(payload.get(DATA_AFTER), afterFieldSchemaNames);
                 after.setRowKind(RowKind.UPDATE_AFTER);
 
                 if (tablePath != null) {
@@ -161,7 +200,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 out.collect(after);
                 break;
             case OP_DELETE:
-                SeaTunnelRow delete = debeziumRowConverter.parse(payload.get(DATA_BEFORE));
+                SeaTunnelRow delete =
+                        debeziumRowConverter.parse(
+                                payload.get(DATA_BEFORE), beforeFieldSchemaNames);
                 if (delete == null) {
                     throw new IllegalStateException(
                             String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
@@ -178,6 +219,40 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             default:
                 throw new IllegalStateException(format("Unknown operation type '%s'.", op));
         }
+    }
+
+    static Map<String, String> extractFieldSchemaNames(JsonNode root, String envelopeField) {
+        JsonNode schema = root == null ? null : root.get(DATA_SCHEMA);
+        JsonNode fields = schema == null ? null : schema.get(SCHEMA_FIELDS);
+        if (fields == null || !fields.isArray()) {
+            return Collections.emptyMap();
+        }
+        for (JsonNode field : fields) {
+            if (!envelopeField.equals(getText(field, SCHEMA_FIELD))) {
+                continue;
+            }
+            JsonNode envelopeFields = field.get(SCHEMA_FIELDS);
+            if (envelopeFields == null || !envelopeFields.isArray()) {
+                return Collections.emptyMap();
+            }
+            Map<String, String> fieldSchemaNames = new HashMap<>();
+            Iterator<JsonNode> iterator = envelopeFields.elements();
+            while (iterator.hasNext()) {
+                JsonNode envelopeFieldSchema = iterator.next();
+                String fieldName = getText(envelopeFieldSchema, SCHEMA_FIELD);
+                String schemaName = getText(envelopeFieldSchema, SCHEMA_NAME);
+                if (fieldName != null && schemaName != null) {
+                    fieldSchemaNames.put(fieldName, schemaName);
+                }
+            }
+            return fieldSchemaNames;
+        }
+        return Collections.emptyMap();
+    }
+
+    private static String getText(JsonNode node, String fieldName) {
+        JsonNode value = node == null ? null : node.get(fieldName);
+        return value == null || value.isNull() ? null : value.asText();
     }
 
     @Override

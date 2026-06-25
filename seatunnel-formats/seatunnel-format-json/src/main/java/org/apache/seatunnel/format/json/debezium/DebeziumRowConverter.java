@@ -43,6 +43,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -53,6 +54,10 @@ import java.util.concurrent.TimeUnit;
 public class DebeziumRowConverter implements Serializable {
     private static final String DECIMAL_SCALE_KEY = "scale";
     private static final String DECIMAL_VALUE_KEY = "value";
+    private static final String DEBEZIUM_TIME_SCHEMA = "io.debezium.time.Time";
+    private static final String DEBEZIUM_MICRO_TIME_SCHEMA = "io.debezium.time.MicroTime";
+    private static final String DEBEZIUM_NANO_TIME_SCHEMA = "io.debezium.time.NanoTime";
+    private static final long MICROS_PER_DAY = TimeUnit.DAYS.toMicros(1);
 
     private final Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
     private final SeaTunnelRowType rowType;
@@ -62,10 +67,19 @@ public class DebeziumRowConverter implements Serializable {
     }
 
     public SeaTunnelRow parse(JsonNode node) throws IOException {
-        return (SeaTunnelRow) getValue(null, rowType, node);
+        return parse(node, Collections.emptyMap());
     }
 
-    private Object getValue(String fieldName, SeaTunnelDataType<?> dataType, JsonNode value)
+    public SeaTunnelRow parse(JsonNode node, Map<String, String> fieldSchemaNames)
+            throws IOException {
+        return (SeaTunnelRow) getValue(null, rowType, node, fieldSchemaNames);
+    }
+
+    private Object getValue(
+            String fieldName,
+            SeaTunnelDataType<?> dataType,
+            JsonNode value,
+            Map<String, String> fieldSchemaNames)
             throws IOException {
         SqlType sqlType = dataType.getSqlType();
         if (value == null || value.isNull()) {
@@ -133,14 +147,11 @@ public class DebeziumRowConverter implements Serializable {
                 return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
             case TIME:
                 String timeStr = value.asText();
-                if (value.canConvertToLong()) {
+                if (isIntegralValue(value)) {
                     long time = Long.parseLong(timeStr);
-                    if (timeStr.length() == 8) {
-                        time = TimeUnit.SECONDS.toMicros(time);
-                    } else if (timeStr.length() == 11) {
-                        time = TimeUnit.MILLISECONDS.toMicros(time);
-                    }
-                    return LocalTime.ofNanoOfDay(time);
+                    return LocalTime.ofNanoOfDay(
+                            convertDebeziumTimeToNanos(
+                                    time, value, fieldSchemaNames.get(fieldName)));
                 }
 
                 DateTimeFormatter timeFormatter = fieldFormatterMap.get(fieldName);
@@ -194,7 +205,12 @@ public class DebeziumRowConverter implements Serializable {
             case ARRAY:
                 List<Object> arrayValue = new ArrayList<>();
                 for (JsonNode o : value) {
-                    arrayValue.add(getValue(fieldName, ((ArrayType) dataType).getElementType(), o));
+                    arrayValue.add(
+                            getValue(
+                                    fieldName,
+                                    ((ArrayType) dataType).getElementType(),
+                                    o,
+                                    fieldSchemaNames));
                 }
                 return arrayValue;
             case MAP:
@@ -203,7 +219,11 @@ public class DebeziumRowConverter implements Serializable {
                     Map.Entry<String, JsonNode> entry = it.next();
                     mapValue.put(
                             entry.getKey(),
-                            getValue(null, ((MapType) dataType).getValueType(), entry.getValue()));
+                            getValue(
+                                    null,
+                                    ((MapType) dataType).getValueType(),
+                                    entry.getValue(),
+                                    Collections.emptyMap()));
                 }
                 return mapValue;
             case ROW:
@@ -217,11 +237,47 @@ public class DebeziumRowConverter implements Serializable {
                                     rowType.getFieldType(i),
                                     value.has(rowType.getFieldName(i))
                                             ? value.get(rowType.getFieldName(i))
-                                            : null));
+                                            : null,
+                                    fieldSchemaNames));
                 }
                 return row;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + sqlType);
         }
+    }
+
+    private static boolean isIntegralValue(JsonNode value) {
+        if (value.canConvertToLong()) {
+            return true;
+        }
+        if (!value.isTextual()) {
+            return false;
+        }
+        try {
+            Long.parseLong(value.asText());
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static long convertDebeziumTimeToNanos(
+            long time, JsonNode value, String debeziumSchemaName) {
+        if (DEBEZIUM_TIME_SCHEMA.equals(debeziumSchemaName)) {
+            return TimeUnit.MILLISECONDS.toNanos(time);
+        }
+        if (DEBEZIUM_MICRO_TIME_SCHEMA.equals(debeziumSchemaName)) {
+            return TimeUnit.MICROSECONDS.toNanos(time);
+        }
+        if (DEBEZIUM_NANO_TIME_SCHEMA.equals(debeziumSchemaName)) {
+            return time;
+        }
+        if (value.canConvertToInt()) {
+            return TimeUnit.MILLISECONDS.toNanos(time);
+        }
+        if (time >= 0 && time < MICROS_PER_DAY) {
+            return TimeUnit.MICROSECONDS.toNanos(time);
+        }
+        return time;
     }
 }
