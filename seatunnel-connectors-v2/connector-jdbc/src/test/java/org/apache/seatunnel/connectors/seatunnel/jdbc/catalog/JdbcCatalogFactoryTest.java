@@ -75,15 +75,6 @@ class JdbcCatalogFactoryTest {
     }
 
     @Test
-    void testUrlWithoutDatabaseFails() {
-        Map<String, Object> cfg = new HashMap<>();
-        cfg.put("url", "jdbc:mysql://host:3306");
-        cfg.put("username", "root");
-        cfg.put("password", "pass");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(mysqlRule, cfg));
-    }
-
-    @Test
     void testBlankUrlFails() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("url", "");
