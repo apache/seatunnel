@@ -99,6 +99,18 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
+Spark 4.1.x（需要 JDK 17+）
+
+请下载 Spark 4.1 专用发行包 `apache-seatunnel-${version}-spark41-bin.tar.gz`。标准 `-bin` 包不包含 Spark 4.1。
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-4.1-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/v2.streaming.conf.template
+```
+
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
 
 SeaTunnel控制台将会打印一些如下日志信息:

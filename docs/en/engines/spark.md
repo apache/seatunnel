@@ -49,6 +49,19 @@ Spark on YARN client mode:
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
 
+Spark 4.1 on YARN client mode (JDK 17+, from `-spark41-bin` tarball):
+
+```shell
+./bin/start-seatunnel-spark-4.1-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
+```
+
+## Spark 4.1 Distribution
+
+Spark 4.1 requires **JDK 17 or later** and is shipped in a separate binary release:
+
+- `apache-seatunnel-${version}-bin.tar.gz` — Spark 2.4 / 3.3, Flink, and SeaTunnel Engine (JDK 8+)
+- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter and connectors (JDK 17+)
+
 ## Minimal Example Job
 
 The example below runs on Spark and prints generated records to the console.

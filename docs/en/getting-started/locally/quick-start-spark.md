@@ -89,11 +89,23 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark3.x.x
+Spark 3.x.x
 
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-3-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/v2.streaming.conf.template
+```
+
+Spark 4.1.x (JDK 17+)
+
+Download the dedicated Spark 4.1 binary `apache-seatunnel-${version}-spark41-bin.tar.gz`. The standard `-bin` tarball does not include Spark 4.1.
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-4.1-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
 --config ./config/v2.streaming.conf.template

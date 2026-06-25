@@ -72,9 +72,16 @@ public class SparkStarter implements Starter {
     /** spark configuration properties */
     protected Map<String, String> sparkConf;
 
-    private SparkStarter(String[] args, SparkCommandArgs commandArgs) {
+    private final EngineType engineType;
+
+    private SparkStarter(String[] args, SparkCommandArgs commandArgs, EngineType engineType) {
         this.args = args;
         this.commandArgs = commandArgs;
+        this.engineType = engineType;
+    }
+
+    protected EngineType getEngineType() {
+        return engineType;
     }
 
     public static void main(String[] args) throws IOException {
@@ -88,18 +95,16 @@ public class SparkStarter implements Starter {
      * ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
+        EngineType engineType = SparkEngineTypeResolver.resolve();
         SparkCommandArgs commandArgs =
                 CommandLineUtils.parse(
-                        args,
-                        new SparkCommandArgs(),
-                        EngineType.SPARK3.getStarterShellName(),
-                        true);
+                        args, new SparkCommandArgs(), engineType.getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
-                return new ClusterModeSparkStarter(args, commandArgs);
+                return new ClusterModeSparkStarter(args, commandArgs, engineType);
             case CLIENT:
-                return new ClientModeSparkStarter(args, commandArgs);
+                return new ClientModeSparkStarter(args, commandArgs, engineType);
             default:
                 throw new IllegalArgumentException("Deploy mode " + deployMode + " not supported");
         }
@@ -234,7 +239,7 @@ public class SparkStarter implements Starter {
     /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
         commands.add(
-                Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
+                Common.appStarterDir().resolve(getEngineType().getStarterJarName()).toString());
     }
 
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
@@ -293,8 +298,9 @@ public class SparkStarter implements Starter {
             }
         }
 
-        private ClientModeSparkStarter(String[] args, SparkCommandArgs commandArgs) {
-            super(args, commandArgs);
+        private ClientModeSparkStarter(
+                String[] args, SparkCommandArgs commandArgs, EngineType engineType) {
+            super(args, commandArgs, engineType);
         }
 
         @Override
@@ -319,8 +325,9 @@ public class SparkStarter implements Starter {
     /** a Starter for building spark-submit commands with cluster mode options */
     private static class ClusterModeSparkStarter extends SparkStarter {
 
-        private ClusterModeSparkStarter(String[] args, SparkCommandArgs commandArgs) {
-            super(args, commandArgs);
+        private ClusterModeSparkStarter(
+                String[] args, SparkCommandArgs commandArgs, EngineType engineType) {
+            super(args, commandArgs, engineType);
         }
 
         @Override

@@ -49,6 +49,19 @@ Spark on YARN 客户端模式：
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
 
+Spark 4.1 on YARN 客户端模式（JDK 17+，使用 `-spark41-bin` 发行包）：
+
+```shell
+./bin/start-seatunnel-spark-4.1-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
+```
+
+## Spark 4.1 发行包
+
+Spark 4.1 需要 **JDK 17 或更高版本**，并使用单独的 binary 发行包：
+
+- `apache-seatunnel-${version}-bin.tar.gz` — Spark 2.4 / 3.3、Flink 与 SeaTunnel Engine（JDK 8+）
+- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter 与 connectors（JDK 17+）
+
 ## 最小示例作业
 
 下面这个例子会在 Spark 上运行，并把生成的数据打印到控制台。
