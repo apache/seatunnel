@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
 import java.util.Map;
@@ -162,38 +165,42 @@ public class JdbcCommonOptions {
     public static final Option<String> REGION =
             Options.key("region").stringType().noDefaultValue().withDescription("region");
 
-    /** @deprecated Use {@link #baseCatalogRule()} instead to avoid shared mutable state. */
-    @Deprecated public static final OptionRule.Builder BASE_CATALOG_RULE = baseCatalogRule();
-
     /**
-     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by all JDBC
-     * catalog factories (MySQL, PostgreSQL, Oracle, etc.).
+     * Returns a fresh {@link OptionRule.Builder} with the base validation rules shared by standard
+     * JDBC catalog factories (MySQL, PostgreSQL, etc.) that use generic {@code host:port/database}
+     * URL format and require username/password authentication.
      *
-     * <p>These rules are evaluated at <b>submission time</b> via {@code
-     * ConfigValidator.validate(factory.optionRule())} in the {@code FactoryUtil} entry path. They
-     * enforce that the JDBC URL contains a database name, and that username/password are provided.
+     * <p>Catalog factories with non-standard URL formats (SqlServer, Oracle, SapHana) should use
+     * {@link #baseCatalogRule(ConditionExtension)} with their own URL validator.
      *
-     * <p>Individual catalog factories may append additional rules (e.g. OceanBase requires {@code
-     * compatible_mode}) before calling {@code .build()}.
+     * <p>Catalog factories that do not require authentication (e.g. DuckDB) should define their own
+     * {@code optionRule()} directly.
      */
     public static OptionRule.Builder baseCatalogRule() {
+        return baseCatalogRule(new UrlContainsDatabaseValidator());
+    }
+
+    /**
+     * Returns a fresh {@link OptionRule.Builder} with a custom URL validator. Use this for
+     * databases whose JDBC URL does not follow the standard {@code host:port/database} format (e.g.
+     * SqlServer, Oracle, SapHana).
+     */
+    public static OptionRule.Builder baseCatalogRule(ConditionExtension<String> urlValidator) {
         return OptionRule.builder()
-                .required(URL, Conditions.extension(URL, new UrlContainsDatabaseValidator()))
+                .required(URL, Conditions.extension(URL, urlValidator))
                 .required(USERNAME, PASSWORD)
                 .optional(SCHEMA, DECIMAL_TYPE_NARROWING, HANDLE_BLOB_AS_STRING);
     }
 
     /**
-     * Submission-time validator that ensures the JDBC URL contains a database name.
-     *
-     * <p>This validator is attached to the {@code url} option via {@link
-     * Conditions#extension(Option, ConditionExtension)} and is evaluated by {@code ConfigValidator}
-     * before the catalog/source/sink factory creates its connector instance.
+     * Validates that the JDBC URL has a valid format with at least a host component. Database name
+     * is optional to maintain backward compatibility with connectors (e.g. StarRocks, Doris) that
+     * specify the database in the query or table_path instead of the URL.
      */
     public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "JDBC URL must contain a database name";
+            return "JDBC URL must be a valid format: jdbc:<scheme>://host:port[/database]";
         }
 
         @Override
@@ -202,9 +209,14 @@ public class JdbcCommonOptions {
                 return false;
             }
             try {
-                return JdbcUrlUtil.getUrlInfo(url).getDefaultDatabase().isPresent();
+                JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
+                return StringUtils.isNotBlank(urlInfo.getHost());
             } catch (IllegalArgumentException e) {
-                return false;
+                throw new OptionValidationException(
+                        String.format(
+                                "Invalid JDBC URL format: [%s], "
+                                        + "expected pattern: jdbc:<scheme>://host:port[/database]",
+                                url));
             }
         }
     }

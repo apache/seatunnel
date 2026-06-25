@@ -50,6 +50,6 @@ public class TiDBCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
+        return JdbcCommonOptions.baseCatalogRule().build();
     }
 }
