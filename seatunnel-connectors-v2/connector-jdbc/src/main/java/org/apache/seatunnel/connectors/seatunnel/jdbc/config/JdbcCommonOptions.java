@@ -193,14 +193,14 @@ public class JdbcCommonOptions {
     }
 
     /**
-     * Validates that the JDBC URL contains a database name for standard {@code host:port/database}
-     * URLs. Dialect-specific CatalogFactories (SqlServer, Oracle, SapHana) provide their own
-     * validators via {@link #baseCatalogRule(ConditionExtension)}.
+     * Validates that the JDBC URL has a valid format with at least a host component. Database name
+     * is optional to maintain backward compatibility with connectors (e.g. StarRocks, Doris) that
+     * specify the database in the query or table_path instead of the URL.
      */
     public static class UrlContainsDatabaseValidator implements ConditionExtension<String> {
         @Override
         public String description() {
-            return "JDBC URL must contain a database name, expected pattern: jdbc:<scheme>://host:port/database";
+            return "JDBC URL must be a valid format: jdbc:<scheme>://host:port[/database]";
         }
 
         @Override
@@ -210,13 +210,12 @@ public class JdbcCommonOptions {
             }
             try {
                 JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
-                return StringUtils.isNotBlank(urlInfo.getHost())
-                        && urlInfo.getDefaultDatabase().isPresent();
+                return StringUtils.isNotBlank(urlInfo.getHost());
             } catch (IllegalArgumentException e) {
                 throw new OptionValidationException(
                         String.format(
                                 "Invalid JDBC URL format: [%s], "
-                                        + "expected pattern: jdbc:<scheme>://host:port/database",
+                                        + "expected pattern: jdbc:<scheme>://host:port[/database]",
                                 url));
             }
         }
