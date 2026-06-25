@@ -1764,6 +1764,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run spark 4.1 integration test
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-fake-e2e -am -Pci -Dit.test=FakeSpark41IT
+          ./mvnw -B -T 1 package -pl :seatunnel-spark-4.1-starter -am -DskipTests -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 verify -pl :connector-fake-e2e -am -DskipUT=true -DskipIT=false -DfailIfNoTests=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci -Dit.test=FakeSpark41IT
         env:
           MAVEN_OPTS: -Xmx4096m
