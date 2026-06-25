@@ -481,17 +481,7 @@ public class SeaTunnelEngineClusterRoleTest {
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
             jobClient.cancelJob(jobId);
-            await().atMost(120000, TimeUnit.MILLISECONDS)
-                    .pollDelay(5, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                String status = jobClient.getJobStatus(jobId);
-                                Assertions.assertEquals(
-                                        "CANCELED",
-                                        status,
-                                        "Expected terminal state but was: " + status);
-                            });
+            assertEventuallyCanceled(jobClient, clientJobProxy);
         } finally {
             if (hazelcastClient != null) {
                 hazelcastClient.shutdown();
@@ -526,6 +516,23 @@ public class SeaTunnelEngineClusterRoleTest {
                 + "        multicast-timeout-seconds: 2\n"
                 + "        trusted-interfaces:\n"
                 + "          - 192.168.1.1\n";
+    }
+
+    /**
+     * Waits for the cancel request to reach a terminal job result before checking the client-side
+     * status string.
+     */
+    private void assertEventuallyCanceled(JobClient jobClient, ClientJobProxy clientJobProxy) {
+        // Failover can leave the client-observed status at CANCELING after cancel has been
+        // accepted, so wait for the final result before asserting the terminal status.
+        JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+        Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "CANCELED",
+                                        jobClient.getJobStatus(clientJobProxy.getJobId())));
     }
 
     private SeaTunnelClient createSeaTunnelClient(String clusterName) {
