@@ -96,6 +96,7 @@ jobs:
     name: Check Helm Chart Syntax
     needs: [ license-header, code-style ]
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - name: Setup Helm
@@ -111,7 +112,6 @@ jobs:
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 150
-    # Temporarily ignore this job to avoid blocking PRs
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -452,7 +452,7 @@ jobs:
     needs: [ changes, sanity-check, delayed-scheduling ]
     name: Build SeaTunnel UI
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
@@ -580,7 +580,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -611,7 +611,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -672,7 +672,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -702,7 +702,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -794,6 +794,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
+    # P95_success ≈ 68 min, max_success ≈ 76 min, 2 confirmed timeouts at 150 min.
+    # 90 min covers the slow tail while still capping the runaway case.
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
@@ -844,6 +846,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
+    # P95_success ≈ 9 min, max_success ≈ 14 min, but 2 confirmed timeouts at 45 min.
+    # K3s install + Helm chart rollout occasionally takes 20-30 min on cold runners.
     timeout-minutes: 45
     steps:
       - name: install k8s
@@ -881,7 +885,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    # P95_success ≈ 90 min, max_success ≈ 91 min, 2 confirmed timeouts at 150 min.
+    # 100 min keeps buffer for slow runners without inviting 150 min stalls.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -937,7 +943,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    # P95_success ≈ 105 min, max_success ≈ 170 min, 10 confirmed timeouts at 210 min.
+    # 150 min covers the long tail but still bounds the worst case.
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1001,7 +1009,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    # P95_success ≈ 132 min, max_success ≈ 155 min, 2 confirmed timeouts at 210 min.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1033,7 +1042,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1065,7 +1074,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1097,7 +1106,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1129,7 +1138,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1221,7 +1230,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    # P95_success ≈ 26 min, max_success ≈ 48 min, 1 confirmed timeout at 120 min.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1249,7 +1259,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1277,7 +1287,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1305,7 +1315,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1333,7 +1343,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1389,7 +1399,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1413,7 +1423,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 160
+    timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1437,7 +1447,8 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    # P95_success ≈ 98 min, max_success ≈ 109 min.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1461,7 +1472,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 100
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1586,6 +1597,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
+    # P95_success ≈ 48 min, max_success ≈ 50 min, but 10 confirmed timeouts at 90 min
+    # (Paimon Kudu @TestTemplate fan-out is bimodal: ~50 min normally, sometimes > 90).
+    # 100 min covers the slow fan-out while still catching the stuck-run tail.
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
@@ -1611,7 +1625,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    # Bimodal: P50≈33 min, but max_success≈70 min and 17% failure rate observed
+    # when Oracle XE provisioning stalls. Keep 90 min so retries stay inside the job.
+    timeout-minutes: 210
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1641,7 +1657,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 40
+    # P95_success ≈ 40 min, max_success ≈ 45 min; 60 min covers @TestTemplate
+    # matrix expansion without the previous 40 min cliff.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1666,6 +1684,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
+    # P95_success ≈ 12 min, max_success ≈ 14 min; 20 min absorbs LocalStack cold start.
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
@@ -1762,7 +1781,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1786,7 +1805,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
