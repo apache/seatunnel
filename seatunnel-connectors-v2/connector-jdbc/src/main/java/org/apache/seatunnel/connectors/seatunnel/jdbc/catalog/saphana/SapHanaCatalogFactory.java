@@ -71,8 +71,7 @@ public class SapHanaCatalogFactory implements CatalogFactory {
             }
             try {
                 JdbcUrlUtil.UrlInfo info = SapHanaURLParser.parse(url);
-                return StringUtils.isNotBlank(info.getHost())
-                        && info.getDefaultDatabase().isPresent();
+                return StringUtils.isNotBlank(info.getHost());
             } catch (IllegalArgumentException e) {
                 throw new OptionValidationException(
                         String.format(

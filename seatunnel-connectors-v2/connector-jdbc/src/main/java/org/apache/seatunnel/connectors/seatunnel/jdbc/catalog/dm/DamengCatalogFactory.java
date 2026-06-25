@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -55,31 +51,6 @@ public class DamengCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.baseCatalogRule(new DamengUrlValidator()).build();
-    }
-
-    /** Validates URL format only; Dameng does not require a database name in the URL. */
-    static class DamengUrlValidator implements ConditionExtension<String> {
-        @Override
-        public String description() {
-            return "Dameng JDBC URL must be a valid format (e.g. jdbc:dm://host:port)";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, String url) {
-            if (url == null || url.trim().isEmpty()) {
-                return false;
-            }
-            try {
-                JdbcUrlUtil.UrlInfo info = JdbcUrlUtil.getUrlInfo(url);
-                return StringUtils.isNotBlank(info.getHost());
-            } catch (IllegalArgumentException e) {
-                throw new OptionValidationException(
-                        String.format(
-                                "Invalid Dameng JDBC URL format: [%s], "
-                                        + "expected pattern: jdbc:dm://host:port",
-                                url));
-            }
-        }
+        return JdbcCommonOptions.baseCatalogRule().build();
     }
 }
