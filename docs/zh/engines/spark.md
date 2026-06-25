@@ -60,7 +60,9 @@ Spark 4.1 on YARN 客户端模式（JDK 17+，使用 `-spark41-bin` 发行包）
 Spark 4.1 需要 **JDK 17 或更高版本**，并使用单独的 binary 发行包：
 
 - `apache-seatunnel-${version}-bin.tar.gz` — Spark 2.4 / 3.3、Flink 与 SeaTunnel Engine（JDK 8+）
-- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter 与 connectors（JDK 17+）
+- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter 与精简 connector 集合（JDK 17+）
+
+Spark 4.1 发行包当前包含 starter 日志依赖、`connector-fake`、`connector-console`、`connector-assert`、`seatunnel-transforms-v2` 以及常用 JDBC/Hadoop 可选库。如需更多 connector，请使用 `bin/install-plugin.sh` 安装。
 
 ## 最小示例作业
 

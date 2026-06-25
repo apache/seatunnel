@@ -11,15 +11,18 @@ import TabItem from '@theme/TabItem';
 
 在开始本地运行前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
 
-* 安装[Java](https://www.java.com/en/download/) (Java 8 或 11， 其他高于Java 8的版本理论上也可以工作) 以及设置 `JAVA_HOME`。
+* 安装[Java](https://www.java.com/en/download/)（标准 `-bin` 包使用 Java 8 或 11；**Spark 4.1 需要 JDK 17+**）并设置 `JAVA_HOME`。
 
 ## 下载 SeaTunnel 发行包
 
 ### 下载二进制包
 
-进入[SeaTunnel下载页面](https://seatunnel.apache.org/download)下载最新版本的二进制安装包`seatunnel-<version>-bin.tar.gz`
+进入[SeaTunnel下载页面](https://seatunnel.apache.org/download)下载最新版本：
 
-或者您也可以通过终端下载：
+- `apache-seatunnel-<version>-bin.tar.gz` — Spark 2.4 / 3.3、Flink 与 SeaTunnel Engine（JDK 8+）
+- `apache-seatunnel-<version>-spark41-bin.tar.gz` — Spark 4.1 starter 与精简 connector 集合（**JDK 17+**）。详见 [SeaTunnel With Spark](../../engines/spark.md#spark-41-distribution)。
+
+或者您也可以通过终端下载标准包：
 
 ```shell
 export version="3.0.0"

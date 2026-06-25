@@ -60,7 +60,9 @@ Spark 4.1 on YARN client mode (JDK 17+, from `-spark41-bin` tarball):
 Spark 4.1 requires **JDK 17 or later** and is shipped in a separate binary release:
 
 - `apache-seatunnel-${version}-bin.tar.gz` — Spark 2.4 / 3.3, Flink, and SeaTunnel Engine (JDK 8+)
-- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter and connectors (JDK 17+)
+- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter and a minimal connector set (JDK 17+)
+
+The Spark 4.1 tarball currently bundles starter logging dependencies, `connector-fake`, `connector-console`, `connector-assert`, `seatunnel-transforms-v2`, and common JDBC/Hadoop optional libraries. Install additional connectors with `bin/install-plugin.sh` as needed.
 
 ## Minimal Example Job
 
