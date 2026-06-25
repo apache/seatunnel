@@ -1102,6 +1102,13 @@
                 <module>seatunnel-core/seatunnel-spark-starter/seatunnel-spark-4.1-starter</module>
             </modules>
         </profile>
+        <!-- Include seatunnel-dist in CI builds that only activate -Pci -->
+        <profile>
+            <id>spark41-dist</id>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
         <profile>
             <id>benchmark</id>
             <activation>

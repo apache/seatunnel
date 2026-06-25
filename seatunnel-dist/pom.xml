@@ -1465,6 +1465,10 @@
         </profile>
         <profile>
             <id>spark41-dist</id>
+            <properties>
+                <mysql.version>8.0.27</mysql.version>
+                <postgresql.version>42.4.3</postgresql.version>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
@@ -1528,6 +1532,14 @@
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
                         <executions>
+                            <execution>
+                                <id>bin</id>
+                                <phase>none</phase>
+                            </execution>
+                            <execution>
+                                <id>src</id>
+                                <phase>none</phase>
+                            </execution>
                             <execution>
                                 <id>spark41-bin</id>
                                 <goals>
