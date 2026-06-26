@@ -16,6 +16,6 @@ sidebar_position: 1
 
 ## 常用下一步
 
-- [Source 常用选项](../common-options/source-common-options.md)
-- [CDC 生产实战手册](../cdc-production-cookbook.md)
-- [连接器常见问题](../connector-faq.md)
+- [Source 常用选项](./common-options/source-common-options.md)
+- [CDC 生产实战手册](./cdc-production-cookbook.md)
+- [连接器常见问题](./connector-faq.md)

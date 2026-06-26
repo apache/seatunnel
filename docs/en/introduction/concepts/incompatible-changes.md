@@ -61,6 +61,13 @@ You need to check this document before you upgrade to related version.
 
 ### Configuration Changes
 
+- **Breaking Change: CatalogFactory creation path now validates `optionRule()`**
+  - **Affected component**: `seatunnel-api` — `FactoryUtil.createOptionalCatalog()`
+  - **Description**: The `FactoryUtil.createOptionalCatalog()` method now calls `ConfigValidator.validate(catalogFactory.optionRule())` before creating a catalog instance. Previously, no validation was performed on the catalog factory's option rules during catalog creation.
+  - **Impact**: Catalog factories whose `optionRule()` declares options as `required` that are not always present in the config passed to `createOptionalCatalog()` will now throw `OptionValidationException`. This primarily affects the JDBC connector path via `JdbcCatalogUtils.findCatalog()`.
+  - **Migration Guide**: If you have a custom `CatalogFactory` implementation, ensure that its `optionRule()` accurately reflects which options are truly mandatory vs optional in the config that reaches it at runtime.
+
+
 ### Connector Changes
 
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**

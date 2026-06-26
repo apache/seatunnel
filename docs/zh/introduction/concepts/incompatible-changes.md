@@ -60,6 +60,13 @@
 
 ### 配置变更
 
+- **破坏性变更：CatalogFactory 创建路径现在会校验 `optionRule()`**
+  - **影响范围**：`seatunnel-api` — `FactoryUtil.createOptionalCatalog()`
+  - **变更说明**：`FactoryUtil.createOptionalCatalog()` 方法现在在创建 catalog 实例之前会调用 `ConfigValidator.validate(catalogFactory.optionRule())` 进行校验。此前，catalog 创建路径不会对 catalog factory 的 option rules 执行任何校验。
+  - **影响**：如果 catalog factory 的 `optionRule()` 将某些选项声明为 `required`，而传入 `createOptionalCatalog()` 的配置中这些选项并不总是存在，则会抛出 `OptionValidationException`。这主要影响通过 `JdbcCatalogUtils.findCatalog()` 触发的 JDBC 连接器路径。
+  - **迁移指南**：如果您有自定义的 `CatalogFactory` 实现，请确保其 `optionRule()` 准确反映在运行时到达它的配置中，哪些选项是真正必填的，哪些是可选的。
+
+
 ### 连接器变更
 
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
