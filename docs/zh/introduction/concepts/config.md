@@ -1,15 +1,14 @@
 # 配置文件简介
 
-在SeaTunnel中，最重要的事情就是配置文件，尽管用户可以自定义他们自己的数据同步需求以发挥SeaTunnel最大的潜力。那么接下来我将会向你介绍如何设置配置文件。
+如果您正在编写第一个真正可用的 SeaTunnel 作业，这一页最重要的目标，就是帮您先理解几乎所有配置里都会出现的四个部分：`env`、`source`、`transform`、`sink`。
 
-配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
-顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
+SeaTunnel 支持 `hocon`、`json` 和 `SQL` 三种配置格式。其中 **HOCON** 是快速开始和生产示例中最常见的格式。SQL 格式请参考 [SQL 配置文件](../configuration/sql-config.md)。
 
-我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](../configuration/sql-config.md)。
+如果您还没有跑通过第一个任务，建议先阅读 [快速入门总览](../../getting-started/overview.md) 和 [SeaTunnel 引擎快速开始](../../getting-started/locally/quick-start-seatunnel-engine.md)，再回到这一页。
 
 ## 例子
 
-在你阅读之前，你可以在发布包中的config目录[这里](https://github.com/apache/seatunnel/tree/dev/config)找到配置文件的例子。
+继续往下看之前，您可以先在发布包的 `config` 目录，或者 [这里](https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-1/src/test/resources) 查看示例配置。
 
 ## 配置文件结构
 
@@ -21,7 +20,7 @@
 
 :::
 
-### hocon
+### HOCON 示例
 
 ```hocon
 env {
@@ -63,28 +62,25 @@ sink {
 }
 ```
 
-正如你看到的，配置文件包括几个部分：env, source, transform, sink。不同的模块具有不同的功能。
-当你了解了这些模块后，你就会懂得SeaTunnel到底是如何工作的。
+大多数 SeaTunnel 作业都会遵循 `env`、`source`、`transform`、`sink` 这四段结构。只要先理解这四段，后面读快速开始、连接器示例和真实任务配置都会容易很多。
 
-### env
+### `env`：作业与引擎参数
 
-用于添加引擎可选的参数，不管是什么引擎（Zeta、Spark 或者 Flink），对应的可选参数应该在这里填写。
+`env` 用来放作业级和引擎级参数，比如 `job.mode`、`parallelism`、checkpoint 相关配置，以及引擎特有参数。
 
-注意，我们按照引擎分离了参数，对于公共参数我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](../configuration/JobEnvConfig.md)。
+公共参数可以直接配置；引擎专属参数则按前缀区分。Flink 和 Spark 的具体写法请参考 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 
 <!-- TODO add supported env parameters -->
 
-### source
+### `source`：数据读取入口
 
-source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于下一步。
-可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../../connectors/source)。每种source都有自己特定的参数用来
-定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `plugin_output` 参数，用于指定当前source生成的数据的名称，
-方便后续其他模块使用。
+`source` 用来定义 SeaTunnel 从哪里读取数据。一个作业中可以同时声明多个 source。每个连接器都有自己的参数，同时也有一些通用的链路字段，例如 `plugin_output`，它用于给当前 source 产出的数据集命名，方便后续模块引用。
 
-### transform
+完整列表请查看 [数据来源连接器](../../connectors/source-overview.md)。
 
-当我们有了数据源之后，我们可能需要对数据进行进一步的处理，所以我们就有了transform模块。当然，这里使用了“可能”这个词，
-这意味着我们也可以直接将transform视为不存在，直接从source到sink，像下面这样：
+### `transform`：中间处理步骤
+
+`transform` 是可选的。当您需要做字段映射、过滤、类型转换、SQL 处理，或者其它中间加工时，就使用这一层；如果不需要，也可以直接从 source 到 sink，例如下面这样：
 
 ```hocon
 env {
@@ -118,22 +114,22 @@ sink {
 }
 ```
 
-与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../../transforms)
+和 source 一样，每个 transform 也有自己的专属参数。完整列表请查看 [数据转换目录](../../transforms)。
 
-<!-- TODO missing source links --->
+### `sink`：数据写入目标
 
-### sink
+`sink` 用来定义处理后的数据写到哪里去。它和 source 很相似，但更关注写入行为、目标表结构、提交方式以及投递保证。
 
-我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../../connectors/sink)吧。
+完整列表请查看 [数据写入连接器](../../connectors/sink-overview.md)。
 
-### 其它
+### `plugin_output` 和 `plugin_input` 是怎么工作的
 
-你会疑惑当定义了多个source和多个sink时，每个sink读取哪些数据，每个transform读取哪些数据？我们使用`plugin_output` 和
-`plugin_input` 两个配置。每个source模块都会配置一个`plugin_output`来指示数据源生成的数据源名称，其它transform和sink
-模块可以使用`plugin_input` 引用相应的数据源名称，表示要读取数据进行处理。然后transform，作为一个中间的处理模块，可以同时使用
-`plugin_output` 和 `plugin_input` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
-有一个默认的约定，如果这两个参数没有配置，则使用上一个节点的最后一个模块生成的数据。当只有一个source时这是非常方便的。
+当一个作业里同时存在多个 source、transform 或 sink 时，SeaTunnel 需要知道“哪一份数据流向下一步的哪个模块”。这就是 `plugin_output` 和 `plugin_input` 的作用。
+
+- `plugin_output` 给当前 source 或 transform 产出的数据集命名
+- `plugin_input` 告诉下游 transform 或 sink 应该消费哪一个上游数据集
+
+如果只是单一 source 的简单链路，很多时候可以省略它们，因为 SeaTunnel 会按默认约定自动把上一个模块的输出继续往下传递。
 
 ## 多行文本支持
 
@@ -148,7 +144,7 @@ distributed, massive data integration tool.
 sql = """ select * from "table" """
 ```
 
-## Json格式支持
+## JSON 格式支持
 
 在编写配置文件之前，请确保配置文件的名称应以 `.json` 结尾。
 
@@ -198,7 +194,7 @@ sql = """ select * from "table" """
 
 ## 配置变量替换
 
-在配置文件中,我们可以定义一些变量并在运行时替换它们。但是注意仅支持 hocon 格式的文件。
+在配置文件中，我们可以定义一些变量并在运行时替换它们。但请注意，目前仅支持 HOCON 格式的文件。
 
 变量使用方法：
  - `${varName}`，如果变量未传值，则抛出异常。
@@ -324,4 +320,6 @@ sink {
 - 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`、`${partition_keys}`。具体可参考[Sink参数占位符](../configuration/sink-options-placeholders.md)
 ## 此外
 
-如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
+- 现在就可以开始写自己的配置文件，选择要使用的 [连接器](../../connectors/source-overview.md)，再按对应文档填写参数。
+- 如果您需要按引擎配置参数，请继续阅读 [JobEnvConfig](../configuration/JobEnvConfig.md)。
+- 如果您想了解更完整的语法细节，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。

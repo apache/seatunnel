@@ -3,7 +3,7 @@ sidebar_position: 5
 title: File 到 StarRocks
 ---
 
-# File 到 StarRocks
+# 文件到 StarRocks
 
 当你想把本地 CSV 或文本文件导入 StarRocks，供后续高性能分析查询使用时，可以使用这条链路。
 
