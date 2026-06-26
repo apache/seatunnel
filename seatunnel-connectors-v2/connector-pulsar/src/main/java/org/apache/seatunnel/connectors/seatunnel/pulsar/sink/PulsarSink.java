@@ -80,7 +80,7 @@ public class PulsarSink
     }
 
     @Override
-    public PulsarSinkWriter restoreWriter(
+    public SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> restoreWriter(
             SinkWriter.Context context, List<PulsarSinkState> states) {
         return new PulsarSinkWriter(
                 context, clientConfig, seaTunnelRowType, readonlyConfig, states);
