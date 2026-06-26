@@ -42,6 +42,12 @@
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
             <version>${spark.4.1.2.version}</version>
             <scope>${spark.scope}</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -49,12 +55,31 @@
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.4.1.2.version}</version>
             <scope>${spark.scope}</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
             <version>${spark.4.1.2.version}</version>
+            <scope>${spark.scope}</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.13.17</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
