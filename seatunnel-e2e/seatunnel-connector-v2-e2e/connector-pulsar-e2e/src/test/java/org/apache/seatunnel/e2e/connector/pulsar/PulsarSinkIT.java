@@ -53,7 +53,7 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String PULSAR_IMAGE_NAME = "apachepulsar/pulsar:2.3.1";
     public static final String PULSAR_HOST = "pulsar.e2e.sink";
-    public static final String TOPIC = "topic-test02";
+    public static final String TOPIC = "topic_test02";
     private PulsarContainer pulsarContainer;
 
     @Override
@@ -70,7 +70,12 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                 .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS);
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        pulsarContainer.isRunning(),
+                                        "Pulsar container should be running"));
     }
 
     @Override
@@ -92,21 +97,19 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
                             .subscriptionType(SubscriptionType.Exclusive)
                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                             .subscribe();
-            int i = 0;
-            while (true) {
-                i++;
-                Message msg = consumer.receive();
+            for (int i = 0; i < 10; i++) {
+                Message msg = consumer.receive(30, TimeUnit.SECONDS);
                 if (msg != null) {
                     data.add(new String(msg.getData()));
                     consumer.acknowledge(msg.getMessageId());
                     log.info("value:{}", new String(msg.getData()));
-                }
-                if (i == 10) {
+                } else {
+                    log.warn("No message received within timeout, received {} so far", data.size());
                     break;
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to get pulsar consumer data", e);
         }
         return data;
     }

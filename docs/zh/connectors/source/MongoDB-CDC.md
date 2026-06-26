@@ -114,7 +114,7 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 
 | Name                               | 类型   | 必须 | 默认值 | 描述                                                                                    |
 |------------------------------------|--------|----------|-------|---------------------------------------------------------------------------------------|
-| hosts                              | String | 是      | -     | MongoDB服务器的主机名和端口对的逗号分隔列表。如 `localhost:27017,localhost:27018`                         |
+| hosts                              | String | 是      | -     | MongoDB服务器的主机名和端口对的逗号分隔列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。如 `localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`                         |
 | username                           | String | 否       | -     | 连接到MongoDB时要使用的数据库用户的名称。                                                              |
 | password                           | String | 否       | -     | 连接到MongoDB时使用的密码。                                                                     |
 | database                           | List   | 是      | -     | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                |

@@ -1,9 +1,9 @@
 ---
 sidebar_position: 4
-title: Http 到 JDBC
+title: HTTP 到 JDBC
 ---
 
-# Http 到 JDBC
+# HTTP 到 JDBC
 
 当你想从 HTTP API 拉取结构化数据，并把结果落到关系型数据库中时，可以使用这条链路。
 
