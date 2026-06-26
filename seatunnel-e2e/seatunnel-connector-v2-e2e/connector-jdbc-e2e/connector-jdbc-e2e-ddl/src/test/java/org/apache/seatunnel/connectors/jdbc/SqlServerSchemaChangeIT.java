@@ -61,6 +61,11 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     /** Exercises an authenticated query to prove the server is actually accepting connections. */
     private static final String SQLSERVER_READY_QUERY = "SET NOCOUNT ON; SELECT 1";
     /**
+     * SQL Server 2022 can emit the client-ready log before recovery and `msdb` upgrades finish in
+     * CI, so XA installation must wait for the stronger recovery-complete signal.
+     */
+    private static final String SQLSERVER_RECOVERY_COMPLETE_LOG = ".*Recovery is complete\\..*";
+    /**
      * Verifies that the XA initialization procedure is visible before the exactly-once test runs.
      */
     private static final String SQLSERVER_XA_PROCEDURE_QUERY =
@@ -115,9 +120,7 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withEnv("MSSQL_RPC_PORT", String.valueOf(SQLSERVER_RPC_PORT))
                         .withEnv("MSSQL_DTC_TCP_PORT", String.valueOf(SQLSERVER_DTC_PORT))
                         .withExposedPorts(SQLSERVER_PORT)
-                        .waitingFor(
-                                Wait.forLogMessage(
-                                        ".*SQL Server is now ready for client connections.*", 1))
+                        .waitingFor(Wait.forLogMessage(SQLSERVER_RECOVERY_COMPLETE_LOG, 1))
                         .withStartupTimeout(Duration.ofMinutes(10))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -156,9 +159,8 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     }
 
     /**
-     * The SQL Server ready log is emitted before the container reliably accepts authenticated
-     * sqlcmd connections in CI. Polling a real login avoids racing XA setup against database
-     * upgrade tasks.
+     * Recovery-complete is the earliest safe container log marker, and a real authenticated probe
+     * confirms that `sqlcmd` can connect before XA setup starts.
      */
     private void waitForSqlServerLogin(GenericContainer<?> container) {
         await().pollDelay(Duration.ofSeconds(1))
