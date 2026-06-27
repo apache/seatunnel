@@ -165,6 +165,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return convertToTime();
             case TIMESTAMP:
                 return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampTz();
             case FLOAT:
                 return wrapNumericConverter(convertToFloat());
             case DOUBLE:
@@ -450,6 +452,24 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                                 + dbzObj
                                 + "' of type "
                                 + dbzObj.getClass().getName());
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToTimestampTz() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof String) {
+                    return java.time.OffsetDateTime.parse((String) dbzObj);
+                }
+                throw new IllegalArgumentException(
+                        "Unable to convert to OffsetDateTime from unexpected value '"
+                                + dbzObj
+                                + "' of type "
+                                + (dbzObj != null ? dbzObj.getClass().getName() : "null"));
             }
         };
     }

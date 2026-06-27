@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverter;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import io.debezium.data.geometry.Geography;
 import io.debezium.data.geometry.Geometry;
 
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -205,5 +207,53 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         Object fieldValue = row.getField(0);
         Assertions.assertTrue(fieldValue instanceof String);
         Assertions.assertEquals("0102FF", fieldValue);
+    }
+
+    @Test
+    void testTimestampTzConversion() throws Exception {
+        SeaTunnelDataType<?> timestampTzType =
+                new SeaTunnelDataType<OffsetDateTime>() {
+                    @Override
+                    public Class<OffsetDateTime> getTypeClass() {
+                        return OffsetDateTime.class;
+                    }
+
+                    @Override
+                    public SqlType getSqlType() {
+                        return SqlType.TIMESTAMP_TZ;
+                    }
+                };
+
+        SeaTunnelRowDebeziumDeserializationConverters converters =
+                new SeaTunnelRowDebeziumDeserializationConverters(
+                        new SeaTunnelRowType(
+                                new String[] {"ts_tz"}, new SeaTunnelDataType[] {timestampTzType}),
+                        new MetadataConverter[] {},
+                        ZoneId.systemDefault(),
+                        DebeziumDeserializationConverterFactory.DEFAULT);
+
+        Schema recordSchema =
+                SchemaBuilder.struct().field("ts_tz", SchemaBuilder.string().build()).build();
+        Struct recordValue = new Struct(recordSchema);
+        String debeziumEmittedValue = "2026-06-11T10:00:00+05:30";
+        recordValue.put("ts_tz", debeziumEmittedValue);
+
+        SourceRecord record =
+                new SourceRecord(
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        "topicName",
+                        null,
+                        SchemaBuilder.int32().build(),
+                        1,
+                        recordSchema,
+                        recordValue,
+                        null,
+                        new ArrayList<>());
+
+        SeaTunnelRow row = converters.convert(record, recordValue, recordSchema);
+        Object fieldValue = row.getField(0);
+        Assertions.assertTrue(fieldValue instanceof OffsetDateTime);
+        Assertions.assertEquals(OffsetDateTime.parse(debeziumEmittedValue), fieldValue);
     }
 }
