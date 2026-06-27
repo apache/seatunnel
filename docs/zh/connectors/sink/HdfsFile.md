@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] maxwell_json
 - [x] 压缩编解码器
   - [x] lzo
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

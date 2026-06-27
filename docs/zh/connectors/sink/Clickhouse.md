@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述

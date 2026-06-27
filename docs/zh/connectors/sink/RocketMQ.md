@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 默认情况下，我们将使用2pc来保证消息精确一次到RocketMQ。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

@@ -41,7 +41,7 @@
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-我们想要将 `name` 字段拆分为 `first_name` 和 `second_name`，我们可以像这样添加 `Split` 转换：
+我们想要将 `name` 字段拆分为 `first_name` 和 `last_name`，可以像这样添加 `Split` 转换：
 
 ```
 transform {
@@ -50,7 +50,7 @@ transform {
     plugin_output = "fake1"
     separator = " "
     split_field = "name"
-    output_fields = [first_name, second_name]
+    output_fields = [first_name, last_name]
   }
 }
 ```
@@ -69,4 +69,3 @@ transform {
 ### 新版本
 
 - 添加拆分转换连接器
-
