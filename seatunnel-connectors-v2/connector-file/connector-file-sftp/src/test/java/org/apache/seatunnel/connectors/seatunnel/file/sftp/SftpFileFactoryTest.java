@@ -91,5 +91,7 @@ class SftpFileFactoryTest {
         Assertions.assertEquals(
                 "/home/seatunnel/.ssh/id_rsa",
                 hadoopConf.getExtraOptions().get(SFTPFileSystem.FS_SFTP_KEYFILE));
+        Assertions.assertEquals(
+                "0", hadoopConf.getExtraOptions().get(SFTPFileSystem.FS_SFTP_CONNECTION_MAX));
     }
 }

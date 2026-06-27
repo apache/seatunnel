@@ -50,6 +50,9 @@ public class SftpConf extends HadoopConf {
         HashMap<String, String> sftpOptions = new HashMap<>();
         String user = config.get(SftpFileBaseOptions.SFTP_USER);
         sftpOptions.put(SFTPFileSystem.FS_SFTP_USER_PREFIX + host, user);
+        // SeaTunnel jobs create short-lived SFTP filesystem instances, so pooled JSch sessions can
+        // outlive task cancellation and block container shutdown in engine ITs.
+        sftpOptions.put(SFTPFileSystem.FS_SFTP_CONNECTION_MAX, "0");
         config.getOptional(SftpFileBaseOptions.SFTP_PASSWORD)
                 .ifPresent(
                         password ->
