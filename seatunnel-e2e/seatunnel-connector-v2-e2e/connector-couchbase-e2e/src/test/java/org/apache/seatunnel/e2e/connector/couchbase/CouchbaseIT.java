@@ -92,28 +92,46 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
 
         // Bootstrap the single-node cluster via REST.
         HttpClient http = HttpClient.newHttpClient();
-        String auth = Base64.getEncoder().encodeToString(
-                (COUCHBASE_USERNAME + ":" + COUCHBASE_PASSWORD).getBytes());
+        String auth =
+                Base64.getEncoder()
+                        .encodeToString((COUCHBASE_USERNAME + ":" + COUCHBASE_PASSWORD).getBytes());
 
         // 1. Configure node paths and services.
-        httpPost(http, baseUrl + "/nodes/self/controller/settings", auth,
+        httpPost(
+                http,
+                baseUrl + "/nodes/self/controller/settings",
+                auth,
                 "path=%2Fopt%2Fcouchbase%2Fvar%2Flib%2Fcouchbase%2Fdata"
                         + "&index_path=%2Fopt%2Fcouchbase%2Fvar%2Flib%2Fcouchbase%2Fdata");
-        httpPost(http, baseUrl + "/pools/default", auth,
-                "memoryQuota=512&indexMemoryQuota=256");
-        httpPost(http, baseUrl + "/node/controller/setupServices", auth,
+        httpPost(http, baseUrl + "/pools/default", auth, "memoryQuota=512&indexMemoryQuota=256");
+        httpPost(
+                http,
+                baseUrl + "/node/controller/setupServices",
+                auth,
                 "services=kv%2Cn1ql%2Cindex");
-        httpPost(http, baseUrl + "/settings/web", auth,
+        httpPost(
+                http,
+                baseUrl + "/settings/web",
+                auth,
                 "port=8091&username=" + COUCHBASE_USERNAME + "&password=" + COUCHBASE_PASSWORD);
 
         // 2. Create bucket.
-        httpPost(http, baseUrl + "/pools/default/buckets", auth,
+        httpPost(
+                http,
+                baseUrl + "/pools/default/buckets",
+                auth,
                 "name=" + COUCHBASE_BUCKET + "&ramQuota=256&bucketType=couchbase&replicaNumber=0");
         Thread.sleep(3000);
 
         // 3. Create collection.
-        httpPost(http, baseUrl + "/pools/default/buckets/" + COUCHBASE_BUCKET
-                + "/scopes/_default/collections", auth, "name=" + COUCHBASE_COLLECTION);
+        httpPost(
+                http,
+                baseUrl
+                        + "/pools/default/buckets/"
+                        + COUCHBASE_BUCKET
+                        + "/scopes/_default/collections",
+                auth,
+                "name=" + COUCHBASE_COLLECTION);
         Thread.sleep(3000);
 
         // 4. Set index storage mode so primary-index creation works.
@@ -136,17 +154,18 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Issues an HTTP POST with form-encoded body.
-     * Errors are logged as warnings — bootstrap steps are best-effort.
+     * Issues an HTTP POST with form-encoded body. Errors are logged as warnings — bootstrap steps
+     * are best-effort.
      */
     private static void httpPost(HttpClient http, String url, String auth, String body)
             throws Exception {
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Basic " + auth)
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
+        HttpRequest req =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Basic " + auth)
+                        .header("Content-Type", "application/x-www-form-urlencoded")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() >= 400) {
             // Log but don't fail — some steps may already be done (e.g. re-run).
