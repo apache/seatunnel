@@ -98,6 +98,18 @@
   **迁移指南**: 如果您在 `PARSEDATETIME`、`TO_DATE` 或 `IS_DATE` 函数中使用自定义日期时间格式模式，您必须更新查询以使用上述支持的模式之一。如果您的数据使用不同的格式，您可能需要预处理输入数据以匹配支持的格式，或使用字符串操作函数在解析之前转换格式。
 
 - DataValidator 转换：当 `row_error_handle_way = ROUTE_TO_TABLE` 时，路由到错误表的行 `table_id` 现在会携带上游的 database/schema 前缀（例如从 `ffp` 变为 `db1.ffp` / `db1.schema1.ffp`）。
+- **[BREAKING]** 多个转换插件现在通过声明式 `OptionRule` 在提交时执行更严格的配置校验。以前在提交时能通过但运行时失败的配置，现在会在提交时被拒绝，并抛出描述清晰的 `OptionValidationException`：
+
+  | 转换插件 | 新增拒绝的配置 | 以前的行为 | 迁移方式 |
+  |---------|--------------|-----------|---------|
+  | `DefineSinkType` | `columns` 条目中 `column` 或 `type` 为空 | 运行时 NPE 或未定义行为 | 确保每个条目都有非空的 `column` 和 `type` 字段 |
+  | `DefineSinkType` | `columns` 中存在重复列名 | 静默覆盖或运行时冲突 | 移除重复的列条目 |
+  | `FieldEncrypt` | `max_field_length` 设置为 ≤ 0 | 被忽略或产生意外截断 | 设置为正整数，或移除该选项以使用默认值 |
+  | `DynamicCompile` | `compile_pattern = SOURCE_CODE` 但 `source_code` 为空 | 运行时编译失败 | 使用 `SOURCE_CODE` 模式时提供 `source_code` |
+  | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
+
+  **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+
 ### 引擎行为变更
 
 ### 依赖升级

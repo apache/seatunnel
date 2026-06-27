@@ -102,6 +102,17 @@ You need to check this document before you upgrade to related version.
 
   **Migration Guide**: If you are using custom datetime format patterns in `PARSEDATETIME`, `TO_DATE`, or `IS_DATE` functions, you must update your queries to use one of the supported patterns above. If your data uses a different format, you may need to preprocess the input data to match a supported format, or use string manipulation functions to transform the format before parsing.
 - DataValidator transform: In `row_error_handle_way = ROUTE_TO_TABLE` mode, the routed error row `table_id` now includes the upstream database/schema prefix (for example, `db1.ffp` / `db1.schema1.ffp` instead of `ffp`).
+- **[BREAKING]** Several transform plugins now perform stricter submission-time config validation via declarative `OptionRule`. Configs that previously passed submission but failed at runtime will now be rejected at submission time with a descriptive `OptionValidationException`:
+
+  | Transform | Newly Rejected Config | Previous Behavior | Migration |
+  |-----------|----------------------|-------------------|-----------|
+  | `DefineSinkType` | `columns` entries with null/empty `column` or `type` | Runtime NPE or undefined behavior | Ensure every entry has non-empty `column` and `type` fields |
+  | `DefineSinkType` | `columns` with duplicate column names | Silent override or runtime conflict | Remove duplicate column entries |
+  | `FieldEncrypt` | `max_field_length` set to ≤ 0 | Ignored or unexpected truncation | Set `max_field_length` to a positive integer, or remove the option to use the default |
+  | `DynamicCompile` | `compile_pattern = SOURCE_CODE` without a non-blank `source_code` | Runtime compilation failure | Provide `source_code` when using `SOURCE_CODE` pattern |
+  | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` without a non-blank `absolute_path` | Runtime file-read failure | Provide `absolute_path` when using `ABSOLUTE_PATH` pattern |
+
+  **Migration Guide**: Review your transform configs against the table above. If any of your existing configs match a "Newly Rejected" pattern, update them before upgrading. The error messages at submission time now clearly identify which option is invalid and why.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
