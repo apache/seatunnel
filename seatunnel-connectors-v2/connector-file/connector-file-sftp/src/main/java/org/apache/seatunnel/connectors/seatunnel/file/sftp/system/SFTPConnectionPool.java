@@ -189,19 +189,30 @@ public class SFTPConnectionPool {
                 }
             }
             if (closeConnection) {
-                if (channel.isConnected()) {
-                    try {
-                        Session session = channel.getSession();
-                        channel.disconnect();
-                        session.disconnect();
-                    } catch (JSchException e) {
-                        throw new IOException(StringUtils.stringifyException(e));
-                    }
-                }
+                disconnectSession(channel);
 
             } else {
                 returnToPool(channel);
             }
+        }
+    }
+
+    /**
+     * JSch can keep the session reader thread alive after the SFTP channel has already transitioned
+     * to disconnected, so always close the session itself instead of gating cleanup on
+     * channel.isConnected().
+     */
+    private void disconnectSession(ChannelSftp channel) throws IOException {
+        try {
+            Session session = channel.getSession();
+            if (channel.isConnected()) {
+                channel.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        } catch (JSchException e) {
+            throw new IOException(StringUtils.stringifyException(e));
         }
     }
 
