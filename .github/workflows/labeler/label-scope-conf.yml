@@ -224,6 +224,11 @@ maxcompute:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-maxcompute/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(maxcompute)/**'
+couchbase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-couchbase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(couchbase)/**'
 mongodb:
   - all:
       - changed-files:
