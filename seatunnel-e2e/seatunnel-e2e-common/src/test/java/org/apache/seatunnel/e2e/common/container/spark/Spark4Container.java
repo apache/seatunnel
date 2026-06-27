@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.testcontainers.containers.GenericContainer;
 
@@ -82,5 +83,15 @@ public class Spark4Container extends AbstractTestSparkContainer {
                 "org.apache.spark.deploy.master.Master",
                 "--host",
                 "0.0.0.0");
+    }
+
+    /**
+     * Spark 4.1 runs on Scala 2.13 while seatunnel-transforms-v2 still bundles Scala 2.12. Skip
+     * transform jars until transforms-v2 is Spark 4.1 compatible.
+     */
+    @Override
+    protected void copySeaTunnelStarterToContainer(GenericContainer<?> container) {
+        ContainerUtil.copySeaTunnelStarterToContainer(
+                container, this.startModuleName, this.startModuleFullPath, SEATUNNEL_HOME, false);
     }
 }

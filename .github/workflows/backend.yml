@@ -1741,7 +1741,8 @@ jobs:
           cache: 'maven'
       - name: build and test spark 4.1 modules
         run: |
-          ./mvnw -B -T 1 test -pl :seatunnel-spark-4.1-starter,:seatunnel-translation-spark-4.1 -am -Dtest=SparkStarterSubmitCommandTest -DfailIfNoTests=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 install -pl :seatunnel-spark-4.1-starter,:seatunnel-translation-spark-4.1 -am -DskipTests -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 test -pl :seatunnel-spark-4.1-starter -Dtest=SparkStarterSubmitCommandTest -DfailIfNoTests=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 

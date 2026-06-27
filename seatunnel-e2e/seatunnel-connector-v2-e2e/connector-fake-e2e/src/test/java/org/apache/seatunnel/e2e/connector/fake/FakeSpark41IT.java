@@ -51,7 +51,7 @@ public class FakeSpark41IT extends TestSuiteBase {
     @TestTemplate
     public void testFakeToAssertOnSpark41(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult result = container.executeJob("/fake_to_assert.conf");
+        Container.ExecResult result = container.executeJob("/fake_to_assert_spark41.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 }
