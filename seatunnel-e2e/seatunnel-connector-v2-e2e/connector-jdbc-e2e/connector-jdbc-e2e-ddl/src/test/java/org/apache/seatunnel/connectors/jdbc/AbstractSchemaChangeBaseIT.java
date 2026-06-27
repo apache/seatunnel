@@ -297,7 +297,9 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () -> assertTableDataEqualsBySourceColumnOrder(sourceTable, sinkTable, null));
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -322,7 +324,9 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () -> assertTableDataEqualsBySourceColumnOrder(sourceTable, sinkTable, null));
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -374,19 +378,21 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                         () -> assertColumnNamesEqualsIgnoringPhysicalOrder(sourceTable, sinkTable));
         await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> assertTableDataEqualsBySourceColumnOrder(sourceTable, sinkTable, null));
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        sourceTable, sinkTable, null));
     }
 
     /**
      * JDBC schema evolution can keep the effective column set while materializing a different
      * physical order in the sink, so schema assertions should compare normalized column names.
      */
-    private void assertColumnNamesEqualsIgnoringPhysicalOrder(String sourceTable, String sinkTable) {
+    private void assertColumnNamesEqualsIgnoringPhysicalOrder(
+            String sourceTable, String sinkTable) {
         Assertions.assertIterableEquals(
                 normalizeColumnNames(
                         querySource(
-                                String.format(
-                                        SOURCE_QUERY_COLUMNS, SOURCE_DATABASE, sourceTable))),
+                                String.format(SOURCE_QUERY_COLUMNS, SOURCE_DATABASE, sourceTable))),
                 normalizeColumnNames(
                         querySink(
                                 String.format(
@@ -396,8 +402,8 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     /**
-     * Projects sink data with the current source column order so row assertions stay stable when
-     * a JDBC sink reorders equivalent columns after applying schema changes.
+     * Projects sink data with the current source column order so row assertions stay stable when a
+     * JDBC sink reorders equivalent columns after applying schema changes.
      */
     private void assertTableDataEqualsBySourceColumnOrder(
             String sourceTable, String sinkTable, String whereClause) {
