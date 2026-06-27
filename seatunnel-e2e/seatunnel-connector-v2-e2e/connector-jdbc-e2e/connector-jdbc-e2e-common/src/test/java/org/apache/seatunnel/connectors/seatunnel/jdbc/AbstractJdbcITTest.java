@@ -20,8 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+/** Regression tests for JDBC driver download command generation. */
 class AbstractJdbcITTest {
 
+    /**
+     * repo1 downloads should retry and fall back to Maven Central when TLS or mirror issues occur.
+     */
     @Test
     void shouldAddMavenCentralFallbackForRepo1Urls() {
         String driverUrl =
@@ -39,6 +43,32 @@ class AbstractJdbcITTest {
                         "wget --tries=5 --waitretry=2 --retry-connrefused --no-check-certificate"));
     }
 
+    /**
+     * Legacy Oracle tests encode multiple wget segments inside driverUrl(), and each segment needs
+     * its own retry/fallback wrapper instead of being treated as one long URL.
+     */
+    @Test
+    void shouldWrapEachOracleDriverSegmentIndependently() {
+        String driverUrl =
+                "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar"
+                        + " && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar"
+                        + " && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar";
+
+        String command = AbstractJdbcIT.buildDriverDownloadCommand(driverUrl);
+
+        Assertions.assertFalse(command.contains(driverUrl));
+        Assertions.assertTrue(
+                command.contains(
+                        "https://repo.maven.apache.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar"));
+        Assertions.assertTrue(
+                command.contains(
+                        "https://repo.maven.apache.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar"));
+        Assertions.assertTrue(
+                command.contains(
+                        "https://repo.maven.apache.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar"));
+    }
+
+    /** Non-repo1 downloads should keep a single attempt so the command stays minimal. */
     @Test
     void shouldKeepSingleDownloadAttemptForNonRepo1Urls() {
         String driverUrl =

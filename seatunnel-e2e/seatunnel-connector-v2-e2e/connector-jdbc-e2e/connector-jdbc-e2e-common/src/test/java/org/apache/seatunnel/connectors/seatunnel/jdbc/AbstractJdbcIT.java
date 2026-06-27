@@ -115,17 +115,38 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     static String buildDriverDownloadCommand(String driverUrl) {
         String baseCommand =
                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib";
-        String primaryDownload = buildSingleDriverDownloadAttempt(driverUrl);
-        String fallbackUrl = driverUrl.replaceFirst(REPO1_MAVEN_PREFIX, MAVEN_CENTRAL_PREFIX);
-        if (driverUrl.equals(fallbackUrl)) {
-            return baseCommand + " && " + primaryDownload;
-        }
         return baseCommand
-                + " && ("
-                + primaryDownload
-                + " || "
-                + buildSingleDriverDownloadAttempt(fallbackUrl)
-                + ")";
+                + " && "
+                + Arrays.stream(driverUrl.split("\\s*&&\\s*"))
+                        .map(String::trim)
+                        .filter(StringUtils::isNotBlank)
+                        .map(AbstractJdbcIT::buildRetryableDownloadCommand)
+                        .collect(Collectors.joining(" && "));
+    }
+
+    /** Preserve legacy multi-file driver chains by wrapping each download target independently. */
+    private static String buildRetryableDownloadCommand(String downloadTarget) {
+        String normalizedUrl = stripShellDownloadPrefix(downloadTarget);
+        String primaryDownload = buildSingleDriverDownloadAttempt(normalizedUrl);
+        String fallbackUrl = normalizedUrl.replaceFirst(REPO1_MAVEN_PREFIX, MAVEN_CENTRAL_PREFIX);
+        if (normalizedUrl.equals(fallbackUrl)) {
+            return primaryDownload;
+        }
+        return "(" + primaryDownload + " || " + buildSingleDriverDownloadAttempt(fallbackUrl) + ")";
+    }
+
+    /**
+     * Some legacy JDBC E2E tests embed extra wget/curl segments in driverUrl(), so normalize them
+     * back to the raw URL before adding retry and fallback behavior.
+     */
+    private static String stripShellDownloadPrefix(String downloadTarget) {
+        if (downloadTarget.startsWith("wget ")) {
+            return downloadTarget.substring("wget ".length()).trim();
+        }
+        if (downloadTarget.startsWith("curl -O ")) {
+            return downloadTarget.substring("curl -O ".length()).trim();
+        }
+        return downloadTarget;
     }
 
     private static String buildSingleDriverDownloadAttempt(String driverUrl) {
