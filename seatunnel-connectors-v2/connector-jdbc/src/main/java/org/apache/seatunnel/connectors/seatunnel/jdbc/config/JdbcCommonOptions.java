@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+
 import java.util.Map;
 
 public class JdbcCommonOptions {
