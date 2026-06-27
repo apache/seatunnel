@@ -85,6 +85,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private static final String QUERY = "select * from %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s";
+    private static final String SOURCE_DESC_QUERY = "desc %s.%s";
 
     private static final String SOURCE_QUERY_COLUMNS =
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' ORDER by COLUMN_NAME";
