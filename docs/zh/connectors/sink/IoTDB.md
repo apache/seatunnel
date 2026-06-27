@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 

@@ -40,6 +40,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

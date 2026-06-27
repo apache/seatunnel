@@ -23,6 +23,7 @@ Used to send data to Console. Both support streaming and batch mode.
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

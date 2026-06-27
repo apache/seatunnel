@@ -56,6 +56,7 @@ libfb303-xxx.jar
 ## 主要特性
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 连接器选项
 
