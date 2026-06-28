@@ -320,7 +320,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
-        Assertions.assertEquals(4, slotService.getWorkerProfile().getAssignedSlots().length);
+        // Savepoint restore can overlap old slot release with new task scheduling for a short time.
+        await().atMost(60, TimeUnit.SECONDS)
+                .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 4);
 
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
         SubPlan subPlan = jobMaster.getPhysicalPlan().getPipelineList().get(0);
