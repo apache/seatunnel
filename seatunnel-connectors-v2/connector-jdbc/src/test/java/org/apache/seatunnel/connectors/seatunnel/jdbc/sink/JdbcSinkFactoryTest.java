@@ -293,4 +293,22 @@ class JdbcSinkFactoryTest {
                         .getPrimaryKey()
                         .getColumnNames());
     }
+
+    @Test
+    void testResolveSinkTableExplicitEmptyPrimaryKeysClearsInheritedPrimaryKey() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(JdbcSinkOptions.PRIMARY_KEYS.key(), "[]");
+                            }
+                        });
+
+        JdbcSinkFactory.ResolvedSinkTable resolvedSinkTable =
+                JdbcSinkFactory.resolveSinkTable(config, createCatalogTable(true));
+
+        Assertions.assertTrue(
+                resolvedSinkTable.getOptions().get(JdbcSinkOptions.PRIMARY_KEYS).isEmpty());
+        Assertions.assertNull(resolvedSinkTable.getCatalogTable().getTableSchema().getPrimaryKey());
+    }
 }

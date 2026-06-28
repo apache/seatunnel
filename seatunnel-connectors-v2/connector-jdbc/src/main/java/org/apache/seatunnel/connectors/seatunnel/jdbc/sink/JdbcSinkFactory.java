@@ -208,19 +208,24 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                                                 .collect(Collectors.joining(","))));
             }
         } else {
-            PrimaryKey configPk =
-                    PrimaryKey.of(
-                            resolvedCatalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
+            java.util.List<String> configuredPrimaryKeys = config.get(JdbcSinkOptions.PRIMARY_KEYS);
             TableSchema tableSchema = resolvedCatalogTable.getTableSchema();
+            TableSchema.Builder tableSchemaBuilder =
+                    TableSchema.builder()
+                            .constraintKey(tableSchema.getConstraintKeys())
+                            .columns(tableSchema.getColumns());
+            // Keep explicit empty primary_keys as "disable inherited PK" instead of creating an
+            // invalid primary-key object with no columns.
+            if (CollectionUtils.isNotEmpty(configuredPrimaryKeys)) {
+                tableSchemaBuilder.primaryKey(
+                        PrimaryKey.of(
+                                resolvedCatalogTable.getTablePath().getTableName() + "_config_pk",
+                                configuredPrimaryKeys));
+            }
             resolvedCatalogTable =
                     CatalogTable.of(
                             resolvedCatalogTable.getTableId(),
-                            TableSchema.builder()
-                                    .primaryKey(configPk)
-                                    .constraintKey(tableSchema.getConstraintKeys())
-                                    .columns(tableSchema.getColumns())
-                                    .build(),
+                            tableSchemaBuilder.build(),
                             resolvedCatalogTable.getOptions(),
                             resolvedCatalogTable.getPartitionKeys(),
                             resolvedCatalogTable.getComment(),
