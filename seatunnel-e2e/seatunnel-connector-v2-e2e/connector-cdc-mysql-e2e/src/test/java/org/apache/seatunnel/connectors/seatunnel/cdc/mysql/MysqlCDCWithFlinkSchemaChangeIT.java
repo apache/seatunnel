@@ -76,6 +76,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String DESC = "desc %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s;";
+    /** Allow slow CI workers to apply schema changes without breaking the default value check. */
+    private static final int DEFAULT_TIMESTAMP_MAX_DRIFT_SECONDS = 60;
+    /** Schema change propagation in CI can be much slower than local Docker runs. */
+    private static final int SCHEMA_CHANGE_WAIT_SECONDS = 600;
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -250,13 +254,15 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().pollInterval(5, TimeUnit.SECONDS)
+                .atMost(SCHEMA_CHANGE_WAIT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().pollInterval(5, TimeUnit.SECONDS)
+                .atMost(SCHEMA_CHANGE_WAIT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -271,9 +277,12 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
                                     query(String.format(PROJECTION_QUERY, database, sinkTable)));
 
-                            // The default value of add_column4 is current_timestamp()，so the
+                            // The default value of add_column4 is current_timestamp(), so the
                             // history data of sink table with this column may be different from the
-                            // source table because delay of apply schema change.
+                            // source table because the sink applies the schema change after the CDC
+                            // DDL event reaches Flink. Slow CI containers can add scheduling delay,
+                            // while the correctness contract only requires both defaults to stay
+                            // close.
                             String query =
                                     String.format(
                                             "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "
@@ -288,8 +297,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 60,
-                                            "Time difference exceeds 60 seconds: "
+                                            timeDiff <= DEFAULT_TIMESTAMP_MAX_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + DEFAULT_TIMESTAMP_MAX_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }

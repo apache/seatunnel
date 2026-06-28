@@ -479,5 +479,10 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         if (kerberosContainer != null) {
             kerberosContainer.close();
         }
+        // KafkaKerberosIT sets global JVM JAAS/Krb5 properties during startup. Clear them after
+        // the suite so the plain Kafka E2E tests in the same Maven JVM do not inherit Kerberos
+        // authentication settings by mistake.
+        System.clearProperty("java.security.krb5.conf");
+        System.clearProperty("java.security.auth.login.config");
     }
 }

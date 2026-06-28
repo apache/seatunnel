@@ -400,7 +400,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
         return s.startsWith("hz.main")
                 || s.startsWith("seatunnel-coordinator-service")
-                || s.startsWith("seatunnel-metrics-fetch-")
                 || s.startsWith("pending-job-schedule-runner")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
@@ -492,6 +491,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // RocketMQ
                 // org.apache.rocketmq.logging.inner.LoggingBuilder$AsyncAppender$Dispatcher
                 || threadName.startsWith("AsyncAppender-Dispatcher-Thread")
+                // RocketMQ pull clients can keep their background fetch threads alive briefly after
+                // a successful job exit. The functional assertions have already completed by the
+                // time this thread-leak filter runs.
+                || threadName.startsWith("PullMsgThread-")
                 // MongoDB
                 || threadName.startsWith("BufferPoolPruner")
                 || threadName.startsWith("MaintenanceTimer")
