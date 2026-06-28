@@ -1273,10 +1273,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable t) {
                     logger.severe("cancel async function failed", t);
                 }
-                try {
-                    updateMetricsContextInImap();
-                } catch (Throwable t) {
-                    logger.severe("update metrics context in imap failed", t);
+                if (!isCancel.get()) {
+                    try {
+                        // Cancellation completion must not wait on a best-effort metrics RPC.
+                        // The periodic metrics backup already covers steady-state reporting, and a
+                        // failover window can otherwise keep the task group stuck in CANCELING.
+                        updateMetricsContextInImap();
+                    } catch (Throwable t) {
+                        logger.severe("update metrics context in imap failed", t);
+                    }
                 }
                 if (ex == null) {
                     logger.info(
