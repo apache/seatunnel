@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 >使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
 >支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 

@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md) 仅适用于 batch 模式
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

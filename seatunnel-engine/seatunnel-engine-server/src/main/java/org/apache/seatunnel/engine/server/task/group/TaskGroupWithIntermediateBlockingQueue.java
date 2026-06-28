@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
@@ -35,6 +33,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_CAPACITY;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 
 public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
@@ -46,7 +46,25 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
-    private Map<Long, Pair<BlockingQueue<Record<?>>, Counter>> blockingQueueCache = null;
+    private Map<Long, QueueWithMetrics> blockingQueueCache = null;
+
+    private static final class QueueWithMetrics {
+        private final BlockingQueue<Record<?>> queue;
+        private final Counter totalQueueSize;
+        private final Counter queueSize;
+        private final Counter putBlockedNs;
+
+        private QueueWithMetrics(
+                BlockingQueue<Record<?>> queue,
+                Counter totalQueueSize,
+                Counter queueSize,
+                Counter putBlockedNs) {
+            this.queue = queue;
+            this.totalQueueSize = totalQueueSize;
+            this.queueSize = queueSize;
+            this.putBlockedNs = putBlockedNs;
+        }
+    }
 
     @Override
     public void init() {
@@ -58,15 +76,28 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
     }
 
     @Override
-    public AbstractIntermediateQueue<?> getQueueCache(long id, MetricsContext metricsContext) {
+    public AbstractIntermediateQueue<?> getQueueCache(
+            long id, int capacity, MetricsContext metricsContext) {
+        int effectiveCapacity = capacity > 0 ? capacity : QUEUE_SIZE;
         blockingQueueCache.computeIfAbsent(
                 id,
-                i ->
-                        Pair.of(
-                                new ArrayBlockingQueue<>(QUEUE_SIZE),
-                                metricsContext.counter(INTERMEDIATE_QUEUE_SIZE)));
-        Pair<BlockingQueue<Record<?>>, Counter> cache = blockingQueueCache.get(id);
-        return new IntermediateBlockingQueue(cache.getLeft(), cache.getRight());
+                i -> {
+                    Counter totalQueueSize = metricsContext.counter(INTERMEDIATE_QUEUE_SIZE);
+                    Counter queueSize = metricsContext.counter(INTERMEDIATE_QUEUE_SIZE + "#" + i);
+                    Counter putBlockedNs =
+                            metricsContext.counter(INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + i);
+                    Counter capacityCounter =
+                            metricsContext.counter(INTERMEDIATE_QUEUE_CAPACITY + "#" + i);
+                    capacityCounter.set(effectiveCapacity);
+                    return new QueueWithMetrics(
+                            new ArrayBlockingQueue<>(effectiveCapacity),
+                            totalQueueSize,
+                            queueSize,
+                            putBlockedNs);
+                });
+        QueueWithMetrics cache = blockingQueueCache.get(id);
+        return new IntermediateBlockingQueue(
+                cache.queue, cache.totalQueueSize, cache.queueSize, cache.putBlockedNs);
     }
 
     @Override

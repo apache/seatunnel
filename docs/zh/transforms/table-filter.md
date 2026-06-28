@@ -1,21 +1,21 @@
-# TableFilter
+# 表过滤
 
-> TableFilter transform plugin
+> TableFilter：按库名、schema 或表名规则筛选需要处理的表
 
-## Description
+## 描述
 
-表过滤 transform，用于正向或者反向过滤部分表
+TableFilter 转换插件用于按表名、库名或 schema 规则，正向或反向过滤部分表。
 
-## Options
+## 参数
 
-|       name       | type   | required | default value | Description                                            |
-|:----------------:|--------|----------|---------------|--------------------------------------------------------|
-| database_pattern | string | no       |               | 指定数据库过滤模式，默认值为 null，表示不过滤。如果要过滤数据库名称，请将其设置为正则表达式。      |
-|  schema_pattern  | string | no       |               | 指定 schema 过滤模式，默认值为 null，表示不过滤。如果要过滤架构名称，请将其设置为正则表达式。  |
-|  table_pattern   | string | no       |               | 指定表过滤模式，默认值为 null，表示不过滤。如果要过滤表名称，请将其设置为正则表达式。          |
-|   pattern_mode   | string | no       | INCLUDE       | 指定过滤模式，默认值为 INCLUDE，表示包含匹配的表。如果要排除匹配的表，请将其设置为 EXCLUDE。 |
+| 参数名            | 类型   | 是否必填 | 默认值 | 说明 |
+|:----------------:|--------|----------|--------|------|
+| database_pattern | string | 否       |        | 数据库过滤规则。默认不过滤；如需过滤数据库名称，请填写正则表达式。 |
+| schema_pattern   | string | 否       |        | schema 过滤规则。默认不过滤；如需过滤 schema 名称，请填写正则表达式。 |
+| table_pattern    | string | 否       |        | 表过滤规则。默认不过滤；如需过滤表名称，请填写正则表达式。 |
+| pattern_mode     | string | 否       | INCLUDE | 过滤模式。`INCLUDE` 表示保留匹配的表，`EXCLUDE` 表示排除匹配的表。 |
 
-## Examples
+## 示例
 
 ### 包含表过滤
 

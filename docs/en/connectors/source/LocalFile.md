@@ -92,6 +92,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_split_size            | long    | no       | 134217728                            |
 | quote_char                 | string  | no       | "                                    |
 | escape_char                | string  | no       | -                                    |
+| metalake_type              | string  | no       | gravitino                            |
+| recursive_file_scan        | boolean | no       | true                                 |
+| sort_files_by_modification_time | boolean | no       | false                                |
 ### path [string]
 
 The source file path.
@@ -533,6 +536,19 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### common options
 

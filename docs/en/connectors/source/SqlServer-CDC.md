@@ -104,6 +104,9 @@ case-sensitive databases, make sure the configured identifier case matches the d
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | debezium.*                                | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                                                                                                                                                                                                                                                                    |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                             |
+| schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ### Enable Sql Server CDC
@@ -240,6 +243,42 @@ sink {
   }
 }
 ```
+
+### Schema change event filtering
+
+When `schema-changes.enabled = true`, you can further control which schema change event types are
+propagated downstream using `schema-changes.include` / `schema-changes.exclude`.
+
+Use these SeaTunnel-owned canonical names:
+
+| Canonical name   | Operation                                            |
+|------------------|------------------------------------------------------|
+| `add.column`     | add a column                                         |
+| `drop.column`    | drop a column                                        |
+| `modify.column`  | change a column's type/attributes, name unchanged    |
+| `change.column`  | rename a column, optionally re-type                  |
+| `update.columns` | group alias for all four column-level changes above  |
+
+Precedence is deterministic:
+
+1. if `schema-changes.include` is set, only included event types are eligible;
+2. `schema-changes.exclude` is then applied;
+3. **exclude wins** when a type appears in both lists.
+
+```hocon
+source {
+  SqlServer-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
+will fail at the sink.
 
 ## Changelog
 

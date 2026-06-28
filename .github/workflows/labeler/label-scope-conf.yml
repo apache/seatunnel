@@ -222,7 +222,7 @@ mqtt:
   - all:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-mqtt/**
-          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mqtt)/**'          
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mqtt)/**'
 neo4j:
   - all:
       - changed-files:

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.split;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,10 +37,11 @@ public class SplitTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
-                        SplitTransformConfig.KEY_SEPARATOR,
-                        SplitTransformConfig.KEY_SPLIT_FIELD,
-                        SplitTransformConfig.KEY_OUTPUT_FIELDS)
+                .required(SplitTransformConfig.KEY_SEPARATOR)
+                .required(SplitTransformConfig.KEY_SPLIT_FIELD)
+                .required(
+                        SplitTransformConfig.KEY_OUTPUT_FIELDS,
+                        Conditions.notEmpty(SplitTransformConfig.KEY_OUTPUT_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

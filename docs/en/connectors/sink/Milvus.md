@@ -16,6 +16,7 @@ This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the foll
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 

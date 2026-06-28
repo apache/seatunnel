@@ -54,7 +54,6 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
                         RedisBaseOptions.AUTH,
                         RedisBaseOptions.USER,
-                        RedisBaseOptions.KEY,
                         RedisSourceOptions.READ_KEY_ENABLED,
                         RedisSourceOptions.SINGLE_FIELD_NAME,
                         RedisSourceOptions.KEY_FIELD_NAME,

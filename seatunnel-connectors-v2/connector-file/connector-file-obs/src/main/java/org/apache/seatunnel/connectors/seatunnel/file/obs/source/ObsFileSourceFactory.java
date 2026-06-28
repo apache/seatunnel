@@ -85,6 +85,7 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

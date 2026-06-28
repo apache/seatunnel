@@ -61,24 +61,31 @@ public enum ConditionOperator {
     FIELD_LESS_THAN("<", Category.NUMERIC, Arity.BINARY, Source.FIELD),
     FIELD_LESS_OR_EQUAL("<=", Category.NUMERIC, Arity.BINARY, Source.FIELD),
     FIELD_GREATER_THAN(">", Category.NUMERIC, Arity.BINARY, Source.FIELD),
-    FIELD_GREATER_OR_EQUAL(">=", Category.NUMERIC, Arity.BINARY, Source.FIELD);
+    FIELD_GREATER_OR_EQUAL(">=", Category.NUMERIC, Arity.BINARY, Source.FIELD),
+
+    // ==================== Extension ====================
+
+    EXTENSION("extension", Category.EXTENSION, Arity.EXTENSION, Source.EXTENSION);
 
     public enum Category {
         EQUALITY,
         NUMERIC,
         STRING,
         COLLECTION,
-        MAP
+        MAP,
+        EXTENSION
     }
 
     public enum Arity {
         UNARY,
-        BINARY
+        BINARY,
+        EXTENSION
     }
 
     public enum Source {
         LITERAL,
-        FIELD
+        FIELD,
+        EXTENSION
     }
 
     private final String symbol;

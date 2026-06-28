@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 默认情况下，我们将使用2pc来保证消息精确一次到RocketMQ。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -93,7 +94,7 @@ source {
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/category/transform
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -192,7 +193,7 @@ source {
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/category/transform
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 sink {
   Rocketmq {
