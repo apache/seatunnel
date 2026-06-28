@@ -44,8 +44,10 @@ import org.apache.kafka.common.IsolationLevel;
 import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
@@ -125,6 +127,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             "full_types_no_primary_key_with_debezium";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
+    private static final String GENERATED_SLOT_PREFIX = "seatunnel_";
 
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
@@ -261,6 +264,16 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String toSlotVariable(String slotName) {
         return "slot_name=" + slotName;
+    }
+
+    @BeforeEach
+    public void beforeEach() {
+        cleanupGeneratedReplicationSlots();
+    }
+
+    @AfterEach
+    public void afterEach() {
+        cleanupGeneratedReplicationSlots();
     }
 
     private List<String> getKafkaData() {
@@ -968,6 +981,56 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                 POSTGRES_CONTAINER.getJdbcUrl(),
                 POSTGRES_CONTAINER.getUsername(),
                 POSTGRES_CONTAINER.getPassword());
+    }
+
+    /**
+     * The Postgres container is shared across all test methods in this class, so stale generated
+     * replication slots must be dropped before the next CDC job starts.
+     */
+    private void cleanupGeneratedReplicationSlots() {
+        for (String slotName : listGeneratedReplicationSlots()) {
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> dropReplicationSlot(slotName));
+        }
+    }
+
+    private List<String> listGeneratedReplicationSlots() {
+        List<String> slotNames = new ArrayList<>();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT slot_name FROM pg_replication_slots WHERE slot_name LIKE '"
+                                        + GENERATED_SLOT_PREFIX
+                                        + "%'")) {
+            while (resultSet.next()) {
+                slotNames.add(resultSet.getString("slot_name"));
+            }
+            return slotNames;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query generated replication slots", e);
+        }
+    }
+
+    private void dropReplicationSlot(String slotName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT active FROM pg_replication_slots WHERE slot_name = '"
+                                        + slotName
+                                        + "'")) {
+            if (!resultSet.next()) {
+                return;
+            }
+            Assertions.assertFalse(
+                    resultSet.getBoolean("active"),
+                    "Replication slot is still active: " + slotName);
+            statement.execute("SELECT pg_drop_replication_slot('" + slotName + "')");
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop replication slot: " + slotName, e);
+        }
     }
 
     protected void initializePostgresTable(PostgreSQLContainer container, String sqlFile) {
