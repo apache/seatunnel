@@ -295,7 +295,10 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
-        await().atMost(120, TimeUnit.SECONDS)
+        // The exactly-once path can report RUNNING before the sink finishes the first XA batch in
+        // slower CI environments, so reuse the longer schema assertion timeout for the initial
+        // data catch-up instead of failing on a transient empty sink table.
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
@@ -322,7 +325,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
-        await().atMost(120, TimeUnit.SECONDS)
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
