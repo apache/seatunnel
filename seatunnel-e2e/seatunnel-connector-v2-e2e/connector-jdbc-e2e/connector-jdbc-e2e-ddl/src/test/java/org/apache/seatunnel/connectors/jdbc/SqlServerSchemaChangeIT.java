@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -44,6 +46,11 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     private static final String SQLSERVER_PASSWORD = "paanssy1234$";
     private static final int SQLSERVER_PORT = 1433;
     private static final int SQLSERVER_XA_PORT = 5022;
+    /** Maximum wait time for SQL Server to accept authenticated commands. */
+    private static final Duration SQLSERVER_COMMAND_TIMEOUT = Duration.ofMinutes(2);
+    /** Poll interval while waiting for SQL Server login readiness. */
+    private static final Duration SQLSERVER_COMMAND_POLL_INTERVAL = Duration.ofSeconds(2);
+
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
                     + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;"
@@ -105,47 +112,8 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
         container.start();
         try {
-            // This set of commands prepares for the subsequent enabling of the external user
-            // enabled configuration (for XA transaction support)
-            container.execInContainer(
-                    "/opt/mssql-tools18/bin/sqlcmd",
-                    "-S",
-                    "localhost",
-                    "-U",
-                    SQLSERVER_USER,
-                    "-P",
-                    SQLSERVER_PASSWORD,
-                    "-Q",
-                    "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;",
-                    "-C");
-
-            // Enable external user access permissions, which is a requirement for SQL Server to
-            // support XA distributed transactions.
-            container.execInContainer(
-                    "/opt/mssql-tools18/bin/sqlcmd",
-                    "-S",
-                    "localhost",
-                    "-U",
-                    SQLSERVER_USER,
-                    "-P",
-                    SQLSERVER_PASSWORD,
-                    "-Q",
-                    "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;",
-                    "-C");
-
-            log.info("Installing stored procedures sp_sqljdbc_xa_install.");
-            container.execInContainer(
-                    "/opt/mssql-tools18/bin/sqlcmd",
-                    "-S",
-                    "localhost",
-                    "-U",
-                    SQLSERVER_USER,
-                    "-P",
-                    SQLSERVER_PASSWORD,
-                    "-Q",
-                    "IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                            + "EXEC sp_sqljdbc_xa_install",
-                    "-C");
+            awaitSqlServerLogin(container);
+            configureSqlServerXaSupport(container);
         } catch (IOException | InterruptedException e) {
             log.error("XA procedure installation failed: ", e);
             throw new RuntimeException(e);
@@ -156,5 +124,73 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     @Override
     protected String sinkDatabaseType() {
         return DATABASE_TYPE;
+    }
+
+    /**
+     * Wait until SQL Server accepts authenticated commands after the container ready log appears.
+     */
+    private void awaitSqlServerLogin(GenericContainer<?> container) {
+        // The ready log can appear while SQL Server is still rejecting SA logins during startup.
+        org.awaitility.Awaitility.await()
+                .atMost(SQLSERVER_COMMAND_TIMEOUT)
+                .pollInterval(SQLSERVER_COMMAND_POLL_INTERVAL)
+                .untilAsserted(() -> assertSqlServerCommand(container, "SELECT 1"));
+    }
+
+    /** Configure SQL Server XA support and verify that the required stored procedures exist. */
+    private void configureSqlServerXaSupport(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        // This set of commands prepares for the subsequent enabling of the external user enabled
+        // configuration, which is required by SQL Server JDBC XA transactions.
+        assertSqlServerCommand(
+                container, "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;");
+
+        assertSqlServerCommand(
+                container, "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;");
+
+        log.info("Installing stored procedures sp_sqljdbc_xa_install.");
+        assertSqlServerCommand(
+                container,
+                "IF NOT EXISTS (SELECT 1 FROM master.sys.objects "
+                        + "WHERE name = 'xp_sqljdbc_xa_init_ex') "
+                        + "EXEC sp_sqljdbc_xa_install");
+        assertSqlServerCommand(
+                container,
+                "IF NOT EXISTS (SELECT 1 FROM master.sys.objects "
+                        + "WHERE name = 'xp_sqljdbc_xa_init_ex') "
+                        + "THROW 50000, 'SQL Server JDBC XA procedures were not installed', 1");
+    }
+
+    /**
+     * Execute one SQL Server command and fail the test immediately when the command does not
+     * succeed.
+     */
+    private Container.ExecResult assertSqlServerCommand(
+            GenericContainer<?> container, String command)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.execInContainer(
+                        "/opt/mssql-tools18/bin/sqlcmd",
+                        "-S",
+                        "localhost",
+                        "-U",
+                        SQLSERVER_USER,
+                        "-P",
+                        SQLSERVER_PASSWORD,
+                        "-d",
+                        "master",
+                        "-Q",
+                        command,
+                        "-C");
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                "SQL Server command failed. command="
+                        + command
+                        + ", stdout="
+                        + result.getStdout()
+                        + ", stderr="
+                        + result.getStderr());
+        return result;
     }
 }
