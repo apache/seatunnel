@@ -63,6 +63,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String restoreJobId;
 
     @Parameter(
+            names = {"--restore-with-checkpoint"},
+            description = "restore from latest successful completed checkpoint by historical jobId")
+    private String restoreWithCheckpointJobId;
+
+    @Parameter(
             names = {"-s", "--savepoint", "--savepoint-job"},
             description = "savepoint job by jobId")
     private String savePointJobId;
@@ -147,6 +152,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Override
     public Command<?> buildCommand() {
+        if (restoreJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--restore and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (restoreWithCheckpointJobId != null && restoreWithCheckpointJobId.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when using --restore-with-checkpoint");
+        }
         Common.setDeployMode(getDeployMode());
         if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
             return new SeaTunnelConfValidateCommand(this);

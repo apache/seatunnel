@@ -42,6 +42,10 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     private boolean isStartWithSavePoint;
 
+    private RestoreMode restoreMode = RestoreMode.NONE;
+
+    private Long restoreSourceJobId;
+
     private long createTime;
 
     private Data logicalDag;
@@ -76,10 +80,32 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             @NonNull LogicalDag logicalDag,
             @NonNull List<URL> pluginJarsUrls,
             @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
+        this(
+                jobId,
+                jobName,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
+                serializationService,
+                logicalDag,
+                pluginJarsUrls,
+                connectorJarIdentifiers);
+    }
+
+    public JobImmutableInformation(
+            long jobId,
+            String jobName,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            SerializationService serializationService,
+            @NonNull LogicalDag logicalDag,
+            @NonNull List<URL> pluginJarsUrls,
+            @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.jobName = jobName;
-        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.restoreSourceJobId = restoreSourceJobId;
+        this.isStartWithSavePoint = this.restoreMode == RestoreMode.SAVEPOINT;
         logicalDag
                 .getLogicalVertexMap()
                 .forEach(
@@ -116,6 +142,18 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     public boolean isStartWithSavePoint() {
         return isStartWithSavePoint;
+    }
+
+    public RestoreMode getRestoreMode() {
+        return restoreMode;
+    }
+
+    public Long getRestoreSourceJobId() {
+        return restoreSourceJobId;
+    }
+
+    public boolean isRestoreJob() {
+        return restoreMode != null && restoreMode.isRestore();
     }
 
     public long getCreateTime() {
@@ -165,6 +203,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeLong(jobId);
         out.writeString(jobName);
         out.writeBoolean(isStartWithSavePoint);
+        out.writeInt(restoreMode == null ? RestoreMode.NONE.getCode() : restoreMode.getCode());
+        out.writeBoolean(restoreSourceJobId != null);
+        if (restoreSourceJobId != null) {
+            out.writeLong(restoreSourceJobId);
+        }
         out.writeLong(createTime);
         out.writeInt(logicalVertexDataList.size());
         for (int i = 0; i < logicalVertexDataList.size(); i++) {
@@ -182,6 +225,10 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobId = in.readLong();
         jobName = in.readString();
         isStartWithSavePoint = in.readBoolean();
+        restoreMode = RestoreMode.fromCode(in.readInt());
+        if (in.readBoolean()) {
+            restoreSourceJobId = in.readLong();
+        }
         createTime = in.readLong();
         int size = in.readInt();
         for (int i = 0; i < size; i++) {
@@ -192,5 +239,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobConfig = in.readObject();
         pluginJarsUrls = in.readObject();
         connectorJarIdentifiers = in.readObject();
+        if (restoreMode == null) {
+            restoreMode = isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE;
+        }
+        if (restoreSourceJobId == null && isStartWithSavePoint) {
+            restoreSourceJobId = jobId;
+        }
     }
 }

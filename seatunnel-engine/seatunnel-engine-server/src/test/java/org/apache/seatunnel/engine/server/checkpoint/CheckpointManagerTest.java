@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
@@ -84,6 +85,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 new CheckpointManager(
                         jobId,
                         false,
+                        RestoreMode.NONE,
+                        null,
                         nodeEngine,
                         null,
                         planMap,

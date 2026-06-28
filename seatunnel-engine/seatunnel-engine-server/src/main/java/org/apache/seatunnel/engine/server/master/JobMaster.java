@@ -331,7 +331,9 @@ public class JobMaster {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint() || restart,
+                        jobImmutableInformation.isRestoreJob() || restart,
+                        jobImmutableInformation.getRestoreMode(),
+                        jobImmutableInformation.getRestoreSourceJobId(),
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -355,7 +357,7 @@ public class JobMaster {
                 jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
         boolean startWithSavePoint =
                 jobImmutableInformation != null
-                        && (jobImmutableInformation.isStartWithSavePoint() || restart);
+                        && (jobImmutableInformation.isRestoreJob() || restart);
 
         if (checkpointEnabled && startWithSavePoint) {
             throw new IllegalStateException(

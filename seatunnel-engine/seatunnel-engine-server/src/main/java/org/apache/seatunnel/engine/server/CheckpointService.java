@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
@@ -38,6 +39,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -63,15 +65,29 @@ public class CheckpointService {
     public List<CompletedCheckpoint> getLatestCheckpoint(String jobId) {
         List<PipelineState> pipelineStates = checkpointStorage.getLatestCheckpoint(jobId);
         return pipelineStates.stream()
+                .map(this::deserializeCheckpoint)
+                .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
+                .collect(Collectors.toList());
+    }
+
+    @SneakyThrows
+    public List<CompletedCheckpoint> getLatestCheckpointsByType(
+            String jobId, CheckpointType checkpointType) {
+        return checkpointStorage.getAllCheckpoints(jobId).stream()
+                .map(this::deserializeCheckpoint)
+                .filter(checkpoint -> checkpoint.getCheckpointType() == checkpointType)
+                .collect(Collectors.groupingBy(CompletedCheckpoint::getPipelineId))
+                .values()
+                .stream()
                 .map(
-                        pipelineState -> {
-                            try {
-                                return serializer.deserialize(
-                                        pipelineState.getStates(), CompletedCheckpoint.class);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        })
+                        checkpoints ->
+                                checkpoints.stream()
+                                        .max(
+                                                Comparator.comparingLong(
+                                                        CompletedCheckpoint
+                                                                ::getCompletedTimestamp)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
                 .collect(Collectors.toList());
     }
@@ -86,7 +102,30 @@ public class CheckpointService {
      * @return
      */
     public List<JobPipelineCheckpointData> getLatestCheckpointData(String jobId) {
-        return getLatestCheckpoint(jobId).stream()
+        return toJobPipelineCheckpointData(getLatestCheckpoint(jobId));
+    }
+
+    public List<JobPipelineCheckpointData> getLatestCompletedCheckpointData(String jobId) {
+        return toJobPipelineCheckpointData(
+                getLatestCheckpointsByType(jobId, CheckpointType.COMPLETED_POINT_TYPE));
+    }
+
+    public List<JobPipelineCheckpointData> getLatestSavepointData(String jobId) {
+        return toJobPipelineCheckpointData(
+                getLatestCheckpointsByType(jobId, CheckpointType.SAVEPOINT_TYPE));
+    }
+
+    private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
+        try {
+            return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<JobPipelineCheckpointData> toJobPipelineCheckpointData(
+            List<CompletedCheckpoint> checkpoints) {
+        return checkpoints.stream()
                 .map(
                         checkpoint -> {
                             Map<String, JobPipelineCheckpointData.ActionState> taskStates =

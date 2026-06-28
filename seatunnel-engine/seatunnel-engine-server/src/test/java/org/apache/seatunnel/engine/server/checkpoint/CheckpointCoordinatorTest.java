@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -79,6 +80,8 @@ public class CheckpointCoordinatorTest
                 new CheckpointManager(
                         1L,
                         false,
+                        RestoreMode.NONE,
+                        null,
                         nodeEngine,
                         null,
                         planMap,
@@ -116,6 +119,8 @@ public class CheckpointCoordinatorTest
                     new CheckpointManager(
                             1L,
                             false,
+                            RestoreMode.NONE,
+                            null,
                             nodeEngine,
                             null,
                             planMap,
@@ -161,6 +166,8 @@ public class CheckpointCoordinatorTest
                     new CheckpointManager(
                             1L,
                             false,
+                            RestoreMode.NONE,
+                            null,
                             nodeEngine,
                             null,
                             planMap,
@@ -235,6 +242,8 @@ public class CheckpointCoordinatorTest
                     new CheckpointManager(
                             1L,
                             false,
+                            RestoreMode.NONE,
+                            null,
                             nodeEngine,
                             mockJobMaster,
                             planMap,
