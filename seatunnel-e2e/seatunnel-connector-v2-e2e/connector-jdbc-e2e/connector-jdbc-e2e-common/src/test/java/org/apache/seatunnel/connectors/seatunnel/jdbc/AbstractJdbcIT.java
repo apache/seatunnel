@@ -98,7 +98,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash", "-c", buildDriverDownloadCommand(driverUrl()));
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + driverUrl()
+                                        + " --no-check-certificate");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
@@ -107,63 +111,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected Connection connection;
     protected Catalog catalog;
     protected URLClassLoader urlClassLoader;
-
-    /**
-     * Download JDBC drivers with retries and a Maven Central fallback so transient TLS issues on
-     * repo1 do not fail the whole E2E setup.
-     */
-    static String buildDriverDownloadCommand(String driverUrl) {
-        String baseCommand =
-                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib";
-        return baseCommand
-                + " && "
-                + Arrays.stream(driverUrl.split("\\s*&&\\s*"))
-                        .map(String::trim)
-                        .filter(StringUtils::isNotBlank)
-                        .map(AbstractJdbcIT::buildRetryableDownloadCommand)
-                        .collect(Collectors.joining(" && "));
-    }
-
-    /** Preserve legacy multi-file driver chains by wrapping each download target independently. */
-    private static String buildRetryableDownloadCommand(String downloadTarget) {
-        String normalizedUrl = stripShellDownloadPrefix(downloadTarget);
-        String primaryDownload = buildSingleDriverDownloadAttempt(normalizedUrl);
-        String fallbackUrl = normalizedUrl.replaceFirst(REPO1_MAVEN_PREFIX, MAVEN_CENTRAL_PREFIX);
-        if (normalizedUrl.equals(fallbackUrl)) {
-            return primaryDownload;
-        }
-        return "(" + primaryDownload + " || " + buildSingleDriverDownloadAttempt(fallbackUrl) + ")";
-    }
-
-    /**
-     * Some legacy JDBC E2E tests embed extra wget/curl segments in driverUrl(), so normalize them
-     * back to the raw URL before adding retry and fallback behavior.
-     */
-    private static String stripShellDownloadPrefix(String downloadTarget) {
-        if (downloadTarget.startsWith("wget ")) {
-            return downloadTarget.substring("wget ".length()).trim();
-        }
-        if (downloadTarget.startsWith("curl -O ")) {
-            return downloadTarget.substring("curl -O ".length()).trim();
-        }
-        return downloadTarget;
-    }
-
-    private static String buildSingleDriverDownloadAttempt(String driverUrl) {
-        return "{ if command -v curl >/dev/null 2>&1; then "
-                + "curl --fail --location --retry 5 --retry-delay 2 -O '"
-                + driverUrl
-                + "' && exit 0; "
-                + "fi; "
-                + "if command -v wget >/dev/null 2>&1; then "
-                + "wget --tries=5 --waitretry=2 --retry-connrefused --no-check-certificate '"
-                + driverUrl
-                + "'; "
-                + "else exit 127; fi; }";
-    }
-
-    private static final String REPO1_MAVEN_PREFIX = "^https://repo1\\.maven\\.org/maven2/";
-    private static final String MAVEN_CENTRAL_PREFIX = "https://repo.maven.apache.org/maven2/";
 
     abstract JdbcCase getJdbcCase();
 

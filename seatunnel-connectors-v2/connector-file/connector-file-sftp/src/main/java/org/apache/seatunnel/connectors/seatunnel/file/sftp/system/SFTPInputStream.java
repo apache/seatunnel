@@ -113,14 +113,14 @@ public class SFTPInputStream extends FSInputStream {
         wrappedStream.close();
         super.close();
         closed = true;
+        if (!channel.isConnected()) {
+            throw new IOException(E_CLIENT_NOT_CONNECTED);
+        }
+
         try {
             Session session = channel.getSession();
-            if (channel.isConnected()) {
-                channel.disconnect();
-            }
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
+            channel.disconnect();
+            session.disconnect();
         } catch (JSchException e) {
             throw new IOException(StringUtils.stringifyException(e));
         }
