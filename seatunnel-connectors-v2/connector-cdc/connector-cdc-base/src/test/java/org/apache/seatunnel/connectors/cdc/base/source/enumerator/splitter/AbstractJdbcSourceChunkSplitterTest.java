@@ -349,6 +349,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
                     0.05,
                     1000,
                     1000,
+                    true,
                     new Properties(),
                     null,
                     null,
