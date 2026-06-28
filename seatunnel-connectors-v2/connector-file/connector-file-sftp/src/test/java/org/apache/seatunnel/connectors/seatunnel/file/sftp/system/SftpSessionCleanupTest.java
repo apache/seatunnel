@@ -24,6 +24,9 @@ import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.Session;
 
 import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.HashSet;
 
 class SftpSessionCleanupTest {
 
@@ -34,7 +37,7 @@ class SftpSessionCleanupTest {
      */
     @Test
     void shouldDisconnectSessionWhenChannelAlreadyClosedInPool() throws Exception {
-        SFTPConnectionPool pool = new SFTPConnectionPool(0, 1);
+        SFTPConnectionPool pool = new SFTPConnectionPool(1, 1);
         RecordingChannelSftp channel = new RecordingChannelSftp(false);
         Session session = Mockito.mock(Session.class);
         channel.setSession(session);
@@ -44,6 +47,54 @@ class SftpSessionCleanupTest {
 
         org.junit.jupiter.api.Assertions.assertFalse(channel.isChannelDisconnectCalled());
         Mockito.verify(session).disconnect();
+    }
+
+    @Test
+    void shouldKeepOtherIdleConnectionsWhenBorrowingFromPool() throws Exception {
+        SFTPConnectionPool pool = new SFTPConnectionPool(2, 2);
+        SFTPConnectionPool.ConnectionInfo info =
+                new SFTPConnectionPool.ConnectionInfo("localhost", 22, "seatunnel");
+        RecordingChannelSftp first = new RecordingChannelSftp(true);
+        RecordingChannelSftp second = new RecordingChannelSftp(true);
+        HashSet<ChannelSftp> idleChannels = new HashSet<>();
+        idleChannels.add(first);
+        idleChannels.add(second);
+        HashMap<SFTPConnectionPool.ConnectionInfo, HashSet<ChannelSftp>> idleConnections =
+                new HashMap<>();
+        idleConnections.put(info, idleChannels);
+        setField(pool, "idleConnections", idleConnections);
+
+        ChannelSftp borrowedOne = pool.getFromPool(info);
+        ChannelSftp borrowedTwo = pool.getFromPool(info);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(borrowedOne);
+        org.junit.jupiter.api.Assertions.assertNotNull(borrowedTwo);
+        org.junit.jupiter.api.Assertions.assertNotSame(borrowedOne, borrowedTwo);
+    }
+
+    @Test
+    void shouldDisconnectTrackedSessionDuringShutdownWhenLiveCountDrifts() throws Exception {
+        SFTPConnectionPool pool = new SFTPConnectionPool(1, 0);
+        RecordingChannelSftp channel = new RecordingChannelSftp(false);
+        Session session = Mockito.mock(Session.class);
+        channel.setSession(session);
+        Mockito.when(session.isConnected()).thenReturn(true);
+
+        HashMap<ChannelSftp, SFTPConnectionPool.ConnectionInfo> trackedConnections =
+                new HashMap<>();
+        trackedConnections.put(
+                channel, new SFTPConnectionPool.ConnectionInfo("localhost", 22, "seatunnel"));
+        setField(pool, "con2infoMap", trackedConnections);
+
+        pool.shutdown();
+
+        Mockito.verify(session).disconnect();
+    }
+
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     /**
