@@ -1754,7 +1754,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
-        List<String> listData = getKafkaConsumerListData(topicName, startOffset, expectedCount);
+        List<String> listData = getKafkaConsumerListData(topicName, startOffset);
         if (listData.isEmpty() || listData.size() != expectedCount) {
             log.error(
                     "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},start offset {},expected count {}",
@@ -2305,8 +2305,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private List<String> getKafkaConsumerListData(
-            String topicName, long startOffset, long expectedCount) {
+    private List<String> getKafkaConsumerListData(String topicName, long startOffset) {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
@@ -2314,17 +2313,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
             consumer.seek(topicPartition, startOffset);
-            long targetOffsetExclusive = startOffset + expectedCount;
+            // READ_COMMITTED consumers may skip aborted transactional offsets, so N committed
+            // records are not guaranteed to occupy N contiguous offsets after startOffset.
+            long visibleEndOffsetExclusive =
+                    consumer.endOffsets(Collections.singletonList(topicPartition))
+                            .get(topicPartition);
             Long lastProcessedOffset = startOffset - 1;
+            int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (record.offset() >= startOffset && record.offset() < targetOffsetExclusive) {
+                if (records.isEmpty()) {
+                    consecutiveEmptyPolls++;
+                    continue;
+                }
+                consecutiveEmptyPolls = 0;
+                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                    if (record.offset() >= startOffset && record.offset() > lastProcessedOffset) {
                         data.add(record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }
-            } while (lastProcessedOffset < targetOffsetExclusive - 1);
+            } while (lastProcessedOffset < visibleEndOffsetExclusive - 1
+                    && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
