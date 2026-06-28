@@ -20,8 +20,19 @@ package org.apache.seatunnel.connectors.cdc.base.debezium;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+
 class DebeziumAdapterFactoryTest {
 
+    /**
+     * Verifies that a single matching service registration resolves to the expected adapter
+     * implementation.
+     */
     @Test
     void getAdapter_returnsAdapter_whenConnectorClassMatches() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -33,6 +44,7 @@ class DebeziumAdapterFactoryTest {
                 TestDebeziumAdapter.TEST_DEBEZIUM_VERSION, adapter.getDebeziumVersion());
     }
 
+    /** Verifies that unknown connector classes still fail with a clear error. */
     @Test
     void getAdapter_throwsIllegalStateException_whenNoAdapterMatches() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -41,5 +53,39 @@ class DebeziumAdapterFactoryTest {
                 () ->
                         DebeziumAdapterFactory.getAdapter(
                                 "io.debezium.connector.unknown.UnknownConnector", cl));
+    }
+
+    /**
+     * Verifies that the factory fails fast when the same class loader exposes multiple matching
+     * providers for one connector class.
+     */
+    @Test
+    void getAdapter_throwsIllegalStateException_whenMultipleAdaptersMatch() throws Exception {
+        Path tempDir = Files.createTempDirectory("debezium-adapter-service-loader");
+        Path serviceFile =
+                tempDir.resolve("META-INF")
+                        .resolve("services")
+                        .resolve(DebeziumAdapter.class.getName());
+        Files.createDirectories(serviceFile.getParent());
+        Files.write(
+                serviceFile,
+                Collections.singletonList(SecondTestDebeziumAdapter.class.getName()),
+                StandardCharsets.UTF_8);
+
+        try (URLClassLoader classLoader =
+                new URLClassLoader(
+                        new URL[] {tempDir.toUri().toURL()},
+                        Thread.currentThread().getContextClassLoader())) {
+            IllegalStateException exception =
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () ->
+                                    DebeziumAdapterFactory.getAdapter(
+                                            TestDebeziumAdapter.TEST_CONNECTOR_CLASS, classLoader));
+            Assertions.assertTrue(
+                    exception.getMessage().contains(TestDebeziumAdapter.class.getName()));
+            Assertions.assertTrue(
+                    exception.getMessage().contains(SecondTestDebeziumAdapter.class.getName()));
+        }
     }
 }

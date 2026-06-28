@@ -22,7 +22,10 @@ import org.apache.seatunnel.api.annotation.Experimental;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 /**
  * Factory for loading connector-specific {@link DebeziumAdapter} instances via {@link
@@ -50,16 +53,39 @@ public class DebeziumAdapterFactory {
         LOG.info("Loading DebeziumAdapter for connector class: {}", connectorClassName);
         ServiceLoader<DebeziumAdapter> loader =
                 ServiceLoader.load(DebeziumAdapter.class, classLoader);
+        List<DebeziumAdapter> matchingAdapters = new ArrayList<>();
 
         for (DebeziumAdapter adapter : loader) {
             if (adapter.supports(connectorClassName)) {
-                LOG.info(
-                        "Found DebeziumAdapter for {}: {} targeting Debezium {}",
-                        connectorClassName,
-                        adapter.getClass().getName(),
-                        adapter.getDebeziumVersion());
-                return adapter;
+                matchingAdapters.add(adapter);
             }
+        }
+
+        if (matchingAdapters.size() == 1) {
+            DebeziumAdapter adapter = matchingAdapters.get(0);
+            LOG.info(
+                    "Found DebeziumAdapter for {}: {} targeting Debezium {}",
+                    connectorClassName,
+                    adapter.getClass().getName(),
+                    adapter.getDebeziumVersion());
+            return adapter;
+        }
+
+        if (matchingAdapters.size() > 1) {
+            String providerDescriptions =
+                    matchingAdapters.stream()
+                            .map(
+                                    adapter ->
+                                            adapter.getClass().getName()
+                                                    + " (Debezium "
+                                                    + adapter.getDebeziumVersion()
+                                                    + ")")
+                            .collect(Collectors.joining(", "));
+            throw new IllegalStateException(
+                    "Multiple DebeziumAdapters found for connector class: "
+                            + connectorClassName
+                            + ". Expected exactly one matching provider, but found: "
+                            + providerDescriptions);
         }
 
         throw new IllegalStateException(
