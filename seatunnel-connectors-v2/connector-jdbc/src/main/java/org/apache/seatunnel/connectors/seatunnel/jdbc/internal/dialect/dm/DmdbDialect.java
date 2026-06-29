@@ -49,6 +49,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_LONG;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_LONGVARCHAR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_NVARCHAR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_NVARCHAR2;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_TEXT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_VARCHAR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_VARCHAR2;
@@ -338,6 +339,7 @@ public class DmdbDialect implements JdbcDialect {
             case DM_VARCHAR:
             case DM_VARCHAR2:
             case DM_NVARCHAR:
+            case DM_NVARCHAR2:
             case DM_LONGVARCHAR:
             case DM_CLOB:
             case DM_TEXT:
