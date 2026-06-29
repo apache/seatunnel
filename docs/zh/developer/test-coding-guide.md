@@ -8,13 +8,16 @@ title: 测试编码指南
 它是对[编码指南](coding-guide.md)的补充：编码指南覆盖通用的 PR 质量要求，而本指南专注于测试的稳定性与资源安全。
 
 一个优秀的 SeaTunnel 测试应当是确定性的（每次运行结果一致）、无泄漏的（释放所有打开的资源）、
-低成本的（启动尽可能少的容器）。
+低成本的（启动尽可能少的容器）。下面的规范将这些原则落实到 SeaTunnel 贡献者编写的两类测试上。
 
-## 快速导航
+SeaTunnel 将测试分为两层：
 
-- 如果是 connector 或 core 的本地逻辑校验，优先阅读 `单元测试规范`。
-- 如果是依赖容器和真实链路的 source/transform/sink 联调，阅读 `E2E 测试规范`。
-- 如果一个 PR 同时包含两类测试，请同时遵循两部分并在提交前分别验证。
+- **单元测试**（`*Test`，由 Surefire 插件运行）在隔离环境中校验 connector 或 core 逻辑，不依赖外部系统。
+  参见[单元测试规范](#单元测试规范)。
+- **端到端（E2E）测试**（`*IT`，由 Failsafe 插件运行）借助 Testcontainers，针对真实服务校验 source、
+  transform、sink 的行为。参见 [E2E 测试规范](#e2e-测试规范)。
+
+当一个 Pull Request 同时改动了逻辑与集成行为时，请在两层都补充测试，并在提交前分别运行。
 
 ## 单元测试规范
 
@@ -92,11 +95,11 @@ void shouldReturnJobIdOnlyWhenFinishedMetricsIsMissing() {
 }
 ```
 
-这个 mock 案例好的原因：
+该示例体现了三项实践：
 
-- 在边界 mock 掉外部 map 依赖，不需要启动引擎服务
-- 通过 `when(...).thenReturn(...)` 精准构造单一业务分支
-- 断言只关注可观察输出 JSON 契约，定位更直接
+- 在边界处 mock 所有外部 map 依赖，无需启动引擎服务；
+- 通过 `when(...).thenReturn(...)` 精准构造单一业务分支；
+- 断言只关注可观察输出（结果 JSON 契约），而非内部调用。
 
 ### 4. 错误路径同时校验异常类型与关键报错信息
 
@@ -129,7 +132,10 @@ Assertions.assertThrows(
 
 ## E2E 测试规范
 
-## 1. 使用动态端口，禁止硬编码
+一个 E2E 测试继承 `TestSuiteBase`，在 Testcontainers 管理的引擎容器内运行 connector，并校验真实作业的结果。
+下面六条规则用于保证此类测试的确定性、无泄漏与低成本。
+
+### 1. 使用动态端口，禁止硬编码
 
 Testcontainers 在启动时会分配一个随机的宿主机端口。硬编码端口会在 CI 中引发冲突——端口可能已被占用，
 或者多个测试套件并行运行。
@@ -165,7 +171,7 @@ SeaTunnel 作业运行在 Docker 网络内部，因此其配置（`.conf`）必�
 
 :::
 
-## 2. 基于条件等待，禁止 `Thread.sleep`
+### 2. 基于条件等待，禁止 `Thread.sleep`
 
 `Thread.sleep` 是非确定性的：时间太短测试会不稳定，太长则拖慢 CI。当期望状态始终未到达时，它也无法给出有用的
 错误信息。应使用 [Awaitility](https://github.com/awaitility/awaitility) 轮询真实条件。
@@ -216,7 +222,7 @@ private void awaitJobRunning(TestContainer container, String jobId) {
 }
 ```
 
-## 3. 及时释放资源
+### 3. 及时释放资源
 
 泄漏的连接会耗尽容器资源和宿主机可用端口，并可能导致 CI 挂起。你打开的每一个资源都必须关闭。大多数 E2E
 测试会实现 `TestResource` 接口并重写其 `tearDown()` 方法，该方法在类中所有测试结束后执行一次。应在其中按
@@ -264,7 +270,7 @@ private void executeDml(String sql) {
 - [ ] 临时文件 / 目录已删除
 - [ ] 手动创建的 Docker 网络已移除
 
-## 4. 异步提交长时间运行的作业
+### 4. 异步提交长时间运行的作业
 
 流作业或 CDC 作业会一直运行直到被取消，因此内联调用 `executeJob` 会使测试线程无限期阻塞，也就没有机会注入
 数据或断言中间状态。这类作业应使用 `CompletableFuture.supplyAsync` 提交，等待作业进入 `RUNNING` 状态，执行
@@ -313,7 +319,7 @@ Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
 Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> verifyResults());
 ```
 
-## 5. 保持测试确定且低成本
+### 5. 保持测试确定且低成本
 
 - 继承 `TestSuiteBase` 并实现 `TestResource` 接口，以获得 `startUp()` / `tearDown()` 生命周期钩子。
 - 使用带 `TestContainer` 参数的 `@TestTemplate`，使测试在每个已配置的引擎上运行。
@@ -323,7 +329,7 @@ Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> verifyResult
 - 用 `@TestMethodOrder(MethodOrderer.OrderAnnotation.class)` 和 `@Order(n)` 对有依赖的步骤排序。
 - 加上 `@Slf4j` 并记录关键阶段（数据插入、校验）的日志，便于排查 CI 失败。
 
-## 6. 将无法回收的客户端线程加入白名单（Zeta 引擎）
+### 6. 将无法回收的客户端线程加入白名单（Zeta 引擎）
 
 测试中最后一个作业结束后，Zeta 的 `SeaTunnelContainer` 会对服务端 JVM 的存活线程做一次快照，如果在 120 秒
 宽限期之后仍有非系统线程在运行，就会让测试失败。这是为了防止 connector 泄漏线程。大多数客户端线程在你于
@@ -360,17 +366,17 @@ protected boolean isIssueWeAlreadyKnow(String threadName) {
 
 :::
 
-## 整体示例
+### 整体示例
 
-下面的示例综合了全部五条规则：测试方法共用一个容器、使用动态端口、在启动阶段基于条件等待，并在
-`tearDown()` 中清理资源。
+下面的示例综合应用了上述规则：测试方法共用一个固定版本镜像的容器、使用动态宿主机端口、在启动阶段基于
+条件等待、异步处理作业，并在 `tearDown()` 中清理资源。
 
 ```java
 @Slf4j
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ExampleConnectorIT extends TestSuiteBase implements TestResource {
 
-    private static final String CONTAINER_IMAGE = "example:latest";
+    private static final String CONTAINER_IMAGE = "example/example-server:1.2.3";
     private static final String CONTAINER_HOST = "example-host";
     private static final int CONTAINER_PORT = 8080;
 

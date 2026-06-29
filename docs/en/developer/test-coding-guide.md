@@ -8,14 +8,19 @@ This guide describes how to write a high-quality, stable End-to-End (E2E) or Uni
 It complements the [Coding Guide](coding-guide.md): the Coding Guide covers general PR quality, while this
 guide focuses specifically on test stability and resource safety.
 
-A good SeaTunnel test is deterministic (same result on every run), leak-free (releases every
-resource it opens), and cheap (starts the fewest containers possible).
+A good SeaTunnel test is deterministic (the same result on every run), leak-free (it releases every
+resource it opens), and cheap (it starts the fewest containers possible). The guidelines below apply these
+principles to the two kinds of tests SeaTunnel contributors write.
 
-## Quick Navigation
+SeaTunnel distinguishes two test layers:
 
-- For connector or core logic validation without external systems, read `Unit Test Guidelines`.
-- For containerized source/transform/sink integration, read `E2E Test Guidelines`.
-- If a PR contains both, follow both sections and run both checks before submission.
+- **Unit tests** (`*Test`, run by the Surefire plugin) validate connector or core logic in isolation,
+  without external systems. See [Unit Test Guidelines](#unit-test-guidelines).
+- **End-to-End (E2E) tests** (`*IT`, run by the Failsafe plugin) validate source, transform, and sink
+  behavior against real services in Testcontainers. See [E2E Test Guidelines](#e2e-test-guidelines).
+
+When a pull request changes both logic and integration behavior, add tests in both layers and run both
+before submitting.
 
 ## Unit Test Guidelines
 
@@ -97,11 +102,11 @@ void shouldReturnJobIdOnlyWhenFinishedMetricsIsMissing() {
 }
 ```
 
-Why this is a good mock case:
+This example illustrates three practices:
 
-- it mocks all external map dependencies at the boundary instead of booting engine services
-- it uses `when(...).thenReturn(...)` to shape one business branch per test
-- assertions stay focused on observable output JSON contract
+- It mocks every external map dependency at the boundary instead of starting the engine services.
+- It uses `when(...).thenReturn(...)` to shape a single business branch per test.
+- Its assertions target the observable output (the result JSON contract), not internal calls.
 
 ### 4. Verify exception type and message for invalid input paths
 
@@ -135,7 +140,10 @@ Assertions.assertThrows(
 
 ## E2E Test Guidelines
 
-## 1. Use Dynamic Ports, Never Hardcode
+An E2E test extends `TestSuiteBase`, runs the connector inside a Testcontainers-managed engine container, and
+verifies the result of a real job. The six rules below keep such tests deterministic, leak-free, and cheap.
+
+### 1. Use Dynamic Ports, Never Hardcode
 
 Testcontainers assigns a random host port at startup. Hardcoding a port causes conflicts in CI, where the
 port may already be taken or multiple suites run in parallel.
@@ -172,7 +180,7 @@ mapped host port.
 
 :::
 
-## 2. Wait on Conditions, Never `Thread.sleep`
+### 2. Wait on Conditions, Never `Thread.sleep`
 
 `Thread.sleep` is non-deterministic: too short and the test becomes flaky, too long and CI is slowed down. It
 also produces no useful error when the expected state never arrives. Use
@@ -224,7 +232,7 @@ private void awaitJobRunning(TestContainer container, String jobId) {
 }
 ```
 
-## 3. Release Resources Promptly
+### 3. Release Resources Promptly
 
 A leaked connection exhausts container resources and available host ports, and can cause CI to hang. Every
 resource you open must be closed. Most E2E tests implement the `TestResource` interface and override its
@@ -274,7 +282,7 @@ Cleanup checklist:
 - [ ] Temporary files / directories deleted
 - [ ] Manually-created Docker networks removed
 
-## 4. Submit Long-Running Jobs Asynchronously
+### 4. Submit Long-Running Jobs Asynchronously
 
 A streaming or CDC job runs until it is cancelled, so calling `executeJob` inline blocks the test thread
 indefinitely and leaves no opportunity to inject data or assert intermediate state. Submit such jobs with
@@ -324,7 +332,7 @@ Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
 Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> verifyResults());
 ```
 
-## 5. Keep Tests Deterministic and Cheap
+### 5. Keep Tests Deterministic and Cheap
 
 - Extend `TestSuiteBase` and implement `TestResource` to gain the `startUp()` / `tearDown()` lifecycle hooks.
 - Use `@TestTemplate` with a `TestContainer` parameter so the test runs across every configured engine.
@@ -334,7 +342,7 @@ Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> verifyResult
 - Order dependent steps with `@TestMethodOrder(MethodOrderer.OrderAnnotation.class)` and `@Order(n)`.
 - Add `@Slf4j` and log the key phases (data insertion, verification) to make CI failures easier to diagnose.
 
-## 6. Whitelist Unrecyclable Client Threads (Zeta Engine)
+### 6. Whitelist Unrecyclable Client Threads (Zeta Engine)
 
 After the last job in a test finishes, the Zeta `SeaTunnelContainer` snapshots the server JVM's live threads
 and fails the test if any non-system thread is still running after a 120-second grace window. This guards
@@ -375,17 +383,18 @@ so on) are already excluded by `isSystemThread(...)`. Do not duplicate them in `
 
 :::
 
-## Putting It Together
+### Putting It Together
 
-The example below combines all five rules: a single container shared by the test methods, a dynamic port,
-condition-based waiting during start-up, and resource cleanup in `tearDown()`.
+The example below applies the rules together: a single shared container on a pinned image, a dynamic host
+port, condition-based waiting during start-up, asynchronous job handling, and resource cleanup in
+`tearDown()`.
 
 ```java
 @Slf4j
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ExampleConnectorIT extends TestSuiteBase implements TestResource {
 
-    private static final String CONTAINER_IMAGE = "example:latest";
+    private static final String CONTAINER_IMAGE = "example/example-server:1.2.3";
     private static final String CONTAINER_HOST = "example-host";
     private static final int CONTAINER_PORT = 8080;
 
