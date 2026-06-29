@@ -100,14 +100,16 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
     }
 
-    public final synchronized void writeRecord(I record) {
+    public final synchronized boolean writeRecord(I record) {
         checkFlushException();
         try {
             addToBatch(record);
             batchCount++;
             if (batchCount > 0 && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
                 flush();
+                return true;
             }
+            return false;
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,

@@ -284,6 +284,33 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testSynchronizedErrorSinkFlushDelegates() throws Exception {
+        AtomicInteger flushCount = new AtomicInteger();
+        ErrorSinkRowWriter<SeaTunnelRow> delegate =
+                new ErrorSinkRowWriter<SeaTunnelRow>() {
+                    @Override
+                    public void write(RowErrorContext ctx, SeaTunnelRow row, Throwable t) {}
+
+                    @Override
+                    public void flush() {
+                        flushCount.incrementAndGet();
+                    }
+
+                    @Override
+                    public void close() {}
+                };
+
+        StageErrorConfig config = StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(config, new SynchronizedErrorSinkRowWriter<>(delegate));
+
+        handler.flush();
+
+        assertEquals(1, flushCount.get());
+        handler.close();
+    }
+
+    @Test
     public void testOriginalDataTruncation() {
         MockErrorSinkWriter mockSink = new MockErrorSinkWriter();
 
