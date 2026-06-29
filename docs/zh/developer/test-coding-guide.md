@@ -8,7 +8,126 @@ title: 测试编码指南
 它是对[编码指南](coding-guide.md)的补充：编码指南覆盖通用的 PR 质量要求，而本指南专注于测试的稳定性与资源安全。
 
 一个优秀的 SeaTunnel 测试应当是确定性的（每次运行结果一致）、无泄漏的（释放所有打开的资源）、
-低成本的（启动尽可能少的容器）。下面的五条规则用于保证这一点。
+低成本的（启动尽可能少的容器）。
+
+## 快速导航
+
+- 如果是 connector 或 core 的本地逻辑校验，优先阅读 `单元测试规范`。
+- 如果是依赖容器和真实链路的 source/transform/sink 联调，阅读 `E2E 测试规范`。
+- 如果一个 PR 同时包含两类测试，请同时遵循两部分并在提交前分别验证。
+
+## 单元测试规范
+
+### 1. 测行为和契约，不测实现细节
+
+单元测试应验证输入输出行为和配置契约，不要绑定私有方法内部实现或临时代码结构。
+
+真实案例：`JdbcSourceFactoryTest`（模块：`connector-jdbc`）
+
+```java
+private Map<String, Object> baseConfig() {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put("url", "jdbc:mysql://localhost:3306/test");
+    cfg.put("driver", "com.mysql.cj.jdbc.Driver");
+    return cfg;
+}
+
+@Test
+void testValidConfigWithTablePath() {
+    Map<String, Object> cfg = baseConfig();
+    cfg.put("table_path", "test.users");
+    Assertions.assertDoesNotThrow(() -> validate(cfg));
+}
+```
+
+这个测试保护的是对外配置契约，即使工厂内部实现重构，测试仍然稳定。
+
+### 2. 单元测试必须确定且本地可跑
+
+单元测试应快速且确定：
+
+- 不使用 `Thread.sleep`
+- 不使用无固定种子的随机断言
+- 不依赖墙钟时间
+
+如果用例引入跨进程或外部依赖，请明确归类到对应测试层级，并保证断言可重复、可诊断。
+
+### 3. 用 mock、stub、fake 隔离依赖
+
+单元测试要把目标行为与外部 IO 隔离。对协作依赖优先使用内存实现或轻量测试替身。
+
+每个测试方法尽量只覆盖一个断言范围，失败时能直接定位单一行为。
+
+引擎侧真实 mock 案例：`JobInfoServiceNullSafetyTest`（模块：`seatunnel-engine-server`）
+
+```java
+@BeforeEach
+void setUp() {
+    nodeEngine = mock(NodeEngineImpl.class);
+    hazelcastInstance = mock(HazelcastInstance.class);
+    runningJobInfoMap = mock(IMap.class);
+    finishedJobStateMap = mock(IMap.class);
+    finishedJobMetricsMap = mock(IMap.class);
+    finishedJobVertexInfoMap = mock(IMap.class);
+
+    when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+    when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO)).thenReturn(runningJobInfoMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE)).thenReturn(finishedJobStateMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_METRICS))
+            .thenReturn(finishedJobMetricsMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO))
+            .thenReturn(finishedJobVertexInfoMap);
+
+    jobInfoService = new JobInfoService(nodeEngine);
+}
+
+@Test
+void shouldReturnJobIdOnlyWhenFinishedMetricsIsMissing() {
+    when(runningJobInfoMap.get(jobId)).thenReturn(null);
+    when(finishedJobStateMap.get(jobId)).thenReturn(jobState);
+    when(finishedJobMetricsMap.get(jobId)).thenReturn(null);
+
+    JsonObject result = jobInfoService.getJobInfoJson(jobId);
+    Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+}
+```
+
+这个 mock 案例好的原因：
+
+- 在边界 mock 掉外部 map 依赖，不需要启动引擎服务
+- 通过 `when(...).thenReturn(...)` 精准构造单一业务分支
+- 断言只关注可观察输出 JSON 契约，定位更直接
+
+### 4. 错误路径同时校验异常类型与关键报错信息
+
+负向用例不仅要断言异常类，还要断言关键报错内容，以保护用户可见错误质量。
+
+真实案例：`MongodbIncrementalSourceFactoryTest`（模块：`connector-cdc-mongodb`）
+
+```java
+Assertions.assertThrows(
+        MongodbConnectorException.class,
+        () ->
+                MongodbSourceConfigProvider.newBuilder()
+                        .startupOptions(
+                                new StartupConfig(StartupMode.EARLIEST, null, null, null)));
+```
+
+### 5. 命名清晰，结构采用 Arrange-Act-Assert
+
+- 类名使用 `*Test`，方法名明确表达行为或错误场景。
+- 每个测试按 Arrange-Act-Assert 组织。
+- 避免在测试方法里写大量准备逻辑，可提取成小型复用 helper。
+
+## 单元测试检查清单
+
+- [ ] 类名符合 `*Test`，方法名可直接表达行为或错误场景
+- [ ] 单元测试保持确定性执行，避免不必要的运行时依赖
+- [ ] 断言目标是行为和契约，而非实现细节
+- [ ] 负向用例同时断言异常类型和关键报错信息
+- [ ] 测试数据准备最小且可复用
+
+## E2E 测试规范
 
 ## 1. 使用动态端口，禁止硬编码
 
@@ -380,6 +499,8 @@ seatunnel-e2e/seatunnel-connector-v2-e2e/
 
 ## 检查清单
 
+- [ ] UT 遵循 `*Test` 命名、确定性执行和依赖隔离
+- [ ] UT 负向用例同时断言异常类型和关键报错信息
 - [ ] 无硬编码宿主机端口——全部使用 `getMappedPort()` / `getFirstMappedPort()`
 - [ ] 无 `Thread.sleep()`——所有等待都使用 Awaitility，并按场景设定超时
 - [ ] 每个打开的资源都在 `@AfterAll` / `@AfterEach` 或 try-with-resources 中关闭

@@ -9,7 +9,131 @@ It complements the [Coding Guide](coding-guide.md): the Coding Guide covers gene
 guide focuses specifically on test stability and resource safety.
 
 A good SeaTunnel test is deterministic (same result on every run), leak-free (releases every
-resource it opens), and cheap (starts the fewest containers possible). The five rules below enforce that.
+resource it opens), and cheap (starts the fewest containers possible).
+
+## Quick Navigation
+
+- For connector or core logic validation without external systems, read `Unit Test Guidelines`.
+- For containerized source/transform/sink integration, read `E2E Test Guidelines`.
+- If a PR contains both, follow both sections and run both checks before submission.
+
+## Unit Test Guidelines
+
+### 1. Test behavior and contract, not implementation details
+
+A unit test should verify input-output behavior and option contracts. Avoid testing private
+method internals or temporary implementation structure.
+
+Real example from `JdbcSourceFactoryTest` (module: `connector-jdbc`):
+
+```java
+private Map<String, Object> baseConfig() {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put("url", "jdbc:mysql://localhost:3306/test");
+    cfg.put("driver", "com.mysql.cj.jdbc.Driver");
+    return cfg;
+}
+
+@Test
+void testValidConfigWithTablePath() {
+    Map<String, Object> cfg = baseConfig();
+    cfg.put("table_path", "test.users");
+    Assertions.assertDoesNotThrow(() -> validate(cfg));
+}
+```
+
+This test validates the external configuration contract and remains stable even if internal factory
+implementation changes.
+
+### 2. Keep unit tests deterministic and local
+
+Unit tests should run fast and deterministically:
+
+- no `Thread.sleep`
+- no random assertions without fixed seed
+- no dependency on wall-clock timing
+
+If a case introduces cross-process or external dependencies, clearly classify it in the proper test
+layer and keep assertions deterministic and diagnosable.
+
+### 3. Isolate dependencies with mock, stub, or fake
+
+A unit test should isolate the target behavior from external IO. Use in-memory or lightweight
+test doubles for collaborators when possible.
+
+Keep one assertion scope per test method, so failures point to a single behavior.
+
+Real engine-side mock example from `JobInfoServiceNullSafetyTest` (module: `seatunnel-engine-server`):
+
+```java
+@BeforeEach
+void setUp() {
+    nodeEngine = mock(NodeEngineImpl.class);
+    hazelcastInstance = mock(HazelcastInstance.class);
+    runningJobInfoMap = mock(IMap.class);
+    finishedJobStateMap = mock(IMap.class);
+    finishedJobMetricsMap = mock(IMap.class);
+    finishedJobVertexInfoMap = mock(IMap.class);
+
+    when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+    when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO)).thenReturn(runningJobInfoMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE)).thenReturn(finishedJobStateMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_METRICS))
+            .thenReturn(finishedJobMetricsMap);
+    when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO))
+            .thenReturn(finishedJobVertexInfoMap);
+
+    jobInfoService = new JobInfoService(nodeEngine);
+}
+
+@Test
+void shouldReturnJobIdOnlyWhenFinishedMetricsIsMissing() {
+    when(runningJobInfoMap.get(jobId)).thenReturn(null);
+    when(finishedJobStateMap.get(jobId)).thenReturn(jobState);
+    when(finishedJobMetricsMap.get(jobId)).thenReturn(null);
+
+    JsonObject result = jobInfoService.getJobInfoJson(jobId);
+    Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+}
+```
+
+Why this is a good mock case:
+
+- it mocks all external map dependencies at the boundary instead of booting engine services
+- it uses `when(...).thenReturn(...)` to shape one business branch per test
+- assertions stay focused on observable output JSON contract
+
+### 4. Verify exception type and message for invalid input paths
+
+For negative paths, assert both exception class and core message, so the test protects user-facing
+error quality.
+
+Real example from `MongodbIncrementalSourceFactoryTest` (module: `connector-cdc-mongodb`):
+
+```java
+Assertions.assertThrows(
+        MongodbConnectorException.class,
+        () ->
+                MongodbSourceConfigProvider.newBuilder()
+                        .startupOptions(
+                                new StartupConfig(StartupMode.EARLIEST, null, null, null)));
+```
+
+### 5. Use clear naming and Arrange-Act-Assert structure
+
+- Name classes as `*Test` and methods as explicit behavior statements.
+- Keep each test in Arrange-Act-Assert order.
+- Avoid large helper logic inside test methods; extract reusable setup into focused helpers.
+
+## Unit Test Checklist
+
+- [ ] Class name follows `*Test`; method names describe behavior or error case
+- [ ] Unit tests keep deterministic execution and avoid non-essential runtime dependencies
+- [ ] Assertions target behavior and contract, not internal implementation details
+- [ ] Negative tests assert both exception type and key error message
+- [ ] Test data setup is minimal and reusable
+
+## E2E Test Guidelines
 
 ## 1. Use Dynamic Ports, Never Hardcode
 
@@ -219,7 +343,7 @@ against connectors that leak threads. Most client threads die once you close the
 
 However, some third-party client libraries (JDBC drivers, HTTP clients, connection pools) start daemon
 threads that are never recycled and cannot be closed from the test. These would fail the leak check through
-no fault of the test. For those — and only those — whitelist the thread's **name prefix** by extending
+no fault of the test. For those — and only those — whitelist the thread's name prefix by extending
 `isIssueWeAlreadyKnow(String)` in `SeaTunnelContainer`, where the project keeps these exceptions centrally:
 
 ```java
@@ -393,6 +517,8 @@ A new module is not built until it is wired in:
 
 ## Checklist
 
+- [ ] UT follows `*Test` naming, deterministic execution, and dependency isolation
+- [ ] UT negative paths assert exception type and key error message
 - [ ] No hardcoded host ports — all use `getMappedPort()` / `getFirstMappedPort()`
 - [ ] No `Thread.sleep()` — all waits use Awaitility with scenario-based timeouts
 - [ ] Every opened resource is closed in `@AfterAll` / `@AfterEach` or try-with-resources
