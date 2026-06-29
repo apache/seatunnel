@@ -60,11 +60,14 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void close() throws IOException {
-        if (reader != null) {
-            reader.close();
-        }
-        if (socket != null) {
-            socket.close();
+        try {
+            if (reader != null) {
+                reader.close();
+            }
+        } finally {
+            if (socket != null) {
+                socket.close();
+            }
         }
     }
 
