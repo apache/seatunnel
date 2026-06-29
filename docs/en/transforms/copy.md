@@ -62,4 +62,4 @@ Then the data in result table `fake1` will like this
 
 - Add Copy Transform Connector
 - Support copy fields to a new fields
-- Support deep copy for nested row, map, array, vector, timestamp_tz, and multiple row values
+- Support timestamp_tz, vector types, and multiple_row
