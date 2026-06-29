@@ -38,6 +38,8 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -294,5 +296,53 @@ public class CsvTextFormatSchemaTest {
                     () -> Integer.parseInt(amountField),
                     "Amount should be a valid integer at line " + (i + 1));
         }
+    }
+
+    @Test
+    void testTimestampTzRoundTrip() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+
+        CsvSerializationSchema ser =
+                CsvSerializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+        CsvDeserializationSchema deser =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        OffsetDateTime[] cases = {
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(9)),
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(-8)),
+            OffsetDateTime.of(2024, 6, 15, 0, 0, 0, 0, ZoneOffset.UTC),
+        };
+
+        for (OffsetDateTime original : cases) {
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {original});
+            byte[] serialized = ser.serialize(row);
+            SeaTunnelRow deserialized = deser.deserialize(serialized);
+            OffsetDateTime result = (OffsetDateTime) deserialized.getField(0);
+            Assertions.assertEquals(
+                    original.toInstant(), result.toInstant(), "Epoch mismatch for " + original);
+            Assertions.assertEquals(
+                    original.getOffset(), result.getOffset(), "Offset mismatch for " + original);
+        }
+    }
+
+    @Test
+    void testTimestampTzBackwardCompatFallback() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        CsvDeserializationSchema deser =
+                CsvDeserializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+
+        SeaTunnelRow row = deser.deserialize("2024-01-01 03:00:00".getBytes());
+        OffsetDateTime result = (OffsetDateTime) row.getField(0);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(ZoneOffset.UTC, result.getOffset());
+        Assertions.assertEquals(
+                java.time.LocalDateTime.of(2024, 1, 1, 3, 0, 0).toInstant(ZoneOffset.UTC),
+                result.toInstant());
     }
 }
