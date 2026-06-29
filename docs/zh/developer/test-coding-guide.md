@@ -2,6 +2,7 @@
 title: 测试编码指南
 ---
 
+# 测试编码指南
 
 本指南介绍如何为 Apache SeaTunnel 编写一个高质量、稳定的端到端（E2E）测试或单元测试。
 它是对[编码指南](coding-guide.md)的补充：编码指南覆盖通用的 PR 质量要求，而本指南专注于测试的稳定性与资源安全。
@@ -372,9 +373,9 @@ seatunnel-e2e/seatunnel-connector-v2-e2e/
 # Format
 ./mvnw spotless:apply
 
-# Run the connector E2E suite (run more than once to confirm stability)
+# Run a specific E2E test class (run more than once to confirm stability)
 ./mvnw -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-<name>-e2e \
-    -DskipUT -DskipIT=false verify
+    -DskipUT -DskipIT=false -Dit.test=<TestClassName> verify
 ```
 
 ## 检查清单

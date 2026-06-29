@@ -2,6 +2,7 @@
 title: Test Coding Guide
 ---
 
+# Test Coding Guide
 
 This guide describes how to write a high-quality, stable End-to-End (E2E) or Unit Test for Apache SeaTunnel.
 It complements the [Coding Guide](coding-guide.md): the Coding Guide covers general PR quality, while this
@@ -385,9 +386,9 @@ A new module is not built until it is wired in:
 # Format
 ./mvnw spotless:apply
 
-# Run the connector E2E suite (run more than once to confirm stability)
+# Run a specific E2E test class (run more than once to confirm stability)
 ./mvnw -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-<name>-e2e \
-    -DskipUT -DskipIT=false verify
+    -DskipUT -DskipIT=false -Dit.test=<TestClassName> verify
 ```
 
 ## Checklist
