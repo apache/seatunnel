@@ -50,7 +50,7 @@ Jira Email
 
 Jira API Token
 
-https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account
+https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/
 
 ### method [String]
 
