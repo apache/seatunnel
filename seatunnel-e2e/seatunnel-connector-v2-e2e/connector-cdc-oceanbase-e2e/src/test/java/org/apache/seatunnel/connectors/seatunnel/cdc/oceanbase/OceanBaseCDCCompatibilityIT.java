@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.mysql;
+package org.apache.seatunnel.connectors.seatunnel.cdc.oceanbase;
 
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
@@ -76,7 +76,7 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
     /** Administrative user used by the test to prepare source and sink tables. */
     private static final String MYSQL_USER_NAME = "mysqluser";
 
-    /** Password shared by the setup SQL users in the MySQL CDC E2E environment. */
+    /** Password shared by the setup SQL users in the MySQL-compatible E2E environment. */
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
 
     /** Database name shared with the SeaTunnel job config under test. */
@@ -96,7 +96,7 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
 
     /**
-     * Build the MySQL source with GTID/binlog settings required by CDC readers.
+     * Build the MySQL-compatible source with GTID/binlog settings required by CDC readers.
      *
      * @return configured MySQL container
      */

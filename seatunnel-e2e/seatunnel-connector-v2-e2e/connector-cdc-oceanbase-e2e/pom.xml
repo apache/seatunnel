@@ -22,8 +22,8 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-cdc-mysql-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : CDC MySql</name>
+    <artifactId>connector-cdc-oceanbase-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : CDC OceanBase</name>
 
     <dependencyManagement>
         <dependencies>
@@ -48,7 +48,7 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-cdc-mysql</artifactId>
+            <artifactId>connector-cdc-oceanbase</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -62,23 +62,10 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transforms-v2</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-assert</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
