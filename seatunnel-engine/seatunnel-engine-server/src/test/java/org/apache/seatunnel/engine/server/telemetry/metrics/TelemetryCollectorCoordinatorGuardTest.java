@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.observability.cluster.ClusterObservabilityService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -36,9 +37,14 @@ import org.mockito.Mockito;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.config.Config;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
+import com.hazelcast.internal.jmx.InstanceMBean;
+import com.hazelcast.internal.jmx.ManagementService;
+import com.hazelcast.internal.jmx.PartitionServiceMBean;
+import com.hazelcast.internal.partition.InternalPartitionService;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.version.Version;
@@ -57,6 +63,9 @@ public class TelemetryCollectorCoordinatorGuardTest {
     private CoordinatorService mockCoordinatorService;
     private ClusterServiceImpl mockClusterService;
     private ILogger mockLogger;
+    private ClusterObservabilityService mockClusterObservabilityService;
+    private InternalPartitionService mockPartitionService;
+    private PartitionServiceMBean mockPartitionServiceMBean;
 
     @BeforeEach
     void setUp() throws UnknownHostException, NoSuchFieldException, IllegalAccessException {
@@ -65,10 +74,16 @@ public class TelemetryCollectorCoordinatorGuardTest {
         mockCoordinatorService = Mockito.mock(CoordinatorService.class);
         mockClusterService = Mockito.mock(ClusterServiceImpl.class);
         mockLogger = Mockito.mock(ILogger.class);
+        mockClusterObservabilityService = Mockito.mock(ClusterObservabilityService.class);
+        mockPartitionService = Mockito.mock(InternalPartitionService.class);
+        mockPartitionServiceMBean = Mockito.mock(PartitionServiceMBean.class);
 
         NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
         MemberImpl mockMember = Mockito.mock(MemberImpl.class);
         Config mockConfig = Mockito.mock(Config.class);
+        HazelcastInstanceImpl mockHazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
+        ManagementService mockManagementService = Mockito.mock(ManagementService.class);
+        InstanceMBean mockInstanceMBean = Mockito.mock(InstanceMBean.class);
 
         Mockito.when(mockNode.getNodeEngine()).thenReturn(mockNodeEngine);
         Mockito.when(mockNodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
@@ -77,7 +92,13 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.when(mockNode.getClusterService()).thenReturn(mockClusterService);
         Mockito.when(mockNode.getLogger(Mockito.any(Class.class))).thenReturn(mockLogger);
         Mockito.when(mockNode.getConfig()).thenReturn(mockConfig);
+        Mockito.when(mockNode.getPartitionService()).thenReturn(mockPartitionService);
         Mockito.when(mockConfig.getClusterName()).thenReturn("test-cluster");
+        Mockito.when(mockHazelcastInstance.getManagementService())
+                .thenReturn(mockManagementService);
+        Mockito.when(mockManagementService.getInstanceMBean()).thenReturn(mockInstanceMBean);
+        Mockito.when(mockInstanceMBean.getPartitionServiceMBean())
+                .thenReturn(mockPartitionServiceMBean);
 
         // AbstractCollector.getLocalMember() reads Node.nodeEngine as a direct public field,
         // not via a getter, so we inject it via reflection.
@@ -85,11 +106,24 @@ public class TelemetryCollectorCoordinatorGuardTest {
         nodeEngineField.setAccessible(true);
         nodeEngineField.set(mockNode, mockNodeEngine);
 
+        Field hazelcastInstanceField = Node.class.getDeclaredField("hazelcastInstance");
+        hazelcastInstanceField.setAccessible(true);
+        hazelcastInstanceField.set(mockNode, mockHazelcastInstance);
+
         InetAddress inetAddress = InetAddress.getByName("127.0.0.1");
         Mockito.when(mockMember.getInetAddress()).thenReturn(inetAddress);
         Mockito.when(mockMember.getPort()).thenReturn(5801);
 
         Mockito.when(mockServer.getCoordinatorService()).thenReturn(mockCoordinatorService);
+        Mockito.when(mockServer.getClusterObservabilityService())
+                .thenReturn(mockClusterObservabilityService);
+        Mockito.when(mockClusterObservabilityService.snapshot())
+                .thenReturn(
+                        new ClusterObservabilityService.ClusterObservabilitySnapshot(
+                                0L, 0L, 0L, 0L, 0L, 0L));
+        Mockito.when(mockPartitionService.hasOnGoingMigration()).thenReturn(false);
+        Mockito.when(mockPartitionService.isMemberStateSafe()).thenReturn(true);
+        Mockito.when(mockPartitionServiceMBean.isClusterSafe()).thenReturn(true);
 
         // Default stubs for ClusterService — always needed because clusterTime() and nodeCount()
         // run unconditionally on every collect() call.
@@ -311,6 +345,50 @@ public class TelemetryCollectorCoordinatorGuardTest {
                         Mockito.any(UnknownHostException.class));
     }
 
+    @Test
+    void testClusterMetricExportsIncludesSeatunnelClusterHealthAndTopologyMetrics()
+            throws UnknownHostException {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockClusterService.getMasterAddress())
+                .thenReturn(new Address("127.0.0.1", 5801));
+        Mockito.when(mockClusterService.getMemberImpls())
+                .thenReturn(Collections.singletonList(Mockito.mock(MemberImpl.class)));
+        Mockito.when(mockPartitionService.hasOnGoingMigration()).thenReturn(true);
+        Mockito.when(mockPartitionServiceMBean.isClusterSafe()).thenReturn(false);
+        Mockito.when(mockClusterObservabilityService.snapshot())
+                .thenReturn(
+                        new ClusterObservabilityService.ClusterObservabilitySnapshot(
+                                7L, 3L, 2L, 111L, 222L, 333L));
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        assertSingleClusterMetricSample(findMetric(result, "seatunnel_engine_cluster_safe"), 0D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_member_count"), 1D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_partition_migration_in_progress"), 1D);
+        assertCounterClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_master_change"),
+                "seatunnel_engine_cluster_master_change_total",
+                2D);
+        assertCounterClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_member_join"),
+                "seatunnel_engine_cluster_member_join_total",
+                7D);
+        assertCounterClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_member_leave"),
+                "seatunnel_engine_cluster_member_leave_total",
+                3D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_last_master_change_timestamp_ms"),
+                333D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_last_member_join_timestamp_ms"), 111D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_last_member_leave_timestamp_ms"),
+                222D);
+    }
+
     private void assertMetricSample(
             Collector.MetricFamilySamples metricFamilySamples,
             String expectedSampleName,
@@ -340,6 +418,38 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Collector.MetricFamilySamples.Sample sample = metricFamilySamples.samples.get(0);
         assertAddressLabel(sample);
         Assertions.assertEquals(expectedValue, sample.value);
+    }
+
+    private void assertSingleClusterMetricSample(
+            Collector.MetricFamilySamples metricFamilySamples, double expectedValue) {
+        Assertions.assertNotNull(metricFamilySamples);
+        Assertions.assertEquals(1, metricFamilySamples.samples.size());
+        Collector.MetricFamilySamples.Sample sample = metricFamilySamples.samples.get(0);
+        assertClusterLabel(sample);
+        Assertions.assertEquals(expectedValue, sample.value);
+    }
+
+    private void assertCounterClusterMetricSample(
+            Collector.MetricFamilySamples metricFamilySamples,
+            String expectedSampleName,
+            double expectedValue) {
+        Assertions.assertNotNull(metricFamilySamples);
+        Assertions.assertEquals(1, metricFamilySamples.samples.size());
+        Collector.MetricFamilySamples.Sample sample = metricFamilySamples.samples.get(0);
+        Assertions.assertEquals(expectedSampleName, sample.name);
+        assertClusterLabel(sample);
+        Assertions.assertEquals(expectedValue, sample.value);
+    }
+
+    private void assertClusterLabel(Collector.MetricFamilySamples.Sample sample) {
+        int clusterLabelIndex = sample.labelNames.indexOf("cluster");
+        Assertions.assertTrue(clusterLabelIndex >= 0, "metric sample must contain 'cluster' label");
+        Assertions.assertEquals("test-cluster", sample.labelValues.get(clusterLabelIndex));
+    }
+
+    private Collector.MetricFamilySamples findMetric(
+            List<Collector.MetricFamilySamples> result, String name) {
+        return result.stream().filter(s -> name.equals(s.name)).findFirst().orElse(null);
     }
 
     private void assertAddressLabel(Collector.MetricFamilySamples.Sample sample) {
