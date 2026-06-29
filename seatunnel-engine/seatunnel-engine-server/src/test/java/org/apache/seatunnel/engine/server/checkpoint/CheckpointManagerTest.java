@@ -101,4 +101,168 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
     }
+
+    @Test
+    public void testRetainCheckpointAfterCancelledWhenEnabled() throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                new CheckpointStorageConfig().getStorage())
+                        .create(new HashMap<>());
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        1,
+                        1,
+                        Instant.now().toEpochMilli(),
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        Instant.now().toEpochMilli(),
+                        new HashMap<>(),
+                        new HashMap<>());
+        checkpointStorage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(jobId + "")
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
+                        .build());
+
+        CheckpointConfig config = new CheckpointConfig();
+        config.setRetainAfterJobCancelled(true);
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        config,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        null);
+
+        // Checkpoint should be retained on CANCELED when retainAfterJobCancelled=true
+        checkpointManager.clearCheckpointIfNeed(JobStatus.CANCELED);
+        Assertions.assertFalse(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be retained after cancel when retain-after-job-cancelled is enabled");
+    }
+
+    @Test
+    public void testDeleteCheckpointAfterFinishedEvenWhenRetainEnabled()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                new CheckpointStorageConfig().getStorage())
+                        .create(new HashMap<>());
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        1,
+                        1,
+                        Instant.now().toEpochMilli(),
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        Instant.now().toEpochMilli(),
+                        new HashMap<>(),
+                        new HashMap<>());
+        checkpointStorage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(jobId + "")
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
+                        .build());
+
+        CheckpointConfig config = new CheckpointConfig();
+        config.setRetainAfterJobCancelled(true);
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        config,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        null);
+
+        // Checkpoint should still be deleted on FINISHED even when retainAfterJobCancelled=true
+        checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
+        Assertions.assertTrue(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be cleaned up after FINISHED regardless of retain setting");
+    }
+
+    @Test
+    public void testDeleteCheckpointAfterCancelledWhenRetainDisabled()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                new CheckpointStorageConfig().getStorage())
+                        .create(new HashMap<>());
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        1,
+                        1,
+                        Instant.now().toEpochMilli(),
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        Instant.now().toEpochMilli(),
+                        new HashMap<>(),
+                        new HashMap<>());
+        checkpointStorage.storeCheckPoint(
+                PipelineState.builder()
+                        .jobId(jobId + "")
+                        .pipelineId(1)
+                        .checkpointId(1)
+                        .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
+                        .build());
+
+        CheckpointConfig config = new CheckpointConfig();
+        // retainAfterJobCancelled defaults to false
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
+        CheckpointManager checkpointManager =
+                new CheckpointManager(
+                        jobId,
+                        false,
+                        RestoreMode.NONE,
+                        null,
+                        nodeEngine,
+                        null,
+                        planMap,
+                        config,
+                        server.getCheckpointService().getCheckpointStorage(),
+                        instance.getExecutorService("test"),
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        null);
+
+        // Default behavior: checkpoint should be deleted on CANCELED
+        checkpointManager.clearCheckpointIfNeed(JobStatus.CANCELED);
+        Assertions.assertTrue(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be cleaned up after cancel when retain is disabled (default)");
+    }
 }

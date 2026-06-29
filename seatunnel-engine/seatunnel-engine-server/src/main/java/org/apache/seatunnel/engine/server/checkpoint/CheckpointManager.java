@@ -280,7 +280,14 @@ public class CheckpointManager {
         if (checkpointConfig.isCheckpointEnable()
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
-            checkpointStorage.deleteCheckpoint(jobId + "");
+            if (jobStatus == JobStatus.CANCELED
+                    && checkpointConfig.isRetainAfterJobCancelled()) {
+                log.info(
+                        "Job {} has retain-after-job-cancelled enabled, retaining checkpoint data",
+                        jobId);
+            } else {
+                checkpointStorage.deleteCheckpoint(jobId + "");
+            }
         }
         if (checkpointMonitorService != null
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)) {
