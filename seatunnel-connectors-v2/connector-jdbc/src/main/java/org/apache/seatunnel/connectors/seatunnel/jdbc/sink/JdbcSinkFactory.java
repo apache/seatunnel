@@ -193,7 +193,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
                         sinkConfig.getJdbcConnectionConfig().getDialect(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
-        dialect.validateTableOptions(sinkTableOptions);
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
@@ -248,8 +247,12 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.TABLE_PREFIX,
                         JdbcSinkOptions.TABLE_SUFFIX,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        SinkConnectorCommonOptions.TABLE_OPTIONS,
                         JdbcSinkOptions.DIALECT)
+                .optional(
+                        SinkConnectorCommonOptions.TABLE_OPTIONS,
+                        Conditions.extension(
+                                SinkConnectorCommonOptions.TABLE_OPTIONS,
+                                JdbcTableOptionsConditionExtension.INSTANCE))
                 .conditional(
                         JdbcSinkOptions.IS_EXACTLY_ONCE,
                         true,
