@@ -445,25 +445,26 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
                 break;
             case GZ:
-                GzipCompressorInputStream gzipIn =
-                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path));
-                GzipParameters parameters = gzipIn.getMetaData();
-                String fileName = parameters.getFilename();
-                if (fileName == null) {
-                    // remove file suffix
-                    // eg: excel need full compressed name
-                    if (fileFormat == FileFormat.EXCEL) {
-                        if (path.endsWith(".gz")) {
-                            fileName = path.substring(0, path.length() - 3);
+                try (GzipCompressorInputStream gzipIn =
+                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    GzipParameters parameters = gzipIn.getMetaData();
+                    String fileName = parameters.getFilename();
+                    if (fileName == null) {
+                        // remove file suffix
+                        // eg: excel need full compressed name
+                        if (fileFormat == FileFormat.EXCEL) {
+                            if (path.endsWith(".gz")) {
+                                fileName = path.substring(0, path.length() - 3);
+                            } else {
+                                throw new IllegalArgumentException(
+                                        "Excel file must have a .gz extension. File: " + path);
+                            }
                         } else {
-                            throw new IllegalArgumentException(
-                                    "Excel file must have a .gz extension. File: " + path);
+                            fileName = path;
                         }
-                    } else {
-                        fileName = path;
                     }
+                    readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 }
-                readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 break;
             case NONE:
                 readProcess(

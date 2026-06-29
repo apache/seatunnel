@@ -20,12 +20,17 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
@@ -35,8 +40,10 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -46,11 +53,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,6 +69,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -95,6 +105,29 @@ public class AbstractReadStrategyTest {
             Assertions.assertEquals("56789", new String(out.toByteArray(), StandardCharsets.UTF_8));
             Assertions.assertTrue(in.seekCalled);
         }
+    }
+
+    @Test
+    void testGzipInputStreamClosedWhenReadProcessFails() throws Exception {
+        CloseTrackingInputStream gzipInputStream =
+                new CloseTrackingInputStream(gzipBytes("test content"));
+        HadoopFileSystemProxy hadoopFileSystemProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(hadoopFileSystemProxy.getInputStream("/tmp/test.txt.gz"))
+                .thenReturn(new FSDataInputStream(gzipInputStream));
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                new FailingGzipReadStrategy(hadoopFileSystemProxy)
+                                        .resolveArchiveCompressedInputStream(
+                                                new FileSourceSplit("test", "/tmp/test.txt.gz"),
+                                                new TempCollector(),
+                                                new HashMap<>(),
+                                                FileFormat.TEXT));
+
+        Assertions.assertEquals("read failed", exception.getMessage());
+        Assertions.assertTrue(gzipInputStream.closed);
     }
 
     @DisabledOnOs(OS.WINDOWS)
@@ -184,6 +217,85 @@ public class AbstractReadStrategyTest {
                 }
             }
         }
+    }
+
+    private static class FailingGzipReadStrategy extends TextReadStrategy {
+        private FailingGzipReadStrategy(HadoopFileSystemProxy hadoopFileSystemProxy) {
+            this.hadoopFileSystemProxy = hadoopFileSystemProxy;
+            this.archiveCompressFormat = ArchiveCompressFormat.GZ;
+        }
+
+        @Override
+        public void readProcess(
+                FileSourceSplit split,
+                Collector<SeaTunnelRow> output,
+                InputStream inputStream,
+                Map<String, String> partitionsMap,
+                String currentFileName)
+                throws IOException {
+            throw new IOException("read failed");
+        }
+    }
+
+    private static class CloseTrackingInputStream extends ByteArrayInputStream
+            implements Seekable, PositionedReadable {
+        private boolean closed;
+
+        private CloseTrackingInputStream(byte[] data) {
+            super(data);
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            super.close();
+        }
+
+        @Override
+        public void seek(long newPos) {
+            this.pos = (int) newPos;
+        }
+
+        @Override
+        public long getPos() {
+            return pos;
+        }
+
+        @Override
+        public boolean seekToNewSource(long targetPos) {
+            return false;
+        }
+
+        @Override
+        public int read(long position, byte[] buffer, int offset, int length) {
+            int currentPosition = this.pos;
+            this.pos = (int) position;
+            int bytesRead = read(buffer, offset, length);
+            this.pos = currentPosition;
+            return bytesRead;
+        }
+
+        @Override
+        public void readFully(long position, byte[] buffer, int offset, int length)
+                throws IOException {
+            int bytesRead = read(position, buffer, offset, length);
+            if (bytesRead < length) {
+                throw new EOFException();
+            }
+        }
+
+        @Override
+        public void readFully(long position, byte[] buffer) throws IOException {
+            readFully(position, buffer, 0, buffer.length);
+        }
+    }
+
+    private static byte[] gzipBytes(String content) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream)) {
+            gzipOutputStream.write(content.getBytes(StandardCharsets.UTF_8));
+        }
+        return outputStream.toByteArray();
     }
 
     private static class TrackingSeekableInputStream extends InputStream implements Seekable {
