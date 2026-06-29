@@ -50,7 +50,9 @@ class JdbcTableOptionsConditionExtensionTest {
     @Test
     void testPostgresRejectsNonEmptyTableOptionsViaOptionRule() {
         Map<String, Object> config = postgresSinkConfig();
-        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), Map.of("fillfactor", "70"));
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("fillfactor", "70");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
 
         OptionValidationException exception =
                 Assertions.assertThrows(
