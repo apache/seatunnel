@@ -70,6 +70,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    private static final int STREAM_READY_MARKER_ID = 1000;
+    private static final String STREAM_READY_MARKER_NAME = "__cdc_stream_ready__";
+    private static final String STREAM_READY_MARKER_DESCRIPTION =
+            "wait for binlog stream readiness";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -175,6 +179,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
 
+        waitForStreamingReady(database, sourceTable, sinkTable);
+
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(180000, TimeUnit.MILLISECONDS)
@@ -252,6 +258,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
 
+        waitForStreamingReady(database, sourceTable, sinkTable);
+
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(180000, TimeUnit.MILLISECONDS)
@@ -307,6 +315,45 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Flink can finish the snapshot before the CDC reader is ready to consume the next binlog
+     * event. Emit a deterministic warm-up row and wait for it in the sink so later schema-change
+     * DDL bursts do not race the stream startup on slower CI runners.
+     */
+    private void waitForStreamingReady(String database, String sourceTable, String sinkTable) {
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id, name, description, weight) "
+                                + "VALUES (%d, '%s', '%s', 0.0) "
+                                + "ON DUPLICATE KEY UPDATE "
+                                + "name = VALUES(name), description = VALUES(description), weight = VALUES(weight)",
+                        database,
+                        sourceTable,
+                        STREAM_READY_MARKER_ID,
+                        STREAM_READY_MARKER_NAME,
+                        STREAM_READY_MARKER_DESCRIPTION));
+
+        String readyQuery =
+                String.format(
+                        "select id,name,description,weight from %%s.%%s where id = %d order by id",
+                        STREAM_READY_MARKER_ID);
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(readyQuery, database, sourceTable)),
+                                        query(String.format(readyQuery, database, sinkTable))));
+    }
+
+    private void executeSql(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
