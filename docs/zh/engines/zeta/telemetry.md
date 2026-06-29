@@ -55,6 +55,9 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 这些指标从 SeaTunnel Engine 的视角暴露集群稳定性和最近的拓扑变化，帮助运维人员回答如下问题：当前集群是否安全、最近是否发生过
 master 切换、某个作业失败前是否发生过成员离开等。
 
+这些指标仅由当前 active master 输出。因此，从 worker 节点抓取 metrics 时，可能不会包含
+`seatunnel_engine_cluster_*` 指标。
+
 这些拓扑计数器是轻量级观测信号，保存在本地内存状态中，并由当前 master 输出。在 master 切换或进程重启后，它们可能会重置，因此不应
 被理解为持久化的、覆盖整个集群生命周期的累计总量。
 

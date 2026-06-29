@@ -55,6 +55,9 @@ These metrics expose a SeaTunnel Engine view of cluster stability and recent top
 help operators answer questions such as whether the cluster is safe now, whether a master change happened recently,
 or whether a member left shortly before a job failure.
 
+These metrics are exported by the active master only. A worker metrics scrape may not contain the
+`seatunnel_engine_cluster_*` metrics.
+
 These topology counters are lightweight observability signals kept in local in-memory state and exported from the
 current master. They may reset after master failover or process restart and should not be interpreted as durable
 cluster-lifetime totals.
