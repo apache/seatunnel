@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecti
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.milvus.grpc.DataType;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyField;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_AUTO_ID;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_DYNAMIC_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_NULLABLE_FIELD;
 
 public class MilvusSinkConverter {
     private static final Gson gson = new Gson();
@@ -126,7 +128,11 @@ public class MilvusSinkConverter {
     }
 
     public static FieldType convertToFieldType(
-            Column column, PrimaryKey primaryKey, String partitionKeyField, Boolean autoId) {
+            Column column,
+            PrimaryKey primaryKey,
+            String partitionKeyField,
+            Boolean autoId,
+            Boolean enableNullableField) {
         SeaTunnelDataType<?> seaTunnelDataType = column.getDataType();
         DataType milvusDataType;
         if (column.getSinkType() != null) {
@@ -135,7 +141,10 @@ public class MilvusSinkConverter {
             milvusDataType = convertSqlTypeToDataType(seaTunnelDataType.getSqlType());
         }
         FieldType.Builder build =
-                FieldType.newBuilder().withName(column.getName()).withDataType(milvusDataType);
+                FieldType.newBuilder()
+                        .withName(column.getName())
+                        .withDataType(milvusDataType)
+                        .withNullable(allowNullableField(column, primaryKey, enableNullableField));
         if (StringUtils.isNotEmpty(column.getComment())) {
             build.withDescription(column.getComment());
         }
@@ -210,6 +219,29 @@ public class MilvusSinkConverter {
         return build.build();
     }
 
+    private static boolean allowNullableField(
+            Column column, PrimaryKey primaryKey, Boolean enableNullableField) {
+        return Boolean.TRUE.equals(enableNullableField)
+                && column.isNullable()
+                && supportNullableField(column, primaryKey);
+    }
+
+    private static boolean supportNullableField(Column column, PrimaryKey primaryKey) {
+        if (isPrimaryKeyField(primaryKey, column.getName())) {
+            return false;
+        }
+        switch (column.getDataType().getSqlType()) {
+            case FLOAT_VECTOR:
+            case BINARY_VECTOR:
+            case FLOAT16_VECTOR:
+            case BFLOAT16_VECTOR:
+            case SPARSE_FLOAT_VECTOR:
+                return false;
+            default:
+                return true;
+        }
+    }
+
     public static DataType convertSqlTypeToDataType(SqlType sqlType) {
         switch (sqlType) {
             case BOOLEAN:
@@ -260,6 +292,7 @@ public class MilvusSinkConverter {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         Boolean autoId = config.get(ENABLE_AUTO_ID);
+        Boolean enableNullableField = config.get(ENABLE_NULLABLE_FIELD);
 
         JsonObject data = new JsonObject();
         Gson gson = new Gson();
@@ -273,21 +306,28 @@ public class MilvusSinkConverter {
 
             SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(i);
             Object value = element.getField(i);
-            if (null == value) {
-                throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.FIELD_IS_NULL, fieldName);
-            }
             // if the field is dynamic field, then parse the dynamic field
             if (dynamicField != null
                     && dynamicField.equals(fieldName)
                     && config.get(ENABLE_DYNAMIC_FIELD)) {
-                JsonObject dynamicData = gson.fromJson(value.toString(), JsonObject.class);
-                dynamicData
-                        .entrySet()
-                        .forEach(
-                                entry -> {
-                                    data.add(entry.getKey(), entry.getValue());
-                                });
+                if (value != null) {
+                    JsonObject dynamicData = gson.fromJson(value.toString(), JsonObject.class);
+                    dynamicData
+                            .entrySet()
+                            .forEach(
+                                    entry -> {
+                                        data.add(entry.getKey(), entry.getValue());
+                                    });
+                }
+                continue;
+            }
+            if (value == null) {
+                Column column = catalogTable.getTableSchema().getColumn(fieldName);
+                if (!allowNullableField(column, primaryKey, enableNullableField)) {
+                    throw new MilvusConnectorException(
+                            MilvusConnectionErrorCode.FIELD_IS_NULL, fieldName);
+                }
+                data.add(fieldName, JsonNull.INSTANCE);
                 continue;
             }
             Object object = convertBySeaTunnelType(fieldType, isJson, value);

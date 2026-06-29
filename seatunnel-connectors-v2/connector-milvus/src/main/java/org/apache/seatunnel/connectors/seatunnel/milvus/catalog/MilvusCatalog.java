@@ -302,7 +302,8 @@ public class MilvusCatalog implements Catalog {
                                 column,
                                 tableSchema.getPrimaryKey(),
                                 partitionKeyField,
-                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID));
+                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID),
+                                config.get(MilvusSinkOptions.ENABLE_NULLABLE_FIELD));
                 fieldTypes.add(fieldType);
             }
 

@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
@@ -198,6 +199,13 @@ public class JsonToRowConverters implements Serializable {
                         return convertToBigDecimal(jsonNode);
                     }
                 };
+            case FLOAT_VECTOR:
+                return new JsonToObjectConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode, String fieldName) {
+                        return convertToFloatVector(jsonNode, fieldName);
+                    }
+                };
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
@@ -340,6 +348,19 @@ public class JsonToRowConverters implements Serializable {
         }
 
         return bigDecimal;
+    }
+
+    private Object convertToFloatVector(JsonNode jsonNode, String fieldName) {
+        if (!jsonNode.isArray()) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    String.format("Field '%s' expects an array for FLOAT_VECTOR.", fieldName));
+        }
+        Float[] values = new Float[jsonNode.size()];
+        for (int i = 0; i < jsonNode.size(); i++) {
+            values[i] = convertToFloat(jsonNode.get(i));
+        }
+        return VectorUtils.toByteBuffer(values);
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {
