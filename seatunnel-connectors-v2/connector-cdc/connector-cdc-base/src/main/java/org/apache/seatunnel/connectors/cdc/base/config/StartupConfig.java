@@ -21,20 +21,49 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
-@AllArgsConstructor
 @EqualsAndHashCode
 public final class StartupConfig implements Serializable {
     private static final long serialVersionUID = 1L;
+
     @Getter private final StartupMode startupMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
+    private final Map<String, String> specificOffset;
     @Getter private final Long timestamp;
+
+    public StartupConfig(
+            StartupMode startupMode,
+            String specificOffsetFile,
+            Long specificOffsetPos,
+            Long timestamp) {
+        this(startupMode, specificOffsetFile, specificOffsetPos, null, timestamp);
+    }
+
+    public static StartupConfig specificOffset(Map<String, String> specificOffset) {
+        return new StartupConfig(
+                StartupMode.SPECIFIC, null, null, Objects.requireNonNull(specificOffset), null);
+    }
+
+    private StartupConfig(
+            StartupMode startupMode,
+            String specificOffsetFile,
+            Long specificOffsetPos,
+            Map<String, String> specificOffset,
+            Long timestamp) {
+        this.startupMode = startupMode;
+        this.specificOffsetFile = specificOffsetFile;
+        this.specificOffsetPos = specificOffsetPos;
+        this.specificOffset = specificOffset == null ? null : new HashMap<>(specificOffset);
+        this.timestamp = timestamp;
+    }
 
     public Offset getStartupOffset(OffsetFactory offsetFactory) {
         switch (startupMode) {
@@ -45,6 +74,9 @@ public final class StartupConfig implements Serializable {
             case INITIAL:
                 return null;
             case SPECIFIC:
+                if (specificOffset != null) {
+                    return offsetFactory.specific(new HashMap<>(specificOffset));
+                }
                 return offsetFactory.specific(specificOffsetFile, specificOffsetPos);
             case TIMESTAMP:
                 return offsetFactory.timestamp(timestamp);

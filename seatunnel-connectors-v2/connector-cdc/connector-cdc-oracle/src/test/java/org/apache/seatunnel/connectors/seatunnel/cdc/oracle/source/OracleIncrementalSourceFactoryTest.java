@@ -18,12 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -42,6 +44,19 @@ class OracleIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new OracleIncrementalSourceFactory()).optionRule());
+    }
+
+    @Test
+    public void testOnlyNeverStopModeIsSupported() {
+        new OracleIncrementalSourceFactory()
+                .optionRule().getOptionalOptions().stream()
+                        .filter((option) -> option.key().equals(SourceOptions.STOP_MODE_KEY))
+                        .forEach(
+                                (option) ->
+                                        Assertions.assertIterableEquals(
+                                                Collections.singletonList(StopMode.NEVER),
+                                                ((SingleChoiceOption<StopMode>) option)
+                                                        .getOptionValues()));
     }
 
     @Test
