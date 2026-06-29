@@ -17,27 +17,29 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
-import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 class PulsarConfigUtilTest {
 
     @Test
-    void shouldPreloadDeferredCleanupClasses() {
-        List<Class<?>> loadedClasses =
-                PulsarConfigUtil.preloadDeferredCleanupClasses(
-                        PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED);
+    void shouldRunActionWithConnectorClassLoaderAndRestoreOriginalClassLoader() throws Exception {
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {};
 
-        Assertions.assertEquals(
-                Arrays.asList(
-                        "org.apache.pulsar.shade.io.netty.util.concurrent.DefaultPromise$1",
-                        "org.apache.pulsar.shade.org.jvnet.hk2.internal.ServiceLocatorImpl$7"),
-                loadedClasses.stream().map(Class::getName).collect(Collectors.toList()));
+        try {
+            Thread.currentThread().setContextClassLoader(unrelatedClassLoader);
+
+            PulsarConfigUtil.runWithConnectorClassLoader(
+                    () ->
+                            Assertions.assertSame(
+                                    PulsarConfigUtil.class.getClassLoader(),
+                                    Thread.currentThread().getContextClassLoader()));
+
+            Assertions.assertSame(
+                    unrelatedClassLoader, Thread.currentThread().getContextClassLoader());
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
     }
 }

@@ -43,19 +43,12 @@ import org.apache.pulsar.client.impl.auth.AuthenticationDisabled;
 import org.apache.pulsar.client.impl.transaction.TransactionImpl;
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class PulsarConfigUtil {
-
-    private static final String[] DEFERRED_CLEANUP_CLASS_NAMES = {
-        "org.apache.pulsar.shade.io.netty.util.concurrent.DefaultPromise$1",
-        "org.apache.pulsar.shade.org.jvnet.hk2.internal.ServiceLocatorImpl$7"
-    };
 
     private PulsarConfigUtil() {}
 
@@ -64,7 +57,6 @@ public class PulsarConfigUtil {
         builder.serviceHttpUrl(config.getAdminUrl());
         builder.authentication(createAuthentication(config));
         try {
-            preloadDeferredCleanupClasses(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED);
             return builder.build();
         } catch (PulsarClientException e) {
             throw new PulsarConnectorException(
@@ -81,7 +73,6 @@ public class PulsarConfigUtil {
             builder.enableTransaction(true);
         }
         try {
-            preloadDeferredCleanupClasses(PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED);
             return builder.build();
         } catch (PulsarClientException e) {
             throw new PulsarConnectorException(
@@ -90,29 +81,27 @@ public class PulsarConfigUtil {
     }
 
     /**
-     * Preload shutdown-only runtime helpers while the connector classloader is still active.
+     * Runs a Pulsar action with the connector classloader as the thread context classloader.
      *
-     * <p>Pulsar may initialize these helper classes lazily from async cleanup threads and Jersey
-     * shutdown hooks after Flink has started tearing down the user-code classloader. Loading the
-     * verified cleanup-time helper classes eagerly prevents shutdown-only {@code
-     * ClassNotFoundException} and {@code NoClassDefFoundError} failures after a successful job
-     * execution.
+     * <p>Pulsar and its shaded Netty/Jersey stack can lazily resolve implementation classes while
+     * closing clients, consumers, producers, and admins. SeaTunnel may call connector close methods
+     * from engine threads whose context classloader no longer points to the Pulsar connector, so
+     * the cleanup action must restore the connector classloader instead of preloading
+     * version-specific Pulsar private classes.
      */
-    static List<Class<?>> preloadDeferredCleanupClasses(PulsarConnectorErrorCode errorCode) {
-        ClassLoader classLoader = PulsarConfigUtil.class.getClassLoader();
-        List<Class<?>> loadedClasses = new ArrayList<>(DEFERRED_CLEANUP_CLASS_NAMES.length);
-        for (String className : DEFERRED_CLEANUP_CLASS_NAMES) {
-            try {
-                loadedClasses.add(Class.forName(className, false, classLoader));
-            } catch (ClassNotFoundException e) {
-                throw new PulsarConnectorException(
-                        errorCode,
-                        String.format(
-                                "Failed to preload Pulsar cleanup runtime class '%s'.", className),
-                        e);
-            }
+    public static void runWithConnectorClassLoader(ConnectorClassLoaderAction action)
+            throws Exception {
+        ClassLoader connectorClassLoader = PulsarConfigUtil.class.getClassLoader();
+        Thread thread = Thread.currentThread();
+        ClassLoader originalClassLoader = thread.getContextClassLoader();
+        if (originalClassLoader != connectorClassLoader) {
+            thread.setContextClassLoader(connectorClassLoader);
         }
-        return loadedClasses;
+        try {
+            action.run();
+        } finally {
+            thread.setContextClassLoader(originalClassLoader);
+        }
     }
 
     public static ConsumerBuilder<byte[]> createConsumerBuilder(
@@ -232,5 +221,17 @@ public class PulsarConfigUtil {
             Producer<byte[]> producer, TransactionImpl transaction) throws PulsarClientException {
         ProducerBase<byte[]> producerBase = (ProducerBase<byte[]>) producer;
         return new TypedMessageBuilderImpl<byte[]>(producerBase, Schema.BYTES, transaction);
+    }
+
+    /** Action that may throw while running under the Pulsar connector classloader. */
+    @FunctionalInterface
+    public interface ConnectorClassLoaderAction {
+
+        /**
+         * Executes the action.
+         *
+         * @throws Exception when the wrapped Pulsar operation fails
+         */
+        void run() throws Exception;
     }
 }
