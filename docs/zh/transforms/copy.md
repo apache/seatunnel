@@ -62,4 +62,4 @@ transform {
 
 - 添加复制转换连接器
 - 支持将字段复制到新字段
-
+- 支持对嵌套 row、map、array、vector、timestamp_tz 和 multiple row 做深拷贝
