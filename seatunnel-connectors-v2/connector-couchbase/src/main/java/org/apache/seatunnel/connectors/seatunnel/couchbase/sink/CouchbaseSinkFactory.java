@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.couchbase.config.CouchbaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.couchbase.exception.CouchbaseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.couchbase.exception.CouchbaseConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -65,6 +67,21 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+
+        // Issue 2 guard: upsert without a primary key produces random-UUID document keys,
+        // which breaks upsert semantics. Fail fast here rather than silently degrading.
+        boolean upsertEnabled =
+                config.getOptional(CouchbaseSinkOptions.UPSERT_ENABLE).orElse(false);
+        boolean hasPrimaryKey =
+                config.getOptional(CouchbaseSinkOptions.PRIMARY_KEY)
+                        .map(keys -> !keys.isEmpty())
+                        .orElse(false);
+        if (upsertEnabled && !hasPrimaryKey) {
+            throw new CouchbaseConnectorException(
+                    CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                    "'upsert-enable' is true but 'primary-key' is not configured. "
+                            + "Upsert requires a primary key to build a stable document key.");
+        }
 
         CouchbaseWriterOptions.Builder builder =
                 CouchbaseWriterOptions.builder()

@@ -21,16 +21,16 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.containers.Container;
+import org.testcontainers.couchbase.BucketDefinition;
+import org.testcontainers.couchbase.CouchbaseContainer;
+import org.testcontainers.couchbase.CouchbaseService;
 import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.json.JsonObject;
@@ -38,108 +38,103 @@ import com.couchbase.client.java.query.QueryResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.Base64;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * End-to-end integration test for the Couchbase sink connector.
  *
- * <p>Starts a real Couchbase community server via Testcontainers, writes data through SeaTunnel
- * using the FakeSource connector, and verifies that the documents appear in the target collection.
+ * <p>Starts a real Couchbase community server via {@link CouchbaseContainer}, which handles full
+ * cluster bootstrap automatically (node init, services, memory quotas, credentials, bucket). The
+ * test then creates one scoped collection, writes 100 rows through SeaTunnel using the FakeSource
+ * connector, and asserts both the exact row count and a content-level check on one document.
  */
 @Slf4j
 public class CouchbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String COUCHBASE_IMAGE = "couchbase/server:community-7.1.1";
     private static final String COUCHBASE_CONTAINER_HOST = "e2e_couchbase";
-    private static final int COUCHBASE_PORT = 8091;
-    private static final int COUCHBASE_QUERY_PORT = 8093;
     private static final String COUCHBASE_USERNAME = "Administrator";
     private static final String COUCHBASE_PASSWORD = "password";
     private static final String COUCHBASE_BUCKET = "test_bucket";
     private static final String COUCHBASE_SCOPE = "_default";
     private static final String COUCHBASE_COLLECTION = "test_collection";
 
-    private GenericContainer<?> couchbaseContainer;
+    /** Matches row.num in fake_source_to_couchbase.conf. */
+    private static final int EXPECTED_ROW_COUNT = 100;
+
+    private CouchbaseContainer couchbaseContainer;
     private Cluster cluster;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
         couchbaseContainer =
-                new GenericContainer<>(DockerImageName.parse(COUCHBASE_IMAGE))
+                new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE))
+                        .withNetwork(NETWORK)
                         .withNetworkAliases(COUCHBASE_CONTAINER_HOST)
-                        .withExposedPorts(COUCHBASE_PORT, COUCHBASE_QUERY_PORT)
-                        .withEnv("COUCHBASE_ADMINISTRATOR_USERNAME", COUCHBASE_USERNAME)
-                        .withEnv("COUCHBASE_ADMINISTRATOR_PASSWORD", COUCHBASE_PASSWORD)
-                        .waitingFor(Wait.forHttp("/ui/index.html").forPort(COUCHBASE_PORT))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(COUCHBASE_IMAGE)));
+                        .withCredentials(COUCHBASE_USERNAME, COUCHBASE_PASSWORD)
+                        .withBucket(
+                                new BucketDefinition(COUCHBASE_BUCKET)
+                                        .withReplicas(0)
+                                        .withQuota(256)
+                                        .withPrimaryIndex(false))
+                        .withEnabledServices(
+                                CouchbaseService.KV,
+                                CouchbaseService.QUERY,
+                                CouchbaseService.INDEX);
+        couchbaseContainer.start();
 
-        Startables.deepStart(Stream.of(couchbaseContainer)).join();
+        cluster =
+                Cluster.connect(
+                        couchbaseContainer.getConnectionString(),
+                        couchbaseContainer.getUsername(),
+                        couchbaseContainer.getPassword());
 
-        String host = couchbaseContainer.getHost();
-        int managementPort = couchbaseContainer.getMappedPort(COUCHBASE_PORT);
-        String baseUrl = "http://" + host + ":" + managementPort;
-        String connectionString = "couchbase://" + host + ":" + managementPort;
-
-        // Bootstrap the single-node cluster via REST.
-        HttpClient http = HttpClient.newHttpClient();
-        String auth =
-                Base64.getEncoder()
-                        .encodeToString((COUCHBASE_USERNAME + ":" + COUCHBASE_PASSWORD).getBytes());
-
-        // 1. Configure node paths and services.
-        httpPost(
-                http,
-                baseUrl + "/nodes/self/controller/settings",
-                auth,
-                "path=%2Fopt%2Fcouchbase%2Fvar%2Flib%2Fcouchbase%2Fdata"
-                        + "&index_path=%2Fopt%2Fcouchbase%2Fvar%2Flib%2Fcouchbase%2Fdata");
-        httpPost(http, baseUrl + "/pools/default", auth, "memoryQuota=512&indexMemoryQuota=256");
-        httpPost(
-                http,
-                baseUrl + "/node/controller/setupServices",
-                auth,
-                "services=kv%2Cn1ql%2Cindex");
-        httpPost(
-                http,
-                baseUrl + "/settings/web",
-                auth,
-                "port=8091&username=" + COUCHBASE_USERNAME + "&password=" + COUCHBASE_PASSWORD);
-
-        // 2. Create bucket.
-        httpPost(
-                http,
-                baseUrl + "/pools/default/buckets",
-                auth,
-                "name=" + COUCHBASE_BUCKET + "&ramQuota=256&bucketType=couchbase&replicaNumber=0");
-        Thread.sleep(3000);
-
-        // 3. Create collection.
-        httpPost(
-                http,
-                baseUrl
-                        + "/pools/default/buckets/"
+        // Create the scoped collection and a primary index on it for N1QL queries.
+        cluster.query(
+                "CREATE COLLECTION `"
                         + COUCHBASE_BUCKET
-                        + "/scopes/_default/collections",
-                auth,
-                "name=" + COUCHBASE_COLLECTION);
-        Thread.sleep(3000);
+                        + "`.`"
+                        + COUCHBASE_SCOPE
+                        + "`.`"
+                        + COUCHBASE_COLLECTION
+                        + "`");
+        cluster.query(
+                "CREATE PRIMARY INDEX ON `"
+                        + COUCHBASE_BUCKET
+                        + "`.`"
+                        + COUCHBASE_SCOPE
+                        + "`.`"
+                        + COUCHBASE_COLLECTION
+                        + "`");
 
-        // 4. Set index storage mode so primary-index creation works.
-        httpPost(http, baseUrl + "/settings/indexes", auth, "storageMode=forestdb");
+        // Wait until the primary index is online before returning. The index build is
+        // asynchronous; without this guard, the first N1QL query in the test body may
+        // hit the collection before the index is ready and return an empty result set.
+        String indexStatusQuery =
+                String.format(
+                        "SELECT state FROM system:indexes WHERE keyspace_id = '%s'"
+                                + " AND `using` = 'gsi' AND is_primary = true"
+                                + " AND `bucket_id` = '%s'",
+                        COUCHBASE_COLLECTION, COUCHBASE_BUCKET);
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult r = cluster.query(indexStatusQuery);
+                            List<JsonObject> rows = r.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(rows.isEmpty(), "Primary index not created yet");
+                            Assertions.assertEquals(
+                                    "online",
+                                    rows.get(0).getString("state"),
+                                    "Primary index not yet online");
+                        });
 
-        cluster = Cluster.connect(connectionString, COUCHBASE_USERNAME, COUCHBASE_PASSWORD);
-        cluster.bucket(COUCHBASE_BUCKET).waitUntilReady(Duration.ofSeconds(30));
-        log.info("Couchbase container started, connection string: {}", connectionString);
+        log.info("Couchbase cluster ready at {}", couchbaseContainer.getConnectionString());
     }
 
     @AfterAll
@@ -154,42 +149,92 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Issues an HTTP POST with form-encoded body. Errors are logged as warnings — bootstrap steps
-     * are best-effort.
+     * Verifies that FakeSource rows are correctly written to the Couchbase collection.
+     *
+     * <p>Assertions:
+     *
+     * <ol>
+     *   <li>Exact row count matches {@code row.num} from the job config (100).
+     *   <li>Content check: one written document contains all expected fields.
+     * </ol>
      */
-    private static void httpPost(HttpClient http, String url, String auth, String body)
-            throws Exception {
-        HttpRequest req =
-                HttpRequest.newBuilder()
-                        .uri(URI.create(url))
-                        .header("Authorization", "Basic " + auth)
-                        .header("Content-Type", "application/x-www-form-urlencoded")
-                        .POST(HttpRequest.BodyPublishers.ofString(body))
-                        .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() >= 400) {
-            // Log but don't fail — some steps may already be done (e.g. re-run).
-            System.err.println("WARN: POST " + url + " -> HTTP " + resp.statusCode());
-        }
-    }
-
-    /** Verifies that FakeSource data is correctly written to the Couchbase collection. */
     @TestTemplate
     public void testFakeSourceToCouchbaseSink(TestContainer container)
             throws IOException, InterruptedException {
-        container.executeJob("/fake_source_to_couchbase.conf");
+        // Purge any documents left by a previous container iteration so the COUNT assertion
+        // always starts from zero regardless of how many Flink/Spark versions are under test.
+        cluster.query(
+                String.format(
+                        "DELETE FROM `%s`.`%s`.`%s`",
+                        COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION));
 
-        // Query the collection to verify records were written.
-        String query =
+        Container.ExecResult execResult = container.executeJob("/fake_source_to_couchbase.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // The Flink/Spark container writes via the Docker-internal hostname (e2e_couchbase) while
+        // the test JVM connects via the mapped port. Because REQUEST_PLUS only waits for mutations
+        // seen by *this* SDK connection, it cannot observe the Flink/Spark writes. We instead poll
+        // with Awaitility until the index catches up — the same pattern used across this codebase
+        // for cross-process writes.
+        String countQuery =
                 String.format(
                         "SELECT COUNT(*) AS cnt FROM `%s`.`%s`.`%s`",
                         COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION);
-        QueryResult result = cluster.query(query);
-        List<JsonObject> rows = result.rowsAs(JsonObject.class);
+        // Do not filter by a specific id value — FakeSource generates random integers so
+        // id=0 is not guaranteed to exist. Pick any document and verify field presence.
+        String contentQuery =
+                String.format(
+                        "SELECT id, name, score, `active` FROM `%s`.`%s`.`%s` LIMIT 1",
+                        COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION);
 
-        Assertions.assertFalse(rows.isEmpty(), "Expected at least one row in the query result");
-        int count = rows.get(0).getInt("cnt");
-        Assertions.assertTrue(count > 0, "Expected documents to be written to Couchbase");
-        log.info("Verified {} documents in Couchbase collection", count);
+        // --- Assertion 1: exact row count ---
+        AtomicInteger count = new AtomicInteger();
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult result = cluster.query(countQuery);
+                            List<JsonObject> rows = result.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(rows.isEmpty(), "COUNT query returned no rows");
+                            count.set(rows.get(0).getInt("cnt"));
+                            Assertions.assertEquals(
+                                    EXPECTED_ROW_COUNT,
+                                    count.get(),
+                                    "Document count mismatch: expected="
+                                            + EXPECTED_ROW_COUNT
+                                            + " actual="
+                                            + count.get());
+                        });
+
+        // --- Assertion 2: content check on the document keyed by id=0 ---
+        // primary-key=["id"] in conf, so the document key is "0"
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult result = cluster.query(contentQuery);
+                            List<JsonObject> rows = result.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(
+                                    rows.isEmpty(), "Content query returned no document");
+                            JsonObject doc = rows.get(0);
+                            // id=0 is a valid integer; containsKey is safe where getInt() is not.
+                            Assertions.assertTrue(
+                                    doc.containsKey("id"),
+                                    "Field 'id' missing in written document");
+                            Assertions.assertNotNull(
+                                    doc.getString("name"),
+                                    "Field 'name' missing in written document");
+                            Assertions.assertNotNull(
+                                    doc.getDouble("score"),
+                                    "Field 'score' missing in written document");
+                            log.info(
+                                    "E2E passed: count={}, sample doc={}",
+                                    count.get(),
+                                    doc.toMap());
+                        });
     }
 }

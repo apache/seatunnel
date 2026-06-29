@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -54,10 +53,13 @@ import java.util.stream.IntStream;
  * <p>Each record is converted to a {@link JsonObject}. The document key is derived from the
  * configured {@code primary-key} fields (joined with {@code _}); when no primary key is set a
  * random UUID is used. Upsert mode is enabled via {@code upsert-enable}.
+ *
+ * <p>Supported row kinds: {@code INSERT}, {@code UPDATE_AFTER}. {@code UPDATE_BEFORE} is silently
+ * skipped. {@code DELETE} is explicitly rejected with an exception — CDC delete support is out of
+ * scope for this initial implementation.
  */
 @Slf4j
-public class CouchbaseWriter
-        implements SinkWriter<SeaTunnelRow, Void, Void>, SupportMultiTableSinkWriter<Void> {
+public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     private final Cluster cluster;
     private final Collection collection;
@@ -104,14 +106,22 @@ public class CouchbaseWriter
 
     /**
      * Buffers a single row. Pre-image rows ({@code UPDATE_BEFORE}) are silently skipped because
-     * only the final value matters for document stores.
+     * only the final value matters for document stores. {@code DELETE} rows are explicitly rejected
+     * because CDC delete support is out of scope for this initial implementation.
      *
      * @param row the incoming row
+     * @throws CouchbaseConnectorException if the row kind is {@code DELETE}
      */
     @Override
     public void write(SeaTunnelRow row) {
         if (row.getRowKind() == RowKind.UPDATE_BEFORE) {
             return;
+        }
+        if (row.getRowKind() == RowKind.DELETE) {
+            throw new CouchbaseConnectorException(
+                    CouchbaseConnectorErrorCode.UNSUPPORTED_ROW_KIND,
+                    "RowKind.DELETE is not supported by the Couchbase sink. "
+                            + "CDC delete handling is out of scope for the initial implementation.");
         }
         buffer.add(row);
         if (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit()) {

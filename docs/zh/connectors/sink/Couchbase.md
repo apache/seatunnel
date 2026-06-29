@@ -67,7 +67,7 @@ sh bin/install-plugin.sh ${version}
 | bucket                 | String         | 是       | -          | 目标 Bucket 名称。 |
 | scope                  | String         | 否       | `_default` | Bucket 中的目标 Scope 名称。 |
 | collection             | String         | 是       | -          | 目标 Collection 名称。 |
-| primary-key            | List\<String>  | 否       | -          | 用于构建文档键的字段名列表（以 `_` 连接）。未设置时使用随机 UUID。 |
+| primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（以 `_` 连接）。未设置时使用随机 UUID。 |
 | upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。 |
 | buffer-flush.max-rows  | Integer        | 否       | `1000`     | 触发批量写入的最大缓冲行数。设为 `-1` 禁用。 |
 | buffer-flush.interval  | Long           | 否       | `30000`    | 批量写入之间的最大间隔（毫秒）。设为 `-1` 禁用。 |

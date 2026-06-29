@@ -27,10 +27,6 @@
     <artifactId>connector-couchbase-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Couchbase</name>
 
-    <properties>
-        <couchbase.java.client.version>3.5.1</couchbase.java.client.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -58,9 +54,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.couchbase.client</groupId>
-            <artifactId>java-client</artifactId>
-            <version>${couchbase.java.client.version}</version>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>couchbase</artifactId>
+            <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

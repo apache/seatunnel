@@ -518,7 +518,22 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("grpc")
                 // Paimon
                 || threadName.startsWith("AsyncOutputStream")
-                || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
+                || threadName.startsWith("MANIFEST-READ-THREAD-POOL")
+                // Couchbase SDK daemon threads that outlive cluster.disconnect().
+                // These are static singletons inside the SDK's shaded dependencies;
+                // they are not owned or stopped by the Cluster/ClusterEnvironment lifecycle.
+                // Same pattern as MongoDB cluster-*/BufferPoolPruner, InfluxDB Okio Watchdog, etc.
+                //
+                // com.couchbase.client.core.deps.org.latencyutils.SimplePauseDetector
+                || threadName.startsWith("SimplePauseDetectorThread")
+                // com.couchbase.client.core.deps.org.xbill.DNS.NioClient
+                || threadName.startsWith("dnsjava NIO selector")
+                // com.couchbase.client.core.util.Jdk8Cleaner
+                || threadName.startsWith("cb-cleaner")
+                // Reactor Schedulers.parallel() — a JVM-global ScheduledThreadPoolExecutor
+                // (schedulerThreadCount=8 per CoreCreatedEvent). It is a static singleton
+                // shared across all SDK instances; cluster.disconnect() does not dispose it.
+                || threadName.startsWith("parallel-");
     }
 
     @Override

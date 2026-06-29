@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.couchbase.config.CouchbaseSinkOptions;
@@ -30,11 +29,13 @@ import java.util.Optional;
 /**
  * SeaTunnel sink connector for Couchbase.
  *
+ * <p>This is a single-table sink: one fixed bucket/scope/collection per job configuration.
+ * Multi-table sink support is intentionally out of scope for the initial implementation.
+ *
  * <p>Writes {@link SeaTunnelRow} data to a Couchbase collection using a {@link CouchbaseWriter}
  * that buffers records and flushes them in batches.
  */
-public class CouchbaseSink
-        implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void>, SupportMultiTableSink {
+public class CouchbaseSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
 
     private final CouchbaseWriterOptions options;
     private final CatalogTable catalogTable;

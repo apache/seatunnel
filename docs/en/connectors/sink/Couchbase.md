@@ -70,7 +70,7 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | bucket                | String        | Yes      | -          | Target bucket name. |
 | scope                 | String        | No       | `_default` | Target scope name within the bucket. |
 | collection            | String        | Yes      | -          | Target collection name. |
-| primary-key           | List\<String> | No       | -          | Field names used to build the document key (joined with `_`). A random UUID is used when not set. |
+| primary-key           | `List<String>` | No       | -          | Field names used to build the document key (joined with `_`). A random UUID is used when not set. |
 | upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. |
 | buffer-flush.max-rows | Integer       | No       | `1000`     | Maximum rows to buffer before a batch write is triggered. Use `-1` to disable. |
 | buffer-flush.interval | Long          | No       | `30000`    | Maximum milliseconds between batch writes. Use `-1` to disable. |
