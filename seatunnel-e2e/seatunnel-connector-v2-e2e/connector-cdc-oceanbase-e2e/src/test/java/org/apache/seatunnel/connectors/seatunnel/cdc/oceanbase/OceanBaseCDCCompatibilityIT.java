@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oceanbase;
 
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -93,15 +91,15 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     /** MySQL-compatible source container used as the reproducible CDC runtime for the wrapper. */
-    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
+    private static final MySqlCompatibleContainer MYSQL_CONTAINER = createMySqlContainer();
 
     /**
      * Build the MySQL-compatible source with GTID/binlog settings required by CDC readers.
      *
-     * @return configured MySQL container
+     * @return configured MySQL-compatible container
      */
-    private static MySqlContainer createMySqlContainer() {
-        return new MySqlContainer(MySqlVersion.V8_0)
+    private static MySqlCompatibleContainer createMySqlContainer() {
+        return new MySqlCompatibleContainer("8.0.43")
                 .withConfigurationOverride("docker/server-gtids/my.cnf")
                 .withSetupSQL("docker/setup.sql")
                 .withNetwork(NETWORK)
