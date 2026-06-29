@@ -339,6 +339,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 dataSize.updateAndGet(v -> v + getKafkaData().size());
                                 Assertions.assertEquals(1, dataSize.get());
                             });
+            // The snapshot row can reach Kafka before the WAL stream is fully attached.
+            // Wait for the replication slot to become active so the following DML is emitted as
+            // incremental change events instead of being skipped during the snapshot handoff.
+            waitForReplicationSlotActive(slotName);
             // insert update delete
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
 
@@ -995,6 +999,20 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * The Debezium JSON Kafka test verifies every row-level change event, so it must wait until the
+     * WAL stream is active before mutating the source table.
+     */
+    private void waitForReplicationSlotActive(String slotName) {
+        await().ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        isReplicationSlotActive(slotName),
+                                        "Replication slot is not active yet: " + slotName));
+    }
+
     private List<String> listGeneratedReplicationSlots() {
         List<String> slotNames = new ArrayList<>();
         try (Connection connection = getJdbcConnection();
@@ -1010,6 +1028,20 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             return slotNames;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to query generated replication slots", e);
+        }
+    }
+
+    private boolean isReplicationSlotActive(String slotName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT active FROM pg_replication_slots WHERE slot_name = '"
+                                        + slotName
+                                        + "'")) {
+            return resultSet.next() && resultSet.getBoolean("active");
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query replication slot activity: " + slotName, e);
         }
     }
 
