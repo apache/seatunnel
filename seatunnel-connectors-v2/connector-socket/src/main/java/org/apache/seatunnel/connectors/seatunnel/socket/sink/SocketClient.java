@@ -77,16 +77,6 @@ public class SocketClient {
             outputStream.write(msg);
             outputStream.flush();
         } catch (IOException e) {
-            // if no re-tries are enable, fail immediately
-            if (maxNumRetries == 0) {
-                throw new SocketConnectorException(
-                        SocketConnectorErrorCode.SEND_MESSAGE_TO_SOCKET_SERVER_FAILED,
-                        String.format(
-                                "Failed to send message '%s' to socket server at %s:%d. Connection re-tries are not enabled.",
-                                row, hostName, port),
-                        e);
-            }
-
             log.error(
                     "Failed to send message '{}' to socket server at {}:{}. Trying to reconnect...",
                     row,

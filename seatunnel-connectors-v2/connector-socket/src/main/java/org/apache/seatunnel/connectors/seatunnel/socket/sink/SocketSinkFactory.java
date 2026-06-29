@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,8 +37,11 @@ public class SocketSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SocketSinkOptions.HOST, SocketSinkOptions.PORT)
-                .optional(SocketSinkOptions.MAX_RETRIES)
+                .required(SocketSinkOptions.HOST)
+                .required(SocketSinkOptions.PORT, Conditions.greaterThan(SocketSinkOptions.PORT, 0))
+                .optional(
+                        SocketSinkOptions.MAX_RETRIES,
+                        Conditions.greaterThan(SocketSinkOptions.MAX_RETRIES, 0))
                 .build();
     }
 

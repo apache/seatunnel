@@ -17,17 +17,79 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.socket.sink.SocketSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.socket.source.SocketSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 class SocketFactoryTest {
+
+    private OptionRule sinkRule;
+
+    @BeforeEach
+    void setUp() {
+        sinkRule = new SocketSinkFactory().optionRule();
+    }
+
+    private Map<String, Object> baseSinkConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put(SocketSinkOptions.HOST.key(), "localhost");
+        cfg.put(SocketSinkOptions.PORT.key(), 8080);
+        return cfg;
+    }
+
+    private void validateSink(Map<String, Object> cfg) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(sinkRule);
+    }
 
     @Test
     void optionRule() {
         Assertions.assertNotNull((new SocketSourceFactory()).optionRule());
-        Assertions.assertNotNull((new SocketSinkFactory()).optionRule());
+        Assertions.assertNotNull(sinkRule);
+    }
+
+    @Test
+    void testSinkOptionRuleWithValidPortAndMaxRetries() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.MAX_RETRIES.key(), 5);
+        Assertions.assertDoesNotThrow(() -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkOptionRuleWithZeroPortFails() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.PORT.key(), 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkOptionRuleWithNegativePortFails() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.PORT.key(), -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkOptionRuleWithZeroMaxRetriesFails() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.MAX_RETRIES.key(), 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
+    }
+
+    @Test
+    void testSinkOptionRuleWithNegativeMaxRetriesFails() {
+        Map<String, Object> cfg = baseSinkConfig();
+        cfg.put(SocketSinkOptions.MAX_RETRIES.key(), -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
     }
 }
