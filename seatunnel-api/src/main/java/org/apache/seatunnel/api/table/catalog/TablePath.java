@@ -65,8 +65,8 @@ public final class TablePath implements Serializable {
         if (paths.length == 3) {
             return of(paths[0], paths[1], paths[2]);
         }
-        throw new IllegalArgumentException(
-                String.format("Cannot get split '%s' to get databaseName and tableName", fullName));
+        // Some connectors use opaque table names, such as Kafka topics, that can contain dots.
+        return of(null, fullName);
     }
 
     public static TablePath of(String databaseName, String tableName) {
