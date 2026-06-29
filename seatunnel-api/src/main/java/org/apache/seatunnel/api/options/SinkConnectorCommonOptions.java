@@ -39,5 +39,8 @@ public class SinkConnectorCommonOptions extends ConnectorCommonOptions {
                     .mapType()
                     .defaultValue(new HashMap<>())
                     .withDescription(
-                            "Sink-specific table options applied when auto-creating target tables.");
+                            "Experimental sink-specific table options applied when auto-creating "
+                                    + "target tables during SaveMode. Allowed keys and semantics are "
+                                    + "defined and validated by each sink connector and/or database "
+                                    + "dialect; see the connector documentation for supported options.");
 }

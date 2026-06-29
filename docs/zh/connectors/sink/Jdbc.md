@@ -227,8 +227,10 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 
 | 方言 | 是否支持 | 可用 key |
 |------|----------|----------|
-| MySQL / TiDB | 是 | `engine`、`charset`、`collate` |
+| MySQL | 是 | `engine`、`charset`、`collate` |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
+
+非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
 
 示例（MySQL 自动建表时指定存储引擎与字符集）：
 

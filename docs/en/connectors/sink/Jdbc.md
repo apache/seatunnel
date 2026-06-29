@@ -239,8 +239,10 @@ Current support:
 
 | Dialect | Supported | Allowed keys |
 |---------|-----------|--------------|
-| MySQL / TiDB | Yes | `engine`, `charset`, `collate` |
+| MySQL | Yes | `engine`, `charset`, `collate` |
 | Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
+
+Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
 
 Example (MySQL auto-create with engine and charset):
 
