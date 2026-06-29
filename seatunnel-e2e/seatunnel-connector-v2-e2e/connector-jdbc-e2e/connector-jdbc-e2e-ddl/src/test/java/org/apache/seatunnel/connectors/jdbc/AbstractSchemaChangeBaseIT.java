@@ -85,7 +85,6 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private static final String QUERY = "select * from %s.%s";
     private static final String PROJECTION_QUERY =
             "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s";
-    private static final String SOURCE_DESC_QUERY = "desc %s.%s";
 
     private static final String SOURCE_QUERY_COLUMNS =
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' ORDER by COLUMN_NAME";
@@ -298,8 +297,15 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
-                                assertTableDataEqualsBySourceColumnOrder(
-                                        sourceTable, sinkTable, null));
+                                Assertions.assertIterableEquals(
+                                        querySource(
+                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
+                                        querySink(
+                                                String.format(
+                                                                QUERY,
+                                                                schemaChangeCase.getSchemaName(),
+                                                                sinkTable)
+                                                        + ORDER_BY)));
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -325,8 +331,15 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
-                                assertTableDataEqualsBySourceColumnOrder(
-                                        sourceTable, sinkTable, null));
+                                Assertions.assertIterableEquals(
+                                        querySource(
+                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
+                                        querySink(
+                                                String.format(
+                                                                QUERY,
+                                                                schemaChangeCase.getSchemaName(),
+                                                                sinkTable)
+                                                        + ORDER_BY)));
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -410,81 +423,15 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                assertTableDataEqualsBySourceColumnOrder(
-                                        sourceTable, sinkTable, null));
-    }
-
-    /**
-     * JDBC schema evolution can keep the effective column set while materializing a different
-     * physical order in the sink, so schema assertions should compare normalized column names.
-     */
-    private void assertColumnNamesEqualsIgnoringPhysicalOrder(
-            String sourceTable, String sinkTable) {
-        Assertions.assertIterableEquals(
-                normalizeColumnNames(
-                        querySource(
-                                String.format(SOURCE_QUERY_COLUMNS, SOURCE_DATABASE, sourceTable))),
-                normalizeColumnNames(
-                        querySink(
-                                String.format(
-                                        schemaChangeCase.getSinkQueryColumns(),
-                                        schemaChangeCase.getSchemaName(),
-                                        sinkTable))));
-    }
-
-    /**
-     * Projects sink data with the current source column order so row assertions stay stable when a
-     * JDBC sink reorders equivalent columns after applying schema changes.
-     */
-    private void assertTableDataEqualsBySourceColumnOrder(
-            String sourceTable, String sinkTable, String whereClause) {
-        List<String> sourceColumns = getSourceColumnNames(sourceTable);
-        Assertions.assertIterableEquals(
-                querySource(
-                        buildProjectionQuery(
-                                SOURCE_DATABASE, sourceTable, sourceColumns, whereClause)),
-                querySink(
-                        buildProjectionQuery(
-                                schemaChangeCase.getSchemaName(),
-                                sinkTable,
-                                sourceColumns,
-                                whereClause)));
-    }
-
-    /** Reads the current MySQL source schema order that downstream row assertions should follow. */
-    private List<String> getSourceColumnNames(String sourceTable) {
-        List<String> sourceColumns = new ArrayList<>();
-        for (List<Object> row :
-                querySource(String.format(SOURCE_DESC_QUERY, SOURCE_DATABASE, sourceTable))) {
-            sourceColumns.add(String.valueOf(row.get(0)));
-        }
-        return sourceColumns;
-    }
-
-    /** Builds a deterministic projection query without relying on sink-specific physical order. */
-    private String buildProjectionQuery(
-            String database, String table, List<String> columns, String whereClause) {
-        StringBuilder queryBuilder =
-                new StringBuilder("select ")
-                        .append(String.join(",", columns))
-                        .append(" from ")
-                        .append(database)
-                        .append(".")
-                        .append(table);
-        if (StringUtils.isNotBlank(whereClause)) {
-            queryBuilder.append(" where ").append(whereClause);
-        }
-        return queryBuilder.append(ORDER_BY).toString();
-    }
-
-    /** Sorts schema query output by column name so assertions ignore placement-only differences. */
-    private List<String> normalizeColumnNames(List<List<Object>> rows) {
-        List<String> normalizedColumnNames = new ArrayList<>();
-        for (List<Object> row : rows) {
-            normalizedColumnNames.add(String.valueOf(row.get(0)));
-        }
-        normalizedColumnNames.sort(String::compareTo);
-        return normalizedColumnNames;
+                                Assertions.assertIterableEquals(
+                                        querySource(
+                                                String.format(QUERY, SOURCE_DATABASE, sourceTable)),
+                                        querySink(
+                                                String.format(
+                                                                QUERY,
+                                                                schemaChangeCase.getSchemaName(),
+                                                                sinkTable)
+                                                        + ORDER_BY)));
     }
 
     private Connection getJdbcConnection(String connectionType) throws SQLException {
