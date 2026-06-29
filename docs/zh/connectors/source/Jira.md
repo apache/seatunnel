@@ -54,7 +54,7 @@ https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-
 
 ### method [String]
 
-http 请求方法。目前支持 'GET'和 'POST'。
+http 请求方法。目前支持 'GET'和 'POST'。 
 
 ### params [Map]
 
