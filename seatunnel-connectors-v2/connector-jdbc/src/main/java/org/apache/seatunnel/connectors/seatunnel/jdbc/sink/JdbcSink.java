@@ -321,8 +321,7 @@ public class JdbcSink
         if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             return Optional.empty();
         }
-        return JdbcCatalogUtils.findCatalog(
-                jdbcSinkConfig.getJdbcConnectionConfig(), dialect, jdbcSinkConfig.getDatabase());
+        return JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
     }
 
     @Override

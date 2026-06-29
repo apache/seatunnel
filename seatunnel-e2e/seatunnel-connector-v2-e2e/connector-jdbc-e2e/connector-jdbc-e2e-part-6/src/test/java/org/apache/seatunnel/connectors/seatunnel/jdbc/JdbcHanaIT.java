@@ -121,10 +121,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(DATABASE)
-                // HANA stores these test tables under schema TEST. Keep the test-side schema so
-                // comparison and cleanup qualify the same schema, but keep the connector config on
-                // database-only mode to avoid producing a TEST.TEST.table identifier in sink SQL.
-                .schema(DATABASE)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SOURCE_TABLE + "_SINK")
                 .createSql(CREATE_SOURCE_SQL)
