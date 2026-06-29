@@ -343,15 +343,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Wait for the replication slot to become active so the following DML is emitted as
             // incremental change events instead of being skipped during the snapshot handoff.
             waitForReplicationSlotActive(slotName);
-            // insert update delete
-            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
-
-            await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                dataSize.updateAndGet(v -> v + getKafkaData().size());
-                                Assertions.assertEquals(5, dataSize.get());
-                            });
+            // Keep each row-level mutation isolated so the exactly-once Kafka sink does not
+            // collapse same-key changes into only the final visible state under CI pressure.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM, 2);
+            awaitKafkaRecordCount(dataSize, 2);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM, 3);
+            awaitKafkaRecordCount(dataSize, 3);
+            deleteSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM, 2);
+            awaitKafkaRecordCount(dataSize, 4);
+            updateSourceTableBigField(
+                    POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM, 3, 10000);
+            awaitKafkaRecordCount(dataSize, 5);
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
             if (kafkaConsumer != null) {
@@ -1141,6 +1143,51 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + "."
                         + tableName
                         + " VALUES (2, '2', 32767, 65535, 2147483647);");
+    }
+
+    /** Wait until the Debezium JSON test observes the expected number of Kafka change records. */
+    private void awaitKafkaRecordCount(AtomicReference<Integer> dataSize, int expectedCount) {
+        await().atMost(1000 * 60, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            dataSize.updateAndGet(v -> v + getKafkaData().size());
+                            Assertions.assertEquals(expectedCount, dataSize.get());
+                        });
+    }
+
+    /**
+     * Insert one row so the CDC test can assert the emitted Kafka record before the next mutation.
+     */
+    private void insertSourceTableRow(String database, String tableName, int id) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1');");
+    }
+
+    /** Delete one row after its insert event is already visible in Kafka. */
+    private void deleteSourceTableRow(String database, String tableName, int id) {
+        executeSql("DELETE FROM " + database + "." + tableName + " where id = " + id + ";");
+    }
+
+    /** Update the inserted row in a separate step so CI can assert the incremental change event. */
+    private void updateSourceTableBigField(String database, String tableName, int id, int value) {
+        executeSql(
+                "UPDATE "
+                        + database
+                        + "."
+                        + tableName
+                        + " SET f_big = "
+                        + value
+                        + " where id = "
+                        + id
+                        + ";");
     }
 
     private void upsertDeleteSourceTable(String database, String tableName) {
