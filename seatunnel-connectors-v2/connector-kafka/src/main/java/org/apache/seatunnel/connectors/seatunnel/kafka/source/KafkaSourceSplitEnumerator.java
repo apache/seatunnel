@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaDeferredCleanupClassPreloader;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
@@ -254,7 +254,7 @@ public class KafkaSourceSplitEnumerator
     @Override
     public void close() throws IOException {
         if (this.adminClient != null) {
-            adminClient.close();
+            KafkaClientUtils.runWithConnectorClassLoader(adminClient::close);
         }
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
@@ -358,7 +358,6 @@ public class KafkaSourceSplitEnumerator
                     CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
         }
 
-        KafkaDeferredCleanupClassPreloader.preloadDeferredCleanupClasses();
         return AdminClient.create(props);
     }
 

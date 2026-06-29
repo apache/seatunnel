@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaDeferredCleanupClassPreloader;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -41,7 +41,6 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     private final KafkaProducer<K, V> kafkaProducer;
 
     public KafkaNoTransactionSender(Properties properties) {
-        KafkaDeferredCleanupClassPreloader.preloadDeferredCleanupClasses();
         this.kafkaProducer = new KafkaProducer<>(properties);
     }
 
@@ -78,7 +77,10 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
 
     @Override
     public void close() {
-        kafkaProducer.flush();
-        kafkaProducer.close();
+        KafkaClientUtils.runWithConnectorClassLoader(
+                () -> {
+                    kafkaProducer.flush();
+                    kafkaProducer.close();
+                });
     }
 }
