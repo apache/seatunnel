@@ -33,7 +33,7 @@ Apache Pulsar 的接收连接器。
 | admin.service-url    | String | Yes  | -                   | 管理端点的 Pulsar 服务 HTTP URL.                       |
 | auth.plugin-class    | String | No   | -                   | 身份验证插件的名称.                                      |
 | auth.params          | String | No   | -                   | 身份验证插件的参数.                                      |
-| format               | String | No   | json                | 数据格式。默认格式为 json。可选的文本格式.                        |
+| format               | String | No   | json                | 数据格式。默认格式为 json。可选 text 和 avro 格式。                        |
 | field_delimiter      | String | No   | ,                   | 自定义数据格式的字段分隔符.                                  |
 | semantics            | Enum   | No   | AT_LEAST_ONCE       | 写入 pulsar 的一致性语义.                               |
 | transaction_timeout  | Int    | No   | 600                 | 默认情况下，事务超时指定为 10 分钟.                            |
@@ -69,7 +69,7 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### format [String]
 
-数据格式。默认格式为 json。可选的文本格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。
+数据格式。默认格式为 json。可选 text 和 avro 格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。使用 avro 格式时需要配置 `schema`。
 
 ### field_delimiter [String]
 

@@ -59,6 +59,21 @@ class PulsarMultiTableConfigTest {
     }
 
     @Test
+    void shouldAllowAvroFormatInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Collections.singletonList(
+                        createTableConfig(
+                                "db.events", "persistent://public/default/events", null, "AVRO")));
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals("AVRO", multiTableConfig.getTableConfigs().get(0).getFormat());
+    }
+
+    @Test
     void shouldRejectOverlappingTopicDeclarations() {
         Map<String, Object> config = createBaseConfig();
         config.put(

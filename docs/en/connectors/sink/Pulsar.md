@@ -33,7 +33,7 @@ Sink connector for Apache Pulsar.
 | admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                              |
 | auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                               |
 | auth.params          | String | No       | -                   | Parameters for the authentication plugin.                                                                        |
-| format               | String | No       | json                | Data format. The default format is json. Optional text format.                                                   |
+| format               | String | No       | json                | Data format. The default format is json. Optional text and avro format.                                                   |
 | field_delimiter      | String | No       | ,                   | Customize the field delimiter for data format.                                                                   |
 | semantics            | Enum   | No       | AT_LEAST_ONCE       | Consistency semantics for writing to pulsar.                                                                     |
 | transaction_timeout  | Int    | No       | 600                 | The transaction timeout is specified as 10 minutes by default.                                                   |
@@ -70,8 +70,8 @@ For example, `key1:val1,key2:val2`
 
 ### format [String]
 
-Data format. The default format is json. Optional text format. The default field separator is ",".
-If you customize the delimiter, add the "field_delimiter" option.
+Data format. The default format is json. Optional text and avro format. The default field separator is ",".
+If you customize the delimiter, add the "field_delimiter" option. The `schema` option is required when using avro format.
 
 ### field_delimiter [String]
 
