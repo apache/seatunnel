@@ -55,6 +55,7 @@ import java.sql.DriverManager;
 import java.sql.NClob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,6 +78,23 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
     private static final String SOURCE_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
+    /**
+     * Deterministic source row used to prove the MySQL CDC reader is consuming binlog events before
+     * schema-change DDL is executed.
+     */
+    private static final int STREAM_READY_MARKER_ID = 1000;
+    /**
+     * Marker value written to the source table so sink-side readiness polling can identify the
+     * probe row without depending on connector internals.
+     */
+    private static final String STREAM_READY_MARKER_NAME = "__cdc_stream_ready__";
+    /**
+     * Stable payload for the readiness probe row; keeping it constant makes repeated test attempts
+     * idempotent through the upsert statement.
+     */
+    private static final String STREAM_READY_MARKER_DESCRIPTION =
+            "wait for binlog stream readiness";
+
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -304,6 +322,8 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                 assertTableDataEqualsBySourceColumnOrder(
                                         sourceTable, sinkTable, null));
 
+        waitForStreamingReady(sourceTable, sinkTable);
+
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         waitForSinkColumnsCatchUp(sourceTable, sinkTable);
@@ -331,10 +351,48 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                 assertTableDataEqualsBySourceColumnOrder(
                                         sourceTable, sinkTable, null));
 
+        waitForStreamingReady(sourceTable, sinkTable);
+
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         waitForSinkColumnsCatchUp(sourceTable, sinkTable);
         assertAddColumnsDataSynced(sourceTable, sinkTable);
+    }
+
+    /**
+     * Snapshot convergence does not prove the MySQL CDC reader has entered steady-state binlog
+     * consumption. Emit one deterministic DML event and wait until the sink receives it before
+     * running schema-change DDL bursts.
+     */
+    private void waitForStreamingReady(String sourceTable, String sinkTable) {
+        executeSourceSql(
+                String.format(
+                        "INSERT INTO %s.%s (id, name, description, weight) "
+                                + "VALUES (%d, '%s', '%s', 0.0) "
+                                + "ON DUPLICATE KEY UPDATE "
+                                + "name = VALUES(name), description = VALUES(description), weight = VALUES(weight)",
+                        SOURCE_DATABASE,
+                        sourceTable,
+                        STREAM_READY_MARKER_ID,
+                        STREAM_READY_MARKER_NAME,
+                        STREAM_READY_MARKER_DESCRIPTION));
+
+        String readyQuery =
+                String.format(
+                        "select id,name,description,weight from %%s.%%s where id = %d order by id",
+                        STREAM_READY_MARKER_ID);
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        querySource(
+                                                String.format(
+                                                        readyQuery, SOURCE_DATABASE, sourceTable)),
+                                        querySink(
+                                                String.format(
+                                                        readyQuery,
+                                                        schemaChangeCase.getSchemaName(),
+                                                        sinkTable))));
     }
 
     /**
@@ -490,6 +548,19 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                 result.add(objects);
             }
             return result;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Executes a source-side DML statement directly against MySQL to produce a CDC event that the
+     * running SeaTunnel job must consume.
+     */
+    private void executeSourceSql(String sql) {
+        try (Connection connection = getJdbcConnection("source");
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
