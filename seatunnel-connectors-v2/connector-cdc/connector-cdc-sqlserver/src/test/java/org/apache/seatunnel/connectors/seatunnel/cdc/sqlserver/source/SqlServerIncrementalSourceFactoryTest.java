@@ -18,12 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.factory.FactoryUtil;
-
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
