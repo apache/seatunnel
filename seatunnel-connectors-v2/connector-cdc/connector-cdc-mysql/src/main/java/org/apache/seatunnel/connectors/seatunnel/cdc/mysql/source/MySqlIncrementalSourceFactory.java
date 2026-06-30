@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -118,25 +119,14 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 MySqlIncrementalSourceOptions.SERVER_ID, "^\\d+(-\\d+)?$"))
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        MySqlIncrementalSourceOptions.STOP_MODE)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        SourceOptions.EXACTLY_ONCE)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                new MySqlStartModeValidator()))
+                .optional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STOP_MODE,
+                                new MySqlStopModeValidator()))
                 .build();
     }
 
@@ -231,6 +221,103 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                     return false;
                 }
             }
+            return true;
+        }
+    }
+
+    static class MySqlStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
+                    + "SPECIFIC requires startup.specific.offset.file non-blank and startup.specific.offset.pos >= 0; "
+                    + "INITIAL requires exactly.once configured";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+                case SPECIFIC:
+                    String startupSpecificOffsetFile =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+                    Long startupSpecificOffsetPos =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_POS);
+
+                    if (startupSpecificOffsetFile == null
+                            || startupSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific.offset.file must be configured and not blank.");
+                    }
+
+                    if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific.offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupSpecificOffsetPos);
+                    }
+                    break;
+                case INITIAL:
+                    Boolean exactlyOnce = config.get(MySqlIncrementalSourceOptions.EXACTLY_ONCE);
+                    if (exactlyOnce == null) {
+                        throw new OptionValidationException(
+                                "When startup.mode is INITIAL, exactly.once must be configured.");
+                    }
+                    break;
+            }
+
+            return true;
+        }
+    }
+
+    static class MySqlStopModeValidator implements ConditionExtension<StopMode> {
+        @Override
+        public String description() {
+            return "stop.mode=SPECIFIC requires stop.specific-offset.file != null && !blank and stop.specific-offset.pos >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StopMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case SPECIFIC:
+                    String stopSpecificOffsetFile =
+                            config.get(MySqlIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_FILE);
+                    Long stopSpecificOffsetPos =
+                            config.get(MySqlIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_POS);
+
+                    if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific.offset.file must be configured and not blank.");
+                    }
+
+                    if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific.offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopSpecificOffsetPos);
+                    }
+                    break;
+                case TIMESTAMP:
+                    Long stopTimestamp = config.get(MySqlIncrementalSourceOptions.STOP_TIMESTAMP);
+                    if (stopTimestamp == null || stopTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is TIMESTAMP, stop.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopTimestamp);
+                    }
+                    break;
+            }
+
             return true;
         }
     }

@@ -30,27 +30,25 @@ import java.util.List;
 
 public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-            (SingleChoiceOption)
-                    Options.key(SourceOptions.STARTUP_MODE_KEY)
-                            .singleChoice(
-                                    StartupMode.class,
-                                    Arrays.asList(
-                                            StartupMode.INITIAL,
-                                            StartupMode.LATEST,
-                                            StartupMode.TIMESTAMP))
-                            .defaultValue(StartupMode.INITIAL)
-                            .withDescription(
-                                    "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"latest\" or \"timestamp\"");
+            Options.key(SourceOptions.STARTUP_MODE_KEY)
+                    .singleChoice(
+                            StartupMode.class,
+                            Arrays.asList(
+                                    StartupMode.INITIAL, StartupMode.LATEST, StartupMode.TIMESTAMP))
+                    .defaultValue(StartupMode.INITIAL)
+                    .withDescription(
+                            "Optional startup mode for CDC source, valid enumerations are "
+                                    + "\"initial\", \"latest\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
-            (SingleChoiceOption)
-                    Options.key(SourceOptions.STOP_MODE_KEY)
-                            .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
-                            .defaultValue(StopMode.NEVER)
-                            .withDescription(
-                                    "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\"");
+            Options.key(SourceOptions.STOP_MODE_KEY)
+                    .singleChoice(
+                            StopMode.class,
+                            Arrays.asList(StopMode.NEVER, StopMode.LATEST, StopMode.SPECIFIC))
+                    .defaultValue(StopMode.NEVER)
+                    .withDescription(
+                            "Optional stop mode for CDC source, valid enumerations are "
+                                    + "\"never\", \"latest\", \"specific\"");
 
     public static final Option<List<String>> SCHEMA_NAMES =
             Options.key("schema-names")

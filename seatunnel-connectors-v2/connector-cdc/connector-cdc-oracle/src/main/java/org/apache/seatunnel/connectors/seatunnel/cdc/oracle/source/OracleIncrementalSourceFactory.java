@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
@@ -48,47 +50,6 @@ import java.util.Optional;
 @AutoService(Factory.class)
 @Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
-
-    static class EndpointValidator implements ConditionExtension<String> {
-        @Override
-        public String description() {
-            return "either 'url' or 'hostname'+'port' must be provided as the connection endpoint";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, String value) {
-            boolean hasUrl = config.getOptional(OracleIncrementalSourceOptions.URL).isPresent();
-            boolean hasHostname =
-                    config.getOptional(OracleIncrementalSourceOptions.HOSTNAME).isPresent();
-            return hasUrl || hasHostname;
-        }
-    }
-
-    static class SchemaChangeLogMiningValidator implements ConditionExtension<Boolean> {
-        @Override
-        public String description() {
-            return "when schema changes are enabled, debezium log mining strategy cannot be online_catalog";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, Boolean value) {
-            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
-            boolean schemaChangeEnabled = Boolean.TRUE.equals(value);
-            if (!schemaChangeEnabled && dbzProps != null) {
-                schemaChangeEnabled =
-                        Boolean.parseBoolean(
-                                dbzProps.get(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY));
-            }
-            if (!schemaChangeEnabled) {
-                return true;
-            }
-            if (dbzProps == null) {
-                return true;
-            }
-            String strategy = dbzProps.get(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY);
-            return !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
-        }
-    }
 
     @Override
     public String factoryIdentifier() {
@@ -166,15 +127,14 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                 OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
-                        OracleIncrementalSourceOptions.STOP_MODE)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        SourceOptions.EXACTLY_ONCE)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.STARTUP_MODE,
+                                new OracleStartModeValidator()))
+                .optional(
+                        OracleIncrementalSourceOptions.STOP_MODE,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.STOP_MODE,
+                                new OracleStopModeValidator()))
                 .build();
     }
 
@@ -232,5 +192,142 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             }
             return new OracleIncrementalSource(context.getOptions(), catalogTables);
         };
+    }
+
+    static class EndpointValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "either 'url' or 'hostname'+'port' must be provided as the connection endpoint";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            boolean hasUrl = config.getOptional(OracleIncrementalSourceOptions.URL).isPresent();
+            boolean hasHostname =
+                    config.getOptional(OracleIncrementalSourceOptions.HOSTNAME).isPresent();
+            return hasUrl || hasHostname;
+        }
+    }
+
+    static class SchemaChangeLogMiningValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "when schema changes are enabled, debezium log mining strategy cannot be online_catalog";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value) {
+            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+            boolean schemaChangeEnabled = Boolean.TRUE.equals(value);
+            if (!schemaChangeEnabled && dbzProps != null) {
+                schemaChangeEnabled =
+                        Boolean.parseBoolean(
+                                dbzProps.get(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY));
+            }
+            if (!schemaChangeEnabled) {
+                return true;
+            }
+            if (dbzProps == null) {
+                return true;
+            }
+            String strategy = dbzProps.get(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY);
+            return !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
+        }
+    }
+
+    static class OracleStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
+                    + "SPECIFIC requires startup.specific.offset.file non-blank and startup.specific.offset.pos >= 0; "
+                    + "INITIAL requires exactly.once configured";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(OracleIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+
+                case SPECIFIC:
+                    String startupSpecificOffsetFile =
+                            config.get(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+                    Long startupSpecificOffsetPos =
+                            config.get(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_POS);
+
+                    if (startupSpecificOffsetFile == null
+                            || startupSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific.offset.file must be configured and not blank.");
+                    }
+
+                    if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific.offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupSpecificOffsetPos);
+                    }
+
+                case INITIAL:
+                    Boolean exactlyOnce = config.get(OracleIncrementalSourceOptions.EXACTLY_ONCE);
+                    if (exactlyOnce == null) {
+                        throw new OptionValidationException(
+                                "When startup.mode is INITIAL, exactly.once must be configured.");
+                    }
+            }
+
+            return true;
+        }
+    }
+
+    static class OracleStopModeValidator implements ConditionExtension<StopMode> {
+        @Override
+        public String description() {
+            return "stop.mode=SPECIFIC requires stop.specific-offset.file != null && !blank and stop.specific-offset.pos >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StopMode value)
+                throws OptionValidationException {
+
+            switch (value) {
+                case SPECIFIC:
+                    String stopSpecificOffsetFile =
+                            config.get(OracleIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_FILE);
+                    Long stopSpecificOffsetPos =
+                            config.get(OracleIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_POS);
+
+                    if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific.offset.file must be configured and not blank.");
+                    }
+
+                    if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific.offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopSpecificOffsetPos);
+                    }
+
+                case TIMESTAMP:
+                    Long stopTimestamp = config.get(OracleIncrementalSourceOptions.STOP_TIMESTAMP);
+                    if (stopTimestamp == null || stopTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is TIMESTAMP, stop.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopTimestamp);
+                    }
+            }
+
+            return true;
+        }
     }
 }

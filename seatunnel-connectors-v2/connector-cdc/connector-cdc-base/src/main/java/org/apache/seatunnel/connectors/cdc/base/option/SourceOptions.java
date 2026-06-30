@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
@@ -173,15 +174,16 @@ public class SourceOptions {
 
         @Override
         public boolean evaluate(ReadonlyConfig config, List<String> value) {
-            if (value == null || value.isEmpty()) {
-                return true;
-            }
             try {
-                SchemaChangeEventType.fromCanonicalNames(value);
-                return true;
+                if (value != null || !value.isEmpty()) {
+                    SchemaChangeEventType.fromCanonicalNames(value);
+                }
             } catch (IllegalArgumentException e) {
-                return false;
+                throw new OptionValidationException(
+                        "schema change event name verification failed. event name: " + value);
             }
+
+            return true;
         }
     }
 
