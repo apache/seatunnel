@@ -113,9 +113,6 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                 SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        SqlServerIncrementalSourceOptions.STOP_MODE)
-                .optional(
-                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         Conditions.extension(
                                 SqlServerIncrementalSourceOptions.STARTUP_MODE,
                                 new SqlServerStartModeValidator()))
@@ -166,7 +163,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
         @Override
         public String description() {
             return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
-                    + "SPECIFIC requires startup.specific.offset.file non-blank and startup.specific.offset.pos >= 0; "
+                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0; "
                     + "INITIAL requires exactly.once configured";
         }
 
@@ -194,12 +191,12 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                     if (startupSpecificOffsetFile == null
                             || startupSpecificOffsetFile.trim().isEmpty()) {
                         throw new OptionValidationException(
-                                "When startup.mode is SPECIFIC, startup.specific.offset.file must be configured and not blank.");
+                                "When startup.mode is SPECIFIC, startup.specific-offset.file must be configured and not blank.");
                     }
 
                     if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
                         throw new OptionValidationException(
-                                "When startup.mode is SPECIFIC, startup.specific.offset.pos must be configured and >= 0, "
+                                "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
                                         + "but was: "
                                         + startupSpecificOffsetPos);
                     }
@@ -234,12 +231,12 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
                     if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
                         throw new OptionValidationException(
-                                "When stop.mode is SPECIFIC, stop.specific.offset.file must be configured and not blank.");
+                                "When stop.mode is SPECIFIC, stop.specific-offset.file must be configured and not blank.");
                     }
 
                     if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
                         throw new OptionValidationException(
-                                "When stop.mode is SPECIFIC, stop.specific.offset.pos must be configured and >= 0, "
+                                "When stop.mode is SPECIFIC, stop.specific-offset.pos must be configured and >= 0, "
                                         + "but was: "
                                         + stopSpecificOffsetPos);
                     }

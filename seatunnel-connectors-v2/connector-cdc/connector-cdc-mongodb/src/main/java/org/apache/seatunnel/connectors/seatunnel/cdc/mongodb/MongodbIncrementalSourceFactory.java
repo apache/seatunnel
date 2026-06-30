@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 
@@ -105,8 +107,6 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbIncrementalSourceOptions.USERNAME,
                         MongodbIncrementalSourceOptions.PASSWORD,
                         MongodbIncrementalSourceOptions.CONNECTION_OPTIONS,
-                        MongodbIncrementalSourceOptions.STARTUP_MODE,
-                        MongodbIncrementalSourceOptions.STOP_MODE,
                         MongodbIncrementalSourceOptions.DEBEZIUM_PROPERTIES)
                 .optional(
                         MongodbIncrementalSourceOptions.BATCH_SIZE,
@@ -128,10 +128,16 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         Conditions.greaterThan(
                                 MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                                 0))
-                .conditional(
+                .optional(
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP)
+                        Conditions.extension(
+                                MongodbIncrementalSourceOptions.STARTUP_MODE,
+                                new MongoStartModeValidator()))
+                .optional(
+                        MongodbIncrementalSourceOptions.STOP_MODE,
+                        Conditions.extension(
+                                MongodbIncrementalSourceOptions.STOP_MODE,
+                                new MongoStopModeValidator()))
                 .build();
     }
 
@@ -152,6 +158,105 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MongodbIncrementalSource<>(context.getOptions(), catalogTables);
         };
+    }
+
+    static class MongoStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
+                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0; "
+                    + "INITIAL requires exactly.once configured";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+                case SPECIFIC:
+                    String startupSpecificOffsetFile =
+                            config.get(
+                                    MongodbIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+                    Long startupSpecificOffsetPos =
+                            config.get(MongodbIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_POS);
+
+                    if (startupSpecificOffsetFile == null
+                            || startupSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific-offset.file must be configured and not blank.");
+                    }
+
+                    if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupSpecificOffsetPos);
+                    }
+                    break;
+                case INITIAL:
+                    Boolean exactlyOnce = config.get(MongodbIncrementalSourceOptions.EXACTLY_ONCE);
+                    if (exactlyOnce == null) {
+                        throw new OptionValidationException(
+                                "When startup.mode is INITIAL, exactly.once must be configured.");
+                    }
+                    break;
+            }
+
+            return true;
+        }
+    }
+
+    static class MongoStopModeValidator implements ConditionExtension<StopMode> {
+        @Override
+        public String description() {
+            return "stop.mode rules: TIMESTAMP requires stop.timestamp >= 0; "
+                    + "SPECIFIC requires stop.specific-offset.file non-blank and stop.specific-offset.pos >= 0; ";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StopMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case SPECIFIC:
+                    String stopSpecificOffsetFile =
+                            config.get(MongodbIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_FILE);
+                    Long stopSpecificOffsetPos =
+                            config.get(MongodbIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_POS);
+
+                    if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific-offset.file must be configured and not blank.");
+                    }
+
+                    if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific-offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopSpecificOffsetPos);
+                    }
+                    break;
+                case TIMESTAMP:
+                    Long stopTimestamp = config.get(MongodbIncrementalSourceOptions.STOP_TIMESTAMP);
+                    if (stopTimestamp == null || stopTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is TIMESTAMP, stop.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopTimestamp);
+                    }
+                    break;
+            }
+
+            return true;
+        }
     }
 
     private List<CatalogTable> updateAndValidateCatalogTableId(
