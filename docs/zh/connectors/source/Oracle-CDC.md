@@ -253,6 +253,8 @@ exit;
 | skip_analyze                              | Boolean  | 否      | false   | 在全量阶段跳过表行数的分析。在这种情况下，您需要定期调度分析表 SQL 以更新相关表统计信息，或者您的表数据更改不频繁。                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | format                                    | Enum     | 否      | DEFAULT | Oracle CDC 的可选输出格式，有效枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | schema-changes.enabled                    | Boolean  | 否      | false   | Schema 演进默认禁用。目前我们仅支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | 否      | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                                                                                                                                                                                          |
+| schema-changes.exclude                     | List     | 否      | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                                                                                                                                                                                   |
 | debezium                                  | Config   | 否      | -       | 透传 [Debezium 属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#connector-properties) 给 Debezium Embedded Engine，该引擎用于捕获 Oracle 服务器的数据更改。                                                                                                                                                                                                                                                                                                                                                      |
 | common-options                            |          | 否      | -       | 源端插件常用参数，详情请参阅 [源端常用选项](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | decimal_type_narrowing                    | Boolean | 否      | true            | 数值类型收缩，如果为 true，则在不损失精度的情况下，将 decimal 类型收缩为 int 或 long 类型。目前仅支持 Oracle。请参阅下文的 `decimal_type_narrowing`。                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -361,6 +363,41 @@ source {
   }
 }
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。过滤只影响“发往下游”的部分。
+
+使用以下 SeaTunnel 统一的规范名称：
+
+| 规范名称         | 操作                                        |
+|------------------|---------------------------------------------|
+| `add.column`     | 新增列                                      |
+| `drop.column`    | 删除列                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  Oracle-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
 ### 支持以兼容 debezium 的格式发送到 kafka
 

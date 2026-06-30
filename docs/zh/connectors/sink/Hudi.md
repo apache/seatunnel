@@ -137,7 +137,7 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### 通用选项
 
-数据源插件的通用参数，请参考 [Source Common Options](../common-options/sink-common-options.md) 了解详细信息。
+Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
 
 ## 示例
 

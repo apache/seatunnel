@@ -40,6 +40,9 @@ public class JdbcFieldTypeUtilsTest {
 
         ResultSet rs = mock(ResultSet.class);
         when(rs.getObject(1)).thenReturn(timestamp);
+        // getString is called as the primary parse path for Timestamp objects;
+        // return an ISO-8601 string so parseOffsetDateTimeFromString can convert it.
+        when(rs.getString(1)).thenReturn("2025-01-01T00:00:00Z");
         OffsetDateTime result = JdbcFieldTypeUtils.getOffsetDateTime(rs, 1);
 
         assertEquals(instant, result.toInstant());

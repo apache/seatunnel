@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 默认情况下，我们将使用2pc来保证消息精确一次到RocketMQ。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -42,7 +43,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | exactly.once         | Boolean | 否       | false                    | 如果为 true，将发送事务消息。                                                                                                                                     |
 | max.message.size     | int     | 否       | 4194304                  | 允许的最大消息体大小（字节）。                                                                                                                                    |
 | send.message.timeout | int     | 否       | 3000                     | 发送消息的超时时间（毫秒）。                                                                                                                                      |
-| common-options       | config  | 否       | -                        | Sink插件常用参数，请参考[sink common options]（../common-options/sink-common-options.md）了解详细信息。                                                        |
+| common-options       | config  | 否       | -                        | Sink插件常用参数，请参考[sink common options](../common-options/sink-common-options.md)了解详细信息。                                                        |
 
 ### partition.key.fields [array]
 
@@ -93,7 +94,7 @@ source {
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/category/transform
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -192,7 +193,7 @@ source {
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/category/transform
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 sink {
   Rocketmq {

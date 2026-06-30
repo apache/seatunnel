@@ -203,7 +203,7 @@ oss文件系统的端点。
 
 ### common options
 
-Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ### max_rows_in_memory [int]
 

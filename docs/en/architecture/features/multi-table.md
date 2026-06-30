@@ -373,16 +373,10 @@ public class MultiTableSinkCommitter<CommitInfoT>
 
 **Solution**: Multiple replica writers per table for parallel writing.
 
-```
-Without Replicas:
-  orders table (1000 writes/sec) → [Single Writer] → Bottleneck
-
-With Replicas (replicaNum=4):
-  orders table (1000 writes/sec) → [Writer 0] (250 writes/sec)
-                                  → [Writer 1] (250 writes/sec)
-                                  → [Writer 2] (250 writes/sec)
-                                  → [Writer 3] (250 writes/sec)
-```
+| Mode | Write layout | Effect |
+|------|--------------|--------|
+| Without replicas | `orders` table → single writer | A single writer becomes the bottleneck |
+| `replicaNum = 4` | `orders` table → writer `0/1/2/3`, each handling about `250 writes/sec` | Throughput is spread across replicas |
 
 ### 5.2 Replica Configuration
 
@@ -454,43 +448,31 @@ public class MultiTableSinkWriter {
 
 ### 7.1 Full Pipeline
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    MySQL CDC Source                           │
-│  • Captures changes from 100 tables                           │
-│  • Tags each row with TablePath                               │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-         ┌─────────────────────────────────────┐
-         │ SeaTunnelRow (with TablePath)       │
-         │  tableId: "my_db.public.orders"     │
-         │  fields: [1, "order-001", 99.99]    │
-         └─────────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  MultiTableSinkWriter                         │
-│  • Extracts TablePath from row                                │
-│  • Selects replica (hash or random)                           │
-│  • Routes to correct writer                                   │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ orders       │   │ users        │   │ products     │
-│ Writer 0     │   │ Writer 0     │   │ Writer 0     │
-│ Writer 1     │   │ Writer 1     │   │ Writer 1     │
-│ Writer 2     │   │              │   │              │
-│ Writer 3     │   │              │   │              │
-└──────────────┘   └──────────────┘   └──────────────┘
-        │                  │                  │
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ PostgreSQL   │   │ PostgreSQL   │   │ PostgreSQL   │
-│ orders       │   │ users        │   │ products     │
-└──────────────┘   └──────────────┘   └──────────────┘
+```mermaid
+flowchart TD
+    source["MySQL CDC Source<br/>Capture changes from many tables<br/>Tag each row with TablePath"]
+    row["SeaTunnelRow<br/>tableId = my_db.public.orders<br/>fields = [1, order-001, 99.99]"]
+    writer["MultiTableSinkWriter<br/>Extract TablePath<br/>Select replica by hash or random<br/>Route to the correct writer"]
+    orders["orders writers<br/>Writer 0 / 1 / 2 / 3"]
+    users["users writers<br/>Writer 0 / 1"]
+    products["products writers<br/>Writer 0 / 1"]
+    pgOrders["PostgreSQL orders"]
+    pgUsers["PostgreSQL users"]
+    pgProducts["PostgreSQL products"]
+
+    source --> row --> writer
+    writer --> orders --> pgOrders
+    writer --> users --> pgUsers
+    writer --> products --> pgProducts
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source,row layerBlue;
+    class writer,orders,users,products layerCyan;
+    class pgOrders,pgUsers,pgProducts layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 7.2 Write Flow
@@ -545,14 +527,10 @@ sequenceDiagram
 ### 8.1 Replica Sizing
 
 **Rule of Thumb**:
-```
-replicaNum = ceil(Table Write Rate / Single Writer Throughput)
+Use this sizing heuristic:
 
-Example:
-  orders: 10,000 writes/sec
-  Single writer: 2,500 writes/sec
-  replicaNum = ceil(10,000 / 2,500) = 4
-```
+- `replicaNum = ceil(table write rate / single writer throughput)`
+- Example: if `orders` writes at `10,000 writes/sec` and one writer sustains `2,500 writes/sec`, choose `replicaNum = 4`
 
 ### 8.2 Table-Specific Replicas
 

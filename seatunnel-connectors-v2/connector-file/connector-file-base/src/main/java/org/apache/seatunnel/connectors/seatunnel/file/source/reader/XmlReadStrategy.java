@@ -52,9 +52,9 @@ import org.dom4j.io.SAXReader;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -106,8 +106,8 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             throws IOException {
         SAXReader saxReader = new SAXReader();
         Document document;
-        try {
-            document = saxReader.read(new InputStreamReader(inputStream, encoding));
+        try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
+            document = saxReader.read(reader);
         } catch (DocumentException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED,

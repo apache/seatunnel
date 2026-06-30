@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -112,6 +113,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setSchemaChangeResolver(
                                 new OracleSchemaChangeResolver(createSourceConfigFactory(config)))
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .setTableIdTableChangeMap(tableIdStructMap)
                         .build();
     }

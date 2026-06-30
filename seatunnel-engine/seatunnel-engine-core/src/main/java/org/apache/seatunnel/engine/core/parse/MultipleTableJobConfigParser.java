@@ -454,10 +454,12 @@ public class MultipleTableJobConfigParser {
         if (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.isEmpty()) {
             return;
         }
+        Set<String> usedTransformNames = new HashSet<>();
         Queue<Config> configList = new LinkedList<>(transformConfigs);
         int index = 0;
         while (!configList.isEmpty()) {
-            parseTransform(index++, configList, classLoader, tableWithActionMap);
+            parseTransform(
+                    index++, configList, classLoader, tableWithActionMap, usedTransformNames);
         }
     }
 
@@ -465,7 +467,8 @@ public class MultipleTableJobConfigParser {
             int index,
             Queue<Config> transforms,
             ClassLoader classLoader,
-            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
+            Set<String> usedTransformNames) {
         Config config = transforms.poll();
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         final String factoryId = getFactoryId(readonlyConfig);
@@ -513,7 +516,18 @@ public class MultipleTableJobConfigParser {
 
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
-        String actionName = JobConfigParser.createTransformActionName(index, factoryId);
+        String legacyActionName = JobConfigParser.createTransformActionName(index, factoryId);
+        String actionName = legacyActionName;
+        String configuredName = getOptionalName(config);
+        if (StringUtils.isNotBlank(configuredName)) {
+            if (!usedTransformNames.add(configuredName)) {
+                throw new JobDefineCheckException(
+                        String.format(
+                                "Duplicated transform name '%s'. Transform names must be unique within a job.",
+                                configuredName));
+            }
+            actionName = configuredName;
+        }
 
         TransformAction transformAction =
                 new TransformAction(
@@ -533,6 +547,17 @@ public class MultipleTableJobConfigParser {
         }
 
         tableWithActionMap.put(tableId, actions);
+    }
+
+    private static String getOptionalName(Config config) {
+        if (config == null || !config.hasPath("name")) {
+            return null;
+        }
+        String name = config.getString("name");
+        if (name == null) {
+            return null;
+        }
+        return name.trim();
     }
 
     public static SeaTunnelDataType<?> getProducedType(Action action) {

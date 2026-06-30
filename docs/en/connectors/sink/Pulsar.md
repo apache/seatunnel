@@ -28,7 +28,7 @@ Sink connector for Apache Pulsar.
 
 |         Name         |  Type  | Required |       Default       |                                                   Description                                                    |
 |----------------------|--------|----------|---------------------|------------------------------------------------------------------------------------------------------------------|
-| topic                | String | Yes      | -                   | sink pulsar topic                                                                                                |
+| topic                | String | No       | -                   | Sink Pulsar topic. Required for single-table writes and optional when records provide `SeaTunnelRow.tableId`.   |
 | client.service-url   | String | Yes      | -                   | Service URL provider for Pulsar service.                                                                         |
 | admin.service-url    | String | Yes      | -                   | The Pulsar service HTTP URL for the admin endpoint.                                                              |
 | auth.plugin-class    | String | No       | -                   | Name of the authentication plugin.                                                                               |
@@ -40,7 +40,7 @@ Sink connector for Apache Pulsar.
 | pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                        |
 | message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                                  |
 | partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                                |
-| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details. |
+| common-options       | config | no       | -                   | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 ## Parameter Interpretation
 
@@ -77,6 +77,15 @@ If you customize the delimiter, add the "field_delimiter" option.
 
 Customize the field delimiter for data format.The default field_delimiter is ','.
 
+### topic [String]
+
+The default Pulsar topic used by the sink.
+
+For single-table pipelines, this option is required.
+For multi-table pipelines, the sink will use `SeaTunnelRow.getTableId()` as the target topic when it is present, and fall back to `topic` only when the row does not carry a table id.
+
+If neither `SeaTunnelRow.getTableId()` nor `topic` is available, the sink fails fast with a configuration error.
+
 ### semantics [Enum]
 
 Consistency semantics for writing to pulsar.
@@ -99,11 +108,11 @@ covering all the producer parameters specified in the official Pulsar document.
 
 ### message.routing.mode [Enum]
 
-Default routing mode for messages to partition.
-Available options are SinglePartition,RoundRobinPartition.
-If you choose SinglePartition, If no key is provided, The partitioned producer will randomly pick one single partition and publish all the messages into that partition, If a key is provided on the message, the partitioned producer will hash the key and assign message to a particular partition.
-If you choose RoundRobinPartition, If no key is provided, the producer will publish messages across all partitions in round-robin fashion to achieve maximum throughput.
-Please note that round-robin is not done per individual message but rather it's set to the same boundary of batching delay, to ensure batching is effective.
+Default routing mode for partitioned messages.
+Available options are `SinglePartition` and `RoundRobinPartition`.
+When `SinglePartition` is selected and no key is provided, the partitioned producer randomly selects one partition and publishes all messages to that partition. When a key is provided, the producer hashes the key and sends the message to the selected partition.
+When `RoundRobinPartition` is selected and no key is provided, the producer publishes messages across all partitions in round-robin order to achieve maximum throughput.
+Round-robin routing is applied at the batching delay boundary rather than per individual message, so batching remains effective.
 
 ### partition_key_fields [String]
 
@@ -128,7 +137,7 @@ The selected field must be an existing field in the upstream.
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Task Example
 
@@ -167,6 +176,20 @@ sink {
     pulsar.config = {
         sendTimeoutMs = 30000
     }
+  }
+}
+```
+
+### Multi-table
+
+> This example routes each row to the Pulsar topic carried in `SeaTunnelRow.tableId`. In this mode, `topic` can be omitted.
+
+```hocon
+sink {
+  Pulsar {
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    plugin_output = "test"
   }
 }
 ```

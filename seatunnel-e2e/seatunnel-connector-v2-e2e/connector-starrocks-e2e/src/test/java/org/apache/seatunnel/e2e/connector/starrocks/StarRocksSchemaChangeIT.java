@@ -54,6 +54,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -443,17 +444,21 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
             while (resultSet.next()) {
                 ArrayList<Object> objects = new ArrayList<>();
                 for (int i = 1; i <= columnCount; i++) {
-                    if (resultSet.getObject(i) instanceof Timestamp) {
-                        Timestamp timestamp = resultSet.getTimestamp(i);
-                        objects.add(timestamp.toLocalDateTime().format(DATE_TIME_FORMATTER));
-                        break;
+                    Object obj = resultSet.getObject(i);
+                    if (obj instanceof Timestamp) {
+                        objects.add(
+                                ((Timestamp) obj).toLocalDateTime().format(DATE_TIME_FORMATTER));
+                    } else if (obj instanceof LocalDateTime) {
+                        objects.add(((LocalDateTime) obj).format(DATE_TIME_FORMATTER));
+                    } else if (obj instanceof OffsetDateTime) {
+                        // TIMESTAMP_TZ (LTZ) → normalize to wall-clock string for comparison
+                        objects.add(
+                                ((OffsetDateTime) obj)
+                                        .toLocalDateTime()
+                                        .format(DATE_TIME_FORMATTER));
+                    } else {
+                        objects.add(obj);
                     }
-                    if (resultSet.getObject(i) instanceof LocalDateTime) {
-                        LocalDateTime localDateTime = resultSet.getObject(i, LocalDateTime.class);
-                        objects.add(localDateTime.format(DATE_TIME_FORMATTER));
-                        break;
-                    }
-                    objects.add(resultSet.getObject(i));
                 }
                 log.debug(String.format("Print query, sql: %s, data: %s", sql, objects));
                 result.add(objects);
