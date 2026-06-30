@@ -128,6 +128,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
     private static final String GENERATED_SLOT_PREFIX = "seatunnel_";
+    /**
+     * Debezium JSON change events can lag under CI load, so snapshot and DML record waits use the
+     * same timeout budget.
+     */
+    private static final long DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS = 180L;
 
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
@@ -259,7 +264,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      * an isolated slot to avoid cross-test collisions when streaming jobs overlap.
      */
     private String createSlotName() {
-        return "seatunnel_" + Long.toHexString(JobIdGenerator.newJobId());
+        return GENERATED_SLOT_PREFIX + Long.toHexString(JobIdGenerator.newJobId());
     }
 
     private String toSlotVariable(String slotName) {
@@ -333,7 +338,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
             AtomicReference<Integer> dataSize = new AtomicReference<>(0);
 
-            await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
+            await().atMost(DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 dataSize.updateAndGet(v -> v + getKafkaData().size());
@@ -1147,7 +1152,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     /** Wait until the Debezium JSON test observes the expected number of Kafka change records. */
     private void awaitKafkaRecordCount(AtomicReference<Integer> dataSize, int expectedCount) {
-        await().atMost(1000 * 60, TimeUnit.MILLISECONDS)
+        await().atMost(DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             dataSize.updateAndGet(v -> v + getKafkaData().size());
