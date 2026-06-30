@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 
@@ -128,6 +129,17 @@ public class ErrorHandlingMapTransform<T> implements SeaTunnelMapTransform<T> {
     @Override
     public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent schemaChangeEvent) {
         return delegate.mapSchemaChangeEvent(schemaChangeEvent);
+    }
+
+    @Override
+    @Deprecated
+    public void setTypeInfo(SeaTunnelDataType<T> inputDataType) {
+        delegate.setTypeInfo(inputDataType);
+    }
+
+    @Override
+    public void setInputCatalogTables(List<CatalogTable> inputCatalogTables) {
+        delegate.setInputCatalogTables(inputCatalogTables);
     }
 
     @Override

@@ -17,15 +17,24 @@
 
 package org.apache.seatunnel.engine.server.task.error;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -311,6 +320,49 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testRouteModeWithoutErrorSinkFailsFast() {
+        Map<String, Object> envOptions = new HashMap<>();
+        Map<String, Object> transformErrorHandler = new HashMap<>();
+        transformErrorHandler.put("mode", "ROUTE");
+        envOptions.put("transform_error_handler", transformErrorHandler);
+
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ErrorHandlerConfigUtil.buildStageConfig(
+                                        envOptions, ErrorHandlerConfigUtil.StageType.TRANSFORM));
+
+        assertTrue(ex.getMessage().contains("env.transform_error_handler.mode=ROUTE"));
+        assertTrue(ex.getMessage().contains("env.transform_error_handler.sink.plugin_name"));
+    }
+
+    @Test
+    public void testErrorHandlingTransformWrappersDelegateStatefulHooks() {
+        RecordingMapTransform mapDelegate = new RecordingMapTransform();
+        ErrorHandlingMapTransform<SeaTunnelRow> mapWrapper =
+                new ErrorHandlingMapTransform<>(mapDelegate, null, null);
+
+        List<CatalogTable> mapInputCatalogTables = Collections.emptyList();
+        mapWrapper.setInputCatalogTables(mapInputCatalogTables);
+        mapWrapper.setTypeInfo(null);
+
+        assertSame(mapInputCatalogTables, mapDelegate.inputCatalogTables);
+        assertTrue(mapDelegate.typeInfoSet);
+
+        RecordingFlatMapTransform flatMapDelegate = new RecordingFlatMapTransform();
+        ErrorHandlingFlatMapTransform<SeaTunnelRow> flatMapWrapper =
+                new ErrorHandlingFlatMapTransform<>(flatMapDelegate, null, null);
+
+        List<CatalogTable> flatMapInputCatalogTables = Collections.emptyList();
+        flatMapWrapper.setInputCatalogTables(flatMapInputCatalogTables);
+        flatMapWrapper.setTypeInfo(null);
+
+        assertSame(flatMapInputCatalogTables, flatMapDelegate.inputCatalogTables);
+        assertTrue(flatMapDelegate.typeInfoSet);
+    }
+
+    @Test
     public void testOriginalDataTruncation() {
         MockErrorSinkWriter mockSink = new MockErrorSinkWriter();
 
@@ -482,5 +534,86 @@ public class ErrorHandlerTest {
                 this.throwable = throwable;
             }
         }
+    }
+
+    private static class RecordingMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
+
+        private List<CatalogTable> inputCatalogTables;
+        private boolean typeInfoSet;
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            return row;
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return null;
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        @Deprecated
+        public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {
+            typeInfoSet = true;
+        }
+
+        @Override
+        public void setInputCatalogTables(List<CatalogTable> inputCatalogTables) {
+            this.inputCatalogTables = inputCatalogTables;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "RecordingMap";
+        }
+
+        @Override
+        public void setJobContext(JobContext jobContext) {}
+    }
+
+    private static class RecordingFlatMapTransform
+            implements SeaTunnelFlatMapTransform<SeaTunnelRow> {
+
+        private List<CatalogTable> inputCatalogTables;
+        private boolean typeInfoSet;
+
+        @Override
+        public List<SeaTunnelRow> flatMap(SeaTunnelRow row) {
+            return Collections.singletonList(row);
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return null;
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        @Deprecated
+        public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {
+            typeInfoSet = true;
+        }
+
+        @Override
+        public void setInputCatalogTables(List<CatalogTable> inputCatalogTables) {
+            this.inputCatalogTables = inputCatalogTables;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "RecordingFlatMap";
+        }
+
+        @Override
+        public void setJobContext(JobContext jobContext) {}
     }
 }

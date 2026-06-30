@@ -24,29 +24,12 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 @Slf4j
 public final class ErrorHandlerConfigUtil {
-
-    private static final int ROUTE_DOWNGRADE_WARNED_MAX_SIZE = 24;
-
-    private static final LinkedHashMap<String, Boolean> ROUTE_DOWNGRADE_WARNED =
-            new LinkedHashMap<String, Boolean>(16, 0.75f, true) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
-                    return size() > ROUTE_DOWNGRADE_WARNED_MAX_SIZE;
-                }
-            };
-
-    private static boolean markRouteDowngradeWarned(String key) {
-        synchronized (ROUTE_DOWNGRADE_WARNED) {
-            return ROUTE_DOWNGRADE_WARNED.put(key, Boolean.TRUE) == null;
-        }
-    }
 
     public enum StageType {
         TRANSFORM,
@@ -103,16 +86,10 @@ public final class ErrorHandlerConfigUtil {
         ErrorSinkConfig sinkConfig = buildErrorSinkConfig(stage, global);
 
         if (mode == ErrorHandlerMode.ROUTE && (sinkConfig == null || !sinkConfig.isConfigured())) {
-            String warnKey = jobId > 0 ? jobId + ":" + stageKey : stageKey;
-            if (markRouteDowngradeWarned(warnKey)) {
-                log.warn(
-                        "CRITICAL: env.{}.mode=ROUTE but no valid error sink is configured (missing env.{}.sink.plugin_name). "
-                                + "SeaTunnel will FORCE DOWNGRADE to LOG mode: row-level errors will be logged but NOT written to an error sink.",
-                        stageKey,
-                        stageKey);
-            }
-            mode = ErrorHandlerMode.LOG;
-            sinkConfig = ErrorSinkConfig.empty();
+            throw new IllegalArgumentException(
+                    String.format(
+                            "env.%s.mode=ROUTE requires env.%s.sink.plugin_name to be configured.",
+                            stageKey, stageKey));
         }
 
         return StageErrorConfig.builder()
