@@ -109,8 +109,8 @@ public class KafkaSourceConfigTest {
     }
 
     @Test
-    void testTopicWithMultipleDotsCanBeUsedAsTablePath() {
-        String topic = "reg.country.user_activity.activity";
+    void testSchemaTableWithMultipleDotsCanBeUsedAsOpaqueTablePath() {
+        String table = "reg.country.user_activity.activity";
 
         Map<String, Object> schemaFields = new HashMap<>();
         schemaFields.put("id", "int");
@@ -118,16 +118,17 @@ public class KafkaSourceConfigTest {
 
         Map<String, Object> schema = new HashMap<>();
         schema.put("fields", schemaFields);
+        schema.put(TABLE.key(), table);
 
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("bootstrap.servers", "localhost:9092");
         configMap.put("group.id", "test");
-        configMap.put("topic", topic);
+        configMap.put("topic", "test");
         configMap.put("schema", schema);
         configMap.put("format", "json");
 
         KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
 
-        Assertions.assertNotNull(sourceConfig.getMapMetadata().get(TablePath.of(topic)));
+        Assertions.assertNotNull(sourceConfig.getMapMetadata().get(TablePath.of(null, table)));
     }
 }

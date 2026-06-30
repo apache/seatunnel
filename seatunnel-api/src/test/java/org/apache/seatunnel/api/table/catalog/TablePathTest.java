@@ -23,12 +23,9 @@ import org.junit.jupiter.api.Test;
 public class TablePathTest {
 
     @Test
-    public void testParseOpaqueTableNameWithDots() {
-        TablePath tablePath = TablePath.of("reg.country.user_activity.activity");
-
-        Assertions.assertNull(tablePath.getDatabaseName());
-        Assertions.assertNull(tablePath.getSchemaName());
-        Assertions.assertEquals("reg.country.user_activity.activity", tablePath.getTableName());
-        Assertions.assertEquals("reg.country.user_activity.activity", tablePath.getFullName());
+    public void testRejectMalformedStructuredTableNameWithTooManyParts() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> TablePath.of("reg.country.user_activity.activity"));
     }
 }
