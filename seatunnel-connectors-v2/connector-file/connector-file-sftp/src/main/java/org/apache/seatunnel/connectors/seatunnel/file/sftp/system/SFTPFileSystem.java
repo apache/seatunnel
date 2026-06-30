@@ -548,8 +548,11 @@ public class SFTPFileSystem extends FileSystem {
                 new FSDataOutputStream(os, statistics) {
                     @Override
                     public void close() throws IOException {
-                        super.close();
-                        disconnect(client);
+                        try {
+                            super.close();
+                        } finally {
+                            disconnect(client);
+                        }
                     }
                 };
 
@@ -651,7 +654,12 @@ public class SFTPFileSystem extends FileSystem {
 
     @Override
     public void close() throws IOException {
-        super.close();
-        connectionPool.shutdown();
+        try {
+            super.close();
+        } finally {
+            if (connectionPool != null) {
+                connectionPool.shutdown();
+            }
+        }
     }
 }

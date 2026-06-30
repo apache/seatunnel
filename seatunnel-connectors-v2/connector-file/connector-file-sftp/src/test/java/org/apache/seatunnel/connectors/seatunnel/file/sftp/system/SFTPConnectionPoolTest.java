@@ -99,6 +99,38 @@ class SFTPConnectionPoolTest {
         Mockito.verify(session).disconnect();
     }
 
+    /** Late disconnects after shutdown must close the channel instead of touching closed maps. */
+    @Test
+    void disconnectAfterShutdownShouldCloseChannel() throws Exception {
+        SFTPConnectionPool connectionPool = new SFTPConnectionPool(1, 0);
+        Session session = Mockito.mock(Session.class);
+        Mockito.when(session.isConnected()).thenReturn(true);
+        TestChannelSftp channel = new TestChannelSftp(true, session);
+
+        connectionPool.shutdown();
+        connectionPool.disconnect(channel);
+
+        Assertions.assertTrue(channel.wasDisconnected());
+        Mockito.verify(session).disconnect();
+        Assertions.assertEquals(0, connectionPool.getIdleCount());
+        Assertions.assertEquals(0, connectionPool.getConnPoolSize());
+    }
+
+    /** Unknown channels are not reusable pool entries, so they must be closed immediately. */
+    @Test
+    void disconnectShouldCloseUntrackedChannel() throws Exception {
+        SFTPConnectionPool connectionPool = new SFTPConnectionPool(1, 1);
+        Session session = Mockito.mock(Session.class);
+        Mockito.when(session.isConnected()).thenReturn(true);
+        TestChannelSftp channel = new TestChannelSftp(true, session);
+
+        connectionPool.disconnect(channel);
+
+        Assertions.assertTrue(channel.wasDisconnected());
+        Mockito.verify(session).disconnect();
+        Assertions.assertEquals(0, connectionPool.getIdleCount());
+    }
+
     /** Small concrete ChannelSftp stub that keeps Mockito away from final JSch internals. */
     private static final class TestChannelSftp extends ChannelSftp {
         private final boolean connected;
