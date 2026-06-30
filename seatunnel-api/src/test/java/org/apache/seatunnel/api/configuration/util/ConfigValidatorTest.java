@@ -296,9 +296,13 @@ public class ConfigValidatorTest {
         Map<String, Object> config = new HashMap<>();
         config.put(SINGLE_CHOICE_TEST.key(), "A");
         Executable executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the defaultValue(M) must be one of the optionValues([A, B, C]).",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        OptionValidationException ex = assertThrows(OptionValidationException.class, executable);
+        String msg = ex.getMessage();
+        Assertions.assertTrue(
+                msg.contains("single_choice_test"), "Should mention option key: " + msg);
+        Assertions.assertTrue(
+                msg.contains("defaultValue(M) must be one of"),
+                "Should mention invalid defaultValue: " + msg);
     }
 
     @Test
@@ -311,9 +315,12 @@ public class ConfigValidatorTest {
 
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "N");
         executable = () -> validate(config, optionRule);
-        assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the value(N) must be one of the optionValues([A, B, C]).",
-                assertThrows(OptionValidationException.class, executable).getMessage());
+        OptionValidationException ex = assertThrows(OptionValidationException.class, executable);
+        String msg = ex.getMessage();
+        Assertions.assertTrue(
+                msg.contains("single_choice_test"), "Should mention option key: " + msg);
+        Assertions.assertTrue(
+                msg.contains("value(N) must be one of"), "Should mention invalid value: " + msg);
     }
 
     @Test
@@ -3482,5 +3489,113 @@ public class ConfigValidatorTest {
         config5.put(TEST_TOPIC_PATTERN.key(), "topic.*");
         config5.put(TEST_TOPIC.key(), Collections.emptyList());
         assertThrows(OptionValidationException.class, () -> validate(config5, rule));
+    }
+
+    // ==================== collectErrors contract tests ====================
+
+    @Test
+    public void testMultipleSingleChoiceErrorsCollected() {
+        Option<String> choice1 =
+                Options.key("mode1")
+                        .singleChoice(String.class, Arrays.asList("A", "B", "C"))
+                        .defaultValue("A")
+                        .withDescription("mode1");
+        Option<String> choice2 =
+                Options.key("mode2")
+                        .singleChoice(String.class, Arrays.asList("X", "Y", "Z"))
+                        .defaultValue("X")
+                        .withDescription("mode2");
+
+        OptionRule rule = OptionRule.builder().required(choice1, choice2).build();
+        Map<String, Object> config = new HashMap<>();
+        config.put("mode1", "INVALID1");
+        config.put("mode2", "INVALID2");
+
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("mode1"), "Should report mode1 error: " + msg);
+        Assertions.assertTrue(msg.contains("mode2"), "Should report mode2 error: " + msg);
+        Assertions.assertTrue(
+                msg.contains("INVALID1") && msg.contains("INVALID2"),
+                "Should report both invalid values: " + msg);
+    }
+
+    @Test
+    public void testMixedErrorTypesAllCollected() {
+        Option<String> choice =
+                Options.key("format")
+                        .singleChoice(String.class, Arrays.asList("json", "csv", "avro"))
+                        .defaultValue("json")
+                        .withDescription("format");
+        Option<String> host =
+                Options.key("host").stringType().noDefaultValue().withDescription("host");
+        Option<Integer> port =
+                Options.key("port").intType().noDefaultValue().withDescription("port");
+
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(choice, host)
+                        .required(port, greaterOrEqual(port, 1))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("format", "xml");
+        config.put("port", 0);
+
+        OptionValidationException ex =
+                assertThrows(OptionValidationException.class, () -> validate(config, rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("host"), "Should report missing host: " + msg);
+        Assertions.assertTrue(
+                msg.contains("format") && msg.contains("singleChoice"),
+                "Should report single_choice error: " + msg);
+        Assertions.assertTrue(
+                msg.contains("port") && msg.contains("value"),
+                "Should report value constraint error: " + msg);
+    }
+
+    @Test
+    public void testExtensionExceptionIsAggregatedNotFailFast() {
+        ConditionExtension<Integer> throwingExtension =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value)
+                            throws OptionValidationException {
+                        if (value != null && value <= 0) {
+                            throw new OptionValidationException(
+                                    "port value %d is not positive", value);
+                        }
+                        return true;
+                    }
+                };
+
+        OptionRule rule =
+                OptionRule.builder()
+                        .required(HOST, notBlank(HOST))
+                        .required(PORT, Conditions.extension(PORT, throwingExtension))
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(HOST.key(), "");
+        config.put(PORT.key(), -1);
+
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("2 errors"), "both errors should be aggregated: " + msg);
+        Assertions.assertTrue(
+                msg.contains("host") && msg.contains("is not blank"),
+                "host notBlank error should appear: " + msg);
+        Assertions.assertTrue(
+                msg.contains("port value -1 is not positive"),
+                "extension exception message should be preserved: " + msg);
     }
 }
