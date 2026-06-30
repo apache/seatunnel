@@ -106,7 +106,8 @@ public class PulsarMultiTableConfig implements Serializable {
                 stopMode,
                 stopTimestamp,
                 resetMode,
-                subscriptionName);
+                subscriptionName,
+                config);
         PulsarTableConfig tableConfig =
                 new PulsarTableConfig(
                         tablePath,
@@ -216,7 +217,8 @@ public class PulsarMultiTableConfig implements Serializable {
                     stopMode,
                     stopTimestamp,
                     resetMode,
-                    subscriptionName);
+                    subscriptionName,
+                    tableConfig);
             validateTopicOverlap(
                     i,
                     topic,
@@ -264,7 +266,8 @@ public class PulsarMultiTableConfig implements Serializable {
             StopMode stopMode,
             Long stopTimestamp,
             PulsarSourceOptions.CursorResetStrategy resetMode,
-            String subscriptionName) {
+            String subscriptionName,
+            ReadonlyConfig schemaConfig) {
         String configPrefix =
                 index >= 0
                         ? String.format("tables_configs[%d] ('%s')", index, tablePath)
@@ -285,6 +288,7 @@ public class PulsarMultiTableConfig implements Serializable {
         }
 
         validateFormat(format, index, tablePath);
+        validateAvroSchema(format, index, tablePath, schemaConfig);
 
         if (startMode == StartMode.TIMESTAMP && startTimestamp == null) {
             throw new PulsarConnectorException(
@@ -325,6 +329,24 @@ public class PulsarMultiTableConfig implements Serializable {
                             "%s uses unsupported format '%s', only JSON, CANAL_JSON and AVRO are supported",
                             configPrefix, format));
         }
+    }
+
+    private static void validateAvroSchema(
+            String format, int index, TablePath tablePath, ReadonlyConfig schemaConfig) {
+        if (!Objects.equals("AVRO", format.toUpperCase())) {
+            return;
+        }
+        if (schemaConfig.getOptional(PulsarSourceOptions.SCHEMA).isPresent()) {
+            return;
+        }
+        String configPrefix =
+                index >= 0
+                        ? String.format("tables_configs[%d] ('%s')", index, tablePath)
+                        : "Pulsar source config";
+        throw new PulsarConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "%s uses format 'AVRO' but 'schema' is not configured", configPrefix));
     }
 
     private static void validateTopicOverlap(
