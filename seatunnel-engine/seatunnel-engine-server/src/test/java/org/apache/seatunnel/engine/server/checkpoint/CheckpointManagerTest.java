@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -36,13 +37,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import com.hazelcast.map.IMap;
-
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 @DisabledOnOs(OS.WINDOWS)
@@ -50,7 +48,7 @@ import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE
 public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testHAByIMapCheckpointIDCounter() throws CheckpointStorageException {
+    public void testHAByStateStoreCheckpointIDCounter() throws CheckpointStorageException {
         long jobId = (long) (Math.random() * 1000000L);
         CheckpointStorage checkpointStorage =
                 FactoryUtil.discoverFactory(
@@ -75,9 +73,10 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         .checkpointId(1)
                         .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
                         .build());
-        IMap<Integer, Long> checkpointIdMap =
-                nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
-        checkpointIdMap.put(1, 2L);
+        CounterStateStore<String> checkpointCounterStore =
+                server.getEngineContext().getStateStores().checkpointCounterStore();
+        String counterKey = StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1);
+        checkpointCounterStore.set(counterKey, 2L);
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
         CheckpointManager checkpointManager =
@@ -91,10 +90,11 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
-        Assertions.assertNull(checkpointIdMap.get(1));
+        Assertions.assertEquals(0L, checkpointCounterStore.get(counterKey));
         checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
     }

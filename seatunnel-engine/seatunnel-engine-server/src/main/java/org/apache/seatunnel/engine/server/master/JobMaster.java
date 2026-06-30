@@ -339,6 +339,7 @@ public class JobMaster {
                         checkpointStorage,
                         executorService,
                         runningJobStateIMap,
+                        seaTunnelServer.getEngineContext(),
                         seaTunnelServer.getCheckpointMonitorService());
     }
 

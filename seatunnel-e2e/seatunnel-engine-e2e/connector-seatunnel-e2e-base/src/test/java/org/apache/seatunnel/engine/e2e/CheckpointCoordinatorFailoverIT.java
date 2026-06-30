@@ -25,13 +25,13 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.checkpoint.IMapCheckpointIDCounter;
+import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -279,7 +279,7 @@ public class CheckpointCoordinatorFailoverIT {
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
             // Verify at least one pipeline's checkpoint id strictly grows on the new master.
-            IMap<String, Long> ckIdMap = masterNode2.getMap(Constant.IMAP_CHECKPOINT_ID);
+            IMap<String, Long> ckIdMap = masterNode2.getMap(EngineStateStoreNames.CHECKPOINT_ID);
             Map<Integer, Long> checkpointBefore = new HashMap<>();
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
@@ -291,7 +291,7 @@ public class CheckpointCoordinatorFailoverIT {
                                         pipelineId <= rowNumPerSource.length;
                                         pipelineId++) {
                                     String ckIdKey =
-                                            IMapCheckpointIDCounter.convertLongIntToBase64(
+                                            StateStoreCheckpointIDCounter.convertLongIntToBase64(
                                                     jobId, pipelineId);
                                     Long value = ckIdMap.get(ckIdKey);
                                     if (value != null) {
@@ -316,7 +316,7 @@ public class CheckpointCoordinatorFailoverIT {
                                     int pid = entry.getKey();
                                     long before = entry.getValue();
                                     String ckIdKey =
-                                            IMapCheckpointIDCounter.convertLongIntToBase64(
+                                            StateStoreCheckpointIDCounter.convertLongIntToBase64(
                                                     jobId, pid);
                                     Long current = ckIdMap.get(ckIdKey);
                                     if (current != null && current > before) {

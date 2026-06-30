@@ -55,8 +55,6 @@ public class Constant {
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
-    public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
-
     public static final String IMAP_PENDING_PIPELINE_CLEANUP = "engine_pendingPipelineCleanup";
 
     public static final String IMAP_PENDING_JOB_CLEANUP = "engine_pendingJobCleanup";
