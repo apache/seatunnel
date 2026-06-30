@@ -84,6 +84,9 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Collec
 
 @Slf4j
 public class MongodbUtils {
+    private static final String MONGODB_SCHEME = "mongodb://";
+    private static final String MONGODB_SRV_SCHEME = "mongodb+srv://";
+    private static final String DEFAULT_DATABASE = "/";
 
     public static ChangeStreamDescriptor getChangeStreamDescriptor(
             @Nonnull MongodbSourceConfig sourceConfig,
@@ -371,19 +374,106 @@ public class MongodbUtils {
 
     public static @Nonnull ConnectionString buildConnectionString(
             String username, String password, String hosts, String connectionOptions) {
-        StringBuilder sb = new StringBuilder("mongodb://");
+        String uri =
+                isConnectionUri(hosts)
+                        ? buildFromUri(hosts, username, password, connectionOptions)
+                        : buildFromHosts(hosts, username, password, connectionOptions);
+        return new ConnectionString(uri);
+    }
 
+    private static String buildFromHosts(
+            String hosts, String username, String password, String connectionOptions) {
+        StringBuilder sb = new StringBuilder(MONGODB_SCHEME);
         if (hasCredentials(username, password)) {
             appendCredentials(sb, username, password);
         }
-
         sb.append(hosts);
-
         if (StringUtils.isNotEmpty(connectionOptions)) {
             sb.append("/?").append(connectionOptions);
         }
+        return sb.toString();
+    }
 
-        return new ConnectionString(sb.toString());
+    private static String buildFromUri(
+            String uri, String username, String password, String connectionOptions) {
+        StringBuilder sb = new StringBuilder(uri);
+        if (hasCredentials(username, password) && !hasCredentialsInUri(uri)) {
+            sb.insert(getScheme(uri).length(), credentialString(username, password));
+        }
+        appendConnectionOptions(sb, connectionOptions);
+        return sb.toString();
+    }
+
+    public static boolean isConnectionUri(String hosts) {
+        return StringUtils.startsWith(hosts, MONGODB_SCHEME)
+                || StringUtils.startsWith(hosts, MONGODB_SRV_SCHEME);
+    }
+
+    public static String buildConnectionNamespacePrefix(String hosts) {
+        if (!isConnectionUri(hosts)) {
+            return MONGODB_SCHEME + hosts;
+        }
+
+        String scheme = getScheme(hosts);
+        String remaining = hosts.substring(scheme.length());
+        int boundary = findAuthorityBoundary(remaining);
+        String authority = boundary == -1 ? remaining : remaining.substring(0, boundary);
+        int credentialIndex = authority.lastIndexOf('@');
+        if (credentialIndex >= 0) {
+            authority = authority.substring(credentialIndex + 1);
+        }
+        return scheme + authority;
+    }
+
+    private static String getScheme(String uri) {
+        return StringUtils.startsWith(uri, MONGODB_SRV_SCHEME)
+                ? MONGODB_SRV_SCHEME
+                : MONGODB_SCHEME;
+    }
+
+    private static boolean hasCredentialsInUri(String uri) {
+        String scheme = getScheme(uri);
+        String remaining = uri.substring(scheme.length());
+        int boundary = findAuthorityBoundary(remaining);
+        String authority = boundary == -1 ? remaining : remaining.substring(0, boundary);
+        return authority.contains("@");
+    }
+
+    private static int findAuthorityBoundary(String uriWithoutScheme) {
+        int slashIndex = uriWithoutScheme.indexOf('/');
+        int queryIndex = uriWithoutScheme.indexOf('?');
+        if (slashIndex == -1) {
+            return queryIndex;
+        }
+        if (queryIndex == -1) {
+            return slashIndex;
+        }
+        return Math.min(slashIndex, queryIndex);
+    }
+
+    private static String credentialString(String username, String password) {
+        return encodeValue(username) + ":" + encodeValue(password) + "@";
+    }
+
+    private static void appendConnectionOptions(StringBuilder sb, String connectionOptions) {
+        if (StringUtils.isEmpty(connectionOptions)) {
+            return;
+        }
+        if (StringUtils.contains(sb, "?")) {
+            if (!StringUtils.endsWith(sb, "?") && !StringUtils.endsWith(sb, "&")) {
+                sb.append("&");
+            }
+        } else if (hasDatabasePath(sb)) {
+            sb.append("?");
+        } else {
+            sb.append(DEFAULT_DATABASE).append("?");
+        }
+        sb.append(connectionOptions);
+    }
+
+    private static boolean hasDatabasePath(StringBuilder sb) {
+        int schemeEnd = sb.indexOf("://") + 3;
+        return sb.indexOf("/", schemeEnd) >= 0;
     }
 
     private static boolean hasCredentials(String username, String password) {
@@ -392,7 +482,7 @@ public class MongodbUtils {
 
     private static void appendCredentials(
             @Nonnull StringBuilder sb, String username, String password) {
-        sb.append(encodeValue(username)).append(":").append(encodeValue(password)).append("@");
+        sb.append(credentialString(username, password));
     }
 
     public static String encodeValue(String value) {

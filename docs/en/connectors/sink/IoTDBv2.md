@@ -19,6 +19,7 @@ Used to write data to IoTDB.
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
     > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
   
 ## Supported DataSource Info
 

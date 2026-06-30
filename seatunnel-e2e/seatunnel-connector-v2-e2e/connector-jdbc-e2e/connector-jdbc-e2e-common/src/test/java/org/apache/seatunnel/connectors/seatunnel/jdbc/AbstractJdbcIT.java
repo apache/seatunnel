@@ -367,9 +367,25 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         }
     }
 
+    /**
+     * Hook for subclasses to skip testJdbcDb for specific engine types without overriding
+     * the @TestTemplate method itself. Overriding a @TestTemplate method in a subclass causes JUnit
+     * 5 to register and run the test twice (once from the parent, once from the child), leading to
+     * duplicate data in the sink table and incorrect row-count assertions.
+     *
+     * @param container the current test container
+     * @return true if testJdbcDb should be skipped for this container
+     */
+    protected boolean isDisabledOnContainer(TestContainer container) {
+        return false;
+    }
+
     @TestTemplate
     public void testJdbcDb(TestContainer container)
             throws IOException, InterruptedException, SQLException {
+        if (isDisabledOnContainer(container)) {
+            return;
+        }
         List<String> configFiles = jdbcCase.getConfigFile();
         for (String configFile : configFiles) {
             try {
@@ -574,7 +590,23 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 javaArray[index] = checkData(jdbcArray[index]);
             }
             return javaArray;
+        } else if (data instanceof java.time.OffsetDateTime) {
+            // Normalize OffsetDateTime to Timestamp for comparison
+            return java.sql.Timestamp.valueOf(((java.time.OffsetDateTime) data).toLocalDateTime());
         } else {
+            // oracle.sql.TIMESTAMPLTZ / TIMESTAMPTZ objects do not override equals() correctly
+            // for cross-object comparison. Normalize to byte[] via toBytes() so that
+            // assertArrayEquals() can compare the raw timestamp bytes directly.
+            String className = data.getClass().getName();
+            if (className.equals("oracle.sql.TIMESTAMPLTZ")
+                    || className.equals("oracle.sql.TIMESTAMPTZ")) {
+                try {
+                    java.lang.reflect.Method toBytes = data.getClass().getMethod("toBytes");
+                    return toBytes.invoke(data);
+                } catch (Exception e) {
+                    return data;
+                }
+            }
             return data;
         }
     }

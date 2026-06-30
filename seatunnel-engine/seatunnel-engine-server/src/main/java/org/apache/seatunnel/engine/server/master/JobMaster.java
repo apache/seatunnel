@@ -37,6 +37,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -148,7 +150,7 @@ public class JobMaster {
 
     private LogicalDag logicalDag;
 
-    private JobDAGInfo jobDAGInfo;
+    private volatile JobDAGInfo jobDAGInfo;
 
     private SeaTunnelServer seaTunnelServer;
 
@@ -325,6 +327,7 @@ public class JobMaster {
     }
 
     public void initCheckPointManager(boolean restart) {
+        CheckpointStorage checkpointStorage = resolveCheckpointStorageOrFallback(restart);
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
@@ -333,10 +336,95 @@ public class JobMaster {
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
-                        seaTunnelServer.getCheckpointService().getCheckpointStorage(),
+                        checkpointStorage,
                         executorService,
                         runningJobStateIMap,
                         seaTunnelServer.getCheckpointMonitorService());
+    }
+
+    private CheckpointStorage resolveCheckpointStorageOrFallback(boolean restart) {
+        if (seaTunnelServer != null && seaTunnelServer.getCheckpointService() != null) {
+            CheckpointStorage storage =
+                    seaTunnelServer.getCheckpointService().getCheckpointStorage();
+            if (storage != null) {
+                return storage;
+            }
+        }
+
+        boolean checkpointEnabled =
+                jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
+        boolean startWithSavePoint =
+                jobImmutableInformation != null
+                        && (jobImmutableInformation.isStartWithSavePoint() || restart);
+
+        if (checkpointEnabled && startWithSavePoint) {
+            throw new IllegalStateException(
+                    "Checkpoint is enabled and job starts with savepoint, but checkpoint storage is not available");
+        }
+
+        // When checkpoint is disabled, CheckpointManager will not touch the storage. We still need
+        // a non-null placeholder to avoid NPEs during job initialization (especially in local
+        // example runs where SeaTunnelServer components may initialize asynchronously).
+        return new UnsupportedCheckpointStorage();
+    }
+
+    private static final class UnsupportedCheckpointStorage implements CheckpointStorage {
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("Checkpoint storage is unavailable");
+        }
+
+        @Override
+        public String storeCheckPoint(PipelineState state) {
+            throw unavailable();
+        }
+
+        @Override
+        public void asyncStoreCheckPoint(PipelineState state) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getAllCheckpoints(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getLatestCheckpoint(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                String jobId, String pipelineId) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                String jobId, String pipelineId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(
+                String jobId, String pipelineId, List<String> checkpointIdList) {
+            throw unavailable();
+        }
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
@@ -735,20 +823,43 @@ public class JobMaster {
         coordinatorService.schedulePendingJobCleanup(jobId, cleanupRecord);
     }
 
+    /**
+     * Lazily build and cache {@link JobDAGInfo} for REST/UI callers.
+     *
+     * <p>This uses the classic double-check locking pattern with a {@code volatile} field to avoid
+     * repeated expensive DAG reconstruction while keeping the hot path lock-free after
+     * initialization.
+     *
+     * <p>Thread-safety notes:
+     *
+     * <ul>
+     *   <li>{@code jobDAGInfo} is {@code volatile}, so once assigned, all threads will observe the
+     *       fully constructed reference.
+     *   <li>The initialization is guarded by {@code synchronized (this)} to ensure at most one
+     *       build happens.
+     * </ul>
+     */
     public JobDAGInfo getJobDAGInfo() {
-        if (jobDAGInfo == null) {
-            jobDAGInfo =
-                    DAGUtils.getJobDAGInfo(
-                            logicalDag,
-                            jobImmutableInformation,
-                            engineConfig,
-                            isPhysicalDAGInfo,
-                            new ExecutionAddress(
-                                    this.nodeEngine.getThisAddress().getHost(),
-                                    this.nodeEngine.getThisAddress().getPort()),
-                            historyExecutionAddress);
+        JobDAGInfo local = jobDAGInfo;
+        if (local == null) {
+            synchronized (this) {
+                local = jobDAGInfo;
+                if (local == null) {
+                    local =
+                            DAGUtils.getJobDAGInfo(
+                                    logicalDag,
+                                    jobImmutableInformation,
+                                    engineConfig,
+                                    isPhysicalDAGInfo,
+                                    new ExecutionAddress(
+                                            this.nodeEngine.getThisAddress().getHost(),
+                                            this.nodeEngine.getThisAddress().getPort()),
+                                    historyExecutionAddress);
+                    jobDAGInfo = local;
+                }
+            }
         }
-        return jobDAGInfo;
+        return local;
     }
 
     public void releaseTaskGroupResource(

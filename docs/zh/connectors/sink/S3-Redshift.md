@@ -26,6 +26,7 @@ import ChangeLog from '../changelog/connector-s3-redshift.md';
   - [x] parquet
   - [x] orc
   - [x] json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 

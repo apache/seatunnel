@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-socket.md';
 ## 主要特性
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

@@ -36,6 +36,7 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 | FLOAT16_VECTOR      | FLOAT16_VECTOR      |
 | BFLOAT16_VECTOR     | BFLOAT16_VECTOR     |
 | SPARSE_FLOAT_VECTOR | SPARSE_FLOAT_VECTOR |
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Sink 选项
 

@@ -70,7 +70,7 @@ Generate Apache SeaTunnel configs with natural language.
   [bold]/save <path>[/bold]     — Save config to custom path (auto-saved to .data/last_job.conf)
   [bold]/check[/bold]           — Dry-run validate last config (auto-fixes on failure)
   [bold]/run[/bold]             — Execute last config with SeaTunnel
-  [bold]/connectors[/bold]      — List available connectors
+  [bold]/connectors[/bold]      — List available sources, sinks, and transforms
   [bold]/config[/bold]          — Show/change LLM provider settings
   [bold]/sessions[/bold]        — List recent sessions
   [bold]/resume [id][/bold]     — Resume a previous session
@@ -1066,6 +1066,7 @@ class SeaTunnelCLI:
             self.console.print(f"  [bold]Sources:[/bold] {', '.join(names['sources'])}")
             self.console.print(f"  [bold]Sinks:[/bold]   {', '.join(names['sinks'])}")
             self.console.print(f"  [bold]Transforms:[/bold] {', '.join(names['transforms'])}")
+            self.console.print("  Transform option rules and value constraints are supported during generation.")
 
         elif command == "/config":
             self._cmd_config(arg.strip())

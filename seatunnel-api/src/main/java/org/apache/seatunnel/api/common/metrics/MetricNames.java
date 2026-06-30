@@ -39,4 +39,41 @@ public final class MetricNames {
     public static final String SINK_COMMITTED_BYTES_PER_SECONDS = "SinkCommittedBytesPerSeconds";
 
     public static final String INTERMEDIATE_QUEUE_SIZE = "IntermediateQueueSize";
+
+    /** Total nanoseconds spent blocked when putting into intermediate queues. */
+    public static final String INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS =
+            "IntermediateQueuePutBlockedNs";
+
+    /** Capacity of intermediate queues (reported as a constant counter value). */
+    public static final String INTERMEDIATE_QUEUE_CAPACITY = "IntermediateQueueCapacity";
+
+    /** Total nanoseconds spent reading (polling with output) in Source. */
+    public static final String SOURCE_READ_NANOS = "SourceReadNs";
+
+    /** Total nanoseconds spent idle (polling empty / sleeping / waiting) in Source. */
+    public static final String SOURCE_IDLE_NANOS = "SourceIdleNs";
+
+    /** Total nanoseconds spent processing records in Transform chain. */
+    public static final String TRANSFORM_PROCESS_NANOS = "TransformProcessNs";
+
+    /** Total records received by Transform chain. */
+    public static final String TRANSFORM_RECORDS_IN = "TransformRecordsIn";
+
+    /** Total records emitted by Transform chain. */
+    public static final String TRANSFORM_RECORDS_OUT = "TransformRecordsOut";
+
+    /** Total nanoseconds spent writing records in Sink writer.write. */
+    public static final String SINK_WRITE_NANOS = "SinkWriteNs";
+
+    /** Total records received by Sink (writer.write call count). */
+    public static final String SINK_RECORDS_IN = "SinkRecordsIn";
+
+    /** Total nanoseconds spent in Sink writer.prepareCommit. */
+    public static final String SINK_PREPARE_COMMIT_NANOS = "SinkPrepareCommitNs";
+
+    /** Total nanoseconds spent in SinkCommitter.commit. */
+    public static final String SINK_COMMIT_NANOS = "SinkCommitNs";
+
+    /** Total nanoseconds spent in SinkCommitter.abort. */
+    public static final String SINK_ABORT_NANOS = "SinkAbortNs";
 }

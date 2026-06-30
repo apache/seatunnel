@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -214,20 +217,28 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.SCHEMA_SAVE_MODE,
                         JdbcSinkOptions.DATA_SAVE_MODE)
                 .optional(
+                        JdbcSinkOptions.ORACLE_INSERT_MODE,
+                        Conditions.extension(
+                                JdbcSinkOptions.ORACLE_INSERT_MODE,
+                                new OracleAppendValuesValidator()))
+                .optional(
+                        JdbcSinkOptions.IS_EXACTLY_ONCE,
+                        Conditions.extension(
+                                JdbcSinkOptions.IS_EXACTLY_ONCE,
+                                new ExactlyOnceMaxRetriesValidator()))
+                .optional(
                         JdbcSinkOptions.CREATE_INDEX,
                         JdbcSinkOptions.USERNAME,
                         JdbcSinkOptions.PASSWORD,
                         JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
                         JdbcSinkOptions.BATCH_SIZE,
                         JdbcSinkOptions.BATCH_INTERVAL_MS,
-                        JdbcSinkOptions.IS_EXACTLY_ONCE,
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
-                        JdbcSinkOptions.ORACLE_INSERT_MODE,
                         JdbcSinkOptions.COMPATIBLE_MODE,
                         JdbcSinkOptions.ENABLE_UPSERT,
                         JdbcSinkOptions.FIELD_IDE,
@@ -249,5 +260,81 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         JdbcSinkOptions.CUSTOM_SQL)
                 .build();
+    }
+
+    /**
+     * Submission-time validator for {@code oracle_insert_mode=APPEND_VALUES}.
+     *
+     * <p>Enforces config-level incompatibilities that can be detected from the user-supplied
+     * options alone: copy statement, exactly-once, auto_commit=false, custom query, and insert-only
+     * upsert.
+     *
+     * <p><b>Note:</b> The {@code primary_keys} conflict is <em>not</em> checked here because
+     * primary keys may be derived from the upstream {@code CatalogTable} at factory time (inside
+     * {@link #createSink}), which happens after OptionRule validation. That case is guarded at
+     * runtime by {@code JdbcOutputFormatBuilder.validateOracleInsertMode}.
+     */
+    static class OracleAppendValuesValidator
+            implements ConditionExtension<JdbcSinkConfig.OracleInsertMode> {
+        @Override
+        public String description() {
+            return "oracle_insert_mode=APPEND_VALUES conflicts with certain options";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, JdbcSinkConfig.OracleInsertMode value)
+                throws OptionValidationException {
+            if (value != JdbcSinkConfig.OracleInsertMode.APPEND_VALUES) {
+                return true;
+            }
+            if (config.get(JdbcSinkOptions.USE_COPY_STATEMENT)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support copy statement.");
+            }
+            if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support exactly-once.");
+            }
+            if (!config.get(JdbcSinkOptions.AUTO_COMMIT)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES requires auto_commit=true.");
+            }
+            if (!config.get(JdbcSinkOptions.GENERATE_SINK_SQL)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support custom query.");
+            }
+            if (config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support insert-only upsert.");
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Submission-time validator for {@code is_exactly_once=true}.
+     *
+     * <p>JDBC XA sink does not support retries; {@code max_retries} must be 0 when exactly-once is
+     * enabled, otherwise duplicates may occur.
+     */
+    static class ExactlyOnceMaxRetriesValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "is_exactly_once=true requires max_retries=0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value)
+                throws OptionValidationException {
+            if (Boolean.TRUE.equals(value)) {
+                int maxRetries = config.get(JdbcSinkOptions.MAX_RETRIES);
+                if (maxRetries != 0) {
+                    throw new OptionValidationException(
+                            "JDBC XA sink requires max_retries equal to 0 when is_exactly_once=true, "
+                                    + "otherwise it could cause duplicates.");
+                }
+            }
+            return true;
+        }
     }
 }

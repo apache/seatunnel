@@ -131,7 +131,7 @@ transform {
 
 ### Simple
 
-> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
+> This example reads data from Kafka topics topic_1, topic_2, and topic_3 and prints it to the client. If you have not installed and deployed SeaTunnel yet, follow [Install SeaTunnel](../../getting-started/locally/deployment.md) first. Then follow [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 > In batch mode, during the enumerator sharding process, it will fetch the latest offset for each partition and use it as the stopping point.
 
 ```hocon

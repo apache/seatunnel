@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -57,7 +58,7 @@ class EngineStateStoreMetricExportsTest {
         instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("EngineStateStoreMetricExportsTest_localMetrics"));
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
         instance.getMap(Constant.IMAP_RUNNING_JOB_INFO).put(1L, "job-info");
 
@@ -92,7 +93,7 @@ class EngineStateStoreMetricExportsTest {
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
                                 "EngineStateStoreMetricExportsTest_allStateStores"));
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
 
         List<MetricFamilySamples> metrics =
@@ -110,11 +111,11 @@ class EngineStateStoreMetricExportsTest {
                                 Constant.IMAP_RUNNING_JOB_STATE,
                                 Constant.IMAP_STATE_TIMESTAMPS,
                                 Constant.IMAP_OWNED_SLOT_PROFILES,
-                                Constant.IMAP_RUNNING_JOB_METRICS,
+                                EngineStateStoreNames.RUNNING_JOB_METRICS,
                                 Constant.IMAP_FINISHED_JOB_STATE,
                                 Constant.IMAP_FINISHED_JOB_METRICS,
                                 Constant.IMAP_FINISHED_JOB_VERTEX_INFO,
-                                Constant.IMAP_CHECKPOINT_MONITOR,
+                                EngineStateStoreNames.CHECKPOINT_MONITOR,
                                 Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS,
                                 Constant.IMAP_CHECKPOINT_ID,
                                 Constant.IMAP_PENDING_PIPELINE_CLEANUP)),

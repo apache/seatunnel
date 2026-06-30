@@ -36,7 +36,7 @@ jobs:
       checks: write
     steps:
       - name: "Notify test workflow"
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -109,31 +109,33 @@ jobs:
                 }
               })
             } else {
-              const run_id = runs.data.workflow_runs[0].id
+              const build_run = runs.data.workflow_runs[0]
+              const run_id = build_run.id
 
-              if (runs.data.workflow_runs[0].head_sha != context.payload.pull_request.head.sha) {
+              if (build_run.head_sha != context.payload.pull_request.head.sha) {
                 throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
               }
 
               // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
               const check_runs = await github.request(check_run_endpoint, check_run_params)
               console.log('check_runs: ' + JSON.stringify(check_runs))
-              const check_run_head = check_runs.data.check_runs.filter(r => r.name === "Run / License header")[0]
-
-              console.log('check_run_head: ' + JSON.stringify(check_run_head))
-              if (check_run_head.head_sha != context.payload.pull_request.head.sha) {
-                throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
-              }
-
-              const check_run_url = 'https://github.com/'
-                + context.payload.pull_request.head.repo.full_name
-                + '/runs/'
-                + check_run_head.id
-
               const actions_url = 'https://github.com/'
                 + context.payload.pull_request.head.repo.full_name
                 + '/actions/runs/'
                 + run_id
+              const run_url_part = '/actions/runs/' + run_id
+              const check_run_head = check_runs.data.check_runs.find(r =>
+                r.head_sha === build_run.head_sha
+                  && (
+                    (r.details_url && r.details_url.includes(run_url_part))
+                    || (r.html_url && r.html_url.includes(run_url_part))
+                  )
+              )
+
+              console.log('check_run_head: ' + JSON.stringify(check_run_head))
+              const check_run_url = check_run_head
+                ? (check_run_head.html_url || check_run_head.details_url || actions_url)
+                : actions_url
 
               await github.rest.checks.create({
                 owner: context.repo.owner,
