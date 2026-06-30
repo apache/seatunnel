@@ -198,6 +198,12 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
                         + SOURCE_TABLE
                         + " (id INT PRIMARY KEY, name VARCHAR(64), score INT)");
         executeSql(
+                "CREATE TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SINK_TABLE
+                        + " (id INT PRIMARY KEY, name VARCHAR(64), score INT)");
+        executeSql(
                 "INSERT INTO "
                         + MYSQL_DATABASE
                         + "."
