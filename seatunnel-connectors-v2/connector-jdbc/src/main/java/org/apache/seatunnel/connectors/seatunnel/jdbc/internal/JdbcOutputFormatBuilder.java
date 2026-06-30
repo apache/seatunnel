@@ -380,29 +380,9 @@ public class JdbcOutputFormatBuilder {
             throw new IllegalArgumentException(
                     "oracle_insert_mode=APPEND_VALUES only supports Oracle JDBC sink.");
         }
-        if (jdbcSinkConfig.isUseCopyStatement()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support copy statement.");
-        }
-        if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support custom query.");
-        }
-        if (jdbcSinkConfig.isExactlyOnce()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support exactly-once JDBC sink.");
-        }
-        if (!jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES requires auto_commit=true.");
-        }
         if (primaryKeys != null && !primaryKeys.isEmpty()) {
             throw new IllegalArgumentException(
                     "oracle_insert_mode=APPEND_VALUES only supports insert-only writes without primary keys.");
-        }
-        if (jdbcSinkConfig.isSupportUpsertByInsertOnly()) {
-            throw new IllegalArgumentException(
-                    "oracle_insert_mode=APPEND_VALUES does not support insert-only upsert paths.");
         }
     }
 

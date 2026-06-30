@@ -143,10 +143,11 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case SNOWFLAKE_DATE_TIME:
             case SNOWFLAKE_TIMESTAMP:
-            case SNOWFLAKE_TIMESTAMP_LTZ:
             case SNOWFLAKE_TIMESTAMP_NTZ:
-            case SNOWFLAKE_TIMESTAMP_TZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case SNOWFLAKE_TIMESTAMP_LTZ:
+            case SNOWFLAKE_TIMESTAMP_TZ:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.SNOWFLAKE, connectorDataType, field);
@@ -186,7 +187,9 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             case TIME:
                 return SNOWFLAKE_TIME;
             case TIMESTAMP:
-                return SNOWFLAKE_TIMESTAMP;
+                return SNOWFLAKE_TIMESTAMP_NTZ;
+            case TIMESTAMP_TZ:
+                return SNOWFLAKE_TIMESTAMP_TZ;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.SNOWFLAKE,

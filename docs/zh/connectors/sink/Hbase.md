@@ -11,6 +11,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 ## 主要特性
 
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

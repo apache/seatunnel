@@ -359,7 +359,8 @@ public class RedshiftTypeConverterTest {
                         .build();
         column = RedshiftTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // TIMESTAMP WITH TIME ZONE is LTZ → must map to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(RedshiftTypeConverter.MAX_TIMESTAMP_SCALE, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
@@ -639,5 +640,36 @@ public class RedshiftTypeConverterTest {
                 RedshiftTypeConverter.REDSHIFT_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(RedshiftTypeConverter.REDSHIFT_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(RedshiftTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale());
+    }
+
+    @Test
+    public void testReconvertDatetimeTz() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = RedshiftTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                RedshiftTypeConverter.REDSHIFT_TIMESTAMPTZ, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                RedshiftTypeConverter.REDSHIFT_TIMESTAMPTZ, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(3)
+                        .build();
+
+        typeDefine = RedshiftTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                RedshiftTypeConverter.REDSHIFT_TIMESTAMPTZ, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                RedshiftTypeConverter.REDSHIFT_TIMESTAMPTZ, typeDefine.getDataType());
+        Assertions.assertEquals(3, typeDefine.getScale());
     }
 }

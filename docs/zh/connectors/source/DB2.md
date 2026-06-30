@@ -80,7 +80,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_num                | Int        | 否      | job parallelism | 分区计数的数量，只支持正整数。默认值是作业并行性                                                                                                                                                                    |
 | fetch_size                   | Int        | 否       | 0               | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，通过减少满足选择条件所需的数据库请求次数来提高性能。0表示使用jdbc默认值。 |
 | properties                   | Map        | 否       | -               | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。                    |
-| common-options               |            | 否       | -               | source插件常用参数，详见[Source common Options]（../common-options/source-common-options.md）                                                                                                                                                 |
+| common-options               |            | 否       | -               | source插件常用参数，详见[Source common Options](../common-options/source-common-options.md)                                                                                                                                                 |
 
 ### 小贴士
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.dynamiccompile;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,17 +37,24 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
-                        DynamicCompileTransformConfig.COMPILE_LANGUAGE,
-                        DynamicCompileTransformConfig.COMPILE_PATTERN)
+                .required(DynamicCompileTransformConfig.COMPILE_LANGUAGE)
+                .optional(DynamicCompileTransformConfig.COMPILE_PATTERN)
                 .conditional(
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
                         CompilePattern.SOURCE_CODE,
                         DynamicCompileTransformConfig.SOURCE_CODE)
                 .conditional(
                         DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.SOURCE_CODE,
+                        Conditions.notBlank(DynamicCompileTransformConfig.SOURCE_CODE))
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
                         CompilePattern.ABSOLUTE_PATH,
                         DynamicCompileTransformConfig.ABSOLUTE_PATH)
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.ABSOLUTE_PATH,
+                        Conditions.notBlank(DynamicCompileTransformConfig.ABSOLUTE_PATH))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

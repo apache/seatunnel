@@ -2,10 +2,11 @@
 sidebar_position: 2
 ---
 
-# Transform的多表转换
+# 多表转换
 
-SeaTunnel transform支持多表转换，在上游插件输出多个表的时候特别有用，能够在一个transform中完成所有的转换操作。目前SeaTunnel很多Connectors支持多表输出，比如`JDBCSource`、`MySQL-CDC`
-等。所有的Transform都可以通过如下配置实现多表转换。
+多表转换（Multi-Table Transform）允许你在一个 transform 中为多张来源表分别定义处理规则，适合上游一次输出多表的场景。
+
+SeaTunnel 的 Multi-Table Transform 支持在上游插件输出多个表时，在一个 transform 中完成所有转换操作。目前很多 connector 支持多表输出，比如 `JDBCSource`、`MySQL-CDC` 等。所有 transform 都可以通过如下配置实现多表转换。
 
 :::tip
 
@@ -121,4 +122,3 @@ transform {
 | id | name | age |
 
 我们使用了Copy Transform作为了示例，实际上所有的Transform都支持多表转换，只需要在对应的Transform中配置即可。
-

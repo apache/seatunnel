@@ -83,6 +83,13 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 
 现在您已经下载了SeaTunnel二进制包和连接器插件。接下来，您可以选择不同的引擎选项来运行同步任务。
 
+:::tip 提示
+
+如果您是第一次使用 SeaTunnel，建议优先从 [SeaTunnel 引擎快速开始](quick-start-seatunnel-engine.md) 入手。
+这是默认引擎，通常也是第一次跑通任务的最短路径。
+
+:::
+
 如果您使用Flink来运行同步任务，则无需部署SeaTunnel引擎服务集群。您可以参考[Flink 引擎快速开始](quick-start-flink.md)来运行您的同步任务。
 
 如果您使用Spark来运行同步任务，则无需部署SeaTunnel引擎服务集群。您可以参考[Spark 引擎快速开始](quick-start-spark.md)来运行您的同步任务。
