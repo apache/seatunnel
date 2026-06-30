@@ -1609,10 +1609,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -1645,10 +1642,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -1694,10 +1688,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
 
         // async execute
@@ -1722,13 +1713,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         () -> {
                             // Keep the streaming source active so the last exactly-once transaction
                             // is forced through a later checkpoint on slow Flink CI axes.
-                            ProducerRecord<byte[], byte[]> keepAliveRecord =
-                                    new ProducerRecord<>(
-                                            producerTopic,
-                                            null,
-                                            keepAliveData.getBytes(StandardCharsets.UTF_8));
-                            producer.send(keepAliveRecord);
-                            producer.flush();
+                            sendTextRecordAndWait(producerTopic, keepAliveData);
                             Assertions.assertTrue(
                                     checkData(
                                             consumerTopic,
@@ -1747,10 +1732,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;
@@ -1773,6 +1755,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
         return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    /**
+     * Sends one text record and waits for the broker acknowledgement so test data loss is surfaced
+     * at the producer boundary instead of appearing later as an exactly-once sink assertion
+     * failure.
+     */
+    private void sendTextRecordAndWait(String topicName, String data) {
+        ProducerRecord<byte[], byte[]> record =
+                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+        try {
+            producer.send(record).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while sending Kafka test record", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
+        }
     }
 
     private boolean checkData(
