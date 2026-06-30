@@ -191,6 +191,12 @@
                     </artifactSet>
                     <filters combine.children="append">
                         <filter>
+                            <artifact>org.apache.seatunnel:seatunnel-spark-starter-common</artifact>
+                            <excludes>
+                                <exclude>org/apache/seatunnel/core/starter/spark/execution/**</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
                             <artifact>*:*</artifact>
                             <excludes>
                                 <exclude>scala/**</exclude>
