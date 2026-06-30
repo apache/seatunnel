@@ -153,4 +153,63 @@ public class MongodbIncrementalSourceFactoryTest {
         cfgMismatch.put("tables_configs", tables);
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfgMismatch));
     }
+
+    // ==================== startup.mode / stop.mode validators ====================
+
+    @Test
+    public void testStartupModeTimestampValid() {
+        Map<String, Object> cfg = validConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", 1000L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampMissingTimestampFails() {
+        Map<String, Object> cfg = validConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampNegativeFails() {
+        Map<String, Object> cfg = validConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeInitialLatestPass() {
+        for (String mode : Arrays.asList("INITIAL", "LATEST")) {
+            Map<String, Object> cfg = validConfig();
+            cfg.put("startup.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStartupModeSpecificRejectedBySingleChoice() {
+        // MongoDB startup.mode does not allow SPECIFIC.
+        Map<String, Object> cfg = validConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeNeverPass() {
+        Map<String, Object> cfg = validConfig();
+        cfg.put("stop.mode", "NEVER");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeNonNeverRejectedBySingleChoice() {
+        // MongoDB stop.mode only allows NEVER.
+        for (String mode : Arrays.asList("LATEST", "TIMESTAMP", "SPECIFIC")) {
+            Map<String, Object> cfg = validConfig();
+            cfg.put("stop.mode", mode);
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        }
+    }
 }

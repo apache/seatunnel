@@ -163,4 +163,139 @@ public class MySqlIncrementalSourceFactoryTest {
         cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
+
+    // ==================== startup.mode / stop.mode validators ====================
+
+    @Test
+    public void testStartupModeTimestampValid() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", 1000L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampMissingTimestampFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampNegativeFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeSpecificValid() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        cfg.put("startup.specific-offset.file", "mysql-bin.000003");
+        cfg.put("startup.specific-offset.pos", 100L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeSpecificMissingFileFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        cfg.put("startup.specific-offset.pos", 100L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeSpecificBlankFileFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        cfg.put("startup.specific-offset.file", "  ");
+        cfg.put("startup.specific-offset.pos", 100L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeSpecificMissingPosFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        cfg.put("startup.specific-offset.file", "mysql-bin.000003");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeSpecificNegativePosFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        cfg.put("startup.specific-offset.file", "mysql-bin.000003");
+        cfg.put("startup.specific-offset.pos", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeInitialEarliestLatestPass() {
+        for (String mode : Arrays.asList("INITIAL", "EARLIEST", "LATEST")) {
+            Map<String, Object> cfg = validMySqlConfig();
+            cfg.put("startup.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStartupModeInvalidValueFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "BOGUS");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificValid() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "mysql-bin.000005");
+        cfg.put("stop.specific-offset.pos", 200L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingFileFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.pos", 200L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingPosFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "mysql-bin.000005");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificNegativePosFails() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "mysql-bin.000005");
+        cfg.put("stop.specific-offset.pos", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeLatestNeverPass() {
+        for (String mode : Arrays.asList("LATEST", "NEVER")) {
+            Map<String, Object> cfg = validMySqlConfig();
+            cfg.put("stop.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStopModeTimestampRejectedBySingleChoice() {
+        // MySQL stop.mode does not allow TIMESTAMP (only LATEST, SPECIFIC, NEVER).
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("stop.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
 }

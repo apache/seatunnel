@@ -195,4 +195,88 @@ class OracleIncrementalSourceFactoryTest {
         cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
+
+    // ==================== startup.mode / stop.mode validators ====================
+
+    @Test
+    public void testStartupModeTimestampValid() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", 1000L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampMissingTimestampFails() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampNegativeFails() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeInitialLatestPass() {
+        for (String mode : Arrays.asList("INITIAL", "LATEST")) {
+            Map<String, Object> cfg = validOracleConfig();
+            cfg.put("startup.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStartupModeSpecificRejectedBySingleChoice() {
+        // Oracle startup.mode does not allow SPECIFIC.
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("startup.mode", "SPECIFIC");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificValid() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "redo001.log");
+        cfg.put("stop.specific-offset.pos", 200L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingFileFails() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.pos", 200L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingPosFails() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "redo001.log");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeNeverLatestPass() {
+        for (String mode : Arrays.asList("NEVER", "LATEST")) {
+            Map<String, Object> cfg = validOracleConfig();
+            cfg.put("stop.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStopModeTimestampRejectedBySingleChoice() {
+        // Oracle stop.mode does not allow TIMESTAMP.
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("stop.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
 }

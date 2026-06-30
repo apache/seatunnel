@@ -157,4 +157,87 @@ class SqlServerIncrementalSourceFactoryTest {
         Assertions.assertTrue(catalog.isPresent());
         catalog.ifPresent(Catalog::close);
     }
+
+    // ==================== startup.mode / stop.mode validators ====================
+
+    @Test
+    public void testStartupModeTimestampValid() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", 1000L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampMissingTimestampFails() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeTimestampNegativeFails() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("startup.mode", "TIMESTAMP");
+        cfg.put("startup.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStartupModeInitialEarliestLatestPass() {
+        for (String mode : Arrays.asList("INITIAL", "EARLIEST", "LATEST")) {
+            Map<String, Object> cfg = validSqlServerConfig();
+            cfg.put("startup.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
+
+    @Test
+    public void testStopModeSpecificValid() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "test.dbo_table");
+        cfg.put("stop.specific-offset.pos", 300L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingFileFails() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.pos", 300L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeSpecificMissingPosFails() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "SPECIFIC");
+        cfg.put("stop.specific-offset.file", "test.dbo_table");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeTimestampValid() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "TIMESTAMP");
+        cfg.put("stop.timestamp", 2000L);
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeTimestampMissingTimestampFails() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "TIMESTAMP");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeNeverLatestPass() {
+        for (String mode : Arrays.asList("NEVER", "LATEST")) {
+            Map<String, Object> cfg = validSqlServerConfig();
+            cfg.put("stop.mode", mode);
+            Assertions.assertDoesNotThrow(() -> validate(cfg));
+        }
+    }
 }

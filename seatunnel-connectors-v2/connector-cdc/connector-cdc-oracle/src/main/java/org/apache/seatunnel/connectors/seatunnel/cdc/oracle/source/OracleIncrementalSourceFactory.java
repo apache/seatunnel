@@ -256,7 +256,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                         + "but was: "
                                         + startupTimestamp);
                     }
-
+                    break;
                 case SPECIFIC:
                     String startupSpecificOffsetFile =
                             config.get(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
@@ -275,13 +275,14 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                         + "but was: "
                                         + startupSpecificOffsetPos);
                     }
-
+                    break;
                 case INITIAL:
                     Boolean exactlyOnce = config.get(OracleIncrementalSourceOptions.EXACTLY_ONCE);
                     if (exactlyOnce == null) {
                         throw new OptionValidationException(
                                 "When startup.mode is INITIAL, exactly.once must be configured.");
                     }
+                    break;
             }
 
             return true;
@@ -316,7 +317,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                         + "but was: "
                                         + stopSpecificOffsetPos);
                     }
-
+                    break;
                 case TIMESTAMP:
                     Long stopTimestamp = config.get(OracleIncrementalSourceOptions.STOP_TIMESTAMP);
                     if (stopTimestamp == null || stopTimestamp < 0) {
@@ -325,6 +326,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                         + "but was: "
                                         + stopTimestamp);
                     }
+                    break;
             }
 
             return true;

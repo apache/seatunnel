@@ -175,7 +175,7 @@ public class SourceOptions {
         @Override
         public boolean evaluate(ReadonlyConfig config, List<String> value) {
             try {
-                if (value != null || !value.isEmpty()) {
+                if (value != null && !value.isEmpty()) {
                     SchemaChangeEventType.fromCanonicalNames(value);
                 }
             } catch (IllegalArgumentException e) {

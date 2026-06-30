@@ -180,6 +180,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                         + "but was: "
                                         + startupTimestamp);
                     }
+                    break;
                 case SPECIFIC:
                     String startupSpecificOffsetFile =
                             config.get(
@@ -200,6 +201,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                         + "but was: "
                                         + startupSpecificOffsetPos);
                     }
+                    break;
                 case INITIAL:
                     Boolean exactlyOnce =
                             config.get(SqlServerIncrementalSourceOptions.EXACTLY_ONCE);
@@ -207,6 +209,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         throw new OptionValidationException(
                                 "When startup.mode is INITIAL, exactly.once must be configured.");
                     }
+                    break;
             }
 
             return true;
@@ -240,6 +243,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                         + "but was: "
                                         + stopSpecificOffsetPos);
                     }
+                    break;
                 case TIMESTAMP:
                     Long stopTimestamp =
                             config.get(SqlServerIncrementalSourceOptions.STOP_TIMESTAMP);
@@ -249,6 +253,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                         + "but was: "
                                         + stopTimestamp);
                     }
+                    break;
             }
 
             return true;
