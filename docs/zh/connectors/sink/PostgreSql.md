@@ -30,6 +30,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |

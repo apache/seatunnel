@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,10 +46,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class JdbcSinkWriterTest {
+/** Tests JDBC sink writer helper behavior. */
+class JdbcSinkWriterTest {
 
     @Test
-    public void testPendingRowsAreClearedAfterIntervalAutoFlush() throws Exception {
+    void testPendingRowsAreClearedAfterIntervalAutoFlush() throws Exception {
         JdbcSinkWriter writer = createWriterWithRowErrorCollector();
         List<SeaTunnelRow> pendingRows = new ArrayList<>();
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
@@ -59,6 +63,40 @@ public class JdbcSinkWriterTest {
         method.invoke(writer, true);
 
         Assertions.assertTrue(getPendingRows(writer).isEmpty());
+    }
+
+    /** Verifies that Xugu pools use a validation query compatible with the driver. */
+    @Test
+    void testApplyConnectionValidationSetsXuguValidationQuery() {
+        HikariDataSource dataSource = new HikariDataSource();
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName(JdbcConnectionValidationUtils.XUGU_DRIVER)
+                        .url("jdbc:xugu://localhost:5138/SYSTEM")
+                        .build();
+
+        JdbcSinkWriter.applyConnectionValidation(dataSource, jdbcConnectionConfig);
+
+        Assertions.assertEquals(
+                JdbcConnectionValidationUtils.XUGU_VALIDATION_QUERY,
+                dataSource.getConnectionTestQuery());
+        dataSource.close();
+    }
+
+    /** Verifies that other drivers keep Hikari's default validation behavior. */
+    @Test
+    void testApplyConnectionValidationKeepsDefaultDriverValidation() {
+        HikariDataSource dataSource = new HikariDataSource();
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName("org.postgresql.Driver")
+                        .url("jdbc:postgresql://localhost:5432/test")
+                        .build();
+
+        JdbcSinkWriter.applyConnectionValidation(dataSource, jdbcConnectionConfig);
+
+        Assertions.assertNull(dataSource.getConnectionTestQuery());
+        dataSource.close();
     }
 
     private static JdbcSinkWriter createWriterWithRowErrorCollector() {

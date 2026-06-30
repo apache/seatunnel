@@ -1689,6 +1689,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
+        String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -1716,9 +1717,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
+                        () -> {
+                            // Keep the streaming source active so the last exactly-once transaction
+                            // is forced through a later checkpoint on slow Flink CI axes.
+                            ProducerRecord<byte[], byte[]> keepAliveRecord =
+                                    new ProducerRecord<>(
+                                            producerTopic,
+                                            null,
+                                            keepAliveData.getBytes(StandardCharsets.UTF_8));
+                            producer.send(keepAliveRecord);
+                            producer.flush();
+                            Assertions.assertTrue(
+                                    checkData(
+                                            consumerTopic,
+                                            sinkStartOffset,
+                                            10,
+                                            sourceData,
+                                            Collections.singletonList(keepAliveData)));
+                        });
     }
 
     @TestTemplate
@@ -1754,20 +1770,39 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
-        List<String> listData = getKafkaConsumerListData(topicName, startOffset, expectedCount);
-        if (listData.isEmpty() || listData.size() != expectedCount) {
+        return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    private boolean checkData(
+            String topicName,
+            long startOffset,
+            long expectedCount,
+            String data,
+            List<String> ignoredValues) {
+        List<String> listData = getKafkaConsumerListData(topicName, startOffset);
+        List<String> matchedData = new ArrayList<>();
+        for (String value : listData) {
+            if (data.equals(value)) {
+                matchedData.add(value);
+                continue;
+            }
+            if (ignoredValues.contains(value)) {
+                continue;
+            }
             log.error(
-                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},start offset {},expected count {}",
+                    "testKafkaToKafkaExactlyOnce get unexpected data value {}, start offset {}",
+                    value,
+                    startOffset);
+            return false;
+        }
+        if (matchedData.isEmpty() || matchedData.size() != expectedCount) {
+            log.error(
+                    "testKafkaToKafkaExactlyOnce get data size is not expect,get matched data size {},visible data size {},start offset {},expected count {}",
+                    matchedData.size(),
                     listData.size(),
                     startOffset,
                     expectedCount);
             return false;
-        }
-        for (String value : listData) {
-            if (!data.equals(value)) {
-                log.error("testKafkaToKafkaExactlyOnce get data value is not expect");
-                return false;
-            }
         }
         return true;
     }
@@ -2305,8 +2340,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private List<String> getKafkaConsumerListData(
-            String topicName, long startOffset, long expectedCount) {
+    private List<String> getKafkaConsumerListData(String topicName, long startOffset) {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
@@ -2314,17 +2348,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
             consumer.seek(topicPartition, startOffset);
-            long targetOffsetExclusive = startOffset + expectedCount;
+            // READ_COMMITTED consumers may skip aborted transactional offsets, so N committed
+            // records are not guaranteed to occupy N contiguous offsets after startOffset.
+            long visibleEndOffsetExclusive =
+                    consumer.endOffsets(Collections.singletonList(topicPartition))
+                            .get(topicPartition);
             Long lastProcessedOffset = startOffset - 1;
+            int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (record.offset() >= startOffset && record.offset() < targetOffsetExclusive) {
+                if (records.isEmpty()) {
+                    consecutiveEmptyPolls++;
+                    continue;
+                }
+                consecutiveEmptyPolls = 0;
+                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                    if (record.offset() >= startOffset && record.offset() > lastProcessedOffset) {
                         data.add(record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }
-            } while (lastProcessedOffset < targetOffsetExclusive - 1);
+            } while (lastProcessedOffset < visibleEndOffsetExclusive - 1
+                    && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);

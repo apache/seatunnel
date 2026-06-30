@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchValidators.ApiKeyEncodedFormatValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -63,8 +65,8 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(HOSTS)
                 .required(
-                        HOSTS,
                         INDEX,
                         ElasticsearchSinkOptions.SCHEMA_SAVE_MODE,
                         ElasticsearchSinkOptions.DATA_SAVE_MODE)
@@ -86,8 +88,24 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         VECTORIZATION_FIELDS,
                         VECTOR_DIMENSIONS)
                 .optional(AUTH_TYPE)
+                .conditionalRule(
+                        AUTH_TYPE,
+                        AuthTypeEnum.BASIC,
+                        OptionRule.builder().bundled(USERNAME, PASSWORD).build())
+                .conditional(AUTH_TYPE, AuthTypeEnum.BASIC, Conditions.notBlank(USERNAME))
+                .conditional(AUTH_TYPE, AuthTypeEnum.BASIC, Conditions.notBlank(PASSWORD))
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY)
+                .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, Conditions.notBlank(API_KEY_ID))
+                .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, Conditions.notBlank(API_KEY))
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY_ENCODED, API_KEY_ENCODED)
+                .conditional(
+                        AUTH_TYPE,
+                        AuthTypeEnum.API_KEY_ENCODED,
+                        Conditions.notBlank(API_KEY_ENCODED))
+                .conditional(
+                        AUTH_TYPE,
+                        AuthTypeEnum.API_KEY_ENCODED,
+                        Conditions.extension(API_KEY_ENCODED, new ApiKeyEncodedFormatValidator()))
                 .build();
     }
 
