@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
@@ -91,16 +92,9 @@ public class PulsarConfigUtil {
      */
     public static void runWithConnectorClassLoader(ConnectorClassLoaderAction action)
             throws Exception {
-        ClassLoader connectorClassLoader = PulsarConfigUtil.class.getClassLoader();
-        Thread thread = Thread.currentThread();
-        ClassLoader originalClassLoader = thread.getContextClassLoader();
-        if (originalClassLoader != connectorClassLoader) {
-            thread.setContextClassLoader(connectorClassLoader);
-        }
-        try {
+        try (TemporaryClassLoaderContext ignored =
+                TemporaryClassLoaderContext.of(PulsarConfigUtil.class.getClassLoader())) {
             action.run();
-        } finally {
-            thread.setContextClassLoader(originalClassLoader);
         }
     }
 
