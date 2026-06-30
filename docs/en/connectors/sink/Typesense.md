@@ -10,6 +10,7 @@ Outputs data to `Typesense`.
 
 - [ ] [Exactly Once](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

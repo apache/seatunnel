@@ -35,6 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

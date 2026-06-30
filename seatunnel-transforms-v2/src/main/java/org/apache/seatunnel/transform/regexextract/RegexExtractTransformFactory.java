@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.transform.regexextract;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -25,6 +28,8 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.util.List;
 
 @AutoService(Factory.class)
 public class RegexExtractTransformFactory implements TableTransformFactory {
@@ -37,13 +42,17 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(RegexExtractTransformConfig.KEY_SOURCE_FIELD)
+                .required(RegexExtractTransformConfig.KEY_REGEX_PATTERN)
                 .required(
-                        RegexExtractTransformConfig.KEY_SOURCE_FIELD,
-                        RegexExtractTransformConfig.KEY_REGEX_PATTERN,
-                        RegexExtractTransformConfig.KEY_OUTPUT_FIELDS)
+                        RegexExtractTransformConfig.KEY_OUTPUT_FIELDS,
+                        Conditions.notEmpty(RegexExtractTransformConfig.KEY_OUTPUT_FIELDS))
                 .optional(
                         RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
-                        TransformCommonOptions.MULTI_TABLES)
+                        Conditions.extension(
+                                RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
+                                new DefaultValuesLengthValidator()))
+                .optional(TransformCommonOptions.MULTI_TABLES)
                 .build();
     }
 
@@ -52,5 +61,21 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
         return () ->
                 new RegexExtractMultiCatalogTransform(
                         context.getCatalogTables(), context.getOptions());
+    }
+
+    static class DefaultValuesLengthValidator implements ConditionExtension<List<String>> {
+        @Override
+        public String description() {
+            return "'default_values' length must equal 'output_fields' length";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null) {
+                return true;
+            }
+            List<String> outputFields = config.get(RegexExtractTransformConfig.KEY_OUTPUT_FIELDS);
+            return outputFields == null || value.size() == outputFields.size();
+        }
     }
 }

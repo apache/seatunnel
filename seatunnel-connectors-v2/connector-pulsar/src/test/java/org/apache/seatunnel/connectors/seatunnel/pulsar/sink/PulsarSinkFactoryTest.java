@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -25,7 +27,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -33,16 +37,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+/** Verifies the Pulsar sink factory metadata required by connector specification checks. */
 public class PulsarSinkFactoryTest {
 
     @Test
     public void testCreateSinkRequiresTopicForSingleTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
 
-        assertThrows(
+        Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         factory.createSink(
@@ -54,11 +56,30 @@ public class PulsarSinkFactoryTest {
     public void testCreateSinkAllowsMissingTopicForMultiTable() {
         PulsarSinkFactory factory = new PulsarSinkFactory();
 
-        assertDoesNotThrow(
+        Assertions.assertDoesNotThrow(
                 () ->
                         factory.createSink(
                                 new TableSinkFactoryContext(
                                         null, config(), getClass().getClassLoader())));
+    }
+
+    /** Ensures the factory still exposes the documented Pulsar identifier. */
+    @Test
+    void factoryIdentifier() {
+        PulsarSinkFactory pulsarSinkFactory = new PulsarSinkFactory();
+        Assertions.assertEquals(
+                PulsarSinkOptions.IDENTIFIER, pulsarSinkFactory.factoryIdentifier());
+    }
+
+    /** Guards the option metadata that connector specification checks validate in CI. */
+    @Test
+    void optionRuleContainsMultiTableReplica() {
+        PulsarSinkFactory pulsarSinkFactory = new PulsarSinkFactory();
+        OptionRule optionRule = pulsarSinkFactory.optionRule();
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA));
     }
 
     private ReadonlyConfig config() {
