@@ -82,6 +82,23 @@ class SFTPConnectionPoolTest {
         Assertions.assertEquals(0, connectionPool.getConnPoolSize());
     }
 
+    /** Shutdown must close tracked sessions even when live-count bookkeeping has drifted. */
+    @Test
+    void shutdownShouldCloseTrackedChannelsRegardlessOfLiveCount() throws Exception {
+        SFTPConnectionPool connectionPool = new SFTPConnectionPool(2, 0);
+        SFTPConnectionPool.ConnectionInfo connectionInfo =
+                new SFTPConnectionPool.ConnectionInfo("host", 22, "user");
+        Session session = Mockito.mock(Session.class);
+        Mockito.when(session.isConnected()).thenReturn(true);
+        TestChannelSftp channel = new TestChannelSftp(true, session);
+        trackedConnections(connectionPool).put(channel, connectionInfo);
+
+        connectionPool.shutdown();
+
+        Assertions.assertTrue(channel.wasDisconnected());
+        Mockito.verify(session).disconnect();
+    }
+
     /** Small concrete ChannelSftp stub that keeps Mockito away from final JSch internals. */
     private static final class TestChannelSftp extends ChannelSftp {
         private final boolean connected;

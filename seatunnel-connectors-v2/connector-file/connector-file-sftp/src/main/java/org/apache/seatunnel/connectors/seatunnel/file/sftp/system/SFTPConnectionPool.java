@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 public class SFTPConnectionPool {
@@ -83,31 +84,32 @@ public class SFTPConnectionPool {
     }
 
     /** Shutdown the connection pool and close all open connections. */
-    synchronized void shutdown() {
-        if (this.con2infoMap == null) {
-            return; // already shutdown in case it is called
-        }
-        LOG.info("Inside shutdown, con2infoMap size=" + con2infoMap.size());
+    void shutdown() {
+        Map<ChannelSftp, ConnectionInfo> connectionsToClose;
+        synchronized (this) {
+            if (this.con2infoMap == null) {
+                return; // already shutdown in case it is called
+            }
+            LOG.info("Inside shutdown, con2infoMap size=" + con2infoMap.size());
 
-        this.maxConnection = 0;
-        Set<ChannelSftp> cons = con2infoMap.keySet();
-        if (cons != null && cons.size() > 0) {
-            // make a copy since we need to modify the underlying Map
-            Set<ChannelSftp> copy = new HashSet<ChannelSftp>(cons);
-            // Initiate disconnect from all outstanding connections
-            for (ChannelSftp con : copy) {
-                try {
-                    disconnect(con);
-                } catch (IOException ioe) {
-                    ConnectionInfo info = con2infoMap.get(con);
-                    LOG.error(
-                            "Error encountered while closing connection to " + info.getHost(), ioe);
-                }
+            // Shutdown must close every tracked connection regardless of live-count drift.
+            connectionsToClose = new HashMap<ChannelSftp, ConnectionInfo>(con2infoMap);
+            this.maxConnection = 0;
+            this.liveConnectionCount = 0;
+            this.idleConnections = null;
+            this.con2infoMap = null;
+        }
+
+        for (Map.Entry<ChannelSftp, ConnectionInfo> entry : connectionsToClose.entrySet()) {
+            try {
+                closeChannel(entry.getKey());
+            } catch (IOException ioe) {
+                LOG.error(
+                        "Error encountered while closing connection to "
+                                + entry.getValue().getHost(),
+                        ioe);
             }
         }
-        // make sure no further connections can be returned.
-        this.idleConnections = null;
-        this.con2infoMap = null;
     }
 
     public synchronized int getMaxConnection() {
