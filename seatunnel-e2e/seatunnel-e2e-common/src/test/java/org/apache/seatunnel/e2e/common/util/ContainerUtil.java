@@ -170,6 +170,27 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
+    /**
+     * Spark 4.1 starter excludes Scala from its shaded jar; copy Scala 2.13 libs separately so
+     * executors can deserialize Spark tasks.
+     */
+    public static void copySpark41ScalaLibrariesToContainer(
+            GenericContainer<?> container,
+            String startModulePath,
+            String seatunnelHomeInContainer) {
+        final String scalaLibPath =
+                startModulePath
+                        + File.separator
+                        + "target"
+                        + File.separator
+                        + "scala-e2e"
+                        + File.separator;
+        checkPathExist(scalaLibPath);
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(scalaLibPath),
+                Paths.get(seatunnelHomeInContainer, "lib").toString());
+    }
+
     public static void copySeaTunnelStarterLoggingToContainer(
             GenericContainer<?> container,
             String startModulePath,

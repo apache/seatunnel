@@ -93,5 +93,7 @@ public class Spark4Container extends AbstractTestSparkContainer {
     protected void copySeaTunnelStarterToContainer(GenericContainer<?> container) {
         ContainerUtil.copySeaTunnelStarterToContainer(
                 container, this.startModuleName, this.startModuleFullPath, SEATUNNEL_HOME, false);
+        ContainerUtil.copySpark41ScalaLibrariesToContainer(
+                container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 }

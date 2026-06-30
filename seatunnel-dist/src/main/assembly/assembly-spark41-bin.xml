@@ -129,7 +129,8 @@
                 <include>org.postgresql:postgresql:jar</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop-aws:jar:*:optional</include>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
+                <include>org.scala-lang:scala-library:jar</include>
+                <include>org.scala-lang:scala-reflect:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
