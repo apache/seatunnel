@@ -19,4 +19,38 @@ export default {
   id: 'ID',
   createTime: 'Create Time',
   duration: 'Duration',
+  tabs: {
+    overview: 'Overview',
+    exception: 'Exception',
+    configuration: 'Configuration',
+    log: 'Log',
+  },
+  table: {
+    name: 'Name',
+    receivedBytes: 'Received Bytes',
+    writeBytes: 'Write Bytes',
+    receivedCount: 'Received Count',
+    writeCount: 'Write Count',
+    receivedQps: 'Received QPS',
+    writeQps: 'Write QPS',
+    receivedBytesPerSecond: 'Received Bytes PerSecond',
+    writeBytesPerSecond: 'Write Bytes PerSecond',
+  },
+  observability: {
+    time: 'Time',
+    // Source
+    sourceReadRatio: 'Source Read Ratio',
+    sourceIdleRatio: 'Source Idle Ratio',
+    // Transform
+    transformBusyRatio: 'Transform Busy Ratio',
+    processMsPerRecord: 'Process (ms/record)',
+    recordsIn: 'Records In',
+    recordsOut: 'Records Out',
+    // Sink
+    sinkBusyRatio: 'Sink Busy Ratio',
+    writeMsPerRecord: 'Write (ms/record)',
+    // Edge
+    bpRatio: 'Downstream Wait Ratio',
+    queueFillRatio: 'Queue Fill Ratio',
+  },
 }

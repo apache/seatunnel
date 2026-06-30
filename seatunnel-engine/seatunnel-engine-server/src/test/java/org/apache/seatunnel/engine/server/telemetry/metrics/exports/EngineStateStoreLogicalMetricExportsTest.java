@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
@@ -187,7 +188,7 @@ class EngineStateStoreLogicalMetricExportsTest {
 
     private void seedRunningJobMetrics() {
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                instance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                instance.getMap(EngineStateStoreNames.RUNNING_JOB_METRICS);
         HashMap<TaskLocation, SeaTunnelMetricsContext> partitionZero = new HashMap<>();
         partitionZero.put(new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 0, 0), metricCtx());
         partitionZero.put(new TaskLocation(new TaskGroupLocation(1L, 1, 2L), 0, 0), metricCtx());

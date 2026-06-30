@@ -323,6 +323,25 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
 
+        // Ensure the local mode can expose REST/UI endpoints by default when users didn't provide
+        // a custom seatunnel.yaml. If users explicitly provide a config (system property:
+        // `seatunnel.config`), respect their choice.
+        boolean userProvidedSeatunnelConfig = System.getProperty("seatunnel.config") != null;
+        if (!userProvidedSeatunnelConfig
+                && seaTunnelConfig.getEngineConfig().getHttpConfig() != null
+                && !seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()
+                && !seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(true);
+        }
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig() != null) {
+            log.info(
+                    "Local mode REST config: enableHttp={}, port={}, enableHttps={}, httpsPort={}",
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getPort(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getHttpsPort());
+        }
+
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 

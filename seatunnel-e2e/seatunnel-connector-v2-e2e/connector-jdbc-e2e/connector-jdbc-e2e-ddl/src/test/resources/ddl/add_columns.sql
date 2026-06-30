@@ -34,6 +34,8 @@ update products set name = 'hawk9821' where id = 101;
 delete from products where id = 102;
 
 alter table products ADD COLUMN add_column1 varchar(64) not null default 'yy',ADD COLUMN add_column2 int not null default 1;
+-- Let the source observe the DDL event before the first row uses the new columns.
+DO SLEEP(5);
 
 update products set name = 'hawk9821' where id = 110;
 insert into products
@@ -51,6 +53,8 @@ delete from products where id = 118;
 alter table products ADD COLUMN add_column3 float not null default 1.1;
 ## timestamp is not supported as a cross-database default values for DDL statements
 alter table products ADD COLUMN add_column4 timestamp;
+-- The second add-columns batch also needs a short gap before the new-column DML arrives.
+DO SLEEP(5);
 
 delete from products where id = 113;
 insert into products
@@ -66,6 +70,8 @@ values (128,"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:
 update products set name = 'hawk9821' where id = 135;
 
 alter table products ADD COLUMN add_column6 varchar(64) not null default 'ff';
+-- Keep the final add-column DDL and the follow-up DML in separate CDC batches.
+DO SLEEP(5);
 delete from products where id = 115;
 insert into products
 values (173,"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:09','tt'),
@@ -80,4 +86,3 @@ values (173,"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:
 
 -- add column for irrelevant table
 ALTER TABLE products_on_hand ADD COLUMN add_column5 varchar(64) not null default 'yy';
-

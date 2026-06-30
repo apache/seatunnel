@@ -78,7 +78,9 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                         OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         OracleIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG,
-                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
+                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
                 .optional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
                         OracleIncrementalSourceOptions.STOP_MODE)

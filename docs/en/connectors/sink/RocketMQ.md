@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 By default, we will use 2pc to guarantee the message is sent to RocketMQ exactly once.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -95,7 +96,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -194,7 +195,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
+  # please go to https://seatunnel.apache.org/docs/transforms
 }
 sink {
   Rocketmq {

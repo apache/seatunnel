@@ -42,11 +42,18 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 public class GetMetricsOperation extends Operation implements IdentifiedDataSerializable {
     private RawJobMetrics response;
     private Set<Long> runningJobIds;
+    /** Optional metric name prefixes for filtering (e.g. "intermediate_queue_"). */
+    private String[] metricNamePrefixes;
 
     public GetMetricsOperation() {}
 
     public GetMetricsOperation(Set<Long> runningJobIds) {
         this.runningJobIds = runningJobIds;
+    }
+
+    public GetMetricsOperation(Set<Long> runningJobIds, String[] metricNamePrefixes) {
+        this.runningJobIds = runningJobIds;
+        this.metricNamePrefixes = metricNamePrefixes;
     }
 
     @Override
@@ -56,6 +63,10 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
         Address callerAddress = getCallerAddress();
 
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();
+        if (callerAddress == null
+                || nodeEngine.getClusterService().getMember(callerAddress) == null) {
+            throw new SecurityException("Caller is not a cluster member: " + callerAddress);
+        }
         Address masterAddress = getNodeEngine().getMasterAddress();
         if (!callerAddress.equals(masterAddress)) {
             throw new IllegalStateException(
@@ -66,9 +77,34 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
                             + masterAddress);
         }
         Predicate<MetricDescriptor> metricDescriptorPredicate =
-                dis ->
-                        (dis.tagValue(JOB_ID) != null
-                                && runningJobIds.contains(Long.parseLong(dis.tagValue(JOB_ID))));
+                dis -> {
+                    String jobIdStr = dis.tagValue(JOB_ID);
+                    if (jobIdStr == null) {
+                        return false;
+                    }
+                    long jobId;
+                    try {
+                        jobId = Long.parseLong(jobIdStr);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                    if (!runningJobIds.contains(jobId)) {
+                        return false;
+                    }
+                    if (metricNamePrefixes == null || metricNamePrefixes.length == 0) {
+                        return true;
+                    }
+                    String metricName = dis.metric();
+                    if (metricName == null) {
+                        return false;
+                    }
+                    for (String prefix : metricNamePrefixes) {
+                        if (prefix != null && metricName.startsWith(prefix)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
 
         ZetaMetricsCollector metricsRenderer =
                 new ZetaMetricsCollector(
@@ -81,6 +117,14 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         out.writeLongArray(runningJobIds.stream().mapToLong(Long::longValue).toArray());
+        if (metricNamePrefixes == null || metricNamePrefixes.length == 0) {
+            out.writeInt(0);
+            return;
+        }
+        out.writeInt(metricNamePrefixes.length);
+        for (String p : metricNamePrefixes) {
+            out.writeString(p);
+        }
     }
 
     @Override
@@ -89,6 +133,18 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
         this.runningJobIds =
                 Arrays.stream(Objects.requireNonNull(in.readLongArray()))
                         .collect(HashSet::new, HashSet::add, HashSet::addAll);
+        // Backward compatible: older versions may not have these fields.
+        try {
+            int n = in.readInt();
+            if (n > 0) {
+                this.metricNamePrefixes = new String[n];
+                for (int i = 0; i < n; i++) {
+                    this.metricNamePrefixes[i] = in.readString();
+                }
+            }
+        } catch (IOException ignored) {
+            // ignore
+        }
     }
 
     @Override

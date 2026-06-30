@@ -114,11 +114,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = readTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTimestamp)
-                                    .map(e -> e.toLocalDateTime())
-                                    .orElse(null);
+                    // Use getLocalDateTime() which avoids JVM-default-timezone influence.
+                    // See JdbcFieldTypeUtils.getLocalDateTime() for full strategy details.
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP_TZ:
                     OffsetDateTime offsetDateTime =
@@ -311,12 +309,19 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             case TIMESTAMP_TZ:
                 OffsetDateTime offsetDateTime = (OffsetDateTime) value;
                 try {
-                    // Try to use setObject first for better timezone support
+                    // Try to use setObject first for better timezone support.
+                    // Modern Oracle JDBC (12.2+) and most other drivers accept OffsetDateTime
+                    // directly and preserve the offset accurately.
                     statement.setObject(statementIndex, offsetDateTime);
                 } catch (SQLException e) {
-                    // Fallback to setTimestamp if setObject is not supported
+                    // Fallback for older drivers that do not support OffsetDateTime via setObject.
+                    // Pass an explicit UTC Calendar so the driver does not apply the JVM default
+                    // timezone when interpreting the Timestamp, which would silently corrupt the
+                    // stored instant in any non-UTC environment.
                     statement.setTimestamp(
-                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                            statementIndex,
+                            Timestamp.from(offsetDateTime.toInstant()),
+                            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")));
                 }
                 break;
             case BYTES:

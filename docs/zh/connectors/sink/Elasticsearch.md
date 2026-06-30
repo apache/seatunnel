@@ -18,6 +18,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 * 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
 
 :::
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

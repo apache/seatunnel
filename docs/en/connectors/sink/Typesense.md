@@ -10,6 +10,7 @@ Outputs data to `Typesense`.
 
 - [ ] [Exactly Once](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -56,7 +57,7 @@ The maximum size of document batches.
 
 ### common options
 
-Common parameters for Sink plugins. Refer to [Common Sink Options](../common-options/source-common-options.md) for more details.
+Common parameters for Sink plugins. Refer to [Common Sink Options](../common-options/sink-common-options.md) for more details.
 
 ### schema_save_mode
 

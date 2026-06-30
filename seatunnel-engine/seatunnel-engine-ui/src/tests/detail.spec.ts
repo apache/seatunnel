@@ -80,7 +80,7 @@ describe('detail', () => {
             vertexId: 1,
             type: 'source',
             vertexName: 'pipeline-1 [Source[0]-FakeSource]',
-            tablePaths: ['fake']  
+            tablePaths: ['fake']
           },
           {
             vertexId: 2,
@@ -103,10 +103,8 @@ describe('detail', () => {
 
     await flushPromises()
 
-   
     expect(wrapper.text()).toContain('Oracle-CDC-Test')
 
-    
     expect(wrapper.text()).not.toContain('NaN')
   })
 })

@@ -19,6 +19,7 @@ When using this connector, you need to comply with AGPL 3.0 license terms.
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

@@ -232,7 +232,7 @@ The following describes how to use the MapStore persistence configuration. For d
 
 **type**
 
-The type of IMap persistence, currently only supports `hdfs`.
+The type of IMap persistence. Currently, only `hdfs` is supported.
 
 **namespace**
 

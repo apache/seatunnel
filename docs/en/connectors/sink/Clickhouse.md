@@ -18,6 +18,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 > The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
 - [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
