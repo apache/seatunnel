@@ -88,7 +88,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int     | 否       | -1      | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                           |
 | auto_commit                  | Boolean | 否       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
 | properties                   | Map     | 否       | -       | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
-| common-options               |         | 否       | -       | Sink插件常用参数，详见[Sink common Options]（../common-options/sink-common-options.md）                                                                                                                                    |
+| common-options               |         | 否       | -       | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)                                                                                                                                    |
 | enable_upsert                | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
 
 ### 提示
