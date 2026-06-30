@@ -172,13 +172,15 @@ To enable the Metadata Center, add the following configuration to `seatunnel.yam
 ```yaml
 seatunnel:
   engine:
-     metadata:
+    metadata:
       enabled: true
       kind: gravitino
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
 ```
+
+SeaTunnel Zeta and the Flink starter read this configuration from `$SEATUNNEL_HOME/config/seatunnel.yaml`.
 
 ### Configuration Options
 

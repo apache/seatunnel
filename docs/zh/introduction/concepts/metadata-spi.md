@@ -171,13 +171,15 @@ public interface MetadataProvider extends AutoCloseable {
 ```yaml
 seatunnel:
   engine:
-     metadata:
+    metadata:
       enabled: true
       kind: gravitino
       gravitino:
         uri: http://127.0.0.1:8090
         metalake: test_metalake
 ```
+
+SeaTunnel Zeta 和 Flink starter 会从 `$SEATUNNEL_HOME/config/seatunnel.yaml` 读取该配置。
 
 ### 配置选项
 
