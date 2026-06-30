@@ -23,10 +23,13 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 public final class JdbcFieldTypeUtils {
 
@@ -96,6 +99,52 @@ public final class JdbcFieldTypeUtils {
         return resultSet.getTimestamp(columnIndex);
     }
 
+    /**
+     * Reads a NTZ (No Time Zone) timestamp column as {@link LocalDateTime}, free from JVM default
+     * timezone influence.
+     *
+     * <p>Strategy:
+     *
+     * <ol>
+     *   <li>Try {@code getObject(index, LocalDateTime.class)} first — supported by modern JDBC
+     *       drivers (PostgreSQL ≥ 42.2, MySQL Connector/J ≥ 8.0, MariaDB Connector/J ≥ 3.x). This
+     *       returns the wall-clock value exactly as stored, with no timezone conversion.
+     *   <li>Try {@code getTimestamp(index, utcCalendar)}: passing a UTC {@link Calendar} forces the
+     *       driver to treat the raw bytes as UTC epoch millis, then {@link
+     *       Timestamp#toLocalDateTime()} reconstructs the wall-clock via UTC — again
+     *       timezone-neutral. A new {@link Calendar} is created per call to avoid thread-safety
+     *       issues with a shared mutable instance. Not supported by all drivers (e.g. Hive JDBC).
+     *   <li>Last resort: plain {@code getTimestamp(index)} — may be affected by JVM timezone for
+     *       drivers that apply session/JVM timezone conversion internally (e.g. Hive JDBC).
+     * </ol>
+     *
+     * @param resultSet the JDBC result set
+     * @param columnIndex 1-based column index
+     * @return the wall-clock {@link LocalDateTime} exactly as stored in the DB, or {@code null}
+     */
+    public static LocalDateTime getLocalDateTime(ResultSet resultSet, int columnIndex)
+            throws SQLException {
+        // Prefer the modern JDBC 4.2 API — returns wall-clock value directly, no TZ involved
+        try {
+            return resultSet.getObject(columnIndex, LocalDateTime.class);
+        } catch (SQLException | UnsupportedOperationException ignored) {
+            // Driver does not support getObject(index, LocalDateTime.class) — fall back
+        }
+        // Try UTC Calendar to avoid JVM-default-timezone influence.
+        // A new Calendar is created per call to avoid thread-safety issues with a shared instance.
+        try {
+            Timestamp ts =
+                    resultSet.getTimestamp(
+                            columnIndex, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
+            return ts == null ? null : ts.toLocalDateTime();
+        } catch (SQLException | UnsupportedOperationException ignored) {
+            // Driver does not support getTimestamp(index, Calendar) — fall back (e.g. Hive JDBC)
+        }
+        // Last resort: plain getTimestamp() — may be affected by JVM timezone for some drivers
+        Timestamp ts = resultSet.getTimestamp(columnIndex);
+        return ts == null ? null : ts.toLocalDateTime();
+    }
+
     public static byte[] getBytes(ResultSet resultSet, int columnIndex) throws SQLException {
         return resultSet.getBytes(columnIndex);
     }
@@ -123,8 +172,20 @@ public final class JdbcFieldTypeUtils {
         }
 
         // Handle java.sql.Timestamp
+        // Avoid using Timestamp.toInstant() directly because the Timestamp was constructed
+        // with JVM-default-timezone semantics, which would shift the value by the JVM offset.
+        // Instead, try to re-read the column as a string and parse it with timezone info preserved.
         if (obj instanceof Timestamp) {
-            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+            String strVal = resultSet.getString(columnIndex);
+            if (strVal == null) {
+                return null;
+            }
+            try {
+                return parseOffsetDateTimeFromString(strVal);
+            } catch (Exception e) {
+                // Last resort: use the instant-based conversion (may shift by JVM offset)
+                return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+            }
         }
 
         // Handle java.util.Date
@@ -135,6 +196,23 @@ public final class JdbcFieldTypeUtils {
         // Handle Long (epoch milliseconds)
         if (obj instanceof Long) {
             return Instant.ofEpochMilli((Long) obj).atOffset(ZoneOffset.UTC);
+        }
+
+        // Handle Oracle-specific TIMESTAMPLTZ / TIMESTAMPTZ types.
+        // oracle.sql.TIMESTAMPLTZ and oracle.sql.TIMESTAMPTZ do not implement standard interfaces
+        // and their toString() returns the Java object reference (e.g.
+        // "oracle.sql.TIMESTAMPLTZ@xxx").
+        // Fall back to ResultSet.getTimestamp() which the Oracle JDBC driver converts correctly.
+        String objClassName = obj.getClass().getName();
+        if (objClassName.equals("oracle.sql.TIMESTAMPLTZ")
+                || objClassName.equals("oracle.sql.TIMESTAMPTZ")) {
+            Timestamp oracleTs =
+                    resultSet.getTimestamp(
+                            columnIndex, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
+            if (oracleTs == null) {
+                return null;
+            }
+            return oracleTs.toInstant().atOffset(ZoneOffset.UTC);
         }
 
         // Try to parse as string
@@ -201,7 +279,11 @@ public final class JdbcFieldTypeUtils {
         if (normalized.endsWith(" UTC")) {
             normalized = normalized.substring(0, normalized.length() - 4) + "Z";
         }
-        normalized = normalized.replace(' ', 'T');
+        // Only replace the first space (between date and time) with 'T'.
+        // Then remove any space before the timezone offset (+/-).
+        // e.g. "2026-04-15 04:53:44.407 +08:00" → "2026-04-15T04:53:44.407+08:00"
+        normalized = normalized.replaceFirst(" ", "T");
+        normalized = normalized.replace(" +", "+").replace(" -", "-");
         if (normalized.matches(".*[+-]\\d{2}$")) {
             normalized = normalized + ":00";
         } else if (normalized.matches(".*[+-]\\d{4}$")) {

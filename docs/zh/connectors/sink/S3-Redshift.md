@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-s3-redshift.md';
 
 >提示：
 
->我们基于[S3File]（S3File.md）来实现这个连接器。因此，您可以使用与S3File相同的配置。
+>我们基于[S3File](S3File.md)来实现这个连接器。因此，您可以使用与S3File相同的配置。
 >为了支持更多的文件类型，我们进行了一些权衡，因此我们使用HDFS协议对S3进行内部访问，而这个连接器需要一些hadoop依赖。
 >它只支持hadoop版本**2.6.5+**。
 
@@ -182,7 +182,7 @@ hadoop_s3_properties {
 
 ### common options
 
-Sink插件常用参数，请参考[Sink Common Options]（../common-options/sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink Common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ## 示例
 

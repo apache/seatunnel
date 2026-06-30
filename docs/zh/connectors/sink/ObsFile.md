@@ -68,16 +68,16 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_secret                    | string  | 是    | -                                          | obs文件系统的访问私钥。                                                           |
 | endpoint                         | string  | 是    | -                                          | obs文件系统的终端。                                                             |
 | custom_filename                  | boolean | 否    | false                                      | 是否需要自定义文件名。                                                             |
-| file_name_expression             | string  | 否    | "${transactionId}"                         | 描述将在“路径”中创建的文件表达式。仅在custom_filename为true时使用。[提示]（#file_name_expression） |
-| filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示]（#filename_time_format）     |
-| file_format_type                 | string  | 否    | "csv"                                      | 支持的文件类型。[提示]（#file_format_type）                                         |
+| file_name_expression             | string  | 否    | "${transactionId}"                         | 描述将在“路径”中创建的文件表达式。仅在custom_filename为true时使用。[提示](#file_name_expression) |
+| filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示](#filename_time_format)     |
+| file_format_type                 | string  | 否    | "csv"                                      | 支持的文件类型。[提示](#file_format_type)                                         |
 | field_delimiter                  | string  | 否    | '\001'                                     | 数据行中列之间的分隔符。仅在file_format为文本时使用。                                        |
 | row_delimiter                    | string  | 否    | "\n"                                       | 文件中行之间的分隔符。仅被 `text`、`csv`、`json` 文件格式需要。                               |
 | have_partition                   | boolean | 否    | false                                      | 是否需要处理分区。                                                               |
 | partition_by                     | array   | 否    | -                                          | 根据所选字段对数据进行分区。只有在have_partition为true时才使用。                               |
-| partition_dir_expression         | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真true时才使用。[提示]（#partition_dir_expression）             |
-| is_partition_field_write_in_file | boolean | 否    | false                                      | 只有在have_partition为true时才使用。[提示]（#is_partition_field_write_in_file）      |
-| sink_columns                     | array   | 否    |                                            | 当此参数为空时，所有字段都是接收列。[提示]（#sink_columns）                                   |
+| partition_dir_expression         | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真true时才使用。[提示](#partition_dir_expression)             |
+| is_partition_field_write_in_file | boolean | 否    | false                                      | 只有在have_partition为true时才使用。[提示](#is_partition_field_write_in_file)      |
+| sink_columns                     | array   | 否    |                                            | 当此参数为空时，所有字段都是接收列。[提示](#sink_columns)                                   |
 | is_enable_transaction            | boolean | 否    | true                                       | [提示](#is_enable_transaction)                                            |
 | batch_size                       | int     | 否    | 1000000                                    | [提示](#batch_size)                                                       |
 | single_file_mode                 | boolean | 否    | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。                     |
@@ -176,7 +176,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 #### <span id="common_options"> common options </span>
 
->Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
+>Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ## 任务示例
 

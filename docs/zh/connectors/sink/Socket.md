@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-socket.md';
 | host           | String  | 是      |         | socket 服务器主机                                                                                              |
 | port           | Integer | 是      |         | socket 服务器端口                                                                                              |
 | max_retries    | Integer | 否       | 3       | 发送记录的重试失败次数                                                                     |
-| common-options |         | 否       | -       | 源插件常用参数，详见[Source common Options]（../sink common-Options.md） |
+| common-options |         | 否       | -       | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md) |
 
 ## 任务示例
 

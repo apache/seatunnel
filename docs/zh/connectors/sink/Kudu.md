@@ -48,13 +48,13 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | kerberos_principal                        | String | 否       | -                                              | Kerberos主体。请注意，所有zeta节点都需要此文件。                                                                        |
 | kerberos_keytab                           | String | 否       | -                                              | Kerberos密钥表。请注意，所有zeta节点都需要此文件。                                                                           |
 | kerberos_krb5conf                         | String | 否       | -                                              | Kerberos krb5 conf.请注意，所有zeta节点都需要此文件。                                                                        |
-| save_mode                                 | String | 否       | -                                              | 存储模式，支持 `overwrite` 和 `append`.                                                                                             |
+| save_mode                                 | String | 否       | APPEND                                         | 存储模式，支持 `overwrite` 和 `append`.                                                                                             |
 | session_flush_mode                        | String | 否       | AUTO_FLUSH_SYNC                                | Kudu刷新模式。默认AUTO_FLUSH_SYNC。                                                                                                   |
-| batch_size                                | Int    | 否       | 1024                                           | 超过此记录数的刷新最大大小（包括所有追加、追加和删除记录）将刷新数据。默认值为100 |
+| batch_size                                | Int    | 否       | 1024                                           | 超过此记录数的刷新最大大小（包括所有追加、追加和删除记录）将刷新数据。默认值为1024 |
 | buffer_flush_interval                     | Int    | 否       | 10000                                          | 刷新间隔期间，异步线程将刷新数据。                                                             |
 | ignore_not_found                          | Bool   | 否       | false                                          | 如果为true，则忽略所有未找到的行。                                                                                                         |
 | ignore_not_duplicate                      | Bool   | 否       | false                                          | 如果为true，则忽略所有dulicate行。                                                                                                          |
-| common-options                            |        | 否       | -                                              |源插件常用参数，详见[Source common Options]（../sink common-Options.md）。                           |
+| common-options                            |        | 否       | -                                              | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)。                           |
 
 ## 任务示例
 
