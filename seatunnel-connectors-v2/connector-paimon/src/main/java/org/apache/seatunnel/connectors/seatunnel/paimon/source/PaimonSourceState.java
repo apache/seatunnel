@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Paimon connector source state, saves the splits has assigned to readers. */
-@Getter
-@AllArgsConstructor
 public class PaimonSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -35,4 +33,39 @@ public class PaimonSourceState implements Serializable {
     private final Deque<PaimonSourceSplit> assignedSplits;
 
     private final @Nullable Long currentSnapshotId;
+
+    private final Map<String, Long> currentSnapshotIds;
+
+    public PaimonSourceState(
+            Deque<PaimonSourceSplit> assignedSplits, @Nullable Long currentSnapshotId) {
+        this.assignedSplits = assignedSplits;
+        this.currentSnapshotId = currentSnapshotId;
+        this.currentSnapshotIds = Collections.emptyMap();
+    }
+
+    public PaimonSourceState(
+            Deque<PaimonSourceSplit> assignedSplits, Map<String, Long> currentSnapshotIds) {
+        this.assignedSplits = assignedSplits;
+        this.currentSnapshotIds = new HashMap<>(currentSnapshotIds);
+        this.currentSnapshotId = getSingleSnapshotId(this.currentSnapshotIds);
+    }
+
+    public Deque<PaimonSourceSplit> getAssignedSplits() {
+        return assignedSplits;
+    }
+
+    public @Nullable Long getCurrentSnapshotId() {
+        return currentSnapshotId;
+    }
+
+    public Map<String, Long> getCurrentSnapshotIds() {
+        return currentSnapshotIds == null ? Collections.emptyMap() : currentSnapshotIds;
+    }
+
+    private static @Nullable Long getSingleSnapshotId(Map<String, Long> currentSnapshotIds) {
+        if (currentSnapshotIds.size() != 1) {
+            return null;
+        }
+        return currentSnapshotIds.values().iterator().next();
+    }
 }

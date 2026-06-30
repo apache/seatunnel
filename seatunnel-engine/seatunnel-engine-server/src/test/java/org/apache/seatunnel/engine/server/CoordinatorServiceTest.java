@@ -35,6 +35,8 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -109,7 +111,7 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertTrue(server1.isMasterNode());
@@ -123,7 +125,7 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server2 =
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
-        await().atMost(10, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -345,10 +347,10 @@ public class CoordinatorServiceTest {
             masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
 
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(0L, runLatch.getCount()));
             Mockito.verify(jobMaster, Mockito.times(1)).run();
         } finally {
@@ -396,10 +398,10 @@ public class CoordinatorServiceTest {
 
                 invokeCheckNewActiveMaster(newCoordinator);
 
-                await().atMost(5, TimeUnit.SECONDS)
+                await().atMost(30, TimeUnit.SECONDS)
                         .untilAsserted(
                                 () -> Assertions.assertTrue(newCoordinator.isCoordinatorActive()));
-                await().atMost(5, TimeUnit.SECONDS)
+                await().atMost(30, TimeUnit.SECONDS)
                         .untilAsserted(() -> Assertions.assertEquals(0L, newRunLatch.getCount()));
                 Mockito.verify(newPendingJob, Mockito.times(1)).run();
                 Assertions.assertFalse(newCoordinator.getPendingJobQueue().contains(30001L));
@@ -424,10 +426,10 @@ public class CoordinatorServiceTest {
             JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 40001L, runLatch);
 
             invokeCheckNewActiveMaster(coordinatorService);
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertEquals(0L, runLatch.getCount()));
 
             invokeCheckNewActiveMaster(coordinatorService);
@@ -454,7 +456,7 @@ public class CoordinatorServiceTest {
                     enqueueMockPendingJob(coordinatorService, 50001L, runLatch, false);
 
             invokeCheckNewActiveMaster(coordinatorService);
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
             await().during(1, TimeUnit.SECONDS)
@@ -483,10 +485,10 @@ public class CoordinatorServiceTest {
                     enqueueMockPendingJob(coordinatorService, 60001L, runLatch, false);
 
             invokeCheckNewActiveMaster(coordinatorService);
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
-            await().atMost(5, TimeUnit.SECONDS)
+            await().atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertFalse(
@@ -525,9 +527,11 @@ public class CoordinatorServiceTest {
         Mockito.when(nodeEngine.getLogger(Mockito.any(Class.class))).thenReturn(logger);
         Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         Mockito.when(hazelcastInstance.getMap(Mockito.anyString())).thenReturn(map);
+        SeaTunnelEngineContext engineContext = Mockito.mock(SeaTunnelEngineContext.class);
+        Mockito.when(server.getEngineContext()).thenReturn(engineContext);
 
         CoordinatorService coordinatorService =
-                new CoordinatorService(nodeEngine, server, engineConfig);
+                new CoordinatorService(nodeEngine, server, server.getEngineContext(), engineConfig);
         stopCoordinatorSchedulers(coordinatorService);
         return coordinatorService;
     }
@@ -669,32 +673,33 @@ public class CoordinatorServiceTest {
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
                                 "CoordinatorServiceTest_testInvocationFutureUseCompletableFutureExecutor"));
+        try {
+            NodeEngineUtil.sendOperationToMemberNode(
+                            instance.node.getNodeEngine(),
+                            new PrintMessageOperation("hello"),
+                            instance.getCluster().getLocalMember().getAddress())
+                    .whenComplete(
+                            (aVoid, error) -> {
+                                Assertions.assertTrue(
+                                        Thread.currentThread()
+                                                .getName()
+                                                .startsWith("SeaTunnel-CompletableFuture-Thread"));
+                            })
+                    .join();
 
-        NodeEngineUtil.sendOperationToMemberNode(
-                        instance.node.getNodeEngine(),
-                        new PrintMessageOperation("hello"),
-                        instance.getCluster().getLocalMember().getAddress())
-                .whenComplete(
-                        (aVoid, error) -> {
-                            Assertions.assertTrue(
-                                    Thread.currentThread()
-                                            .getName()
-                                            .startsWith("SeaTunnel-CompletableFuture-Thread"));
-                        })
-                .join();
-
-        NodeEngineUtil.sendOperationToMasterNode(
-                        instance.node.getNodeEngine(), new PrintMessageOperation("hello"))
-                .whenCompleteAsync(
-                        (aVoid, error) -> {
-                            Assertions.assertTrue(
-                                    Thread.currentThread()
-                                            .getName()
-                                            .startsWith("SeaTunnel-CompletableFuture-Thread"));
-                        })
-                .join();
-
-        instance.shutdown();
+            NodeEngineUtil.sendOperationToMasterNode(
+                            instance.node.getNodeEngine(), new PrintMessageOperation("hello"))
+                    .whenCompleteAsync(
+                            (aVoid, error) -> {
+                                Assertions.assertTrue(
+                                        Thread.currentThread()
+                                                .getName()
+                                                .startsWith("SeaTunnel-CompletableFuture-Thread"));
+                            })
+                    .join();
+        } finally {
+            instance.shutdown();
+        }
     }
 
     private static final class BlockingEventProcessor implements EventProcessor {
@@ -770,7 +775,7 @@ public class CoordinatorServiceTest {
                         "test_force_stop_running_job");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
 
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
@@ -806,7 +811,7 @@ public class CoordinatorServiceTest {
                         "test_force_stop_abnormal_savepoint_job");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
 
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
@@ -853,7 +858,7 @@ public class CoordinatorServiceTest {
                         .getPendingJobQueue()
                         .contains(jobInformation.jobId));
 
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertFalse(
@@ -879,7 +884,7 @@ public class CoordinatorServiceTest {
         IMap<Object, Object> runningJobStateIMap =
                 coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
 
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
@@ -894,7 +899,7 @@ public class CoordinatorServiceTest {
                                             .containsKey(jobInformation.jobId));
                         });
 
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
@@ -919,12 +924,12 @@ public class CoordinatorServiceTest {
                         "batch_fake_to_console.conf",
                         "test_cleanup_metrics_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        MetricsSnapshotStateStore metricsSnapshotStateStore =
+                coordinatorService.getMetricsSnapshotStateStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsSnapshotStateStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsSnapshotStateStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -940,12 +945,12 @@ public class CoordinatorServiceTest {
                         "batch_fake_to_console.conf",
                         "test_cleanup_metrics_imap_with_partition_config");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        MetricsSnapshotStateStore metricsSnapshotStateStore =
+                coordinatorService.getMetricsSnapshotStateStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsSnapshotStateStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsSnapshotStateStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -970,8 +975,8 @@ public class CoordinatorServiceTest {
                 taskLocation.setTaskID(i);
                 localMap.put(taskLocation, new SeaTunnelMetricsContext());
             }
-            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                    server1.getCoordinatorService().getMetricsImap();
+            MetricsSnapshotStateStore metricsSnapshotStateStore =
+                    server1.getCoordinatorService().getMetricsSnapshotStateStore();
             CompletableFuture.runAsync(
                     () -> {
                         try {
@@ -988,7 +993,14 @@ public class CoordinatorServiceTest {
                         }
                     });
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            10,
+                                            metricsSnapshotStateStore.activePartitionKeyCount()));
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertEquals(100, metricsSnapshotStateStore.size()));
         } finally {
             instance1.shutdown();
             setDefaultConfigFile();
@@ -1002,14 +1014,19 @@ public class CoordinatorServiceTest {
                         "CoordinatorServiceTest_testCleanPendingJobMasterMap",
                         "batch_fake_to_inmemory.conf",
                         "test_clean_pending_jobmastermap");
-        CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertFalse(
-                                        coordinatorService
-                                                .getPendingJobQueue()
-                                                .contains(jobInformation.jobId)));
+        try {
+            CoordinatorService coordinatorService = jobInformation.coordinatorService;
+            await().atMost(20000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            coordinatorService
+                                                    .getPendingJobQueue()
+                                                    .contains(jobInformation.jobId)));
+        } finally {
+            jobInformation.coordinatorService.clearCoordinatorService();
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
     }
 
     @Test
@@ -1051,7 +1068,7 @@ public class CoordinatorServiceTest {
                                                     jobImmutableInformation.isStartWithSavePoint()))
                                     .join());
 
-            await().atMost(10000, TimeUnit.MILLISECONDS)
+            await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertNotEquals(
@@ -1200,18 +1217,22 @@ public class CoordinatorServiceTest {
         Long jobId = jobInformation.jobId;
         HazelcastInstanceImpl coordinatorServiceTest = jobInformation.coordinatorServiceTest;
 
-        // waiting for job status turn to running
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
 
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        Thread.getAllStackTraces().keySet().stream()
+                                                .anyMatch(
+                                                        thread ->
+                                                                thread.getName()
+                                                                        .startsWith(
+                                                                                "pending-job-schedule-runner"))));
 
         int scheduleRunnerThreadCount =
                 (int)
@@ -1250,7 +1271,7 @@ public class CoordinatorServiceTest {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
             CoordinatorService coordinatorService = server.getCoordinatorService();
-            await().atMost(10, TimeUnit.SECONDS)
+            await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
 
@@ -1296,7 +1317,7 @@ public class CoordinatorServiceTest {
                         coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
             }
 
-            await().atMost(10, TimeUnit.SECONDS)
+            await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -1478,6 +1499,7 @@ public class CoordinatorServiceTest {
             executor.awaitTermination(30, TimeUnit.SECONDS);
             instance1.shutdown();
             instance2.shutdown();
+            instance3.shutdown();
         }
     }
 

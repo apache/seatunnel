@@ -16,6 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

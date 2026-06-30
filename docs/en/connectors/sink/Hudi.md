@@ -137,7 +137,7 @@ Option introduction：
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Examples
 
@@ -214,4 +214,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

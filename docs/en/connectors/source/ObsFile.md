@@ -86,6 +86,7 @@ It only supports hadoop version **2.9.X+**.
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                               |
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                          |
+| recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                              |
 | sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### Tips
@@ -390,4 +391,3 @@ schema {
 ## Changelog
 
 <ChangeLog />
-

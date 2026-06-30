@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.transform.replace;
 
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -32,7 +31,6 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -49,19 +47,9 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
-        validateConflictingReplaceFieldKeys(config);
-        this.replaceFields.addAll(
-                getRequiredOption(config, ReplaceTransformConfig.KEY_REPLACE_FIELDS));
-
-        if (replaceFields.isEmpty()) {
-            throw TransformCommonError.validationFailed(
-                    String.format(
-                            "Option '%s' must not be empty.",
-                            ReplaceTransformConfig.KEY_REPLACE_FIELDS.key()));
-        }
-
-        this.pattern = getRequiredOption(config, ReplaceTransformConfig.KEY_PATTERN);
-        this.replacement = getRequiredOption(config, ReplaceTransformConfig.KEY_REPLACEMENT);
+        this.replaceFields.addAll(config.get(ReplaceTransformConfig.KEY_REPLACE_FIELDS));
+        this.pattern = config.get(ReplaceTransformConfig.KEY_PATTERN);
+        this.replacement = config.get(ReplaceTransformConfig.KEY_REPLACEMENT);
         this.isRegex = config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         this.replaceFirst = config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST);
         this.regexPattern = initializeRegexPattern();
@@ -71,22 +59,6 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
-    }
-
-    private void validateConflictingReplaceFieldKeys(ReadonlyConfig config) {
-        Map<String, Object> sourceMap = config.getSourceMap();
-        if (sourceMap.containsKey("replace_field") && sourceMap.containsKey("replace_fields")) {
-            throw TransformCommonError.validationFailed(
-                    "Options 'replace_field' and 'replace_fields' cannot be configured together.");
-        }
-    }
-
-    private <T> T getRequiredOption(ReadonlyConfig config, Option<T> option) {
-        return config.getOptional(option)
-                .orElseThrow(
-                        () ->
-                                TransformCommonError.validationFailed(
-                                        String.format("Option '%s' is required.", option.key())));
     }
 
     private void initializeFieldIndexes() {

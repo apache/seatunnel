@@ -88,16 +88,18 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
 
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
-                    new JsonSerializationSchema(this.seaTunnelRowType);
+                    new JsonSerializationSchema(this.seaTunnelRowType, true);
             ObjectMapper mapper = jsonSerializationSchema.getMapper();
             mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
             this.serialize = jsonSerializationSchema;
         } else {
+            // Doris DATETIME has no native timezone support: serialize TIMESTAMP_TZ as wall-clock.
             this.serialize =
                     TextSerializationSchema.builder()
                             .seaTunnelRowType(this.seaTunnelRowType)
                             .delimiter(fieldDelimiter)
                             .nullValue(NULL_VALUE)
+                            .wallClockTimestampTz(true)
                             .build();
         }
     }
