@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

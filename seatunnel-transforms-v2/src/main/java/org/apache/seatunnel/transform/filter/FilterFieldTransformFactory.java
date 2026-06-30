@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.filter;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -38,9 +39,15 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
+                .exclusive(
                         FilterFieldTransformConfig.INCLUDE_FIELDS,
                         FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                .optional(
+                        FilterFieldTransformConfig.INCLUDE_FIELDS,
+                        Conditions.notEmpty(FilterFieldTransformConfig.INCLUDE_FIELDS))
+                .optional(
+                        FilterFieldTransformConfig.EXCLUDE_FIELDS,
+                        Conditions.notEmpty(FilterFieldTransformConfig.EXCLUDE_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

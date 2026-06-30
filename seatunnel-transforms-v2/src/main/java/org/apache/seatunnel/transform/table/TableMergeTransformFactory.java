@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.table;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,7 +37,7 @@ public class TableMergeTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(TableMergeConfig.TABLE)
+                .required(TableMergeConfig.TABLE, Conditions.notBlank(TableMergeConfig.TABLE))
                 .optional(TableMergeConfig.DATABASE, TableMergeConfig.SCHEMA)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.transform.fieldmapper;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -37,7 +38,9 @@ public class FieldMapperTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(FieldMapperTransformConfig.FIELD_MAPPER)
+                .required(
+                        FieldMapperTransformConfig.FIELD_MAPPER,
+                        Conditions.mapNotEmpty(FieldMapperTransformConfig.FIELD_MAPPER))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

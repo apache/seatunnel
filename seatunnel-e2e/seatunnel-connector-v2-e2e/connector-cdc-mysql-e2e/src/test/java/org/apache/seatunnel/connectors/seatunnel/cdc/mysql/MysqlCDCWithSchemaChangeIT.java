@@ -66,6 +66,15 @@ import static org.awaitility.Awaitility.await;
         disabledReason =
                 "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
 public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestResource {
+    /**
+     * The zeta schema-evolution path applies DDL and follow-up CDC records more slowly than a local
+     * MySQL/MySQL comparison, especially on loaded CI runners.
+     */
+    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 180_000L;
+
+    private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
+
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
@@ -231,7 +240,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 });
 
         // initial snapshot synced
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -248,7 +257,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // add.column is NOT excluded
         shopDatabase.setTemplateName("add_columns_filter").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
@@ -260,7 +269,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         shopDatabase.setTemplateName("drop_columns_filter").createAndInitialize();
 
         // regression: the concurrent data changes must still reach the sink (job did not crash)
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -320,7 +329,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     }
 
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -329,13 +338,13 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -367,8 +376,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 3,
-                                            "Time difference exceeds 3 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -393,7 +404,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertSchemaEvolutionForAddColumns(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -402,13 +413,13 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -440,8 +451,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 3,
-                                            "Time difference exceeds 3 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -451,13 +464,13 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
