@@ -46,8 +46,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
@@ -257,6 +260,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                         return objectArrayList.toArray(new LocalTime[0]);
                     case TIMESTAMP:
                         return objectArrayList.toArray(new LocalDateTime[0]);
+                    case TIMESTAMP_TZ:
+                        return objectArrayList.toArray(new OffsetDateTime[0]);
                     default:
                         throw new SeaTunnelTextFormatException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -330,6 +335,22 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
                 LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
                 return LocalDateTime.of(localDate, localTime);
+            case TIMESTAMP_TZ:
+                try {
+                    return OffsetDateTime.parse(field, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                } catch (DateTimeParseException ignored) {
+                    // Fallback: data written by old SeaTunnel (wall-clock, no offset).
+                    // Parse as LocalDateTime and attach UTC — offset info is already lost.
+                    DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(field);
+                    if (fallbackFmt == null) {
+                        throw CommonError.formatDateTimeError(field, fieldName);
+                    }
+                    TemporalAccessor ta = fallbackFmt.parse(field);
+                    return LocalDateTime.of(
+                                    ta.query(TemporalQueries.localDate()),
+                                    ta.query(TemporalQueries.localTime()))
+                            .atOffset(ZoneOffset.UTC);
+                }
             case ROW:
                 Map<Integer, String> splitsMap =
                         splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType, level + 1);

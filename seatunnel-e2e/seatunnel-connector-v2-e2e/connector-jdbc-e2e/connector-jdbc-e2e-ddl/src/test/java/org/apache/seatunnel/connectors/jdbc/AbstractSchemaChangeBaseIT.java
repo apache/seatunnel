@@ -481,6 +481,23 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                     Object object = resultSet.getObject(i);
                     if (object instanceof NClob) {
                         objects.add(readNClobAsString((NClob) object));
+                    } else if (object instanceof java.time.OffsetDateTime) {
+                        // TIMESTAMP_TZ (OffsetDateTime) → normalize to Timestamp for comparison
+                        // with MySQL source which returns java.sql.Timestamp
+                        objects.add(
+                                java.sql.Timestamp.valueOf(
+                                        ((java.time.OffsetDateTime) object).toLocalDateTime()));
+                    } else if (object != null
+                            && object.getClass().getName().equals("microsoft.sql.DateTimeOffset")) {
+                        // SQL Server DATETIMEOFFSET → normalize to Timestamp for comparison
+                        // microsoft.sql.DateTimeOffset.getTimestamp() returns java.sql.Timestamp
+                        try {
+                            java.lang.reflect.Method getTimestamp =
+                                    object.getClass().getMethod("getTimestamp");
+                            objects.add(getTimestamp.invoke(object));
+                        } catch (Exception e) {
+                            objects.add(object);
+                        }
                     } else {
                         objects.add(object);
                     }
