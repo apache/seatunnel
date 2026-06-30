@@ -40,24 +40,18 @@ public class HazelcastCounterStateStore<K> implements CounterStateStore<K> {
     }
 
     @Override
-    public long get(K key) {
-        Long value = iMap.get(key);
-        return value == null ? 0L : value.longValue();
+    public Long get(K key) {
+        return iMap.get(key);
     }
 
     @Override
-    public long incrementAndGet(K key) {
-        Long value =
-                iMap.compute(
-                        key,
-                        (ignored, current) ->
-                                current == null ? 1L : Long.valueOf(current.longValue() + 1L));
-        return value.longValue();
+    public Long incrementAndGet(K key) {
+        return iMap.compute(key, (ignored, current) -> current == null ? null : current + 1L);
     }
 
     @Override
     public void set(K key, long value) {
-        iMap.put(key, Long.valueOf(value));
+        iMap.put(key, value);
     }
 
     @Override

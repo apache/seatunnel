@@ -64,7 +64,7 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
 
     @Override
     public long getAndIncrement() throws Exception {
-        long nextId = checkpointCounterStore.incrementAndGet(key);
+        Long nextId = checkpointCounterStore.incrementAndGet(key);
         checkNotNull(nextId);
         return nextId - 1L;
     }

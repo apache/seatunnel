@@ -41,17 +41,17 @@ public interface CounterStateStore<K> {
      * Returns the current counter value.
      *
      * @param key key to look up
-     * @return stored value, or {@code 0} if absent
+     * @return stored value, or {@code null} if absent
      */
-    long get(K key);
+    Long get(K key);
 
     /**
      * Increments the counter by one and returns the updated value.
      *
      * @param key key to increment
-     * @return updated value
+     * @return updated value, or {@code null} if absent
      */
-    long incrementAndGet(K key);
+    Long incrementAndGet(K key);
 
     /**
      * Overwrites the counter with a specific value.

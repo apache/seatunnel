@@ -94,7 +94,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         null);
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
-        Assertions.assertEquals(0L, checkpointCounterStore.get(counterKey));
+        Assertions.assertNull(checkpointCounterStore.get(counterKey));
         checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
     }
