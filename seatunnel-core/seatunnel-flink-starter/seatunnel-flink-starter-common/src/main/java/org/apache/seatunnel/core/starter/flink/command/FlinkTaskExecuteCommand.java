@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -49,9 +51,20 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
-        Config config =
-                MetalakeConfigUtils.getMetalakeConfig(
-                        ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()));
+
+        // Load MetadataConfig from seatunnel.yaml
+        MetadataConfig metadataConfig = ConfigBuilder.parseMetadataConfigFromSeatunnelYaml();
+
+        // Load job config (already decrypted)
+        Config jobConfig = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
+
+        // Resolve datasource configs via MetadataProviderManager
+        Config resolvedConfig =
+                MetadataProviderManager.resolveDataSourceConfigs(jobConfig, metadataConfig);
+
+        // Apply metalake config transformations
+        Config config = MetalakeConfigUtils.getMetalakeConfig(resolvedConfig);
+
         // if user specified job name using command line arguments, override config option
         if (!flinkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =
