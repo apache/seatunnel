@@ -52,6 +52,8 @@ Common use cases:
 | token      | String | Yes      | -       | Milvus authentication token. For a local Milvus server this is usually `username:password`.                                                                                      |
 | database   | String | No       | default | Source database.                                                                                                                                                                 |
 | collection | String | No       | -       | Source collection. If it is set, only this collection is read. If it is not set, all collections under `database` are read. The deprecated `collection_name` key is accepted as an alias. |
+| batch_size | Int    | No       | 1000    | Number of records fetched in one source read batch.                                                                                                                             |
+| rate_limit | Int    | No       | 1000000 | Maximum source read rate limit.                                                                                                                                                  |
 
 ## Notes
 
