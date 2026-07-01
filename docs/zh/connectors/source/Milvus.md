@@ -6,11 +6,17 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## 描述
 
-这个Milvus源连接器从Milvus或Zilliz Cloud读取数据，它具有以下功能：
-- 支持按分区读写数据
-- 支持将动态模式数据读入元数据列
-- json数据将转换为json字符串，并将sink转换为json
-- 自动重试以绕过速率限制和grpc限制
+Milvus source 连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读取一个集合，
+也可以读取某个数据库下的所有集合，并且会把 Milvus 的分区信息、向量索引信息等元数据传给下游，
+下游连接器支持时可以继续使用这些信息。
+
+常见用法：
+
+- 配置 `collection` 读取一个 Milvus 集合。
+- 不配置 `collection` 时，读取指定数据库下的所有集合。
+- 从 Milvus 复制到 Milvus，并保留向量字段、分区元数据和索引元数据。
+- 读取 `FLOAT_VECTOR`、`BINARY_VECTOR`、`FLOAT16_VECTOR`、`BFLOAT16_VECTOR` 和 `SPARSE_FLOAT_VECTOR` 字段。
+- 遇到限流或 gRPC 限制时自动重试。
 
 ## 关键特性
 
@@ -40,21 +46,114 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## 源选项
 
-|    名称           |  类型  | 必需 | 默认值 |                                        描述                                         |
-|------------|--------|----------|---------|--------------------------------------------------------------------------------------------|
-| url        | String | 是      | -       | 连接到Milvus或Zilliz Cloud的URL.                                              |
-| token      | String | 是      | -       | 用户：密码                                                                            |
-| database   | String | 是      | default | 从哪个数据库读取数据.                                                             |
-| collection | String | 否       | -       | 如果设置，将只读取一个集合，否则将读取数据库下的所有集合. |
+| 名称         | 类型     | 是否必传 | 默认值     | 描述                                                                                         |
+|------------|--------|------|---------|--------------------------------------------------------------------------------------------|
+| url        | String | 是    | -       | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                                 |
+| token      | String | 是    | -       | Milvus 认证 token。本地 Milvus 通常使用 `username:password`。                                       |
+| database   | String | 否    | default | 源数据库。                                                                                      |
+| collection | String | 否    | -       | 源集合。配置后只读取这个集合；不配置时读取 `database` 下的所有集合。兼容旧配置键 `collection_name`。                   |
+
+## 注意事项
+
+- `database` 默认是 `default`，本地 Milvus 的简单任务通常不用配置。
+- `collection` 是可选项。只想读一个集合时再配置。
+- source 读取带分区的集合时，下游 Milvus sink 可以利用这些元数据在目标集合创建相同分区名。
+- source 读取到向量索引信息时，下游 Milvus sink 可以配合 `create_index = true` 创建相同向量索引。
 
 ## 任务示例
 
+### 读取一个集合
+
 ```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
     database = "default"
+    collection = "simple_example"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### 读取一个数据库下的所有集合
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "default"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### 复制一个 Milvus 集合到另一个数据库
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    collection = "simple_example"
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test"
+    collection = "simple_example"
+  }
+}
+```
+
+### 复制集合并重建向量索引
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    collection = "simple_example"
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test_index_preservation"
+    collection = "simple_example_preservation"
+    create_index = true
   }
 }
 ```
