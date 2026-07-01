@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -157,7 +158,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertRunningJobGraphWithTimeout(standbyMaster, pendingJobId, 120);
 
             pendingJobAfterFailover.cancelJob();
-            assertJobStatusWithTimeout(pendingJobAfterFailover, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(pendingJobAfterFailover);
             engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
         } finally {
             if (engineClient != null) {
@@ -232,13 +233,13 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertPendingQueueState(activeMaster, pendingJobId, 1);
 
             holderJob.cancelJob();
-            assertJobStatusWithTimeout(holderJob, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(holderJob);
 
             assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 180);
             assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
 
             pendingJob.cancelJob();
-            assertJobStatusWithTimeout(pendingJob, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(pendingJob);
         } finally {
             if (engineClient != null) {
                 engineClient.close();
@@ -294,6 +295,22 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                         () ->
                                 Assertions.assertEquals(
                                         expectedStatus, clientJobProxy.getJobStatus()));
+    }
+
+    /**
+     * Failover and cancellation can leave the client-observed status at CANCELING after the cancel
+     * request has already completed, so wait for the terminal job result before asserting the final
+     * visible state.
+     */
+    private static void assertEventuallyCanceled(ClientJobProxy clientJobProxy) {
+        JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+        Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, clientJobProxy.getJobStatus()));
     }
 
     /**
