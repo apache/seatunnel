@@ -56,6 +56,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -170,13 +171,13 @@ public class MetalakeIT extends TestSuiteBase {
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Metalake config is currently applied by Zeta starter.")
     public void testMetalake(TestContainer container) throws IOException, InterruptedException {
+        Map<String, String> envs = new LinkedHashMap<>();
+        envs.put("METALAKE_ENABLED", "true");
+        envs.put("METALAKE_TYPE", "gravitino");
+        envs.put("METALAKE_URL", METALAKE_URL);
         Container.ExecResult execResult =
-                container.executeJob(
-                        "/jdbc_mysql_source_to_assert_sink_with_metalake.conf",
-                        Arrays.asList(
-                                "env.metalake_enabled=true",
-                                "env.metalake_type=gravitino",
-                                "env.metalake_url=" + METALAKE_URL));
+                container.executeJobWithEnv(
+                        "/jdbc_mysql_source_to_assert_sink_with_metalake.conf", envs);
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -186,9 +187,11 @@ public class MetalakeIT extends TestSuiteBase {
             type = {EngineType.SPARK},
             disabledReason = "Spark starter does not support MetadataProvider yet.")
     public void testDataSource(TestContainer container) throws IOException, InterruptedException {
+        Map<String, String> envs = new LinkedHashMap<>();
+        envs.put("SEATUNNEL_HOME", SEATUNNEL_HOME);
         Container.ExecResult execResult =
-                container.executeJob(
-                        "/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
+                container.executeJobWithEnv(
+                        "/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf", envs);
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

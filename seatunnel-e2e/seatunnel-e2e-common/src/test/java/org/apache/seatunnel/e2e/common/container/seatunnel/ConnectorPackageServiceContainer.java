@@ -38,6 +38,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -233,6 +234,13 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(server1, confFile, null, variables);
+    }
+
+    @Override
+    public Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
+            throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
+        return executeJob(server1, confFile, null, null, envs);
     }
 
     @Override
