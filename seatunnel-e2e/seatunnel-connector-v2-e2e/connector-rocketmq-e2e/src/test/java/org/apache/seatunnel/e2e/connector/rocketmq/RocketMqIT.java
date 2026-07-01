@@ -389,8 +389,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         final String topicName = "test_topic_group_" + uniqueTestSuffix();
         final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueTestSuffix();
 
-        deleteTopicIfExist(topicName);
-        awaitTopicReset(topicName);
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         topicName,
@@ -584,12 +582,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     "sinkTopic=" + sinkTopic,
                     "consumerGroup=" + consumerGroup
                 };
-
-        // Reset the unique topics anyway because RocketMQ topic deletion is asynchronous and a
-        // previous failed attempt in the same container can still leave metadata behind.
-        deleteTopicIfExist(sourceTopic);
-        deleteTopicIfExist(sinkTopic);
-        awaitTopicReset(sourceTopic, sinkTopic);
 
         for (int i = 0; i < 20; i++) {
             Message msg = new Message(sourceTopic, (payload + "_initial_" + i).getBytes());
@@ -806,21 +798,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             log.warn("Failed to get max offset for topic {}: {}", topicName, e.getMessage());
             return 0;
         }
-    }
-
-    /**
-     * Topic metadata deletion is asynchronous in RocketMQ. Wait until every topic involved in the
-     * current test is observed as empty before reusing it or asserting its offsets.
-     */
-    private void awaitTopicReset(String... topicNames) {
-        Awaitility.await()
-                .pollDelay(2, TimeUnit.SECONDS)
-                .pollInterval(2, TimeUnit.SECONDS)
-                .atMost(30, TimeUnit.SECONDS)
-                .until(
-                        () ->
-                                Arrays.stream(topicNames)
-                                        .allMatch(topicName -> getTopicMaxOffset(topicName) == 0));
     }
 
     private String uniqueTestSuffix() {
