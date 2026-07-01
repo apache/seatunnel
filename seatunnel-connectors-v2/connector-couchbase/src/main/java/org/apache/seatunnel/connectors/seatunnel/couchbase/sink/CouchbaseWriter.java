@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.couchbase.exception.CouchbaseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.couchbase.exception.CouchbaseConnectorException;
 
+import com.couchbase.client.core.error.AmbiguousTimeoutException;
+import com.couchbase.client.core.error.DocumentExistsException;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.json.JsonObject;
@@ -247,7 +249,24 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * prevents silent duplicate documents in the random-UUID insert path and avoids spurious
      * duplicate-key failures in the stable-key insert path.
      *
-     * <p>Synchronised to prevent concurrent flushes from overlapping.
+     * Ambiguous-exception safety on the insert path
+     *
+     * <p>The Couchbase SDK can throw {@link AmbiguousTimeoutException} when a write request times
+     * out before the client can determine whether the server committed the document or not. In that
+     * case {@code startFrom} is intentionally <em>not</em> advanced (the cursor stays on the
+     * current index), so the next retry attempt will replay the same document.</p>
+     *
+     * <p>On that retry, if the server already committed the document the insert will fail with
+     * {@link DocumentExistsException}. The handler below treats that as a confirmation of success
+     * (the document is durably present with the correct content) and advances {@code startFrom}
+     * before continuing. This closes the "ambiguous commit" window without switching the entire
+     * batch to upsert semantics.</p> 
+     *
+     * <p>A {@link DocumentExistsException} on the <em>first</em> attempt ({@code attempt == 0}) is
+     * not a retry artifact — it is a genuine key collision — and is therefore re-thrown
+     * immediately.</p>
+     *
+     * <p>Synchronised to prevent concurrent flushes from overlapping.</p>
      */
     synchronized void doFlush() {
         if (buffer.isEmpty()) {
@@ -277,15 +296,55 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     if (options.isUpsertEnable()) {
                         collection.upsert(unit.docId, unit.doc);
                     } else {
-                        collection.insert(unit.docId, unit.doc);
+                        try {
+                            collection.insert(unit.docId, unit.doc);
+                        } catch (DocumentExistsException dee) {
+                            // On a retry attempt this means the previous (ambiguous) attempt
+                            // actually committed the document. Treat it as success and move on.
+                            // On the first attempt it is a genuine key collision; re-throw.
+                            if (attempt == 0) {
+                                throw dee;
+                            }
+                            log.debug(
+                                    "Insert for docId='{}' got DocumentExistsException on retry attempt={}"
+                                            + " — document was already committed by a prior ambiguous attempt; skipping.",
+                                    unit.docId,
+                                    attempt);
+                        }
                     }
-                    // Advance the cursor only after the write is confirmed so that a failure
-                    // on the very next row does not skip the current one on the next attempt.
+                    // Advance the cursor only after the write is confirmed (or confirmed-already-
+                    // present) so that a failure on the very next row does not skip this one.
                     startFrom = i + 1;
                 }
                 buffer.clear();
                 lastSendTime = System.currentTimeMillis();
                 return;
+            } catch (AmbiguousTimeoutException ate) {
+                // The server may or may not have committed the document at startFrom.
+                // Do NOT advance startFrom — the next attempt will replay it and handle
+                // DocumentExistsException as success if the write already landed.
+                log.warn(
+                        "Ambiguous timeout on Couchbase write (docId='{}'), attempt={} — "
+                                + "will retry from the same position to verify commit status.",
+                        units.get(startFrom).docId,
+                        attempt,
+                        ate);
+                if (attempt >= maxRetries) {
+                    throw new CouchbaseConnectorException(
+                            CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "Batch write to Couchbase failed after " + maxRetries + " retries",
+                            ate);
+                }
+                attempt++;
+                try {
+                    TimeUnit.MILLISECONDS.sleep(retryIntervalMs * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new CouchbaseConnectorException(
+                            CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "Interrupted while retrying batch write",
+                            ie);
+                }
             } catch (Exception e) {
                 log.debug("Batch write to Couchbase failed, attempt={}", attempt, e);
                 if (attempt >= maxRetries) {
