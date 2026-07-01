@@ -45,6 +45,7 @@ import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -195,20 +196,28 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
+    private String driverJarPath() {
+        return Paths.get(
+                        System.getProperty("user.home"),
+                        ".m2/repository/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar")
+                .toString();
     }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
+                String driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.exists(Paths.get(driverJarPath)),
+                        "SQLServer JDBC driver should be resolved by Maven before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
-                                        + driverUrl());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/SqlServer-CDC/lib/mssql-jdbc-9.4.1.jre8.jar");
             };
 
     @Override
