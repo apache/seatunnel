@@ -322,6 +322,10 @@ public class AssertExecutor {
             return value instanceof ByteBuffer;
         }
 
+        if (fieldType.getSqlType() == SqlType.SPARSE_FLOAT_VECTOR) {
+            return value instanceof Map;
+        }
+
         return value.getClass().equals(fieldType.getTypeClass());
     }
 
