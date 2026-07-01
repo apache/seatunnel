@@ -53,6 +53,7 @@ import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
