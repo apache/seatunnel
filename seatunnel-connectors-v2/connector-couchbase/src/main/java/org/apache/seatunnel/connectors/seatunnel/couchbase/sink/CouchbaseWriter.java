@@ -35,8 +35,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -249,22 +251,20 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * prevents silent duplicate documents in the random-UUID insert path and avoids spurious
      * duplicate-key failures in the stable-key insert path.
      *
-     * <p>Ambiguous-exception safety on the insert path
-     *
-     * <p>The Couchbase SDK can throw {@link AmbiguousTimeoutException} when a write request times
-     * out before the client can determine whether the server committed the document or not. In that
-     * case {@code startFrom} is intentionally <em>not</em> advanced (the cursor stays on the
-     * current index), so the next retry attempt will replay the same document.
+     * <p>Ambiguous-exception safety on the insert path: the Couchbase SDK can throw {@link
+     * AmbiguousTimeoutException} when a write request times out before the client can determine
+     * whether the server committed the document or not. In that case the in-flight row index is
+     * recorded in {@code ambiguousIndices} and {@code startFrom} is intentionally <em>not</em>
+     * advanced, so the next retry attempt replays the same document.
      *
      * <p>On that retry, if the server already committed the document the insert will fail with
-     * {@link DocumentExistsException}. The handler below treats that as a confirmation of success
-     * (the document is durably present with the correct content) and advances {@code startFrom}
-     * before continuing. This closes the "ambiguous commit" window without switching the entire
-     * batch to upsert semantics.
+     * {@link DocumentExistsException}. The handler treats that as a confirmation of success
+     * <em>only</em> for the specific row index that previously hit the ambiguous timeout —
+     * preventing a {@link DocumentExistsException} on a <em>different</em> row from being silently
+     * swallowed as a false success.
      *
-     * <p>A {@link DocumentExistsException} on the <em>first</em> attempt ({@code attempt == 0}) is
-     * not a retry artifact — it is a genuine key collision — and is therefore re-thrown
-     * immediately.
+     * <p>A {@link DocumentExistsException} on any row that has no ambiguous-write history is always
+     * a genuine key collision and is therefore re-thrown immediately.
      *
      * <p>Synchronised to prevent concurrent flushes from overlapping.
      */
@@ -289,6 +289,11 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         int startFrom = 0;
         int attempt = 0;
 
+        // Records the unit indices that previously threw AmbiguousTimeoutException.
+        // Only these rows are allowed to treat DocumentExistsException as a success signal
+        // on the next attempt — for all other rows it remains a genuine key collision.
+        final Set<Integer> ambiguousIndices = new HashSet<>();
+
         while (true) {
             try {
                 for (int i = startFrom; i < units.size(); i++) {
@@ -298,18 +303,25 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     } else {
                         try {
                             collection.insert(unit.docId, unit.doc);
+                            // Clean up the ambiguous marker now that the insert succeeded
+                            // cleanly (no DocumentExistsException), so a future ambiguous
+                            // timeout on this same index is tracked fresh.
+                            ambiguousIndices.remove(i);
                         } catch (DocumentExistsException dee) {
-                            // On a retry attempt this means the previous (ambiguous) attempt
-                            // actually committed the document. Treat it as success and move on.
-                            // On the first attempt it is a genuine key collision; re-throw.
-                            if (attempt == 0) {
+                            // Accept DocumentExistsException as success only if this exact
+                            // row index previously hit an AmbiguousTimeoutException, meaning
+                            // the server may have already committed it. For any other row this
+                            // is a genuine key collision and must propagate.
+                            if (!ambiguousIndices.contains(i)) {
                                 throw dee;
                             }
                             log.debug(
-                                    "Insert for docId='{}' got DocumentExistsException on retry attempt={}"
-                                            + " — document was already committed by a prior ambiguous attempt; skipping.",
+                                    "Insert for docId='{}' got DocumentExistsException after"
+                                            + " prior ambiguous timeout at index={} — treating as"
+                                            + " already committed; skipping.",
                                     unit.docId,
-                                    attempt);
+                                    i);
+                            ambiguousIndices.remove(i);
                         }
                     }
                     // Advance the cursor only after the write is confirmed (or confirmed-already-
@@ -320,9 +332,10 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                 lastSendTime = System.currentTimeMillis();
                 return;
             } catch (AmbiguousTimeoutException ate) {
-                // The server may or may not have committed the document at startFrom.
-                // Do NOT advance startFrom — the next attempt will replay it and handle
-                // DocumentExistsException as success if the write already landed.
+                // Record the in-flight index so the next attempt can distinguish a
+                // "previously committed" DocumentExistsException from a genuine collision.
+                // Do NOT advance startFrom — the next attempt replays from the same position.
+                ambiguousIndices.add(startFrom);
                 log.warn(
                         "Ambiguous timeout on Couchbase write (docId='{}'), attempt={} — "
                                 + "will retry from the same position to verify commit status.",
