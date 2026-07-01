@@ -312,7 +312,7 @@ Awaitility.await()
         .pollInterval(2, TimeUnit.SECONDS)
         .untilAsserted(() -> verifySinkResults());
 
-job.cancel(true);                  // cancel the job
+container.cancelJob(jobId);                 // cancel the job
 ```
 
 Use this table to decide:
