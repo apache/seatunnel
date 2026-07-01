@@ -58,6 +58,7 @@ import io.milvus.grpc.FieldData;
 import io.milvus.grpc.FieldSchema;
 import io.milvus.grpc.IndexDescription;
 import io.milvus.grpc.KeyValuePair;
+import io.milvus.grpc.ListDatabasesResponse;
 import io.milvus.grpc.MutationResult;
 import io.milvus.grpc.QueryResults;
 import io.milvus.param.ConnectParam;
@@ -919,6 +920,26 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
     private void waitCollectionReady(
             String databaseName, String collectionName, String vectorFieldName) {
+        // assert database exist
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            R<ListDatabasesResponse> listDatabasesResponse =
+                                    this.milvusClient.listDatabases();
+                            Assertions.assertEquals(
+                                    R.Status.Success.getCode(),
+                                    listDatabasesResponse.getStatus(),
+                                    Optional.ofNullable(listDatabasesResponse.getException())
+                                            .map(Exception::getMessage)
+                                            .orElse(""));
+                            return listDatabasesResponse
+                                    .getData()
+                                    .getDbNamesList()
+                                    .contains(databaseName);
+                        });
+
         // assert table exist
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)

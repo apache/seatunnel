@@ -160,6 +160,10 @@ public class MilvusCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            return false;
+        }
+
         R<Boolean> response =
                 this.client.hasCollection(
                         HasCollectionParam.newBuilder()
