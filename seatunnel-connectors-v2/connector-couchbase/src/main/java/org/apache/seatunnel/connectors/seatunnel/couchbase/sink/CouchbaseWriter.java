@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Writes {@link SeaTunnelRow} records to a Couchbase collection.
@@ -228,68 +227,84 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         return UUID.randomUUID().toString();
     }
 
+    /** Immutable pair of a pre-resolved document id and its JSON body. */
+    private static final class WriteUnit {
+        final String docId;
+        final JsonObject doc;
+
+        WriteUnit(String docId, JsonObject doc) {
+            this.docId = docId;
+            this.doc = doc;
+        }
+    }
+
     /**
      * Writes all buffered documents to Couchbase with retry logic, then clears the buffer.
-     * Synchronised to prevent concurrent flushes from overlapping.
+     *
+     * <p>Document ids are assigned <em>once</em> before the retry loop starts so that every retry
+     * attempt replays the exact same {@code (docId, doc)} pairs. A {@code startFrom} cursor
+     * advances past rows that were already durably written in a previous (partial) attempt, which
+     * prevents silent duplicate documents in the random-UUID insert path and avoids spurious
+     * duplicate-key failures in the stable-key insert path.
+     *
+     * <p>Synchronised to prevent concurrent flushes from overlapping.
      */
     synchronized void doFlush() {
         if (buffer.isEmpty()) {
             return;
         }
 
-        // Take a snapshot so the buffer can be cleared on success regardless of order.
-        final List<SeaTunnelRow> snapshot = new ArrayList<>(buffer);
+        // Materialise stable (docId, doc) pairs before entering the retry loop.
+        // Assigning the document id here means every retry attempt reuses the same key —
+        // no new UUIDs are generated on re-attempts, so partial-success retries cannot
+        // produce duplicate documents.
+        final List<WriteUnit> units = new ArrayList<>(buffer.size());
+        for (SeaTunnelRow row : buffer) {
+            JsonObject doc = toJsonObject(row);
+            units.add(new WriteUnit(buildDocumentKey(doc), doc));
+        }
 
-        boolean success =
-                IntStream.rangeClosed(0, maxRetries)
-                        .anyMatch(
-                                attempt -> {
-                                    try {
-                                        for (SeaTunnelRow row : snapshot) {
-                                            JsonObject doc = toJsonObject(row);
-                                            String docId = buildDocumentKey(doc);
-                                            if (options.isUpsertEnable()) {
-                                                collection.upsert(docId, doc);
-                                            } else {
-                                                collection.insert(docId, doc);
-                                            }
-                                        }
-                                        buffer.clear();
-                                        lastSendTime = System.currentTimeMillis();
-                                        return true;
-                                    } catch (Exception e) {
-                                        log.debug(
-                                                "Batch write to Couchbase failed, attempt={}",
-                                                attempt,
-                                                e);
-                                        if (attempt >= maxRetries) {
-                                            throw new CouchbaseConnectorException(
-                                                    CouchbaseConnectorErrorCode
-                                                            .WRITE_RECORDS_FAILED,
-                                                    "Batch write to Couchbase failed after "
-                                                            + maxRetries
-                                                            + " retries",
-                                                    e);
-                                        }
-                                        try {
-                                            TimeUnit.MILLISECONDS.sleep(
-                                                    retryIntervalMs * (attempt + 1));
-                                        } catch (InterruptedException ie) {
-                                            Thread.currentThread().interrupt();
-                                            throw new CouchbaseConnectorException(
-                                                    CouchbaseConnectorErrorCode
-                                                            .WRITE_RECORDS_FAILED,
-                                                    "Interrupted while retrying batch write",
-                                                    ie);
-                                        }
-                                        return false;
-                                    }
-                                });
+        // startFrom tracks the first unit that has NOT yet been durably written.
+        // When a batch attempt fails mid-way at index k, the next attempt resumes
+        // from k, skipping the rows [0, k) that already succeeded.
+        int startFrom = 0;
+        int attempt = 0;
 
-        if (!success) {
-            throw new CouchbaseConnectorException(
-                    CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
-                    "Batch write to Couchbase failed after max retries");
+        while (true) {
+            try {
+                for (int i = startFrom; i < units.size(); i++) {
+                    WriteUnit unit = units.get(i);
+                    if (options.isUpsertEnable()) {
+                        collection.upsert(unit.docId, unit.doc);
+                    } else {
+                        collection.insert(unit.docId, unit.doc);
+                    }
+                    // Advance the cursor only after the write is confirmed so that a failure
+                    // on the very next row does not skip the current one on the next attempt.
+                    startFrom = i + 1;
+                }
+                buffer.clear();
+                lastSendTime = System.currentTimeMillis();
+                return;
+            } catch (Exception e) {
+                log.debug("Batch write to Couchbase failed, attempt={}", attempt, e);
+                if (attempt >= maxRetries) {
+                    throw new CouchbaseConnectorException(
+                            CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "Batch write to Couchbase failed after " + maxRetries + " retries",
+                            e);
+                }
+                attempt++;
+                try {
+                    TimeUnit.MILLISECONDS.sleep(retryIntervalMs * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new CouchbaseConnectorException(
+                            CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                            "Interrupted while retrying batch write",
+                            ie);
+                }
+            }
         }
     }
 

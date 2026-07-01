@@ -180,11 +180,11 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 String.format(
                         "SELECT COUNT(*) AS cnt FROM `%s`.`%s`.`%s`",
                         COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION);
-        // Do not filter by a specific id value — FakeSource generates random integers so
-        // id=0 is not guaranteed to exist. Pick any document and verify field presence.
+        // FakeSource now uses auto.increment.enabled=true starting at 1, so ids are 1..100
+        // and there are no collisions.  Pick id=1 for the content-level check.
         String contentQuery =
                 String.format(
-                        "SELECT id, name, score, `active` FROM `%s`.`%s`.`%s` LIMIT 1",
+                        "SELECT id, name, score, `active` FROM `%s`.`%s`.`%s` WHERE id = 1",
                         COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION);
 
         // --- Assertion 1: exact row count ---
@@ -208,8 +208,8 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                             + count.get());
                         });
 
-        // --- Assertion 2: content check on the document keyed by id=0 ---
-        // primary-key=["id"] in conf, so the document key is "0"
+        // --- Assertion 2: content check on the document keyed by id=1 ---
+        // primary-key=["id"] in conf and auto.increment.start=1, so doc key "1" is guaranteed.
         Awaitility.given()
                 .ignoreExceptions()
                 .pollInterval(1, TimeUnit.SECONDS)
@@ -221,7 +221,6 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     rows.isEmpty(), "Content query returned no document");
                             JsonObject doc = rows.get(0);
-                            // id=0 is a valid integer; containsKey is safe where getInt() is not.
                             Assertions.assertTrue(
                                     doc.containsKey("id"),
                                     "Field 'id' missing in written document");
