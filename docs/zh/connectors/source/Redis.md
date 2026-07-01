@@ -402,6 +402,58 @@ sink {
 }
 ```
 
+读取 Redis key 并用自定义 key 写回 Redis：
+
+这个示例来自 Redis e2e 任务。`read_key_enabled = true` 会把匹配到的 Redis key 一起读出来，
+`key_field_name = key` 表示把 Redis key 放进 `key` 这一列，后面的 Redis sink 再通过 `{key}`
+拼出新的 Redis key。
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "key_test*"
+    data_type = string
+    batch_size = 33
+    read_key_enabled = true
+    key_field_name = key
+    single_field_name = value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "key"
+          type = "string"
+        },
+        {
+          name = "id"
+          type = "bigint"
+        },
+        {
+          name = "c_string"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "redis-key-check:{key}"
+    support_custom_key = true
+    data_type = key
+    batch_size = 33
+  }
+}
+```
+
 ### 多表模式
 
 **示例 1：读取具有不同数据类型的多个 key pattern**

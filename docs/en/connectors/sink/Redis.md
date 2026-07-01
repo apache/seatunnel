@@ -155,6 +155,11 @@ Set redis expiration time, the unit is second. The default value is -1, keys do 
 
 if true, the key can be customized by the field value in the upstream data.
 
+The field name must be wrapped with `{` and `}`. For example, `key = "order:{id}"` reads the `id`
+field from each upstream row. If the upstream row comes from Redis source and uses
+`read_key_enabled = true`, you can also use the key field emitted by the source, such as
+`key = "redis-key-check:{key}"`.
+
 Upstream data is the following:
 
 | code |      data      | success |
@@ -235,6 +240,52 @@ Redis {
 }
 ```
 
+custom key from a Redis source key:
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "key_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = key
+    single_field_name = value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "key"
+          type = "string"
+        },
+        {
+          name = "id"
+          type = "bigint"
+        },
+        {
+          name = "c_string"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "redis-key-check:{key}"
+    support_custom_key = true
+    data_type = key
+  }
+}
+```
+
 custom value:
 
 ```hocon
@@ -263,4 +314,3 @@ Redis {
 ## Changelog
 
 <ChangeLog />
-

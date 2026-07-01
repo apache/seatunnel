@@ -91,6 +91,10 @@ Redis 数据类型，支持 `key` `hash` `list` `set` `zset`
 
 > 每个来自上游的数据都会以权重为 1 的方式添加到配置的 zset key 中。因此，zset 中数据的顺序基于数据的消费顺序。
 
+### batch_size [int]
+
+单机模式下控制每批写入 Redis 的数据条数；集群模式下不保证严格按该数量写入。
+
 ### user [string]
 
 Redis 认证用户，连接加密集群时需要
@@ -150,6 +154,10 @@ Redis 节点信息，在集群模式下使用，必须按如下格式：
 ### support_custom_key [boolean]
 
 设置为true，表示启用自定义Key。
+
+字段名需要用 `{` 和 `}` 包起来。比如 `key = "order:{id}"` 会从每一行上游数据里取 `id`
+字段。如果上游是 Redis source，并且配置了 `read_key_enabled = true`，也可以使用 source 输出的
+key 字段，例如 `key = "redis-key-check:{key}"`。
 
 上游数据如下：
 
@@ -226,6 +234,52 @@ Redis {
   key = "name:${name}"
   support_custom_key = true
   data_type = key
+}
+```
+
+使用 Redis source 读出的 key 作为自定义 key：
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "key_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = key
+    single_field_name = value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "key"
+          type = "string"
+        },
+        {
+          name = "id"
+          type = "bigint"
+        },
+        {
+          name = "c_string"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "redis-key-check:{key}"
+    support_custom_key = true
+    data_type = key
+  }
 }
 ```
 

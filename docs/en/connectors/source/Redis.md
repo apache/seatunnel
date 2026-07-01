@@ -427,6 +427,58 @@ sink {
 }
 ```
 
+read Redis keys and write them back with custom sink keys
+
+This example is based on the Redis e2e job. `read_key_enabled = true` keeps the matched Redis key in
+the output row, `key_field_name = key` stores it in the `key` column, and the Redis sink then uses
+`{key}` to build a new Redis key.
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "key_test*"
+    data_type = string
+    batch_size = 33
+    read_key_enabled = true
+    key_field_name = key
+    single_field_name = value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "key"
+          type = "string"
+        },
+        {
+          name = "id"
+          type = "bigint"
+        },
+        {
+          name = "c_string"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    key = "redis-key-check:{key}"
+    support_custom_key = true
+    data_type = key
+    batch_size = 33
+  }
+}
+```
+
 ### Multiple Table Mode
 
 **Example 1: Reading multiple key patterns with different data types**
