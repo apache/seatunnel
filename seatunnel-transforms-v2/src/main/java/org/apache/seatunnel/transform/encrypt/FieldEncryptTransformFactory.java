@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.encrypt;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -38,10 +39,17 @@ public class FieldEncryptTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FieldEncryptTransformConfig.FIELDS)
-                .required(FieldEncryptTransformConfig.KEY)
+                .required(
+                        FieldEncryptTransformConfig.FIELDS,
+                        Conditions.notEmpty(FieldEncryptTransformConfig.FIELDS))
+                .required(
+                        FieldEncryptTransformConfig.KEY,
+                        Conditions.notBlank(FieldEncryptTransformConfig.KEY))
                 .optional(FieldEncryptTransformConfig.ALGORITHM)
                 .optional(FieldEncryptTransformConfig.MODE)
+                .optional(
+                        FieldEncryptTransformConfig.MAX_FIELD_LENGTH,
+                        Conditions.greaterThan(FieldEncryptTransformConfig.MAX_FIELD_LENGTH, 0))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

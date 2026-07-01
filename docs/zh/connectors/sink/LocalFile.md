@@ -38,6 +38,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
   
 ## 选项
 

@@ -114,44 +114,44 @@ public class RedisTableConfig implements Serializable {
      * @return List of RedisTableConfig
      */
     public static List<RedisTableConfig> of(ReadonlyConfig config) {
-        // Check if using multi-table mode
+        // Multi-table mode: each table_configs item is parsed as an independent table.
         if (config.getOptional(RedisBaseOptions.TABLE_CONFIGS).isPresent()) {
             List<Map<String, Object>> tableConfigMaps = config.get(RedisBaseOptions.TABLE_CONFIGS);
             return tableConfigMaps.stream()
                     .map(ReadonlyConfig::fromMap)
-                    .map(RedisTableConfig::buildFromConfig)
+                    .map(RedisTableConfig::buildTableConfig)
                     .collect(Collectors.toList());
-        } else {
-            // Single table mode (backward compatibility)
-            return Collections.singletonList(buildSingleTableConfig(config));
         }
+        // Single-table mode: top-level options describe one table.
+        return Collections.singletonList(buildTableConfig(config));
     }
 
     /**
-     * Build RedisTableConfig from ReadonlyConfig (for multi-table mode).
+     * Build a fully initialized {@link RedisTableConfig} from a single table-level {@link
+     * ReadonlyConfig}. Shared by both single-table (top-level config) and multi-table (each {@code
+     * tables_configs} item) modes.
      *
-     * @param tableConfig ReadonlyConfig for a single table (table-level config)
+     * @param config ReadonlyConfig describing one table
      * @return Fully initialized RedisTableConfig with runtime objects
      */
-    private static RedisTableConfig buildFromConfig(ReadonlyConfig tableConfig) {
-        // Validate required fields
-        validateRequiredFields(tableConfig);
+    private static RedisTableConfig buildTableConfig(ReadonlyConfig config) {
+        // Validate required fields are present
+        validateRequiredFields(config);
 
         // Build catalog table and deserialization schema
-        TableConfigResult result =
-                buildCatalogTableAndSchema(tableConfig, tableConfig.get(KEY_PATTERN));
+        TableConfigResult result = buildCatalogTableAndSchema(config, config.get(KEY_PATTERN));
 
         return RedisTableConfig.builder()
-                .keys(tableConfig.get(KEY_PATTERN))
-                .dataType(tableConfig.get(DATA_TYPE))
-                .batchSize(tableConfig.get(BATCH_SIZE))
-                .format(tableConfig.get(FORMAT))
-                .schema(tableConfig.getOptional(ConnectorCommonOptions.SCHEMA).orElse(null))
-                .hashKeyParseMode(tableConfig.get(HASH_KEY_PARSE_MODE))
-                .readKeyEnabled(tableConfig.get(READ_KEY_ENABLED))
+                .keys(config.get(KEY_PATTERN))
+                .dataType(config.get(DATA_TYPE))
+                .batchSize(config.get(BATCH_SIZE))
+                .format(config.get(FORMAT))
+                .schema(config.getOptional(ConnectorCommonOptions.SCHEMA).orElse(null))
+                .hashKeyParseMode(config.get(HASH_KEY_PARSE_MODE))
+                .readKeyEnabled(config.get(READ_KEY_ENABLED))
                 .keyFieldName(result.keyFieldName)
-                .singleFieldName(tableConfig.getOptional(SINGLE_FIELD_NAME).orElse(null))
-                .fieldDelimiter(tableConfig.get(FIELD_DELIMITER))
+                .singleFieldName(config.getOptional(SINGLE_FIELD_NAME).orElse(null))
+                .fieldDelimiter(config.get(FIELD_DELIMITER))
                 .tablePath(result.tablePath)
                 .catalogTable(result.catalogTable)
                 .deserializationSchema(result.deserializationSchema)
@@ -159,52 +159,19 @@ public class RedisTableConfig implements Serializable {
     }
 
     /**
-     * Build a single table configuration from global config (backward compatibility).
-     *
-     * @param config ReadonlyConfig instance
-     * @return RedisTableConfig
-     */
-    private static RedisTableConfig buildSingleTableConfig(ReadonlyConfig config) {
-        // Validate that required fields for single table mode are present
-        validateRequiredFields(config);
-
-        // Build catalog table and deserialization schema
-        TableConfigResult result = buildCatalogTableAndSchema(config, config.get(KEY_PATTERN));
-
-        RedisTableConfig tableConfig =
-                RedisTableConfig.builder()
-                        .keys(config.get(KEY_PATTERN))
-                        .dataType(config.get(DATA_TYPE))
-                        .batchSize(config.get(BATCH_SIZE))
-                        .format(config.get(FORMAT))
-                        .schema(config.getOptional(ConnectorCommonOptions.SCHEMA).orElse(null))
-                        .hashKeyParseMode(config.get(HASH_KEY_PARSE_MODE))
-                        .readKeyEnabled(config.get(READ_KEY_ENABLED))
-                        .keyFieldName(result.keyFieldName)
-                        .singleFieldName(config.getOptional(SINGLE_FIELD_NAME).orElse(null))
-                        .fieldDelimiter(config.get(FIELD_DELIMITER))
-                        .tablePath(result.tablePath)
-                        .catalogTable(result.catalogTable)
-                        .deserializationSchema(result.deserializationSchema)
-                        .build();
-
-        validateTableConfig(tableConfig);
-        return tableConfig;
-    }
-
-    /**
-     * Validate required fields in configuration.
+     * Validate required fields in a (table-level) configuration.
      *
      * @param config ReadonlyConfig to validate
      */
     private static void validateRequiredFields(ReadonlyConfig config) {
-        if (!config.getOptional(KEY_PATTERN).isPresent()) {
+        String keys = config.getOptional(KEY_PATTERN).orElse(null);
+        if (keys == null || keys.trim().isEmpty()) {
             throw new IllegalArgumentException(
-                    "Redis table configuration requires 'keys' parameter. ");
+                    "Redis table configuration requires 'keys' parameter.");
         }
         if (!config.getOptional(DATA_TYPE).isPresent()) {
             throw new IllegalArgumentException(
-                    "Redis table configuration requires 'data_type' parameter. ");
+                    "Redis table configuration requires 'data_type' parameter.");
         }
     }
 
@@ -263,21 +230,5 @@ public class RedisTableConfig implements Serializable {
         result.keyFieldName = resolveKeyFieldName(config, dataType);
 
         return result;
-    }
-
-    /**
-     * Validate a single table configuration.
-     *
-     * @param tableConfig RedisTableConfig to validate
-     */
-    private static void validateTableConfig(RedisTableConfig tableConfig) {
-        if (tableConfig.getKeys() == null || tableConfig.getKeys().trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Redis configuration must specify 'keys' parameter.");
-        }
-        if (tableConfig.getDataType() == null) {
-            throw new IllegalArgumentException(
-                    "Redis configuration must specify 'data_type' parameter.");
-        }
     }
 }

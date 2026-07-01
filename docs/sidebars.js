@@ -30,73 +30,8 @@ const sidebars = {
                     "type": "category",
                     "label": "Concepts",
                     "items": [
-                        "introduction/concepts/config",
                         "introduction/concepts/connector-v2-features",
                         "introduction/concepts/schema-feature"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Configuration",
-                    "items": [
-                        "introduction/configuration/JobEnvConfig",
-                        "introduction/configuration/sql-config",
-                        "introduction/configuration/config-encryption-decryption",
-                        "introduction/configuration/metalake",
-                        "introduction/configuration/sink-options-placeholders",
-                        "introduction/configuration/schema-evolution",
-                        "introduction/configuration/speed-limit"
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "category",
-            "label": "Architecture",
-            "items": [
-                "architecture/overview",
-                "architecture/design-philosophy",
-                "architecture/configuration-and-option-system",
-                "architecture/core-api-design",
-                "architecture/transform-plugin-system",
-                "architecture/cdc-pipeline-architecture",
-                "architecture/data-format-handling",
-                "architecture/table-schema-and-type-system",
-                "architecture/plugin-discovery-and-class-loading",
-                {
-                    "type": "category",
-                    "label": "API Design",
-                    "items": [
-                        "architecture/api-design/source-architecture",
-                        "architecture/api-design/sink-architecture",
-                        "architecture/api-design/catalog-table",
-                        "architecture/api-design/translation-layer",
-                        "architecture/api-design/flink-translation-layer",
-                        "architecture/api-design/spark-translation-layer"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Engine",
-                    "items": [
-                        "architecture/engine/engine-architecture",
-                        "architecture/engine/dag-execution",
-                        "architecture/engine/resource-management"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Fault Tolerance",
-                    "items": [
-                        "architecture/fault-tolerance/checkpoint-mechanism",
-                        "architecture/fault-tolerance/exactly-once"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Features",
-                    "items": [
-                        "architecture/features/multi-table"
                     ]
                 }
             ]
@@ -110,12 +45,8 @@ const sidebars = {
                     "type": "category",
                     "label": "Locally",
                     "link": {
-                        "type": "generated-index",
-                        "title": "Local Getting Started",
-                        "description": "Use SeaTunnel locally, run your first job, and validate common pipelines before moving to larger environments.",
-                        "slug": "/getting-started/locally",
-                        "keywords": ["getting-started", "local"],
-                        "image": "/img/favicon.ico"
+                        "type": "doc",
+                        "id": "getting-started/locally/overview"
                     },
                     "items": [
                         "getting-started/locally/run-your-first-job",
@@ -125,28 +56,6 @@ const sidebars = {
                         "getting-started/locally/quick-start-spark"
                     ]
                 },
-                {
-                    "type": "category",
-                    "label": "Recipes",
-                    "link": {
-                        "type": "generated-index",
-                        "title": "Scenario Recipes",
-                        "description": "Practical SeaTunnel recipes for common source-to-sink pipelines.",
-                        "slug": "/getting-started/recipes",
-                        "keywords": ["recipes", "examples"],
-                        "image": "/img/favicon.ico"
-                    },
-                    "items": [
-                        "getting-started/recipes/mysql-cdc-to-doris",
-                        "getting-started/recipes/jdbc-to-s3",
-                        "getting-started/recipes/kafka-to-iceberg",
-                        "getting-started/recipes/http-to-jdbc",
-                        "getting-started/recipes/file-to-starrocks",
-                        "getting-started/recipes/multi-table-cdc"
-                    ]
-                },
-                "getting-started/job-configuration-guide",
-                "getting-started/submit-job-to-remote-zeta-cluster",
                 {
                     "type": "category",
                     "label": "Docker",
@@ -166,21 +75,33 @@ const sidebars = {
         },
         {
             "type": "category",
-            "label": "Connectors",
+            "label": "Configuration",
             "items": [
-                "connectors/connector-isolated-dependency",
-                "connectors/connector-faq",
-                "connectors/cdc-production-cookbook",
+                "introduction/concepts/config",
+                "getting-started/job-configuration-guide",
+                "introduction/configuration/JobEnvConfig",
+                "introduction/configuration/sql-config",
+                "introduction/configuration/config-encryption-decryption",
+                "introduction/configuration/metalake",
+                "introduction/configuration/sink-options-placeholders",
+                "introduction/configuration/schema-evolution",
+                "introduction/configuration/speed-limit"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Connectors",
+            "link": {
+                "type": "doc",
+                "id": "connectors/overview"
+            },
+            "items": [
                 {
                     "type": "category",
                     "label": "Source",
                     "link": {
-                        "type": "generated-index",
-                        "title": "Source Connectors",
-                        "description": "List all source connectors supported by Apache SeaTunnel.",
-                        "slug": "/connectors/source",
-                        "keywords": ["source"],
-                        "image": "/img/favicon.ico"
+                        "type": "doc",
+                        "id": "connectors/source-overview"
                     },
                     "items": [
                         {
@@ -193,35 +114,13 @@ const sidebars = {
                     "type": "category",
                     "label": "Sink",
                     "link": {
-                        "type": "generated-index",
-                        "title": "Sink Connectors",
-                        "description": "List all sink connectors supported by Apache SeaTunnel.",
-                        "slug": "/connectors/sink",
-                        "keywords": ["sink"],
-                        "image": "/img/favicon.ico"
+                        "type": "doc",
+                        "id": "connectors/sink-overview"
                     },
                     "items": [
                         {
                             "type": "autogenerated",
                             "dirName": "connectors/sink"
-                        }
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Formats",
-                    "link": {
-                        "type": "generated-index",
-                        "title": "Formats",
-                        "description": "List some special formats supported by Apache SeaTunnel.",
-                        "slug": "/connectors/formats",
-                        "keywords": ["formats"],
-                        "image": "/img/favicon.ico"
-                    },
-                    "items": [
-                        {
-                            "type": "autogenerated",
-                            "dirName": "connectors/formats"
                         }
                     ]
                 },
@@ -235,34 +134,45 @@ const sidebars = {
                 },
                 {
                     "type": "category",
-                    "label": "Changelog",
+                    "label": "Formats",
                     "link": {
-                        "type": "generated-index",
-                        "title": "Connector Changelog",
-                        "description": "Changelog for all connectors supported by Apache SeaTunnel.",
-                        "slug": "/connectors/changelog",
-                        "keywords": ["changelog"],
-                        "image": "/img/favicon.ico"
+                        "type": "doc",
+                        "id": "connectors/formats/overview"
                     },
                     "items": [
                         {
                             "type": "autogenerated",
-                            "dirName": "connectors/changelog"
+                            "dirName": "connectors/formats"
                         }
                     ]
-                }
+                },
+                "connectors/cdc-production-cookbook",
+                {
+                    "type": "category",
+                    "label": "Scenario Recipes",
+                    "link": {
+                        "type": "doc",
+                        "id": "getting-started/recipes/overview"
+                    },
+                    "items": [
+                        "getting-started/recipes/mysql-cdc-to-doris",
+                        "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/kafka-to-iceberg",
+                        "getting-started/recipes/http-to-jdbc",
+                        "getting-started/recipes/file-to-starrocks",
+                        "getting-started/recipes/multi-table-cdc"
+                    ]
+                },
+                "connectors/connector-faq",
+                "connectors/connector-isolated-dependency"
             ]
         },
         {
             "type": "category",
             "label": "Transforms",
             "link": {
-                "type": "generated-index",
-                "title": "Transforms",
-                "description": "List all transforms supported by Apache SeaTunnel.",
-                "slug": "/transforms",
-                "keywords": ["transforms"],
-                "image": "/img/favicon.ico"
+                "type": "doc",
+                "id": "transforms/overview"
             },
             "items": [
                 {
@@ -322,12 +232,13 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
+                        "engines/zeta/rest-api-and-web-ui",
+                        "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
-                        "engines/zeta/rest-api-and-web-ui",
                         {
                             "type": "category",
                             "label": "REST API",
@@ -357,6 +268,57 @@ const sidebars = {
                 },
                 "engines/flink",
                 "engines/spark"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Architecture",
+            "items": [
+                "architecture/overview",
+                "architecture/design-philosophy",
+                "architecture/configuration-and-option-system",
+                "architecture/core-api-design",
+                "architecture/transform-plugin-system",
+                "architecture/cdc-pipeline-architecture",
+                "architecture/data-format-handling",
+                "architecture/table-schema-and-type-system",
+                "architecture/plugin-discovery-and-class-loading",
+                {
+                    "type": "category",
+                    "label": "API Design",
+                    "items": [
+                        "architecture/api-design/source-architecture",
+                        "architecture/api-design/sink-architecture",
+                        "architecture/api-design/catalog-table",
+                        "architecture/api-design/translation-layer",
+                        "architecture/api-design/flink-translation-layer",
+                        "architecture/api-design/spark-translation-layer"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Engine",
+                    "items": [
+                        "architecture/engine/engine-architecture",
+                        "architecture/engine/dag-execution",
+                        "architecture/engine/resource-management"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Fault Tolerance",
+                    "items": [
+                        "architecture/fault-tolerance/checkpoint-mechanism",
+                        "architecture/fault-tolerance/exactly-once"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Features",
+                    "items": [
+                        "architecture/features/multi-table"
+                    ]
+                }
             ]
         },
         {

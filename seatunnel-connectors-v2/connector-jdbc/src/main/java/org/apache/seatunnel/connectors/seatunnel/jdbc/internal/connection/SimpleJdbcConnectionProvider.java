@@ -59,8 +59,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 
     @Override
     public boolean isConnectionValid() throws SQLException {
-        return connection != null
-                && connection.isValid(jdbcConfig.getConnectionCheckTimeoutSeconds());
+        return JdbcConnectionValidationUtils.isConnectionValid(connection, jdbcConfig);
     }
 
     private static Driver loadDriver(String driverName) throws ClassNotFoundException {

@@ -15,45 +15,69 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
-Used to launch web hooks using data.
+Writes metric samples to a Prometheus-compatible remote write endpoint.
 
-> For example, if the data from upstream is [`label: {"__name__": "test1"}, value: 1.2.3,time:2024-08-15T17:00:00`], the body content is the following: `{"label":{"__name__": "test1"}, "value":"1.23","time":"2024-08-15T17:00:00"}`
+The sink converts each SeaTunnel row into one Prometheus sample, serializes the data as a remote write request, compresses it with Snappy, and sends it by HTTP POST. Use a remote write endpoint such as `http://prometheus:9090/api/v1/write` or `http://victoria-metrics:8428/api/v1/write`.
 
-**Tips: Prometheus sink only support `post json` webhook and the data from source will be treated as body content in web hook.And does not support passing past data**
+Prometheus may reject samples that are too old for the target server's retention and remote write rules.
 
 ## Supported DataSource Info
 
-In order to use the Http connector, the following dependencies are required.
-They can be downloaded via install-plugin.sh or from the Maven central repository.
+In order to use the Prometheus connector, the following dependency is required.
+It can be downloaded via `install-plugin.sh` or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Http       | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
 
 ## Sink Options
 
-|            Name             |  Type  | Required | Default | Description                                                                                                 |
-|-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
-| url                         | String | Yes      | -       | Http request url                                                                                            |
-| headers                     | Map    | No       | -       | Http headers                                                                                                |
-| retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
-| retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                           |
-| retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
-| connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
-| socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
-| key_timestamp               | Int    | NO       | -       | prometheus timestamp  key .                                                                                 |
-| key_label                   | String | yes      | -       | prometheus label key                                                                                        |
-| key_value                   | Double | yes      | -       | prometheus value                                                                                            |
-| batch_size                  | Int    | false    | 1024       | prometheus batch size write                                                                                 |
-| flush_interval              | Long   | false      | 300000L  | prometheus flush commit interval                                                     |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
+| name                        | type   | required | default value | description |
+|-----------------------------|--------|----------|---------------|-------------|
+| url                         | String | Yes      | -             | Prometheus-compatible remote write URL. |
+| headers                     | Map    | No       | -             | HTTP request headers. |
+| retry                       | Int    | No       | -             | Maximum retry times when the HTTP request fails with `IOException`. |
+| retry_backoff_multiplier_ms | Int    | No       | 100           | Retry backoff multiplier, in milliseconds. |
+| retry_backoff_max_ms        | Int    | No       | 10000         | Maximum retry backoff, in milliseconds. |
+| key_label                   | String | Yes      | -             | Field name whose value is used as Prometheus labels. The field value must be a map. |
+| key_value                   | String | Yes      | -             | Field name whose value is used as the Prometheus sample value. |
+| key_timestamp               | String | No       | -             | Field name whose value is used as the sample timestamp. If omitted, the current system time is used. |
+| batch_size                  | Int    | No       | 1024          | Maximum number of samples written in one request. Must be greater than 0. |
+| flush_interval              | Long   | No       | 300000        | Scheduled flush interval in milliseconds. |
+| common-options              | config | No       | -             | Sink common options. |
+
+### key_label [String]
+
+The named field must be `map<string, string>`. It is converted into Prometheus labels. Include `__name__` in the map to set the metric name.
+
+### key_value [String]
+
+The named field is converted into the Prometheus sample value. A `double` field is recommended.
+
+### key_timestamp [String]
+
+Optional timestamp field.
+
+Supported field types:
+
+- `timestamp`: converted to epoch milliseconds with the local time zone
+- `bigint`: treated as epoch milliseconds
+- `double`: treated as Unix seconds and converted to milliseconds
+- `string`: parsed as epoch milliseconds
+
+When this option is not configured, the sink uses the current system time.
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Example
 
-simple:
+### Write to Prometheus remote write
 
 ```hocon
 env {
@@ -72,21 +96,21 @@ source {
     }
     plugin_output = "fake"
     rows = [
-       {
-         kind = INSERT
-         fields = [{"__name__": "test1"},  1.23, "2024-08-15T17:00:00"]
-       },
-       {
-         kind = INSERT
-         fields = [{"__name__": "test2"},  1.23, "2024-08-15T17:00:00"]
-       }
+      {
+        kind = INSERT
+        fields = [{"__name__" : "metric_1"}, 1.23, CURRENT_TIMESTAMP]
+      },
+      {
+        kind = INSERT
+        fields = [{"__name__" : "metric_2"}, 1.23, CURRENT_TIMESTAMP]
+      }
     ]
   }
 }
 
-
 sink {
   Prometheus {
+    plugin_input = "fake"
     url = "http://prometheus:9090/api/v1/write"
     key_label = "c_map"
     key_value = "c_double"
@@ -94,7 +118,21 @@ sink {
     batch_size = 1
   }
 }
+```
 
+### Write to a Prometheus-compatible remote write API
+
+```hocon
+sink {
+  Prometheus {
+    plugin_input = "fake"
+    url = "http://victoria-metrics:8428/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    batch_size = 5
+  }
+}
 ```
 
 ## Changelog

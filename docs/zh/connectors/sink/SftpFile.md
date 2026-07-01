@@ -37,6 +37,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
@@ -205,7 +206,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 ### common options
 
-Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ### max_rows_in_memory
 
