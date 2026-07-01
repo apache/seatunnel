@@ -1680,6 +1680,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        String jobId = "kafka-exactly-once-" + resourceSuffix;
         List<String> exactlyOnceVariables =
                 buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
         createKafkaTopic(producerTopic);
@@ -1687,9 +1688,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            sendTextRecordAndWait(producerTopic, sourceData);
-        }
 
         // async execute
         CompletableFuture.supplyAsync(
@@ -1697,13 +1695,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     try {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                exactlyOnceVariables);
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
                     }
                     return null;
                 });
+        given().pollDelay(5, SECONDS)
+                .pollInterval(1, SECONDS)
+                .await()
+                .atMost(30, SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // Publish the seed records only after the streaming job is actually
+                            // running, otherwise the Flink 1.20 Kafka source can miss the tail of
+                            // the preloaded batch during startup.
+                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                        });
+        for (int i = 0; i < 10; i++) {
+            sendTextRecordAndWait(producerTopic, sourceData);
+        }
         // wait for data written to kafka
         given().pollDelay(60, SECONDS)
                 .pollInterval(5, SECONDS)
