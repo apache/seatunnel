@@ -60,10 +60,21 @@ public class XmlReadStrategyTest {
     @Test
     public void testXmlRead() throws IOException, URISyntaxException {
         URL xmlFile = XmlReadStrategyTest.class.getResource("/xml/name=xmlTest/test_read.xml");
+        URL conf = XmlReadStrategyTest.class.getResource("/xml/test_read_xml.conf");
         Assertions.assertNotNull(xmlFile);
+        Assertions.assertNotNull(conf);
         String xmlFilePath = Paths.get(xmlFile.toURI()).toString();
-        XmlReadStrategy xmlReadStrategy = createXmlReadStrategy();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
+        XmlReadStrategy xmlReadStrategy = new XmlReadStrategy();
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        xmlReadStrategy.setPluginConfig(pluginConfig);
+        xmlReadStrategy.init(localConf);
         List<String> fileNamesByPath = xmlReadStrategy.getFileNamesByPath(xmlFilePath);
+        // Partition inference needs the real sample path before the schema is expanded.
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        xmlReadStrategy.setCatalogTable(catalogTable);
         TestCollector testCollector = new TestCollector();
         xmlReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
         for (SeaTunnelRow seaTunnelRow : testCollector.getRows()) {
@@ -141,7 +152,7 @@ public class XmlReadStrategyTest {
                 FileConnectorErrorCode.FILE_READ_FAILED, exception.getSeaTunnelErrorCode());
     }
 
-    /** Build a production-like XML reader instance with the test schema loaded. */
+    /** Build a production-like XML reader instance with the shared test schema loaded. */
     private XmlReadStrategy createXmlReadStrategy() {
         Config pluginConfig = loadPluginConfig();
         XmlReadStrategy xmlReadStrategy = new XmlReadStrategy();
