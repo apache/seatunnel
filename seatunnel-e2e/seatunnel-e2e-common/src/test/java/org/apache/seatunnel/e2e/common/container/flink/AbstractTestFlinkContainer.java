@@ -42,6 +42,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -183,6 +184,13 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(jobManager, confFile, null, variables);
+    }
+
+    @Override
+    public Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
+            throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
+        return executeJob(jobManager, confFile, null, null, envs);
     }
 
     @Override

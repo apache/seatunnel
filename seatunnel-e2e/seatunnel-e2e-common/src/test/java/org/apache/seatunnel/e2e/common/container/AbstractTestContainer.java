@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
@@ -144,6 +145,16 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Container.ExecResult executeJob(
             GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
+        return executeJob(container, confFile, jobId, variables, null);
+    }
+
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container,
+            String confFile,
+            String jobId,
+            List<String> variables,
+            Map<String, String> envs)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -156,6 +167,10 @@ public abstract class AbstractTestContainer implements TestContainer {
         final List<String> command = new ArrayList<>();
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
+        if (envs != null && !envs.isEmpty()) {
+            command.add("env");
+            envs.forEach((key, value) -> command.add(key + "=" + value));
+        }
         command.add(adaptPathForWin(binPath));
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));

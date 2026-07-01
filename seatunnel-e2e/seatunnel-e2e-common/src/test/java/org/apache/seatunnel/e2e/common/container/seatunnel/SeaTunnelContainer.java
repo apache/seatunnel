@@ -326,6 +326,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    public Container.ExecResult executeJobWithEnv(String confFile, Map<String, String> envs)
+            throws IOException, InterruptedException {
+        log.info("test in container: {}", identifier());
+        return executeJob(server, confFile, null, null, envs);
+    }
+
+    @Override
     public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
