@@ -32,6 +32,7 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import java.lang.reflect.Array;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -196,7 +197,7 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                         : ByteBuffer.allocate(source.remaining());
         clone.order(value.order());
         clone.put(source);
-        clone.flip();
+        ((Buffer) clone).flip();
         return clone;
     }
 
