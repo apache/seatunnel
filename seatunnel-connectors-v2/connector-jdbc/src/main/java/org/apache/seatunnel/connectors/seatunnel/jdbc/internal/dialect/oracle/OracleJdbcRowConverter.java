@@ -66,6 +66,12 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             } else {
                 statement.setString(statementIndex, (String) value);
             }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            // Delegate to AbstractJdbcRowConverter which uses setObject() first (preserving the
+            // offset for Oracle JDBC 12.2+) and falls back to setTimestamp() with an explicit UTC
+            // Calendar for older drivers, avoiding JVM-default-timezone corruption.
+            super.setValueToStatementByDataType(
+                    value, statement, seaTunnelDataType, statementIndex, sourceType);
         } else {
             super.setValueToStatementByDataType(
                     value, statement, seaTunnelDataType, statementIndex, sourceType);

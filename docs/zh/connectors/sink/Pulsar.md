@@ -41,7 +41,7 @@ Apache Pulsar 的接收连接器。
 | pulsar.config        | Map    | No   | -                   | 除了上述必须由 Pulsar 生产者客户端指定的参数外.                    |
 | message.routing.mode | Enum   | No   | RoundRobinPartition | 要分区的消息的默认路由模式.                                  |
 | partition_key_fields | array  | No   | -                   | 配置哪些字段用作 pulsar 消息的键.                           |
-| common-options       | config | no   | -                   | 源插件常用参数，详见源码 [常用选项](../common-options/sink-common-options.md). |
+| common-options       | config | no   | -                   | Sink插件常用参数，详见 [Sink通用选项](../common-options/sink-common-options.md). |
 
 ## 参数解释
 
@@ -120,7 +120,7 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### 常见选项
 
-源插件常用参数，详见源码[常用选项](../common-options/sink-common-options.md) .
+Sink插件常用参数，详见[Sink通用选项](../common-options/sink-common-options.md).
 
 ## 任务示例
 

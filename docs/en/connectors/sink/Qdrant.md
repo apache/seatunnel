@@ -69,7 +69,7 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 
 ### common options
 
-Sink plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Changelog
 
