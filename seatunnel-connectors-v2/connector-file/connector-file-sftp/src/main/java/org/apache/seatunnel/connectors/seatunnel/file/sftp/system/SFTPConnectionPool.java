@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 public class SFTPConnectionPool {
@@ -53,6 +54,9 @@ public class SFTPConnectionPool {
     }
 
     synchronized ChannelSftp getFromPool(ConnectionInfo info) throws IOException {
+        if (con2infoMap == null) {
+            throw new IOException("SFTP connection pool has been closed.");
+        }
         Set<ChannelSftp> cons = idleConnections.get(info);
         ChannelSftp channel;
 
@@ -60,7 +64,10 @@ public class SFTPConnectionPool {
             Iterator<ChannelSftp> it = cons.iterator();
             if (it.hasNext()) {
                 channel = it.next();
-                idleConnections.remove(info);
+                it.remove();
+                if (cons.isEmpty()) {
+                    idleConnections.remove(info);
+                }
                 return channel;
             } else {
                 throw new IOException("Connection pool error.");
@@ -69,42 +76,50 @@ public class SFTPConnectionPool {
         return null;
     }
 
-    synchronized void returnToPool(ChannelSftp channel) {
+    synchronized boolean returnToPool(ChannelSftp channel) {
+        if (con2infoMap == null) {
+            return false;
+        }
         ConnectionInfo info = con2infoMap.get(channel);
+        if (info == null) {
+            return false;
+        }
         HashSet<ChannelSftp> cons = idleConnections.get(info);
         if (cons == null) {
             cons = new HashSet<ChannelSftp>();
             idleConnections.put(info, cons);
         }
         cons.add(channel);
+        return true;
     }
 
     /** Shutdown the connection pool and close all open connections. */
-    synchronized void shutdown() {
-        if (this.con2infoMap == null) {
-            return; // already shutdown in case it is called
-        }
-        LOG.info("Inside shutdown, con2infoMap size=" + con2infoMap.size());
+    void shutdown() {
+        Map<ChannelSftp, ConnectionInfo> connectionsToClose;
+        synchronized (this) {
+            if (this.con2infoMap == null) {
+                return; // already shutdown in case it is called
+            }
+            LOG.info("Inside shutdown, con2infoMap size=" + con2infoMap.size());
 
-        this.maxConnection = 0;
-        Set<ChannelSftp> cons = con2infoMap.keySet();
-        if (cons != null && cons.size() > 0) {
-            // make a copy since we need to modify the underlying Map
-            Set<ChannelSftp> copy = new HashSet<ChannelSftp>(cons);
-            // Initiate disconnect from all outstanding connections
-            for (ChannelSftp con : copy) {
-                try {
-                    disconnect(con);
-                } catch (IOException ioe) {
-                    ConnectionInfo info = con2infoMap.get(con);
-                    LOG.error(
-                            "Error encountered while closing connection to " + info.getHost(), ioe);
-                }
+            // Shutdown must close every tracked connection regardless of live-count drift.
+            connectionsToClose = new HashMap<ChannelSftp, ConnectionInfo>(con2infoMap);
+            this.maxConnection = 0;
+            this.liveConnectionCount = 0;
+            this.idleConnections = null;
+            this.con2infoMap = null;
+        }
+
+        for (Map.Entry<ChannelSftp, ConnectionInfo> entry : connectionsToClose.entrySet()) {
+            try {
+                closeChannel(entry.getKey());
+            } catch (IOException ioe) {
+                LOG.error(
+                        "Error encountered while closing connection to "
+                                + entry.getValue().getHost(),
+                        ioe);
             }
         }
-        // make sure no further connections can be returned.
-        this.idleConnections = null;
-        this.con2infoMap = null;
     }
 
     public synchronized int getMaxConnection() {
@@ -125,11 +140,9 @@ public class SFTPConnectionPool {
             if (channel.isConnected()) {
                 return channel;
             } else {
+                removeTrackedChannel(channel);
+                closeChannel(channel);
                 channel = null;
-                synchronized (this) {
-                    --liveConnectionCount;
-                    con2infoMap.remove(channel);
-                }
             }
         }
 
@@ -155,6 +168,9 @@ public class SFTPConnectionPool {
                 session = jsch.getSession(user, host, port);
             }
 
+            // JSch creates a session reader thread; make it daemon so leaked sessions cannot keep
+            // Spark local-mode JVMs alive after a batch job has already finished.
+            session.setDaemonThread(true);
             session.setPassword(password);
 
             java.util.Properties config = new java.util.Properties();
@@ -182,31 +198,62 @@ public class SFTPConnectionPool {
             // close connection if too many active connections
             boolean closeConnection = false;
             synchronized (this) {
-                if (liveConnectionCount > maxConnection) {
+                if (con2infoMap == null || !con2infoMap.containsKey(channel)) {
+                    closeConnection = true;
+                } else if (liveConnectionCount > maxConnection) {
                     --liveConnectionCount;
                     con2infoMap.remove(channel);
                     closeConnection = true;
                 }
             }
             if (closeConnection) {
-                if (channel.isConnected()) {
-                    try {
-                        Session session = channel.getSession();
-                        channel.disconnect();
-                        session.disconnect();
-                    } catch (JSchException e) {
-                        throw new IOException(StringUtils.stringifyException(e));
-                    }
-                }
-
-            } else {
-                returnToPool(channel);
+                closeChannel(channel);
+            } else if (!returnToPool(channel)) {
+                closeChannel(channel);
             }
         }
     }
 
+    /**
+     * Remove bookkeeping for a channel that can no longer be reused before we create a replacement
+     * connection.
+     */
+    synchronized void removeTrackedChannel(ChannelSftp channel) {
+        if (con2infoMap == null) {
+            return;
+        }
+        ConnectionInfo info = con2infoMap.remove(channel);
+        if (info != null) {
+            Set<ChannelSftp> cons = idleConnections.get(info);
+            if (cons != null) {
+                cons.remove(channel);
+                if (cons.isEmpty()) {
+                    idleConnections.remove(info);
+                }
+            }
+        }
+        if (liveConnectionCount > 0) {
+            liveConnectionCount--;
+        }
+    }
+
+    /** Close both the SFTP channel and its backing SSH session when they are still open. */
+    private void closeChannel(ChannelSftp channel) throws IOException {
+        try {
+            Session session = channel.getSession();
+            if (channel.isConnected()) {
+                channel.disconnect();
+            }
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+        } catch (JSchException e) {
+            throw new IOException(StringUtils.stringifyException(e));
+        }
+    }
+
     public int getIdleCount() {
-        return this.idleConnections.size();
+        return this.idleConnections == null ? 0 : this.idleConnections.size();
     }
 
     public int getLiveConnCount() {
@@ -214,7 +261,7 @@ public class SFTPConnectionPool {
     }
 
     public int getConnPoolSize() {
-        return this.con2infoMap.size();
+        return this.con2infoMap == null ? 0 : this.con2infoMap.size();
     }
 
     /**

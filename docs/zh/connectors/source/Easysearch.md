@@ -114,7 +114,7 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 ### common options
 
-Source插件常用参数，详见[Source common Options]（../common-options/source-common-options.md）
+Source插件常用参数，详见[Source common Options](../common-options/source-common-options.md)
 
 ## 示例
 
