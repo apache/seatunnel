@@ -249,24 +249,24 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * prevents silent duplicate documents in the random-UUID insert path and avoids spurious
      * duplicate-key failures in the stable-key insert path.
      *
-     * Ambiguous-exception safety on the insert path
+     * <p>Ambiguous-exception safety on the insert path
      *
      * <p>The Couchbase SDK can throw {@link AmbiguousTimeoutException} when a write request times
      * out before the client can determine whether the server committed the document or not. In that
      * case {@code startFrom} is intentionally <em>not</em> advanced (the cursor stays on the
-     * current index), so the next retry attempt will replay the same document.</p>
+     * current index), so the next retry attempt will replay the same document.
      *
      * <p>On that retry, if the server already committed the document the insert will fail with
      * {@link DocumentExistsException}. The handler below treats that as a confirmation of success
      * (the document is durably present with the correct content) and advances {@code startFrom}
      * before continuing. This closes the "ambiguous commit" window without switching the entire
-     * batch to upsert semantics.</p> 
+     * batch to upsert semantics.
      *
      * <p>A {@link DocumentExistsException} on the <em>first</em> attempt ({@code attempt == 0}) is
      * not a retry artifact — it is a genuine key collision — and is therefore re-thrown
-     * immediately.</p>
+     * immediately.
      *
-     * <p>Synchronised to prevent concurrent flushes from overlapping.</p>
+     * <p>Synchronised to prevent concurrent flushes from overlapping.
      */
     synchronized void doFlush() {
         if (buffer.isEmpty()) {
