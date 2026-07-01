@@ -315,6 +315,10 @@ map:
            fs.defaultFS: file:///
 ```
 
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
+配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
+WAL 持续膨胀。
+
 如果您使用 OSS，可以像这样配置：
 
 ```yaml

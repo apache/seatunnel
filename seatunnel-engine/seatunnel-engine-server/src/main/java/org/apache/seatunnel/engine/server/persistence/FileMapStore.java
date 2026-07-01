@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
@@ -38,10 +39,18 @@ import java.util.Properties;
 @Slf4j
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
 
-    private IMapStorage mapStorage;
+    private IMapStorage mapStorage = NoOpMapStorage.INSTANCE;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
+            log.info(
+                    "Skip persistence for map '{}' because runtime metrics snapshots are auxiliary "
+                            + "observability state and should not write to persistent IMAP storage.",
+                    mapName);
+            return;
+        }
+
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         String storageType = (String) initMap.get("type");
         try {
@@ -106,5 +115,49 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     @Override
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
+    }
+
+    private static final class NoOpMapStorage implements IMapStorage {
+        private static final NoOpMapStorage INSTANCE = new NoOpMapStorage();
+
+        @Override
+        public void initialize(Map<String, Object> properties) {
+            // no-op
+        }
+
+        @Override
+        public boolean store(Object key, Object value) {
+            return true;
+        }
+
+        @Override
+        public java.util.Set<Object> storeAll(Map<Object, Object> map) {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean delete(Object key) {
+            return true;
+        }
+
+        @Override
+        public java.util.Set<Object> deleteAll(Collection<Object> keys) {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public Map<Object, Object> loadAll() {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public java.util.Set<Object> loadAllKeys() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public void destroy(boolean deleteAllFileFlag) {
+            // no-op
+        }
     }
 }
