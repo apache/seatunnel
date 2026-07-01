@@ -61,35 +61,49 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 | username       | string  | 否   | -       | 认证用户名                                                          |
 | password       | string  | 否   | -       | 认证密码                                                            |
 | key            | string  | 是   | -       | 用作 Aerospike 主键的字段名称                                       |
-| bin_name       | string  | 否   | -       | 数据存储的 bin 名称                                                 |
+| bin_name       | string  | 否   | -       | 数据存储的 bin 名称。`data_format` 为 `map` 或 `string` 时需要配置   |
 | data_format    | string  | 否   | string  | 数据存储格式：map/string/kv                                         |
 | write_timeout  | int     | 否   | 200     | 写入操作超时时间（毫秒）                                            |
 | schema.field   | map     | 否   | {}      | 字段类型映射（示例：{"name":"STRING","age":"INTEGER"}）             |
 
 ### data_format 选项说明
-- **map**: 以JSON对象格式存储
-- **string**: 以JSON字符串格式存储
-- **kv**: 每个字段存储为独立的bin
+
+- **map**: 将所有非主键字段作为一个 map 存到 `bin_name`
+- **string**: 将所有非主键字段作为 JSON 字符串存到 `bin_name`
+- **kv**: 每个非主键字段存储为独立的 bin，此时不使用 `bin_name`
 
 ## 任务示例
 
-### 简单示例
+### 将 FakeSource 数据写入 Aerospike
 
 ```hocon
 env {
-  parallelism = 2
+  parallelism = 1
   job.mode = "BATCH"
 }
 
 source {
   FakeSource {
-    row.num = 10
+    row.num = 9
+    string.fake.mode = "template"
+    string.template = ["tyrantlucifer", "hailin", "kris", "fanjia", "zongwen", "gaojun"]
+    int.fake.mode = "template"
+    int.template = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    double.fake.mode = "template"
+    double.template = [44.0, 45.0, 46.0, 47.0]
+    timestamp.fake.mode = "template"
+    timestamp.template = [
+      "2022-01-01 00:00:00",
+      "2022-01-01 00:00:01",
+      "2022-01-01 00:00:02",
+      "2022-01-01 00:00:03"
+    ]
     schema = {
       fields {
-        id = "int"
-        name = "string"
-        age = "int"
-        address = "string"
+        c_id = "int"
+        c_name = "string"
+        c_money = "double"
+        c_birth = "timestamp"
       }
     }
   }
@@ -97,18 +111,22 @@ source {
 
 sink {
   Aerospike {
-    host = "localhost"
+    host = "aerospike-host"
     port = 3000
-    namespace = "test_namespace"
-    set = "user_data"
-    key = "id"
-    data_format = "map"
-    write_timeout = 300
-    schema.field = {
-      id = "INTEGER"
-      name = "STRING"
-      age = "INTEGER"
-      address = "STRING"
+    namespace = "test"
+    set = "seatunnel"
+    key = "c_id"
+    bin_name = "data"
+    data_format = "string"
+    username = ""
+    password = ""
+    schema {
+      field {
+        c_id = "INTEGER"
+        c_name = "STRING"
+        c_money = "DOUBLE"
+        c_birth = "LONG"
+      }
     }
   }
 }
