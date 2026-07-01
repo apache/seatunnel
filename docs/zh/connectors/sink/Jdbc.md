@@ -58,6 +58,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode                            | Enum    | 否    | APPEND_DATA                  |
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
+| table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
 | access_key_id                             | String  | 否       |                              |
@@ -217,6 +218,44 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
+
+### table_options [Map]
+
+Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_save_mode` 触发建表时生效，例如 `CREATE_SCHEMA_WHEN_NOT_EXIST`、`RECREATE_SCHEMA`；**不影响**数据写入阶段的 INSERT/UPSERT，也**不会**对已存在表执行 `ALTER TABLE`。
+
+当前支持情况：
+
+| 方言 | 是否支持 | 可用 key |
+|------|----------|----------|
+| MySQL | 是 | `engine`、`charset`、`collate` |
+| 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
+
+非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
+
+示例（MySQL 自动建表时指定存储引擎与字符集）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3307/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "password"
+    database = "mydb"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "engine" = "InnoDB"
+      "charset" = "utf8mb4"
+      "collate" = "utf8mb4_general_ci"
+    }
+  }
+}
+```
+
+生成的 DDL 会追加 `ENGINE`、`DEFAULT CHARSET`、`COLLATE` 子句。未在白名单内的 key（如 `bucket_num`）会在作业提交阶段报错。
 
 ### custom_sql [String]
 
