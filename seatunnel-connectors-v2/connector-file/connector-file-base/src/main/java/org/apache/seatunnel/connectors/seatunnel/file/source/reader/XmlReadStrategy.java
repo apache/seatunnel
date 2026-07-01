@@ -48,6 +48,7 @@ import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
+import org.xml.sax.SAXException;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +69,22 @@ import java.util.stream.IntStream;
 /** The XmlReadStrategy class is used to read data from XML files in SeaTunnel. */
 @Slf4j
 public class XmlReadStrategy extends AbstractReadStrategy {
+
+    /** Reject DTD declarations so XML inputs cannot define attacker-controlled entities. */
+    private static final String DISALLOW_DOCTYPE_DECL =
+            "http://apache.org/xml/features/disallow-doctype-decl";
+
+    /** Disable external general entities to prevent local file reads and SSRF. */
+    private static final String EXTERNAL_GENERAL_ENTITIES =
+            "http://xml.org/sax/features/external-general-entities";
+
+    /** Disable external parameter entities to prevent nested external entity expansion. */
+    private static final String EXTERNAL_PARAMETER_ENTITIES =
+            "http://xml.org/sax/features/external-parameter-entities";
+
+    /** Disable external DTD loading even when a parser implementation supports it. */
+    private static final String LOAD_EXTERNAL_DTD =
+            "http://apache.org/xml/features/nonvalidating/load-external-dtd";
 
     private String tableRowName;
     private Boolean useAttrFormat;
@@ -104,7 +121,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        SAXReader saxReader = new SAXReader();
+        SAXReader saxReader = createSecureSaxReader();
         Document document;
         try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
             document = saxReader.read(reader);
@@ -167,6 +184,25 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                             seaTunnelRow.setTableId(split.getTableId());
                             output.collect(seaTunnelRow);
                         });
+    }
+
+    /**
+     * Configure the XML reader with XXE-safe defaults before parsing user-controlled file contents.
+     */
+    private SAXReader createSecureSaxReader() {
+        SAXReader saxReader = new SAXReader();
+        try {
+            saxReader.setFeature(DISALLOW_DOCTYPE_DECL, true);
+            saxReader.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
+            saxReader.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
+            saxReader.setFeature(LOAD_EXTERNAL_DTD, false);
+        } catch (SAXException e) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Failed to initialize secure xml parser",
+                    e);
+        }
+        return saxReader;
     }
 
     @Override
