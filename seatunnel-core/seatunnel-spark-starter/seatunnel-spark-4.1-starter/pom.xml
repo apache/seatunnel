@@ -197,6 +197,12 @@
                             </excludes>
                         </filter>
                         <filter>
+                            <artifact>org.apache.seatunnel:seatunnel-translation-spark-common</artifact>
+                            <excludes>
+                                <exclude>**</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
                             <artifact>*:*</artifact>
                             <excludes>
                                 <exclude>scala/**</exclude>

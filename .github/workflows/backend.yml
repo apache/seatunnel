@@ -1761,7 +1761,7 @@ jobs:
           cache: 'maven'
       - name: build spark 4.1 dist tarball
         run: |
-          ./mvnw -B -T 1 package -pl :seatunnel-dist -am -Pspark41-dist -DskipTests -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 package -pl :seatunnel-dist -am -Pspark41-dist -Dmaven.test.skip=true -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
           ls seatunnel-dist/target/*-spark41-bin.tar.gz
         env:
           MAVEN_OPTS: -Xmx4096m
