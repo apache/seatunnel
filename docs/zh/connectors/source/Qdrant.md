@@ -42,7 +42,7 @@ schema = {
 
 Qdrant 中的每个条目称为一个点。
 
-`float_vector` 类型的列从每个点的向量中读取，其他列从与该点关联的 JSON 有效负载中读取。
+向量类型的列会从每个点的向量中读取，其他列会从与该点关联的 JSON payload 中读取。
 
 如果列被标记为主键，Qdrant 点的 ID 将写入其中。它可以是 `"string"` 或 `"int"` 类型。因为 Qdrant 仅[允许](https://qdrant.tech/documentation/concepts/points/#point-ids)使用正整数和 UUID 作为点 ID。
 
@@ -78,7 +78,52 @@ Qdrant 实例的 gRPC 端口。
 
 ### 通用选项
 
-源插件的通用参数，请参考[源通用选项](../common-options/source-common-options.md)了解详情。****
+源插件的通用参数，请参考[源通用选项](../common-options/source-common-options.md)了解详情。
+
+## 任务示例
+
+作业启动前，Qdrant collection 必须已经存在。Qdrant 中的向量字段名和维度需要与 SeaTunnel schema 中的向量列保持一致。
+
+下面的示例从 `source_collection` 读取 payload 字段和命名向量，然后写入 `sink_collection`。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Qdrant {
+    collection_name = "sink_collection"
+    host = "localhost"
+    port = 6334
+  }
+}
+```
 
 ## 变更日志
 

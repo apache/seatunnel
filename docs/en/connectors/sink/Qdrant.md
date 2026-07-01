@@ -10,6 +10,8 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 This connector can be used to write data into a Qdrant collection.
 
+The target collection must already exist before the job starts. Vector field names and dimensions in Qdrant must match the vector columns in the SeaTunnel row.
+
 ## Data Type Mapping
 
 | SeaTunnel Data Type | Qdrant Data Type |
@@ -36,20 +38,15 @@ The value of the primary key column will be used as point ID in Qdrant. If no pr
 |      name       |  type  | required | default value |
 |-----------------|--------|----------|---------------|
 | collection_name | string | yes      | -             |
-| batch_size      | int    | no       | 64            |
 | host            | string | no       | localhost     |
 | port            | int    | no       | 6334          |
 | api_key         | string | no       | -             |
-| use_tls         | int    | no       | false         |
+| use_tls         | bool   | no       | false         |
 | common-options  |        | no       | -             |
 
 ### collection_name [string]
 
-The name of the Qdrant collection to read data from.
-
-### batch_size [int]
-
-The batch size of each upsert request to Qdrant.
+The name of the Qdrant collection to write data to.
 
 ### host [string]
 
@@ -70,6 +67,49 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+## Task Example
+
+The following example writes records from a Qdrant source collection to another Qdrant collection. Payload fields such as `file_name` and `file_size` are written as point payloads, and `my_vector` is written as a named vector.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Qdrant {
+    collection_name = "sink_collection"
+    host = "localhost"
+    port = 6334
+  }
+}
+```
 
 ## Changelog
 
