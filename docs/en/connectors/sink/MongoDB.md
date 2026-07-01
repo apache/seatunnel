@@ -75,7 +75,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | upsert-enable         | Boolean  | No       | false  | Whether to write documents via upsert mode.                                                                                                                                                                                                                           |
 | primary-key           | List     | No       | -      | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                                                                                                                                                            |
 | transaction           | Boolean  | No       | false  | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                     |
-| common-options        |          | No       | -      | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                       |
+| common-options        |          | No       | -      | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                         |
 | data_save_mode        | String   | No       | APPEND_DATA       | The data saving mode of mongodb，Option introduction,`DROP_DATA`:The collection will be cleared before inserting data;`APPEND_DATA`:Append data ;`ERROR_WHEN_DATA_EXISTS`:An error will be reported if there is data in the collection.                                |
 
 
@@ -206,4 +206,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

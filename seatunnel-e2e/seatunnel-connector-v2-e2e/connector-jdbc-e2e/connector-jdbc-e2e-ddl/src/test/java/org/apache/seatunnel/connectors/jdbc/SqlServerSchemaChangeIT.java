@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -46,8 +45,8 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
     private static final String SQLSERVER_PASSWORD = "paanssy1234$";
     private static final int SQLSERVER_PORT = 1433;
     private static final int SQLSERVER_XA_PORT = 5022;
-    private static final Duration SQLSERVER_COMMAND_TIMEOUT = Duration.ofMinutes(2);
-    private static final Duration SQLSERVER_COMMAND_POLL_INTERVAL = Duration.ofSeconds(2);
+    private static final Duration SQLSERVER_SQLCMD_READY_TIMEOUT = Duration.ofMinutes(2);
+    private static final Duration SQLSERVER_SQLCMD_RETRY_INTERVAL = Duration.ofSeconds(2);
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
                     + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;"
@@ -109,8 +108,31 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
         container.start();
         try {
-            awaitSqlServerLogin(container);
-            configureSqlServerXaSupport(container);
+            // This set of commands prepares for the subsequent enabling of the external user
+            // enabled configuration (for XA transaction support)
+            execSqlcmdWithRetry(
+                    container,
+                    "configure advanced options",
+                    "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;");
+
+            // Enable external user access permissions, which is a requirement for SQL Server to
+            // support XA distributed transactions.
+            execSqlcmdWithRetry(
+                    container,
+                    "enable external user access",
+                    "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;");
+
+            log.info("Installing stored procedures sp_sqljdbc_xa_install.");
+            execSqlcmdWithRetry(
+                    container,
+                    "install SQL Server XA stored procedures",
+                    "IF NOT EXISTS (SELECT 1 FROM master.sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
+                            + "EXEC sp_sqljdbc_xa_install");
+            execSqlcmdWithRetry(
+                    container,
+                    "verify SQL Server XA stored procedures",
+                    "IF NOT EXISTS (SELECT 1 FROM master.sys.objects WHERE name = 'xp_sqljdbc_xa_init_ex') "
+                            + "THROW 50000, 'SQL Server JDBC XA procedures were not installed', 1");
         } catch (IOException | InterruptedException e) {
             log.error("XA procedure installation failed: ", e);
             throw new RuntimeException(e);
@@ -123,63 +145,46 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
         return DATABASE_TYPE;
     }
 
-    private void awaitSqlServerLogin(GenericContainer<?> container) {
-        // The ready log can appear while SQL Server is still rejecting SA logins during startup.
-        org.awaitility.Awaitility.await()
-                .atMost(SQLSERVER_COMMAND_TIMEOUT)
-                .pollInterval(SQLSERVER_COMMAND_POLL_INTERVAL)
-                .untilAsserted(() -> assertSqlServerCommand(container, "SELECT 1"));
-    }
-
-    private void configureSqlServerXaSupport(GenericContainer<?> container)
+    /**
+     * SQL Server 2022 can emit the generic ready log before system database upgrades finish, so
+     * retry sqlcmd setup steps until login and execution both succeed.
+     */
+    private void execSqlcmdWithRetry(GenericContainer<?> container, String description, String sql)
             throws IOException, InterruptedException {
-        // This set of commands prepares for the subsequent enabling of the external user enabled
-        // configuration, which is required by SQL Server JDBC XA transactions.
-        assertSqlServerCommand(
-                container, "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;");
-
-        assertSqlServerCommand(
-                container, "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;");
-
-        log.info("Installing stored procedures sp_sqljdbc_xa_install.");
-        assertSqlServerCommand(
-                container,
-                "IF NOT EXISTS (SELECT 1 FROM master.sys.objects "
-                        + "WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                        + "EXEC sp_sqljdbc_xa_install");
-        assertSqlServerCommand(
-                container,
-                "IF NOT EXISTS (SELECT 1 FROM master.sys.objects "
-                        + "WHERE name = 'xp_sqljdbc_xa_init_ex') "
-                        + "THROW 50000, 'SQL Server JDBC XA procedures were not installed', 1");
-    }
-
-    private Container.ExecResult assertSqlServerCommand(
-            GenericContainer<?> container, String command)
-            throws IOException, InterruptedException {
-        Container.ExecResult result =
-                container.execInContainer(
-                        "/opt/mssql-tools18/bin/sqlcmd",
-                        "-S",
-                        "localhost",
-                        "-U",
-                        SQLSERVER_USER,
-                        "-P",
-                        SQLSERVER_PASSWORD,
-                        "-d",
-                        "master",
-                        "-Q",
-                        command,
-                        "-C");
-        Assertions.assertEquals(
-                0,
-                result.getExitCode(),
-                "SQL Server command failed. command="
-                        + command
-                        + ", stdout="
-                        + result.getStdout()
-                        + ", stderr="
-                        + result.getStderr());
-        return result;
+        long deadline = System.nanoTime() + SQLSERVER_SQLCMD_READY_TIMEOUT.toNanos();
+        Container.ExecResult lastResult = null;
+        while (System.nanoTime() < deadline) {
+            lastResult =
+                    container.execInContainer(
+                            "/opt/mssql-tools18/bin/sqlcmd",
+                            "-S",
+                            "localhost",
+                            "-U",
+                            SQLSERVER_USER,
+                            "-P",
+                            SQLSERVER_PASSWORD,
+                            "-d",
+                            "master",
+                            "-Q",
+                            sql,
+                            "-C");
+            if (lastResult.getExitCode() == 0) {
+                return;
+            }
+            log.info(
+                    "sqlcmd step [{}] is not ready yet, exitCode={}, stdout={}, stderr={}",
+                    description,
+                    lastResult.getExitCode(),
+                    lastResult.getStdout(),
+                    lastResult.getStderr());
+            Thread.sleep(SQLSERVER_SQLCMD_RETRY_INTERVAL.toMillis());
+        }
+        throw new IllegalStateException(
+                String.format(
+                        "Timed out waiting for sqlcmd step [%s] to succeed, last exitCode=%s, stdout=%s, stderr=%s",
+                        description,
+                        lastResult == null ? null : lastResult.getExitCode(),
+                        lastResult == null ? null : lastResult.getStdout(),
+                        lastResult == null ? null : lastResult.getStderr()));
     }
 }

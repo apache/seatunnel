@@ -108,8 +108,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -122,6 +122,10 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
+    private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
+    private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
+    private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
+
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_HOST = "kafkaCluster";
@@ -135,6 +139,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     private KafkaContainer kafkaContainer;
 
     private List<ConsumerRecord<String, String>> nativeData;
+
+    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     @BeforeAll
     @Override
@@ -267,6 +274,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
+        if (!dynamicTopics.isEmpty()) {
+            try (AdminClient adminClient = createKafkaAdmin()) {
+                adminClient.deleteTopics(dynamicTopics).all().get();
+                log.info("Deleted {} dynamic test topics", dynamicTopics.size());
+            } catch (Exception e) {
+                log.warn("Failed to delete dynamic test topics: {}", e.getMessage());
+            }
+        }
         if (producer != null) {
             producer.close();
         }
@@ -1580,17 +1595,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             value = {})
     public void testRestoreKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
             throws InterruptedException, IOException {
-
-        String uniqueSuffix = uniqueKafkaTopicSuffix();
-        String producerTopic = "kafka_topic_exactly_once_1_" + uniqueSuffix;
-        String consumerTopic = "kafka_topic_exactly_once_2_" + uniqueSuffix;
-        String consumerGroup = "test_exactly_once_" + uniqueSuffix;
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        final String jobId = "18696753645413";
-        String[] exactlyOnceVariables =
-                exactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
-        createTopicIfAbsent(producerTopic);
-        createTopicIfAbsent(consumerTopic);
+        final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -1605,7 +1619,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables);
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -1641,7 +1655,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         container.restoreJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
                                 jobId,
-                                exactlyOnceVariables);
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -1666,14 +1680,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             type = EngineType.SPARK,
             value = {})
     public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container) {
-
-        String uniqueSuffix = uniqueKafkaTopicSuffix();
-        String producerTopic = "kafka_topic_exactly_once_1_" + uniqueSuffix;
-        String consumerTopic = "kafka_topic_exactly_once_2_" + uniqueSuffix;
-        String consumerGroup = "test_exactly_once_" + uniqueSuffix;
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        createTopicIfAbsent(producerTopic);
-        createTopicIfAbsent(consumerTopic);
+        String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
 
         // async execute
@@ -1682,9 +1698,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     try {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                Arrays.asList(
-                                        exactlyOnceStreamingVariables(
-                                                producerTopic, consumerTopic, consumerGroup)));
+                                exactlyOnceVariables);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -1714,9 +1728,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
+                        () -> {
+                            // Keep the streaming source active so the last exactly-once transaction
+                            // is forced through a later checkpoint on slow Flink CI axes.
+                            ProducerRecord<byte[], byte[]> keepAliveRecord =
+                                    new ProducerRecord<>(
+                                            producerTopic,
+                                            null,
+                                            keepAliveData.getBytes(StandardCharsets.UTF_8));
+                            producer.send(keepAliveRecord);
+                            producer.flush();
+                            Assertions.assertTrue(
+                                    checkData(
+                                            consumerTopic,
+                                            sinkStartOffset,
+                                            10,
+                                            sourceData,
+                                            Collections.singletonList(keepAliveData)));
+                        });
     }
 
     @TestTemplate
@@ -1752,20 +1781,39 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
-        List<String> listData = getKafkaConsumerListData(topicName, startOffset, expectedCount);
-        if (listData.isEmpty() || listData.size() != expectedCount) {
+        return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    private boolean checkData(
+            String topicName,
+            long startOffset,
+            long expectedCount,
+            String data,
+            List<String> ignoredValues) {
+        List<String> listData = getKafkaConsumerListData(topicName, startOffset);
+        List<String> matchedData = new ArrayList<>();
+        for (String value : listData) {
+            if (data.equals(value)) {
+                matchedData.add(value);
+                continue;
+            }
+            if (ignoredValues.contains(value)) {
+                continue;
+            }
             log.error(
-                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},start offset {},expected count {}",
+                    "testKafkaToKafkaExactlyOnce get unexpected data value {}, start offset {}",
+                    value,
+                    startOffset);
+            return false;
+        }
+        if (matchedData.isEmpty() || matchedData.size() != expectedCount) {
+            log.error(
+                    "testKafkaToKafkaExactlyOnce get data size is not expect,get matched data size {},visible data size {},start offset {},expected count {}",
+                    matchedData.size(),
                     listData.size(),
                     startOffset,
                     expectedCount);
             return false;
-        }
-        for (String value : listData) {
-            if (!data.equals(value)) {
-                log.error("testKafkaToKafkaExactlyOnce get data value is not expect");
-                return false;
-            }
         }
         return true;
     }
@@ -2043,6 +2091,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return AdminClient.create(props);
     }
 
+    /**
+     * Create a dedicated Kafka topic for the exactly-once tests so each method reads its own data
+     * and never reuses offsets from earlier runs in the same class.
+     */
+    private void createKafkaTopic(String topicName) {
+        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        topic.configs(Collections.singletonMap("retention.ms", "-1"));
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient.createTopics(Collections.singletonList(topic)).all().get();
+            dynamicTopics.add(topicName);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while creating Kafka topic " + topicName, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    private List<String> buildExactlyOnceStreamingVariables(
+            String sourceTopic, String sinkTopic, String consumerGroup) {
+        return Arrays.asList(
+                EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE + "=" + sourceTopic,
+                EXACTLY_ONCE_SINK_TOPIC_VARIABLE + "=" + sinkTopic,
+                EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE + "=" + consumerGroup);
+    }
+
     private void initKafkaProducer() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -2275,8 +2351,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private List<String> getKafkaConsumerListData(
-            String topicName, long startOffset, long expectedCount) {
+    private List<String> getKafkaConsumerListData(String topicName, long startOffset) {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
@@ -2284,27 +2359,40 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
             consumer.seek(topicPartition, startOffset);
-            Long endOffset =
+            // READ_COMMITTED consumers may skip aborted transactional offsets, so N committed
+            // records are not guaranteed to occupy N contiguous offsets after startOffset.
+            long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
             long nextOffset = startOffset;
+            Long lastProcessedOffset = startOffset - 1;
+            int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (record.offset() >= startOffset && data.size() < expectedCount) {
-                        data.add(record.value());
+                if (records.isEmpty()) {
+                    consecutiveEmptyPolls++;
+                } else {
+                    consecutiveEmptyPolls = 0;
+                    for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                        if (record.offset() >= startOffset
+                                && record.offset() > lastProcessedOffset) {
+                            data.add(record.value());
+                        }
+                        lastProcessedOffset = record.offset();
                     }
                 }
                 long currentPosition = consumer.position(topicPartition);
                 // Exactly-once topics can contain transaction control records or aborted records
-                // that advance offsets but are not returned to read_committed consumers. Use
-                // the consumer position to track the scanned offset range, not only visible data
-                // record offsets.
-                if (records.isEmpty() && currentPosition == nextOffset) {
+                // that advance offsets without surfacing visible READ_COMMITTED records. Track the
+                // consumer position so we do not stop early while the broker is still advancing the
+                // transactional scan range.
+                if (records.isEmpty()
+                        && currentPosition == nextOffset
+                        && consecutiveEmptyPolls >= 20) {
                     break;
                 }
                 nextOffset = currentPosition;
-            } while (data.size() < expectedCount && nextOffset < endOffset);
+            } while (nextOffset < visibleEndOffsetExclusive && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
@@ -2315,33 +2403,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Properties props = kafkaConsumerConfig();
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         return props;
-    }
-
-    /**
-     * Keep each exactly-once test on isolated topics and consumer groups so parallel engine matrix
-     * runs do not interfere with one another's offsets or transactional output.
-     */
-    private String[] exactlyOnceStreamingVariables(
-            String producerTopic, String consumerTopic, String consumerGroup) {
-        return new String[] {
-            "sourceTopic=" + producerTopic,
-            "sinkTopic=" + consumerTopic,
-            "consumerGroup=" + consumerGroup
-        };
-    }
-
-    private String uniqueKafkaTopicSuffix() {
-        return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    private void createTopicIfAbsent(String topicName) {
-        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
-        topic.configs(Collections.singletonMap("retention.ms", "-1"));
-        try (AdminClient adminClient = createKafkaAdmin()) {
-            adminClient.createTopics(Collections.singletonList(topic)).all().get();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create topic " + topicName, e);
-        }
     }
 
     private void closeKafkaConsumer(KafkaConsumer<String, String> consumer) {
