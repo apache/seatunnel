@@ -20,15 +20,15 @@ package org.apache.seatunnel.e2e.connector.pulsar;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
-import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.Reader;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
+import org.apache.pulsar.client.api.SubscriptionType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -52,13 +53,7 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
     private static final String PULSAR_IMAGE_NAME = "apachepulsar/pulsar:2.3.1";
     public static final String PULSAR_HOST = "pulsar.e2e.sink";
-
-    /**
-     * FakeSource emits rows with {@link TablePath#DEFAULT} as their table identifier, and the
-     * Pulsar sink resolves that identifier before it considers the configured sink topic.
-     */
-    private static final String OUTPUT_TOPIC_FULL_NAME =
-            "persistent://public/default/" + TablePath.DEFAULT.getFullName();
+    private static final String TOPIC = "topic_test02";
 
     /** Expected record count produced by fake_to_pulsar.conf. */
     private static final int EXPECTED_RECORD_COUNT = 10;
@@ -104,31 +99,34 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Read the runtime topic as a replayable stream so the assertion does not depend on
-     * subscription state for a topic that is created and filled within a single batch job.
+     * Subscribe to the sink topic before the batch job starts so the assertion cannot miss records
+     * because the producer finished before the consumer began polling.
      */
-    private Reader<byte[]> createPulsarReader(PulsarClient client) throws Exception {
-        return client.newReader()
-                .topic(OUTPUT_TOPIC_FULL_NAME)
-                .startMessageId(MessageId.earliest)
-                .create();
+    private Consumer<byte[]> createPulsarConsumer(PulsarClient client) throws Exception {
+        return client.newConsumer()
+                .topic(TOPIC)
+                .subscriptionName("PulsarSubTest" + new Random().nextInt())
+                .subscriptionType(SubscriptionType.Exclusive)
+                .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                .subscribe();
     }
 
     /**
      * Consume the records written by the sink job without leaving the test stuck in a blocking
      * receive call when CI delivery is delayed.
      */
-    private List<String> getPulsarReaderData(Reader<byte[]> reader) throws Exception {
+    private List<String> getPulsarConsumerData(Consumer<byte[]> consumer) throws Exception {
         List<String> data = new ArrayList<>(EXPECTED_RECORD_COUNT);
         long deadlineNanos = System.nanoTime() + RECEIVE_TIMEOUT.toNanos();
         while (data.size() < EXPECTED_RECORD_COUNT && System.nanoTime() < deadlineNanos) {
-            Message<byte[]> msg = reader.readNext(RECEIVE_POLL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Message<byte[]> msg = consumer.receive(RECEIVE_POLL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (msg == null) {
                 continue;
             }
 
             String value = new String(msg.getData(), StandardCharsets.UTF_8);
             data.add(value);
+            consumer.acknowledge(msg);
             log.info("value:{}", value);
         }
 
@@ -143,27 +141,26 @@ public class PulsarSinkIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkPulsar(TestContainer container) throws Exception {
-        try (PulsarClient client = createPulsarClient()) {
+        try (PulsarClient client = createPulsarClient();
+                Consumer<byte[]> consumer = createPulsarConsumer(client)) {
             Container.ExecResult execResult = container.executeJob("/fake_to_pulsar.conf");
             Assertions.assertEquals(execResult.getExitCode(), 0);
 
-            try (Reader<byte[]> reader = createPulsarReader(client)) {
-                List<String> data = getPulsarReaderData(reader);
-                log.info("data size:{}", data.size());
-                Assertions.assertEquals(
-                        EXPECTED_RECORD_COUNT,
-                        data.size(),
-                        String.format(
-                                "Expected %d Pulsar records within %d seconds but received %d",
-                                EXPECTED_RECORD_COUNT, RECEIVE_TIMEOUT.getSeconds(), data.size()));
-                ObjectMapper objectMapper = new ObjectMapper();
-                ObjectNode objectNode = objectMapper.readValue(data.get(0), ObjectNode.class);
-                Assertions.assertTrue(objectNode.has("c_map"));
-                Assertions.assertTrue(objectNode.has("c_array"));
-                Assertions.assertTrue(objectNode.has("c_string"));
-                Assertions.assertTrue(objectNode.has("c_boolean"));
-                Assertions.assertTrue(objectNode.has("c_double"));
-            }
+            List<String> data = getPulsarConsumerData(consumer);
+            log.info("data size:{}", data.size());
+            Assertions.assertEquals(
+                    EXPECTED_RECORD_COUNT,
+                    data.size(),
+                    String.format(
+                            "Expected %d Pulsar records within %d seconds but received %d",
+                            EXPECTED_RECORD_COUNT, RECEIVE_TIMEOUT.getSeconds(), data.size()));
+            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectNode objectNode = objectMapper.readValue(data.get(0), ObjectNode.class);
+            Assertions.assertTrue(objectNode.has("c_map"));
+            Assertions.assertTrue(objectNode.has("c_array"));
+            Assertions.assertTrue(objectNode.has("c_string"));
+            Assertions.assertTrue(objectNode.has("c_boolean"));
+            Assertions.assertTrue(objectNode.has("c_double"));
         }
     }
 }
