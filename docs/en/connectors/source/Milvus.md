@@ -6,17 +6,15 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## Description
 
-This Milvus source connector reads data from Milvus or Zilliz Cloud, it has the following features:
-- support read and write data by partition
-- support read dynamic schema data into Metadata Column
-- json data will be converted to json string and sink as json as well
-- retry automatically to bypass ratelimit and grpc limit
+This Milvus source connector reads data from Milvus or Zilliz Cloud. It can read one collection
+or every collection in a database, keep vector fields in SeaTunnel vector types, and read dynamic
+fields into metadata columns.
 
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -40,16 +38,18 @@ This Milvus source connector reads data from Milvus or Zilliz Cloud, it has the 
 
 ## Source Options
 
-|    Name    |  Type  | Required | Default |                                        Description                                         |
-|------------|--------|----------|---------|--------------------------------------------------------------------------------------------|
-| url        | String | Yes      | -       | The URL to connect to Milvus or Zilliz Cloud.                                              |
-| token      | String | Yes      | -       | User:password                                                                              |
-| database   | String | Yes      | default | Read data from which database.                                                             |
-| collection | String | No       | -       | If set, will only read one collection, otherwise will read all collections under database. |
+| Name       | Type   | Required | Default | Description                                                                                          |
+|------------|--------|----------|---------|------------------------------------------------------------------------------------------------------|
+| url        | String | Yes      | -       | The URL to connect to Milvus or Zilliz Cloud.                                                        |
+| token      | String | Yes      | -       | Milvus authentication token, usually in `username:password` format.                                  |
+| database   | String | No       | default | Source database.                                                                                     |
+| collection | String | No       | -       | Source collection. If it is not set, SeaTunnel reads all collections in the configured database. The deprecated `collection_name` key is accepted as an alias. |
 
 ## Task Example
 
-```bash
+### Read All Collections in a Database
+
+```hocon
 source {
   Milvus {
     url = "http://127.0.0.1:19530"
@@ -59,7 +59,19 @@ source {
 }
 ```
 
+### Read One Collection
+
+```hocon
+source {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "default"
+    collection = "book_vectors"
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />
-

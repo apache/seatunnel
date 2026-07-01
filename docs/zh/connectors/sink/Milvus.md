@@ -6,18 +6,16 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## 描述
 
-Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能：
-- 支持按分区读写数据
-- 支持从元数据列写入动态模式数据
-- json数据将转换为json字符串进行写入
-- 自动重试以绕过 ratelimit 限制 和 grpc 限制
+Milvus Sink 连接器用于把数据写入 Milvus 或 Zilliz Cloud。它可以创建缺失的数据库和集合，
+写入向量字段、动态字段，也可以在写入客户端初始化时创建向量索引或加载目标集合。
+
 ## 主要特性
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-##数据类型映射
+## 数据类型映射
 
 | Milvus数据类型          | SeaTunnel 数据类型      |
 |---------------------|---------------------|
@@ -36,52 +34,135 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 | FLOAT16_VECTOR      | FLOAT16_VECTOR      |
 | BFLOAT16_VECTOR     | BFLOAT16_VECTOR     |
 | SPARSE_FLOAT_VECTOR | SPARSE_FLOAT_VECTOR |
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Sink 选项
 
-| 名字                     | 类型                  | 是否必传 | 默认值                          | 描述                                                                  |
-|------------------------|---------------------|------|------------------------------|---------------------------------------------------------------------|
-| url                    | String              | 是    | -                            | 连接到Milvus或Zilliz Cloud的URL。                                         |
-| token                  | String              | 是    | -                            | 用户：密码                                                               |
-| database               | String              | 否    | -                            | 将数据写入哪个数据库，默认为源数据库。                                                 |
-| collection             | String              | 否    | -                            | 将数据写入哪个集合，默认为源表名。兼容旧配置键 `collection_name`。                              |
-| schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 当表不存在时自动创建表。                                                        |
-| enable_auto_id         | boolean             | 否    | false                        | 主键列启用autoId。                                                        |
-| enable_upsert          | boolean             | 否    | false                        | 是否启用upsert。                                                         |
-| enable_dynamic_field   | boolean             | 否    | true                         | 是否启用带动态字段的创建表。                                                      |
-| batch_size             | int                 | 否    | 1000                         | 写入批大小。当缓冲记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，将触发一次写入刷新 |
-| partition_key          | String              | 否    |                              | Milvus分区键字段                                                         |                                         
-| create_index           | boolean             | No   | false                        | 自动为集合创建向量索引以提高查询性能                                                  |
-| load_collection        | boolean             | No   | false                        | 将集合加载到 Milvus 内存中以便立即进行查询                                           |
-| collection_description | Map<String, String> | No   | {}                           | 集合描述映射，其中键是集合名称，值是描述                                                |                                         
+| 名字                     | 类型                  | 是否必传 | 默认值                          | 描述                                                                                         |
+|------------------------|---------------------|------|------------------------------|--------------------------------------------------------------------------------------------|
+| url                    | String              | 是    | -                            | 连接 Milvus 或 Zilliz Cloud 的地址。                                                               |
+| token                  | String              | 是    | -                            | Milvus 认证信息，通常是 `username:password` 格式。                                                   |
+| database               | String              | 否    | -                            | 目标数据库。不配置时，使用上游表的数据库名。                                                                  |
+| collection             | String              | 否    | -                            | 目标集合。不配置时，使用上游表名。旧配置键 `collection_name` 仍兼容，但建议使用 `collection`。                         |
+| schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 写入前如何处理目标集合结构。                                                                           |
+| data_save_mode         | enum                | 否    | APPEND_DATA                  | 写入前如何处理目标已有数据。支持 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                         |
+| enable_auto_id         | boolean             | 否    | false                        | 创建集合时是否启用 Milvus 主键 AutoID。表结构里的主键定义也可以覆盖该值。                                             |
+| enable_upsert          | boolean             | 否    | true                         | 使用 Milvus upsert 写入，而不是 insert 写入。如果任务只追加新数据，可以设为 `false` 来提升写入速度。                    |
+| enable_dynamic_field   | boolean             | 否    | true                         | SeaTunnel 创建集合时是否启用 Milvus 动态字段。                                                          |
+| batch_size             | int                 | 否    | 1000                         | 每次写入请求前最多缓存的行数。checkpoint 也会触发刷新。                                                        |
+| rate_limit             | int                 | 否    | 100000                       | 设置集合的 insert/upsert 写入限速。大于 `0` 时在 writer 打开时设置，关闭时重置。                                  |
+| partition_key          | String              | 否    | -                            | 创建集合时使用的 Milvus 分区键字段。如果集合有分区键，SeaTunnel 不会再额外创建具名分区。                                  |
+| create_index           | boolean             | 否    | false                        | 创建向量索引。                                                                                  |
+| load_collection        | boolean             | 否    | false                        | writer 打开时，如果集合尚未加载，则将集合加载到 Milvus 内存。                                                     |
+| collection_description | Map<String, String> | 否    | {}                           | 集合描述映射。key 是集合名，value 是 SeaTunnel 创建该集合时使用的描述。                                           |
+
+### 使用说明
+
+- 不配置 `database` 或 `collection` 时，Sink 会沿用上游表的数据库名或表名。
+- 推荐使用 `collection`。`collection_name` 只是为了兼容旧配置。
+- `create_index = true` 在创建集合时需要上游 schema 中带有向量索引元数据；如果集合已存在，则会为向量字段创建默认索引。
+- `enable_upsert = true` 需要表结构中有有效主键。纯追加写入时，可以设置 `enable_upsert = false`。
 
 ## 任务示例
 
-### 基础配置
-```bash
+### 写入向量数据
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      table = "book_vectors"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+        },
+        {
+          name = book_title
+          type = string
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
 sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
-    collection = "user_vectors"
+    database = "default"
+    collection = "book_vectors"
     batch_size = 1000
+    enable_upsert = false
   }
 }
 ```
 
-### 带 Index 和 Loading 的高级配置
-```bash
+### 写入多种向量类型
+
+```hocon
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    binary.vector.dimension = 8
+    schema = {
+      table = "multi_vector_books"
+      columns = [
+        { name = book_id, type = bigint, nullable = false },
+        { name = binary_intro, type = binary_vector, columnScale = 8 },
+        { name = fp16_intro, type = float16_vector, columnScale = 4 },
+        { name = bfloat16_intro, type = bfloat16_vector, columnScale = 4 },
+        { name = sparse_intro, type = sparse_float_vector, columnScale = 4 }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
 sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
-    batch_size = 1000
+    database = "default"
+    collection = "multi_vector_books"
+  }
+}
+```
+
+### 创建索引并加载集合
+
+```hocon
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "default"
+    collection = "book_vectors"
     create_index = true
     load_collection = true
+    rate_limit = 100000
     collection_description = {
-      "user_vectors" = "User embedding vectors for recommendation"
-      "product_vectors" = "Product feature vectors for search"
+      "book_vectors" = "Book embedding vectors for search"
     }
   }
 }

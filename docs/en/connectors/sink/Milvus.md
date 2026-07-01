@@ -6,16 +6,14 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## Description
 
-This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the following features:
-- support read and write data by partition
-- support write dynamic schema data from Metadata Column
-- json data will be converted to json string and sink as json as well
-- retry automatically to bypass ratelimit and grpc limit
+This Milvus sink connector writes data to Milvus or Zilliz Cloud. It can create missing databases
+and collections, write vector fields, write dynamic fields, and optionally create vector indexes
+or load the target collection after the write client is initialized.
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
@@ -40,48 +38,132 @@ This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the foll
 
 ## Sink Options
 
-| Name                   | Type                | Required | Default                      | Description                                                                                                                                         |
-|------------------------|---------------------|----------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                    | String              | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.                                                                                                       |
-| token                  | String              | Yes      | -                            | User:password                                                                                                                                       |
-| database               | String              | No       | -                            | Write data to which database, default is source database.                                                                                           |
-| collection             | String              | No       | -                            | Write data to which collection, default is source table name. The deprecated `collection_name` key is accepted as an alias.                         |
-| schema_save_mode       | enum                | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Auto create table when table not exist.                                                                                                             |
-| enable_auto_id         | boolean             | No       | false                        | Primary key column enable autoId.                                                                                                                   |
-| enable_upsert          | boolean             | No       | false                        | Upsert data not insert.                                                                                                                             |
-| enable_dynamic_field   | boolean             | No       | true                         | Enable create table with dynamic field.                                                                                                             |
-| batch_size             | int                 | No       | 1000                         | Write batch size. When the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, it will trigger a write flush |
-| partition_key          | String              | No       |                              | Milvus partition key field                                                                                                                          |
-| create_index           | boolean             | No       | false                        | Automatically create vector indexes for collection to improve query performance.                                                                    |
-| load_collection        | boolean             | No       | false                        | Load collection into Milvus memory for immediate query availability.                                                                                |
-| collection_description | Map<String, String> | No       | {}                           | Collection descriptions map where key is collection name and value is description.                                                                  |                                         
+| Name                   | Type                | Required | Default                      | Description                                                                                                                                                         |
+|------------------------|---------------------|----------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                    | String              | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.                                                                                                                       |
+| token                  | String              | Yes      | -                            | Milvus authentication token, usually in `username:password` format.                                                                                                 |
+| database               | String              | No       | -                            | Target database. If it is not set, the sink uses the upstream table database name.                                                                                   |
+| collection             | String              | No       | -                            | Target collection. If it is not set, the sink uses the upstream table name. The deprecated `collection_name` key is accepted as an alias.                           |
+| schema_save_mode       | enum                | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Controls how the target collection schema is handled before writing data.                                                                                           |
+| data_save_mode         | enum                | No       | APPEND_DATA                  | Controls how existing target data is handled before writing data. Supported values are `DROP_DATA`, `APPEND_DATA`, and `ERROR_WHEN_DATA_EXISTS`.                    |
+| enable_auto_id         | boolean             | No       | false                        | Enables Milvus AutoID for the primary key field when creating a collection. A primary key definition can also override this value.                                  |
+| enable_upsert          | boolean             | No       | true                         | Uses Milvus upsert requests instead of insert requests. Set it to `false` when the job only writes new rows and does not need key-based updates.                    |
+| enable_dynamic_field   | boolean             | No       | true                         | Enables the Milvus dynamic field when SeaTunnel creates the collection.                                                                                             |
+| batch_size             | int                 | No       | 1000                         | Maximum number of rows buffered before a write request is sent. A checkpoint can also trigger a flush.                                                              |
+| rate_limit             | int                 | No       | 100000                       | Sets Milvus insert/upsert rate limit for the collection. Values greater than `0` are applied when the writer opens and are reset when it closes.                    |
+| partition_key          | String              | No       | -                            | Milvus partition key field used when SeaTunnel creates the collection. If the collection has a partition key, SeaTunnel does not create named partitions separately. |
+| create_index           | boolean             | No       | false                        | Creates vector indexes for vector fields or schema vector index constraints.                                                                                        |
+| load_collection        | boolean             | No       | false                        | Loads the collection into Milvus memory when the writer opens if the collection is not loaded yet.                                                                  |
+| collection_description | Map<String, String> | No       | {}                           | Collection description map. The key is the collection name and the value is the description used when SeaTunnel creates that collection.                            |
+
+### Notes
+
+- If `database` or `collection` is omitted, the sink keeps the upstream table database or table name.
+- `collection` is the recommended option name. `collection_name` is only kept for compatibility.
+- `create_index = true` needs vector index metadata in the upstream schema when SeaTunnel creates the collection from catalog schema. When it is used after a collection already exists, SeaTunnel creates default indexes for vector fields.
+- `enable_upsert = true` requires a meaningful primary key in the table schema. For insert-only jobs, `enable_upsert = false` can be faster.
 
 ## Task Example
 
-### Basic Configuration
-```bash
+### Write Vector Data
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      table = "book_vectors"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+        },
+        {
+          name = book_title
+          type = string
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
 sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
-    collection = "user_vectors"
+    database = "default"
+    collection = "book_vectors"
     batch_size = 1000
+    enable_upsert = false
   }
 }
 ```
 
-### Advanced Configuration with Index and Loading
-```bash
+### Write Multiple Vector Types
+
+```hocon
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    binary.vector.dimension = 8
+    schema = {
+      table = "multi_vector_books"
+      columns = [
+        { name = book_id, type = bigint, nullable = false },
+        { name = binary_intro, type = binary_vector, columnScale = 8 },
+        { name = fp16_intro, type = float16_vector, columnScale = 4 },
+        { name = bfloat16_intro, type = bfloat16_vector, columnScale = 4 },
+        { name = sparse_intro, type = sparse_float_vector, columnScale = 4 }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
 sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
-    batch_size = 1000
+    database = "default"
+    collection = "multi_vector_books"
+  }
+}
+```
+
+### Create Indexes and Load Collection
+
+```hocon
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "default"
+    collection = "book_vectors"
     create_index = true
     load_collection = true
+    rate_limit = 100000
     collection_description = {
-      "user_vectors" = "User embedding vectors for recommendation"
-      "product_vectors" = "Product feature vectors for search"
+      "book_vectors" = "Book embedding vectors for search"
     }
   }
 }
