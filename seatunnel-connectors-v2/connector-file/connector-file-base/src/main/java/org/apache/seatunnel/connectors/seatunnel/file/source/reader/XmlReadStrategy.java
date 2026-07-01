@@ -53,6 +53,8 @@ import org.xml.sax.SAXException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.xml.XMLConstants;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -192,6 +194,8 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     private SAXReader createSecureSaxReader() {
         SAXReader saxReader = new SAXReader();
         try {
+            // Keep JAXP entity-expansion limits enabled even if Xerces is on the classpath.
+            saxReader.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             saxReader.setFeature(DISALLOW_DOCTYPE_DECL, true);
             saxReader.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
             saxReader.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
