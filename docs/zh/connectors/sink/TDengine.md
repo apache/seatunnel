@@ -12,6 +12,7 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

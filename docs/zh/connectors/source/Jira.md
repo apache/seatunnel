@@ -50,7 +50,7 @@ Jira 邮件
 
 Jira API 接口
 
-https://id.atlassian.com/manage-profile/security/api-tokens
+https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/
 
 ### method [String]
 

@@ -39,7 +39,7 @@ import ChangeLog from '../changelog/connector-redis.md';
 | 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
 |---------------------|---------|--------|-------|--------------------------------------------|
 | keys                | string  | 是     | -     | 要扫描的 Redis key pattern                     |
-| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`hash`、`list`、`set`、`zset` |
+| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
 | batch_size          | int     | 否     | 10    | SCAN 操作的批量大小                               |
 | format              | string  | 否     | json  | 数据格式：`json` 或 `text`                       |
 | schema              | config  | 否     | -     | Schema 配置                               |
@@ -131,6 +131,46 @@ hash key 中的每个 kv 将会被视为一行并被发送给上游。
 
 keys 模式
 
+### read_key_enabled [boolean]
+
+配置为 `true` 时，Redis source 会把 Redis key 和 value 一起读出。
+
+默认值为 `false`，也就是只读取 value。
+
+如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，需要同时配置：
+
+- `key_field_name`：Redis key 写入哪一列。
+- `single_field_name`：Redis value 写入哪一列。
+
+示例：
+
+```hocon
+read_key_enabled = true
+key_field_name = key
+single_field_name = value
+schema {
+  fields {
+    key = string
+    value = string
+  }
+}
+```
+
+### key_field_name [string]
+
+指定 Redis key 输出到哪一个字段。
+
+- 当 `read_key_enabled = true` 时，如果不配置，默认字段名是 `key`。
+- 当 `data_type = hash` 且不配置该选项时，默认字段名是 `hash_key`。
+
+当默认字段名和已有字段冲突，或者想使用更明确的字段名时，可以配置该选项。
+
+### single_field_name [string]
+
+读取单值类型并且 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
+
+该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。
+
 ### batch_size [int]
 
 表示每次迭代尝试返回的键的数量，默认值为 10。
@@ -139,9 +179,9 @@ keys 模式
 
 ### data_type [string]
 
-redis 数据类型, 支持 `key` `hash` `list` `set` `zset`。
+redis 数据类型, 支持 `key` `string` `hash` `list` `set` `zset`。
 
-- key
+- key/string
 
 > 将每个 key 的值将作为单行数据发送给下游。  
 > 例如，key 对应的值为 `SeaTunnel test message`，则下游接收到的数据为 `SeaTunnel test message`，并且仅会收到一条信息。
@@ -323,6 +363,42 @@ sink {
     data_type = list
     batch_size = 33
   }
+}
+```
+
+读取 string 类型时同时读取 Redis key：
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "string_test*"
+    data_type = string
+    batch_size = 33
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "custom_key"
+          type = "string"
+        },
+        {
+          name = "custom_value"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 
