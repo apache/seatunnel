@@ -47,13 +47,14 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -196,20 +197,31 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverJarPath() {
-        return Paths.get(
-                        System.getProperty("user.home"),
-                        ".m2/repository/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar")
-                .toString();
+    /**
+     * Resolve the SQLServer JDBC test dependency from the active test classpath instead of
+     * hard-coding a Maven local repository path.
+     */
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    SQLServerDriver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI());
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to resolve SQLServer JDBC driver jar from the test classpath", e);
+        }
     }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                String driverJarPath = driverJarPath();
+                Path driverJarPath = driverJarPath();
                 Assertions.assertTrue(
-                        Files.exists(Paths.get(driverJarPath)),
-                        "SQLServer JDBC driver should be resolved by Maven before E2E runs: "
+                        Files.isRegularFile(driverJarPath),
+                        "SQLServer JDBC driver should be resolved from the test classpath before E2E runs: "
                                 + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
