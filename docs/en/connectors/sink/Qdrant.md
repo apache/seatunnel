@@ -14,7 +14,6 @@ This connector can be used to write data into a Qdrant collection.
 
 | SeaTunnel Data Type | Qdrant Data Type |
 |---------------------|------------------|
-| TINYINT             | INTEGER          |
 | SMALLINT            | INTEGER          |
 | INT                 | INTEGER          |
 | BIGINT              | INTEGER          |
@@ -22,34 +21,30 @@ This connector can be used to write data into a Qdrant collection.
 | DOUBLE              | DOUBLE           |
 | BOOLEAN             | BOOL             |
 | STRING              | STRING           |
-| ARRAY               | LIST             |
+| DATE                | STRING           |
 | FLOAT_VECTOR        | DENSE_VECTOR     |
 | BINARY_VECTOR       | DENSE_VECTOR     |
 | FLOAT16_VECTOR      | DENSE_VECTOR     |
 | BFLOAT16_VECTOR     | DENSE_VECTOR     |
-| SPARSE_FLOAT_VECTOR | SPARSE_VECTOR    |
 
-The value of the primary key column will be used as point ID in Qdrant. If no primary key is present, a random UUID will be used.
+The value of the primary key column will be used as point ID in Qdrant. Supported primary key types are `INT` for numeric point IDs and `STRING` for UUID point IDs. If no primary key is present, a random UUID will be used.
+
+Non-vector columns are written into the Qdrant payload with the same field name. Vector columns are written as named vectors with the same field name, so the target collection must already define matching vector names and dimensions.
 
 ## Options
 
 |      name       |  type  | required | default value |
 |-----------------|--------|----------|---------------|
 | collection_name | string | yes      | -             |
-| batch_size      | int    | no       | 64            |
 | host            | string | no       | localhost     |
 | port            | int    | no       | 6334          |
 | api_key         | string | no       | -             |
-| use_tls         | int    | no       | false         |
+| use_tls         | bool   | no       | false         |
 | common-options  |        | no       | -             |
 
 ### collection_name [string]
 
-The name of the Qdrant collection to read data from.
-
-### batch_size [int]
-
-The batch size of each upsert request to Qdrant.
+The name of the Qdrant collection to write data into.
 
 ### host [string]
 
@@ -70,6 +65,50 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+## Task Example
+
+The following example writes two payload fields, `file_name` and `file_size`, and one named vector, `my_vector`, into Qdrant.
+
+Before running the job, create the target Qdrant collection and define a vector named `my_vector` with dimension `4`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Qdrant {
+    collection_name = "sink_collection"
+    host = "localhost"
+    port = 6334
+  }
+}
+```
 
 ## Changelog
 

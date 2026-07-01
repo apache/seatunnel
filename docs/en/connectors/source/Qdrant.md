@@ -19,7 +19,7 @@ This connector can be used to read data from a Qdrant collection.
 | host            | string | no       | localhost     |
 | port            | int    | no       | 6334          |
 | api_key         | string | no       | -             |
-| use_tls         | int    | no       | false         |
+| use_tls         | bool   | no       | false         |
 | common-options  |        | no       | -             |
 
 ### collection_name [string]
@@ -34,17 +34,26 @@ Eg:
 
 ```hocon
 schema = {
-  fields {
-    age = int
-    address = string
-    some_vector = float_vector
-  }
+  columns = [
+    {
+      name = age
+      type = int
+    }
+    {
+      name = address
+      type = string
+    }
+    {
+      name = some_vector
+      type = float_vector
+    }
+  ]
 }
 ```
 
 Each entry in Qdrant is called a point.
 
-The `float_vector` type columns are read from the vectors of each point, others are read from the JSON payload associated with the point.
+The `float_vector` type columns are read from the vectors of each point. Other columns are read from the JSON payload associated with the point. Field names in the SeaTunnel schema must match the payload key or vector name in Qdrant.
 
 If a column is marked as primary key, the ID of the Qdrant point is written into it. It can be of type `"string"` or `"int"`. Since Qdrant only [allows](https://qdrant.tech/documentation/concepts/points/#point-ids) positive integers and UUIDs as point IDs.
 
@@ -52,11 +61,20 @@ If the collection was created with a single default/unnamed vector, use `default
 
 ```hocon
 schema = {
-  fields {
-    age = int
-    address = string
-    default_vector = float_vector
-  }
+  columns = [
+    {
+      name = age
+      type = int
+    }
+    {
+      name = address
+      type = string
+    }
+    {
+      name = default_vector
+      type = float_vector
+    }
+  ]
 }
 ```
 
@@ -81,6 +99,47 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Task Example
+
+The following example reads payload fields `file_name` and `file_size`, and reads the named vector `my_vector` from a Qdrant collection.
+
+Before running the job, make sure the Qdrant collection exists and contains a vector named `my_vector`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
 
 ## Changelog
 

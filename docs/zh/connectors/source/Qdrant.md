@@ -32,17 +32,26 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 ```hocon
 schema = {
-  fields {
-    age = int
-    address = string
-    some_vector = float_vector
-  }
+  columns = [
+    {
+      name = age
+      type = int
+    }
+    {
+      name = address
+      type = string
+    }
+    {
+      name = some_vector
+      type = float_vector
+    }
+  ]
 }
 ```
 
 Qdrant 中的每个条目称为一个点。
 
-`float_vector` 类型的列从每个点的向量中读取，其他列从与该点关联的 JSON 有效负载中读取。
+`float_vector` 类型的列从每个点的向量中读取，其他列从与该点关联的 JSON payload 中读取。SeaTunnel schema 中的字段名必须和 Qdrant 中的 payload key 或向量名称一致。
 
 如果列被标记为主键，Qdrant 点的 ID 将写入其中。它可以是 `"string"` 或 `"int"` 类型。因为 Qdrant 仅[允许](https://qdrant.tech/documentation/concepts/points/#point-ids)使用正整数和 UUID 作为点 ID。
 
@@ -50,11 +59,20 @@ Qdrant 中的每个条目称为一个点。
 
 ```hocon
 schema = {
-  fields {
-    age = int
-    address = string
-    default_vector = float_vector
-  }
+  columns = [
+    {
+      name = age
+      type = int
+    }
+    {
+      name = address
+      type = string
+    }
+    {
+      name = default_vector
+      type = float_vector
+    }
+  ]
 }
 ```
 
@@ -78,7 +96,48 @@ Qdrant 实例的 gRPC 端口。
 
 ### 通用选项
 
-源插件的通用参数，请参考[源通用选项](../common-options/source-common-options.md)了解详情。****
+源插件的通用参数，请参考[源通用选项](../common-options/source-common-options.md)了解详情。
+
+## 任务示例
+
+下面的示例从 Qdrant 集合中读取 payload 字段 `file_name`、`file_size`，并读取名为 `my_vector` 的向量。
+
+运行任务前，请先确认 Qdrant 集合已经存在，并且集合中有名为 `my_vector` 的向量。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
 
 ## 变更日志
 
