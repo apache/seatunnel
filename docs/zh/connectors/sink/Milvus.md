@@ -20,10 +20,10 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 
 ## 主要特性
 
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
