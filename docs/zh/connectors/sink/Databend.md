@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -155,7 +155,10 @@ sink {
 }
 ```
 
-### CDC mode
+### CDC 模式
+
+`conflict_key` 用来指定合并更新/删除事件的主键列。只有当 DELETE 事件需要删除
+Databend 中的数据时，才需要设置 `enable_delete = true`。
 
 ```hocon
 sink {
@@ -166,9 +169,8 @@ sink {
     database = "default"
     table = "sink_table"
     
-    # Enable CDC mode
+    # 开启 CDC 写入模式
     batch_size = 1
-    interval = 3
     conflict_key = "id"
     enable_delete = true
   }

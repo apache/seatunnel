@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-email.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -92,8 +92,7 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 
 ### 发送单表数据到多个收件人
 
-这个示例来自 Email e2e 任务。示例使用不需要认证的测试 SMTP 服务，并给 `email_to_address`
-中的每个邮箱各发送一封邮件。
+这个示例使用不需要认证的 SMTP 服务，并给 `email_to_address` 中的每个邮箱各发送一封邮件。
 
 ```hocon
 env {
@@ -132,7 +131,7 @@ sink {
   EmailSink {
     email_from_address = "sender@example.com"
     email_to_address = "receiver-1@example.com,receiver-2@example.com"
-    email_host = "email-e2e"
+    email_host = "smtp.example.com"
     email_transport_protocol = "smtp"
     email_smtp_auth = false
     email_smtp_port = 3025
@@ -147,7 +146,7 @@ sink {
 
 ### 发送多表数据
 
-Email sink 支持多表输入。在 e2e 任务中，两个上游表会让每个收件人收到两封邮件。
+Email sink 支持多表输入。两个上游表会让每个收件人收到两封邮件。
 
 ```hocon
 source {
@@ -183,7 +182,7 @@ sink {
   EmailSink {
     email_from_address = "sender@example.com"
     email_to_address = "receiver-3@example.com,receiver-4@example.com"
-    email_host = "email-e2e"
+    email_host = "smtp.example.com"
     email_transport_protocol = "smtp"
     email_smtp_auth = false
     email_smtp_port = 3025

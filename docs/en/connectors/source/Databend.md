@@ -70,20 +70,14 @@ Basic Configuration:
 | password | String | Yes | - | Databend database password |
 | database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
 | table | String | No | - | Databend table name |
-| query | String | No | - | Databend query statement, if set will override database and table settings |
-| fetch_size | Integer | No | 0 | Number of records to fetch from database at once, set to 0 to use JDBC driver default value |
+| query | String | No | - | Databend query statement. If set, it overrides database and table settings |
+| sql | String | No | - | Alias-style custom SQL statement. If both `sql` and `query` are set, `sql` takes precedence |
+| fetch_size | Integer | No | 1 | Number of records to fetch from Databend at once. Set it higher for large reads |
+| ssl | Boolean | No | false | Whether to use SSL for the Databend connection |
 | jdbc_config | Map | No | - | Additional JDBC connection configuration, such as load balancing strategies |
 
-Table List Configuration:
-
-| Name | Type | Required | Default Value | Description |
-|------|------|----------|---------------|-------------|
-| database | String | Yes | - | Database name |
-| table | String | Yes | - | Table name |
-| query | String | No | - | Custom query statement |
-| fetch_size | Integer | No | 0 | Number of records to fetch from database at once |
-
-Note: When this configuration corresponds to a single table, you can flatten the configuration items from table_list to the outer level.
+You must configure either `sql`, `query`, or both `database` and `table`. The connector does not
+currently support `table_list`, so configure one Databend source block for each table.
 
 ## Task Examples
 
@@ -119,6 +113,21 @@ source {
     username = "root"
     password = ""
     query = "SELECT id, name, age FROM default.users WHERE age > 18"
+  }
+}
+```
+
+### Using SSL
+
+```hocon
+source {
+  Databend {
+    url = "jdbc:databend://databend.example.com:8000/default"
+    username = "root"
+    password = ""
+    sql = "SELECT * FROM default.users"
+    ssl = true
+    fetch_size = 1000
   }
 }
 ```
