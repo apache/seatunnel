@@ -245,7 +245,7 @@ HTTP body 用于在请求或响应中携带实际数据，包括 JSON、表单�
 
 参考格式如下：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 对于表单提交，请按如下设置 content-type。

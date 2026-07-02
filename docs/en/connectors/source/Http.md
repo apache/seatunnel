@@ -256,7 +256,7 @@ The HTTP body is used to carry the actual data in requests or responses, includi
 
 The reference format is as follows：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 For form submissions,please set the content-type as follows.
