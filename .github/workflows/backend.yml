@@ -853,13 +853,6 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
-          # Keep the longest Iceberg and HBase suites in a dedicated shard so this hosted runner
-          # does not lose heartbeat before the rest of the part-2 modules finish.
-          # Handle both first-position (no leading comma) and mid/last-position (leading comma).
-          run_it_modules=${run_it_modules//:connector-iceberg-e2e,/}
-          run_it_modules=${run_it_modules//,:connector-iceberg-e2e/}
-          run_it_modules=${run_it_modules//:connector-hbase-e2e,/}
-          run_it_modules=${run_it_modules//,:connector-hbase-e2e/}
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m

@@ -141,7 +141,13 @@ def get_deleted_modules(files):
     print(output_module)
 
 
-def get_sub_it_modules(modules, total_num, current_num):
+def build_sub_it_modules(modules, total_num, current_num):
+    """
+    Build one all-connectors shard while excluding suites with dedicated jobs.
+
+    Heavy suites that already have their own workflow shard must stay out of the
+    round-robin shards, otherwise CI runs them twice and wastes runner time.
+    """
     modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr.remove("connector-jdbc-e2e")
     modules_arr.remove("connector-kafka-e2e")
@@ -155,6 +161,10 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
+    if "connector-iceberg-e2e" in modules_arr:
+        modules_arr.remove("connector-iceberg-e2e")
+    if "connector-hbase-e2e" in modules_arr:
+        modules_arr.remove("connector-hbase-e2e")
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:
@@ -164,8 +174,11 @@ def get_sub_it_modules(modules, total_num, current_num):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             output = output + ",:" + module
 
-    output = output[1:len(output)]
-    print(output)
+    return output[1:len(output)]
+
+
+def get_sub_it_modules(modules, total_num, current_num):
+    print(build_sub_it_modules(modules, total_num, current_num))
 
 
 def get_sub_update_it_modules(modules, total_num, current_num):
