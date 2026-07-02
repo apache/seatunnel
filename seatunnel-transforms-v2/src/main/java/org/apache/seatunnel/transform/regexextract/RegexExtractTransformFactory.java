@@ -53,8 +53,7 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
                                 RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
                                 new DefaultValuesLengthValidator()))
                 .optional(
-                        TransformCommonOptions.MULTI_TABLES,
-                        TransformCommonOptions.RULE_MATCH_MODE)
+                        TransformCommonOptions.MULTI_TABLES, TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 
