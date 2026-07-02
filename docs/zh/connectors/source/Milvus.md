@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## 描述
 
-Milvus source 连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读取一个集合，
+Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读取一个集合，
 也可以读取某个数据库下的所有集合，并且会把 Milvus 的分区信息、向量索引信息等元数据传给下游，
 下游连接器支持时可以继续使用这些信息。
 
@@ -18,7 +18,7 @@ Milvus source 连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可�
 - 读取 `FLOAT_VECTOR`、`BINARY_VECTOR`、`FLOAT16_VECTOR`、`BFLOAT16_VECTOR` 和 `SPARSE_FLOAT_VECTOR` 字段。
 - 遇到限流或 gRPC 限制时自动重试。
 
-## 关键特性
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -49,18 +49,18 @@ Milvus source 连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可�
 | 名称         | 类型     | 是否必传 | 默认值     | 描述                                                                                         |
 |------------|--------|------|---------|--------------------------------------------------------------------------------------------|
 | url        | String | 是    | -       | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                                 |
-| token      | String | 是    | -       | Milvus 认证 token。本地 Milvus 通常使用 `username:password`。                                       |
+| token      | String | 是    | -       | Milvus 认证令牌。本地 Milvus 通常使用 `username:password`。                                            |
 | database   | String | 否    | default | 源数据库。                                                                                      |
 | collection | String | 否    | -       | 源集合。配置后只读取这个集合；不配置时读取 `database` 下的所有集合。兼容旧配置键 `collection_name`。                   |
 | batch_size | Int    | 否    | 1000    | 每批从 Milvus 读取的数据条数。                                                                       |
-| rate_limit | Int    | 否    | 1000000 | source 读取速率限制。                                                                            |
+| rate_limit | Int    | 否    | 1000000 | 源端读取速率限制。                                                                                 |
 
 ## 注意事项
 
 - `database` 默认是 `default`，本地 Milvus 的简单任务通常不用配置。
 - `collection` 是可选项。只想读一个集合时再配置。
-- source 读取带分区的集合时，下游 Milvus sink 可以利用这些元数据在目标集合创建相同分区名。
-- source 读取到向量索引信息时，下游 Milvus sink 可以配合 `create_index = true` 创建相同向量索引。
+- 源端读取带分区的集合时，下游 Milvus 接收器可以利用这些元数据在目标集合创建相同分区名。
+- 源端读取到向量索引信息时，下游 Milvus 接收器可以配合 `create_index = true` 创建相同向量索引。
 
 ## 任务示例
 
