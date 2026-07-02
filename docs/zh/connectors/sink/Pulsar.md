@@ -69,7 +69,7 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### format [String]
 
-数据格式。默认格式为 json。可选 text 和 avro 格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。使用 avro 格式时需要配置 `schema`。
+数据格式。默认格式为 json。可选 text 和 avro 格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。使用 avro 格式时，Avro schema 会从上游数据的 row type 自动推导，无需在 sink 侧单独配置 `schema`。
 
 ### field_delimiter [String]
 

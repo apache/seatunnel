@@ -40,7 +40,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         | Stop position mode. Options: `NEVER` (streaming), `LATEST` (batch), `TIMESTAMP` (batch)                         |
 | cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
-| format                   | String  | No       | json          | Data format. Default is json. Optional text and avro format. **Multi-table mode only supports JSON, CANAL_JSON and AVRO**                            |
+| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json and avro. **Multi-table mode only supports JSON, CANAL_JSON and AVRO**                            |
 | common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
 ### topic [String]
@@ -158,7 +158,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ## format [String]
 
-Data format. The default format is json. Optional text and avro format. The `schema` option is required when using avro format. See [formats](../formats) for more details.
+Data format. The default format is json. Supported formats are json, canal_json and avro. The `schema` option is required when using avro format. See [formats](../formats) for more details.
 
 ### common options
 

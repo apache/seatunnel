@@ -71,7 +71,7 @@ For example, `key1:val1,key2:val2`
 ### format [String]
 
 Data format. The default format is json. Optional text and avro format. The default field separator is ",".
-If you customize the delimiter, add the "field_delimiter" option. The `schema` option is required when using avro format.
+If you customize the delimiter, add the "field_delimiter" option. When using avro format, the Avro schema is derived from the upstream row type; no sink-side `schema` option is required.
 
 ### field_delimiter [String]
 
