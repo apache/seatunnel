@@ -6,7 +6,9 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 
 ## 描述
 
-用于读取prometheus数据。
+从 Prometheus 兼容的 HTTP API 读取指标样本。
+
+连接器使用 Prometheus 查询 API。`url` 只需要填写基础地址，例如 `http://prometheus:9090` 或 `http://victoria-metrics:8428`。SeaTunnel 会按查询类型自动追加 `/api/v1/query` 或 `/api/v1/query_range`。
 
 ## 主要特性
 
@@ -16,133 +18,144 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 
 ## 源选项
 
-| 名称                          | 类型      | 是否必填 | 默认值             |
-|-----------------------------|---------|------|-----------------|
-| url                         | String  | Yes  | -               |
-| query                       | String  | Yes  | -               |
-| query_type                  | String  | Yes  | Instant         |
-| content_field               | String  | Yes  | $.data.result.* |
-| schema.fields               | Config  | Yes  | -               |
-| format                      | String  | No   | json            |
-| params                      | Map     | Yes  | -               |
-| poll_interval_millis        | int     | No   | -               |
-| retry                       | int     | No   | -               |
-| retry_backoff_multiplier_ms | int     | No   | 100             |
-| retry_backoff_max_ms        | int     | No   | 10000           |
-| enable_multi_lines          | boolean | No   | false           |
-| common-options              | config  | No   |                 |
-
-### url [String]
-
-http 请求路径。
-
-### query [String]
-
-Prometheus 表达式查询字符串
+| 名称                        | 类型      | 是否必填 | 默认值 | 描述 |
+|-----------------------------|---------|----------|--------|------|
+| url                         | String  | 是       | -      | Prometheus 兼容服务的基础地址。 |
+| query                       | String  | 是       | -      | PromQL 查询表达式。 |
+| query_type                  | String  | 否       | Instant | 查询类型，可选值为 `Instant` 和 `Range`。 |
+| start                       | String  | `query_type = Range` 时必填 | - | 范围查询开始时间。 |
+| end                         | String  | `query_type = Range` 时必填 | - | 范围查询结束时间。 |
+| step                        | String  | `query_type = Range` 时必填 | - | 范围查询步长，例如 `15s`。 |
+| time                        | Long    | 否       | -      | 即时查询的评估时间，使用 Unix 时间戳。 |
+| timeout                     | Long    | 否       | -      | 传给 Prometheus 的查询超时时间。 |
+| headers                     | Map     | 否       | -      | HTTP 请求头。 |
+| params                      | Map     | 否       | -      | 额外的 HTTP 请求参数。SeaTunnel 会自动加入 `query` 和查询时间参数。 |
+| content_field               | String  | 否       | -      | 用来提取样本列表的 JSONPath。Prometheus 响应通常填写 `$.data.result.*`。 |
+| schema.fields               | Config  | `format = json` 时必填 | - | 输出字段结构。 |
+| format                      | String  | 否       | text   | 响应格式。读取 Prometheus 指标样本时请设置为 `json`。 |
+| poll_interval_millis        | int     | 否       | -      | 流模式下请求间隔，单位毫秒。 |
+| retry                       | int     | 否       | -      | HTTP 请求出现 `IOException` 时的最大重试次数。 |
+| retry_backoff_multiplier_ms | int     | 否       | 100    | 重试退避时间乘数，单位毫秒。 |
+| retry_backoff_max_ms        | int     | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
+| common-options              | config  | 否       | -      | Source 通用选项。 |
 
 ### query_type [String]
 
-Instant/Range
+`Instant` 表示查询某一个时间点的指标值。`Range` 表示查询一段时间范围内的指标值。
 
-1. Instant : 简单指标的即时查询。
-2. Range : 一段时间内指标数据。
+### start / end [String]
 
-https://prometheus.io/docs/prometheus/latest/querying/api/
+仅在 `query_type = Range` 时使用。
 
-### params [Map]
+支持以下写法：
 
-http 请求参数
+- `CURRENT_TIMESTAMP`
+- ISO-8601 时间，例如 `2025-05-13T02:25:23Z`
+- Unix 秒级时间戳，例如 `1747103123.083`
 
-### poll_interval_millis [int]
+### step [String]
 
-流模式下请求HTTP API间隔(毫秒)
-
-### retry [int]
-
-The max retry times if request http return to `IOException`
-
-### retry_backoff_multiplier_ms [int]
-
-请求http返回到' IOException '的最大重试次数
-
-### retry_backoff_max_ms [int]
-
-http请求失败，最大重试回退时间(毫秒)
-
-### format [String]
-
-上游数据的格式，默认为json。
+仅在 `query_type = Range` 时使用。它表示 Prometheus 接受的查询步长，例如 `15s`、`1m`，也可以是秒数。
 
 ### schema [Config]
 
-按照如下填写一个固定值
+Prometheus source 固定输出下面三个字段，顺序也固定：
 
 ```hocon
-    schema = {
-        fields {
-            metric = "map<string, string>"
-            value = double
-            time = long
-            }
-        }
-
+schema = {
+  fields {
+    metric = "map<string, string>"
+    value = double
+    time = long
+  }
+}
 ```
 
-#### fields [Config]
-
-上游数据的模式字段
+`metric` 字段保存指标标签，包括 `__name__`。`value` 字段是指标值。`time` 字段是毫秒级样本时间戳。
 
 ### common options
 
-源插件常用参数，请参考[Source Common Options](../common-options/source-common-options.md) 了解详细信息
+源插件通用参数，请参考 [Source Common Options](../common-options/source-common-options.md)。
 
 ## 示例
 
-### Instant
+### 即时查询
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Prometheus {
-    plugin_output = "http"
-    url = "http://mockserver:1080"
-    query = "up"
+    plugin_output = "prometheus_metrics"
+    url = "http://prometheus:9090"
+    query = "metric_1"
     query_type = "Instant"
     content_field = "$.data.result.*"
     format = "json"
     schema = {
-        fields {
-            metric = "map<string, string>"
-            value = double
-            time = long
-            }
-        }
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
     }
+  }
 }
 ```
 
-### Range
+### 范围查询
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Prometheus {
+    plugin_output = "prometheus_metrics"
+    url = "http://prometheus:9090"
+    query = "metric_1"
+    query_type = "Range"
+    start = "CURRENT_TIMESTAMP"
+    end = "CURRENT_TIMESTAMP"
+    step = "15s"
+    content_field = "$.data.result.*"
+    format = "json"
+    schema = {
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
+    }
+  }
+}
+```
+
+### 读取 Prometheus 兼容接口
 
 ```hocon
 source {
   Prometheus {
-    plugin_output = "http"
-    url = "http://mockserver:1080"
-    query = "up"
-    query_type = "Range"
+    plugin_output = "metrics"
+    url = "http://victoria-metrics:8428"
+    query = "metric_1"
+    query_type = "Instant"
     content_field = "$.data.result.*"
     format = "json"
-    start = "2024-07-22T20:10:30.781Z"
-    end = "2024-07-22T20:11:00.781Z"
-    step = "15s"
     schema = {
-        fields {
-            metric = "map<string, string>"
-            value = double
-            time = long
-            }
-        }
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
     }
   }
+}
 ```
 
 ## 变更日志

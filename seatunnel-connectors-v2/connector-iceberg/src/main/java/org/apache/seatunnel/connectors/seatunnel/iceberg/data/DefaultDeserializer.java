@@ -90,8 +90,10 @@ public class DefaultDeserializer implements Deserializer {
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) icebergType;
                 if (timestampType.shouldAdjustToUTC()) {
-                    return OffsetDateTime.class.cast(icebergValue).toLocalDateTime();
+                    // withZone() → LTZ → return OffsetDateTime to preserve timezone info
+                    return OffsetDateTime.class.cast(icebergValue);
                 }
+                // withoutZone() → NTZ → return LocalDateTime as-is
                 return LocalDateTime.class.cast(icebergValue);
             case STRING:
                 return String.class.cast(icebergValue);

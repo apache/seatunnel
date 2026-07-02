@@ -49,6 +49,24 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                 .map(e -> e.toLocalDateTime().toLocalTime())
                 .orElse(null);
     }
+
+    @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            // DATETIMEOFFSET supports OffsetDateTime directly via setObject
+            statement.setObject(statementIndex, (java.time.OffsetDateTime) value);
+        } else {
+            super.setValueToStatementByDataType(
+                    value, statement, seaTunnelDataType, statementIndex, sourceType);
+        }
+    }
+
     /**
      * {@inheritDoc}
      *

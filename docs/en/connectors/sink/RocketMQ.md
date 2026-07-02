@@ -19,6 +19,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 By default, we will use 2pc to guarantee the message is sent to RocketMQ exactly once.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
