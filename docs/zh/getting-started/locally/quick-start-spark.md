@@ -27,8 +27,12 @@ sidebar_position: 4
 
 ## 步骤 3: 添加作业配置文件来定义作业
 
-编辑`config/v2.streaming.conf.template`，它决定了当SeaTunnel启动后数据输入、处理和输出的方式及逻辑。
-下面是配置文件的示例，它与上面提到的示例应用程序相同。
+请根据 Spark 版本选择对应的配置示例。
+
+### Spark 2.4 / 3.3
+
+编辑 `config/v2.streaming.conf.template`，它决定了当 SeaTunnel 启动后数据输入、处理和输出的方式及逻辑。
+下面的示例包含 `FieldMapper` transform 阶段，**仅适用于 Spark 2.4 / 3.3**。
 
 ```hocon
 env {
@@ -68,6 +72,36 @@ sink {
 
 ```
 
+### Spark 4.1
+
+请创建 `config/spark41-fake-to-console.conf`，使用**不含 transform** 的 source → sink 作业。`-spark41-bin` 发行包尚未附带 `seatunnel-transforms-v2`，请勿照搬上面的 Spark 2.4 / 3.3 示例。详见 [Spark 4.1 支持范围](../../engines/spark.md#spark-41-支持范围)。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "fake"
+  }
+}
+```
+
 关于配置的更多信息请查看[配置的基本概念](../../introduction/concepts/config.md)
 
 如果你还需要了解数据集编排或 Transform 参数，可继续阅读：
@@ -103,34 +137,7 @@ Spark 4.1.x（需要 JDK 17+）
 
 请下载 Spark 4.1 专用发行包 `apache-seatunnel-${version}-spark41-bin.tar.gz`。标准 `-bin` 包不包含 Spark 4.1。
 
-`-spark41-bin` 发行包**尚未**附带 `seatunnel-transforms-v2`。请勿在 Spark 4.1 上直接使用 `config/v2.streaming.conf.template`，因为该模板包含 `FieldMapper` transform 阶段。请使用不含 transform 的配置，例如：
-
-```hocon
-# config/spark41-fake-to-console.conf
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    plugin_output = "fake"
-    row.num = 16
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
-
-sink {
-  Console {
-    plugin_input = "fake"
-  }
-}
-```
+使用上方 [步骤 3（Spark 4.1）](#spark-41) 中的不含 transform 配置：
 
 ```shell
 cd "apache-seatunnel-${version}"
