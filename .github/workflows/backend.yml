@@ -434,6 +434,7 @@ jobs:
           cd seatunnel-website
           npm set strict-ssl false
           npm install
+          npm install @docusaurus/plugin-client-redirects
           npm run build
 
   seatunnel-ui:
