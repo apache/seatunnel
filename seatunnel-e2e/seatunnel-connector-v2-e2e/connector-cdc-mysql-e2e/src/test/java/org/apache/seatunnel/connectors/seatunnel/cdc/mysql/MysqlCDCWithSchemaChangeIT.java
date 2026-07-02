@@ -55,6 +55,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -235,30 +236,24 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     /**
      * Verifies that two upstream databases can expose the same table name, evolve that schema, and
      * still land in different downstream databases without mixing data or DDL.
-     */
+    */
     private static final long DEFAULT_TABLE_SYNC_TIMEOUT_MS = 60000L;
 
     private static final long MULTI_DB_TABLE_SYNC_TIMEOUT_MS = 180000L;
 
-    /** Allows slow CI nodes enough time to finish job submission before data assertions start. */
-    private static final long JOB_SUBMISSION_TIMEOUT_MS = 90000L;
-
-    @Order(3)
+    @Order(4)
     @TestTemplate
     public void testMysqlCdcWithMultiDatabaseSameTableSchemaEvolution(TestContainer container) {
         executeSqlTemplate(MULTI_DB_SCHEMA_CHANGE_INIT_TEMPLATE);
-        CompletableFuture<Container.ExecResult> jobSubmissionFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(MULTI_DB_SCHEMA_CHANGE_JOB_CONFIG);
-                            } catch (Exception e) {
-                                log.error("Commit task exception :" + e.getMessage());
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        assertJobSubmitted(jobSubmissionFuture, MULTI_DB_SCHEMA_CHANGE_JOB_CONFIG);
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(MULTI_DB_SCHEMA_CHANGE_JOB_CONFIG);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
 
         // Once the job submission succeeds, both sink tables must first catch up with their
         // matching source tables before the DDL phase starts. This keeps the DDL and later DML
@@ -275,6 +270,14 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 MULTI_DB_SINK_DATABASE_B,
                 MULTI_DB_SAME_NAME_TABLE,
                 MULTI_DB_TABLE_SYNC_TIMEOUT_MS);
+
+        // The DDL phase must start only after the CDC reader switches from snapshot discovery to
+        // binlog consumption for both same-name source tables.
+        waitForIncrementalRead(
+                container,
+                MULTI_DB_TABLE_SYNC_TIMEOUT_MS,
+                MULTI_DB_SOURCE_DATABASE_A + "." + MULTI_DB_SAME_NAME_TABLE,
+                MULTI_DB_SOURCE_DATABASE_B + "." + MULTI_DB_SAME_NAME_TABLE);
 
         executeSqlTemplate(MULTI_DB_SCHEMA_CHANGE_ADD_COLUMNS_TEMPLATE);
 
@@ -293,32 +296,114 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     }
 
     /**
-     * Fails fast when the streaming job never completes submission, so CI reports a clear job
-     * submission problem instead of a later sink-row timeout.
+     * Regression for issue #11044. With {@code schema-changes.exclude = ["drop.column"]}: a dropped
+     * column must NOT propagate to the sink, and the concurrent data changes must still reach the
+     * sink.
+     *
+     * <p>The dropped column here is intentionally <b>NULLABLE</b>. #11044 is event-type filtering
+     * only and does not define a schema-change data-handling policy, so the source writes {@code
+     * null} for a retained-but-no-longer-supplied column. Excluding {@code drop.column} for a NOT
+     * NULL column is a known limitation deferred to a future behavior-policy feature.
      */
-    private void assertJobSubmitted(
-            CompletableFuture<Container.ExecResult> jobSubmissionFuture, String jobConfigFile) {
-        await().atMost(JOB_SUBMISSION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+    @Order(3)
+    @TestTemplate
+    public void testMysqlCdcSchemaChangeEventTypeFilter(TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_schema_change_filter.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // initial snapshot synced
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(
-                                    jobSubmissionFuture.isDone(),
-                                    "Job submission did not finish for " + jobConfigFile);
-                            Container.ExecResult execResult = jobSubmissionFuture.getNow(null);
-                            Assertions.assertNotNull(
-                                    execResult,
-                                    "Job submission future completed without exec result for "
-                                            + jobConfigFile);
-                            Assertions.assertEquals(
-                                    0,
-                                    execResult.getExitCode(),
-                                    "Job submission failed for "
-                                            + jobConfigFile
-                                            + "\nSTDOUT:\n"
-                                            + execResult.getStdout()
-                                            + "\nSTDERR:\n"
-                                            + execResult.getStderr());
-                        });
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_FILTER))));
+
+        // add.column is NOT excluded
+        shopDatabase.setTemplateName("add_columns_filter").createAndInitialize();
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        columnExists(
+                                                MYSQL_DATABASE, SINK_TABLE_FILTER, "add_column1"),
+                                        "add.column should propagate to the sink"));
+
+        // drop.column IS excluded; this template also inserts/updates/deletes rows at the same time
+        shopDatabase.setTemplateName("drop_columns_filter").createAndInitialize();
+
+        // regression: the concurrent data changes must still reach the sink
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_FILTER))));
+
+        // Row-level hardening: every INSERT, UPDATE, and DELETE must be reflected in the sink.
+        List<List<Object>> sourceRows =
+                query(String.format(STABLE_QUERY, MYSQL_DATABASE, SOURCE_TABLE));
+        List<List<Object>> sinkRows =
+                query(String.format(STABLE_QUERY, MYSQL_DATABASE, SINK_TABLE_FILTER));
+        Assertions.assertEquals(
+                sourceRows.size(),
+                sinkRows.size(),
+                "sink row count must match source after the concurrent INSERT/UPDATE/DELETE");
+        Assertions.assertTrue(
+                sinkRows.stream().noneMatch(row -> ((Number) row.get(0)).intValue() == 102),
+                "rows deleted at the source must also be deleted in the sink");
+        Assertions.assertTrue(
+                sinkRows.stream().anyMatch(row -> ((Number) row.get(0)).intValue() == 110),
+                "rows inserted at the source must appear in the sink");
+        assertSinkNameEquals(sinkRows, 101, "dailai");
+
+        // the excluded drop.column must NOT have been applied to the sink schema
+        Assertions.assertTrue(
+                columnExists(MYSQL_DATABASE, SINK_TABLE_FILTER, "add_column1"),
+                "drop.column was excluded, so the sink must keep the column the source dropped");
+    }
+
+    // Asserts the sink row with the given id exists and its name matches expectedName.
+    private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
+        Optional<List<Object>> row =
+                sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();
+        Assertions.assertTrue(row.isPresent(), "expected sink row with id=" + id);
+        Assertions.assertEquals(
+                expectedName,
+                row.get().get(1),
+                "updated value must propagate to the sink for id=" + id);
+    }
+
+    /**
+     * Checks whether a column remains present in the sink schema after filtered schema evolution.
+     */
+    private boolean columnExists(String database, String table, String column) {
+        return query(String.format(DESC, database, table)).stream()
+                .anyMatch(row -> column.equalsIgnoreCase(String.valueOf(row.get(0))));
     }
 
     private void assertSchemaEvolution(
