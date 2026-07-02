@@ -88,6 +88,8 @@ Read data from hdfs file system.
 | target_hadoop_conf         | map     | no       | -                           | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                                   |
 | update_strategy            | string  | no       | distcp                      | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                                           |
 | compare_mode               | string  | no       | len_mtime                   | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                                          |
+| update_compare_parallelism | int     | no       | 8                           | Maximum parallelism for sparse target metadata lookups. Valid range: `1-64`.                                                                                                                                                                                                                                                              |
+| update_compare_bulk_threshold | int  | no       | 64                          | Candidate count under one target parent that switches comparison to one directory listing. Must be greater than `0`.                                                                                                                                                                                                                     |
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
@@ -291,6 +293,14 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 
 - `len_mtime`: SKIP only when both `len` and `mtime` are equal, otherwise COPY.
 - `checksum`: SKIP only when `len` is equal and Hadoop `getFileChecksum` is equal, otherwise COPY (only valid when `update_strategy=strict`).
+
+### update_compare_parallelism [int]
+
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`. The maximum number of submitted-but-incomplete lookups is eight times this value.
+
+### update_compare_bulk_threshold [int]
+
+When candidates under one target parent directory reach this value, SeaTunnel lists that directory once instead of querying every file. The default is `64` and must be greater than `0`. FTP and SFTP targets always use directory listing. Source filters are applied while entries are listed to reduce peak metadata memory.
 
 ### enable_file_split [boolean]
 

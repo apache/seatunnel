@@ -4,6 +4,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 > Ftp 文件 Source 连接器
 
+> 海量文件发现和 update 比对的源码实现请参阅 [File Source 海量文件元数据流水线实现说明](./FileMetadataPipelineOptimization.md)。
+
 ## 支持的引擎
 
 > Spark<br/>
@@ -80,6 +82,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | target_hadoop_conf          | map     | 否    | -                   |
 | update_strategy             | string  | 否    | distcp              |
 | compare_mode                | string  | 否    | len_mtime           |
+| update_compare_parallelism  | int     | 否    | 8                   |
+| update_compare_bulk_threshold | int   | 否    | 64                  |
 | common-options              |         | 否    | -                   |
 | file_filter_modified_start  | string  | 否    | -                   | 
 | file_filter_modified_end    | string  | 否    | -                   | 
@@ -493,6 +497,14 @@ compare_mode = "len_mtime"
 ### compare_mode [string]
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
+
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+同一目标父目录的候选文件达到该值时，SeaTunnel 只枚举一次目标目录，不再逐文件查询。默认值为 `64`，且必须大于 `0`。FTP、SFTP 目标端始终使用目录枚举。源端会边枚举边过滤，以降低元数据峰值内存。
 
 ### file_filter_modified_start
 

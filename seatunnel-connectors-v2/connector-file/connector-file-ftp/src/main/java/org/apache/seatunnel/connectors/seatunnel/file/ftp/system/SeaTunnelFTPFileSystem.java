@@ -18,12 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.system;
 
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileStatusListingSession;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.StreamingFileSystem;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTPListParseEngine;
 import org.apache.commons.net.ftp.FTPReply;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -57,7 +60,7 @@ import java.net.URI;
 @InterfaceAudience.Public
 @InterfaceStability.Stable
 @Slf4j
-public class SeaTunnelFTPFileSystem extends FileSystem {
+public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileSystem {
     public static final Log LOG = LogFactory.getLog(SeaTunnelFTPFileSystem.class);
 
     public static final int DEFAULT_BUFFER_SIZE = 1024 * 1024;
@@ -486,6 +489,46 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
             FileStatus[] stats = listStatus(client, file);
             return stats;
         } finally {
+            disconnect(client);
+        }
+    }
+
+    @Override
+    public FileStatusListingSession openFileStatusListingSession() throws IOException {
+        return new FtpListingSession(connect());
+    }
+
+    private final class FtpListingSession implements FileStatusListingSession {
+        private static final int PAGE_SIZE = 1_000;
+        private final FTPClient client;
+
+        private FtpListingSession(FTPClient client) {
+            this.client = client;
+        }
+
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            return SeaTunnelFTPFileSystem.this.getFileStatus(client, path);
+        }
+
+        @Override
+        public void list(Path directory, FileStatusConsumer consumer) throws IOException {
+            Path workDir = new Path(client.printWorkingDirectory());
+            Path absolute = makeAbsolute(workDir, directory);
+            FTPListParseEngine engine = client.initiateListParsing(absolute.toUri().getPath());
+            while (engine.hasNext()) {
+                FTPFile[] files = engine.getNext(PAGE_SIZE);
+                for (FTPFile file : files) {
+                    String name = file.getName();
+                    if (!".".equals(name) && !"..".equals(name)) {
+                        consumer.accept(SeaTunnelFTPFileSystem.this.getFileStatus(file, absolute));
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
             disconnect(client);
         }
     }
