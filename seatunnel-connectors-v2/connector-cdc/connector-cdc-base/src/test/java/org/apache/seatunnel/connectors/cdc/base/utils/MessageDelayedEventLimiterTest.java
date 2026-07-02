@@ -45,7 +45,8 @@ public class MessageDelayedEventLimiterTest {
         }
         long expectedAcquiredCount = (long) (TimeUnit.SECONDS.toSeconds(10) * permitsPerSecond);
 
-        Assertions.assertTrue(expectedAcquiredCount >= actualAcquiredCount);
+        // Guava RateLimiter may grant one stored permit immediately before the steady interval.
+        Assertions.assertTrue(expectedAcquiredCount + 1 >= actualAcquiredCount);
     }
 
     @Test
