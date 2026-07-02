@@ -103,12 +103,41 @@ Spark 4.1.x (JDK 17+)
 
 Download the dedicated Spark 4.1 binary `apache-seatunnel-${version}-spark41-bin.tar.gz`. The standard `-bin` tarball does not include Spark 4.1.
 
+The `-spark41-bin` tarball does **not** bundle `seatunnel-transforms-v2` yet. Do **not** use `config/v2.streaming.conf.template` as-is on Spark 4.1, because that template includes a `FieldMapper` transform stage. Use a transform-free config such as the example below (see also [Spark 4.1 support scope](../../engines/spark.md#spark-41-support-scope)):
+
+```hocon
+# config/spark41-fake-to-console.conf
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "fake"
+  }
+}
+```
+
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-4.1-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/v2.streaming.conf.template
+--config ./config/spark41-fake-to-console.conf
 ```
 
 **See The Output**: When you run the command, you can see its output in your console. This

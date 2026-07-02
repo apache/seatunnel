@@ -103,12 +103,41 @@ Spark 4.1.x（需要 JDK 17+）
 
 请下载 Spark 4.1 专用发行包 `apache-seatunnel-${version}-spark41-bin.tar.gz`。标准 `-bin` 包不包含 Spark 4.1。
 
+`-spark41-bin` 发行包**尚未**附带 `seatunnel-transforms-v2`。请勿在 Spark 4.1 上直接使用 `config/v2.streaming.conf.template`，因为该模板包含 `FieldMapper` transform 阶段。请使用不含 transform 的配置，例如：
+
+```hocon
+# config/spark41-fake-to-console.conf
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "fake"
+  }
+}
+```
+
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-4.1-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/v2.streaming.conf.template
+--config ./config/spark41-fake-to-console.conf
 ```
 
 **查看输出**: 当您运行该命令时，您可以在控制台中看到它的输出。您可以认为这是命令运行成功或失败的标志。
