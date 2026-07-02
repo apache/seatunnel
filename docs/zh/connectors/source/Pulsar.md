@@ -40,7 +40,7 @@ Apache Pulsar 的源连接器。
 | cursor.stop.mode         | Enum    | 否    | NEVER  | 停止位置模式。可选值:`NEVER`(流式)、`LATEST`(批式)、`TIMESTAMP`(批式)                                       |
 | cursor.stop.timestamp    | Long    | 否    | -      | 当 `cursor.stop.mode=TIMESTAMP` 时的停止时间戳(毫秒)                                                |
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
-| format                   | String  | 否    | json   | 数据格式。默认为 json。**多表模式仅支持 JSON 和 CANAL_JSON**                                               |
+| format                   | String  | 否    | json   | 数据格式。支持 `json` 和 `canal_json`。                                                              |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -86,7 +86,9 @@ Pulsar 源发现新主题分区的间隔（毫秒）。非正值禁用主题分�
 
 ### subscription.name [String]
 
-消费者订阅名。对每个最终生效的表配置都是必需的；在多表模式下，可以定义在全局，也可以在 `tables_configs` 的 item 中单独覆盖。
+消费者订阅名。
+
+单表读取时必须配置 `subscription.name`。多表读取时，可以配置在全局，也可以配置在每个 `tables_configs` item 内；如果两处都配置，item 内的值对该 item 生效。
 
 ### client.service-url [String]
 
@@ -120,7 +122,7 @@ Pulsar 服务管理端点的 HTTP URL。
 
 ### poll.batch.size [Integer]
 
-轮询时要获取的最大记录数。更长的时间会增加吞吐量但也会增加延迟。
+单次轮询最多获取的记录数。
 
 ### cursor.startup.mode [Enum]
 
@@ -148,9 +150,9 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 数据结构定义，包括字段名和字段类型。参考 [Schema Feature](../../introduction/concepts/schema-feature.md)。
 
-## format [String]
+### format [String]
 
-数据格式。默认值为 `json`。更多格式说明参考 [formats](../formats)。
+数据格式。默认值为 `json`。Pulsar Source 当前支持 `json` 和 `canal_json`。
 
 ### 通用参数
 
@@ -158,50 +160,94 @@ Source 插件通用参数请参考 [Source Common Options](../common-options/sou
 
 ## 示例
 
+### 单 Topic 批式读取
+
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Pulsar {
-    topic = "example"
+    topic = "topic-it"
     subscription.name = "seatunnel"
     client.service-url = "pulsar://localhost:6650"
-    admin.service-url = "http://my-broker.example.com:8080"
-    plugin_output = "test"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = json
+    schema = {
+      fields {
+        c_string = string
+        c_boolean = boolean
+        c_int = int
+        c_bigint = bigint
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
   }
 }
 ```
 
-## 多表示例
+### 读取 Canal JSON 消息
+
+当 Pulsar topic 中保存的是 Canal JSON 变更事件时，使用 `format = canal_json`。
 
 ```hocon
 source {
   Pulsar {
-    subscription.name = "seatunnel-sub"
+    topic = "test-cdc_mds"
+    subscription.name = "seatunnel-cdc-sub"
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://localhost:8080"
     cursor.startup.mode = "EARLIEST"
-    cursor.stop.mode = "NEVER"
+    cursor.stop.mode = "LATEST"
+    format = canal_json
+    schema = {
+      fields {
+        id = int
+        name = string
+        description = string
+        weight = string
+      }
+    }
+  }
+}
+```
+
+### 多表读取
+
+```hocon
+source {
+  Pulsar {
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
     format = "json"
 
     tables_configs = [
       {
-        table_path = "default.orders"
+        table_path = "db.orders"
         topic = "persistent://public/default/orders"
+        subscription.name = "sub-orders"
         schema = {
           fields {
-            order_id = "bigint"
-            user_id = "int"
+            order_id = int
+            amount = double
           }
         }
       },
       {
-        table_path = "default.users"
+        table_path = "db.users"
         topic-pattern = "persistent://public/default/users-.*"
-        subscription.name = "users-sub"
-        format = "canal_json"
+        subscription.name = "sub-users"
         schema = {
           fields {
-            user_id = "int"
-            name = "string"
+            user_id = int
+            name = string
           }
         }
       }
@@ -210,7 +256,7 @@ source {
 }
 ```
 
-如果用于 batch 作业，请将 `cursor.stop.mode = "NEVER"` 改为有界模式，例如 `LATEST` 或 `TIMESTAMP`。
+用于 batch 作业时，请使用 `LATEST` 或 `TIMESTAMP` 这类有界停止模式；`cursor.stop.mode = "NEVER"` 适合流式作业。
 
 ## 变更日志
 
