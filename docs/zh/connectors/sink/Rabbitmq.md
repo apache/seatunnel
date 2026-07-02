@@ -11,30 +11,30 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 ## 主要特性
 
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
 
 |             名称             |   类型    | 是否必须 |  默认值  |
 |----------------------------|---------|------|-------|
-| host                       | string  | yes  | -     |
-| port                       | int     | yes  | -     |
-| virtual_host               | string  | yes  | -     |
-| username                   | string  | no   | -     |
-| password                   | string  | no   | -     |
-| queue_name                 | string  | yes  | -     |
-| url                        | string  | no   | -     |
-| routing_key                | string  | no   | -     |
-| exchange                   | string  | no   | -     |
-| network_recovery_interval  | int     | no   | -     |
-| topology_recovery_enabled  | boolean | no   | -     |
-| AUTOMATIC_RECOVERY_ENABLED | boolean | no   | -     |
-| connection_timeout         | int     | no   | -     |
-| rabbitmq.config            | map     | no   | -     |
-| durable                    | boolean | no   | true  |
-| exclusive                  | boolean | no   | false |
-| auto_delete                | boolean | no   | false |
-| common-options             |         | no   | -     |
+| host                       | string  | 是    | -     |
+| port                       | int     | 是    | -     |
+| virtual_host               | string  | 是    | -     |
+| username                   | string  | 否    | -     |
+| password                   | string  | 否    | -     |
+| queue_name                 | string  | 是    | -     |
+| url                        | string  | 否    | -     |
+| routing_key                | string  | 否    | -     |
+| exchange                   | string  | 否    | -     |
+| network_recovery_interval  | int     | 否    | -     |
+| topology_recovery_enabled  | boolean | 否    | -     |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | 否    | -     |
+| connection_timeout         | int     | 否    | -     |
+| rabbitmq.config            | map     | 否    | -     |
+| durable                    | boolean | 否    | true  |
+| exclusive                  | boolean | 否    | false |
+| auto_delete                | boolean | 否    | false |
+| common-options             |         | 否    | -     |
 
 ### host [string]
 
@@ -99,7 +99,9 @@ virtual host – 连接broker使用的vhost
 
 ### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-设置为true，表示启用连接恢复。
+设置为 true，表示启用连接恢复。
+
+当前连接器配置项名称使用大写形式。请写成 `AUTOMATIC_RECOVERY_ENABLED`，不要写成 `automatic_recovery_enabled`。
 
 ### connection_timeout [int]
 
@@ -107,7 +109,6 @@ TCP连接建立的超时时间，单位为毫秒；0代表不限制。
 
 ### rabbitmq.config [map]
 
-In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).
 除了上面提及必须设置的RabbitMQ客户端参数，你也还可以为客户端指定多个非强制参数，参见 [RabbitMQ官方文档参数设置](https://www.rabbitmq.com/configure.html)。
 
 ### common options

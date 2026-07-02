@@ -111,7 +111,9 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-如果为 true，启用连接恢复
+如果为 true，启用连接恢复。
+
+当前连接器配置项名称使用大写形式。请写成 `AUTOMATIC_RECOVERY_ENABLED`，不要写成 `automatic_recovery_enabled`。
 
 ### connection_timeout [int]
 

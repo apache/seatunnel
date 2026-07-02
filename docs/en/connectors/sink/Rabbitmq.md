@@ -83,7 +83,9 @@ if true, enables topology recovery
 
 ### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-if true, enables connection recovery
+If true, enables connection recovery.
+
+The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
