@@ -19,7 +19,7 @@ This connector can be used to read data from a Qdrant collection.
 | host            | string | no       | localhost     |
 | port            | int    | no       | 6334          |
 | api_key         | string | no       | -             |
-| use_tls         | int    | no       | false         |
+| use_tls         | bool   | no       | false         |
 | common-options  |        | no       | -             |
 
 ### collection_name [string]
@@ -44,7 +44,7 @@ schema = {
 
 Each entry in Qdrant is called a point.
 
-The `float_vector` type columns are read from the vectors of each point, others are read from the JSON payload associated with the point.
+Vector columns are read from the vectors of each point. Other columns are read from the JSON payload associated with the point.
 
 If a column is marked as primary key, the ID of the Qdrant point is written into it. It can be of type `"string"` or `"int"`. Since Qdrant only [allows](https://qdrant.tech/documentation/concepts/points/#point-ids) positive integers and UUIDs as point IDs.
 
@@ -81,6 +81,51 @@ Whether to use TLS(SSL) connection. Required if using Qdrant cloud(https).
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Task Example
+
+The Qdrant collection must already exist before the job starts. Vector field names and dimensions in the collection must match the schema used by SeaTunnel.
+
+The following example reads payload fields and a named vector from `source_collection`, then writes the rows to `sink_collection`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Qdrant {
+    collection_name = "sink_collection"
+    host = "localhost"
+    port = 6334
+  }
+}
+```
 
 ## Changelog
 
