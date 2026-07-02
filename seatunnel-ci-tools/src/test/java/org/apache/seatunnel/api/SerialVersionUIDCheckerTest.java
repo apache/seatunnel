@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(SerialVersionUIDCheckerTest.TestResultLogger.class)
@@ -61,13 +62,34 @@ public class SerialVersionUIDCheckerTest {
     private static final Logger LOG = LoggerFactory.getLogger(SerialVersionUIDCheckerTest.class);
     private static final String JAVA_FILE_EXTENSION = ".java";
     private static final String CONNECTOR_DIR = "seatunnel-connectors-v2";
-    private static final String CONNECTOR_CDC_DIR =
-            CONNECTOR_DIR + File.separator + "connector-cdc";
     private static final String JAVA_PATH_FRAGMENT =
             "src" + File.separator + "main" + File.separator + "java";
+    private static final String CONNECTOR_CDC_DIR =
+            CONNECTOR_DIR + File.separator + "connector-cdc";
+    private static final String CONNECTOR_JDBC_CONFIG_DIR =
+            CONNECTOR_DIR
+                    + File.separator
+                    + "connector-jdbc"
+                    + File.separator
+                    + JAVA_PATH_FRAGMENT
+                    + File.separator
+                    + "org"
+                    + File.separator
+                    + "apache"
+                    + File.separator
+                    + "seatunnel"
+                    + File.separator
+                    + "connectors"
+                    + File.separator
+                    + "seatunnel"
+                    + File.separator
+                    + "jdbc"
+                    + File.separator
+                    + "config";
     private static final List<String> CHECKED_PATHS =
             Arrays.asList(
                     CONNECTOR_CDC_DIR,
+                    CONNECTOR_JDBC_CONFIG_DIR,
                     "seatunnel-engine"
                             + File.separator
                             + "seatunnel-engine-core"
@@ -156,6 +178,22 @@ public class SerialVersionUIDCheckerTest {
             fail(errorMessage);
         }
         LOG.info("All checked classes have correct serialVersionUID.");
+    }
+
+    @Test
+    public void checkJdbcConfigPathIsCovered() {
+        List<Path> classPaths = findClassPaths();
+
+        assertTrue(
+                classPaths.stream()
+                        .anyMatch(
+                                path ->
+                                        path.endsWith(
+                                                Paths.get(
+                                                        "jdbc",
+                                                        "config",
+                                                        "JdbcConnectionConfig.java"))),
+                "JDBC config classes should be covered by serialVersionUID checker.");
     }
 
     private List<Path> findClassPaths() {
