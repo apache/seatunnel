@@ -68,11 +68,14 @@ Base configuration:
 | username                         | string | yes      | -          | User username                                                                                       |
 | password                         | string | yes      | -          | User password                                                                                       |
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
-| doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
-| doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris BE.                                                  |
+| doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE.                                             |
 | query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
-| table_list                       | string | 否       | -          | table list                                                                                          |
+| doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
+| doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization.                                               |
+| table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
 Table list configuration:
 
