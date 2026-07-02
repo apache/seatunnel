@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -146,7 +147,16 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                unfinishedSplits.add(split.asIncrementalSplit());
+                IncrementalSplit incrementalSplit =
+                        pruneRestoredIncrementalSplit(split.asIncrementalSplit());
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "subtask {} skip restored incremental split {} because all tables have been removed from current configuration.",
+                            subtaskId,
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -236,6 +246,30 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             }
             return splitState;
         }
+    }
+
+    private IncrementalSplit pruneRestoredIncrementalSplit(IncrementalSplit incrementalSplit) {
+        if (!hasRestoredCheckpointMetadata(incrementalSplit)) {
+            return incrementalSplit;
+        }
+        List<TableId> capturedTables = dataSourceDialect.discoverDataCollections(sourceConfig);
+        IncrementalSplit prunedSplit = incrementalSplit.pruneTables(capturedTables);
+        if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
+            log.info(
+                    "Pruned restored incremental split {} tables from {} to {} based on current captured tables.",
+                    incrementalSplit.splitId(),
+                    incrementalSplit.getTableIds(),
+                    prunedSplit.getTableIds());
+        }
+        return prunedSplit;
+    }
+
+    private boolean hasRestoredCheckpointMetadata(IncrementalSplit incrementalSplit) {
+        return incrementalSplit.getCheckpointDataType() != null
+                || (incrementalSplit.getCheckpointTables() != null
+                        && !incrementalSplit.getCheckpointTables().isEmpty())
+                || (incrementalSplit.getHistoryTableChanges() != null
+                        && !incrementalSplit.getHistoryTableChanges().isEmpty());
     }
 
     @Override

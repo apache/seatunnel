@@ -1,0 +1,88 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.cdc.base.source.split;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import io.debezium.relational.TableId;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+public class IncrementalSplitTest {
+
+    private static final TableId KEPT_TABLE =
+            new TableId("alpha_online", null, "account_histories");
+    private static final TableId REMOVED_TABLE =
+            new TableId("alpha_online", null, "account_interests");
+
+    @Test
+    public void testPruneTablesRemovesDeletedTableState() {
+        Map<TableId, byte[]> historyTableChanges = new HashMap<>();
+        historyTableChanges.put(KEPT_TABLE, new byte[] {1});
+        historyTableChanges.put(REMOVED_TABLE, new byte[] {2});
+
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                        null,
+                        null,
+                        Arrays.asList(
+                                completedSnapshotSplitInfo("kept-split", KEPT_TABLE),
+                                completedSnapshotSplitInfo("removed-split", REMOVED_TABLE)),
+                        Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(REMOVED_TABLE)),
+                        historyTableChanges);
+
+        IncrementalSplit pruned = split.pruneTables(Collections.singletonList(KEPT_TABLE));
+
+        Assertions.assertEquals(Collections.singletonList(KEPT_TABLE), pruned.getTableIds());
+        Assertions.assertEquals(1, pruned.getCompletedSnapshotSplitInfos().size());
+        Assertions.assertEquals(
+                KEPT_TABLE, pruned.getCompletedSnapshotSplitInfos().get(0).getTableId());
+        Assertions.assertEquals(1, pruned.getCheckpointTables().size());
+        Assertions.assertEquals(
+                TablePath.of("alpha_online.account_histories"),
+                pruned.getCheckpointTables().get(0).getTablePath());
+        Assertions.assertEquals(
+                Collections.singleton(KEPT_TABLE), pruned.getHistoryTableChanges().keySet());
+    }
+
+    private static CompletedSnapshotSplitInfo completedSnapshotSplitInfo(
+            String splitId, TableId tableId) {
+        return new CompletedSnapshotSplitInfo(splitId, tableId, null, null, null, null);
+    }
+
+    private static CatalogTable catalogTable(TableId tableId) {
+        TablePath tablePath = TablePath.of(tableId.catalog(), tableId.table());
+        return CatalogTable.of(
+                TableIdentifier.of("test", tablePath),
+                TableSchema.builder().build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "");
+    }
+}

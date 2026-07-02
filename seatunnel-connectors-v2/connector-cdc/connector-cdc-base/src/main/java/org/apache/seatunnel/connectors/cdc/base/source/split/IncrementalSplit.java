@@ -26,9 +26,13 @@ import lombok.Getter;
 import lombok.ToString;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @ToString
 @Getter
@@ -130,5 +134,44 @@ public class IncrementalSplit extends SourceSplitBase {
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
         this.checkpointTables = checkpointTables;
         this.historyTableChanges = historyTableChanges;
+    }
+
+    public IncrementalSplit pruneTables(Collection<TableId> capturedTables) {
+        Set<TableId> capturedTableSet = new HashSet<>(capturedTables);
+        List<TableId> filteredTableIds =
+                tableIds.stream().filter(capturedTableSet::contains).collect(Collectors.toList());
+        List<CompletedSnapshotSplitInfo> filteredCompletedSnapshotSplitInfos =
+                completedSnapshotSplitInfos.stream()
+                        .filter(info -> capturedTableSet.contains(info.getTableId()))
+                        .collect(Collectors.toList());
+        List<CatalogTable> filteredCheckpointTables =
+                checkpointTables == null
+                        ? null
+                        : checkpointTables.stream()
+                                .filter(
+                                        table ->
+                                                capturedTableSet.contains(
+                                                        new TableId(
+                                                                table.getTablePath()
+                                                                        .getDatabaseName(),
+                                                                table.getTablePath()
+                                                                        .getSchemaName(),
+                                                                table.getTablePath()
+                                                                        .getTableName())))
+                                .collect(Collectors.toList());
+        Map<TableId, byte[]> filteredHistoryTableChanges =
+                historyTableChanges == null
+                        ? null
+                        : historyTableChanges.entrySet().stream()
+                                .filter(entry -> capturedTableSet.contains(entry.getKey()))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return new IncrementalSplit(
+                splitId(),
+                filteredTableIds,
+                startupOffset,
+                stopOffset,
+                filteredCompletedSnapshotSplitInfos,
+                filteredCheckpointTables,
+                filteredHistoryTableChanges);
     }
 }
