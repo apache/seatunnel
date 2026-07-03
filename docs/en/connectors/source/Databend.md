@@ -65,7 +65,7 @@ Basic Configuration:
 
 | Name | Type | Required | Default Value | Description |
 |------|------|----------|---------------|-------------|
-| url | String | Yes | - | Databend JDBC connection URL |
+| url | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username | String | Yes | - | Databend database username |
 | password | String | Yes | - | Databend database password |
 | database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
@@ -76,8 +76,7 @@ Basic Configuration:
 | ssl | Boolean | No | false | Whether to use SSL for the Databend connection |
 | jdbc_config | Map | No | - | Additional JDBC connection configuration, such as load balancing strategies |
 
-You must configure either `sql`, `query`, or both `database` and `table`. The connector does not
-currently support `table_list`, so configure one Databend source block for each table.
+You must configure either `sql`, `query`, or both `database` and `table`. When more than one of them is configured, the read SQL is chosen in this order: `sql`, then `query`, then `SELECT * FROM database.table`. The connector does not currently support `table_list`, so configure one Databend source block for each table.
 
 ## Task Examples
 
