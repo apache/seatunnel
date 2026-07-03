@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | thrift_max_frame_size      | int     | 否    | -   | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -   | 是否启用 Leader 节点缓存                                                                 |
 | version                    | string  | 否    | -   | 客户端 SQL 语义版本（`V_0_12` / `V_0_13`）                                                |
-| common-options             |         | 否    | -   | Source 插件常用参数，详见 [Source common Options](../common-options/source-common-options.md)            |
+| common-options             |         | 否    | -   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)            |
 
 我们可以使用时间列进行分区查询。
 
@@ -110,6 +110,9 @@ source {
     username = "root"
     password = "root"
     sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
     schema {
       fields {
         ts = timestamp
@@ -132,6 +135,8 @@ sink {
   }
 }
 ```
+
+`lower_bound`、`upper_bound` 和 `num_partitions` 是可选项。当查询覆盖很大的时间范围时，可以用它们把读取任务按时间范围拆成多个分区。
 
 上游 IoTDB 的数据格式如下所示:
 
