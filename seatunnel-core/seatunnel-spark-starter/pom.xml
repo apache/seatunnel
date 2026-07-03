@@ -76,6 +76,7 @@
                                     log4j-api
                                     log4j-core
                                     log4j-slf4j-impl
+                                    log4j-slf4j2-impl
                                     log4j-1.2-api
                                     jul-to-slf4j
                                     jcl-over-slf4j
@@ -97,6 +98,7 @@
                             <exclude>org.apache.logging.log4j:log4j-api</exclude>
                             <exclude>org.apache.logging.log4j:log4j-core</exclude>
                             <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-slf4j2-impl</exclude>
                             <!-- spark3.x use slf4j + log4j2.x -->
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
                             <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>

@@ -89,7 +89,7 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark3.x.x
+Spark 3.5.x
 
 ```shell
 cd "apache-seatunnel-${version}"

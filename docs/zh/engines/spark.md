@@ -10,6 +10,8 @@
 - [Spark 引擎快速开始](../getting-started/locally/quick-start-spark.md)
 - [作业配置指南](../getting-started/job-configuration-guide.md)
 
+Spark 3 启动器基于 Spark 3.5.8 构建。
+
 ## 什么时候选择 Spark
 
 以下场景通常更适合使用 Spark：

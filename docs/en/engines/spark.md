@@ -10,6 +10,8 @@ Use this path if you want to run SeaTunnel on Spark:
 - [Quick Start With Spark](../getting-started/locally/quick-start-spark.md)
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md)
 
+The Spark 3 starter is built against Spark 3.5.8.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:

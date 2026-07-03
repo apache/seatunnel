@@ -77,7 +77,7 @@ public class SparkSinkTest {
                         .add("long", LongType)
                         .add("decimal", new DecimalType(10, 2))
                         .add("date", DateType)
-                        // .add("time", TimeType) unsupported time type in Spark 3.3.0. Please trace
+                        // .add("time", TimeType) unsupported time type in Spark. Please trace
                         // https://issues.apache.org/jira/browse/SPARK-41549
                         .add("timestamp", TimestampType)
                         .add("null", NullType)
