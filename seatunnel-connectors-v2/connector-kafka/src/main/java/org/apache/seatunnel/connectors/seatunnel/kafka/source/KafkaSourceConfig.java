@@ -312,8 +312,15 @@ public class KafkaSourceConfig implements Serializable {
                         .orElse(ReadonlyConfig.fromMap(Collections.emptyMap()));
 
         return schema.getOptional(TableIdentifierOptions.TABLE)
-                .map(TablePath::of)
+                .map(KafkaSourceConfig::parseKafkaTablePath)
                 .orElseGet(() -> TablePath.of(null, topicName));
+    }
+
+    private static TablePath parseKafkaTablePath(String tableName) {
+        if (StringUtils.countMatches(tableName, ".") > 2) {
+            return TablePath.of(null, tableName);
+        }
+        return TablePath.of(tableName);
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(

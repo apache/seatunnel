@@ -4,65 +4,73 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant 数据源连接器
 
+## 描述
+
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。
 
-该连接器可用于从 Qdrant 集合中读取数据。
+Qdrant source 用来从一个已经存在的 Qdrant collection 读取 point。point 的 payload 字段会读成普通 SeaTunnel 列，Qdrant 向量会读成 SeaTunnel 向量列。
+
+## 主要特性
+
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行读取](../../introduction/concepts/connector-v2-features.md)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-|       名称        |   类型   | 必填 |    默认值    |
-|-----------------|--------|----|-----------|
-| collection_name | string | 是  | -         |
-| schema          | config | 是  | -         |
-| host            | string | 否  | localhost |
-| port            | int    | 否  | 6334      |
-| api_key         | string | 否  | -         |
-| use_tls         | bool   | 否  | false     |
-| common-options  |        | 否  | -         |
+| 名称            | 类型   | 必填 | 默认值    | 说明 |
+|-----------------|--------|------|-----------|------|
+| collection_name | string | 是   | -         | 要读取的 Qdrant collection 名称。 |
+| schema          | config | 是   | -         | SeaTunnel schema，用来映射 Qdrant point ID、payload 字段和向量。 |
+| host            | string | 否   | localhost | Qdrant gRPC 主机。 |
+| port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
+| api_key         | string | 否   | -         | 认证场景下使用的 Qdrant API key。 |
+| use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
+| common-options  |        | 否   | -         | Source 通用选项。 |
 
 ### collection_name [string]
 
-要从中读取数据的 Qdrant 集合的名称。
+要读取的 Qdrant collection 名称。
 
 ### schema [config]
 
-要将数据读取到的表的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+source 输出的 SeaTunnel 行结构。更多说明请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-例如：
+Qdrant 中的每条记录叫作 point：
 
-```hocon
-schema = {
-  fields {
-    age = int
-    address = string
-    some_vector = float_vector
-  }
-}
-```
+- SeaTunnel 主键列会从 Qdrant point ID 中读取。Qdrant point ID 可以是正整数或 UUID 字符串。
+- 向量列会从 Qdrant 向量中读取。读取命名向量时，SeaTunnel 列名必须和 Qdrant 向量名一致。
+- 其他支持的列会从 Qdrant point payload 中读取。
+- 如果 collection 使用默认的未命名向量，请使用 `default_vector` 作为 SeaTunnel 向量列名。
 
-Qdrant 中的每个条目称为一个点。
-
-`float_vector` 类型的列从每个点的向量中读取，其他列从与该点关联的 JSON 有效负载中读取。
-
-如果列被标记为主键，Qdrant 点的 ID 将写入其中。它可以是 `"string"` 或 `"int"` 类型。因为 Qdrant 仅[允许](https://qdrant.tech/documentation/concepts/points/#point-ids)使用正整数和 UUID 作为点 ID。
-
-如果集合是用单个默认/未命名向量创建的，请使用 `default_vector` 作为向量名称。
+示例：
 
 ```hocon
 schema = {
-  fields {
-    age = int
-    address = string
-    default_vector = float_vector
-  }
+  columns = [
+    {
+      name = file_name
+      type = string
+    }
+    {
+      name = file_size
+      type = int
+    }
+    {
+      name = my_vector
+      type = float_vector
+    }
+  ]
 }
 ```
-
-Qdrant 中点的 ID 将写入标记为主键的列中。它可以是 `int` 或 `string` 类型。
 
 ### host [string]
 
-Qdrant 实例的主机名。默认为 "localhost"。
+Qdrant 实例的主机名。
 
 ### port [int]
 
@@ -70,15 +78,83 @@ Qdrant 实例的 gRPC 端口。
 
 ### api_key [string]
 
-用于身份验证的 API 密钥（如果设置）。
+连接需要认证的 Qdrant 部署时使用的 API key。
 
 ### use_tls [bool]
 
-是否使用 TLS（SSL）连接。如果使用 Qdrant 云（https），则需要。
+gRPC 连接是否启用 TLS。连接 Qdrant Cloud 或其他 HTTPS/TLS 地址时通常需要开启。
 
 ### 通用选项
 
-源插件的通用参数，请参考[源通用选项](../common-options/source-common-options.md)了解详情。****
+Source 插件通用参数，请参考 [Source 通用选项](../common-options/source-common-options.md)。
+
+## 支持的数据类型
+
+| SeaTunnel 类型 | Qdrant 值 |
+|----------------|-----------|
+| STRING         | payload 字符串或 point UUID |
+| BOOLEAN        | payload bool |
+| TINYINT        | payload integer |
+| SMALLINT       | payload integer |
+| INT            | payload integer 或 point 数字 ID |
+| BIGINT         | payload integer |
+| FLOAT          | payload double |
+| DOUBLE         | payload double |
+| DECIMAL        | payload double |
+| FLOAT_VECTOR   | vector |
+| BINARY_VECTOR  | vector |
+| FLOAT16_VECTOR | vector |
+| BFLOAT16_VECTOR | vector |
+
+## 注意事项
+
+- 作业启动前，collection 必须已经存在。
+- Qdrant 中的向量字段名和维度必须与 SeaTunnel schema 中的向量列一致。
+- Qdrant source 是有界读取，并且只使用一个 split，不支持并行读取。
+- Qdrant source 只输出 `INSERT` 行，不读取 CDC 变更。
+
+## 任务示例
+
+下面的示例从 `source_collection` 读取 payload 字段和命名向量，然后写入 `sink_collection`。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Qdrant {
+    collection_name = "source_collection"
+    host = "localhost"
+    port = 6334
+    schema = {
+      columns = [
+        {
+          name = file_name
+          type = string
+        }
+        {
+          name = file_size
+          type = int
+        }
+        {
+          name = my_vector
+          type = float_vector
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Qdrant {
+    collection_name = "sink_collection"
+    host = "localhost"
+    port = 6334
+  }
+}
+```
 
 ## 变更日志
 

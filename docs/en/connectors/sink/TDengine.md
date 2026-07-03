@@ -6,12 +6,17 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 ## Description
 
-Used to write data to TDengine. You need to create stable before running seatunnel task
+Write data to TDengine.
+
+Create the target database and super table before running the SeaTunnel job. The
+sink can write one input table to one super table, or use placeholders such as
+`${table_name}` in `stable` for multi-table writes.
 
 ## Key features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -20,14 +25,15 @@ Used to write data to TDengine. You need to create stable before running seatunn
 | url          | string | yes      | -             |
 | username     | string | yes      | -             |
 | password     | string | yes      | -             |
-| database     | string | yes      |               |
+| database     | string | yes      | -             |
 | stable       | string | yes      | -             |
 | timezone     | string | no       | UTC           |
-| write_columns| list   | no       | -             |
+| write_columns | list   | no       | -             |
+| common-options |       | no       | -             |
 
 ### url [string]
 
-the url of the TDengine when you select the TDengine
+The TDengine REST JDBC URL.
 
 e.g.
 
@@ -37,42 +43,71 @@ jdbc:TAOS-RS://localhost:6041/
 
 ### username [string]
 
-the username of the TDengine when you select
+The username used to connect to TDengine.
 
 ### password [string]
 
-the password of the TDengine when you select
+The password used to connect to TDengine.
 
 ### database [string]
 
-the database of the TDengine when you select
+The TDengine database name.
 
 ### stable [string]
 
-the stable of the TDengine when you select
+The TDengine super table name. For multi-table writes, this value can contain
+placeholders, for example `${table_name}`.
 
 ### timezone [string]
 
-the timeznoe of the TDengine sever, it's important to the ts field
+The TDengine server timezone used for timestamp conversion. The default value is
+`UTC`.
 
 ### write_columns [list]
 The field names to be inserted into TDengine. If not set, all fields will be written. The plugin will automatically append TAGS columns, so please do not include TAGS columns in this option.
 
-## Example
+### common options
 
-### sink
+Sink plugin common parameters, please refer to
+[Sink Common Options](../common-options/sink-common-options.md) for details.
+For multi-table writes, `multi_table_sink_replica` can be used with the common
+sink options.
+
+## Examples
+
+### Write to one super table
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+sink {
+  TDengine {
+    url = "jdbc:TAOS-RS://localhost:6041/"
+    username = "root"
+    password = "taosdata"
+    database = "power2"
+    stable = "meters2"
+    timezone = "UTC"
+    write_columns = ["ts", "voltage", "current", "power"]
+  }
+}
+```
+
+### Write multiple input tables to matching super tables
 
 ```hocon
 sink {
-        TDengine {
-          url : "jdbc:TAOS-RS://localhost:6041/"
-          username : "root"
-          password : "taosdata"
-          database : "power2"
-          stable : "meters2"
-          timezone: UTC
-          write_columns: ["ts", "voltage", "current", "power"]
-        }
+  TDengine {
+    url = "jdbc:TAOS-RS://localhost:6041/"
+    username = "root"
+    password = "taosdata"
+    database = "power2"
+    stable = "${table_name}"
+    timezone = "UTC"
+  }
 }
 ```
 
