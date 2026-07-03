@@ -85,7 +85,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | update_strategy            | string  | no       | distcp                               |
 | compare_mode               | string  | no       | len_mtime                            |
 | update_compare_parallelism | int     | no       | 8                                    |
-| update_compare_bulk_threshold | int  | no       | 64                                   |
+| update_compare_bulk_threshold | int  | no       | 0                                    |
 | common-options             |         | no       | -                                    |
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
@@ -508,7 +508,7 @@ Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. Th
 
 ### update_compare_bulk_threshold [int]
 
-When candidates under one target parent directory reach this value, SeaTunnel lists that directory once instead of querying every file. The default is `64` and must be greater than `0`. FTP and SFTP targets always use directory listing. Source filters are applied while entries are listed to reduce peak metadata memory.
+For non-FTP/SFTP targets, a positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. FTP and SFTP targets always use directory listing. Source filters are applied while entries are listed to reduce peak metadata memory.
 
 ### file_filter_modified_start [string]
 

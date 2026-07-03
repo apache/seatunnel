@@ -119,7 +119,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                                                     |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                                                             |
 | update_compare_parallelism | int     | 否    | 8                   | 稀疏目标元数据点查的最大并发数，有效范围为 `1-64`。                                                                                                                                                                                                       |
-| update_compare_bulk_threshold | int  | 否    | 64                  | 同一目标父目录达到该候选数时切换为单次目录枚举，必须大于 `0`。                                                                                                                                                                                            |
+| update_compare_bulk_threshold | int  | 否    | 0                   | 设置正数后，同一目标父目录达到该候选数时切换为单次目录枚举；`0` 表示关闭自动批量枚举。                                                                                                                                                                     |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                           |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                          |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                         |
@@ -382,7 +382,7 @@ compare_mode = "len_mtime"
 
 ### update_compare_bulk_threshold [int]
 
-同一目标父目录的候选文件达到该值时，SeaTunnel 只枚举一次目标目录，不再逐文件查询。默认值为 `64`，且必须大于 `0`。FTP、SFTP 目标端始终使用目录枚举。源端会边枚举边过滤，以降低元数据峰值内存；但 SFTP 平铺目录仍需返回全部条目，因为标准 `READDIR` 不支持服务端按修改时间过滤。
+对于非 FTP/SFTP 目标端，设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。FTP、SFTP 目标端始终使用目录枚举。源端会边枚举边过滤，以降低元数据峰值内存；但 SFTP 平铺目录仍需返回全部条目，因为标准 `READDIR` 不支持服务端按修改时间过滤。
 
 ### schema [config]
 

@@ -43,9 +43,9 @@ class UpdateCompareConfigTest {
     }
 
     @Test
-    void shouldRejectNonPositiveBulkThreshold() throws Exception {
+    void shouldRejectNegativeBulkThreshold() throws Exception {
         Map<String, Object> config = updateConfig();
-        config.put("update_compare_bulk_threshold", 0);
+        config.put("update_compare_bulk_threshold", -1);
         try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
             Assertions.assertThrows(
                     FileConnectorException.class,
@@ -57,12 +57,21 @@ class UpdateCompareConfigTest {
     void shouldAcceptDefaultsAndBoundaryValues() throws Exception {
         Map<String, Object> config = updateConfig();
         config.put("update_compare_parallelism", 64);
-        config.put("update_compare_bulk_threshold", 1);
+        config.put("update_compare_bulk_threshold", 0);
         try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
             Assertions.assertDoesNotThrow(
                     () -> strategy.setPluginConfig(ConfigFactory.parseMap(config)));
             Assertions.assertEquals(64, strategy.updateCompareParallelism);
-            Assertions.assertEquals(1, strategy.updateCompareBulkThreshold);
+            Assertions.assertEquals(0, strategy.updateCompareBulkThreshold);
+        }
+    }
+
+    @Test
+    void shouldDisableAutomaticBulkComparisonByDefault() throws Exception {
+        try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
+            Assertions.assertDoesNotThrow(
+                    () -> strategy.setPluginConfig(ConfigFactory.parseMap(updateConfig())));
+            Assertions.assertEquals(0, strategy.updateCompareBulkThreshold);
         }
     }
 

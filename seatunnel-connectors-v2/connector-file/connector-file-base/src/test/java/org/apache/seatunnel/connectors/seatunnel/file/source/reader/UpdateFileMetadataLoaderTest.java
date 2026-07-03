@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 class UpdateFileMetadataLoaderTest {
 
@@ -126,6 +127,49 @@ class UpdateFileMetadataLoaderTest {
         Assertions.assertEquals(1, result.getBulkListedDirectories());
         Assertions.assertEquals(0, result.getPointLookups());
         Mockito.verify(session).list(Mockito.eq(new Path("sftp://host/path")), Mockito.any());
+    }
+
+    @Test
+    void shouldUsePointLookupsWhenAutomaticBulkComparisonIsDisabled() throws Exception {
+        HadoopFileSystemProxy proxy = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(proxy.getFileStatus(Mockito.anyString()))
+                .thenAnswer(invocation -> file(invocation.getArgument(0)));
+        List<UpdateFileMetadataLoader.Request> requests = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            requests.add(new UpdateFileMetadataLoader.Request(i, "s3a://bucket/day/file-" + i));
+        }
+
+        UpdateFileMetadataLoader.Result result =
+                UpdateFileMetadataLoader.load(requests, proxy, 4, 0, false);
+
+        Assertions.assertEquals(0, result.getBulkListedDirectories());
+        Assertions.assertEquals(100, result.getPointLookups());
+        Mockito.verify(proxy, Mockito.never()).openFileStatusListingSession();
+    }
+
+    @Test
+    void shouldUseNamedDaemonThreadsForPointLookups() throws Exception {
+        HadoopFileSystemProxy proxy = Mockito.mock(HadoopFileSystemProxy.class);
+        AtomicReference<Thread> lookupThread = new AtomicReference<>();
+        Mockito.when(proxy.getFileStatus(Mockito.anyString()))
+                .thenAnswer(
+                        invocation -> {
+                            lookupThread.set(Thread.currentThread());
+                            return file(invocation.getArgument(0));
+                        });
+
+        UpdateFileMetadataLoader.load(
+                Collections.singletonList(
+                        new UpdateFileMetadataLoader.Request(0, "s3a://bucket/day/file")),
+                proxy,
+                1,
+                0,
+                false);
+
+        Assertions.assertNotNull(lookupThread.get());
+        Assertions.assertTrue(lookupThread.get().isDaemon());
+        Assertions.assertTrue(
+                lookupThread.get().getName().startsWith("seatunnel-file-update-lookup-"));
     }
 
     @Test

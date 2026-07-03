@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 final class UpdateFileMetadataLoader {
     private static final int IN_FLIGHT_MULTIPLIER = 8;
+    private static final AtomicInteger LOOKUP_THREAD_SEQUENCE = new AtomicInteger();
 
     private UpdateFileMetadataLoader() {}
 
@@ -73,7 +74,7 @@ final class UpdateFileMetadataLoader {
 
         List<Map.Entry<Path, List<Request>>> bulkGroups = new ArrayList<>();
         for (Map.Entry<Path, List<Request>> group : groups.entrySet()) {
-            if (!alwaysBulk && group.getValue().size() < bulkThreshold) {
+            if (!alwaysBulk && (bulkThreshold == 0 || group.getValue().size() < bulkThreshold)) {
                 pointRequests.addAll(group.getValue());
             } else {
                 bulkGroups.add(group);
@@ -132,7 +133,18 @@ final class UpdateFileMetadataLoader {
         if (requests.isEmpty()) {
             return new PointResult(0, 0, 0);
         }
-        ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+        ExecutorService executor =
+                Executors.newFixedThreadPool(
+                        parallelism,
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "seatunnel-file-update-lookup-"
+                                                    + LOOKUP_THREAD_SEQUENCE.incrementAndGet());
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         CompletionService<Lookup> completion = new ExecutorCompletionService<>(executor);
         Set<Future<Lookup>> inFlight = new HashSet<>();
         int maxInFlight = parallelism * IN_FLIGHT_MULTIPLIER;

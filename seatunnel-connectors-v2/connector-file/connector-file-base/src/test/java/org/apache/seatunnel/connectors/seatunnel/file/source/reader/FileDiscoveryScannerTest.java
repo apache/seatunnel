@@ -75,6 +75,33 @@ class FileDiscoveryScannerTest {
                 Arrays.asList("file:/source", "file:/source/day=01"), session.listed);
     }
 
+    @Test
+    void shouldCountRootFileAsSourceEntry() throws Exception {
+        FileStatus rootFile = file("file:///source/file.bin");
+        FileStatusListingSession session =
+                new FileStatusListingSession() {
+                    @Override
+                    public FileStatus getFileStatus(Path path) {
+                        return rootFile;
+                    }
+
+                    @Override
+                    public void list(Path directory, FileStatusConsumer consumer) {
+                        Assertions.fail("A root file must not be listed as a directory");
+                    }
+
+                    @Override
+                    public void close() {}
+                };
+
+        FileDiscoveryScanner.ScanStats stats =
+                FileDiscoveryScanner.scan(
+                        rootFile.getPath(), true, session, status -> true, ignored -> {});
+
+        Assertions.assertEquals(1, stats.getSourceEntries());
+        Assertions.assertEquals(1, stats.getCandidates());
+    }
+
     private static FileStatus file(String path) {
         return new FileStatus(1, false, 1, 1, 1, new Path(path));
     }

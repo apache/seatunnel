@@ -515,13 +515,44 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         public void list(Path directory, FileStatusConsumer consumer) throws IOException {
             Path workDir = new Path(client.printWorkingDirectory());
             Path absolute = makeAbsolute(workDir, directory);
-            FTPListParseEngine engine = client.initiateListParsing(absolute.toUri().getPath());
-            while (engine.hasNext()) {
-                FTPFile[] files = engine.getNext(PAGE_SIZE);
-                for (FTPFile file : files) {
-                    String name = file.getName();
-                    if (!".".equals(name) && !"..".equals(name)) {
-                        consumer.accept(SeaTunnelFTPFileSystem.this.getFileStatus(file, absolute));
+            String previousDirectory = client.printWorkingDirectory();
+            if (!client.changeWorkingDirectory(absolute.toUri().getPath())) {
+                throw new FileNotFoundException("FTP directory does not exist: " + mask(absolute));
+            }
+            Throwable failure = null;
+            try {
+                FTPListParseEngine engine = client.initiateListParsing();
+                if (!FTPReply.isPositiveCompletion(client.getReplyCode())) {
+                    throw new IOException(
+                            "FTP LIST failed for path="
+                                    + mask(absolute)
+                                    + ", replyCode="
+                                    + client.getReplyCode());
+                }
+                while (engine.hasNext()) {
+                    FTPFile[] files = engine.getNext(PAGE_SIZE);
+                    int skipped = emitFileStatuses(files, absolute, consumer);
+                    if (skipped > 0) {
+                        LOG.warn(
+                                "Skipped "
+                                        + skipped
+                                        + " unparseable FTP listing entries under "
+                                        + mask(absolute));
+                    }
+                }
+            } catch (IOException | RuntimeException | Error e) {
+                failure = e;
+                throw e;
+            } finally {
+                if (!client.changeWorkingDirectory(previousDirectory)) {
+                    IOException restoreFailure =
+                            new IOException(
+                                    "Failed to restore FTP working directory, replyCode="
+                                            + client.getReplyCode());
+                    if (failure != null) {
+                        failure.addSuppressed(restoreFailure);
+                    } else {
+                        throw restoreFailure;
                     }
                 }
             }
@@ -531,6 +562,31 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         public void close() throws IOException {
             disconnect(client);
         }
+    }
+
+    int emitFileStatuses(
+            FTPFile[] files, Path parent, FileStatusListingSession.FileStatusConsumer consumer)
+            throws IOException {
+        int skipped = 0;
+        for (FTPFile file : files) {
+            if (file == null) {
+                skipped++;
+                continue;
+            }
+            String name = file.getName();
+            if (!".".equals(name) && !"..".equals(name)) {
+                consumer.accept(getFileStatus(file, parent));
+            }
+        }
+        return skipped;
+    }
+
+    private static String mask(Path path) {
+        URI uri = path.toUri();
+        if (uri.getUserInfo() == null || uri.getAuthority() == null) {
+            return path.toString();
+        }
+        return path.toString().replace(uri.getUserInfo() + "@", "***@");
     }
 
     /**

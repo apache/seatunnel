@@ -57,6 +57,7 @@ final class FileDiscoveryScanner {
                     e);
         }
         if (rootStatus.isFile()) {
+            stats.sourceEntries++;
             process(rootStatus, filter, candidateConsumer, stats);
         } else {
             Deque<Path> directories = new ArrayDeque<>();
@@ -70,7 +71,7 @@ final class FileDiscoveryScanner {
                                 stats.sourceEntries++;
                                 if (stats.sourceEntries % PROGRESS_INTERVAL == 0) {
                                     log.info(
-                                            "File source listing progress: process=current_submission_process (CLI client or REST server/master), entries={}, candidates={}",
+                                            "File source listing progress: phase=source_construction, entries={}, candidates={}",
                                             stats.sourceEntries,
                                             stats.candidates);
                                 }

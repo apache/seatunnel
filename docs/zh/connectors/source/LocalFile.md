@@ -87,7 +87,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | update_strategy            | string  | 否    | distcp              |
 | compare_mode               | string  | 否    | len_mtime           |
 | update_compare_parallelism | int     | 否    | 8                   |
-| update_compare_bulk_threshold | int  | 否    | 64                  |
+| update_compare_bulk_threshold | int  | 否    | 0                   |
 | common-options             |         | 否    | -                   |
 | tables_configs             | list    | 否    | 用于定义多表任务            |
 | file_filter_modified_start | string  | 否    | -                   | 
@@ -511,7 +511,7 @@ compare_mode = "len_mtime"
 
 ### update_compare_bulk_threshold [int]
 
-同一目标父目录的候选文件达到该值时，SeaTunnel 只枚举一次目标目录，不再逐文件查询。默认值为 `64`，且必须大于 `0`。FTP、SFTP 目标端始终使用目录枚举。源端会边枚举边过滤，以降低元数据峰值内存。
+对于非 FTP/SFTP 目标端，设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。FTP、SFTP 目标端始终使用目录枚举。源端会边枚举边过滤，以降低元数据峰值内存。
 
 ### file_filter_modified_start
 

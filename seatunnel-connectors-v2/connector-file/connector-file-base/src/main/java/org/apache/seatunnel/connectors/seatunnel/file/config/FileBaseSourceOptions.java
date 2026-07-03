@@ -223,11 +223,12 @@ public class FileBaseSourceOptions extends FileBaseOptions {
     public static final Option<Integer> UPDATE_COMPARE_BULK_THRESHOLD =
             Options.key("update_compare_bulk_threshold")
                     .intType()
-                    .defaultValue(64)
+                    .defaultValue(0)
                     .withDescription(
                             "Number of candidates under one target parent directory that switches "
                                     + "sync_mode=update comparison from point lookups to one directory listing. "
-                                    + "The value must be greater than 0.");
+                                    + "The default 0 disables automatic bulk listing for non-FTP/SFTP targets; "
+                                    + "positive values enable it.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()

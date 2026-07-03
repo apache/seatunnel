@@ -241,7 +241,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
 
         log.info(
-                "File metadata pipeline statistics: process=current_submission_process (CLI client or REST server/master), source_entries={}, filtered={}, candidates={}, source_directories={}, target_bulk_directories={}, target_point_lookups={}, peak_point_concurrency={}, peak_point_in_flight={}, skipped={}, to_sync={}, source_listing_ms={}, source_filtering_ms={}, target_bulk_listing_ms={}, target_point_lookup_ms={}",
+                "File metadata pipeline statistics: phase=source_construction, source_entries={}, filtered={}, candidates={}, source_directories={}, target_bulk_directories={}, target_point_lookups={}, peak_point_concurrency={}, peak_point_in_flight={}, skipped={}, to_sync={}, source_listing_ms={}, source_filtering_ms={}, target_bulk_listing_ms={}, target_point_lookup_ms={}",
                 scanStats.getSourceEntries(),
                 scanStats.getFiltered(),
                 scanStats.getCandidates(),
@@ -675,14 +675,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public void close() throws IOException {
+        if (targetHadoopFileSystemProxy != null && !shareTargetFileSystemProxy) {
+            closeFileSystemProxy(targetHadoopFileSystemProxy, "target");
+        }
+        if (hadoopFileSystemProxy != null) {
+            closeFileSystemProxy(hadoopFileSystemProxy, "source");
+        }
+    }
+
+    private void closeFileSystemProxy(HadoopFileSystemProxy proxy, String role) {
         try {
-            if (targetHadoopFileSystemProxy != null && !shareTargetFileSystemProxy) {
-                targetHadoopFileSystemProxy.close();
-            }
-            if (hadoopFileSystemProxy != null) {
-                hadoopFileSystemProxy.close();
-            }
-        } catch (Exception ignore) {
+            proxy.close();
+        } catch (Exception e) {
+            log.warn("Failed to close {} file system proxy", role, e);
         }
     }
 
@@ -753,10 +758,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         ? pluginConfig.getInt(
                                 FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.key())
                         : FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.defaultValue();
-        if (updateCompareBulkThreshold <= 0) {
+        if (updateCompareBulkThreshold < 0) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "update_compare_bulk_threshold must be greater than 0.");
+                    "update_compare_bulk_threshold must be greater than or equal to 0.");
         }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.TARGET_HADOOP_CONF.key())) {
