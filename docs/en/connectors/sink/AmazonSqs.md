@@ -43,6 +43,7 @@ is serialized by the configured `format`, and the serialized value is sent as th
 - `canal_json` writes Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
 - `debezium_json` writes Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
 - The sink sends only the message body. It does not expose SQS message attributes, delay seconds, deduplication ID, or message group ID options.
+- `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
 
 ## Task Examples
 

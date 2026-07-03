@@ -12,6 +12,8 @@ deserialized by the configured `format` and `schema`, then emitted as SeaTunnel 
 The connector uses a single reader and finishes the job after the current receive request is
 processed. It is suitable for bounded reads from a queue.
 
+Each receive request asks SQS for up to 10 messages. If more messages are waiting in the queue, run another job or use a streaming-style upstream design that repeatedly starts bounded reads.
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -50,6 +52,7 @@ processed. It is suitable for bounded reads from a queue.
 - `canal_json` reads Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
 - `debezium_json` reads Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
 - `delete_message = true` removes consumed messages from SQS. Keep the default `false` when you only want to inspect or copy messages without deleting them.
+- `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
 
 ## Task Examples
 

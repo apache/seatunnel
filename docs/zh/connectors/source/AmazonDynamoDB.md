@@ -10,6 +10,8 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 该连接器是批处理源。DynamoDB 不像关系型数据库那样提供完整字段类型信息，所以必须在 SeaTunnel 中显式配置 schema。
 
+该 Source 使用 scan 请求读取表中当前已有的数据，不读取 DynamoDB Streams 或 CDC 变更事件。
+
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -92,6 +94,8 @@ schema = {
 DynamoDB parallel scan 使用的逻辑分片数量。
 
 这个值会影响源连接器如何拆分表扫描任务，通常需要结合任务并行度和表数据量设置。
+
+小表通常保留默认值即可。大表可以结合 `env.parallelism` 和 Source 的 `parallelism` 一起调大，让多个 reader 扫描不同分片。
 
 ### 通用选项
 

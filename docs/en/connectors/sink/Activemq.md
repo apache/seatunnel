@@ -10,6 +10,8 @@ Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text
 
 ## Key features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -33,7 +35,8 @@ Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text
 
 - `uri` is the connection entry point. Put the broker host and port in this value, for example `tcp://activemq-host:61616`.
 - `username` and `password` are optional, but they must be configured together when the broker requires authentication.
-- The connector writes each SeaTunnel row as one JSON text message to `queue_name`.
+- The connector writes each SeaTunnel row as one JSON text message to `queue_name`. There is no separate `format` option for this sink.
+- Configure the broker address with `uri`. `host` and `port` are not ActiveMQ sink options.
 
 ## Example
 
