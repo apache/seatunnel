@@ -76,6 +76,8 @@ start.mode.offsets = {
 
 Use `tables_configs` when different topics have different schemas. Each item can define its own `topics`, `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+
 ## Task Examples
 
 ### Read JSON Messages
