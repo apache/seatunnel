@@ -44,6 +44,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
+| connect_timeout_ms                        | Int     | 否    | 86400000                     |
+| socket_timeout_ms                         | Int     | 否    | 86400000                     |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
 | batch_interval_ms                         | Long    | 否    | 0                            |
@@ -60,9 +62,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode                            | Enum    | 否    | APPEND_DATA                  |
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
+| is_primary_key_updated                    | Boolean | 否    | true                         |
+| support_upsert_by_insert_only             | Boolean | 否    | false                        |
 | table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
+| create_index                              | Boolean | 否    | true                         |
+| use_kerberos                              | Boolean | 否    | false                        |
+| kerberos_principal                        | String  | 否    | -                            |
+| kerberos_keytab_path                      | String  | 否    | -                            |
+| krb5_path                                 | String  | 否    | /etc/krb5.conf               |
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
@@ -161,6 +170,14 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
+
+### connect_timeout_ms [int]
+
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+
+### socket_timeout_ms [int]
+
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
 
 ### max_retries [int]
 
@@ -277,6 +294,14 @@ sink {
 
 启用通过主键更新插入，如果任务没有key重复数据，设置该参数为 false 可以加快数据导入速度
 
+### is_primary_key_updated [boolean]
+
+生成 update 语句时是否包含主键字段。除非目标数据库要求更新时跳过主键列，一般保持默认值即可。
+
+### support_upsert_by_insert_only [boolean]
+
+是否通过仅 insert 的语句支持 upsert 行为。该参数属于高级兼容选项，默认关闭。
+
 ### use_copy_statement [boolean]
 
 使用 `COPY ${table} FROM STDIN` 语句导入数据。仅支持具有 `getCopyAPI()` 方法连接的驱动程序。例如：Postgresql
@@ -295,6 +320,14 @@ INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
 该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
+
+### create_index [boolean]
+
+自动建表时是否创建索引（包含主键和其他索引）。迁移大表时可关闭该选项以提升写入速度，但迁移完成后需要手动创建索引来保证查询性能。
+
+### use_kerberos [boolean]
+
+是否为 JDBC 连接启用 Kerberos 认证。开启后，请根据环境同时配置 `kerberos_principal`、`kerberos_keytab_path` 和 `krb5_path`。
 
 ### access_key_id [String]
 AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"
