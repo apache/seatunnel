@@ -4,8 +4,6 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 > Ftp 文件 Source 连接器
 
-> 海量文件发现和 update 比对的源码实现请参阅 [File Source 海量文件元数据流水线实现说明](./FileMetadataPipelineOptimization.md)。
-
 ## 支持的引擎
 
 > Spark<br/>
