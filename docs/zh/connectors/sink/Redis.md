@@ -40,6 +40,7 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 | value_field        | string  | 否                          | -      | 写入 `KEY`/`STRING`、`LIST`、`SET`、`ZSET` 时，作为 Redis value 的上游字段。 |
 | hash_key_field     | string  | 否                          | -      | `data_type = HASH` 时，作为 Redis hash field 的上游字段。 |
 | hash_value_field   | string  | 否                          | -      | `data_type = HASH` 时，作为 Redis hash value 的上游字段。 |
+| multi_table_sink_replica | int | 否                          | 1      | 多表写入时的写入器副本数。 |
 | common-options     | config  | 否                          | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 
 ## 写入规则
@@ -70,6 +71,10 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 
 写入 `HASH` 时，`hash_key_field` 用来指定 Redis hash field。如果配置了 `hash_value_field`，则把这个字段的值
 作为 Redis hash value；如果不配置，连接器会把整行数据序列化后作为 hash value。
+
+### multi_table_sink_replica
+
+多表写入时的写入器副本数。当上游数据带有表标识，并且一个作业需要写入多张 Redis 表时使用。
 
 ## 示例
 
