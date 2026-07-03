@@ -42,6 +42,8 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| tablePrefix                               | String  | No       | -                            |
+| tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
@@ -60,6 +62,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
+| table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
@@ -128,7 +131,7 @@ Use `database` and this `table-name` auto-generate sql and receive upstream inpu
 
 This option is mutually exclusive with `query` and has a higher priority.
 
-The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+The table parameter can fill in the target table name, which will eventually be used as the created or written table name, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the table name passed to the target side.
 
 mysql sink for example:
 
@@ -143,6 +146,14 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 3. public.sink_table
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
+
+### tablePrefix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
+### tableSuffix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
 
 ### primary_keys [array]
 
@@ -229,6 +240,44 @@ Option introduction：
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
 Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
+
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect INSERT/UPSERT at runtime and do **not** run `ALTER TABLE` on existing tables.
+
+Current support:
+
+| Dialect | Supported | Allowed keys |
+|---------|-----------|--------------|
+| MySQL | Yes | `engine`, `charset`, `collate` |
+| Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
+
+Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
+
+Example (MySQL auto-create with engine and charset):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3307/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "password"
+    database = "mydb"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "engine" = "InnoDB"
+      "charset" = "utf8mb4"
+      "collate" = "utf8mb4_general_ci"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `ENGINE`, `DEFAULT CHARSET`, and `COLLATE` clauses. Keys outside the dialect whitelist (for example `bucket_num`) fail during job submission.
 
 ### enable_upsert [boolean]
 

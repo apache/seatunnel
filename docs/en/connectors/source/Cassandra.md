@@ -6,7 +6,15 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ## Description
 
-Read data from Apache Cassandra.
+Read data from Apache Cassandra in batch mode.
+
+The Cassandra source supports two read modes:
+
+- Single-table read with `cql`.
+- Multi-table read with `tables_configs`, where each entry contains one `cql`.
+
+The source gets column names and data types from the result set returned by the configured CQL, so
+the CQL should return the columns that downstream steps need.
 
 ## Key features
 
@@ -17,18 +25,42 @@ Read data from Apache Cassandra.
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
+## Data Type Mapping
+
+| Cassandra Data Type | SeaTunnel Data Type |
+|---------------------|---------------------|
+| ascii               | STRING              |
+| varchar/text        | STRING              |
+| varint              | STRING              |
+| uuid/timeuuid       | STRING              |
+| inet                | STRING              |
+| tinyint             | BYTE                |
+| smallint            | SHORT               |
+| int                 | INT                 |
+| bigint/counter      | LONG                |
+| float               | FLOAT               |
+| double/decimal      | DOUBLE              |
+| boolean             | BOOLEAN             |
+| time                | TIME                |
+| date                | DATE                |
+| timestamp           | TIMESTAMP           |
+| blob                | ARRAY\<BYTE\>       |
+| list                | ARRAY               |
+| set                 | ARRAY               |
+| map                 | MAP                 |
+
 ## Options
 
-|       name        |        type        | required | default value |
-|-------------------|--------------------|----------|---------------|
-| host              | String             | Yes      | -             |
-| keyspace          | String             | Yes      | -             |
-| cql               | String             | No *     | -             |
-| tables_configs    | List\<Map\>        | No *     | -             |
-| username          | String             | No       | -             |
-| password          | String             | No       | -             |
-| datacenter        | String             | No       | datacenter1   |
-| consistency_level | String             | No       | LOCAL_ONE     |
+| Name              | Type       | Required | Default     | Description |
+|-------------------|------------|----------|-------------|-------------|
+| host              | String     | Yes      | -           | Cassandra cluster address. Use `host:port`, and separate multiple hosts with commas. |
+| keyspace          | String     | Yes      | -           | Cassandra keyspace used by the session. |
+| cql               | String     | No *     | -           | CQL used to read one table. |
+| tables_configs    | List\<Map\> | No *     | -           | Multi-table read configuration. Each item must contain one `cql`. |
+| username          | String     | No       | -           | Cassandra username. Configure it together with `password`. |
+| password          | String     | No       | -           | Cassandra password. Configure it together with `username`. |
+| datacenter        | String     | No       | datacenter1 | Local datacenter name used by the Cassandra Java driver. |
+| consistency_level | String     | No       | LOCAL_ONE   | Read consistency level, such as `LOCAL_ONE`, `ONE`, `QUORUM`, or `LOCAL_QUORUM`. |
 
 > \* Exactly one of `cql` or `tables_configs` must be provided.
 
@@ -43,13 +75,20 @@ The `Cassandra` keyspace.
 
 ### cql [String]
 
-The query CQL used to read data from Cassandra. Use this for single-table reads.
-Mutually exclusive with `tables_configs`.
+The query CQL used to read data from Cassandra. Use this for single-table reads. It is mutually
+exclusive with `tables_configs`.
+
+The connector uses the CQL result metadata to build the output schema. In normal cases, use a query
+that returns real table columns, for example `select * from source_table` or
+`select id, name from source_table`.
 
 ### tables_configs [List\<Map\>]
 
 Multi-table read configuration. Each entry must contain a `cql` field with the query for that table.
-Mutually exclusive with `cql`.
+It is mutually exclusive with root-level `cql`.
+
+Do not configure the same source table more than once in `tables_configs`; the connector checks for
+duplicate table names during startup.
 
 Example entry:
 
@@ -75,11 +114,26 @@ The `Cassandra` datacenter, default is `datacenter1`.
 
 The `Cassandra` read consistency level, default is `LOCAL_ONE`.
 
+## Notes
+
+- `username` and `password` are a pair. Configure both when authentication is enabled; omit both
+  when the cluster does not require authentication.
+- `datacenter` must match the Cassandra cluster local datacenter name. The default is
+  `datacenter1`, which is also the common Testcontainers default.
+- `cql` and `tables_configs` are mutually exclusive. Use `cql` for one result table and
+  `tables_configs` when one source should read multiple Cassandra tables.
+- The source is a batch source. It reads the current query result and then finishes.
+
 ## Examples
 
-### Single-table mode
+### Single-table read
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Cassandra {
     host = "localhost:9042"
@@ -91,11 +145,20 @@ source {
     plugin_output = "source_table"
   }
 }
+
+sink {
+  Console {}
+}
 ```
 
-### Multi-table mode
+### Multi-table read
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Cassandra {
     host = "localhost:9042"
@@ -105,12 +168,23 @@ source {
     keyspace = "test"
     tables_configs = [
       {
-        cql = "SELECT id, name FROM test.table1"
+        cql = "select id, c_int from mt_source_a"
       },
       {
-        cql = "SELECT id, value FROM test.table2"
+        cql = "select id, c_int from mt_source_b"
       }
     ]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "localhost:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    table = "mt_sink_table"
   }
 }
 ```
