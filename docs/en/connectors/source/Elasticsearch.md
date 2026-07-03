@@ -30,8 +30,8 @@ support version >= 2.x and <= 8.x.
 | auth.api_key_id         | string  | no       | -                                                              |
 | auth.api_key            | string  | no       | -                                                              |
 | auth.api_key_encoded    | string  | no       | -                                                              |
-| index                   | string  | no       | If the index list does not exist, the index must be configured |
-| index_list              | array   | no       | used to define a multiple table task                           |
+| index                   | string  | no       | Required when `index_list` is not configured                    |
+| index_list              | array   | no       | Used to define a multi-index task                              |
 | source                  | array   | no       | -                                                              |
 | query                   | json    | no       | {"match_all": {}}                                              |
 | search_type             | enum    | no       | Query type, SQL or DSL, default DSL                            |
@@ -144,6 +144,8 @@ source {
 ### index [string]
 
 Elasticsearch index name, support * fuzzy matching.
+
+Either `index` or `index_list` must be configured. Use `index` for a single index or an index pattern, and use `index_list` when different indexes need their own `query`, `source`, `schema`, or paging options.
 
 ### source [array]
 
