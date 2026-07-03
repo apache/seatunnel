@@ -15,6 +15,7 @@ import ChangeLog from '../changelog/connector-email.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
@@ -32,6 +33,7 @@ import ChangeLog from '../changelog/connector-email.md';
 | email_message_content    | string  | 是    | -             |
 | email_attachment_name    | string  | 否    | emailsink.csv |
 | email_field_delimiter    | string  | 否    | ,             |
+| multi_table_sink_replica | int     | 否    | 1             |
 | common-options           |         | 否    | -             |
 
 ### email_from_address [string]
@@ -84,6 +86,14 @@ import ChangeLog from '../changelog/connector-email.md';
 
 附件不包含表头。字段会按上游 schema 的顺序写入，`null` 值会写成空字符串。
 
+### multi_table_sink_replica [int]
+
+多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`。
+
+### 空数据行为
+
+只有上游至少写入一行数据时，Email Sink 才会发送邮件。如果上游表没有数据，则不会发送邮件。
+
 ### common options
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情.
@@ -92,7 +102,7 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 
 ### 发送单表数据到多个收件人
 
-这个示例使用不需要认证的 SMTP 服务，并给 `email_to_address` 中的每个邮箱各发送一封邮件。
+这个示例使用不需要认证的 SMTP 服务，并发送一封收件人列表由 `email_to_address` 决定的邮件。
 
 ```hocon
 env {
