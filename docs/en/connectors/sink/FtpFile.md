@@ -23,6 +23,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -80,6 +81,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
+| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                      |
 
 ### host [string]
 
@@ -287,6 +289,11 @@ Existing data processing method.
 - APPEND_DATA: preserve dir, preserve data files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. The default value is `1`; increase it
+only when each table needs more sink writer parallelism.
+
 ## Example
 
 For text file format simple config
@@ -333,7 +340,9 @@ FtpFile {
 
 ```
 
-When our source end is multiple tables, and wants different expressions to different directory, we can configure this way
+When the upstream source has multiple tables and each table should be written to its own FTP directory, include
+`${table_name}` in `path`. `schema_save_mode` and `data_save_mode` decide how existing directories and files are handled
+before writing.
 
 ```hocon
 

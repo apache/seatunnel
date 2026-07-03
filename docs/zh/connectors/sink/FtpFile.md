@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
   默认情况下，我们使用两阶段提交（2PC）来确保`精确一次`
 
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式
   - [x] text
   - [x] csv
@@ -80,6 +82,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅在 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。                    |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方法                                                                  |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方法                                                                  |
+| multi_table_sink_replica              | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                      |
 
 ### host [string]
 
@@ -291,6 +294,10 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 - APPEND_DATA（追加数据）：保留目录和数据文件。
 - ERROR_WHEN_DATA_EXISTS（数据存在时报错）：当存在数据文件时，报告错误。
 
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
+
 ## 示例
 
 对于文本文件格式的简易配置 
@@ -337,7 +344,8 @@ FtpFile {
 
 ```
 
-当我们的数据源端是多个表，并且希望将不同的数据按照不同的表达式存储到不同的目录时，我们可以按照这种方式进行配置。  
+当上游是多张表，并且希望每张表写入不同的 FTP 目录时，可以在 `path` 中使用 `${table_name}`。
+`schema_save_mode` 和 `data_save_mode` 用于控制写入前如何处理已存在的目录和文件。
 
 ```hocon
 
