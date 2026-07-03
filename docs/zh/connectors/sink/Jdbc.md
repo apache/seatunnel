@@ -40,6 +40,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | dialect                                   | String  | 否    | -                            | 
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
+| tablePrefix                               | String  | 否    | -                            |
+| tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
@@ -127,7 +129,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
 
-table参数可以填入一个任意的表名，这个名字最终会被用作创建表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
+table 参数可以填入目标表名，这个名字最终会被用作创建或写入的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
 
 mysql 接收器示例:
@@ -143,6 +145,14 @@ pgsql (Oracle Sqlserver ...) 接收器示例:
 3. public.sink_table
 
 Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.xxx`
+
+### tablePrefix [string]
+
+已过时。请改用带表占位符的 `table` 参数。例如，使用 `table = "prefix_${table_name}_suffix"` 替代 `tablePrefix` 和 `tableSuffix`。
+
+### tableSuffix [string]
+
+已过时。请改用带表占位符的 `table` 参数。例如，使用 `table = "prefix_${table_name}_suffix"` 替代 `tablePrefix` 和 `tableSuffix`。
 
 ### primary_keys [array]
 

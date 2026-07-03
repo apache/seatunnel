@@ -6,7 +6,8 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ## 描述
 
-通过 InfluxDB 读取外部数据源数据。
+通过 InfluxQL 查询从 InfluxDB 1.x 读取数据。连接器支持普通单查询，也支持按一个整数列范围切分查询，
+让多个并行任务分别读取不同范围的数据。
 
 ## 关键特性
 
@@ -28,13 +29,14 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | sql                | string | 是  | -     | 用于搜索数据的查询 SQL                                                                 |
 | schema             | config | 是  | -     | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | database           | string | 是  | -     | InfluxDB 数据库                                                                  |
-| username           | string | 否  | -     | InfluxDB 用户名                                                                  |
-| password           | string | 否  | -     | InfluxDB 密码                                                                   |
-| lower_bound        | long   | 否  | -     | split_column 的下界                                                              |
-| upper_bound        | long   | 否  | -     | split_column 的上界                                                              |
-| partition_num      | int    | 否  | -     | 分区数量                                                                          |
+| username           | string | 否  | -     | InfluxDB 用户名。必须和 `password` 一起配置。                                                |
+| password           | string | 否  | -     | InfluxDB 密码。必须和 `username` 一起配置。                                                |
+| lower_bound        | int    | 否  | -     | 启用并行范围读取时，`split_column` 的下界。                                                   |
+| upper_bound        | int    | 否  | -     | 启用并行范围读取时，`split_column` 的上界。                                                   |
+| partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 分割列                                                                           |
-| epoch              | string | 否  | n     | 返回的时间精度                                                                       |
+| where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取 `where` 关键字。                              |
+| epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询超时时间（秒）                                                                     |
 | common-options     | config | 否  | -     | 源插件通用参数                                                                       |
@@ -84,18 +86,19 @@ InfluxDB 密码
 
 ### split_column [string]
 
-InfluxDB 的分割列
+用于把一次查询切分成多个范围查询的列。
 
 > 提示：
 > - InfluxDB tags 不支持作为分割主键，因为 tags 的类型只能是字符串
 > - InfluxDB time 不支持作为分割主键，因为 time 字段无法参与数学计算
 > - 目前，`split_column` 仅支持整数数据分割，不支持 `float`、`string`、`date` 等类型。
+> - `split_column`、`lower_bound`、`upper_bound`、`partition_num` 需要一起配置。
 
-### upper_bound [long]
+### upper_bound [int]
 
 `split_column` 列的上界
 
-### lower_bound [long]
+### lower_bound [int]
 
 `split_column` 列的下界
 
@@ -141,24 +144,34 @@ InfluxDB 的查询超时时间（秒）
 
 ## 示例
 
-多并行性和多分区扫描示例
+### 使用并行范围读取
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
 source {
 
     InfluxDB {
         url = "http://influxdb-host:8086"
-        sql = "select label, value, rt, time from test"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
         database = "test"
-        upper_bound = 100
-        lower_bound = 1
+        upper_bound = 99
+        lower_bound = 0
         partition_num = 4
-        split_column = "value"
+        split_column = "c_int"
         schema {
             fields {
                 label = STRING
-                value = INT
-                rt = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
                 time = BIGINT
             }
         }
@@ -166,31 +179,81 @@ source {
 
 }
 
+sink {
+    Console {}
+}
 ```
 
-不使用分区扫描的示例
+### 不使用并行范围读取
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
 source {
 
     InfluxDB {
         url = "http://influxdb-host:8086"
-        sql = "select label, value, rt, time from test"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
         database = "test"
         schema {
             fields {
                 label = STRING
-                value = INT
-                rt = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
                 time = BIGINT
             }
         }
     }
 
+}
+
+sink {
+    Console {}
+}
+```
+
+### 使用 InfluxQL 时区查询
+
+```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source tz('Asia/Shanghai')"
+        database = "test"
+        schema {
+            fields {
+                label = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
+                time = BIGINT
+            }
+        }
+    }
+}
+
+sink {
+    Console {}
 }
 ```
 
 ## 变更日志
 
 <ChangeLog />
-
