@@ -42,6 +42,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | hive_site_path                        | string  | 否  | -              |
 | hive.hadoop.conf                      | Map     | 否  | -              |
 | hive.hadoop.conf-path                 | string  | 否  | -              |
+| remote_user                           | string  | 否  | -              |
 | krb5_path                             | string  | 否  | /etc/krb5.conf |
 | kerberos_principal                    | string  | 否  | -              |
 | kerberos_keytab_path                  | string  | 否  | -              |
@@ -76,6 +77,10 @@ Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`�
 ### hive.hadoop.conf-path [string]
 
 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径
+
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
 
 ### krb5_path [string]
 

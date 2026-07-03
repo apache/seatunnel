@@ -12,20 +12,21 @@ A sink plugin which can assert illegal data by user defined rules
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
 | Name                                                                                           | Type                                            | Required | Default |
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | yes      | -       |
-| rules.field_rules                                                                              | string                                          | yes      | -       |
+| rules.field_rules                                                                              | ConfigList                                      | no       | -       |
 | rules.field_rules.field_name                                                                   | string\|ConfigMap                               | yes      | -       |
 | rules.field_rules.field_type                                                                   | string                                          | no       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | no       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | no       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | no       | -       |
 | rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | no       | -       |
-| rules.row_rules                                                                                | string                                          | yes      | -       |
+| rules.row_rules                                                                                | ConfigList                                      | no       | -       |
 | rules.row_rules.rule_type                                                                      | string                                          | no       | -       |
 | rules.row_rules.rule_value                                                                     | string                                          | no       | -       |
 | rules.catalog_table_rule                                                                       | ConfigMap                                       | no       | -       |
@@ -48,6 +49,7 @@ A sink plugin which can assert illegal data by user defined rules
 | rules.table-names                                                                              | ConfigList                                      | no       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | no       | -       |
+| multi_table_sink_replica                                                                       | int                                             | no       | -       |
 | common-options                                                                                 |                                                 | no       | -       |
 
 ### rules [ConfigMap]
@@ -109,6 +111,10 @@ Used to assert the multiple tables should be in the data.
 ### table_path [String]
 
 The path of the table.
+
+### multi_table_sink_replica [int]
+
+The replica number used by the multi-table sink common option. Configure it only when the job needs more than one sink replica per table.
 
 ### common options
 

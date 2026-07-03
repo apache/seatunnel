@@ -157,6 +157,9 @@ sink {
 
 ### CDC mode
 
+Set `conflict_key` to the primary-key column used to merge update/delete events. Set
+`enable_delete = true` only when DELETE events should remove rows from Databend.
+
 ```hocon
 sink {
   Databend {

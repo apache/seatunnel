@@ -9,7 +9,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -18,7 +19,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 * 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
 
 :::
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -48,6 +49,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | common-options         |         | 否    | -                            |
 | vectorization_fields   | array   | 否    | -                            |
 | vector_dimensions      | int     | 否    | -                            |
+| multi_table_sink_replica | int   | 否    | 1                            |
+
 
 ### hosts [array]
 
@@ -68,6 +71,10 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 ### key_delimiter [string]
 
 设定复合键的分隔符（默认为 `_`），例如，如果使用 `$` 作为分隔符，那么文档的 `_id` 将呈现为 `KEY1$KEY2$KEY3` 的格式
+
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。通常保持默认值即可；只有单表写入压力较大、需要更多写入并行度时再调大。
 
 ## 认证
 
@@ -231,6 +238,7 @@ sink {
         hosts = ["localhost:9200"]
         index = "${table_name}"
         schema_save_mode="IGNORE"
+        multi_table_sink_replica = 1
     }
 }
 ```

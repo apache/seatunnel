@@ -6,15 +6,20 @@ import ChangeLog from '../changelog/connector-datahub.md';
 
 ## Description
 
-A sink plugin which use send message to DataHub
+The DataHub sink writes SeaTunnel rows to Alibaba Cloud DataHub.
+
+The connector supports single-table writes and multi-table writes. In multi-table
+jobs, use placeholders such as `${table_name}` in `topic` to route records from
+different input tables to different DataHub topics.
 
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-|      name      |  type  | required | default value |
+| name           | type   | required | default value |
 |----------------|--------|----------|---------------|
 | endpoint       | string | yes      | -             |
 | accessId       | string | yes      | -             |
@@ -27,53 +32,125 @@ A sink plugin which use send message to DataHub
 
 ### endpoint [string]
 
-your DataHub endpoint start with http （string）
+The DataHub service endpoint. It usually starts with `http` or `https`.
 
 ### accessId [string]
 
-your DataHub accessId which cloud be access from Alibaba Cloud  (string)
+The Alibaba Cloud access ID used to access DataHub.
 
 ### accessKey [string]
 
-your DataHub accessKey which cloud be access from Alibaba Cloud  (string)
+The Alibaba Cloud access key used to access DataHub.
 
 ### project [string]
 
-your DataHub project which is created in Alibaba Cloud  (string)
+The DataHub project name.
 
 ### topic [string]
 
-your DataHub topic  (string)
+The DataHub topic name. For multi-table writes, this value can contain
+placeholders, for example `${table_name}`.
 
 ### timeout [int]
 
-the max connection timeout (int)
+The maximum client connection timeout in milliseconds.
 
 ### retryTimes [int]
 
-the max retry times when your client put record failed  (int)
+The maximum retry count when writing a record fails.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters, please refer to
+[Sink Common Options](../common-options/sink-common-options.md) for details.
+For multi-table writes, `multi_table_sink_replica` can be used with the common
+sink options.
 
-## Example
+## Examples
+
+### Write one table to one topic
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
 sink {
- DataHub {
-  endpoint="yourendpoint"
-  accessId="xxx"
-  accessKey="xxx"
-  project="projectname"
-  topic="topicname"
-  timeout=3000
-  retryTimes=3
- }
+  DataHub {
+    endpoint = "https://datahub.example.aliyuncs.com"
+    accessId = "your-access-id"
+    accessKey = "your-access-key"
+    project = "demo_project"
+    topic = "user_topic"
+    timeout = 3000
+    retryTimes = 3
+  }
+}
+```
+
+### Write multiple input tables to matching topics
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+
+    tables_configs = [
+      {
+        row.num = 100
+        schema = {
+          table = "users"
+          fields {
+            name = "string"
+            age = "int"
+          }
+        }
+      },
+      {
+        row.num = 200
+        schema = {
+          table = "orders"
+          fields {
+            order_id = "int"
+            amount = "decimal(10, 2)"
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  DataHub {
+    endpoint = "https://datahub.example.aliyuncs.com"
+    accessId = "your-access-id"
+    accessKey = "your-access-key"
+    project = "demo_project"
+    topic = "${table_name}"
+    timeout = 3000
+    retryTimes = 3
+  }
 }
 ```
 
 ## Changelog
 
 <ChangeLog />
-

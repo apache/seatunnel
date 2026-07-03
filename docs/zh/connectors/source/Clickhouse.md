@@ -16,8 +16,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列映射](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 
 > 支持查询SQL，可以实现投影效果。
@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | host              | String | 是      | -                      | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"` . |
 | username          | String | 是      | -                      | `ClickHouse` user 用户账号.                                                           |
 | password          | String | 是      | -                      | `ClickHouse` user 用户密码.                                                           |
-| table_list        | Array  | NO       | -                      | 要读取的数据表列表，支持配置多表.                                                                 |
+| table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表.                                                                 |
 | clickhouse.config | Map    | 否       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
 | server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
 | common-options    |        | 否       | -                      | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md).                                                                                                                                                                                          |
@@ -69,6 +69,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sql            | String | 否    | -    | 用于通过Clickhouse服务搜索数据的查询sql.                                                          |
 | filter_query   | String | 否    | -    | 数据过滤条件. 格式为: "field = value", 例如 : filter_query = "id > 2 and type = 1"              |
 | partition_list | Array  | 否    | -    | 指定分区列表过滤数据. 如果是分区表，该字段可以配置为过滤指定分区的数据。. 例如: partition_list = ["20250615", "20250616"] |
+| split.size     | int    | 否    | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 ClickHouse part 数量，最小值为 `1`。值越小，拆分越多，并行读取粒度越细。 |
 | batch_size     | int    | 否    | 1024 | 从Clickhouse读取一次可以获得的最大数据行数。                                                          |
 
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
@@ -87,6 +88,7 @@ Clickhouse源连接器支持并行读取数据。
 当指定`table_path`参数时，如果不想读取整个表，可以指定`partition_list`或`filter_query`参数过滤指定条件或分区的数据。
 * `partition_list`: 过滤指定分区的数据
 * `filter_query`: 根据指定条件对数据进行过滤
+* `split.size`: 使用 `table_path` 读取时，控制每个 SeaTunnel split 包含多少个 ClickHouse part
 
 `batch_size`参数可用于控制每次查询读取的数据量，以避免在读取大量数据时出现OOM异常。适当增加这个值将有助于提高读取过程的性能。
 
@@ -113,6 +115,7 @@ source {
     server_time_zone = "UTC"
     partition_list = ["20250615", "20250616"]
     filter_query = "id > 2 and type = 1"
+    split.size = 1
     batch_size = 1024
     clickhouse.config = {
       "socket_timeout": "300000"

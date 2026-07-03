@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] maxwell_json
 - [x] 压缩编解码器
   - [x] lzo
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -82,6 +82,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | remote_user                      | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
 | schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                                                                                                                                                                                                                                                         |
 | data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                                                                                                                                                                                                                                                         |
+| multi_table_sink_replica         | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                                                                                                                                                                                                                                             |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                                                                                                                                                                                        |
 | schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
@@ -105,6 +106,10 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - DROP_DATA：保留目录并删除数据文件
 - APPEND_DATA：保留目录，保留数据文件
 - ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
+
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
 
 ### merge_update_event [boolean]
 

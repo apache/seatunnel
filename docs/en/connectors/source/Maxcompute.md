@@ -31,16 +31,17 @@ Used to read data from Maxcompute.
 | split_row      | int    | no       | 10000         |
 | read_columns   | Array  | no       | -             |
 | table_list     | Array  | No       | -             |
+| tunnel_endpoint | string | no       | -             |
 | common-options | string | no       |               |
 | schema         | config | no       |               |
 
 ### accessId [string]
 
-`accessId` Your Maxcompute accessId which cloud be access from Alibaba Cloud.
+`accessId` Your Maxcompute accessId that can access Alibaba Cloud.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+`accesskey` Your Maxcompute accessKey that can access Alibaba Cloud.
 
 ### sts_token [string]
 
@@ -121,6 +122,7 @@ source {
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
     table_name="<your table name>"
+    #tunnel_endpoint="<your tunnel endpoint>"
     #partition_spec="<your partition spec>"
     #split_row = 10000
     #read_columns = ["col1", "col2"]
@@ -137,6 +139,7 @@ source {
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>" # default project
+    #tunnel_endpoint="<your tunnel endpoint>"
     table_list = [
       {
         table_name = "test_table"

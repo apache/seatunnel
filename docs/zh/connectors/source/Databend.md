@@ -69,20 +69,14 @@ import ChangeLog from '../changelog/connector-databend.md';
 | password | String | 是 | - | Databend 数据库密码 |
 | database | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
 | table | String | 否 | - | Databend 表名称 |
-| query | String | 否 | - | Databend 查询语句，如果设置将覆盖 database 和 table 的设置 |
-| fetch_size | Integer | 否 | 0 | 一次从数据库中获取的记录数，设置为0使用JDBC驱动默认值 |
+| query | String | 否 | - | Databend 查询语句。如果设置，会覆盖 database 和 table 的设置 |
+| sql | String | 否 | - | 自定义 SQL 语句。若同时配置 `sql` 和 `query`，优先使用 `sql` |
+| fetch_size | Integer | 否 | 1 | 每次从 Databend 拉取的记录数。读取大量数据时可以适当调大 |
+| ssl | Boolean | 否 | false | 是否使用 SSL 连接 Databend |
 | jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如加载均衡策略等 |
 
-表清单配置:
-
-| 名称 | 类型 | 是否必须 | 默认值 | 描述 |
-|------|------|----------|--------|------|
-| database | String | 是 | - | 数据库名称 |
-| table | String | 是 | - | 表名称 |
-| query | String | 否 | - | 自定义查询语句 |
-| fetch_size | Integer | 否 | 0 | 一次从数据库中获取的记录数 |
-
-注意: 当此配置对应于单个表时，您可以将 table_list 中的配置项展平到外层。
+必须配置 `sql`、`query`、或同时配置 `database` 和 `table`。当前连接器不支持
+`table_list`，如果要读多张表，请为每张表分别配置一个 Databend source。
 
 ## 任务示例
 
@@ -118,6 +112,21 @@ source {
     username = "root"
     password = ""
     query = "SELECT id, name, age FROM default.users WHERE age > 18"
+  }
+}
+```
+
+### 使用 SSL
+
+```hocon
+source {
+  Databend {
+    url = "jdbc:databend://databend.example.com:8000/default"
+    username = "root"
+    password = ""
+    sql = "SELECT * FROM default.users"
+    ssl = true
+    fetch_size = 1000
   }
 }
 ```

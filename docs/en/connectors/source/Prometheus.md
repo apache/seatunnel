@@ -6,60 +6,45 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 
 ## Description
 
-Reads metric samples from Prometheus-compatible HTTP APIs.
+The Prometheus source connector reads metric query results from Prometheus-compatible HTTP APIs. It supports instant
+queries and range queries, and returns each metric sample as a SeaTunnel row.
 
-The connector uses the Prometheus query API. Configure `url` as the base address, such as `http://prometheus:9090` or `http://victoria-metrics:8428`. SeaTunnel appends `/api/v1/query` for `Instant` queries and `/api/v1/query_range` for `Range` queries.
+Configure `url` as the server base address, such as `http://prometheus:9090` or `http://victoria-metrics:8428`.
+SeaTunnel automatically uses the Prometheus query endpoint for `Instant` queries and the query range endpoint for
+`Range` queries.
 
-## Key features
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Source Options
 
-| name                        | type    | required | default value | description |
-|-----------------------------|---------|----------|---------------|-------------|
-| url                         | String  | Yes      | -             | Prometheus-compatible server base URL. |
-| query                       | String  | Yes      | -             | PromQL expression. |
-| query_type                  | String  | No       | Instant       | Query type. Valid values are `Instant` and `Range`. |
-| start                       | String  | Required when `query_type = Range` | - | Range query start time. |
-| end                         | String  | Required when `query_type = Range` | - | Range query end time. |
-| step                        | String  | Required when `query_type = Range` | - | Range query resolution step, for example `15s`. |
-| time                        | Long    | No       | -             | Instant query evaluation time, as a Unix timestamp. |
-| timeout                     | Long    | No       | -             | Query timeout passed to Prometheus. |
-| headers                     | Map     | No       | -             | HTTP request headers. |
-| params                      | Map     | No       | -             | Extra HTTP request parameters. SeaTunnel adds `query` and query time parameters automatically. |
-| content_field               | String  | No       | -             | JSONPath used to extract the sample list. For Prometheus responses, use `$.data.result.*`. |
-| schema.fields               | Config  | Required when `format = json` | - | Output schema. |
-| format                      | String  | No       | text          | Response format. Use `json` for Prometheus metric samples. |
-| poll_interval_millis        | int     | No       | -             | Request interval in stream mode, in milliseconds. |
-| retry                       | int     | No       | -             | Maximum retry times when the HTTP request fails with `IOException`. |
-| retry_backoff_multiplier_ms | int     | No       | 100           | Retry backoff multiplier, in milliseconds. |
-| retry_backoff_max_ms        | int     | No       | 10000         | Maximum retry backoff, in milliseconds. |
-| common-options              | config  | No       | -             | Source common options. |
+| Name                        | Type   | Required | Default | Description |
+|-----------------------------|--------|----------|---------|-------------|
+| url                         | String | Yes      | -       | Prometheus-compatible server base URL, for example `http://prometheus:9090`. |
+| query                       | String | Yes      | -       | Prometheus expression query. |
+| query_type                  | String | No       | Instant | Query type. Supported values are `Instant` and `Range`. |
+| start                       | String | Required when `query_type = Range` | - | Start timestamp for a range query. Supports RFC3339 timestamps, Unix timestamps, and `CURRENT_TIMESTAMP`. |
+| end                         | String | Required when `query_type = Range` | - | End timestamp for a range query. Supports RFC3339 timestamps, Unix timestamps, and `CURRENT_TIMESTAMP`. |
+| step                        | String | Required when `query_type = Range` | - | Query resolution step width, such as `15s`, `1m`, or a float number of seconds. |
+| time                        | Long   | No       | -       | Evaluation timestamp for an instant query, as a Unix timestamp. |
+| timeout                     | Long   | No       | -       | Evaluation timeout passed to the Prometheus query API. |
+| content_field               | String | No       | -       | JSONPath used to extract the array of metric results. For Prometheus responses, usually `$.data.result.*`. |
+| format                      | String | No       | text    | Response format. Use `json` when reading Prometheus query results with a schema. |
+| schema                      | Config | Required when `format = json` | - | Output schema. |
+| headers                     | Map    | No       | -       | HTTP request headers. |
+| params                      | Map    | No       | -       | Extra HTTP request parameters. SeaTunnel adds the Prometheus query parameters automatically. |
+| retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
+| poll_interval_millis        | Int    | No       | -       | HTTP request interval in milliseconds when the job runs in stream mode. |
+| common-options              | Config | No       | -       | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
-### query_type [String]
+## Output Schema
 
-`Instant` evaluates the query at a single time. `Range` evaluates the query over a time range.
-
-### start / end [String]
-
-Used only when `query_type = Range`.
-
-Supported values:
-
-- `CURRENT_TIMESTAMP`
-- ISO-8601 timestamp, for example `2025-05-13T02:25:23Z`
-- Unix timestamp in seconds, for example `1747103123.083`
-
-### step [String]
-
-Used only when `query_type = Range`. It is the query resolution step accepted by Prometheus, such as `15s`, `1m`, or a number of seconds.
-
-### schema [Config]
-
-Prometheus source returns three fields in this order:
+For Prometheus query results, use the following schema:
 
 ```hocon
 schema = {
@@ -71,15 +56,15 @@ schema = {
 }
 ```
 
-The `metric` field contains labels, including `__name__`. The `value` field is the metric value. The `time` field is the sample timestamp in milliseconds.
+The connector converts a Prometheus sample into these fields:
 
-### common options
+| Field  | Type                | Description |
+|--------|---------------------|-------------|
+| metric | map<string, string> | Prometheus metric labels, including labels such as `__name__`. |
+| value  | double              | Sample value. |
+| time   | long                | Sample timestamp. |
 
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
-
-## Example
-
-### Instant query
+## Instant Query Example
 
 ```hocon
 env {
@@ -89,9 +74,9 @@ env {
 
 source {
   Prometheus {
-    plugin_output = "prometheus_metrics"
+    plugin_output = "prometheus"
     url = "http://prometheus:9090"
-    query = "metric_1"
+    query = "up"
     query_type = "Instant"
     content_field = "$.data.result.*"
     format = "json"
@@ -106,7 +91,7 @@ source {
 }
 ```
 
-### Range query
+## Range Query Example
 
 ```hocon
 env {
@@ -116,12 +101,12 @@ env {
 
 source {
   Prometheus {
-    plugin_output = "prometheus_metrics"
+    plugin_output = "prometheus"
     url = "http://prometheus:9090"
-    query = "metric_1"
+    query = "up"
     query_type = "Range"
-    start = "CURRENT_TIMESTAMP"
-    end = "CURRENT_TIMESTAMP"
+    start = CURRENT_TIMESTAMP
+    end = CURRENT_TIMESTAMP
     step = "15s"
     content_field = "$.data.result.*"
     format = "json"
@@ -136,14 +121,14 @@ source {
 }
 ```
 
-### Read from a Prometheus-compatible API
+## Prometheus-Compatible API Example
 
 ```hocon
 source {
   Prometheus {
     plugin_output = "metrics"
     url = "http://victoria-metrics:8428"
-    query = "metric_1"
+    query = "up"
     query_type = "Instant"
     content_field = "$.data.result.*"
     format = "json"

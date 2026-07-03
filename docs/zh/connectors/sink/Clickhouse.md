@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述
@@ -57,8 +57,8 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | username                              | String  | Yes  | -     | `ClickHouse` 用户账号.                                                                                                                                                               |
 | password                              | String  | Yes  | -     | `ClickHouse` 用户密码.                                                                                                                                                               |
 | clickhouse.config                     | Map     | No   |       | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| bulk_size                             | String  | No   | 20000 | 每次通过[Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数，即默认是20000.                                                                                            |
-| split_mode                            | String  | No   | false | 此模式仅支持引擎为`Distributed`的 `clickhouse` 表。选项 `internal_replication` 应该是 `true` 。他们将在 seatunnel 中拆分分布式表数据，并直接对每个分片进行写入。分片权重定义为 `clickhouse` 将计算在内。                                   |
+| bulk_size                             | int     | No   | 20000 | 每次通过[Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数，即默认是20000.                                                                                            |
+| split_mode                            | Boolean | No   | false | 此模式仅支持引擎为`Distributed`的 `clickhouse` 表。选项 `internal_replication` 应该是 `true` 。他们将在 seatunnel 中拆分分布式表数据，并直接对每个分片进行写入。分片权重定义为 `clickhouse` 将计算在内。                                   |
 | sharding_key                          | String  | No   | -     | 使用 `split_mode` 时，将数据发送到哪个节点是个问题，默认为随机选择，但可以使用`sharding_key`参数来指定分片算法的字段。此选项仅在`split_mode`为 `true` 时有效.                                                                          |
 | primary_key                           | String  | No   | -     | 标记`clickhouse`表中的主键列，并根据主键执行INSERT/UPDATE/DELETE到`clickhouse`表.                                                                                                                  |
 | support_upsert                        | Boolean | No   | false | 支持按查询主键更新插入行.                                                                                                                                                                    |
