@@ -4,61 +4,69 @@ import ChangeLog from '../changelog/connector-assert.md';
 
 > Assert 数据接收器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> Seatunnel Zeta<br/>
+
 ## 描述
 
-Assert 数据接收器是一个用于断言数据是否符合用户定义规则的数据接收器。用户可以通过配置规则来断言数据是否符合预期，如果数据不符合规则，将会抛出异常。
+Assert 是一个用于校验任务输出结果的数据接收器。它可以按用户定义的规则检查行数、字段类型、字段值和 Catalog 表元数据。如果实际数据不符合规则，任务会失败。
 
-## 核心特性
+## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置
 
-| Name                                                                                           | Type                                            | Required | Default |
+| 参数名称                                                                                       | 类型                                            | 必填 | 默认值 |
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
-| rules                                                                                          | ConfigMap                                       | yes      | -       |
-| rules.field_rules                                                                              | ConfigList                                      | no       | -       |
-| rules.field_rules.field_name                                                                   | string\|ConfigMap                               | yes      | -       |
-| rules.field_rules.field_type                                                                   | string                                          | no       | -       |
-| rules.field_rules.field_value                                                                  | ConfigList                                      | no       | -       |
-| rules.field_rules.field_value.rule_type                                                        | string                                          | no       | -       |
-| rules.field_rules.field_value.rule_value                                                       | numeric                                         | no       | -       |
-| rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | no       | -       |
-| rules.row_rules                                                                                | ConfigList                                      | no       | -       |
-| rules.row_rules.rule_type                                                                      | string                                          | no       | -       |
-| rules.row_rules.rule_value                                                                     | string                                          | no       | -       |
-| rules.catalog_table_rule                                                                       | ConfigMap                                       | no       | -       |
-| rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap                                       | no       | -       |
-| rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string                                          | no       | -       |
-| rules.catalog_table_rule.primary_key_rule.primary_key_columns                                  | ConfigList                                      | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule                                                   | ConfigList                                      | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule.constraint_key_name                               | string                                          | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule.constraint_key_type                               | string                                          | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns                            | ConfigList                                      | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_column_name | string                                          | no       | -       |
-| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_sort_type   | string                                          | no       | -       |
-| rules.catalog_table_rule.column_rule                                                           | ConfigList                                      | no       | -       |
-| rules.catalog_table_rule.column_rule.name                                                      | string                                          | no       | -       |
-| rules.catalog_table_rule.column_rule.type                                                      | string                                          | no       | -       |
-| rules.catalog_table_rule.column_rule.column_length                                             | int                                             | no       | -       |
-| rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | no       | -       |
-| rules.catalog_table_rule.column_rule.default_value                                             | string                                          | no       | -       |
-| rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | no       | -       |
-| rules.table-names                                                                              | ConfigList                                      | no       | -       |
-| rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
-| rules.tables_configs.table_path                                                                | String                                          | no       | -       |
-| multi_table_sink_replica                                                                       | int                                             | no       | -       |
-| common-options                                                                                 |                                                 | no       | -       |
+| rules                                                                                          | ConfigMap                                       | 是       | -       |
+| rules.field_rules                                                                              | ConfigList                                      | 否       | -       |
+| rules.field_rules.field_name                                                                   | string\|ConfigMap                               | 是       | -       |
+| rules.field_rules.field_type                                                                   | string                                          | 否       | -       |
+| rules.field_rules.field_value                                                                  | ConfigList                                      | 否       | -       |
+| rules.field_rules.field_value.rule_type                                                        | string                                          | 否       | -       |
+| rules.field_rules.field_value.rule_value                                                       | numeric                                         | 否       | -       |
+| rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | 否       | -       |
+| rules.row_rules                                                                                | ConfigList                                      | 否       | -       |
+| rules.row_rules.rule_type                                                                      | string                                          | 否       | -       |
+| rules.row_rules.rule_value                                                                     | string                                          | 否       | -       |
+| rules.catalog_table_rule                                                                       | ConfigMap                                       | 否       | -       |
+| rules.catalog_table_rule.primary_key_rule                                                      | ConfigMap                                       | 否       | -       |
+| rules.catalog_table_rule.primary_key_rule.primary_key_name                                     | string                                          | 否       | -       |
+| rules.catalog_table_rule.primary_key_rule.primary_key_columns                                  | ConfigList                                      | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule                                                   | ConfigList                                      | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_name                               | string                                          | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_type                               | string                                          | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns                            | ConfigList                                      | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_column_name | string                                          | 否       | -       |
+| rules.catalog_table_rule.constraint_key_rule.constraint_key_columns.constraint_key_sort_type   | string                                          | 否       | -       |
+| rules.catalog_table_rule.column_rule                                                           | ConfigList                                      | 否       | -       |
+| rules.catalog_table_rule.column_rule.name                                                      | string                                          | 否       | -       |
+| rules.catalog_table_rule.column_rule.type                                                      | string                                          | 否       | -       |
+| rules.catalog_table_rule.column_rule.column_length                                             | int                                             | 否       | -       |
+| rules.catalog_table_rule.column_rule.nullable                                                  | boolean                                         | 否       | -       |
+| rules.catalog_table_rule.column_rule.default_value                                             | string                                          | 否       | -       |
+| rules.catalog_table_rule.column_rule.comment                                                   | comment                                         | 否       | -       |
+| rules.table-names                                                                              | ConfigList                                      | 否       | -       |
+| rules.tables_configs                                                                           | ConfigList                                      | 否       | -       |
+| rules.tables_configs.table_path                                                                | String                                          | 否       | -       |
+| multi_table_sink_replica                                                                       | int                                             | 否       | -       |
+| common-options                                                                                 |                                                 | 否       | -       |
+
+连接器只强制要求配置 `rules`。`rules` 里面的各类规则块是可选的，但至少应配置一条有实际校验意义的规则，否则 Assert sink 没有可校验的内容。
 
 ### rules [ConfigMap]
 
-规则定义用户可用数据的规则。每个规则代表一个字段验证或行数量验证。
+定义期望数据的校验规则。每条规则可以用于字段校验、行数校验、表名校验或 Catalog 表元数据校验。
 
 ### field_rules [ConfigList]
 
-字段规则用于字段验证
+字段规则用于字段校验。需要检查字段类型、是否为空、取值范围、字符串长度或精确值时使用。
 
 ### field_name [string]
 
@@ -99,15 +107,15 @@ Assert 数据接收器是一个用于断言数据是否符合用户定义规则�
 
 ### catalog_table_rule [ConfigMap]
 
-catalog_table_rule用于断言Catalog表是否与用户定义的表相同。
+用于断言实际 Catalog 表元数据是否与用户定义的表元数据一致。
 
 ### table-names [ConfigList]
 
-用于断言表是否在数据中。
+用于断言输入数据中是否包含指定表名。
 
 ### tables_configs [ConfigList]
 
-用于断言多个表是否在数据中。
+用于为多表任务中的不同表配置不同的校验规则。每一项都应包含 `table_path`。
 
 ### table_path [String]
 
@@ -121,10 +129,17 @@ catalog_table_rule用于断言Catalog表是否与用户定义的表相同。
 
 Sink 插件的通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情
 
+### 规则匹配说明
+
+- `row_rules` 用于检查 Assert sink 收到的行数。
+- `field_rules` 用于检查每一行中的字段值。
+- `tables_configs` 用于多表任务，`table_path` 必须和上游数据携带的表路径一致。
+- `equals_to` 会比较实际字段值和配置的期望值。数组、Map、Row 这类复杂值需要使用和 source 数据一致的 HOCON 写法。
+
 ## 示例
 
 ### 简单
-整个Config遵循`hocon`风格
+下面的示例校验任务输出行数在 5 到 100 之间，并校验选中字段符合预期规则。
 
 ```hocon
 Assert {
@@ -506,7 +521,7 @@ sink{
 
 ### 验证多表
 
-验证多个表
+下面的示例在一个任务中校验两张表，每张表都有独立的行数规则和字段规则。
 
 ```hocon
 env {

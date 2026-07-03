@@ -19,11 +19,14 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
 用于向 Aerospike 数据库写入数据的连接器。该连接器会把数据写入一个指定的 Aerospike 命名空间和集合，并使用 `key` 指定的字段作为 Aerospike 记录主键。
+
+该连接器只写入一个固定的目标集合，不会按表名自动把数据路由到不同的 Aerospike 集合。
 
 ## 支持的数据源
 
@@ -55,12 +58,12 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 | 参数名称        | 类型    | 必填 | 默认值  | 说明                                                                 |
 |----------------|---------|------|---------|---------------------------------------------------------------------|
 | host           | string  | 是   | -       | Aerospike 服务器主机名或 IP 地址。                                  |
-| port           | int     | 否   | 3000    | Aerospike 服务器端口。                                              |
+| port           | int     | 是   | 3000    | Aerospike 服务器端口。                                              |
 | namespace      | string  | 是   | -       | Aerospike 命名空间。                                                |
 | set            | string  | 是   | -       | Aerospike 集合名称。                                                |
 | username       | string  | 否   | -       | 认证用户名。未开启认证时可以不配置。                                |
 | password       | string  | 否   | -       | 认证密码。未开启认证时可以不配置。                                  |
-| key            | string  | 是   | -       | 用作 Aerospike 记录主键的 SeaTunnel 字段名称。                      |
+| key            | string  | 是   | -       | 用作 Aerospike 记录主键的 SeaTunnel 字段名称，该字段必须存在于输入 schema 中。 |
 | bin_name       | string  | 否   | -       | `map` 和 `string` 格式使用的 Aerospike bin 名称，这两种格式下必填。  |
 | data_format    | string  | 否   | string  | 数据存储格式，支持 `map`、`string`、`kv`。                           |
 | write_timeout  | int     | 否   | 200     | 写入操作超时时间，单位毫秒。                                        |
@@ -76,7 +79,11 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 ### schema.field 配置说明
 
-`schema.field` 是可选配置。需要明确控制每个字段写入 Aerospike 时的类型时再配置。支持的 Aerospike 类型名称包括 `STRING`、`INTEGER`、`LONG`、`DOUBLE`、`BOOLEAN`、`BYTEARRAY`、`LIST`。
+`schema.field` 对 `map` 和 `string` 格式是可选配置。需要明确控制每个字段写入 Aerospike 时的类型时再配置。
+
+当 `data_format` 为 `kv` 时，请在 `schema.field` 中列出需要写成独立 Aerospike bin 的字段。写入器会遍历 `schema.field`，未列出的字段不会在 `kv` 模式下写入。
+
+支持的 Aerospike 类型名称包括 `STRING`、`INTEGER`、`LONG`、`DOUBLE`、`BOOLEAN`、`BYTEARRAY`、`LIST`。
 
 ## 任务示例
 
@@ -137,6 +144,7 @@ sink {
   }
 }
 ```
-## Changelog
+
+## 更新日志
 
 <ChangeLog />
