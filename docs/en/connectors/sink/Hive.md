@@ -42,6 +42,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | hive_site_path                        | string  | no       | -              |
 | hive.hadoop.conf                      | Map     | no       | -              |
 | hive.hadoop.conf-path                 | string  | no       | -              |
+| remote_user                           | string  | no       | -              |
 | krb5_path                             | string  | no       | /etc/krb5.conf |
 | kerberos_principal                    | string  | no       | -              |
 | kerberos_keytab_path                  | string  | no       | -              |
@@ -76,6 +77,10 @@ Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
 ### hive.hadoop.conf-path [string]
 
 The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
+
+### remote_user [string]
+
+Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.
 
 ### krb5_path [string]
 
