@@ -70,6 +70,7 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
      */
     private static final String SQLSERVER_XA_PROCEDURE_QUERY =
             "SET NOCOUNT ON; SELECT CASE WHEN OBJECT_ID('master..xp_sqljdbc_xa_init_ex') IS NOT NULL THEN 1 ELSE 0 END";
+
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
                     + "useBulkCopyForBatchInsert=true;delayLoadingLobs=true;useFmtOnly=false;"
