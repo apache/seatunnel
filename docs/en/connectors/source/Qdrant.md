@@ -28,7 +28,7 @@ The Qdrant source reads points from one existing Qdrant collection. Point payloa
 | schema          | config | yes      | -             | SeaTunnel schema used to map Qdrant point IDs, payload fields, and vectors. |
 | host            | string | no       | localhost     | Qdrant gRPC host. |
 | port            | int    | no       | 6334          | Qdrant gRPC port. |
-| api_key         | string | no       | -             | Qdrant API key for authenticated deployments. |
+| api_key         | string | no       | ""            | Qdrant API key for authenticated deployments. |
 | use_tls         | bool   | no       | false         | Whether to use TLS for the gRPC connection. |
 | common-options  |        | no       | -             | Source common options. |
 
@@ -78,7 +78,7 @@ The gRPC port of the Qdrant instance.
 
 ### api_key [string]
 
-The API key used to connect to authenticated Qdrant deployments.
+The API key used to connect to authenticated Qdrant deployments. Leave it empty when the Qdrant service does not require authentication.
 
 ### use_tls [bool]
 
