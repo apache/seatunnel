@@ -212,7 +212,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         Struct value = (Struct) changeRecord.value();
 
         if (value != null) {
-            String operationType = value.getString(OPERATION_TYPE);
+            String operationType = getOperationType(changeRecord, value);
 
             switch (OperationType.fromString(operationType)) {
                 case INSERT:
@@ -247,6 +247,34 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                             "Data change record meet UNKNOWN operation: " + operationType);
             }
         }
+    }
+
+    private String getOperationType(SourceRecord record, Struct value) {
+        if (record.valueSchema() == null || record.valueSchema().field(OPERATION_TYPE) == null) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    String.format(
+                            "MongoDB CDC record has no %s field. Topic: %s, partition: %s,"
+                                    + " offset: %s",
+                            OPERATION_TYPE,
+                            record.topic(),
+                            record.sourcePartition(),
+                            record.sourceOffset()));
+        }
+
+        String operationType = value.getString(OPERATION_TYPE);
+        if (operationType == null) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    String.format(
+                            "MongoDB CDC record has null %s field. Topic: %s, partition: %s,"
+                                    + " offset: %s",
+                            OPERATION_TYPE,
+                            record.topic(),
+                            record.sourcePartition(),
+                            record.sourceOffset()));
+        }
+        return operationType;
     }
 
     @Override
