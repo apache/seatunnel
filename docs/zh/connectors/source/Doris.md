@@ -68,11 +68,14 @@ import ChangeLog from '../changelog/connector-doris.md';
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
-| doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
+| doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
 | query-port                       | string | no       | 9030       | Doris查询端口                                                                                         |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
-| table_list                       | string | 否       | -           | 表清单                                                                                               |
+| doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
+| doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 
 表清单配置:
 
