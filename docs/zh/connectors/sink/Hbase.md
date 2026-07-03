@@ -2,38 +2,41 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 # Hbase
 
-> Hbase 数据连接器
+> Hbase 接收器连接器
 
 ## 描述
 
-将数据输出到hbase
+将 SeaTunnel 数据写入 Apache HBase。支持创建或复用目标表、写入单表或多表、把字段映射到一个或多个列簇，并可控制空值、行键、WAL、时间戳和已有数据的处理方式。
 
 ## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-|         名称         |   类型    | 是否必须 |       默认值       |
-|--------------------|---------|------|-----------------|
-| zookeeper_quorum   | string  | yes  | -               |
-| table              | string  | yes  | -               |
-| rowkey_column      | list    | yes  | -               |
-| family_name        | config  | yes  | -               |
-| rowkey_delimiter   | string  | no   | ""              |
-| version_column     | string  | no   | -               |
-| null_mode          | string  | no   | skip            |
-| wal_write          | boolean | yes  | false           |
-| write_buffer_size  | string  | no   | 8 * 1024 * 1024 |
-| encoding           | string  | no   | utf8            |
-| hbase_extra_config | config  | no   | -               |
-| common-options     |         | no   | -               |
-| ttl                | long    | no   | -               |
+| 名称               | 类型    | 是否必须 | 默认值 |
+|--------------------|---------|----------|--------|
+| zookeeper_quorum   | string  | 是       | -      |
+| table              | string  | 是       | -      |
+| rowkey_column      | list    | 是       | -      |
+| family_name        | config  | 是       | -      |
+| rowkey_delimiter   | string  | 否       | ""     |
+| version_column     | string  | 否       | -      |
+| null_mode          | string  | 否       | skip   |
+| wal_write          | boolean | 否       | false  |
+| write_buffer_size  | string  | 否       | 8 * 1024 * 1024 |
+| encoding           | string  | 否       | utf8   |
+| schema_save_mode   | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode     | enum    | 否       | APPEND_DATA |
+| hbase_extra_config | config  | 否       | -      |
+| common-options     |         | 否       | -      |
+| ttl                | long    | 否       | -      |
 
 ### zookeeper_quorum [string]
 
-hbase的zookeeper集群主机, 示例: "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+HBase 的 zookeeper 集群主机，示例: "hadoop001:2181,hadoop002:2181,hadoop003:2181"
 
 ### table [string]
 
@@ -52,14 +55,14 @@ hbase的zookeeper集群主机, 示例: "hadoop001:2181,hadoop002:2181,hadoop003:
 |----|---------------|-----|
 | 1  | tyrantlucifer | 27  |
 
-id作为行键和其他写入不同列簇的字段，可以分配
+`id` 作为行键，其他字段可以写入不同列簇。例如:
 
 family_name {
 name = "info1"
 age = "info2"
 }
 
-这主要是name写入列簇info1,age写入将写给列簇 info2
+这表示 `name` 写入列簇 `info1`，`age` 写入列簇 `info2`。
 
 如果要将其他字段写入同一列簇，可以分配
 
@@ -67,7 +70,7 @@ family_name {
 all_columns = "info"
 }
 
-这意味着所有字段都将写入该列簇 info
+这表示所有字段都会写入列簇 `info`。
 
 ### rowkey_delimiter [string]
 
@@ -82,7 +85,7 @@ all_columns = "info"
 写入 null 值的模式，支持 [ skip , empty], 默认 skip
 
 - skip: 当字段为 null ,连接器不会将此字段写入 hbase
-- empty: 当字段为null时,连接器将写入并为此字段生成空值
+- empty: 当字段为 null 时，连接器会为此字段写入空值
 
 ### wal_write [boolean]
 
@@ -105,7 +108,16 @@ Hbase 存储字节，连接器支持：
 
 ### hbase_extra_config [config]
 
-hbase扩展配置
+hbase 扩展配置
+
+### schema_save_mode [enum]
+
+写入前如何处理目标 HBase 表结构。常用值包括 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST` 和
+`ERROR_WHEN_SCHEMA_NOT_EXIST`。
+
+### data_save_mode [enum]
+
+写入前如何处理目标端已有数据。支持 `DROP_DATA`、`APPEND_DATA` 和 `ERROR_WHEN_DATA_EXISTS`。
 
 ### ttl [long]
 
@@ -116,6 +128,8 @@ hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
 Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../common-options/sink-common-options.md)
 
 ## 案例
+
+### 写入单表
 
 ```hocon
 
@@ -128,6 +142,23 @@ Hbase {
   }
 }
 
+```
+
+### 目标表不存在时自动创建
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_create_when_not_exists"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
+  }
+}
 ```
 
 ## Kerberos 示例

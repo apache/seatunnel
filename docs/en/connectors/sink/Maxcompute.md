@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## Description
 
-Used to read data from Maxcompute.
+Used to write data to Maxcompute.
 
 ## Key features
 
@@ -14,27 +14,33 @@ Used to read data from Maxcompute.
 
 ## Options
 
-|      name      | type    | required | default value |
-|----------------|---------|----------|---------------|
-| accessId       | string  | no       | -             |
-| accesskey      | string  | no       | -             |
-| sts_token      | string  | no       | -             |
-| endpoint       | string  | yes      | -             |
-| project        | string  | yes      | -             |
-| table_name     | string  | yes      | -             |
-| schema_name    | string  | no       | -             |
-| partition_spec | string  | no       | -             |
-| overwrite      | boolean | no       | false         |
-| insert_strategy| string  | no       | upload        |
-| common-options | string  | no       |               |
+| name                      | type    | required | default value |
+|---------------------------|---------|----------|---------------|
+| accessId                  | string  | no       | -             |
+| accesskey                 | string  | no       | -             |
+| sts_token                 | string  | no       | -             |
+| endpoint                  | string  | yes      | -             |
+| project                   | string  | yes      | -             |
+| table_name                | string  | yes      | -             |
+| schema_name               | string  | no       | -             |
+| partition_spec            | string  | no       | -             |
+| overwrite                 | boolean | no       | false         |
+| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode            | enum    | no       | APPEND_DATA   |
+| custom_sql                | string  | no       | -             |
+| save_mode_create_template | string  | no       | see below     |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| tunnel_endpoint           | string  | no       | -             |
+| insert_strategy           | string  | no       | upload        |
+| common-options            | string  | no       |               |
 
 ### accessId [string]
 
-`accessId` Your Maxcompute accessId which cloud be access from Alibaba Cloud.
+`accessId` Your Maxcompute accessId that can access Alibaba Cloud.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+`accesskey` Your Maxcompute accessKey that can access Alibaba Cloud.
 
 ### sts_token [string]
 
@@ -184,6 +190,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Examples
 
+### Append Data
+
 ```hocon
 sink {
   Maxcompute {
@@ -194,6 +202,52 @@ sink {
     table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #overwrite = false
+  }
+}
+```
+
+### Upsert or Delete Rows
+
+Use `insert_strategy = "upsert"` when the upstream schema has a primary key and the job contains
+update or delete rows. The example below uses an update row; delete rows use the same sink settings.
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table_sink"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          {
+            kind = UPDATE_AFTER
+            fields = [1, "UPSERT_TEST", 100]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "test_table_sink"
+    insert_strategy = "upsert"
   }
 }
 ```
