@@ -124,38 +124,42 @@ To improve throughput:
 
 ## Example
 
-### Simple JSON sink
+### Write JSON messages to MQTT
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
+  job.mode = "BATCH"
+  job.name = "SeaTunnel_MQTT_Sink"
 }
 
 source {
   FakeSource {
-    row.num = 100
+    row.num = 16
     schema = {
       fields {
         id = bigint
         name = string
-        temperature = double
+        age = int
       }
     }
-    plugin_output = "sensor_data"
+    plugin_output = "fake"
   }
 }
 
 sink {
   MQTT {
-    plugin_input = "sensor_data"
-    url = "tcp://broker.example.com:1883"
-    topic = "iot/sensors/readings"
+    plugin_input = "fake"
+    url = "tcp://mqtt-broker:1883"
+    topic = "test/seatunnel/sink"
     qos = 1
     format = "json"
   }
 }
 ```
+
+This job writes 16 rows to the `test/seatunnel/sink` topic. Each row is serialized as one JSON
+message because `format` is set to `json`.
 
 ### Authenticated broker with text format
 
@@ -168,11 +172,15 @@ sink {
     password = "secret"
     qos = 1
     format = "text"
+    field_delimiter = "|"
     retry_timeout = 10000
     connection_timeout = 60
   }
 }
 ```
+
+When `format = "text"`, each row is serialized as a delimited text line. Use `field_delimiter` to
+match the delimiter expected by downstream consumers.
 
 ## Changelog
 
