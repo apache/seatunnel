@@ -92,8 +92,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ### Send one table to multiple recipients
 
-This example follows the Email e2e job. It uses a test SMTP server without authentication and sends
-one email to each address in `email_to_address`.
+This example uses an SMTP server without authentication and sends one email to each address in
+`email_to_address`.
 
 ```hocon
 env {
@@ -132,7 +132,7 @@ sink {
   EmailSink {
     email_from_address = "sender@example.com"
     email_to_address = "receiver-1@example.com,receiver-2@example.com"
-    email_host = "email-e2e"
+    email_host = "smtp.example.com"
     email_transport_protocol = "smtp"
     email_smtp_auth = false
     email_smtp_port = 3025
@@ -147,8 +147,7 @@ sink {
 
 ### Send multiple tables
 
-Email sink supports multi-table input. In the e2e job, two upstream tables create two emails for
-each recipient.
+Email sink supports multi-table input. Two upstream tables create two emails for each recipient.
 
 ```hocon
 source {
@@ -184,7 +183,7 @@ sink {
   EmailSink {
     email_from_address = "sender@example.com"
     email_to_address = "receiver-3@example.com,receiver-4@example.com"
-    email_host = "email-e2e"
+    email_host = "smtp.example.com"
     email_transport_protocol = "smtp"
     email_smtp_auth = false
     email_smtp_port = 3025
