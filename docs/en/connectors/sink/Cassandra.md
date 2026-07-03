@@ -12,6 +12,9 @@ The sink writes rows to an existing Cassandra table. If `fields` is not configur
 uses all columns from the target Cassandra table schema. If `fields` is configured, only those
 columns are written, and every configured field must exist in the target table.
 
+The connector does not create keyspaces, tables, or missing columns. Prepare the target Cassandra
+schema before starting the job.
+
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -68,6 +71,8 @@ connector reads the target table schema and writes all columns from that table.
 
 When this option is configured, the field names must exist in the target Cassandra table and must
 also exist in the upstream SeaTunnel row.
+
+Use this option when the upstream row has extra fields that should not be written to Cassandra.
 
 ### batch_size [number]
 

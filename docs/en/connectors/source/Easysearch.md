@@ -88,9 +88,14 @@ Easysearch index name, support * fuzzy matching.
 
 ### source [array]
 
-The fields of index.
-You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Easysearch limit.
-If `source` is not configured, `schema` must be configured.
+The fields to read from the index.
+
+You can get the document id by specifying the field `_id`. If you need to write `_id` to another
+Easysearch index, specify an alias for `_id` because Easysearch does not allow `_id` to be written
+as a normal field.
+
+`source` and `schema` are mutually exclusive. If both are omitted, the connector reads the field
+mapping from Easysearch and uses all mapped fields in the index.
 
 ### query [json]
 
@@ -107,8 +112,12 @@ Maximum number of hits to be returned with each Easysearch scroll request.
 
 ### schema
 
-The structure of the data, including field names and field types. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md).
-If `schema` is not configured, `source` must be configured.
+The structure of the data, including field names and field types. For more details, see
+[Schema Feature](../../introduction/concepts/schema-feature.md).
+
+`schema` and `source` are mutually exclusive. Use `schema` when you want SeaTunnel to convert the
+selected fields with an explicit SeaTunnel type definition. If both are omitted, the connector reads
+the field mapping from Easysearch and uses all mapped fields in the index.
 
 ### tls_verify_certificate [boolean]
 
@@ -156,6 +165,11 @@ source {
 ### Read With Schema And Query
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Easysearch {
     hosts = ["https://e2e_easysearch:9200"]
@@ -184,6 +198,18 @@ source {
         c_timestamp = timestamp
       }
     }
+  }
+}
+
+sink {
+  Easysearch {
+    hosts = ["https://e2e_easysearch:9200"]
+    username = "admin"
+    password = "admin"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index2"
   }
 }
 ```

@@ -19,16 +19,16 @@ different input tables to different DataHub topics.
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| endpoint       | string | yes      | -             |
-| accessId       | string | yes      | -             |
-| accessKey      | string | yes      | -             |
-| project        | string | yes      | -             |
-| topic          | string | yes      | -             |
-| timeout        | int    | no       | 3000          |
-| retryTimes     | int    | no       | 3             |
-| common-options |        | no       | -             |
+| name           | type   | required | default value | description |
+|----------------|--------|----------|---------------|-------------|
+| endpoint       | string | yes      | -             | DataHub service endpoint. |
+| accessId       | string | yes      | -             | Alibaba Cloud access ID used to access DataHub. |
+| accessKey      | string | yes      | -             | Alibaba Cloud access key used to access DataHub. |
+| project        | string | yes      | -             | DataHub project name. |
+| topic          | string | yes      | -             | DataHub topic name. Supports placeholders in multi-table jobs. |
+| timeout        | int    | no       | 3000          | Maximum client connection timeout in milliseconds. |
+| retryTimes     | int    | no       | 3             | Maximum retry count when writing a record fails. |
+| common-options | config | no       | -             | Sink plugin common options. |
 
 ### endpoint [string]
 
@@ -50,6 +50,9 @@ The DataHub project name.
 
 The DataHub topic name. For multi-table writes, this value can contain
 placeholders, for example `${table_name}`.
+
+The SeaTunnel field names must match the DataHub topic fields, because the sink writes fields by
+name according to the topic schema.
 
 ### timeout [int]
 
