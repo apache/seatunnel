@@ -28,9 +28,10 @@ sink state from the older release and finish the restored job.
 ## Current Scenarios
 
 `generic-fake-localfile` starts a streaming `FakeSource` job on the old release,
-writes through the transactional `LocalFile` sink, creates a savepoint, starts
-the current `dev` distribution with the same checkpoint storage, restores the
-same job id, and verifies the restored output with the `Assert` sink.
+writes through the transactional `LocalFile` sink, creates a savepoint while the
+job is still running, starts the current `dev` distribution with the same
+checkpoint storage, restores the same job id, and verifies the restored output
+with the `Assert` sink.
 
 `mysql-cdc-multitable-localfile` starts a MySQL 8 container, seeds two source
 tables, starts a multi-table `MySQL-CDC` job on the old release, writes through
