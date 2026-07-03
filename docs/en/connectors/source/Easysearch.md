@@ -16,7 +16,7 @@ Used to read data from INFINI Easysearch.
 
 ## Using Dependency
 
-> Depenndency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
+> Dependency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
 
 ## Key features
 
@@ -47,7 +47,28 @@ Engine Supported
 | LONG                        | LONG                 |
 | FLOAT<br/>HALF_FLOAT        | FLOAT                |
 | DOUBLE                      | DOUBLE               |
-| Date                        | LOCAL_DATE_TIME_TYPE |
+| DATE                        | LOCAL_DATE_TIME_TYPE |
+
+## Source Options
+
+| name                   | type    | required | default value | description |
+|------------------------|---------|----------|---------------|-------------|
+| hosts                  | array   | yes      | -             | Easysearch HTTP addresses. |
+| index                  | string  | yes      | -             | Easysearch index name. Wildcard matching such as `seatunnel-*` is supported. |
+| username               | string  | no       | -             | Username for secured Easysearch clusters. |
+| password               | string  | no       | -             | Password for secured Easysearch clusters. |
+| source                 | array   | no       | -             | Fields to read from the index. Configure either `source` or `schema`. |
+| schema                 | config  | no       | -             | SeaTunnel schema used to read and convert fields. Configure either `schema` or `source`. |
+| query                  | json    | no       | `{"match_all":{}}` | Easysearch DSL query used to filter records. |
+| scroll_time            | string  | no       | 1m            | Time that Easysearch keeps the scroll context alive. |
+| scroll_size            | int     | no       | 100           | Maximum records returned by each scroll request. |
+| tls_verify_certificate | boolean | no       | true          | Whether to validate HTTPS certificates. |
+| tls_verify_hostname    | boolean | no       | true          | Whether to validate HTTPS host names. |
+| tls_keystore_path      | string  | no       | -             | Path to the PEM or JKS key store. |
+| tls_keystore_password  | string  | no       | -             | Password for the configured key store. |
+| tls_truststore_path    | string  | no       | -             | Path to the PEM or JKS trust store. |
+| tls_truststore_password | string | no       | -             | Password for the configured trust store. |
+| common-options         | config  | no       | -             | Source plugin common options. |
 
 ### hosts [array]
 
@@ -69,7 +90,7 @@ Easysearch index name, support * fuzzy matching.
 
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Easysearch limit.
-If you don't config source, you must config `schema`.
+If `source` is not configured, `schema` must be configured.
 
 ### query [json]
 
@@ -86,8 +107,8 @@ Maximum number of hits to be returned with each Easysearch scroll request.
 
 ### schema
 
-The structure of the data, including field names and field types.
-If you don't config schema, you must config `source`.
+The structure of the data, including field names and field types. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md).
+If `schema` is not configured, `source` must be configured.
 
 ### tls_verify_certificate [boolean]
 
@@ -119,42 +140,51 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Examples
 
-simple
+### Read Selected Fields
 
 ```hocon
-Easysearch {
+source {
+  Easysearch {
     hosts = ["localhost:9200"]
     index = "seatunnel-*"
-    source = ["_id","name","age"]
-    query = {"range":{"firstPacket":{"gte":1700407367588,"lte":1700407367588}}}
+    source = ["_id", "name", "age"]
+    query = {"range": {"age": {"gte": 18, "lte": 60}}}
+  }
 }
 ```
 
-complex
+### Read With Schema And Query
 
 ```hocon
-Easysearch {
-    hosts = ["Easysearch:9200"]
+source {
+  Easysearch {
+    hosts = ["https://e2e_easysearch:9200"]
+    username = "admin"
+    password = "admin"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
     index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
     schema = {
-        fields {
-            c_map = "map<string, tinyint>"
-            c_array = "array<tinyint>"
-            c_string = string
-            c_boolean = boolean
-            c_tinyint = tinyint
-            c_smallint = smallint
-            c_int = int
-            c_bigint = bigint
-            c_float = float
-            c_double = double
-            c_decimal = "decimal(2, 1)"
-            c_bytes = bytes
-            c_date = date
-            c_timestamp = timestamp
-        }
+      fields {
+        c_map = "map<string, tinyint>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(2, 1)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
     }
-    query = {"range":{"firstPacket":{"gte":1700407367588,"lte":1700407367588}}}
+  }
 }
 ```
 

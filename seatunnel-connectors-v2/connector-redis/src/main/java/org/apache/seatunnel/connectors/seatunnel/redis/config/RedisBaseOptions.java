@@ -41,6 +41,10 @@ public class RedisBaseOptions extends ConnectorCommonOptions {
     public static final Option<Integer> PORT =
             Options.key("port").intType().defaultValue(6379).withDescription("redis port");
 
+    public static final int MIN_PORT = 1;
+
+    public static final int MAX_PORT = 65535;
+
     public static final Option<String> AUTH =
             Options.key("auth")
                     .stringType()

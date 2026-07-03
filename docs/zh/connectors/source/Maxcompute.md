@@ -6,9 +6,9 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## 描述
 
-用于从 Maxcompute 读取数据.
+用于从 Maxcompute 读取数据。
 
-## 关键特性
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -31,6 +31,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | split_row      | int    | 否 | 10000         |
 | read_columns   | Array  | 否 | -             |
 | table_list     | Array  | 否 | -             |
+| tunnel_endpoint | string | 否 | -             |
 | common-options | string | 否 |               |
 | schema         | config | 否 |               |
 
@@ -51,19 +52,19 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### endpoint [string]
 
-`endpoint` 您的 Maxcompute 端点以 http 开头.
+`endpoint` 您的 Maxcompute 端点，以 http 开头。
 
 ### project [string]
 
-`project` 您在阿里云中创建的Maxcompute项目.
+`project` 您在阿里云中创建的 Maxcompute 项目。
 
 ### table_name [string]
 
-`table_name` 目标Maxcompute表名，例如：fake.
+`table_name` 目标 Maxcompute 表名，例如：fake。
 
 ### partition_spec [string]
 
-`partition_spec` Maxcompute分区表的此规范，例如:ds='20220101'.
+`partition_spec` Maxcompute 分区表的规范，例如: ds='20220101'。
 
 ### schema_name [string]
 
@@ -85,7 +86,12 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### table_list [Array]
 
-要读取的表列表，您可以使用此配置代替 `table_name`.
+要读取的表列表，您可以使用此配置代替 `table_name`。
+
+### tunnel_endpoint [String]
+
+MaxCompute Tunnel 服务的自定义端点。未配置时，连接器会根据区域自动推断默认 Tunnel 端点。
+一般只有自定义网络、调试或本地开发时才需要配置，例如 `http://maxcompute:8080`。
 
 ### common options
 
@@ -103,6 +109,7 @@ source {
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
     table_name="<your table name>"
+    #tunnel_endpoint="<your tunnel endpoint>"
     #partition_spec="<your partition spec>"
     #split_row = 10000
     #read_columns = ["col1", "col2"]
@@ -119,6 +126,7 @@ source {
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>" # default project
+    #tunnel_endpoint="<your tunnel endpoint>"
     table_list = [
       {
         table_name = "test_table"
