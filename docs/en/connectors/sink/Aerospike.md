@@ -23,7 +23,7 @@ When using this connector, you need to comply with AGPL 3.0 license terms.
 
 ## Description
 
-Sink connector for Aerospike database.
+Sink connector for Aerospike database. The connector writes records to one Aerospike namespace and set. It uses the configured `key` field as the Aerospike record key.
 
 ## Supported DataSource Info
 
@@ -54,23 +54,29 @@ Note:
 
 | Name           | Type   | Required | Default | Description                                                                 |
 |----------------|--------|----------|---------|-----------------------------------------------------------------------------|
-| host           | string | Yes      | -       | Aerospike server hostname or IP address                                     |
-| port           | int    | No       | 3000    | Aerospike server port                                                       |
-| namespace      | string | Yes      | -       | Namespace in Aerospike                                                      |
-| set            | string | Yes      | -       | Set name in Aerospike                                                       |
-| username       | string | No       | -       | Username for authentication                                                |
-| password       | string | No       | -       | Password for authentication                                                |
-| key            | string | Yes      | -       | Field name to use as Aerospike primary key                                 |
-| bin_name       | string | No       | -       | Bin name for storing data. Required when `data_format` is `map` or `string` |
-| data_format    | string | No       | string  | Data storage format: map/string/kv                                         |
-| write_timeout  | int    | No       | 200     | Write operation timeout in milliseconds                                    |
-| schema.field   | map    | No       | {}      | Field type mappings (e.g. {"name":"STRING","age":"INTEGER"})               |
+| host           | string | Yes      | -       | Aerospike server hostname or IP address.                                    |
+| port           | int    | No       | 3000    | Aerospike server port.                                                      |
+| namespace      | string | Yes      | -       | Aerospike namespace.                                                        |
+| set            | string | Yes      | -       | Aerospike set name.                                                         |
+| username       | string | No       | -       | Username for authentication. Leave unset when authentication is disabled.    |
+| password       | string | No       | -       | Password for authentication. Leave unset when authentication is disabled.    |
+| key            | string | Yes      | -       | SeaTunnel field used as the Aerospike record key.                           |
+| bin_name       | string | No       | -       | Aerospike bin used by `map` and `string` formats. Required for those formats. |
+| data_format    | string | No       | string  | Storage format. Supported values are `map`, `string`, and `kv`.             |
+| write_timeout  | int    | No       | 200     | Write operation timeout in milliseconds.                                    |
+| schema.field   | map    | No       | {}      | Field-to-Aerospike type mapping. For example: `c_id = "INTEGER"`.          |
 
 ### data_format Options
 
 - **map**: Store all non-key fields as a map in `bin_name`
 - **string**: Store all non-key fields as a JSON string in `bin_name`
 - **kv**: Store each non-key field as a separate bin. `bin_name` is not used
+
+When `data_format` is `map` or `string`, configure `bin_name`; otherwise the writer does not know which Aerospike bin should receive the packed row data.
+
+### schema.field
+
+`schema.field` is optional. Configure it when you need to control the Aerospike type used for each field. Supported Aerospike type names include `STRING`, `INTEGER`, `LONG`, `DOUBLE`, `BOOLEAN`, `BYTEARRAY`, and `LIST`.
 
 ## Task Example
 

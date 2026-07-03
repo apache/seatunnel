@@ -19,11 +19,11 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-用于向 Aerospike 数据库写入数据的连接器。
+用于向 Aerospike 数据库写入数据的连接器。该连接器会把数据写入一个指定的 Aerospike 命名空间和集合，并使用 `key` 指定的字段作为 Aerospike 记录主键。
 
 ## 支持的数据源
 
@@ -54,23 +54,29 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 | 参数名称        | 类型    | 必填 | 默认值  | 说明                                                                 |
 |----------------|---------|------|---------|---------------------------------------------------------------------|
-| host           | string  | 是   | -       | Aerospike 服务器主机名或IP地址                                      |
-| port           | int     | 否   | 3000    | Aerospike 服务器端口                                                |
-| namespace      | string  | 是   | -       | Aerospike 命名空间                                                  |
-| set            | string  | 是   | -       | Aerospike 集合名称                                                  |
-| username       | string  | 否   | -       | 认证用户名                                                          |
-| password       | string  | 否   | -       | 认证密码                                                            |
-| key            | string  | 是   | -       | 用作 Aerospike 主键的字段名称                                       |
-| bin_name       | string  | 否   | -       | 数据存储的 bin 名称。`data_format` 为 `map` 或 `string` 时需要配置   |
-| data_format    | string  | 否   | string  | 数据存储格式：map/string/kv                                         |
-| write_timeout  | int     | 否   | 200     | 写入操作超时时间（毫秒）                                            |
-| schema.field   | map     | 否   | {}      | 字段类型映射（示例：{"name":"STRING","age":"INTEGER"}）             |
+| host           | string  | 是   | -       | Aerospike 服务器主机名或 IP 地址。                                  |
+| port           | int     | 否   | 3000    | Aerospike 服务器端口。                                              |
+| namespace      | string  | 是   | -       | Aerospike 命名空间。                                                |
+| set            | string  | 是   | -       | Aerospike 集合名称。                                                |
+| username       | string  | 否   | -       | 认证用户名。未开启认证时可以不配置。                                |
+| password       | string  | 否   | -       | 认证密码。未开启认证时可以不配置。                                  |
+| key            | string  | 是   | -       | 用作 Aerospike 记录主键的 SeaTunnel 字段名称。                      |
+| bin_name       | string  | 否   | -       | `map` 和 `string` 格式使用的 Aerospike bin 名称，这两种格式下必填。  |
+| data_format    | string  | 否   | string  | 数据存储格式，支持 `map`、`string`、`kv`。                           |
+| write_timeout  | int     | 否   | 200     | 写入操作超时时间，单位毫秒。                                        |
+| schema.field   | map     | 否   | {}      | 字段到 Aerospike 类型的映射，例如：`c_id = "INTEGER"`。             |
 
 ### data_format 选项说明
 
 - **map**: 将所有非主键字段作为一个 map 存到 `bin_name`
 - **string**: 将所有非主键字段作为 JSON 字符串存到 `bin_name`
 - **kv**: 每个非主键字段存储为独立的 bin，此时不使用 `bin_name`
+
+当 `data_format` 为 `map` 或 `string` 时，必须配置 `bin_name`，否则写入器无法判断打包后的整行数据应该写入哪个 Aerospike bin。
+
+### schema.field 配置说明
+
+`schema.field` 是可选配置。需要明确控制每个字段写入 Aerospike 时的类型时再配置。支持的 Aerospike 类型名称包括 `STRING`、`INTEGER`、`LONG`、`DOUBLE`、`BOOLEAN`、`BYTEARRAY`、`LIST`。
 
 ## 任务示例
 

@@ -11,7 +11,9 @@ Write data to Apache Druid through the Druid indexing task API.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -30,12 +32,12 @@ Write data to Apache Druid through the Druid indexing task API.
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| coordinatorUrl | string | yes      | -             |
-| datasource     | string | yes      | -             |
-| batchSize      | int    | no       | 10000         |
-| common-options |        | no       | -             |
+| name           | type   | required | default value | description |
+|----------------|--------|----------|---------------|-------------|
+| coordinatorUrl | string | yes      | -             | Druid coordinator or router host and port. |
+| datasource     | string | yes      | -             | Druid datasource name. Supports placeholders such as `${table_name}`. |
+| batchSize      | int    | no       | 10000         | Number of rows buffered before one indexing task is submitted. |
+| common-options |        | no       | -             | Sink common options. |
 
 ### coordinatorUrl [string]
 
@@ -66,6 +68,8 @@ For multi-table writes, `multi_table_sink_replica` can be used with the common s
 The connector converts each SeaTunnel row into inline CSV data and submits it to Druid as a native batch indexing task.
 
 The connector adds a processing-time column named `timestamp` to satisfy Druid's primary timestamp requirement. This generated timestamp is used by Druid ingestion; source `TIMESTAMP` fields are written as string dimensions according to the mapping above.
+
+Rows are flushed when the buffered row count reaches `batchSize`. Remaining rows are also flushed when the writer closes. There is no time-based periodic flush option.
 
 ## Example
 

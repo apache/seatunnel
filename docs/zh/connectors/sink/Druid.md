@@ -11,7 +11,9 @@ import ChangeLog from '../changelog/connector-druid.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
@@ -30,12 +32,12 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 ## 选项
 
-| 名称           | 类型   | 必需 | 默认值 |
-|----------------|--------|------|--------|
-| coordinatorUrl | string | 是   | -      |
-| datasource     | string | 是   | -      |
-| batchSize      | int    | 否   | 10000  |
-| common-options |        | 否   | -      |
+| 名称           | 类型   | 必需 | 默认值 | 说明 |
+|----------------|--------|------|--------|------|
+| coordinatorUrl | string | 是   | -      | Druid 协调器或路由节点的主机和端口。 |
+| datasource     | string | 是   | -      | Druid datasource 名称，支持 `${table_name}` 这类占位符。 |
+| batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务。 |
+| common-options |        | 否   | -      | Sink 通用参数。 |
 
 ### coordinatorUrl [string]
 
@@ -66,6 +68,8 @@ Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-co
 连接器会把 SeaTunnel 每一行数据转换成内联 CSV 数据，然后作为 Druid 原生批量索引任务提交。
 
 Druid 写入需要主时间列。连接器会自动追加一个名为 `timestamp` 的处理时间列给 Druid 使用；上游的 `TIMESTAMP` 字段会按上面的类型映射写成字符串维度。
+
+当缓存行数达到 `batchSize` 时会触发一次写入；写入器关闭时，也会把剩余缓存数据提交到 Druid。当前没有按时间间隔定期刷新的配置。
 
 ## 示例
 

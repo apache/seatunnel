@@ -39,10 +39,12 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | write_mode                  | string  | No       | batch   | Write mode. Supported values: `batch` and `streaming`                                                       |
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
+| emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
+| common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options
 
-You must provide **one** of the following authentication methods:
+For production BigQuery jobs, provide **one** of the following authentication methods. Authentication is skipped only when `emulator_host` is configured for tests.
 
 1. **service_account_key_path**: Path to service account JSON file
 2. **service_account_key_json**: Inline JSON key content
@@ -52,6 +54,8 @@ You must provide **one** of the following authentication methods:
 
 The target BigQuery table must already exist.
 The connector reads the existing table schema during writer initialization and does not create the table automatically.
+
+The connector writes to one configured table: `project_id.dataset_id.table_id`. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
 
 #### sequence_number_column
 
@@ -64,25 +68,42 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 > - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`). The column value must be of a type convertible to `long`.
 > - To enable BigQuery-side deduplication in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
 
+### emulator_host
+
+`emulator_host` is only for local or CI tests. When it is configured, SeaTunnel connects to the emulator without Google credentials. Do not use this option for production BigQuery jobs.
+
 ## Task Example
 
-### Simple Example (Using Service Account File)
+### Simple Batch Example
 
 ```hocon
 env {
-  parallelism = 2
+  parallelism = 1
   job.mode = "BATCH"
 }
 
 source {
   FakeSource {
-    row.num = 1000
+    row.num = 10
+    string.fake.mode = "template"
+    string.template = ["key", "value"]
     schema = {
       fields {
-        user_id = "bigint"
-        username = "string"
-        email = "string"
-        created_at = "timestamp"
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+        c_time = time
       }
     }
   }
@@ -90,11 +111,11 @@ source {
 
 sink {
   BigQuery {
-    project_id = "my-gcp-project"
-    dataset_id = "analytics"
-    table_id = "user_events"
-    service_account_key_path = "/path/to/key.json"
-    batch_size = 1000
+    project_id = "test-project"
+    dataset_id = "test_dataset"
+    table_id = "test_table"
+    batch_size = 2
+    emulator_host = "localhost:9050"
   }
 }
 ```
@@ -126,7 +147,6 @@ sink {
     table_id = "orders"
     service_account_key_path = "/path/to/key.json"
     write_mode = "streaming"
-    sequence_number_column = "updated_at"
     batch_size = 500
   }
 }
