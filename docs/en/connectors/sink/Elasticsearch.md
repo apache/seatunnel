@@ -47,7 +47,7 @@ Engine Supported
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
 | vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | -                            |
+| vector_dimensions       | int     | no       | 0                            |
 | multi_table_sink_replica | int     | no       | 1                            |
 
 ### hosts [array]

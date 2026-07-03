@@ -14,6 +14,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -27,13 +28,13 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 | version_column     | string  | no       | -               |
 | null_mode          | string  | no       | skip            |
 | wal_write          | boolean | no       | false           |
-| write_buffer_size  | string  | no       | 8 * 1024 * 1024 |
+| write_buffer_size  | int     | no       | 8 * 1024 * 1024 |
 | encoding           | string  | no       | utf8            |
 | schema_save_mode   | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode     | enum    | no       | APPEND_DATA     |
 | hbase_extra_config | config  | no       | -               |
+| multi_table_sink_replica | int | no     | 1               |
 | common-options     |         | no       | -               |
-| ttl                | long    | no       | -               |
 
 ### zookeeper_quorum [string]
 
@@ -81,7 +82,7 @@ The delimiter of joining multi row keys, default `""`
 
 The version column name, you can use it to assign timestamp for hbase record
 
-### null_mode [double]
+### null_mode [string]
 
 The mode of writing null value, support [`skip`, `empty`], default `skip`
 
@@ -111,6 +112,10 @@ Hbase stores bytes. The connector supports:
 
 The extra configuration of hbase
 
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. Keep the default value unless one table needs more sink writer parallelism.
+
 ### schema_save_mode [enum]
 
 Controls how the sink handles the target HBase table before writing. Supported values include
@@ -120,10 +125,6 @@ Controls how the sink handles the target HBase table before writing. Supported v
 
 Controls how the sink handles existing target data before writing. Supported values are
 `DROP_DATA`, `APPEND_DATA`, and `ERROR_WHEN_DATA_EXISTS`.
-
-### ttl [long]
-
-Hbase writes data TTL time, the default is based on the TTL set in the table, unit: milliseconds
 
 ### common options
 

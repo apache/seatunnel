@@ -26,13 +26,13 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | version_column     | string  | 否       | -      |
 | null_mode          | string  | 否       | skip   |
 | wal_write          | boolean | 否       | false  |
-| write_buffer_size  | string  | 否       | 8 * 1024 * 1024 |
+| write_buffer_size  | int     | 否       | 8 * 1024 * 1024 |
 | encoding           | string  | 否       | utf8   |
 | schema_save_mode   | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode     | enum    | 否       | APPEND_DATA |
 | hbase_extra_config | config  | 否       | -      |
+| multi_table_sink_replica | int | 否       | 1      |
 | common-options     |         | 否       | -      |
-| ttl                | long    | 否       | -      |
 
 ### zookeeper_quorum [string]
 
@@ -80,7 +80,7 @@ all_columns = "info"
 
 版本列名称，您可以使用它来分配 hbase 记录的时间戳
 
-### null_mode [double]
+### null_mode [string]
 
 写入 null 值的模式，支持 [ skip , empty], 默认 skip
 
@@ -110,6 +110,10 @@ Hbase 存储字节，连接器支持：
 
 hbase 扩展配置
 
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。通常保持默认值即可；只有单表写入压力较大、需要更多写入并行度时再调大。
+
 ### schema_save_mode [enum]
 
 写入前如何处理目标 HBase 表结构。常用值包括 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST` 和
@@ -118,10 +122,6 @@ hbase 扩展配置
 ### data_save_mode [enum]
 
 写入前如何处理目标端已有数据。支持 `DROP_DATA`、`APPEND_DATA` 和 `ERROR_WHEN_DATA_EXISTS`。
-
-### ttl [long]
-
-hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
 
 ### 常见选项
 

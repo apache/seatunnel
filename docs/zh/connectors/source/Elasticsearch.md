@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义的分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置参数选项
@@ -34,7 +34,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | query                   | json    | 否       | {"match_all": {}}                   |
 | search_type             | enum    | 否       | 查询类型，SQL 或 DSL，默认 DSL              |
 | search_api_type         | enum    | 否       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
-| sql_query               | json    | 否       | SQL 查询语句，当 search_type 为 SQL 时必须    |
+| sql_query               | string  | 否       | SQL 查询语句，当 search_type 为 SQL 时必须    |
 | scroll_time             | string  | 否       | 1m                                  |
 | scroll_size             | int     | 否       | 100                                 |
 | tls_verify_certificate  | boolean | 否       | true                                |
@@ -249,6 +249,8 @@ runtime_fields = [
 - PIT 切片需要 Elasticsearch 7.10 及以上版本（PIT 在 7.10.0 引入）。
 
 **取舍说明：**切片能提升吞吐，但可能降低跨切片的一致性。对一致性要求高时，建议使用 PIT（共享快照）或将 `slice_max = 1`；对追加写或写入较少的场景，开启切片通常可以接受。
+
+当 `search_type = "SQL"` 时，Elasticsearch SQL 查询不支持切片，`slice_max` 会被忽略。
 
 ### common options
 
