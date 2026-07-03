@@ -2,13 +2,15 @@ import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
 # AmazonDynamoDB
 
-> AmazonDynamoDB 源连接器
+> Amazon DynamoDB 源连接器
 
 ## 描述
 
-从 Amazon DynamoDB 读取数据.
+Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数据。
 
-## 关键特性
+该连接器是批处理源。DynamoDB 不像关系型数据库那样提供完整字段类型信息，所以必须在 SeaTunnel 中显式配置 schema。
+
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
@@ -19,96 +21,153 @@ import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
 ## 选项
 
-|         名称        |  类型  | 必需    | 默认值 |
-|-----------------------|--------|-------|---------------|
-| url                   | string | 是     | -             |
-| region                | string | 是     | -             |
-| access_key_id         | string | 是     | -             |
-| secret_access_key     | string | 是     | -             |
-| table                 | string | 是     | -             |
-| schema                | config | 是     | -             |
-| common-options        |        | 是     | -             |
-| scan_item_limit       |        | 否     | -             |
-| parallel_scan_threads |        | 否 | -             |
+| 名称                  | 类型   | 必填 | 默认值 |
+|-----------------------|--------|------|--------|
+| url                   | string | 是   | -      |
+| region                | string | 是   | -      |
+| access_key_id         | string | 是   | -      |
+| secret_access_key     | string | 是   | -      |
+| table                 | string | 是   | -      |
+| schema                | config | 是   | -      |
+| scan_item_limit       | int    | 否   | 1      |
+| parallel_scan_threads | int    | 否   | 2      |
+| common-options        |        | 否   | -      |
 
 ### url [string]
 
-读取Amazon Dynamodb的URL.
+DynamoDB 服务地址，例如 `https://dynamodb.us-east-1.amazonaws.com`。
+
+如果使用 DynamoDB Local 测试，可以填写本地地址，例如 `http://127.0.0.1:8000`。
 
 ### region [string]
 
-Amazon DynamoDB 的分区.
+DynamoDB 所在的 AWS 区域，例如 `us-east-1`。
 
 ### access_key_id [string]
 
-Amazon DynamoDB的访问id.
+连接 DynamoDB 使用的 AWS access key ID。
 
 ### secret_access_key [string]
 
-Amazon DynamoDB的访问密钥.
+连接 DynamoDB 使用的 AWS secret access key。
 
 ### table [string]
 
-Amazon DynamoDB 的表名.
+要扫描的 DynamoDB 表名。
 
-### schema [Config]
+### schema [config]
 
-#### fields [config]
+定义需要从 DynamoDB item 中读取的 SeaTunnel 字段。
 
-Amazon Dynamodb是一个支持键值存储和文档数据结构的NOSQL数据库服务，无法获取数据类型。因此，我们必须配置模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+DynamoDB 是键值和文档数据库，源连接器无法从 DynamoDB 自动推断完整的 SeaTunnel schema，所以需要在这里列出所有要读取的字段。
 
-例如:
-
-```
-schema {
+```hocon
+schema = {
   fields {
-    id = int
-    key_aa = string
-    key_bb = string
+    id = string
+    c_map = "map<string, smallint>"
+    c_array = "array<tinyint>"
+    c_string = string
+    c_boolean = boolean
+    c_int = int
+    c_bigint = bigint
+    c_float = float
+    c_double = double
+    c_decimal = "decimal(2, 1)"
+    c_bytes = bytes
+    c_date = date
+    c_timestamp = timestamp
   }
 }
 ```
 
-### common options
+更多 schema 写法请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-源插件常用参数，详见 [Source Plugin](../common-options/source-common-options.md) 
+### scan_item_limit [int]
 
-### scan_item_limit
+每次 DynamoDB scan 请求最多返回的 item 数量。
 
-每个扫描请求应返回的项目数
+### parallel_scan_threads [int]
 
-### parallel_scan_threads
+DynamoDB parallel scan 使用的逻辑分片数量。
 
-并行扫描的逻辑段数
+这个值会影响源连接器如何拆分表扫描任务，通常需要结合任务并行度和表数据量设置。
 
-## 例子
+### 通用选项
 
-```bash
-Amazondynamodb {
-  url = "http://127.0.0.1:8000"
-  region = "us-east-1"
-  access_key_id = "dummy-key"
-  secret_access_key = "dummy-secret"
-  table = "TableName"
-  schema = {
-    fields {
-      artist = string
-      c_map = "map<string, array<int>>"
-      c_array = "array<int>"
-      c_string = string
-      c_boolean = boolean
-      c_tinyint = tinyint
-      c_smallint = smallint
-      c_int = int
-      c_bigint = bigint
-      c_float = float
-      c_double = double
-      c_decimal = "decimal(30, 8)"
-      c_null = "null"
-      c_bytes = bytes
-      c_date = date
-      c_timestamp = timestamp
+源连接器通用参数，请参考[源通用选项](../common-options/source-common-options.md)。
+
+## 数据类型映射
+
+| SeaTunnel 数据类型 | DynamoDB 属性类型 |
+|--------------------|-------------------|
+| BOOLEAN            | BOOL              |
+| TINYINT            | N                 |
+| SMALLINT           | N                 |
+| INT                | N                 |
+| BIGINT             | N                 |
+| FLOAT              | N                 |
+| DOUBLE             | N                 |
+| DECIMAL            | N                 |
+| STRING             | S                 |
+| TIME               | S                 |
+| DATE               | S                 |
+| TIMESTAMP          | S                 |
+| BYTES              | B                 |
+| MAP                | M                 |
+| ARRAY              | L                 |
+| NULL               | NULL              |
+
+## 任务示例
+
+下面的示例从 `source_table` 读取数据，并写入 `sink_table`。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonDynamoDB {
+    url = "http://127.0.0.1:8000"
+    region = "us-east-1"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
+    table = "source_table"
+    parallelism = 2
+    scan_item_limit = 2
+    parallel_scan_threads = 4
+    schema = {
+      fields {
+        id = string
+        c_map = "map<string, smallint>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(2, 1)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
     }
+  }
+}
+
+sink {
+  AmazonDynamoDB {
+    url = "http://127.0.0.1:8000"
+    region = "us-east-1"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
+    table = "sink_table"
+    batch_size = 25
   }
 }
 ```
