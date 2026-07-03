@@ -27,6 +27,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HttpRequestExecutor;
 import org.apache.http.protocol.RequestContent;
 
 import java.io.IOException;
@@ -35,8 +36,16 @@ import java.util.List;
 
 /** util to build http client. */
 public class HttpUtil {
+    // Stream load sends "Expect: 100-continue" and relies on FE's 307 redirect to reach BE.
+    // The default waitForContinue timeout of HttpRequestExecutor is only 3s: when FE is busy
+    // (heavy load / FullGC), the client stops waiting, sends the non-repeatable request body
+    // to FE, and can no longer follow the late 307 redirect. Wait 60s instead, aligned with
+    // doris-flink-connector.
+    private static final int WAIT_FOR_CONTINUE_TIMEOUT_MS = 60 * 1000;
+
     private final HttpClientBuilder httpClientBuilder =
             HttpClients.custom()
+                    .setRequestExecutor(new HttpRequestExecutor(WAIT_FOR_CONTINUE_TIMEOUT_MS))
                     .setRedirectStrategy(
                             new DefaultRedirectStrategy() {
                                 @Override
