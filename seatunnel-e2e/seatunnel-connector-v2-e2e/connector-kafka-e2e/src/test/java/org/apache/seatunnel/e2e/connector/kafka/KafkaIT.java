@@ -105,11 +105,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -2346,7 +2344,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
-            Set<Long> seenOffsets = new HashSet<>();
             consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
@@ -2356,7 +2353,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
-            long lastObservedOffset = startOffset - 1;
+            Long lastProcessedOffset = startOffset - 1;
             int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
@@ -2366,15 +2363,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 }
                 consecutiveEmptyPolls = 0;
                 for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
-                    // Transaction markers and filtered entries can advance offsets without adding a
-                    // visible committed record, so exactly-once assertions must count the records
-                    // a read_committed consumer can actually observe.
-                    if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
+                    if (record.offset() >= startOffset && record.offset() > lastProcessedOffset) {
                         data.add(record.value());
                     }
-                    lastObservedOffset = Math.max(lastObservedOffset, record.offset());
+                    lastProcessedOffset = record.offset();
                 }
-            } while (lastObservedOffset < visibleEndOffsetExclusive - 1
+            } while (lastProcessedOffset < visibleEndOffsetExclusive - 1
                     && consecutiveEmptyPolls < 20);
             return data;
         } finally {
