@@ -12,9 +12,10 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -33,28 +34,27 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 
 ## 接收器选项
 
-|             名称              |   类型    | 是否必须 |             默认值              |                                                     Description                                                     |
+|             名称              |   类型    | 是否必须 |             默认值              | 说明                                                                                                                  |
 |-----------------------------|---------|------|------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| nodeUrls                    | list    | yes  | -                            | `StarRocks`集群地址, 格式为 `["fe_ip:fe_http_port", ...]`                                                                  |
-| base-url                    | string  | yes  | -                            | JDBC URL样式的连接信息。如：`jdbc:mysql://localhost:9030/` 或 `jdbc:mysql://localhost:9030` 或 `jdbc:mysql://localhost:9030/db` |
-| username                    | string  | yes  | -                            | 目标`StarRocks` 用户名                                                                                                   |
-| password                    | string  | yes  | -                            | 目标`StarRocks` 密码                                                                                                    |
-| database                    | string  | yes  | -                            | 指定目标 StarRocks 表所在的数据库的名称                                                                                           |
-| table                       | string  | no   | -                            | 指定目标 StarRocks 表的名称, 如果没有设置该值，则表名与上游表名相同                                                                            |
-| labelPrefix                 | string  | no   | -                            | StarRocks stream load作业标签前缀                                                                                         |
-| batch_max_rows              | long    | no   | 1024                         | 在批写情况下，当缓冲区数量达到`batch_max_rows`数量或`batch_max_bytes`字节大小或者时间达到`checkpoint.interval`时，数据会被刷新到StarRocks                |
-| batch_max_bytes             | int     | no   | 5 * 1024 * 1024              | 在批写情况下，当缓冲区数量达到`batch_max_rows`数量或`batch_max_bytes`字节大小或者时间达到`checkpoint.interval`时，数据会被刷新到StarRocks                |
-| max_retries                 | int     | no   | -                            | 数据写入StarRocks失败后的重试次数                                                                                               |
-| retry_backoff_multiplier_ms | int     | no   | -                            | 用作生成下一个退避延迟的乘数                                                                                                      |
-| max_retry_backoff_ms        | int     | no   | -                            | 向StarRocks发送重试请求之前的等待时长                                                                                             |
-| enable_upsert_delete        | boolean | no   | false                        | 是否开启upsert/delete事件的同步，仅仅支持主键模型的表                                                                                   |
-| save_mode_create_template   | string  | no   | 参见表下方的说明                     | 参见表下方的说明                                                                                                            |
-| starrocks.config            | map     | no   | -                            | stream load `data_desc`参数                                                                                           |
-| http_socket_timeout_ms      | int     | no   | 180000                       | http socket超时时间，默认为3分钟                                                                                              |
-| schema_save_mode            | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | 在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法                                                                                     |
-| data_save_mode              | Enum    | no   | APPEND_DATA                  | 在同步任务打开之前，针对目标端已存在的数据选择不同的处理方法                                                                                      |
-| table_options               | Map     | no   | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的表级属性，详见下文                                                                               |
-| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
+| nodeUrls                    | list    | 是    | -                            | `StarRocks` 集群地址，格式为 `["fe_ip:fe_http_port", ...]`                                                                 |
+| base-url                    | string  | 是    | -                            | JDBC URL 样式的连接信息。如：`jdbc:mysql://localhost:9030/`、`jdbc:mysql://localhost:9030` 或 `jdbc:mysql://localhost:9030/db` |
+| username                    | string  | 是    | -                            | 目标 `StarRocks` 用户名                                                                                                  |
+| password                    | string  | 是    | -                            | 目标 `StarRocks` 密码                                                                                                   |
+| database                    | string  | 是    | -                            | 目标 StarRocks 表所在的数据库名称                                                                                             |
+| table                       | string  | 否    | -                            | 目标 StarRocks 表名。如果没有设置，则表名与上游表名相同                                                                                 |
+| labelPrefix                 | string  | 否    | -                            | StarRocks Stream Load 作业标签前缀                                                                                        |
+| batch_max_rows              | long    | 否    | 1024                         | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| batch_max_bytes             | int     | 否    | 5 * 1024 * 1024              | 批量写入时，当缓存行数达到 `batch_max_rows`、字节数达到 `batch_max_bytes`，或时间达到 `checkpoint.interval` 时，数据会刷新到 StarRocks        |
+| max_retries                 | int     | 否    | -                            | 数据写入 StarRocks 失败后的重试次数                                                                                           |
+| retry_backoff_multiplier_ms | int     | 否    | -                            | 用作生成下一次退避延迟的乘数                                                                                                      |
+| max_retry_backoff_ms        | int     | 否    | -                            | 向 StarRocks 发送重试请求前的等待时长                                                                                            |
+| enable_upsert_delete        | boolean | 否    | false                        | 是否开启 upsert/delete 事件同步，仅支持主键模型表                                                                                   |
+| save_mode_create_template   | string  | 否    | 参见表下方的说明                     | 自动建表模板，详见表下方说明                                                                                                      |
+| starrocks.config            | map     | 否    | -                            | Stream Load `data_desc` 参数                                                                                           |
+| http_socket_timeout_ms      | int     | 否    | 180000                       | HTTP socket 超时时间，默认为 3 分钟                                                                                           |
+| schema_save_mode            | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，针对目标端已存在的表结构选择不同处理方式                                                                                       |
+| data_save_mode              | Enum    | 否    | APPEND_DATA                  | 同步任务启动前，针对目标端已存在的数据选择不同处理方式                                                                                         |
+| custom_sql                  | String  | 否    | -                            | 当 `data_save_mode` 设置为 `CUSTOM_PROCESSING` 时必须配置。该 SQL 会在同步任务启动前执行                                                |
 
 ### save_mode_create_template
 

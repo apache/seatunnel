@@ -20,7 +20,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
   默认情况下，我们使用 2PC 提交来确保 `精确一次`。
 
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
@@ -34,7 +34,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -537,8 +537,12 @@ sink {
 CDC 管道中的使用示例：
 
 ```hocon
-LocalFile {
+S3File {
+    bucket = "s3a://seatunnel-test"
     path = "/tmp/cdc/${table_name}"
+    tmp_path = "/tmp/seatunnel/${table_name}"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

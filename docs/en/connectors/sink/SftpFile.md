@@ -26,6 +26,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
   By default, we use 2PC commit to ensure `exactly-once`
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+
 - [x] file format type
   - [x] text
   - [x] csv
@@ -38,6 +41,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -360,8 +364,13 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
+SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
     path = "/tmp/cdc/${table_name}"
+    tmp_path = "/tmp/seatunnel/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

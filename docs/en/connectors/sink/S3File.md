@@ -549,8 +549,12 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
+S3File {
+    bucket = "s3a://seatunnel-test"
     path = "/tmp/cdc/${table_name}"
+    tmp_path = "/tmp/seatunnel/${table_name}"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true
