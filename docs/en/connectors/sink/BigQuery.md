@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) for batch mode only
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -40,6 +41,7 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
 | emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
+| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options
@@ -55,7 +57,12 @@ For production BigQuery jobs, provide **one** of the following authentication me
 The target BigQuery table must already exist.
 The connector reads the existing table schema during writer initialization and does not create the table automatically.
 
-The connector writes to one configured table: `project_id.dataset_id.table_id`. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+The connector writes to one configured table: `project_id.dataset_id.table_id`. It does not create a different BigQuery table for each upstream table. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+
+### Write Modes
+
+- `batch`: uses BigQuery buffered write streams and commits data during SeaTunnel checkpoint/commit. This is the mode covered by the exactly-once feature mark.
+- `streaming`: uses the default stream and writes CDC records with BigQuery change fields. This mode is suitable for CDC upsert/delete records, but it is not marked as exactly-once by this connector.
 
 #### sequence_number_column
 

@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md) 仅适用于 batch 模式
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
@@ -39,6 +40,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | sequence_number_column      | string  | 否      | -       | 用于 CDC 去重的序列号列名。仅在 `write_mode` 为 `streaming` 时适用                                                |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
 | emulator_host               | string  | 否      | -       | BigQuery emulator 地址，例如 `localhost:9050`。该参数仅用于测试。                                                |
+| multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数；但该连接器仍只写入配置中的单个 BigQuery 表。                    |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 
 ### 认证参数
@@ -54,7 +56,12 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 目标 BigQuery 表必须已经存在。
 连接器会在 writer 初始化时读取已有的表 schema，并且不会自动创建 BigQuery 表。
 
-该连接器会写入一个固定的目标表：`project_id.dataset_id.table_id`。如果任务里有多张表，请配置多个 BigQuery sink，或者在写入 BigQuery 前先完成表路由。
+该连接器会写入一个固定的目标表：`project_id.dataset_id.table_id`。它不会按上游表自动创建或切换 BigQuery 目标表。如果任务里有多张表，请配置多个 BigQuery sink，或者在写入 BigQuery 前先完成表路由。
+
+### 写入模式
+
+- `batch`：使用 BigQuery buffered write stream，并在 SeaTunnel checkpoint/commit 阶段提交数据。主要特性中的精确一次能力指的是该模式。
+- `streaming`：使用默认 stream，并携带 BigQuery change 字段写入 CDC 记录。该模式适合 CDC 的 upsert/delete 数据，但该连接器没有将它标记为精确一次。
 
 #### sequence_number_column
 
