@@ -53,7 +53,7 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 | url        | String | 是    | -       | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                                 |
 | token      | String | 是    | -       | Milvus 认证令牌。本地 Milvus 通常使用 `username:password`。                                            |
 | database   | String | 否    | default | 源数据库。                                                                                      |
-| collection | String | 否    | -       | 源集合。配置后只读取这个集合；不配置时读取 `database` 下的所有集合。兼容旧配置键 `collection_name`。                   |
+| collection | String | 否    | -       | 源集合。配置后只读取这个集合；不配置时读取 `database` 下的所有集合。                   |
 | batch_size | Int    | 否    | 1000    | 每批从 Milvus 读取的数据条数。                                                                       |
 | rate_limit | Int    | 否    | 1000000 | 源端读取速率限制。                                                                                 |
 
