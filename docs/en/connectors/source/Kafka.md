@@ -36,8 +36,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 | Name                                | Type                                                                       | Required | Default                  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 |-------------------------------------|----------------------------------------------------------------------------|----------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                               | String                                                                     | Yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                                                                                                                                                                                                                                                |
-| table_list                          | Map                                                                        | No       | -                        | Topic list config You can configure only one `table_list` and one `topic` at the same time                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| topic                               | String                                                                     | No       | -                        | Topic name(s) to read data from when the table is used as source. Required unless `tables_configs` or `table_list` is used. It also supports a comma-separated topic list like `topic-1,topic-2`.                                                                                                                                                                                                                                                                                 |
+| tables_configs                      | List                                                                       | No       | -                        | Preferred multi-topic table configuration. Only one of `topic`, `tables_configs`, and `table_list` can be configured.                                                                                                                                                                                                                                                                                                                                                           |
+| table_list                          | Map                                                                        | No       | -                        | Deprecated compatibility option for multi-topic table configuration. Only one of `topic`, `tables_configs`, and `table_list` can be configured.                                                                                                                                                                                                                                                                                                                                  |
 | bootstrap.servers                   | String                                                                     | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | pattern                             | Boolean                                                                    | No       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                                                                                                                                                                                                                                             |
 | consumer.group                      | String                                                                     | No       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -65,6 +66,12 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
 > `start_mode` and consumer-group offsets are only used for the first startup or for newly
 > discovered partitions that do not have checkpointed state yet.
+
+:::tip
+
+Use `topic` for one topic or a comma-separated topic list. Use `tables_configs` when different topics need different schemas or formats. `topic`, `tables_configs`, and `table_list` are mutually exclusive.
+
+:::
 
 ### reader_cache_queue_size
 
@@ -171,10 +178,32 @@ sink {
 source {
     Kafka {
           topic = ".*seatunnel*."
-          pattern = "true" 
+          pattern = true
           bootstrap.servers = "localhost:9092"
           consumer.group = "seatunnel_group"
     }
+}
+```
+
+### Dynamic Partition Discovery
+
+For long-running streaming jobs, set `partition-discovery.interval-millis` to discover newly added partitions. New partitions start from `start_mode` unless the job already has checkpointed offsets for them.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Kafka {
+    topic = "seatunnel_topic"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "seatunnel_group"
+    start_mode = latest
+    partition-discovery.interval-millis = 5000
+    format = json
+  }
 }
 ```
 
@@ -278,7 +307,7 @@ source {
     tables_configs = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -335,7 +364,7 @@ source {
     table_list = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
