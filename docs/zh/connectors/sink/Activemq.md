@@ -6,7 +6,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 ## 描述
 
-用于把 SeaTunnel 数据写入 ActiveMQ 队列。每一行数据都会被序列化成一条 JSON 文本消息。
+用于把 SeaTunnel 数据写入 ActiveMQ 队列。每一行数据都会被序列化成一条 JSON 文本消息。这个连接器只支持
+Sink，SeaTunnel 目前没有提供 ActiveMQ Source 连接器。
 
 ## 关键特性
 
@@ -37,6 +38,7 @@ import ChangeLog from '../changelog/connector-activemq.md';
 - `username` 和 `password` 是可选项；如果 Broker 需要认证，这两个配置要一起写。
 - 连接器会把每一行 SeaTunnel 数据作为一条 JSON 文本消息写入 `queue_name`，当前没有单独的 `format` 配置。
 - Broker 地址请使用 `uri` 配置，`host` 和 `port` 不是 ActiveMQ Sink 的配置项。
+- 该 Sink 前面可以接任意 SeaTunnel Source。ActiveMQ 连接器只负责把最终的数据行发送到队列。
 
 ## 示例
 
