@@ -27,13 +27,14 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 
 | 名称                        | 类型       | 必填 | 默认值                    | 描述                                                                                                                                                                                              |
 |---------------------------|---------|------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| tables_configs            | list     | 否   | -                      | 定义多个 FakeSource，每个项可以包含完整的 FakeSource 配置描述                                                                                                                                         |
-| schema                    | config   | 是   | -                      | 定义 Schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                  |
+| tables_configs            | list     | 否   | -                      | 定义多个 FakeSource 表，每个项都可以包含单个 FakeSource 支持的完整配置，例如独立的 schema 和 rows。`tables_configs` 与顶层 `schema` 二选一配置。 |
+| schema                    | config   | 条件必填 | -                    | 定义 Schema 信息。未配置 `tables_configs` 时必填。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | auto.increment.enabled    | boolean  | 否   | false                  | 启用自动递增ID                                                                                                                                                                            |
-| auto.increment.start      | int      | 否   |                        | 自动递增ID的起始值                                                                                                                                                                          |
+| auto.increment.start      | long     | 否   | 1                      | 自动递增 ID 的起始值，仅在 `auto.increment.enabled` 为 `true` 时生效。 |
+| rows                      | config   | 否   | -                      | 自定义输出行列表，每个并行度都会输出这组数据。详情见下文 `rows` 示例。 |
 | row.num                   | int      | 否   | 5                      | 每个并行度生成的数据总行数                                                                                                                                                                        |
 | split.num                 | int      | 否   | 1                      | 枚举器为每个并行度生成的分片数量                                                                                                                                                                    |
-| split.read-interval       | long     | 否   | 1                      | 读取器在两个分片读取之间的间隔时间（毫秒）                                                                                                                                                           |
+| split.read-interval       | int      | 否   | 1                      | 读取器在两个分片读取之间的间隔时间（毫秒）。 |
 | map.size                  | int      | 否   | 5                      | 连接器生成的 `map` 类型的大小                                                                                                                                                                     |
 | array.size                | int      | 否   | 5                      | 连接器生成的 `array` 类型的大小                                                                                                                                                                   |
 | bytes.length              | int      | 否   | 5                      | 连接器生成的 `bytes` 类型的长度                                                                                                                                                                   |
@@ -48,9 +49,9 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 | smallint.min              | smallint | 否   | 0                      | 连接器生成的 smallint 数据的最小值                                                                                                                                                                |
 | smallint.max              | smallint | 否   | 32767                  | 连接器生成的 smallint 数据的最大值                                                                                                                                                                |
 | smallint.template         | list     | 否   | -                      | 连接器生成的 smallint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                       |
-| int.fake.template         | string   | 否   | range                  | 生成 int 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `int.template` 选项                                                                       |
-| int.min                   | smallint | 否   | 0                      | 连接器生成的 int 数据的最小值                                                                                                                                                                     |
-| int.max                   | smallint | 否   | 0x7fffffff             | 连接器生成的 int 数据的最大值                                                                                                                                                                     |
+| int.fake.mode             | string   | 否   | range                  | 生成 int 数据的模式，支持 `range` 和 `template`，默认为 `range`。如果配置为 `template`，还需要配置 `int.template`。 |
+| int.min                   | int      | 否   | 0                      | 连接器生成的 int 数据的最小值 |
+| int.max                   | int      | 否   | 0x7fffffff             | 连接器生成的 int 数据的最大值 |
 | int.template              | list     | 否   | -                      | 连接器生成的 int 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                             |
 | bigint.fake.mode          | string   | 否   | range                  | 生成 bigint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `bigint.template` 选项                                                                 |
 | bigint.min                | bigint   | 否   | 0                      | 连接器生成的 bigint 数据的最小值                                                                                                                                                                  |
@@ -262,7 +263,7 @@ FakeSource {
   string.template = ["tyrantlucifer", "hailin", "kris", "fanjia", "zongwen", "gaojun"]
   tinyint.fake.mode = "template"
   tinyint.template = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-  smalling.fake.mode = "template"
+  smallint.fake.mode = "template"
   smallint.template = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
   int.fake.mode = "template"
   int.template = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29]

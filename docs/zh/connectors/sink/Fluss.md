@@ -2,9 +2,9 @@ import ChangeLog from '../changelog/connector-fluss.md';
 
 # Fluss
 
-> Fluss 数据接收器
+> Fluss Sink 连接器
 
-## 引擎支持
+## 支持引擎
 
 > Spark<br/>
 > Flink<br/>
@@ -12,77 +12,108 @@ import ChangeLog from '../changelog/connector-fluss.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持 CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-该接收器用于将数据写入到Fluss中。支持批和流两种模式。
+Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入已有的 Fluss 表。
+
+如果目标 Fluss 表有主键，连接器会使用 upsert 写入方式：`INSERT` 和 `UPDATE_AFTER` 会写入或更新数据，`DELETE` 会删除数据，`UPDATE_BEFORE` 会被忽略。如果目标表没有主键，连接器会使用 append 写入方式：`INSERT` 和 `UPDATE_AFTER` 会追加数据，`DELETE` 和 `UPDATE_BEFORE` 会被忽略。
+
+运行作业前，目标 Fluss database 和 table 必须已经存在。当前 Sink 不会自动创建 Fluss database 或 table。
 
 ## 依赖
-        <dependency>
-            <groupId>com.alibaba.fluss</groupId>
-            <artifactId>fluss-client</artifactId>
-            <version>0.7.0</version>
-        </dependency>
 
+```xml
+<dependency>
+    <groupId>com.alibaba.fluss</groupId>
+    <artifactId>fluss-client</artifactId>
+    <version>0.7.0</version>
+</dependency>
+```
 
-## 接收器选项
+## Sink 选项
 
-| 名称                | 类型     | 是否必须 | 默认值 | Description                                                                      |
-|-------------------|--------|------|-----|----------------------------------------------------------------------------------|
-| bootstrap.servers | string | yes  | -   | fluss 集群地址                                                                       |
-| database          | string | no   | -   | 指定目标 Fluss 表所在的数据库的名称, 如果没有设置该值，则表名与上游库名相同                                       |
-| table             | string | no   | -   | 指定目标 Fluss 表的名称, 如果没有设置该值，则表名与上游表名相同                                             |
-| client.config     | Map    | no   | -   | 设置其他客户端配置. 参考  https://fluss.apache.org/docs/engine-flink/options/#other-options |
+| 名称 | 类型 | 必填 | 默认值 | 描述 |
+|---|---|---|---|---|
+| bootstrap.servers | string | 是 | - | Fluss coordinator 地址，例如 `fluss-coordinator:9123`。 |
+| database | string | 否 | 上游数据库名 | 目标 Fluss database。支持 `${database_name}`、`${schema_name}` 等占位符。 |
+| table | string | 否 | 上游表名 | 目标 Fluss table。支持 `${table_name}`、`${schema_name}` 等占位符。 |
+| client.config | map | 否 | - | 传递给 Fluss 连接的额外客户端参数。 |
+| multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。 |
+| common-options | - | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
+### database
 
-### database [string]
+未配置 `database` 时，Sink 会使用输入表标识中的上游数据库名。
 
-database选项参数可以填入一任意库名，这个名字最终会被用作目标表的库名，并且支持变量（`${database_name}`，`${schema_name}`）。
-替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${database_name}` 将替换传递给目标端的库名。
+可以配置固定 database 名称：
 
-例如：
-1. test_${schema_name}_test
-2. sink_sinkdb
-3. ss_${database_name}
+```hocon
+database = "target_db"
+```
 
+也可以使用占位符：
 
-### table [string]
+```hocon
+database = "fluss_${database_name}"
+database = "fluss_${schema_name}"
+```
 
-table选项参数可以填入一任意表名，这个名字最终会被用作目标表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
-替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
+### table
 
-例如：
-1. test_${schema_name}_test
-2. sink_sinktable
-3. ss_${table_name}
+未配置 `table` 时，Sink 会使用输入表标识中的上游表名。
+
+可以配置固定 table 名称：
+
+```hocon
+table = "target_table"
+```
+
+也可以使用占位符：
+
+```hocon
+table = "fluss_${table_name}"
+table = "fluss_${schema_name}_${table_name}"
+```
+
+### client.config
+
+使用 `client.config` 传递额外 Fluss 客户端配置。
+
+```hocon
+client.config = {
+  request.timeout = "30s"
+}
+```
+
+支持的配置键以 Fluss 客户端文档为准。
 
 ## 数据类型映射
 
-| FLuss数据类型    | SeaTunnel数据类型 |
-|--------------|---------------|
-| BOOLEAN      | BOOLEAN       |
-| TINYINT      | TINYINT       |
-| SMALLINT     | SMALLINT      |
-| INT          | INT           |
-| BIGINT       | BIGINT        |
-| FLOAT        | FLOAT         |
-| DOUBLE       | DOUBLE        |
-| DOUBLE       | DOUBLE        |
-| BYTES        | BYTES         |
-| DATE         | DATE          |
-| TIME         | TIME          |
-| TIMESTAMP    | TIMESTAMP     |
-| TIMESTAMP_TZ | TIMESTAMP_TZ  |
-| STRING       | STRING        |
-
+| SeaTunnel 数据类型 | Fluss 数据类型 |
+|---|---|
+| BOOLEAN | BOOLEAN |
+| TINYINT | TINYINT |
+| SMALLINT | SMALLINT |
+| INT | INT |
+| BIGINT | BIGINT |
+| FLOAT | FLOAT |
+| DOUBLE | DOUBLE |
+| DECIMAL | DECIMAL |
+| BYTES | BYTES |
+| STRING | STRING |
+| DATE | DATE |
+| TIME | TIME |
+| TIMESTAMP | TIMESTAMP |
+| TIMESTAMP_TZ | TIMESTAMP_LTZ |
 
 ## 任务示例
 
-### 简单示例
+### 单表写入
 
 ```hocon
 env {
@@ -91,77 +122,35 @@ env {
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   FakeSource {
-    parallelism = 1
-    tables_configs = [
-        {
-        row.num = 7
-          schema {
-            table = "test.table1"
-            fields {
-        	fbytes = bytes
-		    fboolean = boolean
-		    fint = int
-		    ftinyint = tinyint
-		    fsmallint = smallint
-		    fbigint = bigint
-		    ffloat = float
-		    fdouble = double
-		    fdecimal = "decimal(30, 8)"
-		    fstring = string
-		    fdate = date
-		    ftime = time
-		    ftimestamp = timestamp
-		    ftimestamp_ltz = timestamp_tz
-		    }
-	    }
-	    rows = [
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 1940337748, 73, 17489, 7408919466156976747, 9.434991E37, 3.140411637757371E307, 4029933791018936061944.80602290, "aaaaa", "2025-01-03", "02:30:10", "2025-05-27T21:56:09", "2025-09-28T02:54:08+08:00"]
+    row.num = 3
+    schema {
+      table = "test.table1"
+      fields {
+        id = int
+        name = string
+        score = double
       }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 90650390, 37, 22504, 5851888708829345169, 2.6221706E36, 1.8915341983748786E307, 3093109630614622831876.71725344, "bbbbb", "2025-01-01", "21:22:44", "2025-05-08T05:26:18", "2025-08-04T16:49:45+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = DELETE
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_BEFORE
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_AFTER
-        fields = ["bWlJWmo=", true, 388742243, 89, 15831, 159071788675312856, 7.310445E37, 1.2166972324288247E308, 7994947075691901110245.55960937, "ddddd", "2025-01-04", "15:28:07", "2025-07-18T08:59:49", "2025-09-12T23:46:25+08:00"]
-      }
-    ]
     }
-      ]
-}
-}
-
-transform {
+    rows = [
+      { kind = INSERT, fields = [1, "Alice", 98.5] }
+      { kind = INSERT, fields = [2, "Bob", 88.0] }
+      { kind = UPDATE_AFTER, fields = [2, "Bob", 90.0] }
+    ]
+  }
 }
 
 sink {
   Fluss {
-    bootstrap.servers="fluss_coordinator_e2e:9123"
-    database = "fluss_db_${database_name}"
-    table = "fluss_tb_${table_name}"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_${database_name}"
+    table = "fluss_${table_name}"
   }
 }
 ```
+
+在这个示例中，上游表 `test.table1` 会写入 Fluss 表 `fluss_test.fluss_table1`。
+
 ### 多表写入
 
 ```hocon
@@ -171,182 +160,44 @@ env {
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   FakeSource {
-    parallelism = 1
     tables_configs = [
-        {
-        row.num = 7
-          schema {
-            table = "test2.table1"
-            fields {
-        	fbytes = bytes
-		    fboolean = boolean
-		    fint = int
-		    ftinyint = tinyint
-		    fsmallint = smallint
-		    fbigint = bigint
-		    ffloat = float
-		    fdouble = double
-		    fdecimal = "decimal(30, 8)"
-		    fstring = string
-		    fdate = date
-		    ftime = time
-		    ftimestamp = timestamp
-		    ftimestamp_ltz = timestamp_tz
-		    }
-	    }
-	    rows = [
       {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 1940337748, 73, 17489, 7408919466156976747, 9.434991E37, 3.140411637757371E307, 4029933791018936061944.80602290, "aaaaa", "2025-01-03", "02:30:10", "2025-05-27T21:56:09", "2025-09-28T02:54:08+08:00"]
-      }
+        row.num = 2
+        schema {
+          table = "test.table1"
+          fields {
+            id = int
+            name = string
+          }
+        }
+      },
       {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 90650390, 37, 22504, 5851888708829345169, 2.6221706E36, 1.8915341983748786E307, 3093109630614622831876.71725344, "bbbbb", "2025-01-01", "21:22:44", "2025-05-08T05:26:18", "2025-08-04T16:49:45+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = DELETE
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_BEFORE
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_AFTER
-        fields = ["bWlJWmo=", true, 388742243, 89, 15831, 159071788675312856, 7.310445E37, 1.2166972324288247E308, 7994947075691901110245.55960937, "ddddd", "2025-01-04", "15:28:07", "2025-07-18T08:59:49", "2025-09-12T23:46:25+08:00"]
+        row.num = 2
+        schema {
+          table = "test.table2"
+          fields {
+            id = int
+            name = string
+          }
+        }
       }
     ]
-    },
-    {
-        row.num = 7
-          schema {
-            table = "test2.table2"
-            fields {
-        	fbytes = bytes
-		    fboolean = boolean
-		    fint = int
-		    ftinyint = tinyint
-		    fsmallint = smallint
-		    fbigint = bigint
-		    ffloat = float
-		    fdouble = double
-		    fdecimal = "decimal(30, 8)"
-		    fstring = string
-		    fdate = date
-		    ftime = time
-		    ftimestamp = timestamp
-		    ftimestamp_ltz = timestamp_tz
-		    }
-	    }
-	    rows = [
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 1940337748, 73, 17489, 7408919466156976747, 9.434991E37, 3.140411637757371E307, 4029933791018936061944.80602290, "aaaaa", "2025-01-03", "02:30:10", "2025-05-27T21:56:09", "2025-09-28T02:54:08+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 90650390, 37, 22504, 5851888708829345169, 2.6221706E36, 1.8915341983748786E307, 3093109630614622831876.71725344, "bbbbb", "2025-01-01", "21:22:44", "2025-05-08T05:26:18", "2025-08-04T16:49:45+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = DELETE
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_BEFORE
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_AFTER
-        fields = ["bWlJWmo=", true, 388742243, 89, 15831, 159071788675312856, 7.310445E37, 1.2166972324288247E308, 7994947075691901110245.55960937, "ddddd", "2025-01-04", "15:28:07", "2025-07-18T08:59:49", "2025-09-12T23:46:25+08:00"]
-      }
-    ]
-    },
-    {
-        row.num = 7
-          schema {
-            table = "test3.table3"
-            fields {
-        	fbytes = bytes
-		    fboolean = boolean
-		    fint = int
-		    ftinyint = tinyint
-		    fsmallint = smallint
-		    fbigint = bigint
-		    ffloat = float
-		    fdouble = double
-		    fdecimal = "decimal(30, 8)"
-		    fstring = string
-		    fdate = date
-		    ftime = time
-		    ftimestamp = timestamp
-		    ftimestamp_ltz = timestamp_tz
-		    }
-	    }
-	    rows = [
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 1940337748, 73, 17489, 7408919466156976747, 9.434991E37, 3.140411637757371E307, 4029933791018936061944.80602290, "aaaaa", "2025-01-03", "02:30:10", "2025-05-27T21:56:09", "2025-09-28T02:54:08+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 90650390, 37, 22504, 5851888708829345169, 2.6221706E36, 1.8915341983748786E307, 3093109630614622831876.71725344, "bbbbb", "2025-01-01", "21:22:44", "2025-05-08T05:26:18", "2025-08-04T16:49:45+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = DELETE
-        fields = ["bWlJWmo=", true, 2146418323, 79, 19821, 6393905306944584839, 2.0462337E38, 1.4868114385836557E308, 5594947262031769994080.35717665, "ccccc", "2025-10-06", "22:10:40", "2025-03-25T01:49:14", "2025-07-03T11:52:06+08:00"]
-      }
-      {
-        kind = INSERT
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_BEFORE
-        fields = ["bWlJWmo=", true, 82794384, 27, 30339, 5826566947079347516, 2.2137477E37, 1.7737681870839753E308, 3984670873242882274814.90739768, "ddddd", "2025-09-13", "10:32:52", "2025-01-27T19:20:51", "2025-11-07T02:38:54+08:00"]
-      }
-      {
-        kind = UPDATE_AFTER
-        fields = ["bWlJWmo=", true, 388742243, 89, 15831, 159071788675312856, 7.310445E37, 1.2166972324288247E308, 7994947075691901110245.55960937, "ddddd", "2025-01-04", "15:28:07", "2025-07-18T08:59:49", "2025-09-12T23:46:25+08:00"]
-      }
-    ]
-    }
-      ]
-}
-}
-
-transform {
+  }
 }
 
 sink {
   Fluss {
-    bootstrap.servers="fluss_coordinator_e2e:9123"
-    database = "fluss_db_${database_name}"
-    table = "fluss_tb_${table_name}"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "fluss_${database_name}"
+    table = "fluss_${table_name}"
+    multi_table_sink_replica = 1
   }
 }
 ```
 
-## 变更日志
+多表写入时，Sink 会为每个上游表分别解析目标表名。运行作业前，需要先创建对应的 Fluss database 和 table。
+
+## Changelog
 
 <ChangeLog />
