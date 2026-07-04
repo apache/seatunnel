@@ -28,7 +28,7 @@ Qdrant source 用来从一个已经存在的 Qdrant collection 读取 point。po
 | schema          | config | 是   | -         | SeaTunnel schema，用来映射 Qdrant point ID、payload 字段和向量。 |
 | host            | string | 否   | localhost | Qdrant gRPC 主机。 |
 | port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
-| api_key         | string | 否   | -         | 认证场景下使用的 Qdrant API key。 |
+| api_key         | string | 否   | ""        | 认证场景下使用的 Qdrant API key。 |
 | use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
 | common-options  |        | 否   | -         | Source 通用选项。 |
 
@@ -78,7 +78,7 @@ Qdrant 实例的 gRPC 端口。
 
 ### api_key [string]
 
-连接需要认证的 Qdrant 部署时使用的 API key。
+连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
 
 ### use_tls [bool]
 
