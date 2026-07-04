@@ -53,7 +53,7 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 | url                    | String              | 是    | -                            | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                             |
 | token                  | String              | 是    | -                            | Milvus 认证令牌。本地 Milvus 通常使用 `username:password`。                                      |
 | database               | String              | 否    | -                            | 目标数据库。不填时，如果上游带有数据库信息，则使用上游数据库。                                                    |
-| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。兼容旧配置键 `collection_name`。                                      |
+| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。                                                              |
 | schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 控制如何处理目标集合结构。默认值表示集合不存在时才创建集合。                                                   |
 | data_save_mode         | enum                | 否    | APPEND_DATA                  | 控制如何处理已有数据。支持 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                         |
 | enable_auto_id         | boolean             | 否    | false                        | 是否让 Milvus 自动生成主键。设置为 `true` 时，不要再向主键字段写值。                                          |
