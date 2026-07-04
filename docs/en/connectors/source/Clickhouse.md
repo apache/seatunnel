@@ -70,10 +70,10 @@ Table list configuration:
 | sql               | String | NO       | -                      | The query sql used to search data though Clickhouse server.                                                                                                                                                                                                                                                 |
 | filter_query      | String | NO       | -                      | Data filtering in Clickhouse. the format is "field = value", example : filter_query = "id > 2 and type = 1"                                                                                                                                                                                                 |
 | partition_list    | Array  | NO       | -                      | Table partition list to filter the specified partition. If it is a partitioned table, this field can be configured to filter the data of the specified partition. example: partition_list = ["20250615", "20250616"]                                                                                        |
-| split.size        | int    | NO       | Integer.MAX_VALUE      | The number of ClickHouse parts grouped into each SeaTunnel split. The minimum value is `1`. Smaller values create more splits for higher parallelism.                                                                                                                                                         |
+| split_size        | int    | NO       | Integer.MAX_VALUE      | The number of ClickHouse parts grouped into each SeaTunnel split when configured inside `table_list`. Use `split.size` only when this option is flattened to the outer source level. The minimum value is `1`. Smaller values create more splits for higher parallelism.                                         |
 | batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                              |
 
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. In that flattened form, configure `split.size` instead of `split_size`.
 
 ## Parallel Reader
 The Clickhouse source connector supports parallel reading of data.
@@ -88,7 +88,7 @@ If both the `table_path` and `sql` parameters are set, it will be executed in sq
 ## Tips
 In query table mode, if you don't want to read the entire table, you can specify the `partition_list` or `filter_query` parameter. 
 * `partition_list`: filter the data of the specified partition
-* `filter_query`: filter the data based on the specified conditions
+* `filter_query`: filter the data based on the specified conditions. It can also be used together with `sql`; SeaTunnel applies it as an additional ClickHouse-side filter.
 * `split.size`: control how many ClickHouse parts are grouped into one SeaTunnel split when reading by `table_path`
 
 The `batch_size` parameter can be used to control the amount of data read each time to avoid OOM exception when reading a large amount of data. Appropriately increasing this value will help to improve the performance of the reading process.
@@ -216,6 +216,7 @@ source {
       {
         table_path = "default.table2"
         sql = "select * from default.table2 where age > 18"
+        split_size = 1
       }
     ]
     server_time_zone = "UTC"
