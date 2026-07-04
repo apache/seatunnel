@@ -20,6 +20,7 @@ import ChangeLog from '../changelog/connector-lance.md';
 Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上游 SeaTunnel 表结构创建 Lance 表，并按配置的 Lance 写入模式创建或追加数据。
 
 当前连接器支持基于目录的 Lance namespace。
+当前只提供 sink，不提供 Lance source。
 
 ## 依赖
 
@@ -41,8 +42,8 @@ Lance sink 用于把 SeaTunnel 数据写入 Lance 数据集。它可以根据上
 
 | 名称                               | 类型      | 是否必填 | 默认值         | 说明                                                 |
 |------------------------------------|-----------|----------|----------------|------------------------------------------------------|
-| dataset_path                       | string    | 是       | /test.lance    | Lance 数据集路径。目录 namespace 下通常是本地数据路径。 |
-| namespace_type                     | string    | 是       | dir            | Lance namespace 类型。当前仅支持 `dir`。             |
+| dataset_path                       | string    | 否       | /test.lance    | Lance 数据集路径。目录 namespace 下通常是本地数据路径。 |
+| namespace_type                     | string    | 否       | dir            | Lance namespace 类型。当前仅支持 `dir`。             |
 | namespace_id                       | string    | 否       | ""             | Lance namespace ID。                                 |
 | namespace_ids                      | list      | 否       | []             | 解析目标表 namespace 时使用的 namespace 路径片段。    |
 | root_namespace_path                | string    | 否       | /tmp           | Lance namespace 的根路径。                           |
@@ -63,13 +64,25 @@ Lance 数据的目录或数据集路径。使用本地目录模式时，请确�
 
 Lance namespace 类型。当前连接器支持 `dir`。
 
+### namespace_id
+
+目录 namespace 实现使用的 namespace 名称。本地目录模式下可以填写类似 `root` 的简单名称。
+
+### namespace_ids
+
+解析目标表 namespace 时使用的额外路径片段。如果直接写入根 namespace，可以保持为空。
+
+### root_namespace_path
+
+Lance namespace 的根目录。SeaTunnel 运行用户需要有权限在该目录下创建和写入文件。
+
 ### table
 
 目标 Lance 表名。不设置时，如果上游存在表名，连接器会使用上游表名；该配置本身的默认值是 `test`。
 
 ### lance.write.mode
 
-控制 Lance 的写入方式。默认值是 `CREATE`。该值需要是 Lance `WriteParams.WriteMode` 支持的值。
+控制 Lance 的写入方式。默认值是 `CREATE`。该值需要是 Lance `WriteParams.WriteMode` 支持的值：`CREATE`、`APPEND` 或 `OVERWRITE`。
 
 ### lance.write.storage.options
 
@@ -95,9 +108,10 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | SMALLINT           | int32                  |
 | INT                | int32                  |
 | BIGINT             | int32                  |
-| FLOAT              | float64                |
+| FLOAT              | float32                |
 | DOUBLE             | float64                |
 | DECIMAL            | decimal128             |
+| NULL               | null                   |
 | BYTES              | binary                 |
 | DATE               | date32                 |
 | TIME               | time32                 |

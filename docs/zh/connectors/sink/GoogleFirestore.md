@@ -11,6 +11,7 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 每一行 SeaTunnel 数据会转换为一个 Firestore 文档。连接器通过 Firestore `add` 自动生成文档 ID，因此它是追加写入，不会按用户指定的文档 ID 更新已有文档。
 
 凭证可以通过 `credentials` 传入 Base64 编码后的服务账号 JSON；如果不配置该参数，则会从运行环境读取 Google 应用默认凭证。
+该 sink 不会创建或管理 Firestore 索引；如果后续查询需要索引，请先在 Google Cloud 中创建。
 
 ## 主要特性
 
@@ -43,6 +44,18 @@ Base64 编码后的 Google Cloud 服务账号 JSON。
 
 如果不配置该参数，连接器会使用 Google 应用默认凭证。此时需要确保 `GOOGLE_APPLICATION_CREDENTIALS` 指向服务账号 JSON 文件，或者运行环境已经提供默认凭证。
 
+可以用下面的命令生成该配置值：
+
+```bash
+base64 -w 0 service-account.json
+```
+
+macOS 可以使用：
+
+```bash
+base64 service-account.json | tr -d '\n'
+```
+
 ### 通用选项
 
 Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。
@@ -73,6 +86,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 - Firestore 文档 ID 会自动生成。如果需要固定文档 ID，请在写入前使用其他连接器或转换处理。
 - sink 不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义。
 - `credentials` 不能直接填写服务账号 JSON 原文，需要先做 Base64 编码。
+- 上游 SeaTunnel schema 中的字段名会作为 Firestore 文档字段名。
 
 ## 示例
 
