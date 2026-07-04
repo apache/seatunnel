@@ -59,6 +59,8 @@ partition.key.fields = ["c_int"]
 
 Sink 支持通过 RocketMQ 事务消息实现精确一次写入。该能力默认关闭。确认 RocketMQ 集群和作业 checkpoint 配置满足事务写入要求后，可设置 `exactly.once = true`。
 
+当 `format = text` 时，SeaTunnel 会按上游 schema 的字段顺序序列化，并使用 `field.delimiter` 拼接字段。当 `format = json` 时，每行数据会写成一个 JSON 对象。
+
 ## 任务示例
 
 ### 写入 JSON 消息

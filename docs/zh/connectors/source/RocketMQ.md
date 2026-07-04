@@ -76,6 +76,8 @@ start.mode.offsets = {
 
 当不同 topic 的字段结构不一样时，使用 `tables_configs`。每一项都可以单独配置 `topics`、`schema`、`format`、`tags` 和启动消费位置。如果没有配置 `schema.table`，输出表名默认使用 topic 名称。
 
+`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。在 `tables_configs` 中，单个条目未配置的参数会沿用顶层默认值，因此每个条目只需要覆盖该 topic 特有的 schema、tag 或启动位置。
+
 ## 任务示例
 
 ### 读取 JSON 消息

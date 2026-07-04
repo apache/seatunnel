@@ -59,6 +59,8 @@ partition.key.fields = ["c_int"]
 
 The sink supports exactly-once writes through RocketMQ transactional messages. This behavior is disabled by default. Set `exactly.once = true` when the RocketMQ cluster and the job checkpoint settings are ready for transactional writes.
 
+When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
+
 ## Task Examples
 
 ### Write JSON Messages
