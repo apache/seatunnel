@@ -64,6 +64,8 @@ GraphQL 源连接器用于从 GraphQL 服务读取数据。它支持：
 - 订阅模式下，需要设置 `enable_subscription = true`，并使用 `ws://` 或 `wss://` 地址。
 - Source 不支持 GraphQL `mutation` 操作。
 - GraphQL 响应通常包在 `data` 字段下面，所以一般需要配置 `content_field`。
+- 使用 HTTP 流式轮询读取时，可以通过 `poll_interval_millis` 控制重复发送同一条查询的间隔。
+- 使用 WebSocket 订阅读取时，`max_retries` 和 `retry_delay_ms` 只控制订阅连接失败后的重连行为。
 
 ## 任务示例
 
