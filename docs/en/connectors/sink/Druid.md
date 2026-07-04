@@ -57,6 +57,8 @@ The number of rows buffered before SeaTunnel sends one indexing task to Druid. T
 
 SeaTunnel also flushes the remaining buffered rows when the writer closes.
 
+Use a larger value for high-throughput batch jobs to reduce the number of Druid indexing tasks. Use a smaller value when you need data to be submitted to Druid earlier, but note that this can create more indexing tasks.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -70,6 +72,8 @@ The connector converts each SeaTunnel row into inline CSV data and submits it to
 The connector adds a processing-time column named `timestamp` to satisfy Druid's primary timestamp requirement. This generated timestamp is used by Druid ingestion; source `TIMESTAMP` fields are written as string dimensions according to the mapping above.
 
 Rows are flushed when the buffered row count reaches `batchSize`. Remaining rows are also flushed when the writer closes. There is no time-based periodic flush option.
+
+The sink is designed for append-style batch ingestion. It does not interpret CDC update/delete row kinds as Druid upserts or deletes.
 
 ## Example
 
