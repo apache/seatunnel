@@ -1076,6 +1076,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
     }
 
+    /**
+     * Wait until the async streaming job really reaches RUNNING before the test publishes
+     * post-start records.
+     */
     private void awaitJobRunning(TestContainer container, String jobId) {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
@@ -2050,28 +2054,35 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String consumerGroup = "SeaTunnel-Consumer-Group";
         TopicPartition topicPartition =
                 new TopicPartition("test_topic_group_with_commit_offset", 0);
-        try (AdminClient adminClient = createKafkaAdmin()) {
-            ListConsumerGroupOffsetsOptions options =
-                    new ListConsumerGroupOffsetsOptions()
-                            .topicPartitions(Arrays.asList(topicPartition));
-            Map<TopicPartition, Long> topicOffset =
-                    adminClient
-                            .listConsumerGroupOffsets(consumerGroup, options)
-                            .partitionsToOffsetAndMetadata()
-                            .thenApply(
-                                    result -> {
-                                        Map<TopicPartition, Long> offsets = new HashMap<>();
-                                        result.forEach(
-                                                (tp, oam) -> {
-                                                    if (oam != null) {
-                                                        offsets.put(tp, oam.offset());
-                                                    }
-                                                });
-                                        return offsets;
-                                    })
-                            .get();
-            Assertions.assertEquals(100L, topicOffset.get(topicPartition));
-        }
+        awaitCommittedConsumerOffset(consumerGroup, topicPartition, 100L);
+    }
+
+    /**
+     * Kafka group metadata can surface a short time after the batch job exits on shared CI runners,
+     * so wait until the expected committed offset is actually visible to the broker.
+     */
+    private void awaitCommittedConsumerOffset(
+            String consumerGroup, TopicPartition topicPartition, long expectedOffset) {
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(1, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            try (AdminClient adminClient = createKafkaAdmin()) {
+                                ListConsumerGroupOffsetsOptions options =
+                                        new ListConsumerGroupOffsetsOptions()
+                                                .topicPartitions(
+                                                        Collections.singletonList(topicPartition));
+                                OffsetAndMetadata offsetAndMetadata =
+                                        adminClient
+                                                .listConsumerGroupOffsets(consumerGroup, options)
+                                                .partitionsToOffsetAndMetadata()
+                                                .get()
+                                                .get(topicPartition);
+                                Assertions.assertNotNull(offsetAndMetadata);
+                                Assertions.assertEquals(expectedOffset, offsetAndMetadata.offset());
+                            }
+                        });
     }
 
     public void testKafkaTimestampToConsole(TestContainer container)
