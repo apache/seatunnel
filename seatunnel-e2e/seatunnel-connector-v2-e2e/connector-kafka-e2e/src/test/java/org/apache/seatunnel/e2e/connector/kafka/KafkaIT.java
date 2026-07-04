@@ -1076,6 +1076,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
     }
 
+    /**
+     * Wait until the async streaming job really reaches RUNNING before the test publishes
+     * post-start records.
+     */
     private void awaitJobRunning(TestContainer container, String jobId) {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
@@ -1609,10 +1613,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -1645,10 +1646,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -1686,6 +1684,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        String jobId = "kafka-exactly-once-" + resourceSuffix;
         List<String> exactlyOnceVariables =
                 buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
         createKafkaTopic(producerTopic);
@@ -1693,12 +1692,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
-        }
 
         // async execute
         CompletableFuture.supplyAsync(
@@ -1706,13 +1699,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     try {
                         container.executeJob(
                                 "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                exactlyOnceVariables);
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
                     }
                     return null;
                 });
+        given().pollDelay(5, SECONDS)
+                .pollInterval(1, SECONDS)
+                .await()
+                .atMost(30, SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // Publish the seed records only after the streaming job is actually
+                            // running, otherwise the Flink 1.20 Kafka source can miss the tail of
+                            // the preloaded batch during startup.
+                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                        });
+        for (int i = 0; i < 10; i++) {
+            sendTextRecordAndWait(producerTopic, sourceData);
+        }
         // wait for data written to kafka
         given().pollDelay(60, SECONDS)
                 .pollInterval(5, SECONDS)
@@ -1722,13 +1730,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         () -> {
                             // Keep the streaming source active so the last exactly-once transaction
                             // is forced through a later checkpoint on slow Flink CI axes.
-                            ProducerRecord<byte[], byte[]> keepAliveRecord =
-                                    new ProducerRecord<>(
-                                            producerTopic,
-                                            null,
-                                            keepAliveData.getBytes(StandardCharsets.UTF_8));
-                            producer.send(keepAliveRecord);
-                            producer.flush();
+                            sendTextRecordAndWait(producerTopic, keepAliveData);
                             Assertions.assertTrue(
                                     checkData(
                                             consumerTopic,
@@ -1747,10 +1749,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;
@@ -1773,6 +1772,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
         return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    /**
+     * Sends one text record and waits for the broker acknowledgement so test data loss is surfaced
+     * at the producer boundary instead of appearing later as an exactly-once sink assertion
+     * failure.
+     */
+    private void sendTextRecordAndWait(String topicName, String data) {
+        ProducerRecord<byte[], byte[]> record =
+                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+        try {
+            producer.send(record).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while sending Kafka test record", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
+        }
     }
 
     private boolean checkData(
@@ -2037,28 +2054,35 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String consumerGroup = "SeaTunnel-Consumer-Group";
         TopicPartition topicPartition =
                 new TopicPartition("test_topic_group_with_commit_offset", 0);
-        try (AdminClient adminClient = createKafkaAdmin()) {
-            ListConsumerGroupOffsetsOptions options =
-                    new ListConsumerGroupOffsetsOptions()
-                            .topicPartitions(Arrays.asList(topicPartition));
-            Map<TopicPartition, Long> topicOffset =
-                    adminClient
-                            .listConsumerGroupOffsets(consumerGroup, options)
-                            .partitionsToOffsetAndMetadata()
-                            .thenApply(
-                                    result -> {
-                                        Map<TopicPartition, Long> offsets = new HashMap<>();
-                                        result.forEach(
-                                                (tp, oam) -> {
-                                                    if (oam != null) {
-                                                        offsets.put(tp, oam.offset());
-                                                    }
-                                                });
-                                        return offsets;
-                                    })
-                            .get();
-            Assertions.assertEquals(100L, topicOffset.get(topicPartition));
-        }
+        awaitCommittedConsumerOffset(consumerGroup, topicPartition, 100L);
+    }
+
+    /**
+     * Kafka group metadata can surface a short time after the batch job exits on shared CI runners,
+     * so wait until the expected committed offset is actually visible to the broker.
+     */
+    private void awaitCommittedConsumerOffset(
+            String consumerGroup, TopicPartition topicPartition, long expectedOffset) {
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(1, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            try (AdminClient adminClient = createKafkaAdmin()) {
+                                ListConsumerGroupOffsetsOptions options =
+                                        new ListConsumerGroupOffsetsOptions()
+                                                .topicPartitions(
+                                                        Collections.singletonList(topicPartition));
+                                OffsetAndMetadata offsetAndMetadata =
+                                        adminClient
+                                                .listConsumerGroupOffsets(consumerGroup, options)
+                                                .partitionsToOffsetAndMetadata()
+                                                .get()
+                                                .get(topicPartition);
+                                Assertions.assertNotNull(offsetAndMetadata);
+                                Assertions.assertEquals(expectedOffset, offsetAndMetadata.offset());
+                            }
+                        });
     }
 
     public void testKafkaTimestampToConsole(TestContainer container)
