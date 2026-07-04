@@ -22,7 +22,9 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行读取](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
@@ -59,6 +61,8 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 
 - `database` 默认是 `default`，本地 Milvus 的简单任务通常不用配置。
 - `collection` 是可选项。只想读一个集合时再配置。
+- 不配置 `collection` 时，源端会发现 `database` 下的所有集合，并把每个集合作为一张独立的 SeaTunnel 表输出。
+- 源端会按 Milvus 分区拆分读取任务。有分区键的集合使用一个 split 读取；没有分区键的集合会按分区名拆分，并分配给多个 reader。
 - 源端读取带分区的集合时，下游 Milvus 接收器可以利用这些元数据在目标集合创建相同分区名。
 - 源端读取到向量索引信息时，下游 Milvus 接收器可以配合 `create_index = true` 创建相同向量索引。
 

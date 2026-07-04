@@ -22,7 +22,9 @@ Common use cases:
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -59,6 +61,8 @@ Common use cases:
 
 - `database` defaults to `default`, so simple local Milvus jobs do not need to set it.
 - `collection` is optional. Set it when the job should read exactly one collection.
+- When `collection` is not set, the source discovers all collections in `database` and exposes each collection as a separate SeaTunnel table.
+- The source splits work by Milvus partition. Collections with a partition key are read with one split; collections without a partition key are split by partition name and assigned across readers.
 - When the source reads a collection with partitions, downstream Milvus sink can use that metadata to create the same partition names on the target collection.
 - When the source reads vector indexes, downstream Milvus sink can use that metadata with `create_index = true` to create matching vector indexes.
 

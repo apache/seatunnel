@@ -72,6 +72,8 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 - 不配置 `collection` 时，接收器会使用上游表名作为 Milvus 集合名，适合多表写入。
 - Milvus 源端读取分区后，如果目标集合没有使用分区键，接收器可以在目标集合创建相同分区名。
 - `create_index = true` 只有在上游目录信息能提供索引元数据时才会创建向量索引，例如上游也是 Milvus。
+- `enable_upsert = true` 会按主键更新插入，目标集合中需要有主键。希望直接追加写入时，可以设置 `enable_upsert = false`。
+- `load_collection = true` 会在创建集合后加载集合，这样写入完成后可以马上查询。
 
 ## 任务示例
 

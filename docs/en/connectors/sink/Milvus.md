@@ -72,6 +72,8 @@ Common use cases:
 - If `collection` is not set, the sink uses the upstream table name as the Milvus collection name. This is useful for multi-table jobs.
 - When a Milvus source reads partitions, the sink can create the same partition names on the target collection if the target collection does not use a partition key.
 - `create_index = true` only creates vector indexes when index metadata is available from the upstream catalog, such as when the source is Milvus.
+- `enable_upsert = true` writes by primary key and requires a primary key in the target collection. Use `enable_upsert = false` when writing rows that should be inserted directly.
+- `load_collection = true` loads the collection after creation so it can be queried immediately after the write finishes.
 
 ## Task Example
 
