@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | 否    | -                            |
 | common-options         |         | 否    | -                            |
 | vectorization_fields   | array   | 否    | -                            |
-| vector_dimensions      | int     | 否    | -                            |
+| vector_dimensions      | int     | 否    | 0                            |
 | multi_table_sink_replica | int   | 否    | 1                            |
 
 
@@ -270,7 +270,6 @@ sink {
 }
 ```
 
-```
 变更数据捕获 (Change data capture) 事件多表写入
 
 ```conf
