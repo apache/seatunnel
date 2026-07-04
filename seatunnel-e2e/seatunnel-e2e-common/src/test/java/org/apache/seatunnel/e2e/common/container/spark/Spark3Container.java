@@ -24,6 +24,8 @@ import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * This class is the base class of SparkEnvironment test. The before method will create a Spark
@@ -36,7 +38,7 @@ public class Spark3Container extends AbstractTestSparkContainer {
 
     @Override
     public TestContainerId identifier() {
-        return TestContainerId.SPARK_3_3;
+        return TestContainerId.SPARK_3_5;
     }
 
     @Override
@@ -46,7 +48,16 @@ public class Spark3Container extends AbstractTestSparkContainer {
 
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/spark:3.3.0";
+        return "apache/spark:3.5.8";
+    }
+
+    @Override
+    protected List<String> getDockerCommand() {
+        return Arrays.asList(
+                "/opt/spark/bin/spark-class",
+                "org.apache.spark.deploy.master.Master",
+                "--host",
+                "0.0.0.0");
     }
 
     @Override

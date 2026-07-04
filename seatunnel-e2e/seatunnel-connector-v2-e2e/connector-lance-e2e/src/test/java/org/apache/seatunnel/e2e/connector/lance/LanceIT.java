@@ -47,8 +47,7 @@ import static org.awaitility.Awaitility.given;
             TestContainerId.FLINK_1_16,
             TestContainerId.FLINK_1_17,
             TestContainerId.FLINK_1_18,
-            TestContainerId.SPARK_2_4,
-            TestContainerId.SPARK_3_3
+            TestContainerId.SPARK_2_4
         },
         type = {},
         disabledReason = "Lance connector does not support Flink and lower than Spark 3.4 yet")
