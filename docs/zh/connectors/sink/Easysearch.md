@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 
-:::提示
+:::tip
 
 支持的引擎
 
@@ -136,9 +136,9 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 - `APPEND_DATA`：保留数据库结构，保留数据
 - `ERROR_WHEN_DATA_EXISTS`：有数据时报错
 
-### common options
+### 通用选项
 
-Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。
+Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。
 
 ## 示例
 

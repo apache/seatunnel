@@ -27,7 +27,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
-:::提示
+:::tip
 
 支持的引擎
 
@@ -139,9 +139,9 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 指定的信任存储的密钥密码
 
-### common options
+### 通用选项
 
-Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。
+Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。
 
 ## 示例
 
