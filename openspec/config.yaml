@@ -1,20 +1,62 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context
+context: |
+  Project: SeaTunnel HugeGraph Connector
+  Component: HugeGraph Source 连接器
+  Scope: 完整实现 Source 读取能力
+  Framework: Apache SeaTunnel V2
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# Specification Status
+specifications:
+  - name: add-hugegraph-source-connector
+    status: COMPLETED
+    created: 2026-07-04
+    completed: 2026-07-04
+    tasks_total: 27
+    tasks_completed: 27
+    code_review: APPROVED
+    quality_score: 4.8/5.0
+    test_coverage: 21 passed, 0 failed, 8 skipped
+    archived: true
+
+# Project Statistics
+statistics:
+  total_specs: 1
+  completed_specs: 1
+  total_tasks: 27
+  completed_tasks: 27
+  code_files: 8
+  test_files: 5
+  total_lines: 4300+
+  documentation_pages: 8
+  quality_score: 4.8/5.0
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Include problem statement, goals, and non-goals
+    - Keep design rationale clear
+    - Document assumptions and constraints
+
+  design:
+    - Include architecture diagram concepts
+    - Document all major components
+    - Include error handling strategy
+
+  implementation-plan:
+    - Break tasks into groups with dependencies
+    - Include acceptance criteria for each task
+    - Estimate complexity levels
+
+  specs:
+    - Document API contracts clearly
+    - Include example usage
+    - Document error cases
+
+# Archive Information
+archive:
+  enabled: true
+  archived_at: 2026-07-04T18:48:00+08:00
+  reason: "All specifications completed, implemented, tested, and approved"
+  closure_report: "SPEC_CLOSURE.md"
