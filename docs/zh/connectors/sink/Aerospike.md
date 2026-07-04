@@ -44,14 +44,13 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 | DOUBLE         | DOUBLE             | 64位浮点数                                                                   |
 | BOOLEAN        | BOOLEAN            | 存储为 true/false 值                                                         |
 | ARRAY          | BYTEARRAY          | 仅支持字节数组类型                                                           |
-| LIST           | LIST               | 支持泛型列表类型                                                             |
 | DATE           | LONG               | 转换为纪元时间毫秒数                                                        |
 | TIMESTAMP      | LONG               | 转换为纪元时间毫秒数                                                        |
 
 注意事项：
-- 使用ARRAY类型时，SeaTunnel数组元素必须是byte类型
-- LIST类型支持可序列化的任意元素类型
-- DATE/TIMESTAMP转换使用系统默认时区
+- 使用 `ARRAY` 类型时，SeaTunnel 数组元素必须是 byte 类型。
+- `LIST` 不会从 SeaTunnel 字段类型自动推断。只有在 `schema.field` 中把字段显式映射为 `LIST`，且输入值是可遍历对象时才适用。
+- `DATE` 和 `TIMESTAMP` 转换使用系统默认时区。
 
 ## 配置选项
 
@@ -76,10 +75,11 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 - **kv**: 每个非主键字段存储为独立的 bin，此时不使用 `bin_name`
 
 当 `data_format` 为 `map` 或 `string` 时，必须配置 `bin_name`，否则写入器无法判断打包后的整行数据应该写入哪个 Aerospike bin。
+`key` 指定的字段必须存在于输入 schema 中，因为每次写入都会用它作为 Aerospike 记录主键。
 
 ### schema.field 配置说明
 
-`schema.field` 对 `map` 和 `string` 格式是可选配置。需要明确控制每个字段写入 Aerospike 时的类型时再配置。
+`schema.field` 对 `map` 和 `string` 格式是可选配置。不配置时，连接器会写入所有输入字段，并根据 SeaTunnel 字段类型自动映射。需要明确控制每个字段写入 Aerospike 时的类型时再配置。
 
 当 `data_format` 为 `kv` 时，请在 `schema.field` 中列出需要写成独立 Aerospike bin 的字段。写入器会遍历 `schema.field`，未列出的字段不会在 `kv` 模式下写入。
 
