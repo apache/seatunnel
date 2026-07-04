@@ -70,6 +70,13 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
      */
     private static final String SQLSERVER_XA_PROCEDURE_QUERY =
             "SET NOCOUNT ON; SELECT CASE WHEN OBJECT_ID('master..xp_sqljdbc_xa_init_ex') IS NOT NULL THEN 1 ELSE 0 END";
+    /**
+     * Newer SQL Server Linux containers do not always expose the external-user toggle. Guard the
+     * setup statement so the XA bootstrap path stays compatible across image variants.
+     */
+    private static final String SQLSERVER_ENABLE_EXTERNAL_USER_IF_SUPPORTED =
+            "IF EXISTS (SELECT 1 FROM sys.configurations WHERE name = 'external user enabled') "
+                    + "BEGIN EXEC sp_configure 'external user enabled', 1; RECONFIGURE; END";
 
     private final String SQLSERVER_JDBC_URL =
             "jdbc:sqlserver://%s:%s;databaseName=%s;"
@@ -138,11 +145,12 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                     container,
                     "EXEC sp_configure 'show advanced options', 1; RECONFIGURE;",
                     "enable SQL Server advanced options");
-            // SQL Server Linux containers need this switch before the driver can initialize the XA
-            // endpoint used by the exactly-once sink path.
+            // Some SQL Server variants still expose this switch, while the current Linux image no
+            // longer does. Keep the bootstrap compatible by enabling it only when the option
+            // exists.
             assertSqlCommandSucceeded(
                     container,
-                    "EXEC sp_configure 'external user enabled', 1; RECONFIGURE;",
+                    SQLSERVER_ENABLE_EXTERNAL_USER_IF_SUPPORTED,
                     "enable external user access");
 
             log.info("Installing stored procedures sp_sqljdbc_xa_install.");
