@@ -36,6 +36,7 @@ import org.apache.hugegraph.structure.schema.VertexLabel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Iterator;
 import java.util.List;
 
 public final class HugeGraphClient {
@@ -46,26 +47,61 @@ public final class HugeGraphClient {
     private HugeClient client;
     private SchemaManager schema;
     private final HugeGraphSinkConfig config;
+    private final String host;
+    private final int port;
+    private final String graphName;
+    private final String graphSpace;
+    private final String username;
+    private final String password;
     private final int maxRetries;
     private final long retryBackoffMs;
 
+    public HugeGraphClient(
+            String host,
+            int port,
+            String graphName,
+            String graphSpace,
+            String username,
+            String password,
+            int maxRetries,
+            long retryBackoffMs) {
+        this.client = null;
+        this.schema = null;
+        this.config = null;
+        this.host = host;
+        this.port = port;
+        this.graphName = graphName;
+        this.graphSpace = graphSpace;
+        this.username = username;
+        this.password = password;
+        this.maxRetries = maxRetries > 0 ? maxRetries : 3;
+        this.retryBackoffMs = retryBackoffMs > 0 ? retryBackoffMs : 5000L;
+    }
+
+    @Deprecated
     public HugeGraphClient(HugeGraphSinkConfig config) {
         this.client = null;
         this.schema = null;
         this.config = config;
+        this.host = config.getHost();
+        this.port = config.getPort();
+        this.graphName = config.getGraphName();
+        this.graphSpace = config.getGraphSpace();
+        this.username = config.getUsername();
+        this.password = config.getPassword();
         this.maxRetries = config.getMaxRetries() > 0 ? config.getMaxRetries() : 3;
         this.retryBackoffMs = config.getRetryBackoffMs() > 0 ? config.getRetryBackoffMs() : 5000L;
     }
 
-    private HugeClient createClient(HugeGraphSinkConfig config) {
+    private HugeClient createClient() {
         try {
-            String url = String.format("http://%s:%d", config.getHost(), config.getPort());
-            LOG.debug("Creating new HugeClient for url: {}, graph: {}", url, config.getGraphName());
+            String url = String.format("http://%s:%d", host, port);
+            LOG.debug("Creating new HugeClient for url: {}, graph: {}", url, graphName);
 
             HugeClient client =
-                    HugeClient.builder(url, config.getGraphName())
-                            .configUser(config.getUsername(), config.getPassword())
+                    HugeClient.builder(url, graphName)
                             .configIdleTime(60)
+                            .configUser(username, password)
                             .build();
 
             client.graph().listVertices();
@@ -87,7 +123,7 @@ public final class HugeGraphClient {
         if (this.client == null) {
             LOG.info("Client not initialized. Attempting to connect...");
             try {
-                this.client = createClient(this.config);
+                this.client = createClient();
                 this.schema = this.client.schema();
                 LOG.info("HugeClient initialized successfully.");
             } catch (Exception e) {
@@ -222,6 +258,73 @@ public final class HugeGraphClient {
 
     public void batchWriteEdges(List<Edge> buffer) {
         executeGraphOperation(graph -> graph.addEdges(buffer));
+    }
+
+    public List<Vertex> listVertices(String label, int offset, int limit) {
+        return executeGraphOperationForResult(
+                graph -> graph.listVertices(label, java.util.Collections.emptyMap(), limit));
+    }
+
+    public List<Edge> listEdges(String label, int offset, int limit) {
+        return executeGraphOperationForResult(
+                graph -> graph.listEdges(label, java.util.Collections.emptyMap(), limit));
+    }
+
+    public Iterator<Vertex> iterateVertices(String label, int batchSize) {
+        ensureClientInitialized();
+        return this.client.graph().iterateVertices(label, batchSize);
+    }
+
+    public Iterator<Edge> iterateEdges(String label, int batchSize) {
+        ensureClientInitialized();
+        return this.client.graph().iterateEdges(label, batchSize);
+    }
+
+    private <T> T executeGraphOperationForResult(
+            java.util.function.Function<GraphManager, T> operation) {
+        for (int attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                ensureClientInitialized();
+                return operation.apply(this.client.graph());
+            } catch (ServerException | ClientException e) {
+                LOG.warn(
+                        "Graph operation failed on attempt {}/{}. Error: {}",
+                        attempt,
+                        this.maxRetries,
+                        e.getMessage());
+                reconnect();
+
+                if (attempt == this.maxRetries) {
+                    LOG.error("Max retries ({}) reached. Failing task.", this.maxRetries);
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                            "Failed to execute graph operation after "
+                                    + this.maxRetries
+                                    + " attempts",
+                            e);
+                }
+
+                try {
+                    LOG.info("Will retry in {} ms...", retryBackoffMs);
+                    Thread.sleep(retryBackoffMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.OPERATION_RETRY_INTERRUPTED,
+                            "Graph operation retry was interrupted",
+                            ie);
+                }
+
+            } catch (Exception e) {
+                LOG.error("Non-retryable error executing graph operation: {}", e.getMessage(), e);
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        "Non-retryable error executing graph operation",
+                        e);
+            }
+        }
+        throw new HugeGraphConnectorException(
+                HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED, "Should not reach here");
     }
 
     public void close() {
