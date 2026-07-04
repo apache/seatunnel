@@ -1,0 +1,159 @@
+# Python
+
+> Python transform plugin
+
+## Description
+
+The Python transform lets you run custom Python logic for each input row and append the returned fields to the downstream schema.
+
+SeaTunnel keeps one long-lived Python worker process for each transform instance. The worker receives rows as JSON, runs your `process(row, context)` function, and converts the result back into the configured SeaTunnel field types.
+
+## Options
+
+| name | type | required | default value |
+|------|------|----------|---------------|
+| source_code | string | no | |
+| source_code_path | string | no | |
+| python_executable | string | no | python3 |
+| script_config | map | no | |
+| columns | array | yes | |
+| row_error_handle_way | enum | no | FAIL |
+
+### common options [string]
+
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details.
+
+### source_code [string]
+
+Inline Python source code. Exactly one of `source_code` or `source_code_path` must be configured.
+
+### source_code_path [string]
+
+Absolute or runtime-visible path of the Python script on the SeaTunnel worker host. Exactly one of `source_code` or `source_code_path` must be configured.
+
+### python_executable [string]
+
+Python executable used to start the worker process. The default value is `python3`. When the default value is used, SeaTunnel will also try `python` as a fallback.
+
+### script_config [map]
+
+Optional static user configuration injected into the Python runtime context as `context["config"]`.
+
+### row_error_handle_way [enum]
+
+Controls what happens when the Python script fails for a row.
+
+- `FAIL`: stop the job and surface the Python error.
+- `SKIP`: skip the current row and continue processing later rows.
+
+### columns [array]
+
+Declares the fields appended by the Python transform.
+
+#### option
+
+| name | type | required | default value |
+|------|------|----------|---------------|
+| dest_field | string | yes | |
+| dest_type | string | no | string |
+
+#### dest_field [string]
+
+Output field name returned by the Python script.
+
+#### dest_type [string]
+
+SeaTunnel type used to convert the script result for `dest_field`. If omitted, the type defaults to `string`.
+
+## Python Script Contract
+
+Your script must define:
+
+- `process(row, context)`
+
+It can also define:
+
+- `open(context)`
+- `close()`
+
+### row
+
+`row` is a JSON-style object keyed by the input field names.
+
+### context
+
+`context` contains:
+
+- `input_fields`: ordered input schema metadata
+- `output_fields`: ordered output schema metadata
+- `config`: the `script_config` map from the job config
+
+### Return value
+
+The `process` function can return one of these shapes:
+
+- an object keyed by `dest_field`
+- an array aligned with the `columns` order
+- a scalar value when only one output column is configured
+
+If the return shape does not match the declared `columns`, SeaTunnel will fail the row.
+
+## Notes
+
+- The runtime host must have Python installed.
+- `source_code_path` must exist on every runtime node that executes the transform.
+- Regular `print(...)` output from the user script is redirected to stderr so it does not break the row protocol.
+- Avoid long-running blocking logic in `process(...)` because every row waits for the Python worker response.
+
+## Example: Inline Script
+
+```hocon
+transform {
+  Python {
+    plugin_input = "fake"
+    plugin_output = "python_out"
+    script_config = {
+      prefix = "user:"
+    }
+    columns = [
+      {
+        dest_field = normalized_name
+        dest_type = string
+      },
+      {
+        dest_field = age_plus_one
+        dest_type = int
+      }
+    ]
+    source_code = """
+def process(row, context):
+    return {
+        "normalized_name": context["config"]["prefix"] + row["name"].strip().lower(),
+        "age_plus_one": row["age"] + 1,
+    }
+"""
+  }
+}
+```
+
+## Example: Runtime Script Path
+
+```hocon
+transform {
+  Python {
+    plugin_input = "fake"
+    plugin_output = "python_out"
+    source_code_path = "/tmp/python_transform.py"
+    columns = [
+      {
+        dest_field = normalized_name
+        dest_type = string
+      },
+      {
+        dest_field = age_plus_one
+        dest_type = int
+      }
+    ]
+  }
+}
+```

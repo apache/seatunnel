@@ -196,6 +196,7 @@ const sidebars = {
                 "transforms/jsonpath",
                 "transforms/llm",
                 "transforms/metadata",
+                "transforms/python",
                 "transforms/regexextract",
                 "transforms/replace",
                 "transforms/rowkind-extractor",
