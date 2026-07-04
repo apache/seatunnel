@@ -11,6 +11,8 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`，连接器会使用目标 Cassandra 表里的全部字段。
 如果配置了 `fields`，则只写这些字段，并且每个字段都必须存在于目标表中。
 
+连接器不会自动创建 keyspace、表或缺失字段。启动任务前请先准备好目标 Cassandra 表结构。
+
 ## 关键特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -65,6 +67,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 需要写入到 `Cassandra` 的字段。如果不配置，连接器会读取目标表结构，并写入目标表中的全部字段。
 
 如果配置了该选项，字段名必须存在于目标 Cassandra 表中，也必须存在于上游 SeaTunnel 数据中。
+
+当上游数据中有不需要写入 Cassandra 的额外字段时，可以使用该选项只选择目标字段。
 
 ### batch_size [number]
 

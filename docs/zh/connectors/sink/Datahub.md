@@ -18,16 +18,16 @@ DataHub Sink 用于将 SeaTunnel 数据写入阿里云 DataHub。
 
 ## 选项
 
-| 名称           | 类型   | 必填 | 默认值 |
-|----------------|--------|------|--------|
-| endpoint       | string | 是   | -      |
-| accessId       | string | 是   | -      |
-| accessKey      | string | 是   | -      |
-| project        | string | 是   | -      |
-| topic          | string | 是   | -      |
-| timeout        | int    | 否   | 3000   |
-| retryTimes     | int    | 否   | 3      |
-| common-options |        | 否   | -      |
+| 名称           | 类型   | 必填 | 默认值 | 描述 |
+|----------------|--------|------|--------|------|
+| endpoint       | string | 是   | -      | DataHub 服务地址。 |
+| accessId       | string | 是   | -      | 访问 DataHub 使用的阿里云 Access ID。 |
+| accessKey      | string | 是   | -      | 访问 DataHub 使用的阿里云 Access Key。 |
+| project        | string | 是   | -      | DataHub 项目名称。 |
+| topic          | string | 是   | -      | DataHub Topic 名称，多表写入时支持占位符。 |
+| timeout        | int    | 否   | 3000   | 客户端连接最大超时时间，单位为毫秒。 |
+| retryTimes     | int    | 否   | 3      | 写入记录失败时的最大重试次数。 |
+| common-options | config | 否   | -      | Sink 插件通用参数。 |
 
 ### endpoint [string]
 
@@ -48,6 +48,8 @@ DataHub 项目名称。
 ### topic [string]
 
 DataHub Topic 名称。多表写入时可以使用占位符，例如 `${table_name}`。
+
+SeaTunnel 字段名需要和 DataHub Topic 中的字段名一致，因为 sink 会按照 Topic 结构里的字段名写入数据。
 
 ### timeout [int]
 
