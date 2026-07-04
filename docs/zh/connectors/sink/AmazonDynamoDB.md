@@ -26,6 +26,7 @@ Amazon DynamoDB Sink 连接器用于将 SeaTunnel 数据行写入 DynamoDB 表�
 | secret_access_key   | string | 是   | -      |
 | table               | string | 是   | -      |
 | batch_size          | int    | 否   | 25     |
+| multi_table_sink_replica | int | 否   | -      |
 | max_retries         | int    | 否   | 10     |
 | retry_base_delay_ms | long   | 否   | 100    |
 | retry_max_delay_ms  | long   | 否   | 5000   |
@@ -60,6 +61,10 @@ DynamoDB 所在的 AWS 区域，例如 `us-east-1`。
 一次 DynamoDB 批量写入请求缓存的记录数。
 
 DynamoDB batch write 每次最多支持 25 条写请求，所以默认值为 `25`。
+
+### multi_table_sink_replica [int]
+
+多表写入任务可使用的 Sink 通用选项。更多说明请参考 [Sink 通用选项](../common-options/sink-common-options.md)。
 
 ### max_retries [int]
 

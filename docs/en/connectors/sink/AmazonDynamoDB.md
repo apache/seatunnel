@@ -26,6 +26,7 @@ The target table must already exist. The connector writes each row as a DynamoDB
 | secret_access_key   | string | yes      | -             |
 | table               | string | yes      | -             |
 | batch_size          | int    | no       | 25            |
+| multi_table_sink_replica | int | no       | -             |
 | max_retries         | int    | no       | 10            |
 | retry_base_delay_ms | long   | no       | 100           |
 | retry_max_delay_ms  | long   | no       | 5000          |
@@ -60,6 +61,10 @@ For a normal single-table job, set this to the target table name. In a multi-tab
 The number of records buffered for one DynamoDB batch write request.
 
 DynamoDB batch write supports up to 25 write requests per call, so the default is `25`.
+
+### multi_table_sink_replica [int]
+
+Optional common sink option used by multi-table sink jobs. For details, see [Sink Common Options](../common-options/sink-common-options.md).
 
 ### max_retries [int]
 

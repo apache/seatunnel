@@ -10,6 +10,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 ## 关键特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
@@ -33,7 +35,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 - `uri` 是连接入口，Broker 的主机和端口都写在这里，例如 `tcp://activemq-host:61616`。
 - `username` 和 `password` 是可选项；如果 Broker 需要认证，这两个配置要一起写。
-- 连接器会把每一行 SeaTunnel 数据作为一条 JSON 文本消息写入 `queue_name`。
+- 连接器会把每一行 SeaTunnel 数据作为一条 JSON 文本消息写入 `queue_name`，当前没有单独的 `format` 配置。
+- Broker 地址请使用 `uri` 配置，`host` 和 `port` 不是 ActiveMQ Sink 的配置项。
 
 ## 示例
 

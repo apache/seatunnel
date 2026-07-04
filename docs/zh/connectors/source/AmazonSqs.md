@@ -11,6 +11,8 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 
 该连接器使用单个 reader，处理完本次接收到的消息后任务会结束，适合从队列中做有界读取。
 
+每次 receive 请求最多从 SQS 拉取 10 条消息。如果队列里还有更多消息，需要再次运行任务，或者使用上游调度方式重复触发这种有界读取。
+
 ## 支持的引擎
 
 > Spark<br/>
@@ -49,6 +51,7 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 - `canal_json`：读取 Canal JSON 消息，详见 [Canal JSON](../formats/canal-json.md)。
 - `debezium_json`：读取 Debezium JSON 消息，详见 [Debezium JSON](../formats/debezium-json.md)。
 - `delete_message = true` 会删除已经消费的 SQS 消息。如果只是检查或复制消息，建议保留默认值 `false`。
+- `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 
 ## 任务示例
 

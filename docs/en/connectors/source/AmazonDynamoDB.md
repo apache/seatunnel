@@ -10,6 +10,8 @@ The Amazon DynamoDB source connector reads existing items from an Amazon DynamoD
 
 The connector is a batch source. DynamoDB does not expose field types in the same way as a relational database, so the SeaTunnel schema must be configured explicitly.
 
+This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -92,6 +94,8 @@ The maximum number of items returned by each DynamoDB scan request.
 The number of logical scan segments used for DynamoDB parallel scan.
 
 This value controls how the source splits the table scan. It should usually be aligned with job parallelism and table size.
+
+For small tables, keep the default value. For large tables, increase it together with `env.parallelism` and the source `parallelism` option so that multiple readers can scan different segments.
 
 ### common options
 
