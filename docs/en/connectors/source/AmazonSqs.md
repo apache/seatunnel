@@ -45,6 +45,8 @@ Each receive request asks SQS for up to 10 messages. If more messages are waitin
 | debezium_record_include_schema | Boolean | No       | true    | Whether Debezium JSON messages include a schema. This option is used only when `format = debezium_json`.                                                     |
 | common-options                 |         | No       | -       | Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).                                      |
 
+`url` can point to AWS SQS or to an SQS-compatible local service, for example `http://sqs-host:4566/000000000000/source_queue`.
+
 ## Format Notes
 
 - `json` reads each message body as a JSON object that matches `schema`.

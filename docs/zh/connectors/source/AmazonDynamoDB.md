@@ -23,17 +23,17 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 ## 选项
 
-| 名称                  | 类型   | 必填 | 默认值 |
-|-----------------------|--------|------|--------|
-| url                   | string | 是   | -      |
-| region                | string | 是   | -      |
-| access_key_id         | string | 是   | -      |
-| secret_access_key     | string | 是   | -      |
-| table                 | string | 是   | -      |
-| schema                | config | 是   | -      |
-| scan_item_limit       | int    | 否   | 1      |
-| parallel_scan_threads | int    | 否   | 2      |
-| common-options        |        | 否   | -      |
+| 名称                  | 类型   | 必填 | 默认值 | 说明                       |
+|-----------------------|--------|------|--------|----------------------------|
+| url                   | string | 是   | -      | DynamoDB 服务地址。         |
+| region                | string | 是   | -      | DynamoDB 所在的 AWS 区域。  |
+| access_key_id         | string | 是   | -      | AWS access key ID。         |
+| secret_access_key     | string | 是   | -      | AWS secret access key。     |
+| table                 | string | 是   | -      | 要扫描的 DynamoDB 表名。    |
+| schema                | config | 是   | -      | 要读取的 SeaTunnel 字段。   |
+| scan_item_limit       | int    | 否   | 1      | 每次 scan 请求返回的最大 item 数。 |
+| parallel_scan_threads | int    | 否   | 2      | parallel scan 的逻辑分片数。 |
+| common-options        | object | 否   | -      | Source 插件通用参数。       |
 
 ### url [string]
 
@@ -88,6 +88,8 @@ schema = {
 ### scan_item_limit [int]
 
 每次 DynamoDB scan 请求最多返回的 item 数量。
+
+较大的值可以减少请求次数，但也会增加每个读取批次占用的内存。
 
 ### parallel_scan_threads [int]
 
