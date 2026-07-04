@@ -23,17 +23,17 @@ This source reads the current table data with scan requests. It does not read Dy
 
 ## Options
 
-| name                  | type   | required | default value |
-|-----------------------|--------|----------|---------------|
-| url                   | string | yes      | -             |
-| region                | string | yes      | -             |
-| access_key_id         | string | yes      | -             |
-| secret_access_key     | string | yes      | -             |
-| table                 | string | yes      | -             |
-| schema                | config | yes      | -             |
-| scan_item_limit       | int    | no       | 1             |
-| parallel_scan_threads | int    | no       | 2             |
-| common-options        |        | no       | -             |
+| name                  | type   | required | default value | description                                      |
+|-----------------------|--------|----------|---------------|--------------------------------------------------|
+| url                   | string | yes      | -             | DynamoDB endpoint URL.                           |
+| region                | string | yes      | -             | AWS region of the DynamoDB service.              |
+| access_key_id         | string | yes      | -             | AWS access key ID.                               |
+| secret_access_key     | string | yes      | -             | AWS secret access key.                           |
+| table                 | string | yes      | -             | DynamoDB table name to scan.                     |
+| schema                | config | yes      | -             | SeaTunnel fields to read from DynamoDB items.    |
+| scan_item_limit       | int    | no       | 1             | Maximum items returned by each scan request.     |
+| parallel_scan_threads | int    | no       | 2             | Number of logical segments for parallel scan.    |
+| common-options        | object | no       | -             | Source plugin common parameters.                 |
 
 ### url [string]
 
@@ -88,6 +88,8 @@ For more schema syntax, see [Schema Feature](../../introduction/concepts/schema-
 ### scan_item_limit [int]
 
 The maximum number of items returned by each DynamoDB scan request.
+
+Larger values reduce the number of requests but may increase the memory used by each read batch.
 
 ### parallel_scan_threads [int]
 

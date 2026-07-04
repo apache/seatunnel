@@ -44,14 +44,13 @@ The connector writes to one fixed target set. It does not route records to diffe
 | DOUBLE              | DOUBLE              | 64-bit floating point                                                         |
 | BOOLEAN             | BOOLEAN             | Stored as true/false values                                                   |
 | ARRAY               | BYTEARRAY           | Only support byte array type                                                  |
-| LIST                | LIST                | Support generic list types                                                   |
 | DATE                | LONG                | Converted to epoch milliseconds                                              |
 | TIMESTAMP           | LONG                | Converted to epoch milliseconds                                              |
 
 Note:
-- When using ARRAY type, SeaTunnel's array elements must be byte type
-- LIST type supports any element types that can be serialized
-- DATE/TIMESTAMP conversion uses system default time zone
+- When using `ARRAY`, SeaTunnel's array elements must be byte type.
+- `LIST` is not inferred automatically from a SeaTunnel field type. Use `schema.field` to explicitly map a field to `LIST` when the incoming value is iterable.
+- `DATE` and `TIMESTAMP` conversion uses the system default time zone.
 
 ## Options
 
@@ -76,10 +75,11 @@ Note:
 - **kv**: Store each non-key field as a separate bin. `bin_name` is not used
 
 When `data_format` is `map` or `string`, configure `bin_name`; otherwise the writer does not know which Aerospike bin should receive the packed row data.
+The `key` field must be present in the input schema because it is used as the Aerospike record key for every write.
 
 ### schema.field
 
-`schema.field` is optional for `map` and `string` formats. Configure it when you need to control the Aerospike type used for each field.
+`schema.field` is optional for `map` and `string` formats. If it is omitted, the connector writes all input fields and maps the SeaTunnel field types automatically. Configure it when you need to control the Aerospike type used for each field.
 
 For `kv` format, configure `schema.field` for the fields you want to write as independent Aerospike bins. The writer iterates over `schema.field`, so fields not listed there are not written in `kv` mode.
 

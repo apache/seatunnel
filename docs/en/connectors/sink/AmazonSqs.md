@@ -36,6 +36,8 @@ is serialized by the configured `format`, and the serialized value is sent as th
 | field_delimiter   | String | No       | ,       | Field delimiter used when `format = text`.                                                                                                                  |
 | common-options    |        | No       | -       | Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).                                            |
 
+`url` can point to AWS SQS or to an SQS-compatible local service, for example `http://sqs-host:4566/000000000000/sink_queue`.
+
 ## Format Notes
 
 - `json` writes each row as a JSON object.
