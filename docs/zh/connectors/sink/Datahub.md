@@ -14,7 +14,13 @@ DataHub Sink 用于将 SeaTunnel 数据写入阿里云 DataHub。
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 使用前准备
+
+运行 SeaTunnel 任务前，请先创建 DataHub 项目和 Topic。DataHub Topic 的结构中需要包含和上游 SeaTunnel schema 同名的字段，因为该 Sink 会按字段名写入数据。
 
 ## 选项
 

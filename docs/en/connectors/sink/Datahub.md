@@ -15,7 +15,15 @@ different input tables to different DataHub topics.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Before You Start
+
+Create the DataHub project and topic before running the SeaTunnel job. The
+DataHub topic schema must contain fields with the same names as the upstream
+SeaTunnel schema fields, because the sink writes values by field name.
 
 ## Options
 
@@ -51,8 +59,8 @@ The DataHub project name.
 The DataHub topic name. For multi-table writes, this value can contain
 placeholders, for example `${table_name}`.
 
-The SeaTunnel field names must match the DataHub topic fields, because the sink writes fields by
-name according to the topic schema.
+The SeaTunnel field names must match the DataHub topic fields, because the sink
+writes fields by name according to the topic schema.
 
 ### timeout [int]
 
