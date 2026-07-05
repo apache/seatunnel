@@ -21,7 +21,7 @@ The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Norma
 
 | name            | type   | required | default value | description |
 |-----------------|--------|----------|---------------|-------------|
-| collection_name | string | yes      | -             | Qdrant collection name to write to. |
+| collection_name | string | yes      | -             | Qdrant collection name to write to. Set this explicitly for normal jobs. |
 | host            | string | no       | localhost     | Qdrant gRPC host. |
 | port            | int    | no       | 6334          | Qdrant gRPC port. |
 | api_key         | string | no       | ""            | Qdrant API key for authenticated deployments. |
@@ -30,7 +30,7 @@ The Qdrant sink writes SeaTunnel rows into one existing Qdrant collection. Norma
 
 ### collection_name [string]
 
-The name of the Qdrant collection to write.
+The name of the Qdrant collection to write. The target collection must already exist and its vector names and dimensions must match the SeaTunnel vector columns.
 
 ### host [string]
 
@@ -75,7 +75,9 @@ The value of the primary key column is used as the Qdrant point ID. Primary key 
 
 - The target collection must already exist before the job starts. The connector does not create collections or vector indexes.
 - Vector column names and dimensions must match the vector configuration of the target Qdrant collection.
+- The sink writes vector columns as named vectors. Use a target collection with named vectors that match the SeaTunnel vector column names.
 - The sink writes each incoming row as an upsert request. It does not interpret `UPDATE` or `DELETE` row kinds as CDC operations.
+- The writer buffers up to 64 points and also flushes when the writer is closed or a commit is prepared. This batch size is not currently exposed as a connector option.
 - Each sink block writes to one collection. Use separate sink blocks when different collections need different settings.
 
 ## Task Example

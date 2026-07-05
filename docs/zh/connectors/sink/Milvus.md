@@ -53,7 +53,7 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 | url                    | String              | 是    | -                            | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                             |
 | token                  | String              | 是    | -                            | Milvus 认证令牌。本地 Milvus 通常使用 `username:password`。                                      |
 | database               | String              | 否    | -                            | 目标数据库。不填时，如果上游带有数据库信息，则使用上游数据库。                                                    |
-| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。兼容旧配置键 `collection_name`。                                      |
+| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。旧配置键 `collection_name` 仍可作为兼容别名使用。                            |
 | schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 控制如何处理目标集合结构。默认值表示集合不存在时才创建集合。                                                   |
 | data_save_mode         | enum                | 否    | APPEND_DATA                  | 控制如何处理已有数据。支持 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                         |
 | enable_auto_id         | boolean             | 否    | false                        | 是否让 Milvus 自动生成主键。设置为 `true` 时，不要再向主键字段写值。                                          |
@@ -70,8 +70,11 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 
 - 向量维度来自 SeaTunnel 表结构。使用 `FakeSource` 生成向量字段时，`columnScale` 表示向量维度。
 - 不配置 `collection` 时，接收器会使用上游表名作为 Milvus 集合名，适合多表写入。
+- `collection_name` 是 `collection` 的向后兼容别名。新任务建议使用 `collection`。
 - Milvus 源端读取分区后，如果目标集合没有使用分区键，接收器可以在目标集合创建相同分区名。
 - `create_index = true` 只有在上游目录信息能提供索引元数据时才会创建向量索引，例如上游也是 Milvus。
+- `enable_upsert = true` 会按主键更新插入，目标集合中需要有主键。希望直接追加写入时，可以设置 `enable_upsert = false`。
+- `load_collection = true` 会在创建集合后加载集合，这样写入完成后可以马上查询。
 
 ## 任务示例
 
