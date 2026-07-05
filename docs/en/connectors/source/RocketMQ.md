@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -93,9 +94,11 @@ message body is read as a single text value.
 
 ### Multi-Table Read
 
-Use `tables_configs` when different topics have different schemas. Each item can define its own `topics`, `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
+Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
 `topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+
+When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
 
 ## Task Examples
 

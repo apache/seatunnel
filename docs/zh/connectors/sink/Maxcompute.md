@@ -11,6 +11,9 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持 CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -32,6 +35,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss |
 | tunnel_endpoint           | string  | 否   | -      |
 | insert_strategy           | string  | 否   | upload |
+| multi_table_sink_replica  | int     | 否   | 1      |
 | common-options            | string  | 否   |        |
 
 ### accessId [string]
@@ -182,6 +186,14 @@ CREATE TABLE IF NOT EXISTS `${table}`
 在同时存在更新或删除操作的情况下，使用 upload 会话进行插入操作，可能会导致插入的记录 比预期更晚出现在表中。
 当表中存在主键时，建议将 `insert_strategy` 设置为 `upsert`，以确保一致的 upsert 行为。
 
+`UPDATE_AFTER` 和 `DELETE` 数据都会通过 MaxCompute upsert 会话写入，所以任务包含更新或删除数据时，目标表必须有主键。当前 Sink 不支持 `UPDATE_BEFORE` 数据。
+
+### multi_table_sink_replica [int]
+
+多表写入模式下的 writer 副本数，默认值为 `1`。
+
+当上游数据包含多张表，并且 `table_name` 使用 `${table_name}` 这类占位符时可以配置该参数。例如 `table_name = "${table_name}_sink"` 会把上游表 `test_table` 写入目标表 `test_table_sink`。
+
 ### 通用选项
 
 Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见。
@@ -200,6 +212,65 @@ sink {
     table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #overwrite = false
+  }
+}
+```
+
+### 多表写入
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+          { kind = INSERT, fields = [2, "INSERT_TEST2", 30] }
+        ]
+      },
+      {
+        schema = {
+          table = "test_table_2"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "${table_name}_sink"
+    insert_strategy = "upsert"
+    multi_table_sink_replica = 1
   }
 }
 ```
@@ -252,4 +323,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-

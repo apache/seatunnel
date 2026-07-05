@@ -25,6 +25,8 @@ The connector opens an upsert writer when the target Fluss table has a primary k
 
 The Fluss database and table must already exist before the job starts. The sink does not create Fluss databases or tables.
 
+The target table schema should match the upstream SeaTunnel row schema by field order and compatible type. The sink writes values by position.
+
 ## Dependency
 
 ```xml
@@ -197,6 +199,8 @@ sink {
 ```
 
 The sink resolves the target table separately for each upstream table. Before running the job, create the matching Fluss databases and tables.
+
+In multi-table mode, the target `database` and `table` values can combine fixed text with placeholders. For example, `database = "fluss_db_${database_name}"` and `table = "fluss_tb_${table_name}"` route upstream table `test2.table1` to `fluss_db_test2.fluss_tb_table1`.
 
 ## Changelog
 

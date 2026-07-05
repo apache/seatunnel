@@ -6,7 +6,8 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 ## Description
 
-Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message.
+Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message. This is
+a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
 
 ## Key features
 
@@ -37,6 +38,7 @@ Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text
 - `username` and `password` are optional, but they must be configured together when the broker requires authentication.
 - The connector writes each SeaTunnel row as one JSON text message to `queue_name`. There is no separate `format` option for this sink.
 - Configure the broker address with `uri`. `host` and `port` are not ActiveMQ sink options.
+- Use any SeaTunnel source before this sink. The ActiveMQ connector only controls how the final rows are sent to the queue.
 
 ## Example
 
