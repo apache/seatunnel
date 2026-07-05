@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 
-:::tip
+:::提示
 
 支持的引擎
 
