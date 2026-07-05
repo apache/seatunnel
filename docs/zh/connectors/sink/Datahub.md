@@ -9,7 +9,7 @@ import ChangeLog from '../changelog/connector-datahub.md';
 DataHub Sink 用于将 SeaTunnel 数据写入阿里云 DataHub。
 
 该连接器支持单表写入和多表写入。多表写入时，可以在 `topic` 中使用
-`${table_name}` 这类占位符，将不同输入表的数据写入不同的 DataHub Topic。
+`${table}` 这类占位符，将不同输入表的数据写入不同的 DataHub Topic。
 
 ## 主要特性
 
@@ -53,7 +53,8 @@ DataHub 项目名称。
 
 ### topic [string]
 
-DataHub Topic 名称。多表写入时可以使用占位符，例如 `${table_name}`。
+DataHub Topic 名称。多表写入时可以使用占位符，例如 `${table}`。
+`${table_name}` 仅作为已废弃的兼容别名保留，新任务建议使用 `${table}`。
 
 SeaTunnel 字段名需要和 DataHub Topic 中的字段名一致，因为 sink 会按照 Topic 结构里的字段名写入数据。
 
@@ -148,7 +149,7 @@ sink {
     accessId = "your-access-id"
     accessKey = "your-access-key"
     project = "demo_project"
-    topic = "${table_name}"
+    topic = "${table}"
     timeout = 3000
     retryTimes = 3
   }
