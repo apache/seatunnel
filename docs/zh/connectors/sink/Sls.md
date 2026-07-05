@@ -40,7 +40,6 @@ JSON，然后作为 SLS 日志项写入，日志内容的 key 为 `content`。
 | access_key_secret | String | 是       | -                  | 阿里云 AccessKey Secret。                                                                              |
 | source            | String | 否       | `SeaTunnel-Source` | 写入 SLS log group 的 source 标记。                                                                    |
 | topic             | String | 否       | `SeaTunnel-Topic`  | 写入 SLS log group 的 topic 标记。                                                                     |
-| log_group_size    | Int    | 否       | 100                | 配置的 SLS log group 写入大小。当前 writer 每次写入请求会发送一条 SeaTunnel 数据。                     |
 
 ## 注意事项
 
@@ -85,7 +84,6 @@ sink {
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     source = "seatunnel-demo"
     topic = "fake-source"
-    log_group_size = 100
   }
 }
 ```
