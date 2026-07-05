@@ -30,6 +30,7 @@ Neo4j 源连接器通过执行 Cypher 查询从 Neo4j 读取数据，并把查�
 | Float         | FLOAT / DOUBLE     |
 | ByteArray     | BYTES              |
 | Date          | DATE               |
+| LocalTime     | TIME               |
 | LocalDateTime | TIMESTAMP          |
 | List          | ARRAY              |
 | Map           | MAP                |
@@ -55,6 +56,8 @@ Neo4j 源连接器通过执行 Cypher 查询从 Neo4j 读取数据，并把查�
 - 认证方式只选一种：用户名密码、bearer token 或 Kerberos ticket。
 - `query` 决定返回哪些字段，`schema.fields` 必须写清这些返回字段和对应类型。
 - 查询返回字段名可以包含点号，例如从节点属性返回的 `t.string`。
+- `MAP` 字段的 key 必须是 `STRING`，例如 `MAP<STRING, INT>`。
+- Neo4j 的整数和浮点数会按 `schema.fields` 中声明的 SeaTunnel 类型转换；如果数值可能超过 `INT` 或 `FLOAT` 范围，建议使用 `BIGINT` 或 `DOUBLE`。
 
 ## 任务示例
 

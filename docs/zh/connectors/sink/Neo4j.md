@@ -39,6 +39,8 @@ Neo4j Sink 连接器通过执行 Cypher 语句把 SeaTunnel 数据写入 Neo4j�
 - `ONE_BY_ONE` 模式下，`queryParamPosition` 用来把 Cypher 占位符映射到输入行的字段位置。
 - `BATCH` 模式下，查询语句应使用 `UNWIND $batch AS row`，连接器会通过 `batch` 变量传入一批数据。
 - `BATCH` 模式虽然从 `row` 中取值，但连接器配置校验仍要求填写 `queryParamPosition`。
+- `queryParamPosition` 中的字段位置从 `0` 开始，顺序对应上游输入表结构。
+- `BATCH` 模式下，每个 `row` 使用上游字段名取值，因此 Cypher 语句里的字段名需要和上游表结构一致。
 
 ## 逐条写入示例
 
