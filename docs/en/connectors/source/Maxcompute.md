@@ -25,22 +25,23 @@ Used to read data from Maxcompute.
 | sts_token      | string | no       | -             |
 | endpoint       | string | yes      | -             |
 | project        | string | yes      | -             |
-| table_name     | string | yes      | -             |
+| table_name     | string | yes when `table_list` is not set | -             |
 | schema_name    | string | no       | -             |
 | partition_spec | string | no       | -             |
 | split_row      | int    | no       | 10000         |
 | read_columns   | Array  | no       | -             |
 | table_list     | Array  | No       | -             |
+| tunnel_endpoint | string | no       | -             |
 | common-options | string | no       |               |
 | schema         | config | no       |               |
 
 ### accessId [string]
 
-`accessId` Your Maxcompute accessId which cloud be access from Alibaba Cloud.
+`accessId` Your Maxcompute accessId that can access Alibaba Cloud.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+`accesskey` Your Maxcompute accessKey that can access Alibaba Cloud.
 
 ### sts_token [string]
 
@@ -59,7 +60,9 @@ Used to read data from Maxcompute.
 
 ### table_name [string]
 
-`table_name` Target Maxcompute table name eg: fake.
+`table_name` Target Maxcompute table name, for example `fake`.
+
+`table_name` and `table_list` are mutually exclusive. Use `table_name` for one table and `table_list` for multiple tables.
 
 ### partition_spec [string]
 
@@ -86,6 +89,10 @@ Default: not set (uses the project default schema).
 ### table_list [Array]
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
+
+Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set those values, the connector uses the top-level value.
+
+This mode is useful when one job needs to read several MaxCompute tables with the same account, endpoint, and default project.
 
 ### tunnel_endpoint [String]
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.
@@ -121,6 +128,7 @@ source {
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
     table_name="<your table name>"
+    #tunnel_endpoint="<your tunnel endpoint>"
     #partition_spec="<your partition spec>"
     #split_row = 10000
     #read_columns = ["col1", "col2"]
@@ -137,6 +145,7 @@ source {
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>" # default project
+    #tunnel_endpoint="<your tunnel endpoint>"
     table_list = [
       {
         table_name = "test_table"

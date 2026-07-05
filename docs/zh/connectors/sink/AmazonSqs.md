@@ -2,87 +2,109 @@ import ChangeLog from '../changelog/connector-amazonsqs.md';
 
 # AmazonSqs
 
-> Amazon SQS 接收器连接器
+> Amazon SQS Sink 连接器
 
-## 支持以下引擎
+## 描述
+
+Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一个 Amazon SQS 队列 URL。
+连接器会按照 `format` 序列化数据，并把序列化后的内容作为 SQS 消息体发送。
+
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 描述
-
-将数据写入 Amazon SQS
-
-## 关键特性
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列映射](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## 参数和选项
+## Sink 选项
 
-|          名称           |  类型  | 必需 | 默认值 |                                                                                                                                                                                                             Description                                                                                                                                                                                                             |
-|-------------------------|--------|--|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                     | String | 是 | -       | 从Amazon SQS读取的队列URL.                                                                                                                                                                                                                                                                                                                                                                                              |
-| region                  | String | 否 | -       | SQS服务的AWS区域                                                                                                                                                                                                                                                                                                                                                                                                  |
-| format                  | String | 否 | json    | 数据格式。默认格式为json。可选文本格式，canal json和debezium json。如果你使用json或文本格式。默认字段分隔符为“，”。如果自定义分隔符，请添加“field_delimiter”选项。如果您使用canal格式，请参阅[canal-json]（../formats/canal-json.md）了解详细信息。如果您使用debezium格式，请参阅[debezium json]（../formats/debezium json.md）了解详细信息. |
-| format_error_handle_way | String | 否 | fail    | 数据格式错误的处理方法。默认值为fail，可选值为（fail，skip）。当选择失败时，数据格式错误将被阻止，并引发异常。当选择跳过时，数据格式错误将跳过此行数据.                                                                                                                                                              |
-| field_delimiter         | String | 否 | ,       | 自定义数据格式的字段分隔符.                                                                                                                                                                                                                                                                                                                                                                                      |
+| 名称                | 类型     | 是否必填 | 默认值  | 描述                                                                                                                   |
+|-------------------|--------|------|------|----------------------------------------------------------------------------------------------------------------------|
+| url               | String | 是    | -    | 要写入的完整 SQS 队列 URL，例如 `https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue`。                             |
+| region            | String | 是    | -    | SQS 队列所在的 AWS 区域，例如 `us-east-1`。                                                                                     |
+| access_key_id     | String | 否    | -    | AWS access key ID。和 `secret_access_key` 一起配置时使用静态凭证；两者都不配置时使用 AWS 默认凭证链。                                    |
+| secret_access_key | String | 否    | -    | AWS secret access key。和 `access_key_id` 一起配置时使用静态凭证。                                                            |
+| format            | String | 否    | json | 消息体格式。支持 `json`、`text`、`canal_json`、`debezium_json`。                                                             |
+| field_delimiter   | String | 否    | ,    | 当 `format = text` 时使用的字段分隔符。                                                                                       |
+| common-options    |        | 否    | -    | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                                      |
+
+`url` 可以指向 AWS SQS，也可以指向兼容 SQS 的本地服务，例如 `http://sqs-host:4566/000000000000/sink_queue`。
+
+## 格式说明
+
+- `json`：把每行数据写成 JSON 对象。
+- `text`：用 `field_delimiter` 拼接每行中的字段。
+- `canal_json`：写出 Canal JSON 消息，详见 [Canal JSON](../formats/canal-json.md)。
+- `debezium_json`：写出 Debezium JSON 消息，详见 [Debezium JSON](../formats/debezium-json.md)。
+- 当前 sink 只发送消息体，不提供 SQS message attributes、delay seconds、deduplication ID 或 message group ID 等配置。
+- `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 
 ## 任务示例
 
-```bash
+### 写入 JSON 消息
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   FakeSource {
+    row.num = 1
     schema = {
       fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_bytes = bytes
-        c_date = date
-        c_decimal = "decimal(38, 18)"
-        c_timestamp = timestamp
-        c_row = {
-          c_map = "map<string, string>"
-          c_array = "array<int>"
-          c_string = string
-          c_boolean = boolean
-          c_tinyint = tinyint
-          c_smallint = smallint
-          c_int = int
-          c_bigint = bigint
-          c_float = float
-          c_double = double
-          c_bytes = bytes
-          c_date = date
-          c_decimal = "decimal(38, 18)"
-          c_timestamp = timestamp
-        }
+        name = string
       }
     }
-    plugin_output = "fake"
+    rows = [
+      {
+        kind = INSERT
+        fields = ["test_name"]
+      }
+    ]
   }
 }
 
 sink {
   AmazonSqs {
-    url = "http://127.0.0.1:8000"
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
     region = "us-east-1"
-    queue = "queueName"
+    access_key_id = "AKIA..."
+    secret_access_key = "SECRET..."
+  }
+}
+```
+
+### 使用自定义分隔符写入文本消息
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields {
+        artist = string
+        album = string
+        release_year = int
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
+    region = "us-east-1"
     format = text
-    field_delimiter = "|"  
+    field_delimiter = "|"
   }
 }
 ```

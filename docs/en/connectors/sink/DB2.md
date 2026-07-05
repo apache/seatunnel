@@ -32,6 +32,7 @@ semantics (using XA transaction guarantee).
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 

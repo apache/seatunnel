@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## Support Apache RocketMQ Version
 
-- 4.9.0 (Or a newer version, for reference)
+- 4.9.0 or newer
 
 ## Support These Engines
 
@@ -17,125 +17,67 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-
-By default, we will use 2pc to guarantee the message is sent to RocketMQ exactly once.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
-Write Rows to a Apache RocketMQ topic.
+Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and text message bodies, optional message tags, synchronous sending, partition key fields, and transactional messages when `exactly.once = true`.
 
 ## Sink Options
 
-|         Name         |  Type   | Required |         Default          |                                                                             Description                                                                             |
-|----------------------|---------|----------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                | string  | yes      | -                        | `RocketMQ topic` name.                                                                                                                                              |
-| name.srv.addr        | string  | yes      | -                        | `RocketMQ` name server cluster address.                                                                                                                             |
-| acl.enabled          | Boolean | no       | false                    | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                                                               |
-| access.key           | String  | no       |                          | When ACL_ENABLED is true, access key cannot be empty                                                                                                                |
-| secret.key           | String  | no       |                          | When ACL_ENABLED is true, secret key cannot be empty                                                                                                                |
-| producer.group       | String  | no       | SeaTunnel-Producer-Group | RocketMQ producer group id.                                                                                                                                            |
-| tag                  | String  | no       | -                        | `RocketMQ` message tag.                                                                                                                                             |
-| partition.key.fields | array   | no       | -                        | -                                                                                                                                                                   |
-| format               | String  | no       | json                     | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field_delimiter" option. |
-| field.delimiter      | String  | no       | ,                        | Customize the field delimiter for data format.                                                                                                                      |
-| producer.send.sync   | Boolean | no       | false                    | If true, the message will be sync sent.                                                                                                                             |
-| exactly.once         | Boolean | no       | false                    | If true, the transaction message will be sent.                                                                                                                      |
-| max.message.size     | int     | no       | 4194304                  | Maximum allowed message body size in bytes.                                                                                                                         |
-| send.message.timeout | int     | no       | 3000                     | Timeout for sending messages in milliseconds.                                                                                                                       |
-| common-options       | config  | no       | -                        | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                        |
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| topic | String | yes | - | RocketMQ topic name. |
+| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
+| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
+| producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
+| tag | String | no | - | RocketMQ message tag written with each message. |
+| partition.key.fields | List | no | - | Field names used to choose the target RocketMQ queue. Every listed field must exist in the upstream schema. |
+| format | String | no | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
+| producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
+| exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
+| max.message.size | int | no | 4194304 | Maximum message body size in bytes. |
+| send.message.timeout | int | no | 3000 | Send timeout in milliseconds. |
+| common-options | config | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
-### partition.key.fields [array]
+## Option Notes
 
-Configure which fields are used as the key of the RocketMQ message.
+### partition.key.fields
 
-For example, if you want to use value of fields from upstream data as key, you can assign field names to this property.
+`partition.key.fields` controls which RocketMQ queue receives each message. SeaTunnel hashes the configured field values and uses the hash to choose a queue. If this option is not set, RocketMQ chooses the queue.
 
-Upstream data is the following:
+For example, if the input schema contains `c_int`, this configuration uses `c_int` as the queue key:
 
-| name | age |     data      |
-|------|-----|---------------|
-| Jack | 16  | data-example1 |
-| Mary | 23  | data-example2 |
+```hocon
+partition.key.fields = ["c_int"]
+```
 
-If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
+### exactly.once
 
-## Task Example
+The sink supports exactly-once writes through RocketMQ transactional messages. This behavior is disabled by default. Set `exactly.once = true` when the RocketMQ cluster and the job checkpoint settings are ready for transactional writes.
 
-### Fake to Rocketmq Simple
+When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
 
-> The data is randomly generated and asynchronously sent to the test topic
+## Task Examples
+
+### Write JSON Messages
 
 ```hocon
 env {
   parallelism = 1
+  job.mode = "BATCH"
 }
 
 source {
   FakeSource {
+    row.num = 10
     schema = {
       fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
         c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
         c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transforms
-}
-
-sink {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topic = "test_topic"
-  }
-}
-
-```
-
-### Rocketmq To Rocketmq Simple
-
-> Consuming Rocketmq writes to c_int field Hash number of partitions written to different partitions This is the default asynchronous way to write
-
-```hocon
-env {
-  parallelism = 1
-}
-
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    plugin_output = "rocketmq_table"
-    schema = {
-      fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
         c_timestamp = timestamp
       }
     }
@@ -144,64 +86,109 @@ source {
 
 sink {
   Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topic = "test_topic_sink"
-    partition.key.fields = ["c_int"]
-  }
-}
-```
-
-### Timestamp consumption write Simple
-
-> This is a stream consumption specified time stamp consumption, when there are new partitions added the program will refresh the perception and consumption at intervals, and write to another topic type
-
-```hocon
-
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-}
-
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    plugin_output = "rocketmq_table"
-    start.mode = "CONSUME_FROM_FIRST_OFFSET"
-    batch.size = "400"
-    consumer.group = "test_topic_group"
-    format = "json"
-    schema = {
-      fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transforms
-}
-sink {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
+    name.srv.addr = "rocketmq-e2e:9876"
     topic = "test_topic"
     partition.key.fields = ["c_int"]
     producer.send.sync = true
+  }
+}
+```
+
+### Write Text Messages
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
+sink {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topic = "test_text_topic"
+    format = text
+    field.delimiter = ","
+    producer.send.sync = true
+  }
+}
+```
+
+### Write Messages With a Tag
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+  }
+}
+
+sink {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topic = "test_topic_message_tag"
+    tag = "test_tag"
+    partition.key.fields = ["c_string"]
+    producer.send.sync = true
+  }
+}
+```
+
+### Read and Write RocketMQ
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    consumer.group = "rocketmq_to_rocketmq_group"
+    schema = {
+      fields {
+        id = bigint
+        c_string = string
+      }
+    }
+  }
+}
+
+sink {
+  Rocketmq {
+    plugin_input = "rocketmq_table"
+    name.srv.addr = "rocketmq-e2e:9876"
+    topic = "test_topic_sink"
+    partition.key.fields = ["id"]
+    exactly.once = true
   }
 }
 ```

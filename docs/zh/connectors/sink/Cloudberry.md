@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，只有支持 `XA 事务` 的数据库才支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -25,7 +26,10 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisNodesValidator;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSingleTableDataTypeValidator;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfigsValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -49,12 +53,22 @@ public class RedisSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .exclusive(RedisBaseOptions.TABLE_CONFIGS, RedisBaseOptions.KEY_PATTERN)
                 .optional(
+                        RedisBaseOptions.KEY_PATTERN,
+                        Conditions.notBlank(RedisBaseOptions.KEY_PATTERN),
+                        Conditions.extension(
+                                RedisBaseOptions.KEY_PATTERN,
+                                new RedisSingleTableDataTypeValidator()))
+                .optional(
+                        RedisBaseOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(RedisBaseOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                RedisBaseOptions.TABLE_CONFIGS, new RedisTableConfigsValidator()))
+                .optional(
                         RedisBaseOptions.DATA_TYPE,
                         RedisBaseOptions.MODE,
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
                         RedisBaseOptions.AUTH,
                         RedisBaseOptions.USER,
-                        RedisBaseOptions.KEY,
                         RedisSourceOptions.READ_KEY_ENABLED,
                         RedisSourceOptions.SINGLE_FIELD_NAME,
                         RedisSourceOptions.KEY_FIELD_NAME,
@@ -72,6 +86,19 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.RedisMode.SINGLE,
                         RedisBaseOptions.HOST,
                         RedisBaseOptions.PORT)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        Conditions.notBlank(RedisBaseOptions.HOST),
+                        Conditions.greaterOrEqual(RedisBaseOptions.PORT, RedisBaseOptions.MIN_PORT)
+                                .and(
+                                        Conditions.lessOrEqual(
+                                                RedisBaseOptions.PORT, RedisBaseOptions.MAX_PORT)))
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        Conditions.notEmpty(RedisBaseOptions.NODES),
+                        Conditions.extension(RedisBaseOptions.NODES, new RedisNodesValidator()))
                 .conditional(
                         RedisSourceOptions.READ_KEY_ENABLED,
                         true,
