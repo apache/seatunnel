@@ -50,9 +50,11 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 |         名称          |  类型  | 必需 | 默认值  |
 |-----------------------|--------|------|---------|
-| table_name            | string | 是   | -       |
+| table_name            | string | 否   | 单表模式必填 |
+| table_list            | array  | 否   | -       |
+| tables_configs        | array  | 否   | 已废弃，请使用 `table_list` |
 | use_regex             | boolean| 否   | false   |
-| metastore_uri         | string | 是   | -       |
+| metastore_uri         | string | 否   | 单表模式必填 |
 | krb5_path             | string | 否   | /etc/krb5.conf |
 | kerberos_principal    | string | 否   | -       |
 | kerberos_keytab_path  | string | 否   | -       |
@@ -60,6 +62,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | hive_site_path        | string | 否   | -       |
 | hive.hadoop.conf      | Map    | 否   | -       |
 | hive.hadoop.conf-path | string | 否   | -       |
+| remote_user           | string | 否   | -       |
 | read_partitions       | list   | 否   | -       |
 | read_columns          | list   | 否   | -       |
 | compress_codec        | string | 否   | none    |
@@ -68,6 +71,16 @@ import ChangeLog from '../changelog/connector-hive.md';
 ### table_name [string]
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
+
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `table_list`。`tables_configs` 仍兼容旧配置，但新作业建议使用 `table_list`。
+
+### table_list [array]
+
+Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+
+### tables_configs [array]
+
+已废弃的多表配置列表。新作业请使用 `table_list`。
 
 ### use_regex [boolean]
 
@@ -84,6 +97,10 @@ import ChangeLog from '../changelog/connector-hive.md';
 ### metastore_uri [string]
 
 Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
+
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
 
 ### hdfs_site_path [string]
 

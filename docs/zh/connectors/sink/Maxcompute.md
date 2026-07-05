@@ -2,31 +2,37 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 # Maxcompute
 
-> Maxcompute Sink 连接器
+> Maxcompute 接收器连接器
 
 ## 描述
 
-用于从 Maxcompute 读取数据。
+用于向 Maxcompute 写入数据。
 
-## 关键特性
+## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-|      参数名      |  类型   | 必须 | 默认值 |
-|----------------|---------|------|--------|
-| accessId       | string  | 否   | -      |
-| accesskey      | string  | 否   | -      |
-| sts_token      | string  | 否   | -      |
-| endpoint       | string  | 是   | -      |
-| project        | string  | 是   | -      |
-| table_name     | string  | 是   | -      |
-| schema_name    | string  | 否   | -      |
-| partition_spec | string  | 否   | -      |
-| overwrite      | boolean | 否   | false  |
-| insert_strategy| string  | no   | upload |
-| common-options | string  | 否   |        |
+| 参数名                    | 类型    | 必须 | 默认值 |
+|---------------------------|---------|------|--------|
+| accessId                  | string  | 否   | -      |
+| accesskey                 | string  | 否   | -      |
+| sts_token                 | string  | 否   | -      |
+| endpoint                  | string  | 是   | -      |
+| project                   | string  | 是   | -      |
+| table_name                | string  | 是   | -      |
+| schema_name               | string  | 否   | -      |
+| partition_spec            | string  | 否   | -      |
+| overwrite                 | boolean | 否   | false  |
+| schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode            | enum    | 否   | APPEND_DATA |
+| custom_sql                | string  | 否   | -      |
+| save_mode_create_template | string  | 否   | 见下文 |
+| datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss |
+| tunnel_endpoint           | string  | 否   | -      |
+| insert_strategy           | string  | 否   | upload |
+| common-options            | string  | 否   |        |
 
 ### accessId [string]
 
@@ -182,6 +188,8 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 
 ## 示例
 
+### 追加写入
+
 ```hocon
 sink {
   Maxcompute {
@@ -196,8 +204,52 @@ sink {
 }
 ```
 
+### 更新插入或删除数据
+
+当上游表结构有主键，并且任务里包含更新或删除数据时，建议配置 `insert_strategy = "upsert"`。
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table_sink"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          {
+            kind = UPDATE_AFTER
+            fields = [1, "UPSERT_TEST", 100]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "test_table_sink"
+    insert_strategy = "upsert"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
-
 

@@ -43,10 +43,8 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | DOUBLE     | DOUBLE         |
 | TEXT       | STRING         |
 | STRING     | STRING         |
-| TIMESTAMP  | BIGINT         |
-| TIMESTAMP  | TIMESTAMP      |
-| BLOB       | STRING         |
-| DATE       | DATE           |
+| 时间列        | BIGINT         |
+| 时间列        | TIMESTAMP      |
 
 ## Source 选项
 
@@ -65,9 +63,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | thrift_max_frame_size      | int     | 否    | -   | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -   | 是否启用 Leader 节点缓存                                                                 |
 | version                    | string  | 否    | -   | 客户端 SQL 语义版本（`V_0_12` / `V_0_13`）                                                |
-| common-options             |         | 否    | -   | Source 插件常用参数，详见 [Source common Options](../common-options/source-common-options.md)            |
+| common-options             |         | 否    | -   | Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)            |
 
-我们可以使用时间列进行分区查询。
+`schema.fields` 中的第一个字段必须对应 IoTDB 时间列。需要毫秒时间戳时可以配置为 `bigint`，需要 SeaTunnel timestamp 值时可以配置为 `timestamp`。
+
+当 SQL 使用 `align by device` 时，第二个字段通常对应 IoTDB 设备名。后续字段需要和 SQL 返回的测点顺序保持一致。
+
+可以使用时间列进行分区查询。
 
 ### num_partitions [int]
 
@@ -110,6 +112,9 @@ source {
     username = "root"
     password = "root"
     sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
     schema {
       fields {
         ts = timestamp
@@ -129,6 +134,69 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+`lower_bound`、`upper_bound` 和 `num_partitions` 是可选项。当查询覆盖很大的时间范围时，可以用它们把读取任务按时间范围拆成多个分区。
+
+下面的示例从一个 IoTDB 路径读取数据，替换设备名前缀后，再写入另一个 IoTDB 路径。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  IoTDB {
+    plugin_output = "iotdb_rows"
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    sql = "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM root.source_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
+    schema {
+      fields {
+        ts = timestamp
+        device_name = string
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+      }
+    }
+  }
+}
+
+transform {
+  Replace {
+    plugin_input = "iotdb_rows"
+    plugin_output = "sink_rows"
+    replace_field = "device_name"
+    pattern = "root.source_group"
+    replacement = "root.sink_group"
+    is_regex = false
+    replace_first = true
+  }
+}
+
+sink {
+  IoTDB {
+    plugin_input = "sink_rows"
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "ts"
+    key_measurement_fields = ["c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double"]
+    batch_size = 1
   }
 }
 ```

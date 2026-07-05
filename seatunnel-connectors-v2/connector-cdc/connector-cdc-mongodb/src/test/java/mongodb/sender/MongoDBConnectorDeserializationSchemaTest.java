@@ -57,6 +57,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,6 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
@@ -180,27 +182,39 @@ public class MongoDBConnectorDeserializationSchemaTest {
         SourceRecord sourceRecord = createSnapshotRecordWithoutOperationType();
         List<SeaTunnelRow> rows = new ArrayList<>();
 
-        schema.deserialize(
-                sourceRecord,
-                new Collector<SeaTunnelRow>() {
-                    private final Object checkpointLock = new Object();
-
-                    @Override
-                    public void collect(SeaTunnelRow record) {
-                        rows.add(record);
-                    }
-
-                    @Override
-                    public Object getCheckpointLock() {
-                        return checkpointLock;
-                    }
-                });
+        schema.deserialize(sourceRecord, new ListCollector(rows));
 
         Assertions.assertEquals(1, rows.size());
         SeaTunnelRow row = rows.get(0);
         Assertions.assertEquals(RowKind.INSERT, row.getRowKind());
         Assertions.assertEquals("database.table", row.getTableId());
         Assertions.assertEquals("snapshot-value", row.getField(4));
+    }
+
+    @Test
+    public void skipHeartbeatRecordWithoutOperationType() throws Exception {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
+        SourceRecord heartbeatRecord = createRecordWithoutOperationType(true);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+
+        schema.deserialize(heartbeatRecord, new ListCollector(rows));
+
+        Assertions.assertTrue(rows.isEmpty());
+    }
+
+    @Test
+    public void throwReadableExceptionWhenOperationTypeMissing() {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
+        SourceRecord record = createRecordWithoutOperationType(false);
+
+        MongodbConnectorException exception =
+                Assertions.assertThrows(
+                        MongodbConnectorException.class,
+                        () -> schema.deserialize(record, new ListCollector(new ArrayList<>())));
+
+        Assertions.assertTrue(exception.getMessage().contains(OPERATION_TYPE));
     }
 
     @Test
@@ -360,5 +374,42 @@ public class MongoDBConnectorDeserializationSchemaTest {
                 key,
                 valueSchema,
                 value);
+    }
+
+    private SourceRecord createRecordWithoutOperationType(boolean heartbeat) {
+        Schema valueSchema = SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build();
+        Struct value = new Struct(valueSchema).put(TS_MS_FIELD, System.currentTimeMillis());
+        Map<String, String> sourceOffset = new HashMap<>();
+        if (heartbeat) {
+            sourceOffset.put(HEARTBEAT_KEY_FIELD, "true");
+        }
+
+        return new SourceRecord(
+                Collections.singletonMap(
+                        NS_FIELD, "mongodb://localhost:27017/__mongodb_heartbeats"),
+                sourceOffset,
+                "__mongodb_heartbeats",
+                null,
+                null,
+                valueSchema,
+                value);
+    }
+
+    private static class ListCollector implements Collector<SeaTunnelRow> {
+        private final List<SeaTunnelRow> rows;
+
+        private ListCollector(List<SeaTunnelRow> rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public void collect(SeaTunnelRow record) {
+            rows.add(record);
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return this;
+        }
     }
 }

@@ -52,7 +52,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | path                        | string  | 是    | -                   |
 | file_format_type            | string  | 是    | -                   |
 | connection_mode             | string  | 否    | active_local        |
-| remote_verification_enabled | boolean | no   | true                |
+| remote_verification_enabled | boolean | 否    | true                |
+| control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |

@@ -29,9 +29,9 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | -------------------------- | ------- | -------- | ------------- |
 | host                       | string  | yes      | -             |
 | port                       | int     | yes      | -             |
-| virtual_host               | string  | yes      | -             |
-| username                   | string  | yes      | -             |
-| password                   | string  | yes      | -             |
+| virtual_host               | string  | no       | -             |
+| username                   | string  | no       | -             |
+| password                   | string  | no       | -             |
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
 | tables_configs             | array   | no       | -             |
@@ -40,13 +40,14 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
 | topology_recovery_enabled  | boolean | no       | -             |
-| automatic_recovery_enabled | boolean | no       | -             |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
 | connection_timeout         | int     | no       | -             |
 | requested_channel_max      | int     | no       | -             |
 | requested_frame_max        | int     | no       | -             |
 | requested_heartbeat        | int     | no       | -             |
 | prefetch_count             | int     | no       | -             |
-| delivery_timeout           | long    | no       | -             |
+| delivery_timeout           | int     | no       | -             |
+| use_correlation_id         | boolean | no       | -             |
 | common-options             |         | no       | -             |
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
@@ -72,6 +73,8 @@ the AMQP user name to use when connecting to the broker
 
 the password to use when connecting to the broker
 
+`username` and `password` should be configured together.
+
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
@@ -82,11 +85,11 @@ the queue to consume messages from. *Note: Required if `tables_configs` is not c
 
 ### routing_key [string]
 
-the routing key to publish the message to
+Optional RabbitMQ routing key inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
 
 ### exchange [string]
 
-the exchange to publish the message to
+Optional RabbitMQ exchange inherited from the shared RabbitMQ configuration. It is not required for normal queue consumption.
 
 ### schema [Config]
 
@@ -106,9 +109,11 @@ how long will automatic recovery wait before attempting to reconnect, in ms
 
 if true, enables topology recovery
 
-### automatic_recovery_enabled [boolean]
+### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-if true, enables connection recovery
+If true, enables connection recovery.
+
+The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
@@ -132,9 +137,13 @@ Set the requested heartbeat timeout
 
 prefetchCount the max number of messages to receive without acknowledgement
 
-### delivery_timeout [long]
+### delivery_timeout [int]
 
 deliveryTimeout maximum wait time, in milliseconds, for the next message delivery
+
+### use_correlation_id [boolean]
+
+Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail.
 
 ### common options
 
@@ -150,7 +159,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue is used only by the current connection and will be deleted when the connection closes.
 - false: The queue can be used by multiple connections.
 
-### auto-delete
+### auto_delete
 
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
@@ -163,12 +172,19 @@ If you are upgrading from a previous version that only supported single-table re
 - You cannot configure both `tables_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
 - Use `tables_configs` for multi-table mode.
 - Use root-level `queue_name` and `schema` for single-table mode.
+- If you configure `username`, you must also configure `password`, and vice versa.
+- `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
 ## Example
 
 ### Single-table Read Example
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
 source {
     RabbitMQ {
         host = "rabbitmq-e2e"
@@ -182,9 +198,15 @@ source {
                 id = bigint
                 c_map = "map<string, smallint>"
                 c_array = "array<tinyint>"
+                c_string = string
+                c_boolean = boolean
             }
         }
     }
+}
+
+sink {
+    Console {}
 }
 ```
 ### Multi-table Read Example
@@ -192,10 +214,16 @@ source {
 You can use the `tables_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `plugin_input`.
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
 source {
   RabbitMQ {
-    host = "localhost"
+    host = "rabbitmq-e2e"
     port = 5672
+    virtual_host = "/"
     username = "guest"
     password = "guest"
 
@@ -226,20 +254,14 @@ source {
 }
 
 sink {
-  # The first sink will ONLY receive data from the users_queue
-  Jdbc {
+  # The first sink will only receive data from users_table
+  Console {
     plugin_input = "users_table"
-    driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://localhost:3306/mydb"
-    query = "insert into users (user_id, name) values (?, ?)"
   }
 
-  # The second sink will ONLY receive data from the orders_queue
-  Jdbc {
+  # The second sink will only receive data from orders_table
+  Console {
     plugin_input = "orders_table"
-    driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://localhost:3306/mydb"
-    query = "insert into orders (order_id, amount) values (?, ?)"
   }
 }
 ```

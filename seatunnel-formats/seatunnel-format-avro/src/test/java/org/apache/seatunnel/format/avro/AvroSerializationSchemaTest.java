@@ -28,9 +28,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -234,5 +242,47 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(subRow.getField(9), null);
         Assertions.assertEquals(subRow.getField(12), null);
         Assertions.assertEquals(subRow.getField(13), null);
+    }
+
+    @Test
+    public void testDeserializeWithProvidedWriterSchema() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dev_id", "timestamp", "s_port"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE, BasicType.LONG_TYPE, BasicType.INT_TYPE
+                        });
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        String writerSchemaText =
+                "{"
+                        + "\"type\":\"record\","
+                        + "\"name\":\"AvroEvent\","
+                        + "\"namespace\":\"safe.serialize\","
+                        + "\"fields\":["
+                        + "{\"name\":\"dev_id\",\"type\":[{\"type\":\"string\",\"avro.java.string\":\"String\"},\"null\"]},"
+                        + "{\"name\":\"timestamp\",\"type\":[\"long\",\"null\"]},"
+                        + "{\"name\":\"s_port\",\"type\":[\"int\",\"null\"]}"
+                        + "]"
+                        + "}";
+        Schema writerSchema = new Schema.Parser().parse(writerSchemaText);
+        GenericRecord record =
+                new GenericRecordBuilder(writerSchema)
+                        .set("dev_id", "device-1")
+                        .set("timestamp", 1769504419000L)
+                        .set("s_port", null)
+                        .build();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
+        new GenericDatumWriter<GenericRecord>(writerSchema).write(record, encoder);
+        encoder.flush();
+
+        AvroDeserializationSchema deserializationSchema =
+                new AvroDeserializationSchema(catalogTable, writerSchemaText);
+        SeaTunnelRow row = deserializationSchema.deserialize(out.toByteArray());
+
+        Assertions.assertEquals("device-1", row.getField(0));
+        Assertions.assertEquals(1769504419000L, row.getField(1));
+        Assertions.assertNull(row.getField(2));
     }
 }

@@ -77,6 +77,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getOperationType;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
@@ -101,6 +102,10 @@ public class MongoDBConnectorDeserializationSchema
     public void deserialize(@Nonnull SourceRecord record, Collector<SeaTunnelRow> out)
             throws Exception {
         super.deserialize(record, out);
+
+        if (isHeartbeatEvent(record)) {
+            return;
+        }
 
         Struct value = (Struct) record.value();
         Schema valueSchema = record.valueSchema();

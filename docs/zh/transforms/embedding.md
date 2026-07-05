@@ -134,6 +134,58 @@ vectorization_fields {
 }
 ```
 
+**多字段混合多模态向量化：**  
+> 注意: 目前，仅 `DOUBAO` 提供商支持多模态数据处理
+```hocon
+vectorization_fields {
+    # 多字段文本
+    multi_field_text_vector = [product_name, description]
+
+    # 多字段图片
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # 多字段视频
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # 多字段混合多模态
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **字段规范格式：**
 
 **支持的模态类型：**
@@ -147,7 +199,7 @@ vectorization_fields {
 - `binary` - 二进制数据格式
 
 **自动模态检测：**
-当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+当未显式指定 `modality` 且 `format` 是 `url` 时，系统会根据字段值的文件后缀自动检测模态类型：
 
 > **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 

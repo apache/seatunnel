@@ -10,12 +10,21 @@ The HugeGraph sink connector allows you to write data from SeaTunnel to Apache H
 
 This connector supports writing data as vertices or edges, providing flexible mapping from relational data models to graph structures. It is designed for high-performance data loading.
 
-## Features
+## Key Features
 
-- **Batch Writing**: Data is written in batches for high throughput.
-- **Flexible Mapping**: Supports flexible mapping of source fields to vertex/edge properties.
-- **Vertex and Edge Writing**: Can write data as either vertices or edges.
-- **Automatic Schema Creation**: Can automatically create graph schema elements (property keys, vertex labels, edge labels) if they do not exist.
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it can flush buffered records by `batch_size` or `batch_interval_ms`.
+
+:::caution
+
+The HugeGraph schema must already exist before the job writes data. Create the required property keys, vertex labels, and edge labels in HugeGraph first, then use `schema_config` to map SeaTunnel fields to that existing graph schema.
+
+:::
 
 ## Configuration Options
 
@@ -24,7 +33,7 @@ This connector supports writing data as vertices or edges, providing flexible ma
 | `host`              | String  | Yes      | -             | The host of the HugeGraph server.                                              |
 | `port`              | Integer | Yes      | -             | The port of the HugeGraph server.                                              |
 | `graph_name`        | String  | Yes      | -             | The name of the graph to write to.                                             |
-| `graph_space`       | String  | Yes      | -             | The graph space of the graph to be operated on.                                |
+| `graph_space`       | String  | No       | -             | The graph space of the graph to be operated on.                                |
 | `username`          | String  | No       | -             | The username for HugeGraph authentication.                                     |
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
@@ -42,7 +51,7 @@ This connector supports writing data as vertices or edges, providing flexible ma
 
 ### Schema Configuration (`schema_config`)
 
-Each object in the `schema_config` list defines a mapping from the source data to a specific vertex or edge label in HugeGraph.
+`schema_config` defines how one input stream is mapped to a specific vertex or edge label in HugeGraph.
 
 | Name               | Type               | Required   | Default Value | Description                                                                                              |
 | ------------------ |--------------------| ---------- | ------------- |----------------------------------------------------------------------------------------------------------|
@@ -51,9 +60,9 @@ Each object in the `schema_config` list defines a mapping from the source data t
 | `properties`       | `List<String>`       | No         | -             | A list of source field names for the vertex or edge.                                                     |
 | `ttl`              | Long               | No         | -             | The time-to-live for the vertex or edge in seconds.                                                      |
 | `ttlStartTime`     | String             | No         | -             | The start time for the TTL.                                                                              |
-| `enableLabelIndex` | Boolean            | No         | `false`       | Whether to enable label index for this label.                                                            |
+| `enableLabelIndex` | String             | No         | -             | Reserved label-index setting passed through the schema config.                                           |
 | `userdata`         | `Map<String, Object>` | No         | -             | User-defined data associated with the label.                                                             |
-| `idStrategy`       | String             | For Vertex | -             | The ID generation strategy for vertices. Supported values: `PRIMARY_KEY`, `CUSTOMIZE_UUID`, `AUTOMATIC`. |
+| `idStrategy`       | String             | For Vertex | -             | The ID generation strategy for vertices, such as `PRIMARY_KEY`, `CUSTOMIZE_STRING`, `CUSTOMIZE_NUMBER`, `CUSTOMIZE_UUID`, or `AUTOMATIC`. |
 | `idFields`         | `List<string>`       | For Vertex | -             | A list of source field names used to generate the vertex ID.                                             |
 | `sourceConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's source vertex. See `Source/Target Config` below.           |
 | `targetConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's target vertex. See `Source/Target Config` below.           |
@@ -84,6 +93,8 @@ This object provides advanced control over how fields and values are mapped to p
 | `sortKeys`         | `List<String>`        | For Edge   | -             | A list of property keys  to sort edges with the same source and target vertices.                                                                                                  |
 
 ## Usage Examples
+
+The examples below assume the corresponding HugeGraph schema has already been created.
 
 ### 1. Writing Vertices
 

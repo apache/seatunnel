@@ -10,16 +10,17 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 
 ## Description
 
-A sink plugin which use send data to `INFINI Easysearch`.
+A sink plugin used to send data to `INFINI Easysearch`.
 
 ## Using Dependency
 
-> Depenndency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
->
-  ## Key features
+> Dependency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
+
+## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -41,7 +42,7 @@ Engine Supported
 | LONG                        | LONG                 |
 | FLOAT<br/>HALF_FLOAT        | FLOAT                |
 | DOUBLE                      | DOUBLE               |
-| Date                        | LOCAL_DATE_TIME_TYPE |
+| DATE                        | LOCAL_DATE_TIME_TYPE |
 
 ## Sink Options
 
@@ -71,12 +72,11 @@ Engine Supported
 
 ### index [string]
 
-`INFINI Easysearch`  `index` name.Index support contains variables of field name,such as `seatunnel_${age}`,and the field must appear at seatunnel row.
-If not, we will treat it as a normal index.
+`INFINI Easysearch` index name. The index can contain field placeholders, such as `seatunnel_${age}`. The referenced field must exist in the input row; otherwise the value is treated as a normal literal index name.
 
 ### primary_keys [list]
 
-Primary key fields used to generate the document `_id`, this is cdc required options.
+Primary key fields used to generate the document `_id`. Configure this option when writing CDC rows that need update or delete semantics.
 
 ### key_delimiter [string]
 
@@ -92,11 +92,11 @@ security password
 
 ### max_retry_count [int]
 
-one bulk request max try size
+Maximum retry count for one bulk request.
 
 ### max_batch_size [int]
 
-batch bulk doc max size
+Maximum number of documents buffered in one bulk request.
 
 ### tls_verify_certificate [boolean]
 
@@ -143,28 +143,38 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Examples
 
-Simple
+### Write To One Index
 
-```bash
+```hocon
 sink {
-    Easysearch {
-        hosts = ["localhost:9200"]
-        index = "seatunnel-${age}"
-    }
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel_index"
+    max_batch_size = 100
+  }
 }
 ```
 
-CDC(Change data capture) event
+### Write To Dynamic Index
 
-```bash
+```hocon
 sink {
-    Easysearch {
-        hosts = ["localhost:9200"]
-        index = "seatunnel-${age}"
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel_${age}"
+  }
+}
+```
 
-        # cdc required options
-        primary_keys = ["key1", "key2", ...]
-    }
+### CDC Event
+
+```hocon
+sink {
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel_${age}"
+    primary_keys = ["key1", "key2"]
+  }
 }
 ```
 
@@ -211,7 +221,7 @@ sink {
 }
 ```
 
-SAVE_MODE
+### Save Mode
 
 ```hocon
 sink {
@@ -220,6 +230,7 @@ sink {
         username = "admin"
         password = "admin"
 
+        index = "seatunnel_index"
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode = "APPEND_DATA"
     }
@@ -229,4 +240,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

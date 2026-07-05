@@ -42,6 +42,9 @@ Used to read data from IoTDB.
 | FLOAT           | FLOAT               |
 | DOUBLE          | DOUBLE              |
 | TEXT            | STRING              |
+| STRING          | STRING              |
+| time column     | BIGINT              |
+| time column     | TIMESTAMP           |
 
 ## Source Options
 
@@ -52,17 +55,21 @@ Used to read data from IoTDB.
 | password                   | string  | yes      | -             | IoTDB user password                                                                                               |
 | sql                        | string  | yes      | -             | execute sql statement                                                                                             |
 | schema                     | config  | yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                   |
-| fetch_size                 | int     | no       | -             | the fetch_size of the IoTDB when you select                                                                       |
-| lower_bound                | long    | no       | -             | the lower_bound of the IoTDB when you select                                                                      |
-| upper_bound                | long    | no       | -             | the upper_bound of the IoTDB when you select                                                                      |
-| num_partitions             | int     | no       | -             | the num_partitions of the IoTDB when you select                                                                   |
-| thrift_default_buffer_size | int     | no       | -             | the thrift_default_buffer_size of the IoTDB when you select                                                       |
-| thrift_max_frame_size      | int     | no       | -             | the thrift max frame size                                                                                         |
-| enable_cache_leader        | boolean | no       | -             | enable_cache_leader of the IoTDB when you select                                                                  |
-| version                    | string  | no       | -             | SQL semantic version used by the client, The possible values are: `V_0_12`, `V_0_13`                              |
+| fetch_size                 | int     | no       | -             | Number of rows fetched from IoTDB in one request.                                                                 |
+| lower_bound                | long    | no       | -             | Lower time bound used when SeaTunnel splits the query by time.                                                     |
+| upper_bound                | long    | no       | -             | Upper time bound used when SeaTunnel splits the query by time.                                                     |
+| num_partitions             | int     | no       | -             | Number of time-range partitions. Use it together with `lower_bound` and `upper_bound`.                             |
+| thrift_default_buffer_size | int     | no       | -             | Initial Thrift buffer size for the IoTDB client.                                                                  |
+| thrift_max_frame_size      | int     | no       | -             | Maximum Thrift frame size for the IoTDB client.                                                                   |
+| enable_cache_leader        | boolean | no       | -             | Whether to cache the leader node in the IoTDB client.                                                             |
+| version                    | string  | no       | -             | SQL semantic version used by the client. The possible values are `V_0_12` and `V_0_13`.                           |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
-We can use time column as a partition key in SQL queries.
+The first field in `schema.fields` must describe the IoTDB time column. It can be `bigint` when you want epoch milliseconds, or `timestamp` when you want a SeaTunnel timestamp value.
+
+When the SQL uses `align by device`, the second field normally describes the IoTDB device name. The remaining fields must follow the same order as the measurements returned by the SQL query.
+
+You can use the time column as a partition key in SQL queries.
 
 #### num_partitions [int]
 
@@ -103,6 +110,9 @@ source {
     username = "root"
     password = "root"
     sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
     schema {
       fields {
         ts = timestamp
@@ -122,6 +132,69 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+`lower_bound`, `upper_bound`, and `num_partitions` are optional. They are useful when the query covers a large time range and you want SeaTunnel to split the read into multiple time partitions.
+
+The following example reads from one IoTDB path, replaces the device prefix, and writes the result to another IoTDB path.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  IoTDB {
+    plugin_output = "iotdb_rows"
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    sql = "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM root.source_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
+    schema {
+      fields {
+        ts = timestamp
+        device_name = string
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+      }
+    }
+  }
+}
+
+transform {
+  Replace {
+    plugin_input = "iotdb_rows"
+    plugin_output = "sink_rows"
+    replace_field = "device_name"
+    pattern = "root.source_group"
+    replacement = "root.sink_group"
+    is_regex = false
+    replace_first = true
+  }
+}
+
+sink {
+  IoTDB {
+    plugin_input = "sink_rows"
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "ts"
+    key_measurement_fields = ["c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double"]
+    batch_size = 1
   }
 }
 ```
@@ -150,4 +223,3 @@ The data format loaded to SeaTunnelRow is as follows:
 ## Changelog
 
 <ChangeLog />
-
