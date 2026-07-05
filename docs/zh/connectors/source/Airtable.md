@@ -8,14 +8,14 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 
 用于从 Airtable 读取数据。
 
-## 关键特性
+## 主要特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -36,6 +36,10 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 | record_metadata             | List    | 否 | -             |
 | time_zone                   | String  | 否 | -             |
 | user_locale                 | String  | 否 | -             |
+| offset                      | String  | 否 | -             |
+| headers                     | Map     | 否 | -             |
+| body                        | String  | 否 | -             |
+| pageing                     | Config  | 否 | -             |
 | request_interval_ms         | int     | 否 | 220           |
 | rate_limit_backoff_ms       | int     | 否 | 30000         |
 | rate_limit_max_retries      | int     | 否 | 3             |
@@ -44,6 +48,7 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 | format                      | String  | 否 | text          |
 | content_field               | String  | 否 | -             |
 | json_field                  | Config  | 否 | -             |
+| json_filed_missed_return_null | boolean | 否 | false       |
 | common-options              | config  | 否 | -             |
 
 ### token [String]
@@ -106,6 +111,22 @@ Airtable 公式表达式，用于过滤记录。参考 [Airtable 公式文档](h
 
 用于格式化值的用户区域设置。
 
+### offset [String]
+
+Airtable 返回的分页偏移量。通常不需要手动配置，连接器会自动继续读取 Airtable 后续分页。
+
+### headers [Map]
+
+额外的 HTTP 请求头。连接器会自动添加 Airtable 认证头和 JSON 内容类型请求头。
+
+### body [String]
+
+高级请求体配置。不要把它和 `fields`、`filter_by_formula`、`page_size`、`sort` 等专用 Airtable 请求选项配置成同一个 Airtable API 字段。
+
+### pageing [Config]
+
+继承自 HTTP 连接器的分页配置。普通 Airtable 读取建议优先使用连接器内置的 Airtable 分页处理。
+
 ### request_interval_ms [int]
 
 API 请求之间的最小间隔（毫秒），默认 220ms（以保持在 Airtable 每秒 5 次请求的限制内）。
@@ -135,6 +156,10 @@ API 请求之间的最小间隔（毫秒），默认 220ms（以保持在 Airtab
 ### json_field [Config]
 
 此参数帮助您配置模式，必须与 schema 一起使用。
+
+### json_filed_missed_return_null [boolean]
+
+设置为 `true` 时，JSON 字段缺失会返回 `null`；否则字段缺失会报错。
 
 ### common options
 
@@ -171,6 +196,29 @@ source {
         Name = string
         Status = string
         Weight = float
+      }
+    }
+  }
+}
+```
+
+读取 Airtable 的小批量分页数据：
+
+```hocon
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    format = "json"
+    content_field = "$.records[*].fields"
+    page_size = 2
+    request_interval_ms = 220
+    schema = {
+      fields {
+        Name = string
+        Age = int
+        Status = string
       }
     }
   }

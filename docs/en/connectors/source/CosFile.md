@@ -38,7 +38,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## Description
 
-Read data from aliyun Cos file system.
+Read data from Tencent Cloud COS file system.
 
 :::tip
 
@@ -60,7 +60,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | secret_id                  | string  | yes      | -                           |
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
-| read_columns               | list    | yes      | -                           |
+| read_columns               | list    | no       | -                           |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
@@ -210,7 +210,7 @@ Note: Markdown format only supports reading, not writing.
 
 ### bucket [string]
 
-The bucket address of Cos file system, for example: `Cos://tyrantlucifer-image-bed`
+The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
