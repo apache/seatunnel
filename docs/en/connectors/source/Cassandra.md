@@ -61,6 +61,7 @@ the CQL should return the columns that downstream steps need.
 | password          | String     | No       | -           | Cassandra password. Configure it together with `username`. |
 | datacenter        | String     | No       | datacenter1 | Local datacenter name used by the Cassandra Java driver. |
 | consistency_level | String     | No       | LOCAL_ONE   | Read consistency level, such as `LOCAL_ONE`, `ONE`, `QUORUM`, or `LOCAL_QUORUM`. |
+| common-options    |            | No       | -           | Source plugin common parameters, such as `plugin_output`. |
 
 > \* Exactly one of `cql` or `tables_configs` must be provided.
 
@@ -114,6 +115,10 @@ The `Cassandra` datacenter, default is `datacenter1`.
 
 The `Cassandra` read consistency level, default is `LOCAL_ONE`.
 
+### common-options
+
+Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).
+
 ## Notes
 
 - `username` and `password` are a pair. Configure both when authentication is enabled; omit both
@@ -123,6 +128,8 @@ The `Cassandra` read consistency level, default is `LOCAL_ONE`.
 - `cql` and `tables_configs` are mutually exclusive. Use `cql` for one result table and
   `tables_configs` when one source should read multiple Cassandra tables.
 - The source is a batch source. It reads the current query result and then finishes.
+- A single CQL query is read as one source split. Increasing job parallelism does not split one
+  Cassandra table scan automatically.
 
 ## Examples
 
