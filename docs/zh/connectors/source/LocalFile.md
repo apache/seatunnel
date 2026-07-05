@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
   在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
@@ -90,7 +90,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
 | file_split_size            | long    | 否    | 134217728           | 
-| quote_char                 | string  | 否    | -                   | 
+| quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
 | metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
 | recursive_file_scan        | boolean | 否    | true                |

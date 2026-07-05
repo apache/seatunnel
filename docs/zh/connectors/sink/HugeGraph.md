@@ -10,12 +10,21 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 该连接器支持将数据作为顶点或边写入，提供了从关系数据模型到图结构的灵活映射。它专为高性能数据加载而设计。
 
-## 特性
+## 主要特性
 
-- **批量写入**: 数据分批写入，以实现高吞吐量。
-- **灵活映射**: 支持将源字段灵活映射到顶点/边属性。
-- **顶点和边写入**: 可以将数据作为顶点或边写入。
-- **自动创建Schema**: 如果不存在，可以自动创建图Schema元素（属性键、顶点标签、边标签）。
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且可以按 `batch_size` 或 `batch_interval_ms` 刷新缓存数据。
+
+:::caution
+
+运行任务前，需要先在 HugeGraph 中创建好对应的属性键、顶点标签和边标签。`schema_config` 只负责把 SeaTunnel 字段映射到已有图结构，不会自动创建 HugeGraph Schema。
+
+:::
 
 ## 配置选项
 
@@ -24,7 +33,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `host`              | String  | 是       | -      | HugeGraph服务器的主机。                                                |
 | `port`              | Integer | 是       | -      | HugeGraph服务器的端口。                                                |
 | `graph_name`        | String  | 是       | -      | 要写入的图的名称。                                                     |
-| `graph_space`       | String  | 是       | -      | 要操作的图的图空间。                                                   |
+| `graph_space`       | String  | 否       | -      | 要操作的图的图空间。                                                   |
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
@@ -42,7 +51,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 ### Schema配置 (`schema_config`)
 
-`schema_config`列表中的每个对象都定义了从源数据到HugeGraph中特定顶点或边标签的映射。
+`schema_config` 定义一个输入流如何映射到 HugeGraph 中的某个顶点标签或边标签。
 
 | 名称               | 类型                | 是否必须 | 默认值  | 描述                                                         |
 | ------------------ | ------------------- | -------- | ------- |------------------------------------------------------------|
@@ -51,9 +60,9 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `properties`       | `List<String>`        | 否       | -       | 顶点或边的源字段名称列表。                                              |
 | `ttl`              | Long                | 否       | -       | 顶点或边的生存时间（秒）。                                              |
 | `ttlStartTime`     | String              | 否       | -       | TTL的开始时间。                                                  |
-| `enableLabelIndex` | Boolean             | 否       | `false` | 是否为此标签启用标签索引。                                              |
+| `enableLabelIndex` | String              | 否       | -       | 预留的标签索引配置，会随 Schema 配置传入。                              |
 | `userdata`         | `Map<String, Object>` | 否       | -       | 与标签关联的用户定义数据。                                              |
-| `idStrategy`       | String              | 对于顶点 | -       | 顶点的ID生成策略。支持的值：`PRIMARY_KEY`、`CUSTOMIZE_UUID`、`AUTOMATIC`。 |
+| `idStrategy`       | String              | 对于顶点 | -       | 顶点的 ID 生成策略，例如：`PRIMARY_KEY`、`CUSTOMIZE_STRING`、`CUSTOMIZE_NUMBER`、`CUSTOMIZE_UUID`、`AUTOMATIC`。 |
 | `idFields`         | `List<String>`        | 对于顶点 | -       | 用于生成顶点ID的源字段名称列表。                                          |
 | `sourceConfig`     | Object              | 对于边   | -       | 定义边的源顶点映射的对象。请参阅下面的`Source/Target Config`。                 |
 | `targetConfig`     | Object              | 对于边   | -       | 定义边的目标顶点映射的对象。请参阅下面的`Source/Target Config`。                |
@@ -84,6 +93,8 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `sortKeys`         | `List<String>`       | 对于边   | -            | 用于对具有相同源和目标顶点的边进行排序的属性键列表。                                                                                                                      |
 
 ## 使用示例
+
+下面示例默认 HugeGraph 中已经提前创建好对应 Schema。
 
 ### 1. 写入顶点
 

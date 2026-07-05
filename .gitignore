@@ -23,6 +23,12 @@ logs.zip
 *.iml
 .idea/*
 
+# Eclipse / M2E files
+.classpath
+.factorypath
+.project
+.settings/
+
 .DS_Store
 
 metastore_db/

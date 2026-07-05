@@ -48,6 +48,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
 | remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
+| control_encoding                      | string  | no       | UTF-8                                      | Character encoding for the FTP control connection, useful for paths with spaces or non-ASCII characters                                                               |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
@@ -110,6 +111,13 @@ The target ftp connection mode , default is active mode, supported as the follow
 
 Whether to enable remote host verification for FTP data channels, default is `true`.
 
+### control_encoding [string]
+
+Character encoding for the FTP control connection. Default is `UTF-8`.
+
+When file paths contain special characters, spaces, or non-ASCII characters, keep this value as
+`UTF-8` unless your FTP server requires another control-channel encoding.
+
 ### custom_filename [boolean]
 
 Whether custom the filename
@@ -136,7 +144,6 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | d      | Day of month       |
 | H      | Hour in day (0-23) |
 | m      | Minute in hour     |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | s      | Second in minute   |
 
 ### file_format_type [string]

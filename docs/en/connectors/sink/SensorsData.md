@@ -10,43 +10,55 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
-A sink plugin which use SensorsData SDK send data records.
+The SensorsData sink uses the SensorsData SDK to send SeaTunnel rows as SensorsData records. It
+supports user events, user detail records, and item records. Use `consumer = "console"` when you
+want to print the converted records locally instead of sending them to the SensorsData server.
 
 ## Sink Options
 
-| name                      | type    | required | default value |
-|---------------------------|---------|----------|---------------|
-| server_url                | string  | yes      | -             |
-| bulk_size                 | int     | no       | 50            |
-| max_cache_row_size        | int     | no       | 0             |
-| consumer                  | string  | no       | batch         |
-| entity_name               | string  | yes      | users         |
-| record_type               | string  | yes      | users         |
-| schema                    | string  | yes      | users         |
-| distinct_id_column        | string  | yes      | -             |
-| identity_fields           | array   | yes      | -             |
-| property_fields           | array   | yes      | -             |
-| event_name                | string  | yes      | -             |
-| time_column               | string  | yes      | -             |
-| time_free                 | boolean | no       | false         |
-| detail_id_column          | string  | no       | -             |
-| item_id_column            | string  | no       | -             |
-| item_type_column          | string  | no       | -             |
-| skip_error_record         | boolean | no       | false         |
-| instant_events            | array   | no       | -             |
-| distinct_id_by_identities | boolean | no       | false         |
-| null_as_profile_unset     | boolean | no       | false         |
-| common-options            |         | no       | -             |
+| Name                      | Type    | Required    | Default | Description |
+|---------------------------|---------|-------------|---------|-------------|
+| server_url                | string  | Yes         | -       | SensorsData data receiving address, for example `https://host:8106/sa?project=default`. |
+| bulk_size                 | int     | No          | 50      | Flush threshold used by the SensorsData SDK cache. |
+| max_cache_row_size        | int     | No          | 0       | Maximum cache size before an immediate flush. `0` means it follows `bulk_size`. |
+| consumer                  | string  | No          | batch   | Consumer type. Use `batch` to send to SensorsData, or `console` to print records for local checks. |
+| entity_name               | string  | Yes         | users   | Entity name. Supported values are `users` and `items`. |
+| record_type               | string  | Yes         | users   | Record type. Common values are `events`, `details`, and `items`. |
+| schema                    | string  | Conditional | users   | Schema name. Required for user records (`entity_name = "users"`). |
+| distinct_id_column        | string  | Conditional | -       | Input column used as the SensorsData distinct ID. Required for user records. |
+| identity_fields           | array   | Conditional | -       | Identity mappings. Required for user records. |
+| property_fields           | array   | Conditional | -       | Property mappings and target data types. Required for user records. |
+| event_name                | string  | Conditional | -       | Event name or `${field_name}` expression. Required when `record_type = "events"`. |
+| time_column               | string  | Conditional | -       | Event time column. Required when `record_type = "events"`. Use `current_time()` to use processing time. |
+| detail_id_column          | string  | Conditional | -       | Detail ID column. Required when `record_type = "details"`. |
+| item_id_column            | string  | Conditional | -       | Item ID column. Required when `record_type = "items"`. |
+| item_type_column          | string  | Conditional | -       | Item type column. Required when `record_type = "items"`. |
+| time_free                 | boolean | No          | false   | Whether to enable SensorsData historical data mode. |
+| skip_error_record         | boolean | No          | false   | Whether to skip records that fail conversion. |
+| instant_events            | array   | No          | []      | Event names that should be marked as instant events. |
+| distinct_id_by_identities | boolean | No          | false   | Fill distinct ID from `identity_fields` when `distinct_id_column` is null. |
+| null_as_profile_unset     | boolean | No          | false   | Convert null profile properties to profile-unset operations. |
+| common-options            | config  | No          | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 
 ## Parameter Interpretation
+
+### Record type requirements
+
+- For user events, set `entity_name = "users"` and `record_type = "events"`, then configure
+  `event_name`, `time_column`, `distinct_id_column`, `identity_fields`, and `property_fields`.
+- For user details, set `entity_name = "users"` and `record_type = "details"`, then configure
+  `detail_id_column`, `distinct_id_column`, `identity_fields`, and `property_fields`.
+- For item records, set `entity_name = "items"` and `record_type = "items"`, then configure
+  `item_id_column`, `item_type_column`, and `property_fields`.
+
 ### server_url [string]
 
 SensorsData data sink address, the format is `https://${host}:8106/sa?project=${project}`
@@ -85,7 +97,7 @@ The identity fields of the user entity.
 
 ### property_fields [array]
 
-The property fields of the data record. Dupported types:
+The property fields of the data record. Supported types:
 - BOOLEAN
 - DECIMAL
 - INT

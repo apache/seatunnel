@@ -53,6 +53,16 @@ public class RowToJsonConverters implements Serializable {
 
     private String nullValue;
 
+    private final boolean serializeTimestampTzAsLocal;
+
+    public RowToJsonConverters() {
+        this.serializeTimestampTzAsLocal = false;
+    }
+
+    public RowToJsonConverters(boolean serializeTimestampTzAsLocal) {
+        this.serializeTimestampTzAsLocal = serializeTimestampTzAsLocal;
+    }
+
     public RowToJsonConverter createConverter(SeaTunnelDataType<?> type) {
         return wrapIntoNullableConverter(createNotNullConverter(type));
     }
@@ -186,6 +196,17 @@ public class RowToJsonConverters implements Serializable {
                     }
                 };
             case TIMESTAMP_TZ:
+                if (serializeTimestampTzAsLocal) {
+                    return new RowToJsonConverter() {
+                        @Override
+                        public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                            return mapper.getNodeFactory()
+                                    .textNode(
+                                            ISO_LOCAL_DATE_TIME.format(
+                                                    ((OffsetDateTime) value).toLocalDateTime()));
+                        }
+                    };
+                }
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
