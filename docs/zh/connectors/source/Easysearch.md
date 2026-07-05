@@ -27,7 +27,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
-:::tip
+:::提示
 
 支持的引擎
 
