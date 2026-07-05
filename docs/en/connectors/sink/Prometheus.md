@@ -19,16 +19,23 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 
 ## Description
 
-Writes metric samples to a Prometheus-compatible remote write endpoint.
+The Prometheus sink connector writes rows to the Prometheus remote write API. It builds a remote write sample from
+three upstream fields:
 
-The sink converts each SeaTunnel row into one Prometheus sample, serializes the data as a remote write request, compresses it with Snappy, and sends it by HTTP POST. Use a remote write endpoint such as `http://prometheus:9090/api/v1/write` or `http://victoria-metrics:8428/api/v1/write`.
+- `key_label`: the field that contains Prometheus labels, usually a `map<string, string>`.
+- `key_value`: the numeric sample value field.
+- `key_timestamp`: the optional timestamp field.
 
-Prometheus may reject samples that are too old for the target server's retention and remote write rules.
+The sink serializes rows as Prometheus remote write samples, compresses the request with Snappy, and sends data by
+HTTP `POST` to a Prometheus-compatible remote write endpoint such as `http://prometheus:9090/api/v1/write` or
+`http://victoria-metrics:8428/api/v1/write`.
+
+Prometheus-compatible servers may reject samples that are too old for their retention or remote write rules.
 
 ## Supported DataSource Info
 
-In order to use the Prometheus connector, the following dependency is required.
-It can be downloaded via `install-plugin.sh` or from the Maven central repository.
+To use the Prometheus connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
 
 | Datasource | Supported Versions | Dependency |
 |------------|--------------------|------------|
@@ -36,48 +43,44 @@ It can be downloaded via `install-plugin.sh` or from the Maven central repositor
 
 ## Sink Options
 
-| name                        | type   | required | default value | description |
-|-----------------------------|--------|----------|---------------|-------------|
-| url                         | String | Yes      | -             | Prometheus-compatible remote write URL. |
-| headers                     | Map    | No       | -             | HTTP request headers. |
-| retry                       | Int    | No       | -             | Maximum retry times when the HTTP request fails with `IOException`. |
-| retry_backoff_multiplier_ms | Int    | No       | 100           | Retry backoff multiplier, in milliseconds. |
-| retry_backoff_max_ms        | Int    | No       | 10000         | Maximum retry backoff, in milliseconds. |
-| key_label                   | String | Yes      | -             | Field name whose value is used as Prometheus labels. The field value must be a map. |
-| key_value                   | String | Yes      | -             | Field name whose value is used as the Prometheus sample value. |
-| key_timestamp               | String | No       | -             | Field name whose value is used as the sample timestamp. If omitted, the current system time is used. |
-| batch_size                  | Int    | No       | 1024          | Maximum number of samples written in one request. Must be greater than 0. |
-| flush_interval              | Long   | No       | 300000        | Scheduled flush interval in milliseconds. |
-| common-options              | config | No       | -             | Sink common options. |
+| Name                        | Type   | Required | Default | Description |
+|-----------------------------|--------|----------|---------|-------------|
+| url                         | String | Yes      | -       | Prometheus-compatible remote write API URL, for example `http://prometheus:9090/api/v1/write`. |
+| key_label                   | String | Yes      | -       | Name of the upstream field that contains Prometheus labels. The field value should be a map. |
+| key_value                   | String | Yes      | -       | Name of the upstream field that contains the Prometheus sample value. A `double` field is recommended. |
+| key_timestamp               | String | No       | -       | Name of the upstream field that contains the Prometheus sample timestamp. If omitted, the sink uses the current system time. |
+| headers                     | Map    | No       | -       | HTTP request headers. |
+| retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
+| batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
+| flush_interval              | Long   | No       | 300000  | Maximum flush interval in milliseconds. |
+| multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
+| common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
-### key_label [String]
+### key_label
 
-The named field must be `map<string, string>`. It is converted into Prometheus labels. Include `__name__` in the map to set the metric name.
+The named field should be `map<string, string>`. It is converted to Prometheus labels. Include `__name__` in the map
+to set the metric name.
 
-### key_value [String]
+The sink adds the required remote write headers automatically: `Content-type`,
+`Content-Encoding`, and `X-Prometheus-Remote-Write-Version`.
 
-The named field is converted into the Prometheus sample value. A `double` field is recommended.
+### key_timestamp
 
-### key_timestamp [String]
-
-Optional timestamp field.
-
-Supported field types:
+Supported timestamp field types:
 
 - `timestamp`: converted to epoch milliseconds with the local time zone
 - `bigint`: treated as epoch milliseconds
 - `double`: treated as Unix seconds and converted to milliseconds
 - `string`: parsed as epoch milliseconds
 
-When this option is not configured, the sink uses the current system time.
+### multi_table_sink_replica
 
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+Replica count for multi-table sink writers. It applies to each table in a multi-table job. Keep the
+default value `1` unless one table needs more writer parallelism.
 
 ## Example
-
-### Write to Prometheus remote write
 
 ```hocon
 env {
@@ -120,7 +123,7 @@ sink {
 }
 ```
 
-### Write to a Prometheus-compatible remote write API
+## Prometheus-Compatible Remote Write Example
 
 ```hocon
 sink {

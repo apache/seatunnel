@@ -49,7 +49,7 @@ import ChangeLog from '../changelog/connector-redis.md';
 | single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
-**注意：** 当配置对应单个表时，可以将 tables_configs 中的配置项平铺到外层（向后兼容）。
+**注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
 
 **重要提示：** 在多表模式下，上述表级参数需要配置在 `tables_configs` 的每个表项中。
 
@@ -125,7 +125,7 @@ schema {
 
 hash key 中的每个 kv 将会被视为一行并被发送给上游。
 
-**提示：连接器将使用 scheme config 的第一个字段信息作为每个 kv 中每个 k 的字段名称**
+**提示：连接器会使用 schema 配置中的第一个字段作为每个 hash kv 中 key 的字段名。**
 
 ### keys [string]
 

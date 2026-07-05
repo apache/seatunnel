@@ -224,17 +224,18 @@ exit;
 
 |                      Name                 |   Type   | Required  | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|-----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | Yes       | -       | The URL of the JDBC connection. Refer to a case: `idbc:oracle:thin:datasource01:1523:xe`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| username                                  | String   | Yes       | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| url                                       | String   | Yes       | -       | The URL of the JDBC connection. For example: `jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| username                                  | String   | Yes       | -       | Username used to connect to the Oracle database.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String   | Yes       | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No        | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | schema-names                              | List     | No        | -       | Schema name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| table-names                               | List     | Yes       | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| table-names-config                        | List     | No        | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `latest`, `timestamp` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `latest`: Startup from the latest offset.<br/> `timestamp`: Startup from the SCN converted from `startup.timestamp`.<br/> `specific`: Startup from user-supplied SCN.                                                                                                                                                                                                          |
+| table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value should use `database.schema.table`, for example: `ORCLCDB.DEBEZIUM.FULL_TYPES`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| table-names-config                        | List     | No        | -       | Per-table config list. For example: `[{"table": "ORCLCDB.DEBEZIUM.FULL_TYPES","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column.                                                                                                                                                                                                                                                                                                                                                              |
+| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `latest`, `timestamp` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `latest`: Start from the latest offset and skip the initial snapshot.<br/> `timestamp`: Start from the SCN resolved from `startup.timestamp`.<br/> `specific`: Start from user-supplied SCN.                                                                                                                                                                                           |
 | startup.timestamp                         | Long     | No        | -       | Start from the specified timestamp (milliseconds since Unix epoch). This timestamp is converted with `server-time-zone` when `startup.mode = timestamp`. **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                        |
 | startup.specific-offset.scn               | Long     | No        | -       | Start from the specified Oracle SCN. **Note, This option is required when the `startup.mode` option uses `specific`. The SCN must still be available to the selected Oracle log mining backend.**                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer, valid enumeration is `never`. <br/> `never`: Real-time job doesn't stop the source.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer. The only valid value is `never`, so a streaming Oracle CDC source keeps running until the job is stopped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | snapshot.split.size                       | Integer  | No        | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No        | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | server-time-zone                          | String   | No        | UTC     | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone. This value is also used when converting `startup.timestamp` to SCN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                     |
@@ -292,12 +293,16 @@ source {
   Oracle-CDC {
     plugin_output = "customers"
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES", "XE.DEBEZIUM.FULL_TYPES2"]
-    url = "jdbc:oracle:thin:@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES", "ORCLCDB.DEBEZIUM.FULL_TYPES2"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
   }
 }
 ```
@@ -310,11 +315,11 @@ source {
     plugin_output = "customers"
     use_select_count = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -329,11 +334,11 @@ source {
     plugin_output = "customers"
     skip_analyze = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -345,19 +350,43 @@ source {
 source {
   Oracle-CDC {
     plugin_output = "customers"
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
     table-names-config = [
       {
-        table = "XE.DEBEZIUM.FULL_TYPES"
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES"
         primaryKeys = ["ID"]
       }
     ]
+  }
+}
+```
+
+### Start From Timestamp
+
+Use `startup.mode = "timestamp"` to start from the Oracle SCN resolved from a Unix timestamp in milliseconds.
+
+```hocon
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    startup.mode = "timestamp"
+    startup.timestamp = 1700000000000
+    server-time-zone = "UTC"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
   }
 }
 ```
@@ -394,7 +423,7 @@ source {
 }
 ```
 
-**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+**Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
 
