@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -29,6 +31,42 @@ import java.io.IOException;
 public class TestPythonTransformIT extends TestSuiteBase {
 
     private static final String BASE_PATH = "/python_transform/";
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                // PythonTransform launches a local worker process inside each runtime container,
+                // so the E2E suite must ensure python3 exists before the job starts.
+                Container.ExecResult execResult =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "set -e;"
+                                        + " if command -v python3 >/dev/null 2>&1; then"
+                                        + "   python3 --version;"
+                                        + "   exit 0;"
+                                        + " fi;"
+                                        + " if command -v apt-get >/dev/null 2>&1; then"
+                                        + "   apt-get update &&"
+                                        + "   DEBIAN_FRONTEND=noninteractive apt-get install -y python3;"
+                                        + " elif command -v dnf >/dev/null 2>&1; then"
+                                        + "   dnf install -y python3;"
+                                        + " elif command -v microdnf >/dev/null 2>&1; then"
+                                        + "   microdnf install -y python3;"
+                                        + " elif command -v yum >/dev/null 2>&1; then"
+                                        + "   yum install -y python3;"
+                                        + " elif command -v apk >/dev/null 2>&1; then"
+                                        + "   apk add --no-cache python3;"
+                                        + " else"
+                                        + "   echo 'Unsupported package manager for installing python3' >&2;"
+                                        + "   exit 1;"
+                                        + " fi;"
+                                        + " python3 --version");
+                Assertions.assertEquals(
+                        0,
+                        execResult.getExitCode(),
+                        execResult.getStdout() + System.lineSeparator() + execResult.getStderr());
+            };
 
     /**
      * Verifies inline Python source code execution inside the container runtime.
