@@ -20,6 +20,7 @@ import ChangeLog from '../changelog/connector-lance.md';
 The Lance sink writes SeaTunnel rows into a Lance dataset. It can create a Lance table from the incoming SeaTunnel schema and then append or create data according to the configured Lance write mode.
 
 The connector currently works with directory-based Lance namespaces.
+It provides a sink only; there is no Lance source connector.
 
 ## Using Dependency
 
@@ -41,8 +42,8 @@ The connector currently works with directory-based Lance namespaces.
 
 | Name                               | Type    | Required | Default       | Description                                                                                      |
 |------------------------------------|---------|----------|---------------|--------------------------------------------------------------------------------------------------|
-| dataset_path                       | string  | yes      | /test.lance   | Lance dataset path. For a directory namespace, this is the local path used by the Lance dataset. |
-| namespace_type                     | string  | yes      | dir           | Lance namespace type. Currently only `dir` is supported.                                         |
+| dataset_path                       | string  | no       | /test.lance   | Lance dataset path. For a directory namespace, this is the local path used by the Lance dataset. |
+| namespace_type                     | string  | no       | dir           | Lance namespace type. Currently only `dir` is supported.                                         |
 | namespace_id                       | string  | no       | ""            | Lance namespace ID.                                                                              |
 | namespace_ids                      | list    | no       | []            | Lance namespace path segments used when resolving the target table namespace.                     |
 | root_namespace_path                | string  | no       | /tmp          | Root path used by the Lance namespace.                                                           |
@@ -63,13 +64,29 @@ The directory or dataset path where Lance data is stored. In local directory mod
 
 The Lance namespace type. Currently the connector supports `dir`.
 
+### namespace_id
+
+The namespace name used by the directory namespace implementation. In local
+directory mode, it can be a simple name such as `root`.
+
+### namespace_ids
+
+Additional namespace path segments used when resolving the table namespace.
+Leave it empty when writing directly under the root namespace.
+
+### root_namespace_path
+
+The root directory for the Lance namespace. The runtime user must have permission
+to create and write files under this path.
+
 ### table
 
 The target Lance table name. When it is not set, the connector uses the upstream table name if one is available. The default option value is `test`.
 
 ### lance.write.mode
 
-Controls how Lance writes the dataset. The default is `CREATE`. Use a value supported by Lance `WriteParams.WriteMode`.
+Controls how Lance writes the dataset. The default is `CREATE`. Use a value
+supported by Lance `WriteParams.WriteMode`: `CREATE`, `APPEND`, or `OVERWRITE`.
 
 ### lance.write.storage.options
 
@@ -95,9 +112,10 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | SMALLINT            | int32                   |
 | INT                 | int32                   |
 | BIGINT              | int32                   |
-| FLOAT               | float64                 |
+| FLOAT               | float32                 |
 | DOUBLE              | float64                 |
 | DECIMAL             | decimal128              |
+| NULL                | null                    |
 | BYTES               | binary                  |
 | DATE                | date32                  |
 | TIME                | time32                  |

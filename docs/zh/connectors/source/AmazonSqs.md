@@ -44,6 +44,8 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 | debezium_record_include_schema | Boolean | 否    | true  | Debezium JSON 消息是否包含 schema。仅在 `format = debezium_json` 时使用。                                                        |
 | common-options                 |         | 否    | -     | 源插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。                                          |
 
+`url` 可以指向 AWS SQS，也可以指向兼容 SQS 的本地服务，例如 `http://sqs-host:4566/000000000000/source_queue`。
+
 ## 格式说明
 
 - `json`：把每条消息体按 JSON 对象解析，并要求字段能对应到 `schema`。

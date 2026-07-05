@@ -11,6 +11,8 @@ The GoogleFirestore sink writes SeaTunnel rows to a Google Cloud Firestore colle
 Each SeaTunnel row is converted to one Firestore document. The connector generates the Firestore document ID automatically by calling Firestore `add`, so it appends documents instead of updating a user-specified document ID.
 
 Credentials can be passed as a Base64-encoded service account JSON string. If `credentials` is not configured, the connector reads Google Application Default Credentials from the runtime environment.
+The sink does not create or manage Firestore indexes; create any required
+indexes in Google Cloud before running queries that need them.
 
 ## Key Features
 
@@ -43,6 +45,18 @@ Base64-encoded Google Cloud service account JSON.
 
 If this option is not set, the connector uses Google Application Default Credentials. In that case, make sure `GOOGLE_APPLICATION_CREDENTIALS` points to the service account JSON file or the runtime environment already provides default credentials.
 
+You can generate the value with:
+
+```bash
+base64 -w 0 service-account.json
+```
+
+On macOS, use:
+
+```bash
+base64 service-account.json | tr -d '\n'
+```
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -73,6 +87,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - Firestore document IDs are generated automatically. Use another connector or transform before this sink if you need deterministic document IDs.
 - The sink does not interpret `UPDATE` or `DELETE` row kinds as CDC operations.
 - Do not put raw service account JSON directly in `credentials`; encode it with Base64 first.
+- Field names in the upstream SeaTunnel schema become Firestore document field
+  names.
 
 ## Example
 
