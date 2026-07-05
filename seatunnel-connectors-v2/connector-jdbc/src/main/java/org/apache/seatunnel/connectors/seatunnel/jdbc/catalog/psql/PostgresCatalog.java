@@ -78,6 +78,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    n.nspname = '%s'\n"
                     + "    AND c.relname = '%s'\n"
                     + "    AND a.attnum > 0\n"
+                    + "    AND NOT a.attisdropped\n"
                     + "ORDER BY \n"
                     + "    a.attnum;";
 
