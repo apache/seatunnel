@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | 参数名                                       | 类型     | 必须 | 默认值                                            | 描述                                                                                                                                                                                               |
 |-------------------------------------------|--------|----|------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | kudu_masters                              | String | 是  | -                                              | Kudu master 地址。用 ',' 分隔，例如 '192.168.88.110:7051'。                                                                                                                                                |
-| table_name                                | String | 是  | -                                              | Kudu 表的名称。                                                                                                                                                                                       |
+| table_name                                | String | 当未配置 `table_list` 时必填 | -                                              | Kudu 表名。该参数与 `table_list` 二选一。                                                                                                                                                                                       |
 | client_worker_count                       | Int    | 否  | 2 * Runtime.getRuntime().availableProcessors() | Kudu worker 数量。默认值是当前 CPU 核心数的两倍。                                                                                                                                                                |
 | client_default_operation_timeout_ms       | Long   | 否  | 30000                                          | Kudu 普通操作超时时间。                                                                                                                                                                                   |
 | client_default_admin_operation_timeout_ms | Long   | 否  | 30000                                          | Kudu 管理操作超时时间。                                                                                                                                                                                   |
@@ -59,9 +59,15 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | scan_token_batch_size_bytes               | Int    | 否  | 1024 * 1024                                    | Kudu 扫描字节数。一次读取的最大字节数，默认为 1MB。                                                                                                                                                                   |
 | use_regex                                 | Bool   | 否  | false                                          | 控制 `table_name` 的正则匹配。当设置为 `true` 时，`table_name` 将被视为正则表达式模式，可以匹配多张表。当设置为 `false` 或未指定时，`table_name` 将被视为精确表名（不进行正则匹配）。                                                                          |
 | filter                                    | String | 否  | -                                              | Kudu 扫描过滤表达式，例如 id > 100 AND id < 200。                                                                                                                                                           |
-| schema                                    | Map    | 否  | 1024 * 1024                                    | SeaTunnel Schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                             |
-| table_list                                | Array  | 否  | -                                              | 要读取的表列表。您可以使用此配置代替 `table_name`，例如：```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ```。也可以在每个 entry 中配置 `use_regex = true` 来对 `table_name` 启用正则匹配。 |
+| schema                                    | Map    | 否  | -                                              | SeaTunnel Schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                             |
+| table_list                                | Array  | 否  | -                                              | 要读取的表列表。可以使用该参数代替 `table_name`，例如：```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ```。也可以在每个条目中配置 `use_regex = true`，让该条目的 `table_name` 按正则匹配。 |
 | common-options                            |        | 否  | -                                              | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                              |
+
+## 参数说明
+
+- `table_name` 和 `table_list` 只能配置其中一个。
+- `filter` 会下推到 Kudu 扫描中，可以使用类似 `id >= 1 AND id <= 2` 的 Kudu 过滤表达式。
+- `use_regex = true` 会把 `table_name` 当作 Java 正则表达式处理，可以配置在顶层，也可以配置在 `table_list` 的每个条目中。
 
 ## 任务示例
 
@@ -217,4 +223,3 @@ source {
 ## 变更日志
 
 <ChangeLog />
-

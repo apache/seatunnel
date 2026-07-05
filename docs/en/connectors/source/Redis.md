@@ -39,7 +39,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | name                | type   | required | default value | description |
 |---------------------|--------|----------|---------------|-------------|
 | keys                | string | yes      | -             | Redis key pattern to scan |
-| data_type           | string | yes      | -             | Redis data type: `key`, `hash`, `list`, `set`, `zset` |
+| data_type           | string | yes      | -             | Redis data type: `key`, `string`, `hash`, `list`, `set`, `zset` |
 | batch_size          | int    | no       | 10            | Batch size for SCAN operations |
 | format              | string | no       | json          | Data format: `json` or `text` |
 | schema              | config | no       | -             | Schema configuration for this table |
@@ -49,7 +49,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | single_field_name   | string | no       | -             | Field name for single-value types |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
-**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in tables_configs to the outer layer (backward compatible).
+**Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
 
 **Important:** In multi-table mode, the above table-level parameters should be configured within each item of `tables_configs`.
 
@@ -125,7 +125,7 @@ schema {
 
 each kv that in hash key it will be treated as a row and send it to upstream.
 
-**Tips: connector will use the first field information of schema config as the field name of each k that in each kv**
+**Tips: connector will use the first field in the schema config as the field name for each key in each hash kv pair.**
 
 ### keys [string]
 
@@ -185,9 +185,9 @@ indicates the number of keys to attempt to return per iteration,default 10
 
 ### data_type [string]
 
-redis data types, support `key` `hash` `list` `set` `zset`
+redis data types, support `key` `string` `hash` `list` `set` `zset`
 
-- key
+- key/string
 
 > The value of each key will be sent downstream as a single row of data.
 > For example, the value of key is `SeaTunnel test message`, the data received downstream is `SeaTunnel test message` and only one message will be received.
@@ -388,6 +388,42 @@ sink {
     data_type = list
     batch_size = 33
   }
+}
+```
+
+read string type keys together with their Redis keys
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "string_test*"
+    data_type = string
+    batch_size = 33
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "custom_key"
+          type = "string"
+        },
+        {
+          name = "custom_value"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

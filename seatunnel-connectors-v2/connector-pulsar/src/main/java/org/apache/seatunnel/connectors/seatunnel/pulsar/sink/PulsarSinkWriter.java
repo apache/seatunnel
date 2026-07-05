@@ -249,14 +249,14 @@ public class PulsarSinkWriter
         Throwable closeFailure = null;
         for (Producer<byte[]> producer : producerMap.values()) {
             try {
-                producer.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(producer::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
         }
         if (pulsarClient != null) {
             try {
-                pulsarClient.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarClient::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
