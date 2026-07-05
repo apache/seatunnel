@@ -36,6 +36,10 @@ Used to read data from Airtable.
 | record_metadata             | List    | No       | -             |
 | time_zone                   | String  | No       | -             |
 | user_locale                 | String  | No       | -             |
+| offset                      | String  | No       | -             |
+| headers                     | Map     | No       | -             |
+| body                        | String  | No       | -             |
+| pageing                     | Config  | No       | -             |
 | request_interval_ms         | int     | No       | 220           |
 | rate_limit_backoff_ms       | int     | No       | 30000         |
 | rate_limit_max_retries      | int     | No       | 3             |
@@ -44,6 +48,7 @@ Used to read data from Airtable.
 | format                      | String  | No       | text          |
 | content_field               | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
+| json_filed_missed_return_null | boolean | No     | false         |
 | common-options              | config  | No       | -             |
 
 ### token [String]
@@ -106,6 +111,22 @@ The time zone for formatting date/time values.
 
 The user locale for formatting values.
 
+### offset [String]
+
+Pagination offset returned by Airtable. Usually you do not need to set this manually because the connector follows Airtable pagination automatically.
+
+### headers [Map]
+
+Extra HTTP headers. The connector automatically adds Airtable authorization and JSON content type headers.
+
+### body [String]
+
+Advanced request body. Do not use it together with dedicated Airtable request options such as `fields`, `filter_by_formula`, `page_size`, or `sort` for the same Airtable API key.
+
+### pageing [Config]
+
+HTTP pagination configuration inherited from the HTTP connector. For normal Airtable list-records reads, prefer Airtable's own pagination handled by the connector.
+
 ### request_interval_ms [int]
 
 Minimum interval in milliseconds between API requests. Default 220ms (to stay within Airtable's 5 requests/second limit).
@@ -135,6 +156,10 @@ JsonPath expression to extract data from the response. For Airtable, you typical
 ### json_field [Config]
 
 This parameter helps you configure the schema and must be used with schema.
+
+### json_filed_missed_return_null [boolean]
+
+When `true`, missing JSON fields return `null`; otherwise a missing field causes an error.
 
 ### common options
 
@@ -171,6 +196,29 @@ source {
         Name = string
         Status = string
         Weight = float
+      }
+    }
+  }
+}
+```
+
+Read a small page from Airtable:
+
+```hocon
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    format = "json"
+    content_field = "$.records[*].fields"
+    page_size = 2
+    request_interval_ms = 220
+    schema = {
+      fields {
+        Name = string
+        Age = int
+        Status = string
       }
     }
   }
