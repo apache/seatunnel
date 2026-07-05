@@ -166,6 +166,23 @@ message because `format` is set to `json`.
 ### Authenticated broker with text format
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
 sink {
   MQTT {
     url = "tcp://secure-broker.example.com:1883"
