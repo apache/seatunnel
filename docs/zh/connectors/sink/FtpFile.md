@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -48,6 +49,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入一个临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要是一个FTP目录。                      |
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
+| control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
@@ -109,6 +111,13 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 是否启用FTP数据通道的远程主机验证。默认值为 `true`。
 
+### control_encoding [string]
+
+FTP 控制连接的字符编码。默认值为 `UTF-8`。
+
+当文件路径包含特殊字符、空格或非 ASCII 字符时，除非 FTP 服务端要求其他控制通道编码，否则建议保持
+`UTF-8`。
+
 ### custom_filename [boolean]
 
 是否自定义文件名
@@ -136,7 +145,6 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | d            | Day of month       |
 | H            | Hour in day (0-23) |
 | m            | Minute in hour     |
-| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | s            | Second in minute   |
 
 ### file_format_type [string]

@@ -464,6 +464,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
             // cursor pagination
             if (HttpPaginationType.CURSOR.getCode().equals(pageInfo.getPageType())) {
+                String currentCursor = pageInfo.getCursor();
                 // get cursor value from response JSON with fileName
                 String cursorResponseField = pageInfo.getPageCursorResponseField();
                 ReadContext context = JsonPath.using(jsonConfiguration).parse(data);
@@ -473,8 +474,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     newCursor = cursorList.get(0);
                 }
                 pageInfo.setCursor(newCursor);
-                // if not present cursor, then no more data
-                noMoreElementFlag = Strings.isNullOrEmpty(newCursor);
+                // If the response cursor is empty or unchanged, the next request cannot make
+                // progress.
+                noMoreElementFlag =
+                        Strings.isNullOrEmpty(newCursor)
+                                || Objects.equals(currentCursor, newCursor);
             } else {
                 // if not set page pagination is default
                 // Determine whether the task is completed by specifying the presence of the 'total

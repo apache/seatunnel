@@ -68,11 +68,14 @@ import ChangeLog from '../changelog/connector-doris.md';
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
-| doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
-| query-port                       | string | no       | 9030       | Doris查询端口                                                                                         |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
+| doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
+| query-port                       | int    | no       | 9030       | Doris 查询端口。                                                                                       |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
-| table_list                       | string | 否       | -           | 表清单                                                                                               |
+| doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
+| doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 
 表清单配置:
 
@@ -82,10 +85,11 @@ import ChangeLog from '../changelog/connector-doris.md';
 | table                            | string | yes      | -          | 表名                                                                                                |
 | doris.read.field                 | string | no       | -          | 选择要读取的Doris表字段                                                                                |
 | doris.filter.query               | string | no       | -          | 数据过滤. 格式："字段 = 值", 例如：doris.filter.query = "F_ID > 2"                                       |
+| doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 当前表每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                              |
 | doris.batch.size                 | int    | no       | 1024       | 每次能够从BE中读取到的最大行数                                                                           |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | 单个be扫描请求可以使用的最大内存。默认内存为2G（2147483648）                                                |
  
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。如果不配置 `table_list`，必须在 source 外层配置 `database` 和 `table`。
 
 ### 提示
 
@@ -113,7 +117,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -141,7 +145,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -169,7 +173,7 @@ source{
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -194,6 +198,8 @@ source{
             table = "doris_table_0"
             doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
             doris.filter.query = "F_ID >= 50"
+            doris.request.tablet.size = 1
+            doris.exec.mem.limit = 2147483648
           },
           {
             database = "st_source_1"

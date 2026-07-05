@@ -20,6 +20,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -48,7 +50,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | password                       | String  | Yes      | -                            | `Doris` 密码                                                                                                                                             |
 | database                       | String  | Yes      | -                            | `Doris`数据库名称 , 使用 `${database_name}` 表示上游数据库名称。                                                                                                        |
 | table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
-| table.identifier               | String  | Yes      | -                            | `Doris` 表的名称，2.3.5 版本后将弃用，请使用 `database` 和 `table` 代替。                                                                                                 |
+| table.identifier               | String  | No       | -                            | 已弃用的表标识，建议改用 `database` 和 `table`。                                                                                                                        |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
 | sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
 | sink.enable-delete             | bool    | No       | -                            | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
@@ -435,6 +437,62 @@ sink {
     }
 }
 ```
+
+## 常见问题
+
+### Doris Sink 支持自动建表吗？
+
+支持。精确行为、默认值以及 DDL 自定义入口，请以上面的 `schema_save_mode` 和
+`save_mode_create_template` 小节为准。
+
+### Doris Sink 如何实现精确一次（exactly-once）？
+
+Doris Sink 通过 Stream Load 两阶段提交（2PC）实现 exactly-once：
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+`sink.label-prefix` 必须全局唯一，以避免重试或重启时出现 label 冲突。
+
+### 为什么出现"Label already exists"错误？
+
+Doris 通过 Stream Load label 去重，防止重复提交。开启 2PC 后重启任务，可能复用相同的 label 前缀导致冲突。解决方法：
+
+- 在 `sink.label-prefix` 中加入时间戳或唯一标识，确保每次重启后 label 唯一。
+- 重启前在 Doris 中中止未提交的事务：`CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`。
+
+### Doris Sink 是否支持 CDC 的 DELETE 传播？
+
+支持。设置 `sink.enable-delete = "true"` 即可将 CDC 数据源（如 MySQL CDC）的 DELETE 事件传播到 Doris。目标表必须使用 Doris 的 **Unique Key** 模型。
+
+### Doris 列名是否区分大小写？
+
+请以上面的大小写敏感示例为准。如果上游字段名与 Doris 目标 schema 仍然对不上，应该在 sink 之前先
+做字段规范化，或直接调整目标 schema，而不是依赖并不存在的 `column_mapping` 选项。
+
+### Doris Stream Load 使用什么数据格式？
+
+默认使用 JSON 格式，可按需显式配置：
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+也支持 CSV 格式，但需要仔细配置分隔符。
 
 ## 变更日志
 

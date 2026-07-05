@@ -185,23 +185,23 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | 参数名称                                      | 类型       | 是否必须 | 默认值     | 描述                                                                                                                                                                                                                                           |
 |-------------------------------------------|----------|------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String   | 是    | -       | JDBC连接的URL. 例如: `jdbc:mysql://localhost:3306/test`.                                                                                                                                                                                          |
-| username                                  | String   | 是    | -       | 用来连接到数据库服务的数据库名称.                                                                                                                                                                                                                            |
+| username                                  | String   | 是    | -       | 连接 MySQL 服务时使用的用户名.                                                                                                                                                                                                                            |
 | password                                  | String   | 是    | -       | 连接到数据库服务所使用的密码.                                                                                                                                                                                                                              |
 | database-names                            | List     | 否    | -       | 要监控的数据库名称.                                                                                                                                                                                                                                   |
 | database-pattern                          | String   | 否    | .*      | 要捕获的数据库名称的正则表达式, 例如: `database_prefix.*`.                                                                                                                                                                                                    |
-| table-names                               | List     | 是    | -       | 要监控的表名. 表名需要包括库名, 例如: `database_name.table_name`                                                                                                                                                                                             |
-| table-pattern                             | String   | 是    | -       | 要捕获的表名称的正则表达式. 表名需要包括库名, 例如: `database.*\\.table_.*`                                                                                                                                                                                         |
-| table-names-config                        | List     | 否    | -       | 表配置的列表集合. 例如: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引). 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列.                                                                                                                                                                                         |
+| table-names                               | List     | 条件必填 | -       | 要监控的表名，每个表名都需要包含库名，例如：`database_name.table_name`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                             |
+| table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式，匹配到的表名需要包含库名，例如：`database.*\\.table_.*`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                         |
+| table-names-config                        | List     | 否    | -       | 按表单独配置。例如：`[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。`snapshotSplitColumn` 应该是主键或唯一键；如果指定了非唯一列，SeaTunnel 会忽略该配置并自动选择合适的拆分列。                                                                                                                                                                                         |
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
 | startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
-| startup.timestamp                         | Long     | No    | -       | 从指定的binlog时间戳文件位置开始. **注意, 当使用 `startup.mode` 选项为 `timestamp` 时，此选项为必填项.**                                                                                                                                                                    |
+| startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。**                                                                                                                                                                    |
 | stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
 | stop.specific-offset.file                 | String   | 否    | -       | 从指定的binlog日志文件名停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                         |
 | stop.specific-offset.pos                  | Long     | 否    | -       | 从指定的binlog日志文件位置停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                        |
 | snapshot.split.size                       | Integer  | 否    | 8096    | 表快照的分割大小（行数）,读取表的快照时,被捕获的表会被分割成多个分割块.                                                                                                                                                                                                        |
 | snapshot.fetch.size                       | Integer  | 否    | 1024    | 每次轮询读取表快照时的最大获取大小.                                                                                                                                                                                                                           |
-| server-id                                 | String   | 否    | -       | 此数据库客户端的数字 ID 或数字 ID 范围, 数字 ID 的语法如 `5400`, 数字 ID 范围的语法如 '5400-5408'. <br/> 每个 ID 在 MySQL 集群中所有当前正在运行的数据库进程里必须是唯一的. 此连接加入 <br/> MySQL服务以另外一个服务的身份 (带有此唯一 ID) 以便于能够读取binlog. <br/> 默认情况下, 会生成一个介于 6500 到 2,148,492,146 之间的数字, 然而我们建议设置一个明确的值. |
+| server-id                                 | String   | 否    | -       | 此 CDC 读取器使用的数字 ID 或数字 ID 范围，例如 `5400` 或 `5400-5408`。每个 ID 在 MySQL 集群中必须唯一。当任务有多个读取并发或并行读取多张表时，请配置足够大的 ID 范围。未配置时 SeaTunnel 会随机生成 ID，但生产环境建议显式配置。 |
 | server-time-zone                          | String   | 否    | UTC     | 数据库服务中的会话时区. 如果没设置, 使用 ZoneId.systemDefault() 来确定服务的时区.                                                                                                                                                                                      |
 | connect.timeout.ms                        | Duration | 否    | 30000   | 连接器在尝试连接数据库服务器后，在超时之前应等待的最长时间.                                                                                                                                                                                                               |
 | connect.max-retries                       | Integer  | 否    | 3       | 连接器在构建数据库服务器连接时应重试的最大重试次数.                                                                                                                                                                                                                   |
@@ -214,6 +214,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
+| schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
+| schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
@@ -339,6 +341,42 @@ sink {
 }
 
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。
+
+使用以下 SeaTunnel 统一的规范名称
+
+| 规范名称        | 操作                                                        |
+|-----------------|-------------------------------------------------------------|
+| `add.column`    | 新增列                                                      |
+| `drop.column`   | 删除列                                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
 ### 表名支持正则以读取多个表
 
 > `table-pattern` 和 `table-names` 只能选择一个
@@ -370,7 +408,113 @@ sink {
 }
 ```
 
+### 从指定 Binlog 位置启动
+
+当需要从明确的 binlog 文件和位置开始读取时，可以使用 `startup.mode = "specific"`。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+  }
+}
+```
+
+### 多表读取后写入 JDBC
+
+当一个 MySQL CDC source 读取多张表时，JDBC sink 可以使用占位符保留原始表名。
+
+```hocon
+source {
+  MySQL-CDC {
+    plugin_output = "customers_mysql_cdc"
+    server-id = 5652-5660
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.orders", "mysql_cdc.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  jdbc {
+    plugin_input = "customers_mysql_cdc"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc2"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "st_user_sink"
+    password = "mysqlpw"
+    database = "mysql_cdc2"
+    table = "${table_name}"
+    primary_keys = ["${primary_key}"]
+    generate_sink_sql = true
+  }
+}
+```
+
+## 常见问题
+
+### MySQL CDC 需要哪些权限？
+
+MySQL 用户需要以下权限：
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+同时需要在 `my.cnf` / `my.ini` 中开启 binlog：
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### SeaTunnel 能从 MySQL 从库读取 CDC 数据吗？
+
+可以。SeaTunnel 通过订阅 binlog 工作，从库也有 binlog 流。将 SeaTunnel 指向从库可以减轻主库压力。需确保从库开启了 binlog，并在配置中设置 `log_slave_updates = ON`。
+
+### MySQL CDC 是否支持无主键表？
+
+默认要求主键。如果源表没有声明主键，但存在其他可唯一标识记录的列，可以像当前文档中的
+source options 示例那样，通过 `table-names-config.primaryKeys` 指定自定义主键。若没有稳定的
+唯一键，下游就无法安全处理 UPDATE / DELETE 事件。
+
+### 全量快照阶段如何工作？何时切换为增量读取？
+
+首次启动时，SeaTunnel 对已配置的表做一次一致性全量快照。快照完成后，自动从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失任何变更事件。
+
+### MySQL CDC 是否支持 DDL 传播？
+
+支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
+[Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
+目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+
+### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
+
+每个 CDC 任务必须使用唯一的 `server-id` 或不重叠的范围。重复的 `server-id` 会导致 MySQL 服务器断开其中一个客户端连接。建议为每个任务分配独立的范围，例如一个任务用 `5400-5600`，另一个用 `5601-5800`。
+
+### 初始快照为什么很慢？
+
+快照速度取决于表大小、JDBC fetch size 和网络带宽。可以通过调整 `snapshot.split.size`
+和 `snapshot.fetch.size` 来控制快照切分与抓取行为。对于不需要历史数据的大表，可将
+`startup.mode` 设为 `"latest"`，从最新 offset 启动并跳过初始快照。
+
+### 如何处理时区和字符集问题？
+
+将 `server-time-zone` 设置为与 MySQL 服务器一致的时区，例如 `"Asia/Shanghai"`。字符集问题可通过在 JDBC 连接 URL 中追加 `characterEncoding=UTF-8&useUnicode=true` 来解决。
+
+## 另请参阅
+
+若需要一份面向生产的端到端实践指南，涵盖全量 + 增量同步生命周期、2PC sink 配置、Schema 演进与常见故障排查，请参阅 [CDC 生产实战手册](../cdc-production-cookbook.md)。
+
 ## 更新日志
 
 <ChangeLog />
-

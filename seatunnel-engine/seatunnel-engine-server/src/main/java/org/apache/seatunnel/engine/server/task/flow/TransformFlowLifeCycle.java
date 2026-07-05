@@ -45,6 +45,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROCESS_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_OUT;
+
 /** Executes transform operators and extends stain trace payloads across transform boundaries. */
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
@@ -56,6 +60,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     private final Collector<Record<?>> collector;
 
+    private transient Counter processNs;
+    private transient Counter recordsIn;
+    private transient Counter recordsOut;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile Boolean stainTracePropagateToAllSplits;
@@ -74,6 +81,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     @Override
     public void open() throws Exception {
         super.open();
+        // Use the task's metrics context so metrics can be reported by TaskExecutionService.
+        // (TaskExecutionContext#getOrCreateMetricsContext reads from the master IMAP and may return
+        // a fresh context which is not tracked/reported on the worker.)
+        final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
+                runningTask.getMetricsContext();
+        this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
+        this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
+        this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
@@ -139,6 +154,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 return;
             }
             T inputData = (T) record.getData();
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             boolean hasTracePayload =
                     inputData instanceof SeaTunnelRow
                             && StainTraceUtils.hasPayload((SeaTunnelRow) inputData);
@@ -152,9 +168,19 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         getStainTraceMaxEntriesPerTrace(),
                         getStainTraceEntriesTruncatedTotal());
             }
-            List<T> outputDataList = transform(inputData);
+            List<T> outputDataList;
+            if (metricsEnabled) {
+                recordsIn.inc();
+                long startNs = System.nanoTime();
+                outputDataList = transform(inputData);
+                processNs.inc(System.nanoTime() - startNs);
+            } else {
+                outputDataList = transform(inputData);
+            }
             if (!outputDataList.isEmpty()) {
-                // todo log metrics
+                if (metricsEnabled) {
+                    recordsOut.inc(outputDataList.size());
+                }
                 byte[] inheritedPayload = null;
                 if (hasTracePayload) {
                     inheritedPayload = StainTraceUtils.getPayloadOrNull((SeaTunnelRow) inputData);

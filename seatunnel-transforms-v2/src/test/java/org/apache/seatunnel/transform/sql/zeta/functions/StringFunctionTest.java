@@ -22,6 +22,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -29,6 +30,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -273,6 +276,114 @@ public class StringFunctionTest {
         args.clear();
         args.add(bytes);
         Assertions.assertEquals("010a", StringFunction.rawtohex(args));
+    }
+
+    @Test
+    public void testToBase64() {
+        List<Object> args = new ArrayList<>();
+        args.add("SeaTunnel");
+        Assertions.assertEquals("U2VhVHVubmVs", StringFunction.toBase64(args));
+
+        args.clear();
+        args.add("hello");
+        args.add("ISO-8859-1");
+        Assertions.assertEquals("aGVsbG8=", StringFunction.toBase64(args));
+
+        args.clear();
+        args.add("SeaTunnel");
+        args.add("UTF-16");
+        Assertions.assertEquals("/v8AUwBlAGEAVAB1AG4AbgBlAGw=", StringFunction.toBase64(args));
+    }
+
+    @Test
+    public void testFromBase64() {
+        List<Object> args = new ArrayList<>();
+        args.add("U2VhVHVubmVs");
+        Assertions.assertEquals("SeaTunnel", StringFunction.fromBase64(args));
+
+        args.clear();
+        args.add("aGVsbG8=");
+        args.add("ISO-8859-1");
+        Assertions.assertEquals("hello", StringFunction.fromBase64(args));
+
+        args.clear();
+        args.add("/v8AUwBlAGEAVAB1AG4AbgBlAGw=");
+        args.add("UTF-16");
+        Assertions.assertEquals("SeaTunnel", StringFunction.fromBase64(args));
+    }
+
+    @Test
+    public void testToBase64WithBytesInput() {
+        List<Object> args = new ArrayList<>();
+        args.add("SeaTunnel".getBytes(StandardCharsets.UTF_8));
+        Assertions.assertEquals("U2VhVHVubmVs", StringFunction.toBase64(args));
+    }
+
+    @Test
+    public void testToBase64BytesInputRejectsCharset() {
+        IllegalArgumentException bytesWithCharset =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                StringFunction.toBase64(
+                                        Arrays.asList(
+                                                "SeaTunnel".getBytes(StandardCharsets.UTF_8),
+                                                "UTF-16")));
+        Assertions.assertEquals(
+                "TO_BASE64 does not support charset for bytes input",
+                bytesWithCharset.getMessage());
+    }
+
+    @Test
+    public void testBase64WithNullInputAndNullCharset() {
+        List<Object> args = new ArrayList<>();
+        args.clear();
+        args.add(null);
+        Assertions.assertNull(StringFunction.toBase64(args));
+        Assertions.assertNull(StringFunction.fromBase64(args));
+
+        Assertions.assertEquals(
+                "U2VhVHVubmVs", StringFunction.toBase64(Arrays.asList("SeaTunnel", null)));
+        Assertions.assertEquals(
+                "SeaTunnel", StringFunction.fromBase64(Arrays.asList("U2VhVHVubmVs", null)));
+    }
+
+    @Test
+    public void testBase64RejectsInvalidCharset() {
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> StringFunction.toBase64(Arrays.asList("SeaTunnel", "invalid")));
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> StringFunction.fromBase64(Arrays.asList("U2VhVHVubmVs", "invalid")));
+    }
+
+    @Test
+    public void testFromBase64RejectsInvalidContent() {
+        IllegalArgumentException invalidBase64 =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> StringFunction.fromBase64(Collections.singletonList("not-base64!")));
+        Assertions.assertEquals("Invalid Base64 content", invalidBase64.getMessage());
+    }
+
+    @Test
+    public void testBase64RejectsInvalidArgumentCount() {
+        IllegalArgumentException invalidToBase64Args =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> StringFunction.toBase64(Arrays.asList("SeaTunnel", "UTF-8", "x")));
+        Assertions.assertEquals(
+                "TO_BASE64 requires one or two arguments", invalidToBase64Args.getMessage());
+
+        IllegalArgumentException invalidFromBase64Args =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                StringFunction.fromBase64(
+                                        Arrays.asList("U2VhVHVubmVs", "UTF-8", "x")));
+        Assertions.assertEquals(
+                "FROM_BASE64 requires one or two arguments", invalidFromBase64Args.getMessage());
     }
 
     @Test

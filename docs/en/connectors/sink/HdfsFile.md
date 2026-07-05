@@ -35,6 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -90,6 +91,7 @@ Output data to hdfs file
 | remote_user                           | string  | no       | -                                          | The remote user name of hdfs.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data                                                                                                                                                                                                                                                                                                          |
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
@@ -111,6 +113,10 @@ Existing data processing method.
 - DROP_DATA: preserve dir and delete data files
 - APPEND_DATA: preserve dir, preserve data files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. The default value is `1`; increase it only when each table needs more sink writer parallelism.
 
 ### merge_update_event [boolean]
 
@@ -156,12 +162,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -171,7 +177,7 @@ sink {
       file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

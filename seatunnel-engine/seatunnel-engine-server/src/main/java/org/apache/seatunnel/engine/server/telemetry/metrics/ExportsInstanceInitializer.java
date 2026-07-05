@@ -18,10 +18,12 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreLogicalMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.NodeMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ReportMetricsOperationExports;
 
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.CollectorRegistry;
@@ -46,8 +48,12 @@ public final class ExportsInstanceInitializer {
             new JobThreadPoolStatusExports(node).register(collectorRegistry);
             // Node metrics
             new NodeMetricExports(node).register(collectorRegistry);
+            // ReportMetricsOperation metrics
+            new ReportMetricsOperationExports(node).register(collectorRegistry);
             // Engine state store metrics
             new EngineStateStoreMetricExports(node).register(collectorRegistry);
+            // Engine state store logical metrics
+            new EngineStateStoreLogicalMetricExports(node).register(collectorRegistry);
             // Cluster metrics
             new ClusterMetricExports(node).register(collectorRegistry);
             initialized = true;

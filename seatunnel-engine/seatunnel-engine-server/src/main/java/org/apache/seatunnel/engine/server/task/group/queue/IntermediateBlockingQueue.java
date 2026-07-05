@@ -35,21 +35,50 @@ import java.util.concurrent.TimeUnit;
 /** Blocking-queue implementation that records queue-stage stain trace entries on buffered rows. */
 public class IntermediateBlockingQueue extends AbstractIntermediateQueue<BlockingQueue<Record<?>>> {
 
+    private final Counter totalIntermediateQueueSize;
     private final Counter intermediateQueueSize;
+    private final Counter putBlockedNs;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public IntermediateBlockingQueue(
-            BlockingQueue<Record<?>> queue, Counter intermediateQueueSize) {
+            BlockingQueue<Record<?>> queue,
+            Counter totalIntermediateQueueSize,
+            Counter intermediateQueueSize,
+            Counter putBlockedNs) {
         super(queue);
+        this.totalIntermediateQueueSize = totalIntermediateQueueSize;
         this.intermediateQueueSize = intermediateQueueSize;
+        this.putBlockedNs = putBlockedNs;
     }
 
     @Override
     public void received(Record<?> record) {
         try {
-            handleRecord(record, getIntermediateQueue()::put, StainTraceStage.QUEUE_IN);
-            intermediateQueueSize.inc();
+            if (!(record.getData() instanceof Barrier)
+                    && getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+                return;
+            }
+            boolean metricsEnabled =
+                    getRunningTask() != null && getRunningTask().isObservabilityEnabled();
+            handleRecord(
+                    record,
+                    r -> {
+                        if (!metricsEnabled) {
+                            getIntermediateQueue().put(r);
+                            return;
+                        }
+                        if (!getIntermediateQueue().offer(r)) {
+                            long blockedStartNs = System.nanoTime();
+                            getIntermediateQueue().put(r);
+                            putBlockedNs.inc(System.nanoTime() - blockedStartNs);
+                        }
+                    },
+                    StainTraceStage.QUEUE_IN);
+            totalIntermediateQueueSize.inc();
+            if (metricsEnabled) {
+                intermediateQueueSize.set(getIntermediateQueue().size());
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -57,11 +86,16 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
+        boolean metricsEnabled =
+                getRunningTask() != null && getRunningTask().isObservabilityEnabled();
         while (true) {
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
             if (record != null) {
                 handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
-                intermediateQueueSize.dec();
+                totalIntermediateQueueSize.dec();
+                if (metricsEnabled) {
+                    intermediateQueueSize.set(getIntermediateQueue().size());
+                }
             } else {
                 break;
             }

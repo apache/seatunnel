@@ -94,6 +94,42 @@ Example:
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+Encodes a string or bytes to Base64.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+For bytes input, the charset argument is not supported because the value is already raw bytes.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+Decodes a Base64 string to text.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
@@ -1350,4 +1386,3 @@ Normalizes a vector to unit length (magnitude = 1). This is useful for computing
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
 ```
-
