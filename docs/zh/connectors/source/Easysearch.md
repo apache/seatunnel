@@ -139,9 +139,9 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 指定的信任存储的密钥密码
 
-### common options
+### 通用选项
 
-Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。
+Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。
 
 ## 示例
 

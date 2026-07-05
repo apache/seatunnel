@@ -34,6 +34,7 @@ schema before starting the job.
 | batch_size        | int     | No       | 5000        | Maximum number of rows buffered before one flush. |
 | batch_type        | String  | No       | UNLOGGED    | Cassandra batch type. Supported driver values include `LOGGED`, `UNLOGGED`, and `COUNTER`. |
 | async_write       | boolean | No       | true        | Whether to execute writes asynchronously. |
+| common-options    |         | No       | -           | Sink plugin common parameters, such as `plugin_input`. |
 
 ### host [string]
 
@@ -86,6 +87,17 @@ The `Cassandra` batch processing mode, default is `UNLOGGED`.
 ### async_write [boolean]
 
 Whether `cassandra` writes in asynchronous mode, default is `true`.
+
+### common-options
+
+Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).
+
+## Notes
+
+- The target keyspace and table must already exist before the job starts.
+- `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
+- `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
+  before a flush.
 
 ## Examples
 

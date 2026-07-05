@@ -161,6 +161,23 @@ sink {
 ### 使用认证并写入文本格式
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
 sink {
   MQTT {
     url = "tcp://secure-broker.example.com:1883"

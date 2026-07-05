@@ -45,8 +45,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Kudu normal operation time out.                                                                                                             |
 | client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Kudu admin operation time out.                                                                                                              |
 | enable_kerberos                           | Bool   | No       | false                                          | Kerberos principal enable.                                                                                                                  |
-| kerberos_principal                        | String | No       | -                                              | Kerberos principal. Note that all zeta nodes require have this file.                                                                        |
-| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab. Note that all zeta nodes require have this file.                                                                           |
+| kerberos_principal                        | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos principal used by the Kudu client. The keytab must be available on every worker node.                                  |
+| kerberos_keytab                           | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos keytab path used by the Kudu client. The file must be available on every worker node.                                  |
 | kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                        |
 | save_mode                                 | String | No       | APPEND                                         | Storage mode. Supported values are `append` and `overwrite`. In `overwrite` mode, insert rows are written as Kudu upserts.                                                                                             |
 | session_flush_mode                        | String | No       | AUTO_FLUSH_SYNC                                | Kudu flush mode. Supported values are `AUTO_FLUSH_SYNC`, `AUTO_FLUSH_BACKGROUND`, and `MANUAL_FLUSH`.                                                                                                   |
@@ -54,6 +54,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | No       | 10000                                          | Required only when `session_flush_mode = AUTO_FLUSH_BACKGROUND`. The asynchronous writer flush interval, in milliseconds.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
 | ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all duplicate rows.                                                                                                          |
+| multi_table_sink_replica                  | Int    | No       | 1                                              | Number of sink writer replicas for each table in a multi-table job.                                                                          |
 | common-options                            |        | No       | -                                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                            |
 
 ## Option Notes
@@ -61,6 +62,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - `table_name` is optional. If it is not set, the sink writes to the table name carried by the upstream row.
 - For multi-table jobs, use placeholders in `table_name` to route rows to different Kudu tables.
 - CDC rows are supported: insert records are appended, update records are written as upserts, and delete records are deleted by key.
+- `batch_size` is required only for `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. `buffer_flush_interval`
+  is required only for `AUTO_FLUSH_BACKGROUND`.
+- When `enable_kerberos = true`, both `kerberos_principal` and `kerberos_keytab` are required.
 
 ## Task Example
 
