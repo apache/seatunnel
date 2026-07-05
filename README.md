@@ -70,7 +70,7 @@ Refer to this [Setup](https://seatunnel.apache.org/docs/developer/setup) for com
 - Twitter: [ASFSeaTunnel on Twitter](https://twitter.com/ASFSeaTunnel)
 
 ## Landscapes
-SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
+SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=Apache+License+2.0).
 
 ## License
 [Apache 2.0 License](LICENSE)
@@ -93,4 +93,3 @@ More information, please refer to [FAQ](https://seatunnel.apache.org/docs/faq).
 
 ### 4. How can I contribute to SeaTunnel?
 We welcome contributions! Please refer to our [Contribution Guidelines](https://seatunnel.apache.org/docs/developer/coding-guide) for details.
-

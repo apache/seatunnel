@@ -31,7 +31,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -130,6 +134,8 @@ public class SystemFunction {
             case "LONG":
                 if (v1 instanceof String) {
                     return Long.parseLong(v1.toString());
+                } else if (v1 instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) v1).toInstant().toEpochMilli();
                 } else if (v1 instanceof Number) {
                     return ((Number) v1).longValue();
                 } else {
@@ -151,6 +157,9 @@ public class SystemFunction {
                 if (v1 instanceof LocalDateTime) {
                     return v1;
                 }
+                if (v1 instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) v1).toLocalDateTime();
+                }
                 if (v1 instanceof Long) {
                     Instant instant = Instant.ofEpochMilli(((Long) v1).longValue());
                     ZoneId zone = ZoneId.systemDefault();
@@ -159,9 +168,36 @@ public class SystemFunction {
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
+            case "TIMESTAMP_TZ":
+                if (v1 instanceof OffsetDateTime) {
+                    return v1;
+                }
+                if (v1 instanceof LocalDateTime) {
+                    return ((LocalDateTime) v1).atOffset(ZoneOffset.UTC);
+                }
+                if (v1 instanceof Long) {
+                    return OffsetDateTime.ofInstant(
+                            Instant.ofEpochMilli(((Long) v1).longValue()), ZoneOffset.UTC);
+                }
+                if (v1 instanceof String) {
+                    try {
+                        return OffsetDateTime.parse(
+                                (String) v1, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                    } catch (DateTimeParseException ignored) {
+                        return LocalDateTime.parse(
+                                        (String) v1, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                .atOffset(ZoneOffset.UTC);
+                    }
+                }
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format("Unsupported CAST AS type: %s", v2));
             case "DATE":
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalDate();
+                }
+                if (v1 instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) v1).toLocalDate();
                 }
                 if (v1 instanceof LocalDate) {
                     return v1;
@@ -179,6 +215,9 @@ public class SystemFunction {
             case "TIME":
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalTime();
+                }
+                if (v1 instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) v1).toLocalTime();
                 }
                 if (v1 instanceof LocalTime) {
                     return v1;

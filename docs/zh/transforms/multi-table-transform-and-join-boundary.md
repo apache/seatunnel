@@ -18,12 +18,28 @@ SeaTunnel 的**多表 Transform**功能允许单个 Transform 节点在一条流
 单个 Source（例如 MySQL-CDC）同时发送来自**多张表**的记录，下游的每个 Transform 或 Sink
 需声明它适用于哪张（些）表。
 
-```
-MySQL-CDC ──► FieldMapper (orders 表) ──► Kafka Sink (orders topic)
-             │
-             ├──► FieldMapper (users 表) ──► Kafka Sink (users topic)
-             │
-             └──► (未匹配的表直接透传) ──► Elasticsearch Sink
+```mermaid
+flowchart LR
+    source["MySQL-CDC"]
+    ordersMap["FieldMapper<br/>orders 表"]
+    ordersSink["Kafka Sink<br/>orders topic"]
+    usersMap["FieldMapper<br/>users 表"]
+    usersSink["Kafka Sink<br/>users topic"]
+    passthrough["未匹配的表<br/>直接透传"]
+    esSink["Elasticsearch Sink"]
+
+    source --> ordersMap --> ordersSink
+    source --> usersMap --> usersSink
+    source --> passthrough --> esSink
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerBlue;
+    class ordersMap,usersMap,passthrough layerCyan;
+    class ordersSink,usersSink,esSink layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ---
@@ -203,18 +219,23 @@ PostgreSQL-CDC 流进行 JOIN）。
 **EtLT**（Extract、轻量 transform、Load，再在数仓中 Transform）是当 SeaTunnel
 Transform 层无法完成全量转换需求时的推荐架构模式：
 
-```
-CDC Source
-   │
-   ▼
-轻量 Transform（字段重命名、类型转换、行过滤）
-   │
-   ▼
-数据湖 / 数仓（Hudi / Iceberg / ClickHouse）
-   │
-   ▼
-重型 Transform（JOIN、聚合、复杂 SQL）
-在 dbt / Flink SQL / Spark SQL 中执行
+```mermaid
+flowchart TD
+    cdc["CDC Source"]
+    light["轻量 Transform<br/>字段重命名 / 类型转换 / 行过滤"]
+    lake["数据湖 / 数仓<br/>Hudi / Iceberg / ClickHouse"]
+    heavy["重型 Transform<br/>JOIN / 聚合 / 复杂 SQL<br/>在 dbt / Flink SQL / Spark SQL 中执行"]
+
+    cdc --> light --> lake --> heavy
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class cdc layerBlue;
+    class light layerCyan;
+    class lake,heavy layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 **适合在 SeaTunnel Transform 层完成的操作**：

@@ -94,8 +94,8 @@ public class JdbcDb2UpsertIT extends JdbcDb2IT {
             List<List<Object>> updatedAtTimestampsBeforeUpdate =
                     query(
                             String.format(
-                                    // Keep the primary-key order stable so the assertion verifies
-                                    // row timestamps rather than an arbitrary DB2 return order.
+                                    // Keep the primary-key order stable so repeated reads compare
+                                    // the same records instead of an arbitrary DB2 return order.
                                     "SELECT C_INT, C_UPDATED_AT FROM %s ORDER BY C_INT",
                                     buildTableInfoWithSchema(DB2_DATABASE, DB2_SINK)));
             // step 2: run the job to update the data in the sink.

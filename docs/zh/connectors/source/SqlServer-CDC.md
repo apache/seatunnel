@@ -102,6 +102,9 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | exactly_once                                   | Boolean  | 否       | false   | 启用精确一次语义。                                                                                                                                                                                                                                                                                                  |
 | debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                 |
 | format                                         | Enum     | 否       | DEFAULT | SqlServer CDC 的可选输出格式，有效枚举为 "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON"。                                                                                                                                                                                                                                    |
+| schema-changes.enabled                         | Boolean  | 否       | false   | 模式演进默认是禁用的。当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                |
+| schema-changes.include                          | List     | 否       | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                          |
+| schema-changes.exclude                          | List     | 否       | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                   |
 | common-options                                 |          | 否       | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 获取详细信息。                                                                                                                                                                                                                                     |
 
 ### 启用 Sql Server CDC
@@ -238,6 +241,41 @@ sink {
   }
 }
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。
+
+使用以下 SeaTunnel 统一的规范名称：
+
+| 规范名称         | 操作                                        |
+|------------------|---------------------------------------------|
+| `add.column`     | 新增列                                      |
+| `drop.column`    | 删除列                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  SqlServer-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
 ## 变更日志
 

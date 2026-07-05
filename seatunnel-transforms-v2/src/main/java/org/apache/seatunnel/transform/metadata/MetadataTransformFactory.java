@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.metadata;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,7 +37,9 @@ public class MetadataTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(MetadataTransformConfig.METADATA_FIELDS)
+                .required(
+                        MetadataTransformConfig.METADATA_FIELDS,
+                        Conditions.mapNotEmpty(MetadataTransformConfig.METADATA_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

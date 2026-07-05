@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## Support Apache RocketMQ Version
 
-- 4.9.0 (Or a newer version, for reference)
+- 4.9.0 or newer
 
 ## Support These Engines
 
@@ -22,56 +22,68 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
-Source connector for Apache RocketMQ.
+Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
 
 ## Source Options
 
-| Name                                |  Type   | Required |          Default           | Description                                                                                                                                                                                                        |
-|-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topics                              | String  | no       | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`. You can configure only one of `topics` and `tables_configs` at the same time.                                 |
-| tables_configs                      | List    | no       | -                          | Multi-table mode config list. Each item configures one table and supports: `topics`, `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, `ignore_parse_errors`. You can configure only one of `topics` and `tables_configs` at the same time. |
-| table_list                          | List    | no       | -                          | Deprecated, use `tables_configs` instead.                                                                                                                                                                          |
-| name.srv.addr                       | String  | yes      | -                          | `RocketMQ` name server cluster address.                                                                                                                                                                            |
-| tags                                | String  | no       | -                          | `RocketMQ tag` name. If there are multiple `tags`, use `,` to split, for example: `"tag1,tag2"`.                                                                                                                   |
-| acl.enabled                         | Boolean | no       | false                      | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                           |
-| access.key                          | String  | no       |                            |                                                                                                                                                                                                                    |
-| secret.key                          | String  | no       |                            | When ACL_ENABLED is true, secret key cannot be empty.                                                                                                                                                              |
-| batch.size                          | int     | no       | 100                        | `RocketMQ` consumer pull batch size                                                                                                                                                                                |
-| consumer.group                      | String  | no       | SeaTunnel-Consumer-Group   | `RocketMQ consumer group id`, used to distinguish different consumer groups.                                                                                                                                       |
-| commit.on.checkpoint                | Boolean | no       | true                       | If true the consumer's offset will be periodically committed in the background.                                                                                                                                    |
-| schema                              |         | no       | -                          | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                               |
-| format                              | String  | no       | json                       | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field.delimiter" option.                                                |
-| field.delimiter                     | String  | no       | ,                          | Customize the field delimiter for data format                                                                                                                                                                      |
-| start.mode                          | String  | no       | CONSUME_FROM_GROUP_OFFSETS | The initial consumption pattern of consumers,there are several types: [CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP],[CONSUME_FROM_SPECIFIC_OFFSETS] |
-| start.mode.offsets                  |         | no       |                            |                                                                                                                                                                                                                    |
-| start.mode.timestamp                | Long    | no       |                            | The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".                                                                                                                                             |
-| partition.discovery.interval.millis | long    | no       | -1                         | The interval for dynamically discovering topics and partitions.                                                                                                                                                    |
-| ignore_parse_errors                 | Boolean | no       | false                      | Optional flag to skip parse errors instead of failing.                                                                                                                                                             |
-| consumer.poll.timeout.millis        | long    | no       | 5000                       | The poll timeout in milliseconds.                                                        |
-| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                  |
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
+| topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
+| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
+| table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
+| tags | String | no | - | Tag list separated by commas. Only messages with these tags are consumed. |
+| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
+| batch.size | int | no | 100 | Maximum number of messages pulled each time. |
+| consumer.group | String | no | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
+| commit.on.checkpoint | Boolean | no | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
+| schema | config | no | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). If omitted, the connector reads message bodies as text. |
+| format | String | no | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
+| start.mode | String | no | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
+| start.mode.offsets | Map | no | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
+| start.mode.timestamp | Long | no | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
+| partition.discovery.interval.millis | long | no | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
+| ignore_parse_errors | Boolean | no | false | Whether to skip messages that cannot be parsed. |
+| consumer.poll.timeout.millis | long | no | 5000 | Pull timeout in milliseconds. |
+| common-options | config | no | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
-### start.mode.offsets
+## Option Notes
 
-The offset required for consumption mode to be "CONSUME_FROM_SPECIFIC_OFFSETS".
+### Startup Position
 
-for example:
+`start.mode` controls where the source starts reading:
+
+- `CONSUME_FROM_GROUP_OFFSETS`: start from committed offsets of the consumer group.
+- `CONSUME_FROM_FIRST_OFFSET`: start from the earliest available offset.
+- `CONSUME_FROM_LAST_OFFSET`: start from the latest available offset.
+- `CONSUME_FROM_TIMESTAMP`: start from the first offset at or after `start.mode.timestamp`.
+- `CONSUME_FROM_SPECIFIC_OFFSETS`: start from the offsets in `start.mode.offsets`.
 
 ```hocon
+start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
 start.mode.offsets = {
-  topic1-0 = 70
-  topic1-1 = 10
-  topic1-2 = 10
+  test_topic-0 = 50
 }
 ```
 
-## Task Example
+### Multi-Table Read
 
-### Simple
+Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
 
-> Consumer reads Rocketmq data and prints it to the console type
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+
+When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
+
+## Task Examples
+
+### Read JSON Messages
 
 ```hocon
 env {
@@ -84,197 +96,16 @@ source {
     name.srv.addr = "rocketmq-e2e:9876"
     topics = "test_topic_json"
     plugin_output = "rocketmq_table"
-    schema = {
-      fields {
-        id = bigint
-        c_map = "map<string, smallint>"
-        c_array = "array<tinyint>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(2, 1)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
-}
-
-sink {
-  Console {
-  }
-}
-```
-
-### Specified format consumption simple
-
-> When I consume the topic data in json format parsing and pulling the number of bars each time is 400, the consumption starts from the original location
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    plugin_output = "rocketmq_table"
-    start.mode = "CONSUME_FROM_FIRST_OFFSET"
-    batch.size = "400"
-    consumer.group = "test_topic_group"
-    format = "json"
     format = json
     schema = {
       fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
-}
-sink {
-  Console {
-  }
-}
-```
-
-### Specified timestamp simple
-
-> This is to specify a time to consume, and I dynamically sense the existence of a new partition every 1000 milliseconds to pull the consumption
-
-```hocon
-env {
-  parallelism = 1
-  spark.app.name = "SeaTunnel"
-  spark.executor.instances = 2
-  spark.executor.cores = 1
-  spark.executor.memory = "1g"
-  spark.master = local
-  job.mode = "BATCH"
-}
-
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    partition.discovery.interval.millis = "1000"
-    start.mode.timestamp="1694508382000"
-    consumer.group="test_topic_group"
-    format="json"
-    format = json
-    schema = {
-      fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
-}
-
-sink {
-  Console {
-  }
-}
-```
-
-### Specified tag example
-
-> Here you can specify a tag to consume data. If there are multiple tags, use `,` to separate them, for example: "tag1,tag2"
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-  
-  # You can set spark configuration here
-  spark.app.name = "SeaTunnel"
-  spark.executor.instances = 2
-  spark.executor.cores = 1
-  spark.executor.memory = "1g"
-  spark.master = local
-}
-
-source {
-  Rocketmq {
-    plugin_output = "rocketmq_table"
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    format = text
-    # The default field delimiter is ","
-    field_delimiter = ","
-    tags = "test_tag"
-    schema = {
-      fields {
         id = bigint
-        c_map = "map<string, smallint>"
-        c_array = "array<tinyint>"
         c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
         c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(2, 1)"
-        c_bytes = bytes
-        c_date = date
         c_timestamp = timestamp
       }
     }
   }
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
 }
 
 sink {
@@ -284,9 +115,7 @@ sink {
 }
 ```
 
-### Multiple RocketMQ Source
-
-> Read from multiple topics with different schemas. Use `tables_configs` to configure each topic independently.
+### Read Text Messages With Tags
 
 ```hocon
 env {
@@ -296,28 +125,95 @@ env {
 
 source {
   Rocketmq {
-    name.srv.addr = "localhost:9876"
-    consumer.group = "multi_table_group"
-    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_text"
+    plugin_output = "rocketmq_table"
+    format = text
+    field.delimiter = ","
+    tags = "tag_a,tag_b"
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```
+
+### Read From Specific Offsets
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
+    start.mode.offsets = {
+      test_topic_source-0 = 50
+    }
+    schema = {
+      fields {
+        id = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```
+
+### Read Multiple Topics With Different Schemas
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    start.mode = "CONSUME_FROM_LAST_OFFSET"
     tables_configs = [
       {
-        topics = "topic_1"
-        format = "json"
+        topics = "test_topic_multi_a"
+        start.mode = "CONSUME_FROM_FIRST_OFFSET"
+        format = json
         schema = {
           fields {
-            id = int
-            name = string
+            id = bigint
+            c_string = string
           }
         }
       },
       {
-        topics = "topic_2"
-        format = "json"
+        topics = "test_topic_multi_b"
+        start.mode = "CONSUME_FROM_FIRST_OFFSET"
+        tags = "tag_b"
+        format = json
         schema = {
+          table = "rocketmq_multi_custom"
           fields {
-            id = int
+            id = bigint
             description = string
-            weight = double
           }
         }
       }

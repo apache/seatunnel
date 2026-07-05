@@ -21,28 +21,15 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## 描述
 
-用于从 Socket 读取数据。
+用于从 Socket 服务端读取按行分隔的文本数据。Socket 中收到的每一行都会成为一条 SeaTunnel 数据。
 
 ## 数据类型映射
 
-文件没有特定的类型列表，我们可以通过在配置中指定 Schema 来指示相应的数据需要转换为哪种 SeaTunnel 数据类型。
+Socket Source 会把每一行输入读取为字符串。
 
 | SeaTunnel 数据类型 |
 |------------------|
 | STRING |
-| SHORT |
-| INT |
-| BIGINT |
-| BOOLEAN |
-| DOUBLE |
-| DECIMAL |
-| FLOAT |
-| DATE |
-| TIME |
-| TIMESTAMP |
-| BYTES |
-| ARRAY |
-| MAP |
 
 ## 选项
 
@@ -51,6 +38,12 @@ import ChangeLog from '../changelog/connector-socket.md';
 | host | String | 是 | - | socket 服务器主机 |
 | port | Integer | 是 | - | socket 服务器端口 |
 | common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。 |
+
+:::tip
+
+Socket Source 更适合本地调试和简单文本流读取。它不会保存 Socket 服务端的读取位点，如果需要可重放或精确一次读取，请使用 Kafka 等具备位点管理能力的 Source。
+
+:::
 
 ## 如何创建 Socket 数据同步作业
 
@@ -111,4 +104,3 @@ spark
 ## 变更日志
 
 <ChangeLog />
-

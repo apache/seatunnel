@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述
@@ -56,12 +57,12 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | username                              | String  | Yes  | -     | `ClickHouse` 用户账号.                                                                                                                                                               |
 | password                              | String  | Yes  | -     | `ClickHouse` 用户密码.                                                                                                                                                               |
 | clickhouse.config                     | Map     | No   |       | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| bulk_size                             | String  | No   | 20000 | 每次通过[Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数，即默认是20000.                                                                                            |
-| split_mode                            | String  | No   | false | 此模式仅支持引擎为`Distributed`的 `clickhouse` 表。选项 `internal_replication` 应该是 `true` 。他们将在 seatunnel 中拆分分布式表数据，并直接对每个分片进行写入。分片权重定义为 `clickhouse` 将计算在内。                                   |
-| sharding_key                          | String  | No   | -     | 使用 `split_mode` 时，将数据发送到哪个节点是个问题，默认为随机选择，但可以使用`sharding_key`参数来指定分片算法的字段。此选项仅在`split_mode`为 `true` 时有效.                                                                          |
-| primary_key                           | String  | No   | -     | 标记`clickhouse`表中的主键列，并根据主键执行INSERT/UPDATE/DELETE到`clickhouse`表.                                                                                                                  |
-| support_upsert                        | Boolean | No   | false | 支持按查询主键更新插入行.                                                                                                                                                                    |
-| allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
+| bulk_size                             | int     | No   | 20000 | 每次通过[Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数，即默认是20000.                                                                                            |
+| split_mode                            | Boolean | No   | false | 仅当目标 ClickHouse 表使用 `Distributed` 引擎且 `internal_replication` 为 `true` 时生效。SeaTunnel 会拆分分布式表写入，并直接写入各个分片。 |
+| sharding_key                          | String  | No   | -     | `split_mode=true` 时用于分片算法的字段。不配置时会随机选择目标分片。 |
+| primary_key                           | String  | No   | -     | 用于处理 INSERT/UPDATE/DELETE 变更数据的主键列。多列用英文逗号分隔，例如 `id,name`。 |
+| support_upsert                        | Boolean | No   | false | 是否按 `primary_key` 查询后再写入，从而实现类似 upsert 的写入效果。 |
+| allow_experimental_lightweight_delete | Boolean | No   | false | 允许 DELETE 变更数据在 `*MergeTree` 表引擎上使用 ClickHouse lightweight delete。 |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
 | custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
@@ -232,6 +233,8 @@ sink {
 ```
 
 ### CDC(Change data capture) for *MergeTree engine
+
+处理 CDC 更新/删除数据时，需要配置 `primary_key`。只有目标 `*MergeTree` 表可以使用 ClickHouse lightweight delete 时，才设置 `allow_experimental_lightweight_delete=true`。
 
 ```hocon
 sink {
