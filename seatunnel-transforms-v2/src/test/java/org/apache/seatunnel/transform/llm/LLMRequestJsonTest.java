@@ -296,4 +296,71 @@ public class LLMRequestJsonTest {
             mockWebServer.shutdown();
         }
     }
+
+    @Test
+    void testCustomOpenAIContentArrayString() throws IOException {
+        MockWebServer mockWebServer = new MockWebServer();
+        mockWebServer.start();
+        try {
+            String mockBaseUrl = mockWebServer.url("/v1/chat/completions").toString();
+            String jsonResponse =
+                    "{\n"
+                            + "    \"choices\": [\n"
+                            + "        {\n"
+                            + "            \"message\": {\n"
+                            + "                \"role\": \"assistant\",\n"
+                            + "                \"content\": \"[\\\"sfsfsafasfsfasf\\\"]\"\n"
+                            + "            },\n"
+                            + "            \"finish_reason\": \"stop\",\n"
+                            + "            \"index\": 0\n"
+                            + "        }\n"
+                            + "    ]\n"
+                            + "}";
+
+            mockWebServer.enqueue(
+                    new MockResponse()
+                            .setBody(jsonResponse)
+                            .addHeader("Content-Type", "application/json"));
+
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"content"},
+                            new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+            Map<String, String> header = new HashMap<>();
+            header.put("Content-Type", "application/json");
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", "${input}");
+
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("model", "${model}");
+            resultMap.put("messages", Collections.singletonList(message));
+
+            CustomModel model =
+                    new CustomModel(
+                            rowType,
+                            SqlType.STRING,
+                            Collections.singletonList("content"),
+                            "summary",
+                            "custom-model",
+                            mockBaseUrl,
+                            header,
+                            resultMap,
+                            "$.choices[0].message.content");
+            try {
+                SeaTunnelRow row = new SeaTunnelRow(rowType.getFieldTypes().length);
+                row.setField(0, "test");
+
+                List<String> result = model.inference(Collections.singletonList(row));
+
+                Assertions.assertEquals(Collections.singletonList("sfsfsafasfsfasf"), result);
+            } finally {
+                model.close();
+            }
+        } finally {
+            mockWebServer.shutdown();
+        }
+    }
 }

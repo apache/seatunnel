@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -37,7 +37,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 
 | 名称                  | 类型 | 是否必须 | 默认值 | 描述                                 |
 |---------------------|------|----------|--------|------------------------------------|
-| url                 | String | 是 | - | Databend JDBC 连接 URL               |
+| url                 | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username            | String | 是 | - | Databend 数据库用户名                    |
 | password            | String | 是 | - | Databend 数据库密码                     |
 | database            | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
@@ -155,7 +155,11 @@ sink {
 }
 ```
 
-### CDC mode
+### CDC 模式
+
+`conflict_key` 用来指定合并更新/删除事件的主键列。只有当 DELETE 事件需要删除
+Databend 中的数据时，才需要设置 `enable_delete = true`。
+如果不配置 `conflict_key`，sink 会按普通批量插入方式写入。
 
 ```hocon
 sink {
@@ -166,9 +170,8 @@ sink {
     database = "default"
     table = "sink_table"
     
-    # Enable CDC mode
+    # 开启 CDC 写入模式
     batch_size = 1
-    interval = 3
     conflict_key = "id"
     enable_delete = true
   }
