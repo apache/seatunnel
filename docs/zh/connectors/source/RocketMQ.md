@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 | start.mode.offsets | Map | 否 | - | `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS` 时必填。key 格式为 `topic-queueId`，例如 `test_topic-0`。 |
 | start.mode.timestamp | Long | 否 | - | `start.mode = CONSUME_FROM_TIMESTAMP` 时必填，单位是毫秒时间戳。 |
 | partition.discovery.interval.millis | long | 否 | -1 | 动态发现 topic 和分区的间隔，单位毫秒。`-1` 表示不启用动态发现。 |
-| ignore_parse_errors | Boolean | 否 | false | 是否跳过解析失败的消息。 |
+| ignore_parse_errors | Boolean | 否 | false | 是否跳过解析失败的 JSON 消息。 |
 | consumer.poll.timeout.millis | long | 否 | 5000 | 拉取消息的超时时间，单位毫秒。 |
 | common-options | config | 否 | - | 源连接器通用参数，详情请参考 [源通用参数](../common-options/source-common-options.md)。 |
 
@@ -66,12 +66,25 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - `CONSUME_FROM_TIMESTAMP`：从 `start.mode.timestamp` 对应时间之后的第一条消息开始读。
 - `CONSUME_FROM_SPECIFIC_OFFSETS`：从 `start.mode.offsets` 指定的位点开始读。
 
+当 `start.mode = CONSUME_FROM_TIMESTAMP` 时，`start.mode.timestamp` 必须是非负的毫秒时间戳，并且不能晚于任务运行时的当前时间。
+
 ```hocon
 start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
 start.mode.offsets = {
   test_topic-0 = 50
 }
 ```
+
+```hocon
+start.mode = "CONSUME_FROM_TIMESTAMP"
+start.mode.timestamp = 1667179890315
+```
+
+### 消息格式
+
+当 `format = json` 时，请配置 `schema`，SeaTunnel 会按 schema 将 JSON 消息体解析成有类型的字段。配置 `ignore_parse_errors = true` 后，遇到无法解析的 JSON 消息会跳过，而不是让任务失败。
+
+当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。如果不配置 `schema`，消息体会作为单个文本值读取。
 
 ### 多表读取
 
@@ -223,6 +236,37 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 从指定时间戳读取
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_TIMESTAMP"
+    start.mode.timestamp = 1667179890315
+    schema = {
+      fields {
+        id = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
 }
 ```
 

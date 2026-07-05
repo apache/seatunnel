@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
@@ -60,6 +61,10 @@ partition.key.fields = ["c_int"]
 Sink 支持通过 RocketMQ 事务消息实现精确一次写入。该能力默认关闭。确认 RocketMQ 集群和作业 checkpoint 配置满足事务写入要求后，可设置 `exactly.once = true`。
 
 当 `format = text` 时，SeaTunnel 会按上游 schema 的字段顺序序列化，并使用 `field.delimiter` 拼接字段。当 `format = json` 时，每行数据会写成一个 JSON 对象。
+
+### producer.send.sync
+
+`producer.send.sync = true` 表示生产者会等待 RocketMQ 确认每次发送请求。默认值为 `false` 时，消息会异步发送。
 
 ## 任务示例
 
