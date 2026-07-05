@@ -42,6 +42,7 @@ public class MetadataTransformFactory implements TableTransformFactory {
                         Conditions.mapNotEmpty(MetadataTransformConfig.METADATA_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 
