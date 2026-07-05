@@ -150,11 +150,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTimestamp)
-                                    .map(e -> e.toLocalDateTime())
-                                    .orElse(null);
+                    // Use getLocalDateTime() which avoids JVM-default-timezone influence.
+                    // See JdbcFieldTypeUtils.getLocalDateTime() for full strategy details.
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP_TZ:
                     // Enhanced PostgreSQL TIMESTAMP_TZ handling
@@ -390,14 +388,27 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         if (obj instanceof OffsetDateTime) {
             return (OffsetDateTime) obj;
         }
-        if (obj instanceof Timestamp) {
-            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
-        }
         if (obj instanceof java.time.ZonedDateTime) {
             return ((java.time.ZonedDateTime) obj).toOffsetDateTime();
         }
         if (obj instanceof java.util.Date) {
             return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+
+        // Handle java.sql.Timestamp: avoid using toInstant() directly because the Timestamp
+        // was constructed with JVM-default-timezone semantics, which would shift the value.
+        // Instead, re-read as string and parse the timezone info explicitly.
+        if (obj instanceof Timestamp) {
+            String strVal = rs.getString(columnIndex);
+            if (strVal == null) {
+                return null;
+            }
+            try {
+                return JdbcFieldTypeUtils.parseOffsetDateTimeFromString(strVal);
+            } catch (Exception e) {
+                // Last resort: fall back to instant-based conversion
+                return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+            }
         }
 
         // Remaining PostgreSQL-specific or driver types: fall back to string representation
