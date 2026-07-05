@@ -14,11 +14,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 用于从 IoTDB 中读取数据。
 
+当前 Source 执行的是有界 SQL 查询，适合批量读取；即使任务使用流模式，也不会持续监听 IoTDB 新数据。
+
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
   > IoTDB 通过 SQL 查询支持列投影功能。
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
@@ -87,7 +89,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
      将时间范围分割成 numPartitions 个分区
      
      若 numPartitions = 1，使用完整的时间范围
-     若 numPartitions < (upper_bound - lower_bound)，使用 (upper_bound - lower_bound) 个分区
+     若 (upper_bound - lower_bound) < numPartitions，使用 (upper_bound - lower_bound) 个分区
      
      例：lower_bound = 1, upper_bound = 10, numPartitions = 2
          sql = "select * from test where age > 0 and age < 10"

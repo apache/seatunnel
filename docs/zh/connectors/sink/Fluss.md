@@ -25,6 +25,8 @@ Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入�
 
 运行作业前，目标 Fluss database 和 table 必须已经存在。当前 Sink 不会自动创建 Fluss database 或 table。
 
+目标表结构需要和上游 SeaTunnel 数据按字段顺序匹配，并且字段类型需要兼容。Sink 会按字段位置写入数据。
+
 ## 依赖
 
 ```xml
@@ -197,6 +199,8 @@ sink {
 ```
 
 多表写入时，Sink 会为每个上游表分别解析目标表名。运行作业前，需要先创建对应的 Fluss database 和 table。
+
+多表写入时，`database` 和 `table` 可以同时包含固定文本和占位符。例如 `database = "fluss_db_${database_name}"`、`table = "fluss_tb_${table_name}"` 会把上游表 `test2.table1` 写入 `fluss_db_test2.fluss_tb_table1`。
 
 ## Changelog
 

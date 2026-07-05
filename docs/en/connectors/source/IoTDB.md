@@ -14,11 +14,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 Used to read data from IoTDB.
 
+The current source runs a bounded SQL query. It is suitable for batch reads and does not continuously tail new IoTDB data in streaming mode.
+
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
   > IoTDB allows column projection using SQL query.
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
@@ -86,7 +88,7 @@ the lower bound of the time range
 ```
      split the time range into numPartitions parts
      if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
+     if (upper_bound - lower_bound) < numPartitions, will use (upper_bound - lower_bound) as numPartitions
      
      eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
      sql = "select * from test where age > 0 and age < 10"
