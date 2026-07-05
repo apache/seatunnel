@@ -40,6 +40,7 @@ the connector can build the Redis key from one or more upstream fields, for exam
 | value_field        | string  | No                          | -       | Upstream field used as the Redis value for `KEY`/`STRING`, `LIST`, `SET`, and `ZSET`. |
 | hash_key_field     | string  | No                          | -       | Upstream field used as the Redis hash field when `data_type = HASH`. |
 | hash_value_field   | string  | No                          | -       | Upstream field used as the Redis hash value when `data_type = HASH`. |
+| multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Write Rules
@@ -72,6 +73,10 @@ as the Redis value. If `value_field` is not configured, the connector serializes
 For `HASH`, `hash_key_field` chooses the Redis hash field. If `hash_value_field` is configured, that field value is
 written as the Redis hash value. If `hash_value_field` is not configured, the connector serializes the whole upstream
 row as the hash value.
+
+### multi_table_sink_replica
+
+Replica count for multi-table sink writers. It applies when upstream rows carry table identifiers and the job writes multiple Redis tables in one pipeline.
 
 ## Examples
 

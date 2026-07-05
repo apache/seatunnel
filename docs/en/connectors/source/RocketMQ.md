@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -49,7 +50,7 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 | start.mode.offsets | Map | no | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
 | start.mode.timestamp | Long | no | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
 | partition.discovery.interval.millis | long | no | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
-| ignore_parse_errors | Boolean | no | false | Whether to skip messages that cannot be parsed. |
+| ignore_parse_errors | Boolean | no | false | Whether to skip JSON messages that cannot be parsed. |
 | consumer.poll.timeout.millis | long | no | 5000 | Pull timeout in milliseconds. |
 | common-options | config | no | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
@@ -65,6 +66,10 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 - `CONSUME_FROM_TIMESTAMP`: start from the first offset at or after `start.mode.timestamp`.
 - `CONSUME_FROM_SPECIFIC_OFFSETS`: start from the offsets in `start.mode.offsets`.
 
+When `start.mode = CONSUME_FROM_TIMESTAMP`, `start.mode.timestamp` must be a
+non-negative millisecond timestamp and cannot be later than the current time of
+the running job.
+
 ```hocon
 start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
 start.mode.offsets = {
@@ -72,9 +77,28 @@ start.mode.offsets = {
 }
 ```
 
+```hocon
+start.mode = "CONSUME_FROM_TIMESTAMP"
+start.mode.timestamp = 1667179890315
+```
+
+### Message Format
+
+When `format = json`, define `schema` so that SeaTunnel can parse the JSON
+message body into typed fields. `ignore_parse_errors = true` can be used to skip
+invalid JSON messages instead of failing the job.
+
+When `format = text`, SeaTunnel splits the message body by `field.delimiter`
+and maps the values to fields in schema order. If `schema` is omitted, the
+message body is read as a single text value.
+
 ### Multi-Table Read
 
-Use `tables_configs` when different topics have different schemas. Each item can define its own `topics`, `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
+Use `tables_configs` when different topics have different schemas. Each item must contain `topics` and can define its own `schema`, `format`, `tags`, and startup position. If `schema.table` is not set, the output table name defaults to the topic name.
+
+`topics`, `tables_configs`, and the deprecated `table_list` are mutually exclusive. In `tables_configs`, options that are not set on an item inherit the top-level defaults, so each item only needs to override the topic-specific schema, tags, or startup position.
+
+When a `tables_configs` item uses `start.mode = CONSUME_FROM_TIMESTAMP`, it must also set `start.mode.timestamp`. When it uses `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`, it must also set a non-empty `start.mode.offsets` map.
 
 ## Task Examples
 
@@ -218,6 +242,37 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Read From a Timestamp
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_TIMESTAMP"
+    start.mode.timestamp = 1667179890315
+    schema = {
+      fields {
+        id = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
 }
 ```
 

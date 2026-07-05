@@ -10,6 +10,8 @@ The Amazon DynamoDB source connector reads existing items from an Amazon DynamoD
 
 The connector is a batch source. DynamoDB does not expose field types in the same way as a relational database, so the SeaTunnel schema must be configured explicitly.
 
+This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -21,17 +23,17 @@ The connector is a batch source. DynamoDB does not expose field types in the sam
 
 ## Options
 
-| name                  | type   | required | default value |
-|-----------------------|--------|----------|---------------|
-| url                   | string | yes      | -             |
-| region                | string | yes      | -             |
-| access_key_id         | string | yes      | -             |
-| secret_access_key     | string | yes      | -             |
-| table                 | string | yes      | -             |
-| schema                | config | yes      | -             |
-| scan_item_limit       | int    | no       | 1             |
-| parallel_scan_threads | int    | no       | 2             |
-| common-options        |        | no       | -             |
+| name                  | type   | required | default value | description                                      |
+|-----------------------|--------|----------|---------------|--------------------------------------------------|
+| url                   | string | yes      | -             | DynamoDB endpoint URL.                           |
+| region                | string | yes      | -             | AWS region of the DynamoDB service.              |
+| access_key_id         | string | yes      | -             | AWS access key ID.                               |
+| secret_access_key     | string | yes      | -             | AWS secret access key.                           |
+| table                 | string | yes      | -             | DynamoDB table name to scan.                     |
+| schema                | config | yes      | -             | SeaTunnel fields to read from DynamoDB items.    |
+| scan_item_limit       | int    | no       | 1             | Maximum items returned by each scan request.     |
+| parallel_scan_threads | int    | no       | 2             | Number of logical segments for parallel scan.    |
+| common-options        | object | no       | -             | Source plugin common parameters.                 |
 
 ### url [string]
 
@@ -87,11 +89,15 @@ For more schema syntax, see [Schema Feature](../../introduction/concepts/schema-
 
 The maximum number of items returned by each DynamoDB scan request.
 
+Larger values reduce the number of requests but may increase the memory used by each read batch.
+
 ### parallel_scan_threads [int]
 
 The number of logical scan segments used for DynamoDB parallel scan.
 
 This value controls how the source splits the table scan. It should usually be aligned with job parallelism and table size.
+
+For small tables, keep the default value. For large tables, increase it together with `env.parallelism` and the source `parallelism` option so that multiple readers can scan different segments.
 
 ### common options
 

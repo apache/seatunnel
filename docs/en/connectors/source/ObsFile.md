@@ -70,7 +70,7 @@ It only supports hadoop version **2.9.X+**.
 | access_key                 | string  | yes      | -                   | The access key of obs file system                                                                                                                                                    |
 | access_secret              | string  | yes      | -                   | The access secret of obs file system                                                                                                                                                 |
 | endpoint                   | string  | yes      | -                   | The endpoint of obs file system                                                                                                                                                      |
-| read_columns               | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
+| read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
 | delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                                                                                         |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
@@ -147,15 +147,11 @@ It only supports hadoop version **2.9.X+**.
 >
 > If you assign file type to `json`, you should also assign schema option to tell the connector how to parse data to the row you want.
 >
-> For example,upstream data is the following:
+> For example, upstream data is the following:
 >
 > ```json
->
+> {"code": 200, "data": "get success", "success": true}
 > ```
-
-{"code":  200, "data":  "get success", "success":  true}
-
-```
 
 > You can also save multiple pieces of data in one file and split them by one newline:
 

@@ -65,6 +65,8 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 - In subscription mode, set `enable_subscription = true` and use a `ws://` or `wss://` URL.
 - Source queries cannot be GraphQL `mutation` operations.
 - `content_field` is usually needed because GraphQL responses are commonly wrapped under `data`.
+- For streaming query mode over HTTP, configure `poll_interval_millis` to control how often SeaTunnel sends the same query again.
+- For WebSocket subscription mode, `max_retries` and `retry_delay_ms` only control reconnect behavior after a subscription connection fails.
 
 ## Task Example
 

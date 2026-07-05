@@ -20,23 +20,23 @@ range scans, binary row keys, custom namespaces, and parallel batch reading.
 
 ## Options
 
-| Name                | Type    | Required | Default |
-|---------------------|---------|----------|---------|
-| zookeeper_quorum    | string  | Yes      | -       |
-| table               | string  | Yes      | -       |
-| schema              | config  | Yes      | -       |
-| hbase_extra_config  | config  | No       | -       |
-| caching             | int     | No       | -1      |
-| batch               | int     | No       | -1      |
-| cache_blocks        | boolean | No       | false   |
-| is_binary_rowkey    | boolean | No       | false   |
-| start_rowkey        | string  | No       | -       |
-| end_rowkey          | string  | No       | -       |
-| start_row_inclusive | boolean | No       | true    |
-| end_row_inclusive   | boolean | No       | false   |
-| start_timestamp     | long    | No       | -       |
-| end_timestamp       | long    | No       | -       |
-| common-options      |         | No       | -       |
+| Name                | Type    | Required | Default | Description |
+|---------------------|---------|----------|---------|-------------|
+| zookeeper_quorum    | string  | Yes      | -       | HBase ZooKeeper quorum, for example `hadoop001:2181,hadoop002:2181`. |
+| table               | string  | Yes      | -       | HBase table to scan. Use `namespace:table` for a custom namespace. |
+| schema              | config  | Yes      | -       | SeaTunnel schema. Use `rowkey` for the row key and `family:qualifier` for cells. |
+| hbase_extra_config  | config  | No       | -       | Extra HBase or Hadoop client configuration. |
+| caching             | int     | No       | -1      | Number of rows fetched per RPC. `-1` keeps the HBase client default. |
+| batch               | int     | No       | -1      | Maximum number of cells returned per RPC. `-1` keeps the HBase client default. |
+| cache_blocks        | boolean | No       | false   | Whether scan results should populate the HBase block cache. |
+| is_binary_rowkey    | boolean | No       | false   | Whether the row key column should be handled as binary bytes. |
+| start_rowkey        | string  | No       | -       | Start row key for range scans. |
+| end_rowkey          | string  | No       | -       | End row key for range scans. |
+| start_row_inclusive | boolean | No       | true    | Whether the scan includes `start_rowkey`. |
+| end_row_inclusive   | boolean | No       | false   | Whether the scan includes `end_rowkey`. |
+| start_timestamp     | long    | No       | -       | Start timestamp for time range scans, inclusive. |
+| end_timestamp       | long    | No       | -       | End timestamp for time range scans, exclusive. |
+| common-options      |         | No       | -       | Source plugin common parameters, such as `plugin_output`. |
 
 ### zookeeper_quorum [string]
 

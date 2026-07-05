@@ -33,15 +33,15 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Availability Settings
 
-1.MongoDB version: MongoDB version >= 4.0.
+1. MongoDB version: MongoDB version >= 4.0.
 
-2.Cluster deployment: replica sets or sharded clusters.
+2. Cluster deployment: replica sets or sharded clusters.
 
-3.Storage Engine: WiredTiger Storage Engine.
+3. Storage Engine: WiredTiger Storage Engine.
 
-4.Permissions:changeStream and read
+4. Permissions: `changeStream` and `read`.
 
-```
+```javascript
 // 1) Switch to the target database
 use <DB_NAME>
 
@@ -112,25 +112,26 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 
 ## Source Options
 
-| Name                               | Type   | Required | Default | Description                                                                                                                                                                                                                                                                 |
-|------------------------------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| hosts                              | String | Yes      | -       | The comma-separated list of hostname and port pairs of the MongoDB servers, or a standard MongoDB connection URI using `mongodb://` or `mongodb+srv://`. eg. `localhost:27017,localhost:27018` or `mongodb+srv://cluster.example.net`                                      |
-| username                           | String | No       | -       | Name of the database user to be used when connecting to MongoDB.                                                                                                                                                                                                            |
-| password                           | String | No       | -       | Password to be used when connecting to MongoDB.                                                                                                                                                                                                                             |
-| database                           | List   | Yes      | -       | Name of the database to watch for changes. If not set then all databases will be captured. The database also supports regular expressions to monitor multiple databases matching the regular expression. eg. `db1,db2`.                                                     |
-| collection                         | List   | Yes      | -       | Name of the collection in the database to watch for changes. If not set then all collections will be captured. The collection also supports regular expressions to monitor multiple collections matching fully-qualified collection identifiers. eg. `db1.coll1,db2.coll2`. |
-| schema                             |        | no       | -       | The structure of the data, including field names and field types, use single table cdc. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                     |
-| tables_configs                     |        | no       | -       | The structure of the data, including field names and field types, use muliti table cdc.                                                                                                                                                                                     |
-| connection.options                 | String | No       | -       | The ampersand-separated connection options of MongoDB.  eg. `replicaSet=test&connectTimeoutMS=300000`.                                                                                                                                                                      |
-| batch.size                         | Long   | No       | 1024    | The cursor batch size.                                                                                                                                                                                                                                                      |
-| poll.max.batch.size                | Enum   | No       | 1024    | Maximum number of change stream documents to include in a single batch when polling for new data.                                                                                                                                                                           |
-| poll.await.time.ms                 | Long   | No       | 1000    | The amount of time to wait before checking for new results on the change stream.                                                                                                                                                                                            |
-| heartbeat.interval.ms              | String | No       | 0       | The length of time in milliseconds between sending heartbeat messages. Use 0 to disable.                                                                                                                                                                                    |
-| incremental.snapshot.chunk.size.mb | Long   | No       | 64      | The chunk size mb of incremental snapshot.                                                                                                                                                                                                                                  |
-| startup.mode                       | Enum   | No       | INITIAL | Optional startup mode for MongoDB CDC consumer, valid enumerations are `initial`, `latest` and `timestamp`. See the [Startup Mode](#startup-mode) section below.                                                                                                            |
-| startup.timestamp                  | Long   | No       | -       | Start from the specified epoch timestamp (in milliseconds). Only used when `startup.mode` is `timestamp`.                                                                                                                                                                   |
-| exactly_once                       | Boolean| No       | false   | Enable exactly once semantic. Enabling this may cause an out-of-memory risk during the large table snapshot stage in recovery.                                                                                                                                              |
-| common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                          |
+| Name                               | Type    | Required | Default | Description                                                                                                                                                                                                                                                               |
+|------------------------------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| hosts                              | String  | Yes      | -       | The comma-separated list of hostname and port pairs of the MongoDB servers, or a standard MongoDB connection URI using `mongodb://` or `mongodb+srv://`. For example: `localhost:27017,localhost:27018` or `mongodb+srv://cluster.example.net`.                         |
+| username                           | String  | No       | -       | Name of the database user to be used when connecting to MongoDB. Required only when MongoDB authentication is enabled.                                                                                                                                                    |
+| password                           | String  | No       | -       | Password to be used when connecting to MongoDB. Required only when MongoDB authentication is enabled.                                                                                                                                                                     |
+| database                           | List    | Yes      | -       | Database names to watch for changes. Regular expressions are supported, for example `["inventory"]` or `["db.*"]`.                                                                                                                                                      |
+| collection                         | List    | Yes      | -       | Collection names to watch for changes. Each value should use the fully qualified `database.collection` format, for example `["inventory.products", "inventory.orders"]`. Regular expressions are supported.                                                             |
+| schema                             | Config  | No       | -       | Schema for one collection, including field names, field types, and optional primary key. For more details, see [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                          |
+| tables_configs                     | List    | No       | -       | Schema list for multiple collections. Each item contains a `schema` block. The number and order of `tables_configs` items must match the `collection` list.                                                                                                               |
+| connection.options                 | String  | No       | -       | Ampersand-separated MongoDB connection options. For example: `replicaSet=test&connectTimeoutMS=300000`.                                                                                                                                                                  |
+| batch.size                         | Integer | No       | 1024    | Cursor batch size used when reading snapshot data.                                                                                                                                                                                                                       |
+| poll.max.batch.size                | Integer | No       | 1024    | Maximum number of change stream documents to include in one poll batch.                                                                                                                                                                                                   |
+| poll.await.time.ms                 | Integer | No       | 1000    | Time in milliseconds to wait before checking for new change stream results.                                                                                                                                                                                               |
+| heartbeat.interval.ms              | Integer | No       | 0       | Time in milliseconds between heartbeat messages. Use `0` to disable heartbeat messages.                                                                                                                                                                                   |
+| incremental.snapshot.chunk.size.mb | Integer | No       | 64      | Chunk size, in MB, for incremental snapshot reading.                                                                                                                                                                                                                     |
+| startup.mode                       | Enum    | No       | INITIAL | Optional startup mode for MongoDB CDC consumer. Valid values are `initial`, `latest`, and `timestamp`. See the [Startup Mode](#startup-mode) section below.                                                                                                               |
+| startup.timestamp                  | Long    | No       | -       | Start from the specified epoch timestamp in milliseconds. Only used when `startup.mode` is `timestamp`.                                                                                                                                                                   |
+| exactly_once                       | Boolean | No       | false   | Enable exactly-once semantics. Enabling this may increase memory usage during large table snapshot recovery.                                                                                                                                                              |
+| debezium                           | Config  | No       | -       | Pass-through Debezium properties used by the embedded engine.                                                                                                                                                                                                             |
+| common-options                     |         | No       | -       | Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).                                                                                                                                                    |
 
 ### Startup Mode
 
@@ -168,7 +169,7 @@ source {
 > 1.If the collection changes at a slow pace, it is strongly recommended to set an appropriate value greater than 0 for the heartbeat.interval.ms parameter. When we recover a Seatunnel job from a checkpoint or savepoint, the heartbeat events can push the resumeToken forward to avoid its expiration.<br/>
 > 2.MongoDB has a limit of 16MB for a single document. Change documents include additional information, so even if the original document is not larger than 15MB, the change document may exceed the 16MB limit, resulting in the termination of the Change Stream operation.<br/>
 > 3.It is recommended to use immutable shard keys. In MongoDB, shard keys allow modifications after transactions are enabled, but changing the shard key can cause frequent shard migrations, resulting in additional performance overhead. Additionally, modifying the shard key can also cause the Update Lookup feature to become ineffective, leading to inconsistent results in CDC (Change Data Capture) scenarios.<br/>
-> 4.`schema` `tables_configs` are mutually exclusive, and one must be configured at a time.
+> 4. `schema` and `tables_configs` are mutually exclusive. Use `schema` for one collection and `tables_configs` for multiple collections.
 
 ## Change Streams
 
@@ -177,7 +178,7 @@ Applications can use change streams to subscribe to all data changes on a single
 
 **Lookup Full Document for Update Operations** is a feature provided by **Change Stream** which can configure the change stream to return the most current majority-committed version of the updated document. Because of this feature, we can easily collect the latest full document and convert the change log to Changelog Stream.
 
-The format of the data captured by delete events in change streams: [delete envet](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+The format of the data captured by delete events in change streams: [delete event](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },
@@ -217,6 +218,10 @@ source {
     password = stpw
     schema = {
       table = "inventory.products"
+      primaryKey {
+        name = "id"
+        columnNames = ["_id"]
+      }
       fields {
         "_id" : string,
         "name" : string,
@@ -227,7 +232,6 @@ source {
   }
 }
 
-# Console printing of the read Mongodb data
 sink {
   Console {
     parallelism = 1
@@ -270,7 +274,7 @@ sink {
   jdbc {
     url = "jdbc:mysql://mysql_cdc_e2e:3306"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "st_user"
+    username = "st_user"
     password = "seatunnel"
 
     generate_sink_sql = true
@@ -284,7 +288,7 @@ sink {
 
 ## Multi-table Synchronization
 
-The following example demonstrates how to create a data synchronization job that read the cdc data of multiple library tables mongodb and prints it on the local client:
+The following example demonstrates how to read CDC data from multiple MongoDB collections and write each collection to the matching MySQL table. The sink table uses `${table_name}`, so `inventory.products` and `inventory.orders` are routed to their own target tables.
 
 ```hocon
 env {
@@ -329,9 +333,44 @@ source {
   }
 }
 
-# Console printing of the read Mongodb data
 sink {
-  Console {
+  jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+## CDC Metadata Fields
+
+MongoDB CDC exposes metadata fields that can be used by the `Metadata` transform:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| database | STRING | Source database name. |
+| table | STRING | Source collection name. |
+| rowKind | STRING | Change type, such as insert, update, or delete. |
+| ts_ms | LONG | Source event timestamp in milliseconds. |
+| delay | LONG | Delay between event time and processing time in milliseconds. |
+
+Example:
+
+```hocon
+transform {
+  Metadata {
+    metadata_fields {
+      Database = database
+      Table = table
+      RowKind = rowKind
+      EventTime = ts_ms
+      Delay = delay
+    }
   }
 }
 ```

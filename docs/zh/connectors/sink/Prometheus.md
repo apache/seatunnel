@@ -52,11 +52,15 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
 | batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前最多缓存的行数。 |
 | flush_interval              | Long   | 否       | 300000 | 最大刷新间隔，单位毫秒。 |
+| multi_table_sink_replica    | Int    | 否       | 1      | 多表写入时，每张表使用的写入器副本数。 |
 | common-options              | Config | 否       | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 
 ### key_label
 
 对应字段建议为 `map<string, string>`，会被转换为 Prometheus 标签。建议在 map 中包含 `__name__`，用来表示指标名。
+
+Sink 会自动补充 remote write 需要的请求头：`Content-type`、`Content-Encoding` 和
+`X-Prometheus-Remote-Write-Version`。
 
 ### key_timestamp
 
@@ -66,6 +70,10 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 - `bigint`：按毫秒级时间戳处理
 - `double`：按 Unix 秒级时间戳处理，并转换为毫秒
 - `string`：按毫秒级时间戳解析
+
+### multi_table_sink_replica
+
+多表写入时，每张表使用的 Sink Writer 副本数。默认值为 `1`；只有当单张表需要更高写入并行度时才建议调大。
 
 ## 示例
 

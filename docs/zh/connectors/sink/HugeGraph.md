@@ -10,12 +10,21 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 该连接器支持将数据作为顶点或边写入，提供了从关系数据模型到图结构的灵活映射。它专为高性能数据加载而设计。
 
-## 特性
+## 主要特性
 
-- **批量写入**: 数据分批写入，以实现高吞吐量。
-- **灵活映射**: 支持将源字段灵活映射到顶点/边属性。
-- **顶点和边写入**: 可以将数据作为顶点或边写入。
-- **自动创建Schema**: 如果不存在，可以自动创建图Schema元素（属性键、顶点标签、边标签）。
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且可以按 `batch_size` 或 `batch_interval_ms` 刷新缓存数据。
+
+:::caution
+
+运行任务前，需要先在 HugeGraph 中创建好对应的属性键、顶点标签和边标签。`schema_config` 只负责把 SeaTunnel 字段映射到已有图结构，不会自动创建 HugeGraph Schema。
+
+:::
 
 ## 配置选项
 
@@ -24,7 +33,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `host`              | String  | 是       | -      | HugeGraph服务器的主机。                                                |
 | `port`              | Integer | 是       | -      | HugeGraph服务器的端口。                                                |
 | `graph_name`        | String  | 是       | -      | 要写入的图的名称。                                                     |
-| `graph_space`       | String  | 是       | -      | 要操作的图的图空间。                                                   |
+| `graph_space`       | String  | 否       | -      | 要操作的图的图空间。                                                   |
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
@@ -40,20 +49,23 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `selected_fields`  | List   | 否       | -      | 要从输入数据中选择的字段列表。如果未指定，将使用所有字段。           |
 | `ignored_fields`   | List   | 否       | -      | 要从输入数据中忽略的字段列表。与`selected_fields`互斥。              |
 
+`selected_fields` 和 `ignored_fields` 会在字段映射到 HugeGraph 之前生效。请保留 `idFields`、`sourceConfig.idFields`、`targetConfig.idFields`、`mapping.fieldMapping` 或 `mapping.sortKeys` 会用到的字段，否则连接器无法生成顶点或边的 ID。
+
 ### Schema配置 (`schema_config`)
 
-`schema_config`列表中的每个对象都定义了从源数据到HugeGraph中特定顶点或边标签的映射。
+`schema_config` 定义一个输入流如何映射到 HugeGraph 中的某个顶点标签或边标签。
 
 | 名称               | 类型                | 是否必须 | 默认值  | 描述                                                         |
 | ------------------ | ------------------- | -------- | ------- |------------------------------------------------------------|
 | `type`             | String              | 是       | -       | 要映射到的图元素的类型。必须是`VERTEX`或`EDGE`。                            |
 | `label`            | String              | 是       | -       | HugeGraph中顶点或边的标签。                                         |
+| `tablePath`        | String              | 否       | -       | Schema 配置中携带的预留表路径值。                                   |
 | `properties`       | `List<String>`        | 否       | -       | 顶点或边的源字段名称列表。                                              |
 | `ttl`              | Long                | 否       | -       | 顶点或边的生存时间（秒）。                                              |
 | `ttlStartTime`     | String              | 否       | -       | TTL的开始时间。                                                  |
-| `enableLabelIndex` | Boolean             | 否       | `false` | 是否为此标签启用标签索引。                                              |
+| `enableLabelIndex` | String              | 否       | -       | 预留的标签索引配置，会随 Schema 配置传入。                              |
 | `userdata`         | `Map<String, Object>` | 否       | -       | 与标签关联的用户定义数据。                                              |
-| `idStrategy`       | String              | 对于顶点 | -       | 顶点的ID生成策略。支持的值：`PRIMARY_KEY`、`CUSTOMIZE_UUID`、`AUTOMATIC`。 |
+| `idStrategy`       | String              | 对于顶点 | -       | 顶点的 ID 生成策略，例如：`PRIMARY_KEY`、`CUSTOMIZE_STRING`、`CUSTOMIZE_NUMBER`、`CUSTOMIZE_UUID`、`AUTOMATIC`。 |
 | `idFields`         | `List<String>`        | 对于顶点 | -       | 用于生成顶点ID的源字段名称列表。                                          |
 | `sourceConfig`     | Object              | 对于边   | -       | 定义边的源顶点映射的对象。请参阅下面的`Source/Target Config`。                 |
 | `targetConfig`     | Object              | 对于边   | -       | 定义边的目标顶点映射的对象。请参阅下面的`Source/Target Config`。                |
@@ -83,7 +95,40 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `timeZone`        | String             | 否       | `GMT+8`      | 用于日期解析的时区。                                                                                                                                                      |
 | `sortKeys`         | `List<String>`       | 对于边   | -            | 用于对具有相同源和目标顶点的边进行排序的属性键列表。                                                                                                                      |
 
+## 支持的数据类型
+
+写入前，连接器会校验 SeaTunnel 行结构和 HugeGraph 中已经存在的 Schema 是否匹配。
+
+| SeaTunnel 类型 | HugeGraph 属性类型 |
+|----------------|--------------------|
+| `BYTES`        | `BLOB`             |
+| `TINYINT`      | `INT`              |
+| `SMALLINT`     | `INT`              |
+| `INT`          | `INT`              |
+| `BIGINT`       | `LONG`             |
+| `FLOAT`        | `FLOAT`            |
+| `DOUBLE`       | `DOUBLE`           |
+| `BOOLEAN`      | `BOOLEAN`          |
+| `DATE`         | `DATE`             |
+| `TIMESTAMP`    | `DATE`             |
+| `ARRAY`        | HugeGraph 中非单值属性，且数组元素类型兼容 |
+| `STRING`       | `TEXT`             |
+| `DECIMAL`      | `TEXT`             |
+| `MAP`          | `TEXT`             |
+| `ROW`          | `TEXT`             |
+| `TIME`         | `TEXT`             |
+| `NULL`         | `TEXT`             |
+
+## 写入行为说明
+
+- 写入顶点时，`idStrategy` 决定如何生成顶点 ID。`PRIMARY_KEY` 会按 HugeGraph 主键格式拼接所有 `idFields`，`CUSTOMIZE_STRING` 会用 `:` 拼接字段，`CUSTOMIZE_NUMBER` 需要一个数字字段，`CUSTOMIZE_UUID` 需要一个 UUID 字段。
+- 写入边时，连接器会从 HugeGraph 中已有的源顶点标签和目标顶点标签读取 ID 策略。`sourceConfig.idFields` 和 `targetConfig.idFields` 必须能还原对应顶点 ID。
+- `INSERT` 会写入新的顶点或边，`UPDATE_AFTER` 会更新已有图元素，`DELETE` 会删除图元素。删除行只需要包含能生成图元素 ID 的字段。
+- `mapping.nullValues` 中列出的字符串会被当作空值处理，写入时会跳过这些属性。
+
 ## 使用示例
+
+下面示例默认 HugeGraph 中已经提前创建好对应 Schema。
 
 ### 1. 写入顶点
 
