@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Tag("integration")
 @DisplayName("HugeGraph Source Integration Tests")
-class HugeGraphIT {
+class HugeGraphITTest {
 
     @Test
     @Disabled(
