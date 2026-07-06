@@ -211,7 +211,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             String fieldName = rowType.getFieldName(i);
             switch (fieldName) {
                 case "id":
-                    fields[i] = edge.id();
+                    fields[i] = String.valueOf(edge.id());
                     break;
                 case "label":
                     fields[i] = edge.label();

@@ -164,8 +164,11 @@ class HugeGraphSourceReaderEdgeTest {
         assertEquals(2, collectedRows.size());
 
         SeaTunnelRow firstRow = collectedRows.get(0);
+        assertEquals("e1", firstRow.getField(0));
+        assertEquals("knows", firstRow.getField(1));
+        assertEquals("v1", firstRow.getField(2));
+        assertEquals("v2", firstRow.getField(3));
         assertEquals(2020, firstRow.getField(4));
-        assertEquals(null, firstRow.getField(3));
     }
 
     @Test
@@ -234,6 +237,50 @@ class HugeGraphSourceReaderEdgeTest {
         }
 
         assertEquals(0, collectedRows.size());
+    }
+
+    @Test
+    void testReadEdges_idNormalizedConsistentlyWithVertex() throws Exception {
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
+
+        Edge edge = mock(Edge.class);
+        when(edge.id()).thenReturn("e1");
+        when(edge.label()).thenReturn("knows");
+        when(edge.sourceId()).thenReturn("v1");
+        when(edge.targetId()).thenReturn("v2");
+        Map<String, Object> props = new HashMap<>();
+        when(edge.properties()).thenReturn(props);
+
+        List<Edge> edges = new ArrayList<>();
+        edges.add(edge);
+        when(mockClient.iterateEdges(anyString(), anyInt())).thenReturn(edges.iterator());
+
+        List<SeaTunnelRow> collectedRows = new ArrayList<>();
+        Collector<SeaTunnelRow> mockCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        collectedRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return null;
+                    }
+                };
+
+        reader.open();
+        try {
+            reader.internalPollNext(mockCollector);
+        } finally {
+            reader.close();
+        }
+
+        assertEquals(1, collectedRows.size());
+        SeaTunnelRow row = collectedRows.get(0);
+        Object idField = row.getField(0);
+        assertEquals("e1", idField);
     }
 
     private List<Edge> createMockEdges() {
