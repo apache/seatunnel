@@ -31,9 +31,9 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 
 使用 GoogleFirestore 连接器需要安装下面的依赖。可以通过 install-plugin.sh 安装，也可以从 Maven 中央仓库下载。
 
-| 数据源          | 支持版本 | 依赖 |
-|-----------------|----------|------|
-| GoogleFirestore | 通用     | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
+| 数据源          | 依赖 |
+|-----------------|------|
+| GoogleFirestore | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
 
 ## 选项
 
