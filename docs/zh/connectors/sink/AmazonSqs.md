@@ -36,6 +36,8 @@ Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一�
 | field_delimiter   | String | 否    | ,    | 当 `format = text` 时使用的字段分隔符。                                                                                       |
 | common-options    |        | 否    | -    | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                                      |
 
+`url` 可以指向 AWS SQS，也可以指向兼容 SQS 的本地服务，例如 `http://sqs-host:4566/000000000000/sink_queue`。
+
 ## 格式说明
 
 - `json`：把每行数据写成 JSON 对象。
@@ -43,6 +45,7 @@ Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一�
 - `canal_json`：写出 Canal JSON 消息，详见 [Canal JSON](../formats/canal-json.md)。
 - `debezium_json`：写出 Debezium JSON 消息，详见 [Debezium JSON](../formats/debezium-json.md)。
 - 当前 sink 只发送消息体，不提供 SQS message attributes、delay seconds、deduplication ID 或 message group ID 等配置。
+- `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 
 ## 任务示例
 

@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -58,6 +59,14 @@ partition.key.fields = ["c_int"]
 ### exactly.once
 
 The sink supports exactly-once writes through RocketMQ transactional messages. This behavior is disabled by default. Set `exactly.once = true` when the RocketMQ cluster and the job checkpoint settings are ready for transactional writes.
+
+When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
+
+### producer.send.sync
+
+`producer.send.sync = true` makes the producer wait for RocketMQ to acknowledge
+each send request. With the default value `false`, messages are sent
+asynchronously.
 
 ## Task Examples
 

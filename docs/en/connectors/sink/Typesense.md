@@ -17,18 +17,19 @@ or more primary key fields.
 
 ## Options
 
-|       Name       |  Type  | Required |        Default Value         |
-|------------------|--------|----------|------------------------------|
-| hosts            | array  | Yes      | -                            |
-| collection       | string | Yes      | -                            |
-| schema_save_mode | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode   | string | Yes      | APPEND_DATA                  |
-| primary_keys     | array  | No       |                              |
-| key_delimiter    | string | No       | `_`                          |
-| api_key          | string | Yes      | -                            |
-| max_retry_count  | int    | No       | 3                            |
-| max_batch_size   | int    | No       | 10                           |
-| common-options   |        | No       | -                            |
+| Name                     | Type   | Required | Default                      | Description                                                                                          |
+|--------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------|
+| hosts                    | array  | Yes      | -                            | Typesense node addresses in `host:port` format. Multiple hosts are supported.                        |
+| collection               | string | Yes      | -                            | Target collection name.                                                                              |
+| schema_save_mode         | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target collection schema before writing.                                           |
+| data_save_mode           | string | Yes      | APPEND_DATA                  | How to handle existing documents before writing.                                                     |
+| primary_keys             | array  | No       | -                            | Source fields used to build the Typesense document `id`.                                             |
+| key_delimiter            | string | No       | `_`                          | Delimiter used when `primary_keys` contains more than one field.                                     |
+| api_key                  | string | Yes      | -                            | Typesense API key.                                                                                   |
+| max_retry_count          | int    | No       | 3                            | Maximum retry count for one bulk request.                                                            |
+| max_batch_size           | int    | No       | 10                           | Maximum number of documents sent in one bulk request.                                                |
+| multi_table_sink_replica | int    | No       | -                            | Number of sink replicas used by the common multi-table sink routing mechanism.                       |
+| common-options           |        | No       | -                            | Common sink options.                                                                                 |
 
 ### hosts [array]
 
@@ -59,6 +60,11 @@ The maximum number of retry attempts for one batch request.
 
 The maximum number of documents sent in one batch.
 
+### multi_table_sink_replica [int]
+
+Common multi-table sink option. Configure it when a multi-table job needs more sink replicas for
+the Typesense writer.
+
 ### common options
 
 Common parameters for Sink plugins. Refer to [Common Sink Options](../common-options/sink-common-options.md) for more details.
@@ -69,6 +75,9 @@ Choose how to handle the target-side schema before starting the synchronization 
 - `RECREATE_SCHEMA`: Creates the table if it doesn’t exist, and deletes and recreates it if it does.
 - `CREATE_SCHEMA_WHEN_NOT_EXIST`: Creates the table if it doesn’t exist, skips creation if it does.
 - `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throws an error if the table doesn’t exist.
+
+Typesense collection creation uses the upstream SeaTunnel schema. Configure `primary_keys` when the
+generated document `id` must be stable across repeated writes.
 
 ### data_save_mode
 

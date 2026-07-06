@@ -1,16 +1,16 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq 数据接收器
+> RabbitMQ Sink 连接器
 
 ## 描述
 
-该数据接收器是将数据写入Rabbitmq。
+用于将数据写入 RabbitMQ 队列。
 
 ## 主要特性
 
-- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
@@ -38,23 +38,23 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ### host [string]
 
-Rabbitmq服务器地址
+RabbitMQ 服务器地址
 
 ### port [int]
 
-Rabbitmq服务器端口
+RabbitMQ 服务器端口
 
 ### virtual_host [string]
 
-virtual host – 连接broker使用的vhost
+virtual host，连接 broker 使用的 vhost
 
 ### username [string]
 
-连接broker时使用的用户名
+连接 broker 时使用的用户名
 
 ### password [string]
 
-连接broker时使用的密码
+连接 broker 时使用的密码
 
 `username` 和 `password` 需要一起配置。
 
@@ -123,7 +123,7 @@ Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-comm
 
 ## 示例
 
-simple:
+### 写入队列
 
 ```hocon
 env {
@@ -189,9 +189,9 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          durable = "true"
-          exclusive = "false"
-          auto_delete = "false"
+          durable = true
+          exclusive = false
+          auto_delete = false
           rabbitmq.config = {
             requested-heartbeat = 10
             connection-timeout = 10

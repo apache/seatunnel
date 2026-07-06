@@ -10,6 +10,8 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 该连接器是批处理源。DynamoDB 不像关系型数据库那样提供完整字段类型信息，所以必须在 SeaTunnel 中显式配置 schema。
 
+该 Source 使用 scan 请求读取表中当前已有的数据，不读取 DynamoDB Streams 或 CDC 变更事件。
+
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -21,17 +23,17 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 ## 选项
 
-| 名称                  | 类型   | 必填 | 默认值 |
-|-----------------------|--------|------|--------|
-| url                   | string | 是   | -      |
-| region                | string | 是   | -      |
-| access_key_id         | string | 是   | -      |
-| secret_access_key     | string | 是   | -      |
-| table                 | string | 是   | -      |
-| schema                | config | 是   | -      |
-| scan_item_limit       | int    | 否   | 1      |
-| parallel_scan_threads | int    | 否   | 2      |
-| common-options        |        | 否   | -      |
+| 名称                  | 类型   | 必填 | 默认值 | 说明                       |
+|-----------------------|--------|------|--------|----------------------------|
+| url                   | string | 是   | -      | DynamoDB 服务地址。         |
+| region                | string | 是   | -      | DynamoDB 所在的 AWS 区域。  |
+| access_key_id         | string | 是   | -      | AWS access key ID。         |
+| secret_access_key     | string | 是   | -      | AWS secret access key。     |
+| table                 | string | 是   | -      | 要扫描的 DynamoDB 表名。    |
+| schema                | config | 是   | -      | 要读取的 SeaTunnel 字段。   |
+| scan_item_limit       | int    | 否   | 1      | 每次 scan 请求返回的最大 item 数。 |
+| parallel_scan_threads | int    | 否   | 2      | parallel scan 的逻辑分片数。 |
+| common-options        | object | 否   | -      | Source 插件通用参数。       |
 
 ### url [string]
 
@@ -87,11 +89,15 @@ schema = {
 
 每次 DynamoDB scan 请求最多返回的 item 数量。
 
+较大的值可以减少请求次数，但也会增加每个读取批次占用的内存。
+
 ### parallel_scan_threads [int]
 
 DynamoDB parallel scan 使用的逻辑分片数量。
 
 这个值会影响源连接器如何拆分表扫描任务，通常需要结合任务并行度和表数据量设置。
+
+小表通常保留默认值即可。大表可以结合 `env.parallelism` 和 Source 的 `parallelism` 一起调大，让多个 reader 扫描不同分片。
 
 ### 通用选项
 
