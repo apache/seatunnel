@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.python;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 
@@ -74,9 +75,7 @@ public class PythonTransform extends MultipleFieldOutputTransform {
     /** Shuts down the external worker and releases temporary script files. */
     @Override
     public void close() {
-        if (processWorker != null) {
-            processWorker.close();
-        }
+        invalidateProcessWorker();
     }
 
     /**
@@ -88,6 +87,32 @@ public class PythonTransform extends MultipleFieldOutputTransform {
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         return getProcessWorker().processRow(inputRow);
+    }
+
+    /**
+     * Drops the cached worker after schema changes so the next open rebuilds Python-side field
+     * metadata and JSON converters against the new input table layout.
+     *
+     * @param event upstream schema change event
+     * @return event forwarded downstream unchanged
+     */
+    @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        SchemaChangeEvent mappedEvent = super.mapSchemaChangeEvent(event);
+        invalidateProcessWorker();
+        return mappedEvent;
+    }
+
+    /**
+     * Replaces the cached worker when the engine refreshes this transform from upstream's new
+     * produced catalog.
+     *
+     * @param inputCatalogTable latest upstream catalog table
+     */
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        invalidateProcessWorker();
     }
 
     /**
@@ -110,5 +135,15 @@ public class PythonTransform extends MultipleFieldOutputTransform {
             processWorker = new PythonProcessWorker(transformConfig, inputCatalogTable);
         }
         return processWorker;
+    }
+
+    /**
+     * Closes and discards the current worker so the next row rebuilds it from fresh schema state.
+     */
+    private void invalidateProcessWorker() {
+        if (processWorker != null) {
+            processWorker.close();
+            processWorker = null;
+        }
     }
 }

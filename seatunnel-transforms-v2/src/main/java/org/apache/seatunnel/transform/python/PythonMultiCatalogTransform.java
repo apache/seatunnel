@@ -73,4 +73,10 @@ public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransfor
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
         return new IdentityMapTransform(catalogTable);
     }
+
+    /** Closes every inner transform so Python subprocesses do not outlive the wrapper. */
+    @Override
+    public void close() {
+        transformMap.values().forEach(SeaTunnelTransform::close);
+    }
 }

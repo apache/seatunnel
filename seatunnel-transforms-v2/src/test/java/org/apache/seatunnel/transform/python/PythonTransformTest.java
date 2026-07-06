@@ -20,7 +20,9 @@ package org.apache.seatunnel.transform.python;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -40,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,12 +54,17 @@ class PythonTransformTest {
     /** Opened transforms that need explicit teardown because they own subprocesses. */
     private final List<PythonTransform> openedTransforms = new ArrayList<>();
 
+    /** Opened wrappers that may hold subprocess-backed inner transforms. */
+    private final List<PythonMultiCatalogTransform> openedWrappers = new ArrayList<>();
+
     /** Temporary directory used for path-based script tests. */
     @TempDir Path tempDir;
 
     /** Closes subprocess-backed transforms created by the test cases. */
     @AfterEach
     void tearDown() {
+        openedWrappers.forEach(PythonMultiCatalogTransform::close);
+        openedWrappers.clear();
         openedTransforms.forEach(PythonTransform::close);
         openedTransforms.clear();
     }
@@ -161,6 +169,73 @@ class PythonTransformTest {
                 "stderr collector thread should stop after the transform is closed");
     }
 
+    /** Verifies the factory-returned wrapper rebuilds the Python worker after schema changes. */
+    @Test
+    void testMultiCatalogWrapperSchemaChangeRebuildsWorkerContext() {
+        assumePythonAvailable();
+
+        CatalogTable inputTable = createCatalogTable();
+        PythonMultiCatalogTransform wrapper = createWrapper(inputTable, schemaChangeConfig());
+
+        SeaTunnelRow preOutput = wrapper.map(new SeaTunnelRow(new Object[] {1, "Alice", 20}));
+        Assertions.assertNotNull(preOutput);
+        Assertions.assertEquals(5, preOutput.getArity());
+        Assertions.assertNull(preOutput.getField(3));
+        Assertions.assertEquals(3, preOutput.getField(4));
+
+        wrapper.mapSchemaChangeEvent(
+                AlterTableAddColumnEvent.add(
+                        inputTable.getTableId(),
+                        PhysicalColumn.of(
+                                "vip_level",
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                true,
+                                null,
+                                null)));
+
+        SeaTunnelRow postOutput =
+                wrapper.map(new SeaTunnelRow(new Object[] {2, "Bob", 30, "gold"}));
+        Assertions.assertNotNull(postOutput);
+        Assertions.assertEquals(6, postOutput.getArity());
+        Assertions.assertEquals("gold", postOutput.getField(3));
+        Assertions.assertEquals("gold", postOutput.getField(4));
+        Assertions.assertEquals(4, postOutput.getField(5));
+    }
+
+    /** Verifies wrapper close delegates to the inner Python transform and releases its worker. */
+    @Test
+    void testMultiCatalogWrapperCloseStopsInnerPythonWorker() throws Exception {
+        assumePythonAvailable();
+
+        CatalogTable inputTable = createCatalogTable();
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "def process(row, context):\n" + "    return [row['name'], row['age'] + 1]\n");
+
+        PythonMultiCatalogTransform wrapper = createWrapper(inputTable, config);
+        SeaTunnelRow outputRow = wrapper.map(new SeaTunnelRow(new Object[] {1, "Alice", 20}));
+        Assertions.assertNotNull(outputRow);
+
+        PythonTransform innerTransform = getOnlyInnerPythonTransform(wrapper);
+        Object processWorker = readFieldValue(innerTransform, "processWorker");
+        Thread stderrCollectorThread =
+                (Thread) readFieldValue(processWorker, "stderrCollectorThread");
+        Assertions.assertNotNull(stderrCollectorThread);
+
+        wrapper.close();
+
+        long waitDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (stderrCollectorThread.isAlive() && System.nanoTime() < waitDeadlineNanos) {
+            stderrCollectorThread.join(100L);
+        }
+
+        Assertions.assertFalse(
+                stderrCollectorThread.isAlive(),
+                "wrapper close should stop the inner stderr collector thread");
+    }
+
     /** Verifies exactly one script source is configured for each transform instance. */
     @Test
     void testConfigRequiresExactlyOneScriptSource() {
@@ -190,6 +265,24 @@ class PythonTransformTest {
         transform.open();
         openedTransforms.add(transform);
         return transform;
+    }
+
+    /**
+     * Creates the factory-returned wrapper so tests exercise the same runtime shape used by the
+     * engine.
+     *
+     * @param inputTable input table for the wrapped transform
+     * @param config raw transform config
+     * @return wrapper containing one Python transform
+     */
+    private PythonMultiCatalogTransform createWrapper(
+            CatalogTable inputTable, Map<String, Object> config) {
+        PythonMultiCatalogTransform wrapper =
+                new PythonMultiCatalogTransform(
+                        Collections.singletonList(inputTable), ReadonlyConfig.fromMap(config));
+        wrapper.getProducedCatalogTable();
+        openedWrappers.add(wrapper);
+        return wrapper;
     }
 
     /**
@@ -242,6 +335,37 @@ class PythonTransformTest {
         return scriptConfig;
     }
 
+    /**
+     * Builds a config whose script reads a newly added upstream column and reports the Python
+     * worker's cached input-field count.
+     *
+     * @return config used to prove schema changes rebuild the worker context
+     */
+    private Map<String, Object> schemaChangeConfig() {
+        List<Map<String, String>> columns = new ArrayList<>();
+
+        Map<String, String> firstColumn = new LinkedHashMap<>();
+        firstColumn.put(PythonTransformConfig.DEST_FIELD.key(), "vip_level_seen");
+        firstColumn.put(PythonTransformConfig.DEST_TYPE.key(), "string");
+        columns.add(firstColumn);
+
+        Map<String, String> secondColumn = new LinkedHashMap<>();
+        secondColumn.put(PythonTransformConfig.DEST_FIELD.key(), "input_field_count");
+        secondColumn.put(PythonTransformConfig.DEST_TYPE.key(), "int");
+        columns.add(secondColumn);
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put(PythonTransformConfig.COLUMNS.key(), columns);
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "def process(row, context):\n"
+                        + "    return {\n"
+                        + "        'vip_level_seen': row.get('vip_level'),\n"
+                        + "        'input_field_count': len(context['input_fields']),\n"
+                        + "    }\n");
+        return config;
+    }
+
     /** Skips runtime-dependent tests when no python executable is available locally. */
     private void assumePythonAvailable() {
         Assumptions.assumeTrue(
@@ -277,8 +401,31 @@ class PythonTransformTest {
      */
     private Object readFieldValue(Object target, String fieldName)
             throws ReflectiveOperationException {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.get(target);
+        Class<?> currentClass = target.getClass();
+        while (currentClass != null) {
+            try {
+                Field field = currentClass.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                return field.get(target);
+            } catch (NoSuchFieldException ignored) {
+                currentClass = currentClass.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
+    }
+
+    /**
+     * Extracts the only inner Python transform from the multi-table wrapper for lifecycle checks.
+     *
+     * @param wrapper wrapper under test
+     * @return the only inner Python transform
+     * @throws ReflectiveOperationException when internal fields are inaccessible
+     */
+    @SuppressWarnings("unchecked")
+    private PythonTransform getOnlyInnerPythonTransform(PythonMultiCatalogTransform wrapper)
+            throws ReflectiveOperationException {
+        Map<String, Object> transformMap =
+                (Map<String, Object>) readFieldValue(wrapper, "transformMap");
+        return (PythonTransform) transformMap.values().iterator().next();
     }
 }
