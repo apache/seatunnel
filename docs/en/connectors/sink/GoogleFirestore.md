@@ -33,9 +33,9 @@ indexes in Google Cloud before running queries that need them.
 In order to use the GoogleFirestore connector, the following dependency is required.
 It can be downloaded via install-plugin.sh or from Maven central repository.
 
-| Datasource      | Supported Versions | Dependency |
-|-----------------|--------------------|------------|
-| GoogleFirestore | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
+| Datasource      | Dependency |
+|-----------------|------------|
+| GoogleFirestore | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
 
 ## Options
 
