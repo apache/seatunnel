@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /** Covers the main runtime contracts of the Python transform implementation. */
 class PythonTransformTest {
@@ -125,6 +127,38 @@ class PythonTransformTest {
         SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {1, "Alice", 20}));
 
         Assertions.assertNull(outputRow);
+    }
+
+    /** Verifies closing the transform also terminates the background stderr collector thread. */
+    @Test
+    void testCloseStopsStderrCollectorThread() throws Exception {
+        assumePythonAvailable();
+
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "def process(row, context):\n"
+                        + "    print('transform-started')\n"
+                        + "    return [row['name'], row['age'] + 1]\n");
+
+        PythonTransform transform = createOpenedTransform(config);
+        transform.map(new SeaTunnelRow(new Object[] {1, "Alice", 20}));
+
+        Object processWorker = readFieldValue(transform, "processWorker");
+        Thread stderrCollectorThread =
+                (Thread) readFieldValue(processWorker, "stderrCollectorThread");
+        Assertions.assertNotNull(stderrCollectorThread);
+
+        transform.close();
+
+        long waitDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (stderrCollectorThread.isAlive() && System.nanoTime() < waitDeadlineNanos) {
+            stderrCollectorThread.join(100L);
+        }
+
+        Assertions.assertFalse(
+                stderrCollectorThread.isAlive(),
+                "stderr collector thread should stop after the transform is closed");
     }
 
     /** Verifies exactly one script source is configured for each transform instance. */
@@ -231,5 +265,20 @@ class PythonTransformTest {
             }
             return false;
         }
+    }
+
+    /**
+     * Reads one private field value so the regression test can verify worker lifecycle details.
+     *
+     * @param target object that owns the field
+     * @param fieldName private field name
+     * @return current field value
+     * @throws ReflectiveOperationException when the field cannot be accessed
+     */
+    private Object readFieldValue(Object target, String fieldName)
+            throws ReflectiveOperationException {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 }
