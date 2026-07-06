@@ -72,7 +72,35 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Example
 
+Write rows to an Airtable table:
+
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        Name = string
+        Age = int
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = ["Alice", 30]
+      },
+      {
+        kind = INSERT
+        fields = ["Bob", 25]
+      }
+    ]
+  }
+}
+
 sink {
   Airtable {
     token = "patXXXXXXXX.XXXXXXXX"
@@ -80,6 +108,7 @@ sink {
     table = "Shipments"
     typecast = true
     batch_size = 10
+    request_interval_ms = 220
   }
 }
 ```
