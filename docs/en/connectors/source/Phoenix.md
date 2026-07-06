@@ -2,16 +2,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Phoenix
 
-> Phoenix source connector
+> JDBC Phoenix source connector
 
 ## Description
 
-Read Phoenix data through [Jdbc connector](Jdbc.md).
-Support Batch mode and Streaming mode. The tested Phoenix version is 4.xx and 5.xx
-On the underlying implementation, through the jdbc driver of Phoenix, execute the upsert statement to write data to HBase.
-Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper through JDBC, and the other is to connect to queryserver through JDBC thin client.
+Read Phoenix data through the [JDBC connector](Jdbc.md). Phoenix can be accessed with either the thick JDBC driver that connects through ZooKeeper or the thin JDBC driver that connects through Phoenix Query Server.
 
-> Tips: By default, the (thin) driver jar is used. If you want to use the (thick) driver  or other versions of Phoenix (thin) driver, you need to recompile the jdbc connector module
+The connector supports batch jobs. Streaming jobs can use Phoenix as a bounded JDBC source, but Phoenix Source does not continuously capture new changes.
+
+> By default, the connector uses the Phoenix thin driver bundled with the JDBC connector module. If you need the thick driver or another Phoenix thin-driver version, rebuild the JDBC connector module with that driver.
 
 ## Key features
 
@@ -27,42 +26,41 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-### driver [string]
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| driver | String | Yes | - | Phoenix JDBC driver class. Use `org.apache.phoenix.jdbc.PhoenixDriver` for the thick driver or `org.apache.phoenix.queryserver.client.Driver` for the thin driver. |
+| url | String | Yes | - | Phoenix JDBC URL. Thick-driver example: `jdbc:phoenix:localhost:2182/hbase`. Thin-driver example: `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`. |
+| query | String | Yes | - | SQL used to read data from Phoenix. Use this option to select the columns and rows that should be read. |
+| common-options | | No | - | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
-if you use phoenix (thick) driver the value is `org.apache.phoenix.jdbc.PhoenixDriver` or you use (thin) driver the value is `org.apache.phoenix.queryserver.client.Driver`
-
-### url [string]
-
-if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
+Because Phoenix Source is implemented by the shared JDBC Source, advanced JDBC source options such as `fetch_size`, `partition_column`, `partition_num`, `properties`, and `table_list` follow the same rules as [JDBC Source](Jdbc.md).
 
 ## Example
 
-use thick client drive
+### Thick Driver
 
+```hocon
+source {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "select age, name from test.SOURCE"
+  }
+}
 ```
-    Jdbc {
-        driver = org.apache.phoenix.jdbc.PhoenixDriver
-        url = "jdbc:phoenix:localhost:2182/hbase"
-        query = "select age, name from test.source"
-    }
 
-```
+### Thin Driver
 
-use thin client drive
-
-```
-Jdbc {
+```hocon
+source {
+  Jdbc {
     driver = org.apache.phoenix.queryserver.client.Driver
-    url = "jdbc:phoenix:thin:url=http://spark_e2e_phoenix_sink:8765;serialization=PROTOBUF"
-    query = "select age, name from test.source"
+    url = "jdbc:phoenix:thin:url=http://seatunnel_e2e_phoenix:8765;serialization=PROTOBUF"
+    query = "select age, name from test.SOURCE"
+  }
 }
 ```
 
 ## Changelog
 
 <ChangeLog />
-

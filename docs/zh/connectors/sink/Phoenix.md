@@ -2,59 +2,61 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Phoenix
 
-> Phoenix 数据接收器
+> JDBC Phoenix Sink 连接器
 
 ## 描述
 
-该接收器是通过 [Jdbc数据连接器](Jdbc.md)来写Phoenix数据，支持批和流两种模式。测试的Phoenix版本为4.xx和5.xx。
-在底层实现上，通过Phoenix的jdbc驱动，执行upsert语句向HBase写入数据。
-使用Java JDBC连接Phoenix有两种方式：其一是使用JDBC连接zookeeper，其二是通过JDBC瘦客户端连接查询服务器。
+通过 [JDBC 连接器](Jdbc.md) 将数据写入 Phoenix。Phoenix 写入通常使用 `UPSERT` 语句，并通过 Phoenix JDBC 驱动落到对应的 HBase 表。
 
-> 提示1: 该接收器默认使用的是（thin）驱动jar包。如果需要使用（thick）驱动或者其他版本的Phoenix（thin）驱动，需要重新编译jdbc数据接收器模块。
+Phoenix 可以通过两种 JDBC 方式连接：一种是 thick 驱动连接 ZooKeeper，另一种是 thin 驱动连接 Phoenix Query Server。
+
+> 默认情况下，JDBC 连接器模块使用 Phoenix thin 驱动。如果需要 thick 驱动或其他版本的 Phoenix thin 驱动，需要使用对应驱动重新编译 JDBC 连接器模块。
 >
-> 提示2: 该接收器还不支持精准一次语义（因为Phoenix还不支持XA事务）。
+> Phoenix Sink 不支持精确一次语义，因为当前 Phoenix JDBC 写入路径不支持 XA 事务。
 
 ## 主要特性
 
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## 接收器选项
+## Sink 选项
 
-### driver [string]
+| 名称 | 类型 | 是否必填 | 默认值 | 描述 |
+|------|------|----------|--------|------|
+| driver | String | 是 | - | Phoenix JDBC 驱动类。thick 驱动使用 `org.apache.phoenix.jdbc.PhoenixDriver`，thin 驱动使用 `org.apache.phoenix.queryserver.client.Driver`。 |
+| url | String | 是 | - | Phoenix JDBC URL。thick 驱动示例：`jdbc:phoenix:localhost:2182/hbase`；thin 驱动示例：`jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`。 |
+| query | String | 是 | - | 写入 Phoenix 的 SQL。Phoenix 通常使用 `UPSERT INTO ... VALUES (?, ?)`，也可以使用 JDBC Sink 支持的命名参数。 |
+| batch_size | Int | 否 | 1000 | 当缓存数据行数达到该值时刷新写入。 |
+| batch_interval_ms | Long | 否 | 1000 | 即使未达到 `batch_size`，达到该时间间隔后也会刷新写入。 |
+| common-options | | 否 | - | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
-phoenix（thick）驱动：`org.apache.phoenix.jdbc.PhoenixDriver`
-phoenix（thin）驱动：`org.apache.phoenix.queryserver.client.Driver`
-
-### url [string]
-
-phoenix（thick）驱动：`jdbc:phoenix:localhost:2182/hbase`
-phoenix（thin）驱动：`jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
-
-### common options
-
-Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
+Phoenix Sink 基于共享 JDBC Sink 实现，因此 `max_retries`、`properties`、`field_ide`、`auto_commit` 等高级 JDBC 写入参数遵循 [JDBC Sink](Jdbc.md) 的规则。不要为 Phoenix 开启 `is_exactly_once`，因为 Phoenix JDBC 写入路径不支持 XA 事务。
 
 ## 示例
 
-thick驱动：
+### Thick 驱动
 
+```hocon
+sink {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "upsert into test.SINK(age, name) values(?, ?)"
+  }
+}
 ```
-    Jdbc {
-        driver = org.apache.phoenix.jdbc.PhoenixDriver
-        url = "jdbc:phoenix:localhost:2182/hbase"
-        query = "upsert into test.sink(age, name) values(?, ?)"
-    }
 
-```
+### Thin 驱动
 
-thin驱动：
-
-```
-Jdbc {
+```hocon
+sink {
+  Jdbc {
     driver = org.apache.phoenix.queryserver.client.Driver
-    url = "jdbc:phoenix:thin:url=http://spark_e2e_phoenix_sink:8765;serialization=PROTOBUF"
-    query = "upsert into test.sink(age, name) values(?, ?)"
+    url = "jdbc:phoenix:thin:url=http://seatunnel_e2e_phoenix:8765;serialization=PROTOBUF"
+    query = "upsert into test.SINK(age, name) values(?, ?)"
+    batch_size = 1000
+    batch_interval_ms = 2000
+  }
 }
 ```
 

@@ -32,7 +32,8 @@ semantics (using XA transaction guarantee).
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -87,6 +88,7 @@ semantics (using XA transaction guarantee).
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                                                                                                                                                                                                                                                                                                                                                              |
+| batch_interval_ms                         | Long    | No       | 1000                         | Flush buffered rows when this interval is reached, even if `batch_size` has not been reached.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate sql statements based on the database table you want to write to.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, PostgreSQL is `org.postgresql.xa.PGXADataSource`, and<br/>please refer to appendix for other data sources                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -101,6 +103,7 @@ semantics (using XA transaction guarantee).
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | use_copy_statement                        | Boolean | No       | false                        | Use PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` for bulk import. This option takes precedence over the regular INSERT / UPSERT path, requires a JDBC driver connection that exposes `getCopyAPI()`, and does not support `MAP`, `ARRAY`, or `ROW` types.                                                                                                                                                                                                                                                                                                                |
+| multi_table_sink_replica                  | Int     | No       | 1                            | Number of sink writer replicas for multi-table jobs. This is useful when CDC or table-list jobs write multiple target tables and need more write-side parallelism.                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### table [string]
 
@@ -252,6 +255,47 @@ sink {
         primary_keys = ["id","name"]
         field_ide = UPPERCASE
     }
+}
+```
+
+### Timer Flush
+
+Use `batch_interval_ms` when the input rate is low and you do not want records to wait until `batch_size` is reached.
+
+```hocon
+sink {
+    Jdbc {
+        url = "jdbc:postgresql://localhost:5432/test"
+        driver = org.postgresql.Driver
+        username = root
+        password = 123456
+        generate_sink_sql = true
+        database = test
+        table = public.sink_batch_interval_timer
+        primary_keys = ["pk_id"]
+        batch_size = 100000
+        batch_interval_ms = 2000
+    }
+}
+```
+
+### CDC Multi-table Write
+
+For CDC jobs that write multiple PostgreSQL target tables, `multi_table_sink_replica` can increase sink-side writer replicas.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/shop"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = shop
+    table = "public.${table_name}"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

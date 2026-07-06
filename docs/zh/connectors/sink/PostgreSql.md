@@ -30,7 +30,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |
@@ -83,6 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec | Int     | 否   | 30                           | 用于验证连接的数据库操作完成的等待时间（秒）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                  | Int     | 否   | 0                            | 提交失败的重试次数（executeBatch）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | batch_size                   | Int     | 否   | 1000                         | 对于批量写入，当缓冲记录的数量达到 `batch_size` 或时间达到 `checkpoint.interval`<br/>时，数据将刷新到数据库。                                                                                                                                                                                                                                                                                                                                                                                              |
+| batch_interval_ms            | Long    | 否   | 1000                         | 即使未达到 `batch_size`，达到该时间间隔后也会刷新缓存数据。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | is_exactly_once              | Boolean | 否   | false                        | 是否启用精确一次语义，将使用 XA 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | generate_sink_sql            | Boolean | 否   | false                        | 根据要写入的数据库表生成 SQL 语句。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | xa_data_source_class_name    | String  | 否   | -                            | 数据库驱动的 XA 数据源类名，例如，PostgreSQL 是 `org.postgresql.xa.PGXADataSource`，并<br/>请参阅附录以获取其他数据源。                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -97,6 +99,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                   | String  | 否   | -                            | 当 `data_save_mode` 选择 `CUSTOM_PROCESSING` 时，您应该填写 `CUSTOM_SQL` 参数。此参数通常填入可执行的 SQL。SQL 将在同步任务之前执行。                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                | Boolean | 否   | true                         | 通过主键存在启用 upsert，如果任务没有重复数据，设置此参数为 `false` 可以加快数据导入。                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | use_copy_statement           | Boolean | 否   | false                        | 直接使用 PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` 进行批量导入。该选项优先级高于常规 INSERT / UPSERT 路径；要求 JDBC 驱动连接对象提供 `getCopyAPI()`，且当前不支持 `MAP`、`ARRAY`、`ROW` 类型。                                                                                                                                                                                                                                                                                                                                            |
+| multi_table_sink_replica     | Int     | 否   | 1                            | 多表写入任务的 Sink Writer 副本数。CDC 或 table-list 任务写入多张目标表时，可以用它提高写入侧并发。                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### table [字符串]
 
@@ -248,6 +251,47 @@ sink {
         primary_keys = ["id","name"]
         field_ide = UPPERCASE
     }
+}
+```
+
+### 定时刷新
+
+当输入速率较低，不希望数据一直等到 `batch_size` 才写入时，可以配置 `batch_interval_ms`。
+
+```hocon
+sink {
+    Jdbc {
+        url = "jdbc:postgresql://localhost:5432/test"
+        driver = org.postgresql.Driver
+        username = root
+        password = 123456
+        generate_sink_sql = true
+        database = test
+        table = public.sink_batch_interval_timer
+        primary_keys = ["pk_id"]
+        batch_size = 100000
+        batch_interval_ms = 2000
+    }
+}
+```
+
+### CDC 多表写入
+
+CDC 任务写入多张 PostgreSQL 目标表时，可以使用 `multi_table_sink_replica` 增加写入侧副本数。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/shop"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = shop
+    table = "public.${table_name}"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 
