@@ -6,303 +6,97 @@ import ChangeLog from '../changelog/connector-http-notion.md';
 
 ## Description
 
-Used to read data from Notion.
+The Notion source connector reads data from Notion HTTP APIs. It is built on the HTTP source connector and automatically adds the Notion `Authorization` and `Notion-Version` headers from `password` and `version`.
 
-## Key features
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Supported Data Source Info
 
-|            name             |  type   | required | default value |
-|-----------------------------|---------|----------|---------------|
-| url                         | String  | Yes      | -             |
-| password                    | String  | Yes      | -             |
-| version                     | String  | Yes      | -             |
-| method                      | String  | No       | get           |
-| schema.fields               | Config  | No       | -             |
-| format                      | String  | No       | json          |
-| params                      | Map     | No       | -             |
-| body                        | String  | No       | -             |
-| json_field                  | Config  | No       | -             |
-| content_json                | String  | No       | -             |
-| poll_interval_millis        | int     | No       | -             |
-| retry                       | int     | No       | -             |
-| retry_backoff_multiplier_ms | int     | No       | 100           |
-| retry_backoff_max_ms        | int     | No       | 10000         |
-| enable_multi_lines          | boolean | No       | false         |
-| common-options              | config  | No       | -             |
+| Datasource | Dependency |
+|------------|------------|
+| Notion     | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-notion) |
 
-### url [String]
+## Source Options
 
-http request url
+| Name                          | Type    | Required | Default | Description |
+|-------------------------------|---------|----------|---------|-------------|
+| url                           | String  | Yes      | -       | Notion API request URL. |
+| password                      | String  | Yes      | -       | Notion integration token. The connector writes it to the `Authorization: Bearer ...` header. |
+| version                       | String  | Yes      | -       | Notion API version, for example `2022-06-28`. The connector writes it to the `Notion-Version` header. |
+| method                        | String  | No       | GET     | HTTP request method. `GET` and `POST` are supported. |
+| schema                        | Config  | No       | -       | SeaTunnel schema. Required when `format = json`. |
+| schema.fields                 | Config  | No       | -       | Output field names and types. |
+| format                        | String  | No       | text    | Response format. Supports `json`, `text`, and `binary`. Notion API reads normally use `json`. |
+| content_field                 | String  | No       | -       | JSONPath used to extract a JSON object or array before parsing it with `schema`. |
+| json_field                    | Config  | No       | -       | JSONPath mapping for individual output fields. Use it together with `schema`. |
+| headers                       | Map     | No       | -       | Extra HTTP headers. Notion authentication headers from `password` and `version` are added by the connector. |
+| params                        | Map     | No       | -       | HTTP query parameters. |
+| body                          | String  | No       | -       | HTTP request body. Usually used with `method = POST`. |
+| pageing                       | Config  | No       | -       | Pagination settings. Keep the option name spelling as `pageing`. |
+| poll_interval_millis          | Int     | No       | -       | Request interval in streaming jobs, in milliseconds. |
+| retry                         | Int     | No       | -       | Maximum retry count when the request fails with `IOException`. |
+| retry_backoff_multiplier_ms   | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms          | Int     | No       | 10000   | Maximum retry backoff in milliseconds. |
+| enable_multi_lines            | Boolean | No       | false   | Whether to split text responses by line. |
+| connect_timeout_ms            | Int     | No       | 12000   | HTTP connection timeout in milliseconds. |
+| socket_timeout_ms             | Int     | No       | 60000   | HTTP socket timeout in milliseconds. |
+| json_filed_missed_return_null | Boolean | No       | false   | When a JSON field is missing, return null instead of failing. Keep the option name spelling as `json_filed_missed_return_null`. |
+| common-options                | Config  | No       | -       | Source plugin common options. See [Source Common Options](../common-options/source-common-options.md). |
 
-### password [String]
+## Option Notes
 
-API key for login, you can get more detail at this link:
-
-https://developers.notion.com/docs/authorization
-
-### version [String]
-
-The Notion API is versioned. API versions are named for the date the version is released
-
-### method [String]
-
-http request method, only supports GET, POST method
-
-### params [Map]
-
-http params
-
-### body [String]
-
-http body
-
-### poll_interval_millis [int]
-
-request http api interval(millis) in stream mode
-
-### retry [int]
-
-The max retry times if request http return to `IOException`
-
-### retry_backoff_multiplier_ms [int]
-
-The retry-backoff times(millis) multiplier if request http failed
-
-### retry_backoff_max_ms [int]
-
-The maximum retry-backoff times(millis) if request http failed
-
-### format [String]
-
-the format of upstream data, now only support `json` `text`, default `json`.
-
-when you assign format is `json`, you should also assign schema option, for example:
-
-upstream data is the following:
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-you should assign schema as the following:
-
-```hocon
-
-schema {
-    fields {
-        code = int
-        data = string
-        success = boolean
-    }
-}
-
-```
-
-connector will generate data as the following:
-
-| code |    data     | success |
-|------|-------------|---------|
-| 200  | get success | true    |
-
-when you assign format is `text`, connector will do nothing for upstream data, for example:
-
-upstream data is the following:
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-connector will generate data as the following:
-
-|                         content                          |
-|----------------------------------------------------------|
-| {"code":  200, "data":  "get success", "success":  true} |
-
-### schema [Config]
-
-#### fields [Config]
-
-The schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
-
-### content_json [String]
-
-This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
-
-If your return data looks something like this.
-
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
-      }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
-    }
-  },
-  "expensive": 10
-}
-```
-
-You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
-
-```json
-[
-  {
-    "category": "reference",
-    "author": "Nigel Rees",
-    "title": "Sayings of the Century",
-    "price": 8.95
-  },
-  {
-    "category": "fiction",
-    "author": "Evelyn Waugh",
-    "title": "Sword of Honour",
-    "price": 12.99
-  }
-]
-```
-
-Then you can get the desired result with a simpler schema,like
-
-```hocon
-Http {
-  url = "http://mockserver:1080/contentjson/mock"
-  method = "GET"
-  format = "json"
-  content_field = "$.store.book.*"
-  schema = {
-    fields {
-      category = string
-      author = string
-      title = string
-      price = string
-    }
-  }
-}
-```
-
-Here is an example:
-
-- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-
-### json_field [Config]
-
-This parameter helps you configure the schema,so this parameter must be used with schema.
-
-If your data looks something like this:
-
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
-      }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
-    }
-  },
-  "expensive": 10
-}
-```
-
-You can get the contents of 'book' by configuring the task as follows:
-
-```hocon
-source {
-  Http {
-    url = "http://mockserver:1080/jsonpath/mock"
-    method = "GET"
-    format = "json"
-    json_field = {
-      category = "$.store.book[*].category"
-      author = "$.store.book[*].author"
-      title = "$.store.book[*].title"
-      price = "$.store.book[*].price"
-    }
-    schema = {
-      fields {
-        category = string
-        author = string
-        title = string
-        price = string
-      }
-    }
-  }
-}
-```
-
-- Test data can be found at this link [mockserver-config.json](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_jsonpath_to_assert.conf](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
+- `format = json` requires `schema`; otherwise the connector reads the response as a single `content` text field.
+- Notion list APIs commonly return records inside `results`. Use `content_field = "$.results.*"` to parse each returned object as one SeaTunnel row.
+- Nested objects can be described in `schema.fields`, for example `person = { email = string }`.
+- This connector is source-only. It does not provide a sink connector, CDC, multi-table split discovery, or exactly-once guarantees.
+- Do not put secrets directly in shared configuration files. Use your deployment platform's secret management when possible.
 
 ## Example
 
 ```hocon
-Notion {
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Notion {
+    plugin_output = "notion_users"
     url = "https://api.notion.com/v1/users"
-    password = "SeaTunnel-test"
+    password = "YOUR_NOTION_TOKEN"
     version = "2022-06-28"
+    method = "GET"
+    format = "json"
     content_field = "$.results.*"
     schema = {
-       fields {
-          object = string
-          id = string
-          type = string
-          person = {
-              email = string
-          }
-          avatar_url = string
-       }
+      fields {
+        object = string
+        id = string
+        type = string
+        person = {
+          email = string
+        }
+        name = string
+        avatar_url = string
+      }
     }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "notion_users"
+  }
 }
 ```
 
 ## Changelog
 
 <ChangeLog />
-
