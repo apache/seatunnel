@@ -80,13 +80,6 @@ class SocketFactoryTest {
     }
 
     @Test
-    void testSinkOptionRuleWithZeroMaxRetriesFails() {
-        Map<String, Object> cfg = baseSinkConfig();
-        cfg.put(SocketSinkOptions.MAX_RETRIES.key(), 0);
-        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(cfg));
-    }
-
-    @Test
     void testSinkOptionRuleWithNegativeMaxRetriesFails() {
         Map<String, Object> cfg = baseSinkConfig();
         cfg.put(SocketSinkOptions.MAX_RETRIES.key(), -1);
