@@ -223,20 +223,17 @@ exit;
 
 |                      参数名称                 |   类型   | 是否必选   | 默认值 | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|--------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | 是      | -       | JDBC 连接的 URL。例如：`jdbc:oracle:thin:datasource01:1523:xe`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| url                                       | String   | 是      | -       | JDBC 连接的 URL，例如：`jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | username                                  | String   | 是      | -       | 连接数据库服务器时使用的数据库用户名。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | password                                  | String   | 是      | -       | 连接数据库服务器时使用的数据库密码。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | 否      | -       | 要监控的数据库名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | schema-names                              | List     | 否      | -       | 要监控的数据库 Schema 名称。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| table-names                               | List     | 是      | -       | 要监控的数据库表名。表名需要包含数据库名，例如：`database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| table-names-config                        | List     | 否      | -       | 表配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | Enum     | 否      | INITIAL | Oracle CDC 使用者的可选启动模式，有效枚举值为 `initial`、`earliest`、`latest`、`timestamp` 和 `specific`。<br/> `initial`：启动时同步历史数据，然后同步增量数据。<br/> `earliest`：从尽可能早的偏移量启动。<br/> `latest`：从最新的偏移量启动。<br/> `specific`：从用户提供的特定偏移量启动。                                                                                                                                                                                                          |
+| table-names                               | List     | 条件必填 | -       | 要监控的数据库表名，建议使用 `database.schema.table` 格式，例如：`ORCLCDB.DEBEZIUM.FULL_TYPES`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| table-names-config                        | List     | 否      | -       | 按表单独配置。例如：`[{"table": "ORCLCDB.DEBEZIUM.FULL_TYPES","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| startup.mode                              | Enum     | 否      | INITIAL | Oracle CDC 使用者的可选启动模式，有效枚举值为 `initial`、`latest` 和 `timestamp`。<br/> `initial`：启动时同步历史数据，然后同步增量数据。<br/> `latest`：从最新偏移量启动，并跳过初始快照。<br/> `timestamp`：从 `startup.timestamp` 解析出的 SCN 启动。                                                                                                                                                                                                          |
 | startup.timestamp                         | Long     | 否      | -       | 从指定的时间戳（自 Unix 纪元以来的毫秒数）启动。当 `startup.mode = timestamp` 时，该时间戳会按 `server-time-zone` 转换。**注意，当 `startup.mode` 选项使用 `timestamp` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                      |
-| startup.specific-offset.file              | String   | 否      | -       | 从指定的 binlog 文件名启动。**注意，当 `startup.mode` 选项使用 `specific` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| startup.specific-offset.pos               | Long     | 否      | -       | 从指定的 binlog 文件位置启动。**注意，当 `startup.mode` 选项使用 `specific` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| stop.mode                                 | Enum     | 否      | NEVER   | Oracle CDC 使用者的可选停止模式，有效枚举值为 `never`、`latest` 或 `specific`。<br/> `never`：实时任务不停止源。<br/> `latest`：从最新的偏移量停止。<br/> `specific`：从用户提供的特定偏移量停止。                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| stop.specific-offset.file                 | String   | 否      | -       | 从指定的 binlog 文件名停止。**注意，当 `stop.mode` 选项使用 `specific` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| stop.specific-offset.pos                  | Long     | 否      | -       | 从指定的 binlog 文件位置停止。**注意，当 `stop.mode` 选项使用 `specific` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| stop.mode                                 | Enum     | 否      | NEVER   | Oracle CDC 使用者的可选停止模式。当前唯一有效值是 `never`，因此流式 Oracle CDC source 会一直运行，直到任务被停止。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | snapshot.split.size                       | Integer  | 否      | 8096    | 表快照的拆分大小（行数），在读取表快照时，捕获的表将被拆分为多个拆分块。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否      | 1024    | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | server-time-zone                          | String   | 否      | UTC     | 数据库服务器中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 来确定服务器时区。该参数也用于将 `startup.timestamp` 转换为 SCN。若数据库时区与 JVM 时区不同，建议显式配置。                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -294,12 +291,16 @@ source {
   Oracle-CDC {
     plugin_output = "customers"
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES", "XE.DEBEZIUM.FULL_TYPES2"]
-    url = "jdbc:oracle:thin:@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES", "ORCLCDB.DEBEZIUM.FULL_TYPES2"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
   }
 }
 ```
@@ -312,11 +313,11 @@ source {
     plugin_output = "customers"
     use_select_count = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -331,11 +332,11 @@ source {
     plugin_output = "customers"
     skip_analyze = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -347,19 +348,43 @@ source {
 source {
   Oracle-CDC {
     plugin_output = "customers"
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
     table-names-config = [
       {
-        table = "XE.DEBEZIUM.FULL_TYPES"
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES"
         primaryKeys = ["ID"]
       }
     ]
+  }
+}
+```
+
+### 从时间戳启动
+
+使用 `startup.mode = "timestamp"` 时，Oracle CDC 会根据毫秒级 Unix 时间戳解析对应的 Oracle SCN 并从该位置启动。
+
+```hocon
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    startup.mode = "timestamp"
+    startup.timestamp = 1700000000000
+    server-time-zone = "UTC"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
   }
 }
 ```
@@ -396,7 +421,7 @@ source {
 }
 ```
 
-**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+**排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
 ### 支持以兼容 debezium 的格式发送到 kafka

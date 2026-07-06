@@ -4,86 +4,107 @@ import ChangeLog from '../changelog/connector-amazonsqs.md';
 
 > Amazon SQS sink connector
 
+## Description
+
+The Amazon SQS sink connector writes each incoming SeaTunnel row to one Amazon SQS queue URL. The row
+is serialized by the configured `format`, and the serialized value is sent as the SQS message body.
+
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Description
-
-Write data to Amazon SQS
-
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Sink Options
 
-|          Name           |  Type  | Required | Default |                                                                                                                                                                                                             Description                                                                                                                                                                                                             |
-|-------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                     | String | Yes      | -       | The Queue URL to read from Amazon SQS.                                                                                                                                                                                                                                                                                                                                                                                              |
-| region                  | String | No       | -       | The AWS region for the SQS service                                                                                                                                                                                                                                                                                                                                                                                                  |
-| format                  | String | No       | json    | Data format. The default format is json. Optional text format, canal-json and debezium-json.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
-| format_error_handle_way | String | No       | fail    | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                              |
-| field_delimiter         | String | No       | ,       | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                      |
+| Name              | Type   | Required | Default | Description                                                                                                                                                 |
+|-------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url               | String | Yes      | -       | Full SQS queue URL to write to, for example `https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue`.                                                   |
+| region            | String | Yes      | -       | AWS region of the SQS queue, for example `us-east-1`.                                                                                                       |
+| access_key_id     | String | No       | -       | AWS access key ID. Set it together with `secret_access_key` to use static credentials. Leave both unset to use the AWS default credential provider chain.     |
+| secret_access_key | String | No       | -       | AWS secret access key. Set it together with `access_key_id` to use static credentials.                                                                       |
+| format            | String | No       | json    | Message body format. Supported values are `json`, `text`, `canal_json`, and `debezium_json`.                                                                |
+| field_delimiter   | String | No       | ,       | Field delimiter used when `format = text`.                                                                                                                  |
+| common-options    |        | No       | -       | Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).                                            |
 
-## Task Example
+`url` can point to AWS SQS or to an SQS-compatible local service, for example `http://sqs-host:4566/000000000000/sink_queue`.
 
-```bash
+## Format Notes
+
+- `json` writes each row as a JSON object.
+- `text` joins row fields by `field_delimiter`.
+- `canal_json` writes Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
+- `debezium_json` writes Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
+- The sink sends only the message body. It does not expose SQS message attributes, delay seconds, deduplication ID, or message group ID options.
+- `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
+
+## Task Examples
+
+### Write JSON Messages
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   FakeSource {
+    row.num = 1
     schema = {
       fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_bytes = bytes
-        c_date = date
-        c_decimal = "decimal(38, 18)"
-        c_timestamp = timestamp
-        c_row = {
-          c_map = "map<string, string>"
-          c_array = "array<int>"
-          c_string = string
-          c_boolean = boolean
-          c_tinyint = tinyint
-          c_smallint = smallint
-          c_int = int
-          c_bigint = bigint
-          c_float = float
-          c_double = double
-          c_bytes = bytes
-          c_date = date
-          c_decimal = "decimal(38, 18)"
-          c_timestamp = timestamp
-        }
+        name = string
       }
     }
-    plugin_output = "fake"
+    rows = [
+      {
+        kind = INSERT
+        fields = ["test_name"]
+      }
+    ]
   }
 }
 
 sink {
   AmazonSqs {
-    url = "http://127.0.0.1:8000"
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
     region = "us-east-1"
-    queue = "queueName"
+    access_key_id = "AKIA..."
+    secret_access_key = "SECRET..."
+  }
+}
+```
+
+### Write Text Messages With a Custom Delimiter
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields {
+        artist = string
+        album = string
+        release_year = int
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
+    region = "us-east-1"
     format = text
-    field_delimiter = "|"  
+    field_delimiter = "|"
   }
 }
 ```

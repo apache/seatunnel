@@ -3598,4 +3598,58 @@ public class ConfigValidatorTest {
                 msg.contains("port value -1 is not positive"),
                 "extension exception message should be preserved: " + msg);
     }
+
+    @Test
+    public void testConditionalExpressionExceptionUsesWholeExpressionContext() {
+        ConditionExtension<Integer> throwingExtension =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value)
+                            throws OptionValidationException {
+                        if (value != null && value <= 0) {
+                            throw new OptionValidationException(
+                                    "port value %d is not positive", value);
+                        }
+                        return true;
+                    }
+                };
+
+        Expression expression =
+                Expression.of(
+                        Condition.of(MODE, "stream")
+                                .and(Conditions.extension(PORT, throwingExtension)));
+        OptionRule rule =
+                new OptionRule(
+                        Arrays.asList(MODE, PORT),
+                        Collections.emptyList(),
+                        Collections.singletonList(
+                                new ConditionRule(
+                                        expression,
+                                        new OptionRule(
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                Collections.emptyList()))),
+                        Collections.emptyList());
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MODE.key(), "stream");
+        config.put(PORT.key(), -1);
+
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule));
+        String msg = ex.getMessage();
+        Assertions.assertTrue(msg.contains("Option validation failed (1 error):"), msg);
+        Assertions.assertTrue(
+                msg.contains("[1] option: ('mode' == stream && 'port' must be positive)"), msg);
+        Assertions.assertTrue(msg.contains("type: conditional"), msg);
+        Assertions.assertTrue(msg.contains("constraint: port value -1 is not positive"), msg);
+    }
 }

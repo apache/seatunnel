@@ -52,6 +52,7 @@ public class JsonPathTransformFactory implements TableTransformFactory {
                                                 new ColumnsValidator())))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                 .build();
     }

@@ -6,72 +6,97 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## 支持的 Apache RocketMQ 版本
 
-- 4.9.0（或更新版本，供参考）
+- 4.9.0 或更新版本
 
-## 支持这些引擎
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 关键特性
+## 主要特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列裁剪](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-Apache RocketMQ 的源连接器。
+从 Apache RocketMQ topic 读取消息。连接器既可以用一套 schema 读取一个或多个 topic，也可以通过 `tables_configs` 读取多张不同结构的表。
 
-## 源选项
+## 源参数
 
-| 参数名                                 | 类型      | 必须 | 默认值                        | 描述                                                                                                                                                            |
-|-------------------------------------|---------|----|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topics                              | String  | 否  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。`topics` 与 `tables_configs` 同时只能配置一个。                                                                       |
-| tables_configs                      | List    | 否  | -                          | 多表模式配置列表。每项配置一张表，支持：`topics`、`format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets`、`ignore_parse_errors`。`topics` 与 `tables_configs` 同时只能配置一个。 |
-| table_list                          | List    | 否  | -                          | 已废弃，请使用 `tables_configs` 代替。                                                                                                                                  |
-| name.srv.addr                       | String  | 是  | -                          | RocketMQ 名称服务器集群地址。                                                                                                                                           |
-| tags                                | String  | 否  | -                          | RocketMQ 标签名称。如果有多个标签，使用 `,` 分隔，例如：`"tag1,tag2"`。                                                                                                             |
-| acl.enabled                         | Boolean | 否  | false                      | 如果为 true，启用访问控制，需要配置访问密钥和秘密密钥。                                                                                                                                |
-| access.key                          | String  | 否  |                            | 访问密钥                                                                                                                                                          |
-| secret.key                          | String  | 否  |                            | 当 ACL_ENABLED 为 true 时，秘密密钥不能为空。                                                                                                                              |
-| batch.size                          | int     | 否  | 100                        | RocketMQ 消费者拉取批大小                                                                                                                                             |
-| consumer.group                      | String  | 否  | SeaTunnel-Consumer-Group   | RocketMQ 消费者组 ID，用于区分不同的消费者组。                                                                                                                                 |
-| commit.on.checkpoint                | Boolean | 否  | true                       | 如果为 true，消费者的偏移量将在后台定期提交。                                                                                                                                     |
-| schema                              |         | 否  | -                          | 数据的结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                         |
-| format                              | String  | 否  | json                       | 数据格式。默认格式是 json。可选 text 格式。默认字段分隔符是 ","。如果自定义分隔符，添加 "field.delimiter" 选项。                                                                                     |
-| field.delimiter                     | String  | 否  | ,                          | 自定义数据格式的字段分隔符                                                                                                                                                 |
-| start.mode                          | String  | 否  | CONSUME_FROM_GROUP_OFFSETS | 消费者的初始消费模式，有几种类型：[CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP],[CONSUME_FROM_SPECIFIC_OFFSETS] |
-| start.mode.offsets                  |         | 否  |                            | 消费模式为 "CONSUME_FROM_SPECIFIC_OFFSETS" 所需的偏移量                                                                                                                  |
-| start.mode.timestamp                | Long    | 否  |                            | 消费模式为 "CONSUME_FROM_TIMESTAMP" 所需的时间。                                                                                                                         |
-| partition.discovery.interval.millis | long    | 否  | -1                         | 动态发现主题和分区的间隔。                                                                                                                                                 |
-| ignore_parse_errors                 | Boolean | 否  | false                      | 可选标志，跳过解析错误而不是失败。                                                                                                                                 |
-| consumer.poll.timeout.millis        | long    | 否  | 5000                       | 拉取消息的超时时间（毫秒）。                                                                                                                                       |
-| common-options                      | config  | 否  | -                          | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                           |
+| 参数名 | 类型 | 是否必填 | 默认值 | 描述 |
+|--------|------|----------|--------|------|
+| name.srv.addr | String | 是 | - | RocketMQ NameServer 地址，例如 `localhost:9876`。 |
+| topics | String | 否 | - | topic 名称，多个 topic 使用逗号分隔，例如 `"topic_a,topic_b"`。`topics`、`tables_configs` 和 `table_list` 只能配置其中一个。 |
+| tables_configs | List | 否 | - | 多表读取配置。每一项必须包含 `topics`，并可配置 `format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets` 和 `ignore_parse_errors`。 |
+| table_list | List | 否 | - | 已废弃，请使用 `tables_configs`。 |
+| tags | String | 否 | - | tag 名称，多个 tag 使用逗号分隔。只消费匹配这些 tag 的消息。 |
+| acl.enabled | Boolean | 否 | false | 是否启用 RocketMQ ACL 鉴权。 |
+| access.key | String | 否 | - | 访问密钥。`acl.enabled = true` 时必填。 |
+| secret.key | String | 否 | - | 秘密密钥。`acl.enabled = true` 时必填。 |
+| batch.size | int | 否 | 100 | 每次最多拉取的消息数。 |
+| consumer.group | String | 否 | SeaTunnel-Consumer-Group | RocketMQ 消费者组 ID。 |
+| commit.on.checkpoint | Boolean | 否 | true | 是否在 SeaTunnel checkpoint 完成后提交消费位点。 |
+| schema | config | 否 | - | 消息结构。详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。不配置时，连接器按文本读取消息体。 |
+| format | String | 否 | json | 消息格式。支持 `json` 和 `text`。 |
+| field.delimiter | String | 否 | `,` | `format = text` 时使用的字段分隔符。 |
+| start.mode | String | 否 | CONSUME_FROM_GROUP_OFFSETS | 启动消费位置。支持：`CONSUME_FROM_LAST_OFFSET`、`CONSUME_FROM_FIRST_OFFSET`、`CONSUME_FROM_GROUP_OFFSETS`、`CONSUME_FROM_TIMESTAMP`、`CONSUME_FROM_SPECIFIC_OFFSETS`。 |
+| start.mode.offsets | Map | 否 | - | `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS` 时必填。key 格式为 `topic-queueId`，例如 `test_topic-0`。 |
+| start.mode.timestamp | Long | 否 | - | `start.mode = CONSUME_FROM_TIMESTAMP` 时必填，单位是毫秒时间戳。 |
+| partition.discovery.interval.millis | long | 否 | -1 | 动态发现 topic 和分区的间隔，单位毫秒。`-1` 表示不启用动态发现。 |
+| ignore_parse_errors | Boolean | 否 | false | 是否跳过解析失败的 JSON 消息。 |
+| consumer.poll.timeout.millis | long | 否 | 5000 | 拉取消息的超时时间，单位毫秒。 |
+| common-options | config | 否 | - | 源连接器通用参数，详情请参考 [源通用参数](../common-options/source-common-options.md)。 |
 
-### start.mode.offsets
+## 参数说明
 
-消费模式为 "CONSUME_FROM_SPECIFIC_OFFSETS" 所需的偏移量。
+### 启动消费位置
 
-例如：
+`start.mode` 用来控制从哪里开始读：
+
+- `CONSUME_FROM_GROUP_OFFSETS`：从消费者组已提交的位点开始读。
+- `CONSUME_FROM_FIRST_OFFSET`：从最早可用位点开始读。
+- `CONSUME_FROM_LAST_OFFSET`：从最新位点开始读。
+- `CONSUME_FROM_TIMESTAMP`：从 `start.mode.timestamp` 对应时间之后的第一条消息开始读。
+- `CONSUME_FROM_SPECIFIC_OFFSETS`：从 `start.mode.offsets` 指定的位点开始读。
+
+当 `start.mode = CONSUME_FROM_TIMESTAMP` 时，`start.mode.timestamp` 必须是非负的毫秒时间戳，并且不能晚于任务运行时的当前时间。
 
 ```hocon
+start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
 start.mode.offsets = {
-  topic1-0 = 70
-  topic1-1 = 10
-  topic1-2 = 10
+  test_topic-0 = 50
 }
 ```
 
+```hocon
+start.mode = "CONSUME_FROM_TIMESTAMP"
+start.mode.timestamp = 1667179890315
+```
+
+### 消息格式
+
+当 `format = json` 时，请配置 `schema`，SeaTunnel 会按 schema 将 JSON 消息体解析成有类型的字段。配置 `ignore_parse_errors = true` 后，遇到无法解析的 JSON 消息会跳过，而不是让任务失败。
+
+当 `format = text` 时，SeaTunnel 会按 `field.delimiter` 拆分消息体，并按照 schema 字段顺序映射数据。如果不配置 `schema`，消息体会作为单个文本值读取。
+
+### 多表读取
+
+当不同 topic 的字段结构不一样时，使用 `tables_configs`。每一项都必须包含 `topics`，并且可以单独配置 `schema`、`format`、`tags` 和启动消费位置。如果没有配置 `schema.table`，输出表名默认使用 topic 名称。
+
+`topics`、`tables_configs` 和已废弃的 `table_list` 互斥，只能配置其中一个。在 `tables_configs` 中，单个条目未配置的参数会沿用顶层默认值，因此每个条目只需要覆盖该 topic 特有的 schema、tag 或启动位置。
+
+如果某个 `tables_configs` 条目使用 `start.mode = CONSUME_FROM_TIMESTAMP`，必须同时配置 `start.mode.timestamp`。如果使用 `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`，必须同时配置非空的 `start.mode.offsets`。
+
 ## 任务示例
 
-### 简单
-
-> 消费者读取 Rocketmq 数据并将其打印到控制台
+### 读取 JSON 消息
 
 ```hocon
 env {
@@ -84,93 +109,26 @@ source {
     name.srv.addr = "rocketmq-e2e:9876"
     topics = "test_topic_json"
     plugin_output = "rocketmq_table"
-    schema = {
-      fields {
-        id = bigint
-        c_map = "map<string, smallint>"
-        c_array = "array<tinyint>"
-        c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
-        c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(2, 1)"
-        c_bytes = bytes
-        c_date = date
-        c_timestamp = timestamp
-      }
-    }
-  }
-}
-
-transform {
-  # 如果您想了解有关如何配置 seatunnel 的更多信息并查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transforms
-}
-
-sink {
-  Console {
-  }
-}
-```
-
-### 指定格式消费简单
-
-> 当我以 json 格式消费主题数据并解析，每次拉取的条数是 400，消费从原始位置开始
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  Rocketmq {
-    name.srv.addr = "localhost:9876"
-    topics = "test_topic"
-    plugin_output = "rocketmq_table"
-    start.mode = "CONSUME_FROM_FIRST_OFFSET"
-    batch.size = "400"
-    consumer.group = "test_topic_group"
     format = json
     schema = {
       fields {
-        c_map = "map<string, string>"
-        c_array = "array<int>"
+        id = bigint
         c_string = string
-        c_boolean = boolean
-        c_tinyint = tinyint
-        c_smallint = smallint
         c_int = int
-        c_bigint = bigint
-        c_float = float
-        c_double = double
-        c_decimal = "decimal(30, 8)"
-        c_bytes = bytes
-        c_date = date
         c_timestamp = timestamp
       }
     }
   }
 }
 
-transform {
-  # 如果您想了解有关如何配置 seatunnel 的更多信息并查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transforms
-}
-
 sink {
   Console {
+    plugin_input = "rocketmq_table"
   }
 }
 ```
 
-### 多表读取
-
-> 从不同 topic 读取不同结构的数据，使用 `tables_configs` 为每个 topic 独立配置。
+### 按 tag 读取文本消息
 
 ```hocon
 env {
@@ -180,28 +138,95 @@ env {
 
 source {
   Rocketmq {
-    name.srv.addr = "localhost:9876"
-    consumer.group = "multi_table_group"
-    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_text"
+    plugin_output = "rocketmq_table"
+    format = text
+    field.delimiter = ","
+    tags = "tag_a,tag_b"
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```
+
+### 从指定 offset 读取
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_SPECIFIC_OFFSETS"
+    start.mode.offsets = {
+      test_topic_source-0 = 50
+    }
+    schema = {
+      fields {
+        id = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```
+
+### 读取多个不同结构的 topic
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    start.mode = "CONSUME_FROM_LAST_OFFSET"
     tables_configs = [
       {
-        topics = "topic_1"
-        format = "json"
+        topics = "test_topic_multi_a"
+        start.mode = "CONSUME_FROM_FIRST_OFFSET"
+        format = json
         schema = {
           fields {
-            id = int
-            name = string
+            id = bigint
+            c_string = string
           }
         }
       },
       {
-        topics = "topic_2"
-        format = "json"
+        topics = "test_topic_multi_b"
+        start.mode = "CONSUME_FROM_FIRST_OFFSET"
+        tags = "tag_b"
+        format = json
         schema = {
+          table = "rocketmq_multi_custom"
           fields {
-            id = int
+            id = bigint
             description = string
-            weight = double
           }
         }
       }
@@ -211,6 +236,37 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 从指定时间戳读取
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "rocketmq-e2e:9876"
+    topics = "test_topic_source"
+    plugin_output = "rocketmq_table"
+    format = json
+    start.mode = "CONSUME_FROM_TIMESTAMP"
+    start.mode.timestamp = 1667179890315
+    schema = {
+      fields {
+        id = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
 }
 ```
 
