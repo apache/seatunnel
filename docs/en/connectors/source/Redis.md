@@ -49,7 +49,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | single_field_name   | string | no       | -             | Field name for single-value types |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
-**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in tables_configs to the outer layer (backward compatible).
+**Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
 
 **Important:** In multi-table mode, the above table-level parameters should be configured within each item of `tables_configs`.
 
@@ -125,7 +125,7 @@ schema {
 
 each kv that in hash key it will be treated as a row and send it to upstream.
 
-**Tips: connector will use the first field information of schema config as the field name of each k that in each kv**
+**Tips: connector will use the first field in the schema config as the field name for each key in each hash kv pair.**
 
 ### keys [string]
 

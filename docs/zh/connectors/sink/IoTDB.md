@@ -19,11 +19,11 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 
-| 数据源   | Supported 版本                 | 地址             |
+| 数据源   | 支持的版本                        | 地址             |
 |-------|------------------------------|----------------|
 | IoTDB | `0.13.0 <= version <= 1.3.X` | localhost:6667 |
 
@@ -49,18 +49,26 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | password                    | String  | 是    | -                              | IoTDB 用户的密码                                                                  |
 | key_device                  | String  | 是    | -                              | 在SeaTunnelRow中指定 IoTDB 设备ID的字段名                                              |
 | key_timestamp               | String  | 否    | processing time                | 在SeaTunnelRow中指定 IoTDB 时间戳的字段名。如果未指定，则使用处理时间作为时间戳                            |
-| key_measurement_fields      | Array   | 否    | exclude `device` & `timestamp` | 在SeaTunnelRow中指定 IoTDB 测量列表的字段名称。如果未指定，则包括所有字段，但排除 `device` & `timestamp`    |
-| storage_group               | Array   | 否    | -                              | 指定设备存储组（路径前缀） <br/> 例如: deviceId = \${storage_group} + "." +  \${key_device} |
-| batch_size                  | Integer | 否    | 1024                           | 对于批写入，当缓冲区的数量达到`batch_size`的数量或时间达到`batch_interval_ms`时，数据将被刷新到IoTDB中        |
-| max_retries                 | Integer | 否    | -                              | 刷新的重试次数 failed                                                               |
+| key_measurement_fields      | Array   | 否    | 排除设备和时间字段                       | 在 SeaTunnelRow 中指定 IoTDB 测点字段列表。未配置时，会写入除 `key_device` 和 `key_timestamp` 对应字段外的其他字段 |
+| storage_group               | String  | 否    | -                              | 指定设备存储组（路径前缀） <br/> 例如: deviceId = \${storage_group} + "." +  \${key_device} |
+| batch_size                  | Integer | 否    | 1024                           | 批量写入时，当缓存行数达到 `batch_size`，数据会刷新到 IoTDB 中                                      |
+| max_retries                 | Integer | 否    | -                              | 写入失败后的最大重试次数                                                                 |
 | retry_backoff_multiplier_ms | Integer | 否    | -                              | 用作生成下一个退避延迟的乘数                                                               |
 | max_retry_backoff_ms        | Integer | 否    | -                              | 尝试重试对 IoTDB 的请求之前等待的时间量                                                      |
-| default_thrift_buffer_size  | Integer | 否    | -                              | 在 IoTDB 客户端中节省初始化缓冲区大小                                                       |
-| max_thrift_frame_size       | Integer | 否    | -                              | 在 IoTDB 客户端中节约最大帧大小                                                          |
-| zone_id                     | string  | 否    | -                              | IoTDB java.time.ZoneId  client                                               |
+| default_thrift_buffer_size  | Integer | 否    | -                              | IoTDB 客户端的初始化 Thrift 缓冲区大小                                                   |
+| max_thrift_frame_size       | Integer | 否    | -                              | IoTDB 客户端的最大 Thrift 帧大小                                                       |
+| zone_id                     | string  | 否    | -                              | IoTDB 客户端使用的 `java.time.ZoneId`                                                |
 | enable_rpc_compression      | Boolean | 否    | -                              | 在 IoTDB 客户端中启用rpc压缩                                                          |
 | connection_timeout_in_ms    | Integer | 否    | -                              | 连接到 IoTDB 时等待的最长时间（毫秒）                                                       |
-| common-options              |         | 否    | -                              | Sink 插件常用参数，详见 [Sink common Options](../common-options/sink-common-options.md)              |
+| common-options              |         | 否    | -                              | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)              |
+
+## 写入规则
+
+- `key_device` 必须指定 SeaTunnel 中保存 IoTDB 设备路径的字段名。
+- `storage_group` 是字符串前缀。配置后，最终设备路径会由 `storage_group` 和 `key_device` 对应字段值拼接而成。
+- `key_timestamp` 可以指定 `STRING`、`BIGINT` 或 `TIMESTAMP` 类型字段。未配置时，连接器会使用当前处理时间。
+- 未配置 `key_measurement_fields` 时，会把除 `key_device` 和 `key_timestamp` 之外的所有字段写为测点。
+- sink 支持写入 `STRING`、`BOOLEAN`、`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT` 和 `DOUBLE` 类型测点。
 
 ## 示例
 
@@ -114,7 +122,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
-    key_device = "device_name" # specify the `deviceId` use device_name field
+    key_device = "device_name" # 使用 device_name 字段作为 deviceId
   }
 }
 ```
@@ -144,8 +152,8 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
-    key_device = "device_name" # specify the `deviceId` use device_name field
-    key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
+    key_device = "device_name" # 使用 device_name 字段作为 deviceId
+    key_timestamp = "event_ts" # 使用 event_ts 字段作为 timestamp
   }
 }
 ```

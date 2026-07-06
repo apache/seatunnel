@@ -66,6 +66,7 @@ public class LLMTransformFactory implements TableTransformFactory {
                         LLMTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

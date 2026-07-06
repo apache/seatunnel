@@ -42,8 +42,12 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| tablePrefix                               | String  | No       | -                            |
+| tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
+| connect_timeout_ms                        | Int     | No       | 86400000                     |
+| socket_timeout_ms                         | Int     | No       | 86400000                     |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
 | batch_interval_ms                         | Long    | No       | 0                            |
@@ -60,10 +64,16 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
+| is_primary_key_updated                    | Boolean | No       | true                         |
+| support_upsert_by_insert_only             | Boolean | No       | false                        |
 | table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
+| use_kerberos                              | Boolean | No       | false                        |
+| kerberos_principal                        | String  | No       | -                            |
+| kerberos_keytab_path                      | String  | No       | -                            |
+| krb5_path                                 | String  | No       | /etc/krb5.conf               |
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
@@ -129,7 +139,7 @@ Use `database` and this `table-name` auto-generate sql and receive upstream inpu
 
 This option is mutually exclusive with `query` and has a higher priority.
 
-The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+The table parameter can fill in the target table name, which will eventually be used as the created or written table name, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the table name passed to the target side.
 
 mysql sink for example:
 
@@ -145,6 +155,14 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
 
+### tablePrefix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
+### tableSuffix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
@@ -152,6 +170,14 @@ This option is used to support operations such as `insert`, `delete`, and `updat
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
+
+### connect_timeout_ms [int]
+
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+
+### socket_timeout_ms [int]
+
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
 
 ### max_retries [int]
 
@@ -273,6 +299,14 @@ The generated `CREATE TABLE` statement appends `ENGINE`, `DEFAULT CHARSET`, and 
 
 Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
 
+### is_primary_key_updated [boolean]
+
+Whether primary key fields are included when generating update statements. Keep the default unless your target database requires primary key columns to be skipped during updates.
+
+### support_upsert_by_insert_only [boolean]
+
+Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
+
 ### use_copy_statement [boolean]
 
 Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
@@ -296,6 +330,10 @@ This option is only supported for Oracle JDBC sink insert-only writes. It requir
 Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
 
 Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
+
+### use_kerberos [boolean]
+
+Whether to enable Kerberos authentication for JDBC connections. When enabled, also configure `kerberos_principal`, `kerberos_keytab_path`, and `krb5_path` as required by your environment.
 
 ### access_key_id [String]
 The access_key_id in AWS authentication. Only valid for dialect="dsql"
