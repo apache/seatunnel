@@ -22,25 +22,28 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import java.io.Serializable;
 
 /**
- * Bigtable Source 分片定义：描述一次范围扫描的边界与可选的片内续读进度。
+ * Describes a bounded Bigtable scan split and optional in-split resume progress.
  *
- * <p>checkpoint 恢复时，若 {@link #lastReadRowKey} 非空，Reader 会从该 rowkey（含）继续扫描， 避免对整个 split 从头重扫。语义为
- * at-least-once，恢复后可能重复读取最后一条已提交行。
+ * <p>When {@link #lastReadRowKey} is present, checkpoint restore resumes from that row key
+ * (inclusive) instead of re-scanning from {@link #startRowKey}. Semantics are at-least-once: the
+ * resume row may be read again after failover.
  */
 public class BigtableSourceSplit implements SourceSplit, Serializable {
 
-    private static final long serialVersionUID = 2L;
+    /** Kept at {@code 1L} so existing checkpoint/savepoint bytes remain deserializable. */
+    private static final long serialVersionUID = 1L;
+
     public static final String SPLIT_PREFIX = "bigtable_source_split_";
 
     private final String splitId;
-    /** 分片起始 rowkey（含）；空串表示表起点。 */
+    /** Inclusive start row key (empty means table start). */
     private final String startRowKey;
-    /** 分片结束 rowkey（不含）；空串表示表终点。 */
+    /** Exclusive end row key (empty means table end). */
     private final String endRowKey;
 
     /**
-     * 已成功 emit 的最后一条 rowkey（UTF-8）。checkpoint 时随 split 持久化；旧 checkpoint 反序列化后为 {@code null}，行为与仅使用
-     * {@link #startRowKey} 一致。
+     * Last successfully emitted row key (UTF-8), persisted in checkpoint state. {@code null} for
+     * legacy checkpoints written before row-level resume was added.
      */
     private volatile String lastReadRowKey;
 
@@ -74,18 +77,19 @@ public class BigtableSourceSplit implements SourceSplit, Serializable {
     }
 
     /**
-     * 在读路径中更新片内进度；与 {@code checkpointLock} 在同一把锁内调用，保证快照能看到已 emit 的最后行。
+     * Updates in-split progress; called under the same lock as {@code collect()} so snapshots see
+     * the last emitted row.
      *
-     * @param rowKeyUtf8 当前行的 rowkey（UTF-8）
+     * @param rowKeyUtf8 current row key (UTF-8)
      */
     void setLastReadRowKey(String rowKeyUtf8) {
         this.lastReadRowKey = rowKeyUtf8;
     }
 
     /**
-     * 构造 {@link com.google.cloud.bigtable.data.v2.models.Query} 时使用的起始 rowkey。
+     * Row key used as the inclusive scan start when building a Bigtable {@code Query}.
      *
-     * <p>有续读进度时返回 {@link #lastReadRowKey}，否则返回 {@link #startRowKey}。
+     * <p>Returns {@link #lastReadRowKey} when set, otherwise {@link #startRowKey}.
      */
     public String getResumeStartRowKey() {
         if (lastReadRowKey != null && !lastReadRowKey.isEmpty()) {

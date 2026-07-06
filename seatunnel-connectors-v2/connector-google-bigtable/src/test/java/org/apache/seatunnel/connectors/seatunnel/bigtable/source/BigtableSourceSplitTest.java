@@ -19,13 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
+import org.apache.commons.codec.binary.Base64;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/** {@link BigtableSourceSplit} 续读进度与序列化兼容性测试。 */
+/** Tests for {@link BigtableSourceSplit} resume progress and checkpoint serialization. */
 class BigtableSourceSplitTest {
+
+    /**
+     * Bytes produced by {@code BigtableSourceSplit(1, "x", "y")} on dev before {@code
+     * lastReadRowKey} existed (serialVersionUID = 1L, three fields only).
+     */
+    private static final String LEGACY_SPLIT_V1_BASE64 =
+            "rO0ABXNyAE1vcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5iaWd0YWJsZS5zb3VyY2UuQmlndGFibGVTb3VyY2VTcGxpdAAAAAAAAAABAgADTAAJZW5kUm93S2V5dAASTGphdmEvbGFuZy9TdHJpbmc7TAAHc3BsaXRJZHEAfgABTAALc3RhcnRSb3dLZXlxAH4AAXhwdAABeXQAF2JpZ3RhYmxlX3NvdXJjZV9zcGxpdF8xdAABeA==";
 
     @Test
     void resumeStartRowKeyFallsBackToSplitStartWhenNoProgress() {
@@ -60,10 +69,12 @@ class BigtableSourceSplitTest {
     }
 
     @Test
-    void legacySplitWithoutProgressDeserializesWithNullLastReadRowKey() {
-        BigtableSourceSplit legacy = new BigtableSourceSplit(1, "x", "y");
-        byte[] bytes = SerializationUtils.serialize(legacy);
-        BigtableSourceSplit restored = SerializationUtils.deserialize(bytes);
+    void deserializesLegacyCheckpointBytesFromDevRelease() {
+        byte[] legacyBytes = Base64.decodeBase64(LEGACY_SPLIT_V1_BASE64);
+        BigtableSourceSplit restored = SerializationUtils.deserialize(legacyBytes);
+        assertEquals("bigtable_source_split_1", restored.splitId());
+        assertEquals("x", restored.getStartRowKey());
+        assertEquals("y", restored.getEndRowKey());
         assertNull(restored.getLastReadRowKey());
         assertEquals("x", restored.getResumeStartRowKey());
     }

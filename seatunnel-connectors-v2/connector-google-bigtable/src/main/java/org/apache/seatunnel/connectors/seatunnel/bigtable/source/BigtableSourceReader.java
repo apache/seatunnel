@@ -137,7 +137,8 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
                             SeaTunnelRow seaTunnelRow = convertRow(bigtableRow);
                             synchronized (output.getCheckpointLock()) {
                                 output.collect(seaTunnelRow);
-                                // 与 collect 同锁更新进度，保证 triggerBarrier 快照时能看到已 emit 的最后 rowkey
+                                // Update progress under the same lock as collect for consistent
+                                // snapshots
                                 split.setLastReadRowKey(bigtableRow.getKey().toStringUtf8());
                             }
                         });
@@ -146,7 +147,7 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
     private Query buildQuery(BigtableSourceSplit split) {
         Query query = Query.create(parameters.getTable());
 
-        // 恢复场景使用 lastReadRowKey 续读，避免对整个 split 从头重扫
+        // Resume from lastReadRowKey after checkpoint restore when present
         String startKey = split.getResumeStartRowKey();
         String endKey = split.getEndRowKey();
         if (!startKey.isEmpty() && !endKey.isEmpty()) {
