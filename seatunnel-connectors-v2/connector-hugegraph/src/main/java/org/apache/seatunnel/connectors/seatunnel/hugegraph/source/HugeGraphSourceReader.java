@@ -67,18 +67,30 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         this.totalRead = 0;
     }
 
+    // For testing: allows injecting a mock client
+    HugeGraphSourceReader(
+            SingleSplitReaderContext context,
+            HugeGraphSourceConfig sourceConfig,
+            CatalogTable catalogTable,
+            HugeGraphClient client) {
+        this(context, sourceConfig, catalogTable);
+        this.client = client;
+    }
+
     @Override
     public void open() throws Exception {
-        this.client =
-                new HugeGraphClient(
-                        sourceConfig.getHost(),
-                        sourceConfig.getPort(),
-                        sourceConfig.getGraphName(),
-                        sourceConfig.getGraphSpace(),
-                        sourceConfig.getUsername(),
-                        sourceConfig.getPassword(),
-                        sourceConfig.getMaxRetries(),
-                        sourceConfig.getRetryBackoffMs());
+        if (this.client == null) {
+            this.client =
+                    new HugeGraphClient(
+                            sourceConfig.getHost(),
+                            sourceConfig.getPort(),
+                            sourceConfig.getGraphName(),
+                            sourceConfig.getGraphSpace(),
+                            sourceConfig.getUsername(),
+                            sourceConfig.getPassword(),
+                            sourceConfig.getMaxRetries(),
+                            sourceConfig.getRetryBackoffMs());
+        }
     }
 
     @Override

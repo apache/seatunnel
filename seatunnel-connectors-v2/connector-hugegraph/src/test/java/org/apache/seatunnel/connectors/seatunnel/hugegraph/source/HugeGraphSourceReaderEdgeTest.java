@@ -31,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourc
 import org.apache.hugegraph.structure.graph.Edge;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -83,10 +82,9 @@ class HugeGraphSourceReaderEdgeTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadEdges_shouldMapEdgeFieldsCorrectly() throws Exception {
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Edge> edges = createMockEdges();
         Iterator<Edge> mockIterator = edges.iterator();
@@ -132,12 +130,11 @@ class HugeGraphSourceReaderEdgeTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadEdges_withPropertyFilter() throws Exception {
         sourceConfig.setProperties(new java.util.ArrayList<>(java.util.Arrays.asList("since")));
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Edge> edges = createMockEdges();
         Iterator<Edge> mockIterator = edges.iterator();
@@ -172,12 +169,11 @@ class HugeGraphSourceReaderEdgeTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadEdges_withLimit() throws Exception {
         sourceConfig.setLimit(1);
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Edge> edges = createMockEdges();
         Iterator<Edge> mockIterator = edges.iterator();
@@ -209,10 +205,9 @@ class HugeGraphSourceReaderEdgeTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadEdges_emptyResult() throws Exception {
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         Iterator<Edge> emptyIterator = new ArrayList<Edge>().iterator();
         when(mockClient.iterateEdges(anyString(), anyInt())).thenReturn(emptyIterator);

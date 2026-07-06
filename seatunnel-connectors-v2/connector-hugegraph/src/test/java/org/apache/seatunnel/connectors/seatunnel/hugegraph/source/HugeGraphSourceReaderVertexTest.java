@@ -31,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourc
 import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -79,10 +78,9 @@ class HugeGraphSourceReaderVertexTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadVertices_shouldMapVertexFieldsCorrectly() throws Exception {
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Vertex> vertices = createMockVertices();
         Iterator<Vertex> mockIterator = vertices.iterator();
@@ -126,12 +124,11 @@ class HugeGraphSourceReaderVertexTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadVertices_withPropertyFilter() throws Exception {
         sourceConfig.setProperties(new java.util.ArrayList<>(java.util.Arrays.asList("name")));
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Vertex> vertices = createMockVertices();
         Iterator<Vertex> mockIterator = vertices.iterator();
@@ -166,12 +163,11 @@ class HugeGraphSourceReaderVertexTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadVertices_withLimit() throws Exception {
         sourceConfig.setLimit(1);
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         List<Vertex> vertices = createMockVertices();
         Iterator<Vertex> mockIterator = vertices.iterator();
@@ -203,10 +199,9 @@ class HugeGraphSourceReaderVertexTest {
     }
 
     @Test
-    @Disabled("Requires running HugeGraph server for testing")
     void testReadVertices_emptyResult() throws Exception {
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable);
+                new HugeGraphSourceReader(mockContext, sourceConfig, catalogTable, mockClient);
 
         Iterator<Vertex> emptyIterator = new ArrayList<Vertex>().iterator();
         when(mockClient.iterateVertices(anyString(), anyInt())).thenReturn(emptyIterator);
