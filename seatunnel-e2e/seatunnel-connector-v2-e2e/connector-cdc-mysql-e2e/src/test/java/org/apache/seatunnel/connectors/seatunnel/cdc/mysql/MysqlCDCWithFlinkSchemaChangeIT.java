@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -115,6 +116,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     @Order(1)
     @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.FLINK_1_13},
+            disabledReason =
+                    "Flink 1.13 non-exactly-once MySQL CDC schema evolution is unstable after rapid add-column DDL bursts.")
     public void testMysqlCdcWithSchemaEvolutionCase(TestContainer container) {
         // Reset database to initial state to avoid issues from previous test runs
         resetDatabaseToInitialState();
