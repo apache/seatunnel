@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.transform;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -36,7 +37,8 @@ public class TestPythonTransformIT extends TestSuiteBase {
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 // PythonTransform launches a local worker process inside each runtime container,
-                // so the E2E suite must ensure python3 exists before the job starts.
+                // so the E2E suite must ensure python3 and path-based scripts are present
+                // everywhere before the job starts.
                 Container.ExecResult execResult =
                         container.execInContainer(
                                 "bash",
@@ -66,6 +68,10 @@ public class TestPythonTransformIT extends TestSuiteBase {
                         0,
                         execResult.getExitCode(),
                         execResult.getStdout() + System.lineSeparator() + execResult.getStderr());
+                ContainerUtil.copyFileIntoContainers(
+                        BASE_PATH + "python_transform_path.py",
+                        "/tmp/python_transform_path.py",
+                        container);
             };
 
     /**
@@ -92,8 +98,6 @@ public class TestPythonTransformIT extends TestSuiteBase {
     @TestTemplate
     public void testPathPythonTransform(TestContainer container)
             throws IOException, InterruptedException {
-        container.copyFileToContainer(
-                BASE_PATH + "python_transform_path.py", "/tmp/python_transform_path.py");
         Container.ExecResult execResult =
                 container.executeJob(BASE_PATH + "python_transform_path.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
