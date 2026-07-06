@@ -29,9 +29,9 @@ Used to read data from Redis.
 To use the Redis connector, the following dependency is required. It can be installed by `install-plugin.sh` or
 downloaded from Maven Central.
 
-| Datasource | Supported Versions | Dependency |
-|------------|--------------------|------------|
-| Redis      | 5.x, 7.x           | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
+| Datasource | Dependency |
+|------------|------------|
+| Redis      | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## Options
 

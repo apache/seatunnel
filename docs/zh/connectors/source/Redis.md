@@ -28,9 +28,9 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 使用 Redis 连接器时，需要安装以下依赖。可以通过 `install-plugin.sh` 安装，也可以从 Maven 中央仓库下载。
 
-| 数据源 | 支持版本 | 依赖 |
-|--------|----------|------|
-| Redis  | 5.x、7.x | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
+| 数据源 | 依赖 |
+|--------|------|
+| Redis  | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## 配置选项
 
