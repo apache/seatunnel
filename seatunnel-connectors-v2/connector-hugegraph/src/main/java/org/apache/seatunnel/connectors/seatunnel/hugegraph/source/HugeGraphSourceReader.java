@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -36,6 +39,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.ZoneId;
+import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -164,7 +170,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             String fieldName = rowType.getFieldName(i);
             switch (fieldName) {
                 case "id":
-                    fields[i] = vertex.id();
+                    fields[i] = String.valueOf(vertex.id());
                     break;
                 case "label":
                     fields[i] = vertex.label();
@@ -174,7 +180,9 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                             && !selectedProperties.contains(fieldName.toLowerCase())) {
                         fields[i] = null;
                     } else {
-                        fields[i] = properties.get(fieldName);
+                        fields[i] =
+                                convertPropertyValue(
+                                        properties.get(fieldName), rowType.getFieldType(i));
                     }
                     break;
             }
@@ -197,22 +205,37 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                     fields[i] = edge.label();
                     break;
                 case "source_id":
-                    fields[i] = edge.sourceId();
+                    fields[i] = String.valueOf(edge.sourceId());
                     break;
                 case "target_id":
-                    fields[i] = edge.targetId();
+                    fields[i] = String.valueOf(edge.targetId());
                     break;
                 default:
                     if (selectedProperties != null
                             && !selectedProperties.contains(fieldName.toLowerCase())) {
                         fields[i] = null;
                     } else {
-                        fields[i] = properties.get(fieldName);
+                        fields[i] =
+                                convertPropertyValue(
+                                        properties.get(fieldName), rowType.getFieldType(i));
                     }
                     break;
             }
         }
 
         return new SeaTunnelRow(fields);
+    }
+
+    private static Object convertPropertyValue(Object value, SeaTunnelDataType<?> expectedType) {
+        if (value == null) {
+            return null;
+        }
+        if (expectedType instanceof ArrayType && value instanceof Collection) {
+            return ((Collection<?>) value).toArray();
+        }
+        if (expectedType.equals(LocalTimeType.LOCAL_DATE_TYPE) && value instanceof Date) {
+            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        return value;
     }
 }

@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourc
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceOptions.LabelType;
 
+import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.schema.EdgeLabel;
 import org.apache.hugegraph.structure.schema.PropertyKey;
@@ -162,7 +164,7 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
         for (String propertyName : vertexLabel.properties()) {
             PropertyKey propertyKey = client.getPropertyKey(propertyName);
             fieldNames.add(propertyName);
-            fieldTypes.add(mapDataType(propertyKey.dataType()));
+            fieldTypes.add(inferPropertyType(propertyKey));
         }
 
         return new SeaTunnelRowType(
@@ -190,11 +192,20 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
         for (String propertyName : edgeLabel.properties()) {
             PropertyKey propertyKey = client.getPropertyKey(propertyName);
             fieldNames.add(propertyName);
-            fieldTypes.add(mapDataType(propertyKey.dataType()));
+            fieldTypes.add(inferPropertyType(propertyKey));
         }
 
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType[0]));
+    }
+
+    private SeaTunnelDataType<?> inferPropertyType(PropertyKey propertyKey) {
+        SeaTunnelDataType<?> baseType = mapDataType(propertyKey.dataType());
+        if (propertyKey.cardinality() == Cardinality.LIST
+                || propertyKey.cardinality() == Cardinality.SET) {
+            return ArrayType.of(baseType);
+        }
+        return baseType;
     }
 
     private SeaTunnelDataType<?> mapDataType(DataType hugeGraphType) {
