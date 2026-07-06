@@ -39,7 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
@@ -246,7 +246,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             return ((Collection<?>) value).toArray();
         }
         if (expectedType.equals(LocalTimeType.LOCAL_DATE_TYPE) && value instanceof Date) {
-            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            return ((Date) value).toInstant().atZone(ZoneOffset.UTC).toLocalDate();
         }
         return value;
     }
