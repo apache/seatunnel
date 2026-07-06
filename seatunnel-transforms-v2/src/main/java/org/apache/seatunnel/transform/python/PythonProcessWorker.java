@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -99,6 +100,9 @@ class PythonProcessWorker {
     /** Reader connected to the Python worker stdout. */
     private BufferedReader stdoutReader;
 
+    /** Reader connected to the Python worker stderr. */
+    private BufferedReader stderrReader;
+
     /** Background stderr collector that preserves debug context without polluting stdout. */
     private Thread stderrCollectorThread;
 
@@ -151,7 +155,11 @@ class PythonProcessWorker {
                     new BufferedReader(
                             new InputStreamReader(
                                     process.getInputStream(), StandardCharsets.UTF_8));
-            startStderrCollector(process.getErrorStream());
+            stderrReader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    process.getErrorStream(), StandardCharsets.UTF_8));
+            startStderrCollector(stderrReader);
             initializeRemoteContext();
         } catch (IOException e) {
             close();
@@ -200,13 +208,7 @@ class PythonProcessWorker {
     }
 
     synchronized void close() {
-        if (stdinWriter != null) {
-            try {
-                stdinWriter.close();
-            } catch (IOException e) {
-                log.debug("Ignore Python worker stdin close failure", e);
-            }
-        }
+        closeQuietly(stdinWriter, "stdin");
 
         if (process != null) {
             try {
@@ -221,6 +223,9 @@ class PythonProcessWorker {
                 process.destroyForcibly();
             }
         }
+        closeQuietly(stdoutReader, "stdout");
+        closeQuietly(stderrReader, "stderr");
+        waitForStderrCollectorToStop();
 
         deleteQuietly(workerScriptPath);
         deleteQuietly(inlineSourceCodePath);
@@ -229,6 +234,7 @@ class PythonProcessWorker {
         process = null;
         stdinWriter = null;
         stdoutReader = null;
+        stderrReader = null;
         stderrCollectorThread = null;
         workerScriptPath = null;
         inlineSourceCodePath = null;
@@ -494,16 +500,13 @@ class PythonProcessWorker {
     /**
      * Starts a daemon thread that captures worker stderr for debugging without breaking stdout.
      *
-     * @param errorStream stderr stream from the python process
+     * @param errorReader stderr reader from the python process
      */
-    private void startStderrCollector(InputStream errorStream) {
+    private void startStderrCollector(BufferedReader errorReader) {
         stderrCollectorThread =
                 new Thread(
                         () -> {
-                            try (BufferedReader errorReader =
-                                    new BufferedReader(
-                                            new InputStreamReader(
-                                                    errorStream, StandardCharsets.UTF_8))) {
+                            try {
                                 String line;
                                 while ((line = errorReader.readLine()) != null) {
                                     synchronized (stderrTail) {
@@ -521,6 +524,38 @@ class PythonProcessWorker {
                         "seatunnel-python-transform-stderr");
         stderrCollectorThread.setDaemon(true);
         stderrCollectorThread.start();
+    }
+
+    /**
+     * Closes one worker pipe quietly because shutdown should preserve the primary transform result.
+     *
+     * @param closeable worker pipe or reader
+     * @param streamName logical stream name used in debug logs
+     */
+    private void closeQuietly(Closeable closeable, String streamName) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException e) {
+            log.debug("Ignore Python worker {} close failure", streamName, e);
+        }
+    }
+
+    /**
+     * Waits for the background stderr collector to finish so the engine can recycle the classloader
+     * without leaving an application thread behind.
+     */
+    private void waitForStderrCollectorToStop() {
+        if (stderrCollectorThread == null) {
+            return;
+        }
+        try {
+            stderrCollectorThread.join(TimeUnit.SECONDS.toMillis(5));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
