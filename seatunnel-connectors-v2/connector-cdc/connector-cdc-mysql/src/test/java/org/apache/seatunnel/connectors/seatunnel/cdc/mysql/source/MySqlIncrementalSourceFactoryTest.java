@@ -245,7 +245,7 @@ public class MySqlIncrementalSourceFactoryTest {
     public void testStartupModeInvalidValueFails() {
         Map<String, Object> cfg = validMySqlConfig();
         cfg.put("startup.mode", "BOGUS");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> validate(cfg));
     }
 
     @Test
