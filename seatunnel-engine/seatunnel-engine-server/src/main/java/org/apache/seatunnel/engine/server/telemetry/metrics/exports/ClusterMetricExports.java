@@ -23,8 +23,7 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.jmx.InstanceMBean;
-import com.hazelcast.internal.jmx.ManagementService;
+import com.hazelcast.partition.PartitionService;
 import io.prometheus.client.CounterMetricFamily;
 import io.prometheus.client.GaugeMetricFamily;
 
@@ -200,23 +199,13 @@ public class ClusterMetricExports extends AbstractCollector {
 
     private boolean resolveClusterSafe() {
         HazelcastInstanceImpl hazelcastInstance = getNode().hazelcastInstance;
-        ManagementService managementService =
-                hazelcastInstance == null ? null : hazelcastInstance.getManagementService();
-        InstanceMBean instanceMBean =
-                managementService == null ? null : managementService.getInstanceMBean();
-        if (instanceMBean == null || instanceMBean.getPartitionServiceMBean() == null) {
-            return !hasOngoingMigration() && hasSafeLocalMemberState();
-        }
-        return instanceMBean.getPartitionServiceMBean().isClusterSafe();
+        PartitionService partitionService =
+                hazelcastInstance == null ? null : hazelcastInstance.getPartitionService();
+        return partitionService != null && partitionService.isClusterSafe();
     }
 
     private boolean hasOngoingMigration() {
         return getNode().getPartitionService() != null
                 && getNode().getPartitionService().hasOnGoingMigration();
-    }
-
-    private boolean hasSafeLocalMemberState() {
-        return getNode().getPartitionService() != null
-                && getNode().getPartitionService().isMemberStateSafe();
     }
 }

@@ -41,11 +41,9 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
-import com.hazelcast.internal.jmx.InstanceMBean;
-import com.hazelcast.internal.jmx.ManagementService;
-import com.hazelcast.internal.jmx.PartitionServiceMBean;
 import com.hazelcast.internal.partition.InternalPartitionService;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.partition.PartitionService;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.version.Version;
 import io.prometheus.client.Collector;
@@ -65,7 +63,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
     private ILogger mockLogger;
     private ClusterObservabilityService mockClusterObservabilityService;
     private InternalPartitionService mockPartitionService;
-    private PartitionServiceMBean mockPartitionServiceMBean;
+    private PartitionService mockHazelcastPartitionService;
 
     @BeforeEach
     void setUp() throws UnknownHostException, NoSuchFieldException, IllegalAccessException {
@@ -76,14 +74,12 @@ public class TelemetryCollectorCoordinatorGuardTest {
         mockLogger = Mockito.mock(ILogger.class);
         mockClusterObservabilityService = Mockito.mock(ClusterObservabilityService.class);
         mockPartitionService = Mockito.mock(InternalPartitionService.class);
-        mockPartitionServiceMBean = Mockito.mock(PartitionServiceMBean.class);
+        mockHazelcastPartitionService = Mockito.mock(PartitionService.class);
 
         NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
         MemberImpl mockMember = Mockito.mock(MemberImpl.class);
         Config mockConfig = Mockito.mock(Config.class);
         HazelcastInstanceImpl mockHazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
-        ManagementService mockManagementService = Mockito.mock(ManagementService.class);
-        InstanceMBean mockInstanceMBean = Mockito.mock(InstanceMBean.class);
 
         Mockito.when(mockNode.getNodeEngine()).thenReturn(mockNodeEngine);
         Mockito.when(mockNodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
@@ -94,11 +90,8 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.when(mockNode.getConfig()).thenReturn(mockConfig);
         Mockito.when(mockNode.getPartitionService()).thenReturn(mockPartitionService);
         Mockito.when(mockConfig.getClusterName()).thenReturn("test-cluster");
-        Mockito.when(mockHazelcastInstance.getManagementService())
-                .thenReturn(mockManagementService);
-        Mockito.when(mockManagementService.getInstanceMBean()).thenReturn(mockInstanceMBean);
-        Mockito.when(mockInstanceMBean.getPartitionServiceMBean())
-                .thenReturn(mockPartitionServiceMBean);
+        Mockito.when(mockHazelcastInstance.getPartitionService())
+                .thenReturn(mockHazelcastPartitionService);
 
         // AbstractCollector.getLocalMember() reads Node.nodeEngine as a direct public field,
         // not via a getter, so we inject it via reflection.
@@ -122,8 +115,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
                         new ClusterObservabilityService.ClusterObservabilitySnapshot(
                                 0L, 0L, 0L, 0L, 0L, 0L));
         Mockito.when(mockPartitionService.hasOnGoingMigration()).thenReturn(false);
-        Mockito.when(mockPartitionService.isMemberStateSafe()).thenReturn(true);
-        Mockito.when(mockPartitionServiceMBean.isClusterSafe()).thenReturn(true);
+        Mockito.when(mockHazelcastPartitionService.isClusterSafe()).thenReturn(true);
 
         // Default stubs for ClusterService — always needed because clusterTime() and nodeCount()
         // run unconditionally on every collect() call.
@@ -354,7 +346,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Mockito.when(mockClusterService.getMemberImpls())
                 .thenReturn(Collections.singletonList(Mockito.mock(MemberImpl.class)));
         Mockito.when(mockPartitionService.hasOnGoingMigration()).thenReturn(true);
-        Mockito.when(mockPartitionServiceMBean.isClusterSafe()).thenReturn(false);
+        Mockito.when(mockHazelcastPartitionService.isClusterSafe()).thenReturn(false);
         Mockito.when(mockClusterObservabilityService.snapshot())
                 .thenReturn(
                         new ClusterObservabilityService.ClusterObservabilitySnapshot(
