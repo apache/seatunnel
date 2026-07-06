@@ -31,6 +31,13 @@ import java.util.Objects;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
+/**
+ * {@link CheckpointIDCounter} implementation backed by the engine counter state store.
+ *
+ * <p>The counter key is the base64 encoding of the {@code jobId + pipelineId} pair so the active
+ * coordinator, failover recovery, and savepoint restore path all resolve the same per-pipeline
+ * checkpoint sequence.
+ */
 public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
 
     private final String key;
@@ -43,6 +50,11 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
                 Objects.requireNonNull(checkpointCounterStore, "checkpointCounterStore");
     }
 
+    /**
+     * Initializes the counter when the pipeline starts for the first time.
+     *
+     * <p>If recovery already restored a value for this key, the existing counter is preserved.
+     */
     @Override
     public void start() throws Exception {
         RetryUtils.retryWithException(
@@ -54,6 +66,12 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
                         Constant.OPERATION_RETRY_SLEEP));
     }
 
+    /**
+     * Removes the counter only after the pipeline reaches an end state.
+     *
+     * <p>Non-terminal shutdown paths keep the counter so the next active coordinator can continue
+     * from the same checkpoint sequence.
+     */
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
         if (pipelineStatus.isEndState()) {
@@ -62,6 +80,12 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
         return CompletableFuture.completedFuture(null);
     }
 
+    /**
+     * Returns the current checkpoint id and advances the stored sequence by one.
+     *
+     * <p>This follows the legacy checkpoint-counter contract: calling it before initialization is
+     * still treated as an error.
+     */
     @Override
     public long getAndIncrement() throws Exception {
         Long nextId = checkpointCounterStore.incrementAndGet(key);
@@ -74,6 +98,12 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
         return checkpointCounterStore.get(key);
     }
 
+    /**
+     * Overwrites the next checkpoint id used by this pipeline.
+     *
+     * <p>The checkpoint manager uses this during savepoint/restart recovery so the next trigger
+     * continues from {@code restoredCheckpointId + 1}.
+     */
     @Override
     public void setCount(long newId) throws Exception {
         checkpointCounterStore.set(key, newId);

@@ -32,7 +32,6 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -44,23 +43,70 @@ import java.util.Map;
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 @DisabledOnOs(OS.WINDOWS)
-@Disabled
 public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testHAByStateStoreCheckpointIDCounter() throws CheckpointStorageException {
+    public void testFinishedPipelineShouldCleanupCounterAndCheckpointState() throws Exception {
         long jobId = (long) (Math.random() * 1000000L);
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                new CheckpointStorageConfig().getStorage())
-                        .create(new HashMap<>());
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1L);
+        CounterStateStore<String> checkpointCounterStore =
+                server.getEngineContext().getStateStores().checkpointCounterStore();
+        String counterKey = StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1);
+        checkpointCounterStore.set(counterKey, 2L);
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, false, checkpointStorage, new CheckpointConfig());
+
+        Assertions.assertEquals(
+                2L, checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+        checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
+        Assertions.assertNull(checkpointCounterStore.get(counterKey));
+        checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
+        Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
+    }
+
+    @Test
+    public void testStartWithSavepointShouldResumeNextCheckpointIdFromStoredCheckpoint()
+            throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        long restoredCheckpointId = 7L;
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, restoredCheckpointId);
+
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, true, checkpointStorage, new CheckpointConfig());
+
+        long nextCheckpointId =
+                checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get();
+
+        Assertions.assertEquals(restoredCheckpointId + 1L, nextCheckpointId);
+        Assertions.assertEquals(
+                restoredCheckpointId + 1L,
+                checkpointManager
+                        .getCheckpointCoordinator(1)
+                        .getCheckpointIdCounter()
+                        .getAndIncrement());
+        Assertions.assertEquals(
+                restoredCheckpointId + 2L,
+                checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    private CheckpointStorage createCheckpointStorage() throws CheckpointStorageException {
+        return FactoryUtil.discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CheckpointStorageFactory.class,
+                        new CheckpointStorageConfig().getStorage())
+                .create(new HashMap<>());
+    }
+
+    private void storeCompletedCheckpoint(
+            CheckpointStorage checkpointStorage, long jobId, long checkpointId)
+            throws CheckpointStorageException {
         CompletedCheckpoint completedCheckpoint =
                 new CompletedCheckpoint(
                         jobId,
                         1,
-                        1,
+                        checkpointId,
                         Instant.now().toEpochMilli(),
                         CheckpointType.COMPLETED_POINT_TYPE,
                         Instant.now().toEpochMilli(),
@@ -70,32 +116,29 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 PipelineState.builder()
                         .jobId(jobId + "")
                         .pipelineId(1)
-                        .checkpointId(1)
+                        .checkpointId(checkpointId)
                         .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
                         .build());
-        CounterStateStore<String> checkpointCounterStore =
-                server.getEngineContext().getStateStores().checkpointCounterStore();
-        String counterKey = StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, 1);
-        checkpointCounterStore.set(counterKey, 2L);
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isStartWithSavePoint,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig) {
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
-        CheckpointManager checkpointManager =
-                new CheckpointManager(
-                        jobId,
-                        false,
-                        nodeEngine,
-                        null,
-                        planMap,
-                        new CheckpointConfig(),
-                        server.getCheckpointService().getCheckpointStorage(),
-                        instance.getExecutorService("test"),
-                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
-                        server.getEngineContext(),
-                        null);
-        Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
-        checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
-        Assertions.assertNull(checkpointCounterStore.get(counterKey));
-        checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
-        Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
+        return new CheckpointManager(
+                jobId,
+                isStartWithSavePoint,
+                nodeEngine,
+                null,
+                planMap,
+                checkpointConfig,
+                checkpointStorage,
+                instance.getExecutorService("test"),
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                server.getEngineContext(),
+                null);
     }
 }
