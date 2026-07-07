@@ -10,7 +10,13 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 
 该连接器是批处理源。DynamoDB 不像关系型数据库那样提供完整字段类型信息，所以必须在 SeaTunnel 中显式配置 schema。
 
-该 Source 使用 scan 请求读取表中当前已有的数据，不读取 DynamoDB Streams 或 CDC 变更事件。
+该源连接器使用 scan 请求读取表中当前已有的数据，不读取 DynamoDB Streams 或 CDC 变更事件。
+
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
@@ -33,7 +39,7 @@ Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数�
 | schema                | config | 是   | -      | 要读取的 SeaTunnel 字段。   |
 | scan_item_limit       | int    | 否   | 1      | 每次 scan 请求返回的最大 item 数。 |
 | parallel_scan_threads | int    | 否   | 2      | parallel scan 的逻辑分片数。 |
-| common-options        | object | 否   | -      | Source 插件通用参数。       |
+| common-options        | object | 否   | -      | 源插件通用参数。       |
 
 ### url [string]
 
@@ -102,6 +108,13 @@ DynamoDB parallel scan 使用的逻辑分片数量。
 ### 通用选项
 
 源连接器通用参数，请参考[源通用选项](../common-options/source-common-options.md)。
+
+## 使用说明
+
+- 该源连接器使用 DynamoDB scan 请求，所以读取的是当前表快照，不是变更事件。
+- `access_key_id` 和 `secret_access_key` 是必填项。使用 DynamoDB Local 时，可以填写本地服务接受的占位值。
+- `parallel_scan_threads` 控制 DynamoDB scan 的逻辑分片数。大表可以结合任务并行度一起调大。
+- `scan_item_limit` 是每次 scan 请求的分页限制，不是整个任务最多读取的总行数。
 
 ## 数据类型映射
 

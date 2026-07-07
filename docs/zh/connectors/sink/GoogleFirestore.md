@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-google-firestore.md';
 
 > Google Firestore Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集合。
@@ -21,6 +27,14 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
+## 支持的数据源信息
+
+使用 GoogleFirestore 连接器需要安装下面的依赖。可以通过 install-plugin.sh 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源          | 依赖 |
+|-----------------|------|
+| GoogleFirestore | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
+
 ## 选项
 
 | 名称           | 类型   | 必填 | 默认值 | 说明 |
@@ -28,7 +42,7 @@ GoogleFirestore Sink 用于将 SeaTunnel 数据写入 Google Cloud Firestore 集
 | project_id     | string | 是   | -      | Firestore 数据库所在的 Google Cloud 项目 ID。 |
 | collection     | string | 是   | -      | 要写入的 Firestore 集合名称。 |
 | credentials    | string | 否   | -      | Base64 编码后的 Google Cloud 服务账号 JSON。 |
-| common-options |        | 否   | -      | Sink 通用选项。 |
+| common-options |        | 否   | -      | Sink 通用选项，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### project_id [string]
 
@@ -83,6 +97,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 ## 注意事项
 
 - 当前连接器只提供 sink，不提供 GoogleFirestore source。
+- 每个 sink 配置块只写入一个固定的 collection，不会按多表输入自动切换 collection。
 - Firestore 文档 ID 会自动生成。如果需要固定文档 ID，请在写入前使用其他连接器或转换处理。
 - sink 不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义。
 - `credentials` 不能直接填写服务账号 JSON 原文，需要先做 Base64 编码。

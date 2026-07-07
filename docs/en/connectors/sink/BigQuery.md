@@ -64,6 +64,8 @@ The connector writes to one configured table: `project_id.dataset_id.table_id`. 
 - `batch`: uses BigQuery buffered write streams and commits data during SeaTunnel checkpoint/commit. This is the mode covered by the exactly-once feature mark.
 - `streaming`: uses the default stream and writes CDC records with BigQuery change fields. This mode is suitable for CDC upsert/delete records, but it is not marked as exactly-once by this connector.
 
+For CDC writes in `streaming` mode, prepare the target BigQuery table with a primary key before starting the SeaTunnel job. The connector maps SeaTunnel row kinds to BigQuery change records: `INSERT` and `UPDATE_AFTER` are written as `UPSERT`, while `DELETE` and `UPDATE_BEFORE` are written as `DELETE`.
+
 #### sequence_number_column
 
 `sequence_number_column` is optional.
@@ -128,6 +130,18 @@ sink {
 ```
 
 ### CDC Streaming Mode (MySQL to BigQuery)
+
+The target BigQuery table should already exist and should define the primary key used by the CDC source. For example:
+
+```sql
+CREATE TABLE `my-gcp-project.cdc_dataset.orders` (
+  uuid INT64 NOT NULL,
+  name STRING,
+  score INT64,
+  PRIMARY KEY (uuid) NOT ENFORCED
+)
+OPTIONS (max_staleness = INTERVAL 0 MINUTE);
+```
 
 ```hocon
 env {
@@ -194,7 +208,7 @@ sink {
 ### Testing
 
 This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
-For now, the connector should be tested against a real BigQuery environment.
+Use `emulator_host` only for local or CI checks that are compatible with the emulator. Production validation should be done against a real BigQuery environment.
 
 ## Changelog
 
