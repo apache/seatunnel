@@ -41,7 +41,7 @@ public class SocketSinkFactory implements TableSinkFactory {
                 .required(SocketSinkOptions.PORT, Conditions.greaterThan(SocketSinkOptions.PORT, 0))
                 .optional(
                         SocketSinkOptions.MAX_RETRIES,
-                        Conditions.greaterOrEqual(SocketSinkOptions.MAX_RETRIES, 0))
+                        Conditions.greaterThan(SocketSinkOptions.MAX_RETRIES, 0))
                 .build();
     }
 
