@@ -69,9 +69,9 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                 }
                 log.error(
                         "Failed to build original_data for row-level error. stage={}, plugin={}, tableId={}, originalError={}",
-                        ctx != null ? ctx.getStage() : null,
-                        ctx != null ? ctx.getPluginName() : null,
-                        ctx != null ? ctx.getTableId() : null,
+                        ctx.getStage(),
+                        ctx.getPluginName(),
+                        ctx.getTableId(),
                         t != null ? t.getMessage() : null,
                         buildEx);
             }
@@ -81,9 +81,9 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         if (config.getMode() == ErrorHandlerMode.LOG
                 || config.getMode() == ErrorHandlerMode.ROUTE) {
             try {
-                String stage = ctx != null ? ctx.getStage() : null;
-                String pluginName = ctx != null ? ctx.getPluginName() : null;
-                String tableId = ctx != null ? ctx.getTableId() : null;
+                String stage = ctx.getStage();
+                String pluginName = ctx.getPluginName();
+                String tableId = ctx.getTableId();
                 String errorMessage = t != null ? t.getMessage() : null;
 
                 if (config.isIncludeStacktrace() && t != null) {
@@ -114,9 +114,9 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                 }
                 log.error(
                         "Failed to log row-level error. stage={}, plugin={}, tableId={}, originalError={}, logFailure={}",
-                        ctx != null ? ctx.getStage() : null,
-                        ctx != null ? ctx.getPluginName() : null,
-                        ctx != null ? ctx.getTableId() : null,
+                        ctx.getStage(),
+                        ctx.getPluginName(),
+                        ctx.getTableId(),
                         t != null ? t.getMessage() : null,
                         logEx.getMessage(),
                         logEx);
