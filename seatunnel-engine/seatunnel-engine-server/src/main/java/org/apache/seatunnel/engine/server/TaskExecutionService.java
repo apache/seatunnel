@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -643,6 +644,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } catch (JobNotFoundException e) {
                 logger.warning("send notify task status failed because can't find job", e);
                 notifyStateSuccess = true;
+            } catch (JobRestoreInProgressException e) {
+                logger.info(ExceptionUtils.getMessage(e));
+                logger.info(
+                        String.format(
+                                "notify the job of the task(%s) status failed, retry in %s millis",
+                                taskGroupLocation, sleepTime));
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    logger.severe(e);
+                }
             } catch (ExecutionException e) {
                 if (e.getCause() instanceof JobNotFoundException) {
                     logger.warning("send notify task status failed because can't find job", e);
@@ -656,6 +669,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     try {
                         Thread.sleep(sleepTime);
                     } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                         logger.severe(e);
                     }
                 }
