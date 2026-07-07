@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.opengauss;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,30 +34,30 @@ import java.util.stream.Collectors;
 
 @Disabled("Please Test it in your local environment")
 @Slf4j
-class PostgresCatalogTest {
+class OpenGaussCatalogTest {
 
-    static PostgresCatalog catalog;
+    static OpenGaussCatalog catalog;
 
     @BeforeAll
     static void before() {
+        /** env: opengauss 6.0.3 LTS on docker */
         catalog =
-                new PostgresCatalog(
-                        "postgres",
-                        "pg",
-                        "pg#2024",
-                        JdbcUrlUtil.getUrlInfo("jdbc:postgresql://192.168.1.20:5432/postgres"),
-                        null,
-                        null);
+                new OpenGaussCatalog(
+                        "gaussdb",
+                        "gaussdb",
+                        "openGauss&123",
+                        JdbcUrlUtil.getUrlInfo("jdbc:opengauss://192.168.1.10:8000/postgres"),
+                        "gaussdb",
+                        "org.opengauss.Driver");
 
         catalog.open();
     }
 
-    /** env: pgsql-18.4 on linux-arm64 */
     @Test
     void testGetTableSchemaAfterColsDropped() {
         String database = "seatunnel";
         String schemaName = "public";
-        String tableName = "pg_cols_drop_test";
+        String tableName = "opengauss_cols_drop_test";
         TablePath tablePath = new TablePath(database, schemaName, tableName);
         catalog.createDatabase(tablePath, true);
         catalog.dropTable(tablePath, true);
@@ -88,38 +87,5 @@ class PostgresCatalogTest {
         Assertions.assertEquals("c1,c2", resultColsString);
         log.info("result cols: {}", resultColsString);
         Assertions.assertNotEquals(colsString, resultColsString);
-    }
-
-    @Test
-    void testCatalog() {
-        MySqlCatalog mySqlCatalog =
-                new MySqlCatalog(
-                        "mysql",
-                        "root",
-                        "root@123",
-                        JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:33062/mingdongtest"),
-                        null);
-
-        mySqlCatalog.open();
-
-        CatalogTable table1 =
-                mySqlCatalog.getTable(TablePath.of("mingdongtest", "all_types_table_02"));
-
-        CatalogTable table =
-                catalog.getTable(TablePath.of("st_test", "public", "all_types_table_02"));
-        log.info("find table: " + table);
-
-        catalog.createTable(
-                new TablePath("liulitest", "public", "all_types_table_02"), table, false);
-    }
-
-    @Test
-    void exists() {
-        Assertions.assertFalse(catalog.databaseExists("postgres"));
-        Assertions.assertFalse(
-                catalog.tableExists(TablePath.of("postgres", "pg_catalog", "pg_aggregate")));
-        Assertions.assertTrue(catalog.databaseExists("zdykdb"));
-        Assertions.assertTrue(
-                catalog.tableExists(TablePath.of("zdykdb", "pg_catalog", "pg_class")));
     }
 }
