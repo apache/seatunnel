@@ -12,6 +12,7 @@ Writes data to Google Cloud Bigtable using the native Bigtable Data v2 Java clie
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -27,6 +28,9 @@ Writes data to Google Cloud Bigtable using the native Bigtable Data v2 Java clie
 | version_column      | string  | no       | -             |
 | null_mode           | string  | no       | skip          |
 | batch_mutation_size | int     | no       | 100           |
+| schema_save_mode    | enum    | no       | RECREATE_SCHEMA |
+| data_save_mode      | enum    | no       | APPEND_DATA   |
+| multi_table_sink_replica | int | no       | -             |
 | common-options      |         | no       | -             |
 
 ### project_id [string]
@@ -91,6 +95,22 @@ How to handle `null` field values. Supported: `skip` (default), `empty`.
 
 Number of row mutations to accumulate before sending a BulkMutation to Bigtable. Default is `100`. Increase for higher throughput at the cost of higher per-task memory usage.
 
+### schema_save_mode [enum]
+
+Schema save mode. Only `RECREATE_SCHEMA` is supported now.
+
+The connector does not create Bigtable tables or column families. Create the target table and all column families before the job starts.
+
+### data_save_mode [enum]
+
+Data save mode. Only `APPEND_DATA` is supported now.
+
+`DROP_DATA` and `ERROR_WHEN_DATA_EXISTS` are not implemented for this connector. If you need a clean target, truncate or recreate the Bigtable table before running the job.
+
+### multi_table_sink_replica [int]
+
+The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md).
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -114,6 +134,12 @@ All SeaTunnel types are supported:
 | DATE                         | UTF-8 `yyyy-MM-dd`              |
 | TIME                         | UTF-8 `HH:mm:ss`                |
 | TIMESTAMP                    | UTF-8 `yyyy-MM-dd HH:mm:ss`     |
+
+:::tip
+
+Bigtable does not have relational columns. The sink writes every non-row-key field as a Bigtable cell. The target column family is selected by `column_family`; the Bigtable qualifier is the SeaTunnel field name.
+
+:::
 
 ## Example
 
@@ -166,6 +192,26 @@ sink {
       email       = "identity"
       age         = "stats"
       last_login  = "stats"
+    }
+  }
+}
+```
+
+### Use a version column and empty null values
+
+```hocon
+sink {
+  GoogleBigtable {
+    project_id       = "my-gcp-project"
+    instance_id      = "my-bigtable-instance"
+    table            = "events"
+    rowkey_column    = ["tenant_id", "event_id"]
+    rowkey_delimiter = "#"
+    version_column   = "event_ts"
+    null_mode        = "empty"
+    column_family {
+      all_columns = "data"
+      event_type  = "meta"
     }
   }
 }
