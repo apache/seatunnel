@@ -39,6 +39,8 @@ It supports one-row-at-a-time writes and batch writes with Cypher `UNWIND`.
 - In `ONE_BY_ONE` mode, `queryParamPosition` maps each Cypher placeholder to a field position in the input row.
 - In `BATCH` mode, the query should use `UNWIND $batch AS row`. The connector passes the rows through the `batch` variable.
 - `queryParamPosition` is still required by the connector configuration in `BATCH` mode, even though the batch query reads values from `row`.
+- Field positions in `queryParamPosition` start from `0`, following the input schema field order.
+- In `BATCH` mode, each `row` entry uses the input field names, so the names referenced in the Cypher statement must match the upstream schema.
 
 ## Write One Row At A Time
 

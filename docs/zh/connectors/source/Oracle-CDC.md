@@ -241,6 +241,7 @@ exit;
 | connect.timeout.ms                        | Duration | 否      | 30000   | 连接器在尝试连接数据库服务器后超时的最大等待时间。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | 否      | 3       | 连接器尝试建立数据库服务器连接的最大重试次数。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | 否      | 20      | JDBC 连接池大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| incremental.parallelism                   | Integer  | 否      | 1       | 全量快照阶段结束、进入增量日志读取后使用的并行读取数量。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | chunk-key.even-distribution.factor.upper-bound | Double   | 否      | 100     | 分块键分布因子的上限。此因子用于确定表数据是否均匀分布。如果计算出的分布因子小于或等于此上限（即 (MAX(id) - MIN(id) + 1) / 行数），则表分块将针对均匀分布进行优化。否则，如果分布因子较大，则表将被视为分布不均，如果估计的分片数超过 `sample-sharding.threshold` 指定的值，则将使用基于采样的分片策略。默认值为 100.0。 |
 | chunk-key.even-distribution.factor.lower-bound | Double   | 否      | 0.05    | 分块键分布因子的下限。此因子用于确定表数据是否均匀分布。如果计算出的分布因子大于或等于此下限（即 (MAX(id) - MIN(id) + 1) / 行数），则表分块将针对均匀分布进行优化。否则，如果分布因子较小，则表将被视为分布不均，如果估计的分片数超过 `sample-sharding.threshold` 指定的值，则将使用基于采样的分片策略。默认值为 0.05。  |
 | sample-sharding.threshold                 | Integer  | 否      | 1000    | 此配置指定触发采样分片策略的预估分片数阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且预估的分片数（计算为近似行数 / 分块大小）超过此阈值时，将使用采样分片策略。这有助于更有效地处理大型数据集。默认值为 1000 个分片。                                                                                   |
@@ -366,6 +367,35 @@ source {
 }
 ```
 
+### 启用精确一次 CDC
+
+`exactly_once = true` 用于默认的 `startup.mode = "initial"` 路径。只有下游 Sink 也配置了精确一次能力时才建议启用，例如开启 XA 的 JDBC Sink。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    exactly_once = true
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
 ### 从时间戳启动
 
 使用 `startup.mode = "timestamp"` 时，Oracle CDC 会根据毫秒级 Unix 时间戳解析对应的 Oracle SCN 并从该位置启动。
@@ -385,6 +415,29 @@ source {
     server-time-zone = "UTC"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
+### 配置 Debezium 心跳
+
+对于变更较少的表，可以配置 Debezium 心跳，让 Oracle LogMiner 位点定期向前推进。
+
+```hocon
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+      heartbeat.interval.ms = 1000
+      heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }

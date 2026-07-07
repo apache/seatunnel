@@ -242,6 +242,7 @@ exit;
 | connect.timeout.ms                        | Duration | No        | 30000   | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No        | 3       | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No        | 20      | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| incremental.parallelism                   | Integer  | No        | 1       | Number of parallel readers used after the snapshot phase enters incremental log reading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No        | 100     | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No        | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | Integer  | No        | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
@@ -367,6 +368,35 @@ source {
 }
 ```
 
+### Enable exactly-once CDC
+
+`exactly_once = true` is used with the default `startup.mode = "initial"` path. Use it when the downstream sink is also configured for exactly-once delivery, for example a JDBC sink with XA enabled.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    exactly_once = true
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
 ### Start From Timestamp
 
 Use `startup.mode = "timestamp"` to start from the Oracle SCN resolved from a Unix timestamp in milliseconds.
@@ -386,6 +416,29 @@ source {
     server-time-zone = "UTC"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
+### Configure Debezium heartbeat
+
+For low-traffic tables, Debezium heartbeat can help the Oracle LogMiner position move forward regularly.
+
+```hocon
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+      heartbeat.interval.ms = 1000
+      heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }

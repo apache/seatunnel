@@ -12,6 +12,12 @@ The connector is a batch source. DynamoDB does not expose field types in the sam
 
 This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
 
+## Supported Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -102,6 +108,13 @@ For small tables, keep the default value. For large tables, increase it together
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Usage Notes
+
+- The source uses DynamoDB scan requests, so it reads the current table snapshot rather than change events.
+- `access_key_id` and `secret_access_key` are required by this connector. For DynamoDB Local, use dummy values accepted by the local service.
+- `parallel_scan_threads` controls the number of DynamoDB scan segments. Increase it together with job parallelism for larger tables.
+- `scan_item_limit` is the page limit used on each scan request, not the total number of rows in the job.
 
 ## Data Type Mapping
 
