@@ -20,7 +20,8 @@ package org.apache.seatunnel.core.starter.spark.command;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.utils.FileUtils;
+
+import org.apache.spark.SparkFiles;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +39,8 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(sparkCommandArgs);
+        Path configPath =
+                SparkTaskExecuteCommand.resolveConfigPath(sparkCommandArgs, SparkFiles::get);
         // TODO: validate the config by new api
     }
 }
