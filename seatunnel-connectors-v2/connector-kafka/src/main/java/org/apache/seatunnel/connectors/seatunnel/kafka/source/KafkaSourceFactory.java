@@ -50,10 +50,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(KafkaSourceOptions.BOOTSTRAP_SERVERS)
-                .exclusive(
-                        KafkaSourceOptions.TOPIC,
-                        KafkaSourceOptions.TABLE_CONFIGS,
-                        KafkaSourceOptions.TABLE_LIST)
+                .exclusive(KafkaSourceOptions.TOPIC, KafkaSourceOptions.TABLE_CONFIGS)
                 .optional(
                         KafkaSourceOptions.PATTERN,
                         KafkaSourceOptions.CONSUMER_GROUP,
@@ -65,6 +62,16 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         KafkaSourceOptions.READER_CACHE_QUEUE_SIZE)
+                .optional(
+                        KafkaSourceOptions.START_MODE_TIMESTAMP,
+                        Conditions.extension(
+                                KafkaSourceOptions.START_MODE_TIMESTAMP,
+                                new KafkaStartModeTimestampValidator()))
+                .optional(
+                        KafkaSourceOptions.START_MODE_OFFSETS,
+                        Conditions.extension(
+                                KafkaSourceOptions.START_MODE_OFFSETS,
+                                new KafkaStartModeOffsetsValidator()))
                 .optional(
                         KafkaSourceOptions.START_MODE_END_TIMESTAMP,
                         Conditions.greaterOrEqual(KafkaSourceOptions.START_MODE_END_TIMESTAMP, 0L))
@@ -125,16 +132,15 @@ public class KafkaSourceFactory implements TableSourceFactory {
     private static class KafkaStartModeValidator implements ConditionExtension<StartMode> {
         @Override
         public String description() {
-            return "if [start_mode] is timestamp than [start_mode.timestamp] must not be null and greater than 0, "
-                    + "if [start_mode] is specific_offsets than [start_mode.offsets] must not be null and map is not empty";
+            return "if [start_mode] is timestamp then [start_mode.timestamp] must be configured, "
+                    + "if [start_mode] is specific_offsets then [start_mode.offsets] must be configured";
         }
 
         @Override
         public boolean evaluate(ReadonlyConfig config, StartMode value)
                 throws OptionValidationException {
             if (StartMode.TIMESTAMP == value) {
-                Long startModeTimestamp = config.get(KafkaSourceOptions.START_MODE_TIMESTAMP);
-                return startModeTimestamp != null && startModeTimestamp >= 0L;
+                return config.getOptional(KafkaSourceOptions.START_MODE_TIMESTAMP).isPresent();
 
             } else if (StartMode.SPECIFIC_OFFSETS == value) {
                 Map<String, Long> startModeOffsets =
@@ -142,6 +148,35 @@ public class KafkaSourceFactory implements TableSourceFactory {
                 return startModeOffsets != null && !startModeOffsets.isEmpty();
             }
             return true;
+        }
+    }
+
+    private static class KafkaStartModeTimestampValidator implements ConditionExtension<Long> {
+        @Override
+        public String description() {
+            return "[start_mode.timestamp] is only valid when [start_mode]=timestamp and must be >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Long value)
+                throws OptionValidationException {
+            StartMode startMode = config.getOptional(KafkaSourceOptions.START_MODE).orElse(null);
+            return startMode == StartMode.TIMESTAMP && value != null && value >= 0L;
+        }
+    }
+
+    private static class KafkaStartModeOffsetsValidator
+            implements ConditionExtension<Map<String, Long>> {
+        @Override
+        public String description() {
+            return "[start_mode.offsets] is only valid when [start_mode]=specific_offsets and must not be empty";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Map<String, Long> value)
+                throws OptionValidationException {
+            StartMode startMode = config.getOptional(KafkaSourceOptions.START_MODE).orElse(null);
+            return startMode == StartMode.SPECIFIC_OFFSETS && value != null && !value.isEmpty();
         }
     }
 
@@ -171,6 +206,12 @@ public class KafkaSourceFactory implements TableSourceFactory {
                                 "tables_configs[%d]: 'start_mode.timestamp' must be >= 0, got: %d",
                                 i, ts);
                     }
+                    if (entries.get(i).containsKey(KafkaSourceOptions.START_MODE_OFFSETS.key())) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start_mode.offsets' is only valid "
+                                        + "when start_mode=SPECIFIC_OFFSETS",
+                                i);
+                    }
                     Long endTs = entryConfig.get(KafkaSourceOptions.START_MODE_END_TIMESTAMP);
                     if (endTs != null && endTs < 0) {
                         throw new OptionValidationException(
@@ -186,6 +227,19 @@ public class KafkaSourceFactory implements TableSourceFactory {
                                         + "when start_mode=SPECIFIC_OFFSETS",
                                 i);
                     }
+                    if (entries.get(i).containsKey(KafkaSourceOptions.START_MODE_TIMESTAMP.key())) {
+                        throw new OptionValidationException(
+                                "tables_configs[%d]: 'start_mode.timestamp' is only valid "
+                                        + "when start_mode=TIMESTAMP",
+                                i);
+                    }
+                } else if (entries.get(i).containsKey(KafkaSourceOptions.START_MODE_TIMESTAMP.key())
+                        || entries.get(i)
+                                .containsKey(KafkaSourceOptions.START_MODE_OFFSETS.key())) {
+                    throw new OptionValidationException(
+                            "tables_configs[%d]: 'start_mode.timestamp' and "
+                                    + "'start_mode.offsets' require an appropriate start_mode",
+                            i);
                 }
             }
             return true;

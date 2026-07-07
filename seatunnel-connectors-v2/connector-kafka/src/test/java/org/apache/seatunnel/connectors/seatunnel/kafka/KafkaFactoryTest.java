@@ -41,6 +41,11 @@ class KafkaFactoryTest {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sourceRule);
     }
 
+    private void validateUnknownKeys(Map<String, Object> config) {
+        ConfigValidator.validateUnknownKeys(
+                ReadonlyConfig.fromMap(config), sourceRule, "KafkaSource");
+    }
+
     private Map<String, Object> validTimestampConfig() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("bootstrap.servers", "localhost:9092");
@@ -73,9 +78,28 @@ class KafkaFactoryTest {
     }
 
     @Test
+    void testUnknownKeysAllowsTimestampStartModeOptions() {
+        Assertions.assertDoesNotThrow(() -> validateUnknownKeys(validTimestampConfig()));
+    }
+
+    @Test
     void testNegativeTimestampRejected() {
         Map<String, Object> cfg = validTimestampConfig();
         cfg.put("start_mode.timestamp", -1L);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTimestampRejectedWithoutTimestampStartMode() {
+        Map<String, Object> cfg = validTimestampConfig();
+        cfg.put("start_mode", "EARLIEST");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testTimestampRejectedWithoutStartMode() {
+        Map<String, Object> cfg = validTimestampConfig();
+        cfg.remove("start_mode");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
@@ -92,12 +116,31 @@ class KafkaFactoryTest {
     }
 
     @Test
+    void testUnknownKeysAllowsSpecificOffsetsStartModeOptions() {
+        Assertions.assertDoesNotThrow(() -> validateUnknownKeys(validSpecificOffsetsConfig()));
+    }
+
+    @Test
     void testEmptyOffsetsMapRejected() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("bootstrap.servers", "localhost:9092");
         cfg.put("topic", "test-topic");
         cfg.put("start_mode", "SPECIFIC_OFFSETS");
         cfg.put("start_mode.offsets", Collections.emptyMap());
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testOffsetsRejectedWithoutSpecificOffsetsStartMode() {
+        Map<String, Object> cfg = validSpecificOffsetsConfig();
+        cfg.put("start_mode", "EARLIEST");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testOffsetsRejectedWithoutStartMode() {
+        Map<String, Object> cfg = validSpecificOffsetsConfig();
+        cfg.remove("start_mode");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 
@@ -159,6 +202,15 @@ class KafkaFactoryTest {
     }
 
     @Test
+    void testMultiTableTimestampRejectedWithoutTimestampStartMode() {
+        Map<String, Object> cfg = validMultiTableConfig();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tables = (List<Map<String, Object>>) cfg.get("tables_configs");
+        tables.get(0).put("start_mode", "EARLIEST");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
     void testMultiTableEmptyOffsetsRejected() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("bootstrap.servers", "localhost:9092");
@@ -167,6 +219,21 @@ class KafkaFactoryTest {
         entry.put("topic", "multi-topic");
         entry.put("start_mode", "SPECIFIC_OFFSETS");
         entry.put("start_mode.offsets", Collections.emptyMap());
+        List<Map<String, Object>> tables = new ArrayList<>();
+        tables.add(entry);
+        cfg.put("tables_configs", tables);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testMultiTableOffsetsRejectedWithoutSpecificOffsetsStartMode() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("bootstrap.servers", "localhost:9092");
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("topic", "multi-topic");
+        entry.put("start_mode", "EARLIEST");
+        entry.put("start_mode.offsets", Collections.singletonMap("multi-topic-0", 1L));
         List<Map<String, Object>> tables = new ArrayList<>();
         tables.add(entry);
         cfg.put("tables_configs", tables);
