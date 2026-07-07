@@ -73,20 +73,16 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 
 | 名称                                           | 类型     | 是否必填 | 默认值  | 描述                                                                                                                                                                                                                                                                                                                |
 | ---------------------------------------------- | -------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| username                                       | String   | 是       | -       | 连接数据库服务器时使用的数据库名称。                                                                                                                                                                                                                                                                                |
+| username                                       | String   | 是       | -       | 连接 SQL Server 实例时使用的用户名。                                                                                                                                                                                                                                                                                |
 | password                                       | String   | 是       | -       | 连接数据库服务器时使用的密码。                                                                                                                                                                                                                                                                                      |
 | database-names                                 | List     | 是       | -       | 要监控的数据库名称。                                                                                                                                                                                                                                                                                                |
-| table-names                                    | List     | 是       | -       | 表名是模式名和表名的组合 (databaseName.schemaName.tableName)。                                                                                                                                                                                                                                                      |
+| table-names                                    | List     | 是       | -       | 要监控的表，使用完整表标识：`databaseName.schemaName.tableName`。该参数与 `table-pattern` 互斥。                                                                                                                                                                                                                                                      |
+| table-pattern                                  | String   | 是       | -       | 要监控的表名正则表达式，需要匹配完整表标识，例如 `column_type_test\\.dbo\\..*`。该参数与 `table-names` 互斥。                                                                                                                                                                                                                                                      |
 | table-names-config                             | List     | 否       | -       | 表配置列表。例如：[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]。 snapshotSplitColumn 选项必须配置为唯一键(主键或唯一索引)。 如果指定了非唯一列，该配置将被忽略，SeaTunnel 会在内部自动选择合适的拆分列。                                                                                                                                                                                                           |
 | url                                            | String   | 是       | -       | URL 必须包含数据库，如 "jdbc:sqlserver://localhost:1433;databaseName=test"。                                                                                                                                                                                                                                        |
-| startup.mode                                   | Enum     | 否       | INITIAL | SqlServer CDC 消费者的可选启动模式，有效枚举为 "initial"、"earliest"、"latest"、"timestamp" 和 "specific"。                                                                                                                                                                             |
+| startup.mode                                   | Enum     | 否       | INITIAL | SqlServer CDC 消费者的可选启动模式，有效值为 `initial`、`earliest`、`latest` 和 `timestamp`。<br/>`initial`：先读取表快照，再继续读取增量变更。<br/>`earliest`：从最早可用的 CDC LSN 开始读取。<br/>`latest`：只读取作业启动后的变更。<br/>`timestamp`：从 `startup.timestamp` 解析出的 LSN 开始读取。                                                                                                                                                                             |
 | startup.timestamp                              | Long     | 否       | -       | 从指定的纪元时间戳（以毫秒为单位）开始。当 `startup.mode = timestamp` 时，该时间戳会按 `server-time-zone` 转换。<br/> **注意，当 "startup.mode" 选项使用 `'timestamp'` 时，此选项是必需的。**                                                                                                                                                            |
-| startup.specific-offset.file                   | String   | 否       | -       | 从指定的 binlog 文件名开始。<br/>**注意，当 "startup.mode" 选项使用 `'specific'` 时，此选项是必需的。**                                                                                                                                                                                                             |
-| startup.specific-offset.pos                    | Long     | 否       | -       | 从指定的 binlog 文件位置开始。<br/>**注意，当 "startup.mode" 选项使用 `'specific'` 时，此选项是必需的。**                                                                                                                                                                                                           |
 | stop.mode                                      | Enum     | 否       | NEVER   | SqlServer CDC 消费者的可选停止模式，有效枚举为 "never"。                                                                                                                                                                                                                                                            |
-| stop.timestamp                                 | Long     | 否       | -       | 在指定的纪元时间戳（以毫秒为单位）停止。<br/>**注意，当 "stop.mode" 选项使用 `'timestamp'` 时，此选项是必需的。**                                                                                                                                                                                                   |
-| stop.specific-offset.file                      | String   | 否       | -       | 在指定的 binlog 文件名停止。<br/>**注意，当 "stop.mode" 选项使用 `'specific'` 时，此选项是必需的。**                                                                                                                                                                                                                |
-| stop.specific-offset.pos                       | Long     | 否       | -       | 在指定的 binlog 文件位置停止。<br/>**注意，当 "stop.mode" 选项使用 `'specific'` 时，此选项是必需的。**                                                                                                                                                                                                              |
 | incremental.parallelism                        | Integer  | 否       | 1       | 增量阶段中并行读取器的数量。                                                                                                                                                                                                                                                                                        |
 | snapshot.split.size                            | Integer  | 否       | 8096    | 表快照的分割大小（行数），读取表快照时，捕获的表会被分割为多个分割。                                                                                                                                                                                                                                                |
 | snapshot.fetch.size                            | Integer  | 否       | 1024    | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                |
@@ -135,6 +131,12 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 > USE TestDB; -- 替换为实际的数据库名称 <br/>
 > EXEC sys.sp_cdc_enable_db;<br/>
 > SELECT name, is_tracked_by_cdc  FROM sys.tables  WHERE name = 'table'; -- table 替换为您要检查的表名
+
+5. 为 SeaTunnel 需要读取的每张表启用 CDC
+
+> USE TestDB; -- 替换为实际的数据库名称 <br/>
+> EXEC sys.sp_cdc_enable_table @source_schema = N'dbo', @source_name = N'full_types', @role_name = NULL, @supports_net_changes = 0;<br/>
+> SELECT name, is_tracked_by_cdc FROM sys.tables WHERE name = 'full_types';
 
 ## 任务示例
 
@@ -242,6 +244,75 @@ sink {
 }
 ```
 
+### 读取多张表
+
+在 `table-names` 中使用完整表标识。下游支持多表路由的 Sink 可以根据源表元数据，将不同源表写入不同目标表。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    tablePrefix = "sink_"
+    primary_keys = ["id"]
+  }
+}
+```
+
+### 从指定时间戳开始读取
+
+当 `startup.mode = "timestamp"` 时，`startup.timestamp` 是毫秒级 Unix 时间戳。如果数据库服务器时区与 JVM
+时区不同，请显式设置 `server-time-zone`。
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types_custom_primary_key"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    startup.mode = "timestamp"
+    startup.timestamp = 1719820800000
+    server-time-zone = "UTC"
+    exactly_once = true
+    table-names-config = [
+      {
+        table = "column_type_test.dbo.full_types_custom_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+  }
+}
+```
+
 ### Schema change 事件过滤
 
 当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
@@ -274,7 +345,7 @@ source {
 }
 ```
 
-**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+**排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
 ## 变更日志
