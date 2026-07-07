@@ -258,9 +258,6 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /**
-     * Verifies continuous non-recursive SFTP sync copies root files while ignoring nested files.
-     */
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -324,6 +321,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Verifies continuous non-recursive SFTP sync copies root files while ignoring nested files.
+     *
+     * <p>The nested-file assertion protects the connector's non-recursive discovery contract.
+     */
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -374,7 +376,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Verifies non-recursive SFTP distcp updates root files without overwriting nested files. */
+    /**
+     * Verifies non-recursive SFTP distcp updates root files without overwriting nested files.
+     *
+     * <p>The stale nested destination file must remain unchanged after the job finishes.
+     */
     @TestTemplate
     public void testSftpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
@@ -583,7 +589,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
-    /** Checks whether a file exists in the SFTP container without creating parent directories. */
+    /**
+     * Checks whether a file exists in the SFTP container without creating parent directories.
+     *
+     * <p>This helper is used by negative assertions where creating the path would hide regressions.
+     */
     private boolean isSftpFileExists(String containerPath)
             throws IOException, InterruptedException {
         Container.ExecResult result =

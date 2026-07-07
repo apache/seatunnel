@@ -141,7 +141,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private List<ConsumerRecord<String, String>> nativeData;
 
-    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    /**
+     * Topics created dynamically during tests.
+     *
+     * <p>They are cleaned up in {@link #tearDown()} to keep later Kafka E2E cases isolated.
+     */
     private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     @BeforeAll
@@ -1096,7 +1100,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Get the current end offset (LEO) on partition-0. */
+    /**
+     * Gets the current end offset on partition-0.
+     *
+     * <p>The exactly-once assertions use this as the visible sink baseline.
+     */
     private long endOffsetOnP0(String topic) {
         try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
             TopicPartition tp0 = new TopicPartition(topic, 0);
@@ -2127,7 +2135,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    /**
+     * Builds the dynamic {@code -i key=value} variables for the exactly-once streaming template.
+     *
+     * <p>Each test run uses isolated topics and a dedicated consumer group.
+     */
     private List<String> buildExactlyOnceStreamingVariables(
             String sourceTopic, String sinkTopic, String consumerGroup) {
         return Arrays.asList(

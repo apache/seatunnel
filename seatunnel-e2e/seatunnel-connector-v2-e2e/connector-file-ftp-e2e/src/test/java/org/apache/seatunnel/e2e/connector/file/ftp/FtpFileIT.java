@@ -313,7 +313,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
     }
 
-    /** Verifies continuous non-recursive FTP sync copies root files while ignoring nested files. */
+    /**
+     * Verifies continuous non-recursive FTP sync copies root files while ignoring nested files.
+     *
+     * <p>The nested-file assertion protects the connector's non-recursive discovery contract.
+     */
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -357,7 +361,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Verifies non-recursive FTP distcp updates root files without overwriting nested files. */
+    /**
+     * Verifies non-recursive FTP distcp updates root files without overwriting nested files.
+     *
+     * <p>The stale nested destination file must remain unchanged after the job finishes.
+     */
     @TestTemplate
     public void testFtpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
@@ -696,7 +704,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
-    /** Checks whether a file exists in the FTP container without creating parent directories. */
+    /**
+     * Checks whether a file exists in the FTP container without creating parent directories.
+     *
+     * <p>This helper is used by negative assertions where creating the path would hide regressions.
+     */
     private boolean isFtpFileExists(String ftpPath) throws IOException, InterruptedException {
         String containerPath = ftpHomeDir + ftpPath;
         Container.ExecResult result =
