@@ -76,7 +76,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     private final List<SeaTunnelRow> buffer;
     private final long bulkActions;
-    private final long batchIntervalMs;
     private final int maxRetries;
     private final long retryIntervalMs;
 
@@ -101,7 +100,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         this.context = context;
 
         this.bulkActions = options.getFlushSize();
-        this.batchIntervalMs = options.getBatchIntervalMs();
         this.maxRetries = options.getRetryMax();
         this.retryIntervalMs = options.getRetryInterval();
         this.buffer = new ArrayList<>();
@@ -120,6 +118,7 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
         // Start a periodic background flush so that buffer-flush.interval is a true max-latency
         // guarantee, even when no rows arrive (idle or low-throughput streaming jobs).
+        final long batchIntervalMs = options.getBatchIntervalMs();
         if (batchIntervalMs > 0) {
             this.flushScheduler =
                     Executors.newSingleThreadScheduledExecutor(
@@ -189,7 +188,11 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             flushFuture.cancel(false);
         }
         if (flushScheduler != null) {
-            flushScheduler.shutdown();
+            // shutdownNow() prevents any queued-but-not-yet-started timer tasks from running
+            // after we have already performed the final doFlush() and disconnected the cluster.
+            // In-flight tasks that are blocked on the doFlush() monitor are handled by the
+            // synchronized guard on doFlush() itself.
+            flushScheduler.shutdownNow();
         }
         try {
             doFlush();
@@ -377,7 +380,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     startFrom = i + 1;
                 }
                 buffer.clear();
-                lastSendTime = System.currentTimeMillis();
                 return;
             } catch (AmbiguousTimeoutException ate) {
                 // Record the in-flight index so the next attempt can distinguish a
