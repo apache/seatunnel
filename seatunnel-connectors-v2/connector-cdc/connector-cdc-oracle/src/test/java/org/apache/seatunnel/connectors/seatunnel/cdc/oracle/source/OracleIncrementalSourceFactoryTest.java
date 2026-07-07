@@ -235,6 +235,13 @@ class OracleIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testStartupModeInitialDoesNotRequireExplicitExactlyOnce() {
+        Map<String, Object> cfg = validOracleConfig();
+        cfg.put("startup.mode", "INITIAL");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
     public void testStartupModeSpecificRejectedBySingleChoice() {
         // Oracle startup.mode does not allow SPECIFIC.
         Map<String, Object> cfg = validOracleConfig();

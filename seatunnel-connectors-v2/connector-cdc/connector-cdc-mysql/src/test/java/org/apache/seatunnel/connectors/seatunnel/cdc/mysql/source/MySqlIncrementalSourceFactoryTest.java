@@ -246,6 +246,13 @@ public class MySqlIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testStartupModeInitialDoesNotRequireExplicitExactlyOnce() {
+        Map<String, Object> cfg = validMySqlConfig();
+        cfg.put("startup.mode", "INITIAL");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
     public void testStartupModeInvalidValueFails() {
         Map<String, Object> cfg = validMySqlConfig();
         cfg.put("startup.mode", "BOGUS");

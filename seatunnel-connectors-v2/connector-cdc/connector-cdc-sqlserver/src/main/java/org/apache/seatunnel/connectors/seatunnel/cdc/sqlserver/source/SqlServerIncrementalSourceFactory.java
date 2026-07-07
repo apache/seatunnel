@@ -163,8 +163,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
         @Override
         public String description() {
             return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
-                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0; "
-                    + "INITIAL requires exactly.once configured";
+                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0";
         }
 
         @Override
@@ -200,14 +199,6 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                 "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
                                         + "but was: "
                                         + startupSpecificOffsetPos);
-                    }
-                    break;
-                case INITIAL:
-                    Boolean exactlyOnce =
-                            config.get(SqlServerIncrementalSourceOptions.EXACTLY_ONCE);
-                    if (exactlyOnce == null) {
-                        throw new OptionValidationException(
-                                "When startup.mode is INITIAL, exactly.once must be configured.");
                     }
                     break;
             }

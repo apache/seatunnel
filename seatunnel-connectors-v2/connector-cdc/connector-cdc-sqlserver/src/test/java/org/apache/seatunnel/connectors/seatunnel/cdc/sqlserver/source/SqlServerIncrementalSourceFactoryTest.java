@@ -197,6 +197,13 @@ class SqlServerIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testStartupModeInitialDoesNotRequireExplicitExactlyOnce() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("startup.mode", "INITIAL");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
     public void testStopModeSpecificValid() {
         Map<String, Object> cfg = validSqlServerConfig();
         cfg.put("stop.mode", "SPECIFIC");

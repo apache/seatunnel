@@ -189,6 +189,13 @@ public class MongodbIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testStartupModeInitialDoesNotRequireExplicitExactlyOnce() {
+        Map<String, Object> cfg = validConfig();
+        cfg.put("startup.mode", "INITIAL");
+        Assertions.assertDoesNotThrow(() -> validate(cfg));
+    }
+
+    @Test
     public void testStartupModeSpecificRejectedBySingleChoice() {
         // MongoDB startup.mode does not allow SPECIFIC.
         Map<String, Object> cfg = validConfig();

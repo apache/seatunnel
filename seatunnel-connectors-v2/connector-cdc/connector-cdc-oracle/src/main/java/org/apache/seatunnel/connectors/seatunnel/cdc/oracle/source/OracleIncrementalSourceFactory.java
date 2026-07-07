@@ -239,8 +239,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
         @Override
         public String description() {
             return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
-                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0; "
-                    + "INITIAL requires exactly.once configured";
+                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0";
         }
 
         @Override
@@ -274,13 +273,6 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                 "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
                                         + "but was: "
                                         + startupSpecificOffsetPos);
-                    }
-                    break;
-                case INITIAL:
-                    Boolean exactlyOnce = config.get(OracleIncrementalSourceOptions.EXACTLY_ONCE);
-                    if (exactlyOnce == null) {
-                        throw new OptionValidationException(
-                                "When startup.mode is INITIAL, exactly.once must be configured.");
                     }
                     break;
             }
