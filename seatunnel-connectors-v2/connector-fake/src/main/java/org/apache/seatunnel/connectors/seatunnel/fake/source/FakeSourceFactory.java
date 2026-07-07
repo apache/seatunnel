@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
@@ -67,7 +68,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOp
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_DIMENSION;
 
 @AutoService(Factory.class)
-public class FakeSourceFactory implements TableSourceFactory {
+public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "FakeSource";
@@ -125,6 +126,13 @@ public class FakeSourceFactory implements TableSourceFactory {
                 .getFakeConfigs().stream()
                         .map(FakeConfig::getCatalogTable)
                         .collect(Collectors.toList());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        // FakeSource generates data in memory and has no external system to connect to,
+        // so schema inference above is the entire Layer 1 validation.
     }
 
     @Override

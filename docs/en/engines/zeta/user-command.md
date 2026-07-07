@@ -71,7 +71,19 @@ The `--dry-run static` (or `--check`) option validates the configuration file **
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
 ```
 
-The `--dry-run connect` option runs the static checks first, then uses factory-level dry-run hooks to infer source schemas, validate sink schema compatibility, and check connector connectivity. It may connect to external systems to validate credentials, permissions, and source or sink existence, but the framework does not create source/sink runtime instances, submit a job, read source records, create sink writers, execute save-mode logic, or write target data. Please note that dry-run validation is provided exclusively via the CLI.
+The `--dry-run connect` option runs the static checks first, then uses connector dry-run hooks to infer source schemas, validate sink schema compatibility, and check connector connectivity. It may connect to external systems to validate credentials, permissions, and source or sink existence, but the framework does not create source/sink runtime instances, submit a job, read source records, create sink writers, execute save-mode logic, or write target data. Please note that dry-run validation is provided exclusively via the CLI.
+
+**Connectivity validation is connector opt-in.** Only connectors that implement the `SupportSourceDryRunValidation` / `SupportSinkDryRunValidation` interfaces are actually validated against their external systems. Currently supported connectors:
+
+| Connector | Source | Sink |
+|-----------|--------|------|
+| Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
+| FakeSource | Yes (schema inference only, no external system) | - |
+
+Every plugin in the job is reported in a validation summary with one of two statuses:
+
+- `VALIDATED` – the connector performed real connectivity and/or schema validation.
+- `SKIPPED` – the connector does not support connect dry-run validation. **A successful `--dry-run connect` result does NOT verify credentials or reachability for `SKIPPED` plugins.** For sources without dry-run support, the schema fields declared in the config (`schema` / `tableConfigs` / `table_list` with `fields` or `columns`) are still used for downstream schema checks; if the config does not declare schema fields either, downstream transform/sink schema checks for that pipeline are also reported as `SKIPPED` instead of being validated against a placeholder schema.
 
 ## Viewing The Job List
 

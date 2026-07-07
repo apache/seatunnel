@@ -87,7 +87,19 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
 ```
 
-使用 `--dry-run connect` 参数会先执行静态校验，然后通过 factory 级别的 dry-run 钩子推断 source schema、校验 sink schema 兼容性，并检查连接器连通性。该模式可能连接外部系统以校验凭据、权限以及 source 或 sink 是否存在，但框架不会创建 source/sink 运行时实例、提交作业、读取 source 数据、创建 sink writer、执行 save-mode 逻辑或写入目标数据。Dry-run 校验仅通过 CLI 提供。
+使用 `--dry-run connect` 参数会先执行静态校验，然后通过连接器 dry-run 钩子推断 source schema、校验 sink schema 兼容性，并检查连接器连通性。该模式可能连接外部系统以校验凭据、权限以及 source 或 sink 是否存在，但框架不会创建 source/sink 运行时实例、提交作业、读取 source 数据、创建 sink writer、执行 save-mode 逻辑或写入目标数据。Dry-run 校验仅通过 CLI 提供。
+
+**连通性校验由连接器按需实现（opt-in）。** 只有实现了 `SupportSourceDryRunValidation` / `SupportSinkDryRunValidation` 接口的连接器才会真正对外部系统进行校验。当前支持的连接器：
+
+| 连接器 | Source | Sink |
+|--------|--------|------|
+| Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
+| FakeSource | 支持（仅 schema 推断，无外部系统） | - |
+
+作业中的每个插件都会在校验汇总中报告以下两种状态之一：
+
+- `VALIDATED` – 连接器执行了真实的连通性和/或 schema 校验。
+- `SKIPPED` – 连接器不支持 connect dry-run 校验。**对于 `SKIPPED` 的插件，`--dry-run connect` 成功并不代表其凭据或可达性得到了验证。** 对于不支持 dry-run 的 source，配置中显式声明的 schema 字段（`schema` / `tableConfigs` / `table_list` 中的 `fields` 或 `columns`）仍会用于下游 schema 校验；如果配置中也没有声明 schema 字段，则该管道的下游 transform/sink schema 校验同样会报告为 `SKIPPED`，而不是基于占位 schema 进行校验。
 
 ## 查看作业列表
 

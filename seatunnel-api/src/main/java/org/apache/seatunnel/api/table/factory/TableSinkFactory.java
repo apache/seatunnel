@@ -45,20 +45,6 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
-    /**
-     * Validates sink connectivity and schema compatibility for {@code --dry-run=connect} without
-     * creating sink writers or writing records.
-     *
-     * <p>The upstream schema is available through {@link
-     * TableSinkFactoryContext#getCatalogTable()}. Connector implementations can use this hook for
-     * metadata-level checks such as credentials, permissions, target existence, target
-     * createability, and field/type compatibility.
-     *
-     * @param context sink factory context with upstream catalog table and resolved options
-     * @throws Exception when connectivity or schema validation fails
-     */
-    default void validateConnectionForDryRun(TableSinkFactoryContext context) throws Exception {}
-
     @Deprecated
     default List<String> excludeTablePlaceholderReplaceKeys() {
         return Collections.emptyList();

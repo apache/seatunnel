@@ -1,0 +1,2 @@
+org.apache.seatunnel.core.starter.seatunnel.command.DryRunTestSourceFactory
+org.apache.seatunnel.core.starter.seatunnel.command.DryRunTestSinkFactory
