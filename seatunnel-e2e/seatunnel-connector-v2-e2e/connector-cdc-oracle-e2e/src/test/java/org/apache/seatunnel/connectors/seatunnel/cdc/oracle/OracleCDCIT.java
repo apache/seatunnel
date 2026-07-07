@@ -692,6 +692,78 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                         });
     }
 
+    @TestTemplate
+    public void testStopLatestMode(TestContainer container) throws Exception {
+        clearTable(SCEHMA_NAME, SINK_TABLE1);
+        clearTable(SCEHMA_NAME, SOURCE_TABLE1);
+        insertSourceTable(SCEHMA_NAME, SOURCE_TABLE1);
+
+        Container.ExecResult result = container.executeJob("/oraclecdc_to_oracle_stop_latest.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Assertions.assertIterableEquals(
+                querySql(getSourceQuerySQL(SCEHMA_NAME, SOURCE_TABLE1)),
+                querySql(getSourceQuerySQL(SCEHMA_NAME, SINK_TABLE1)));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        clearTable(SCEHMA_NAME, SINK_TABLE1);
+        clearTable(SCEHMA_NAME, SOURCE_TABLE1);
+        insertRow(1, SCEHMA_NAME, SOURCE_TABLE1);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/oraclecdc_to_oracle_latest.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertRow(2, SCEHMA_NAME, SOURCE_TABLE1);
+
+            await().atMost(300000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT ID FROM "
+                                                        + SCEHMA_NAME
+                                                        + "."
+                                                        + SINK_TABLE1
+                                                        + " ORDER BY ID ASC");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("2")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(SCEHMA_NAME, SOURCE_TABLE1);
+            clearTable(SCEHMA_NAME, SINK_TABLE1);
+        }
+    }
+
     private void insertSourceTable(String database, String tableName) {
         insertRow(1, database, tableName);
     }

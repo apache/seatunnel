@@ -349,6 +349,54 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        cleanSourceTable();
+        upsertDeleteSourceTable();
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mongodbcdc_latest_to_mysql.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertLatestStartupProduct();
+
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows = querySql(SINK_SQL_PRODUCTS);
+                                Assertions.assertEquals(1, sinkRows.size());
+                                Assertions.assertEquals("latest-product", sinkRows.get(0).get(0));
+                                Assertions.assertEquals(
+                                        "captured after latest startup", sinkRows.get(0).get(1));
+                                Assertions.assertEquals("88", sinkRows.get(0).get(2));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            cleanSourceTable();
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testSavepointRecovery(TestContainer container)
             throws InterruptedException, IOException {
@@ -696,6 +744,18 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         order.put("quantity", 7);
         order.put("product_id", productId);
         orders.insertOne(order);
+    }
+
+    private void insertLatestStartupProduct() {
+        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
+        MongoCollection<Document> products = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
+
+        Document product = new Document();
+        product.put("_id", new ObjectId("100000000000000000000122"));
+        product.put("name", "latest-product");
+        product.put("description", "captured after latest startup");
+        product.put("weight", "88");
+        products.insertOne(product);
     }
 
     private void cleanSourceTable() {

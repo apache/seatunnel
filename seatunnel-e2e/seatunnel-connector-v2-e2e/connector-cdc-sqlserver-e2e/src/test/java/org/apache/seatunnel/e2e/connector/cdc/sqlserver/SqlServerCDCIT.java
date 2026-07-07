@@ -638,6 +638,15 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                                         sinkTable))));
     }
 
+    private boolean columnExists(String databaseName, String tableName, String columnName) {
+        return querySql(
+                        String.format(
+                                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                                databaseName, SCHEMA_NAME, tableName))
+                .stream()
+                .anyMatch(row -> columnName.equalsIgnoreCase(String.valueOf(row.get(0))));
+    }
+
     private void executeSqlFile(String sqlFile) {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
@@ -957,6 +966,95 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                 SCHEMA_EVOLUTION_SINK_TABLE);
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "This case validates SqlServer CDC schema-change exclude on the Flink engine & zeta engine.")
+    public void testSchemaChangeExcludeDropColumn(TestContainer container) {
+        initializeSqlServerTable("schema_change_test");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_to_sqlserver_with_schema_change_exclude.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        assertSchemaEvolutionTableStructureAndData(
+                SCHEMA_EVOLUTION_DATABASE_NAME,
+                SCHEMA_EVOLUTION_SOURCE_TABLE,
+                SCHEMA_EVOLUTION_SINK_TABLE);
+
+        waitForSchemaEvolutionIncrementalStarted();
+
+        executeSqlFile("sqlserver_schema_change_add_columns");
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        columnExists(
+                                                SCHEMA_EVOLUTION_DATABASE_NAME,
+                                                SCHEMA_EVOLUTION_SINK_TABLE,
+                                                "add_column1"),
+                                        "add.column should propagate before drop.column is excluded"));
+
+        executeSqlFile("sqlserver_schema_change_drop_columns");
+
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    columnExists(
+                                            SCHEMA_EVOLUTION_DATABASE_NAME,
+                                            SCHEMA_EVOLUTION_SINK_TABLE,
+                                            "add_column1"),
+                                    "drop.column is excluded, so sink should keep add_column1");
+                            Assertions.assertTrue(
+                                    columnExists(
+                                            SCHEMA_EVOLUTION_DATABASE_NAME,
+                                            SCHEMA_EVOLUTION_SINK_TABLE,
+                                            "add_column3"),
+                                    "drop.column is excluded, so sink should keep add_column3");
+                            Assertions.assertTrue(
+                                    columnExists(
+                                            SCHEMA_EVOLUTION_DATABASE_NAME,
+                                            SCHEMA_EVOLUTION_SINK_TABLE,
+                                            "add_column4"),
+                                    "drop.column is excluded, so sink should keep add_column4");
+                        });
+
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> sinkRows =
+                                    querySql(
+                                            String.format(
+                                                    "SELECT id, name, description, weight, add_column2 FROM %s.%s.%s ORDER BY id ASC",
+                                                    SCHEMA_EVOLUTION_DATABASE_NAME,
+                                                    SCHEMA_NAME,
+                                                    SCHEMA_EVOLUTION_SINK_TABLE));
+                            Assertions.assertTrue(
+                                    sinkRows.stream()
+                                            .noneMatch(
+                                                    row -> ((Number) row.get(0)).intValue() == 102),
+                                    "rows deleted at the source must also be deleted in the sink");
+                            Assertions.assertTrue(
+                                    sinkRows.stream()
+                                            .anyMatch(
+                                                    row ->
+                                                            ((Number) row.get(0)).intValue() == 140
+                                                                    && "updated-after-drop"
+                                                                            .equals(row.get(1))),
+                                    "data changes after the excluded drop.column event must still propagate");
+                        });
+    }
+
     private void waitForSchemaEvolutionIncrementalStarted() {
         String sourceTablePath =
                 SCHEMA_EVOLUTION_DATABASE_NAME
@@ -1048,5 +1146,85 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     sinkRows.stream()
                                             .anyMatch(row -> row.get(0).toString().equals("1")));
                         });
+    }
+
+    @TestTemplate
+    public void testStopLatestMode(TestContainer container) throws Exception {
+        initializeSqlServerTable(DATABASE_NAME);
+        executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
+
+        Container.ExecResult result =
+                container.executeJob("/sqlservercdc_stop_latest_to_sqlserver.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Assertions.assertIterableEquals(
+                querySql(SELECT_SOURCE_SQL, SOURCE_TABLE), querySql(SELECT_SINK_SQL, SINK_TABLE));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        initializeSqlServerTable(DATABASE_NAME);
+        executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_latest_to_sqlserver.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertSqlServerFullTypesRow(100);
+
+            await().atMost(300000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT id FROM "
+                                                        + DATABASE_NAME
+                                                        + "."
+                                                        + SCHEMA_NAME
+                                                        + ".full_types_sink ORDER BY id ASC");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row ->
+                                                                row.get(0)
+                                                                        .toString()
+                                                                        .equals("100")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        }
+    }
+
+    private void insertSqlServerFullTypesRow(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + SOURCE_TABLE
+                        + " VALUES ("
+                        + id
+                        + ", 'cč', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>', SYSDATETIMEOFFSET(), CAST('test_varbinary' AS varbinary(100)), 5.32)");
     }
 }

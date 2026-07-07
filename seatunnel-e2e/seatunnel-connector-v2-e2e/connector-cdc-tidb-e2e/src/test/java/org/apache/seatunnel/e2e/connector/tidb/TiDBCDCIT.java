@@ -160,6 +160,68 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        clearTable(TIDB_DATABASE, SOURCE_TABLE);
+        clearTable(TIDB_DATABASE, SINK_TABLE);
+        upsertDeleteSourceTable(TIDB_DATABASE, SOURCE_TABLE);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/tidb/tidbcdc_latest_to_tidb.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertTidbSourceRowLike(101, 1);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + TIDB_DATABASE
+                                                        + "."
+                                                        + SINK_TABLE
+                                                        + " ORDER BY id");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row ->
+                                                                row.get(0)
+                                                                        .toString()
+                                                                        .equals("101")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(TIDB_DATABASE, SOURCE_TABLE);
+            clearTable(TIDB_DATABASE, SINK_TABLE);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
@@ -341,6 +403,27 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
 
     private void clearTable(String database, String tableName) {
         executeSql("truncate table " + database + "." + tableName);
+    }
+
+    private void insertTidbSourceRowLike(int id, int sourceId) {
+        executeSql(
+                "INSERT INTO "
+                        + TIDB_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " SELECT "
+                        + id
+                        + ", f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
+                        + "       f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer,\n"
+                        + "       f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double,\n"
+                        + "       f_double_precision, f_longtext, f_mediumtext, f_text, f_tinytext, f_varchar, f_date, f_datetime,\n"
+                        + "       f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_mediumblob, f_long_varchar, f_real, f_time,\n"
+                        + "       f_tinyint, f_tinyint_unsigned, f_json, f_year FROM "
+                        + TIDB_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " WHERE id = "
+                        + sourceId);
     }
 
     // Execute SQL

@@ -415,6 +415,68 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        Long jobId = JobIdGenerator.newJobId();
+        String slotVariable = toSlotVariable(createSlotName());
+        clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+        clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        insertPostgresSourceTable1Row(10);
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/postgrescdc_latest_to_postgres.conf",
+                                String.valueOf(jobId),
+                                slotVariable);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertPostgresSourceTable1Row(11);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("11")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMPostgresCdcCheckDataE2eWithHeartbeat(TestContainer container) {
         String slotVariable = toSlotVariable(createSlotName());
@@ -1174,6 +1236,21 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
                         + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1');");
+    }
+
+    private void insertPostgresSourceTable1Row(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + POSTGRESQL_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1',\n"
+                        + "        ST_GeomFromText('POINT(-122.3452 47.5925)', 4326),\n"
+                        + "        ST_GeographyFromText('POINT(-122.3452 47.5925)'));");
     }
 
     /** Delete one row after its insert event is already visible in Kafka. */

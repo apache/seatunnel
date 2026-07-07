@@ -206,6 +206,65 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        Long jobId = JobIdGenerator.newJobId();
+        clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
+        clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_1);
+        insertOpengaussSourceTable1Row(10);
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/opengausscdc_latest_to_opengauss.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertOpengaussSourceTable1Row(11);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + OPENGAUSS_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("11")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
+            clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testOpengaussCdcMeatadataTrans(TestContainer container)
             throws InterruptedException, IOException {
@@ -613,6 +672,19 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                         + "."
                         + tableName
                         + " VALUES (2, '2', 32767, 65535, 2147483647);");
+    }
+
+    private void insertOpengaussSourceTable1Row(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + OPENGAUSS_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500);");
     }
 
     private void clearTable(String database, String tableName) {
