@@ -178,9 +178,20 @@ class KafkaFactoryTest {
         return cfg;
     }
 
+    private Map<String, Object> validTableListConfig() {
+        Map<String, Object> cfg = validMultiTableConfig();
+        cfg.put("table_list", cfg.remove("tables_configs"));
+        return cfg;
+    }
+
     @Test
     void testMultiTableValidConfig() {
         Assertions.assertDoesNotThrow(() -> validate(validMultiTableConfig()));
+    }
+
+    @Test
+    void testTableListValidConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(validTableListConfig()));
     }
 
     @Test

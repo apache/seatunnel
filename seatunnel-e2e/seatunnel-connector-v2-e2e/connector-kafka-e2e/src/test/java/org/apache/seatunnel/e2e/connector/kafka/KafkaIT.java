@@ -1155,11 +1155,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaTablesConfigsGroupOffsetsStartMode(TestContainer container)
             throws IOException, InterruptedException {
         String topic = startModeTopic(container, "group_offsets");
-        String consumerGroup =
-                "SeaTunnel-Start-Mode-Tables-Group-"
-                        + container.identifier().name()
-                        + "-"
-                        + startModeTestSequence.incrementAndGet();
+        String consumerGroup = "SeaTunnel-Start-Mode-Tables-Group-Offsets";
         createKafkaTopic(topic);
         generateSimpleJsonRecords(topic, 0, 5);
         commitOffset(topic, consumerGroup);
@@ -1168,7 +1164,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_tables_configs_start_mode_group_offsets_to_assert.conf",
-                        Arrays.asList("topic=" + topic, "consumerGroup=" + consumerGroup));
+                        Collections.singletonList("topic=" + topic));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -1190,15 +1186,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceKafkaTablesConfigsSpecificOffsetsStartMode(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = startModeTopic(container, "specific_offsets");
+        String topic = fixedStartModeTopic(container, "specific_offsets");
         createKafkaTopic(topic);
         generateSimpleJsonRecords(topic, 0, 10);
 
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_tables_configs_start_mode_specific_offsets_to_assert.conf",
-                        Arrays.asList("topic=" + topic, "topicPartition=" + topic + "-0"));
+                        Collections.singletonList("topic=" + topic));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private String fixedStartModeTopic(TestContainer container, String startMode) {
+        return "test_topic_start_mode_"
+                + container.identifier().name().toLowerCase(Locale.ROOT)
+                + "_"
+                + startMode;
     }
 
     private String startModeTopic(TestContainer container, String startMode) {

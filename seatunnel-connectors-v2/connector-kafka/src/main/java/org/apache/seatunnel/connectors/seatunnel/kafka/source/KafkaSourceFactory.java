@@ -50,7 +50,10 @@ public class KafkaSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(KafkaSourceOptions.BOOTSTRAP_SERVERS)
-                .exclusive(KafkaSourceOptions.TOPIC, KafkaSourceOptions.TABLE_CONFIGS)
+                .exclusive(
+                        KafkaSourceOptions.TOPIC,
+                        KafkaSourceOptions.TABLE_CONFIGS,
+                        KafkaSourceOptions.TABLE_LIST)
                 .optional(
                         KafkaSourceOptions.PATTERN,
                         KafkaSourceOptions.CONSUMER_GROUP,
