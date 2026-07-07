@@ -76,6 +76,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 - 目标 collection 必须在作业启动前已经存在。连接器不会自动创建 collection 或向量索引。
 - 向量列名和维度必须与目标 Qdrant collection 的向量配置一致。
 - sink 会把向量列写成命名向量。目标 collection 中的命名向量需要和 SeaTunnel 向量列名一致。
+- 写入 Qdrant 前，请先处理 payload 和向量字段中的空值，因为写入器会把每个配置字段直接转换成 Qdrant point 值。
 - sink 会把每条输入行作为 upsert 写入，不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义。
 - 写入器最多缓存 64 个 point，并且在关闭写入器或准备提交时也会刷新。这一批次大小目前不是可配置项。
 - 每个 sink 配置块写入一个 collection。如果不同 collection 需要不同配置，请使用多个 sink 配置块。

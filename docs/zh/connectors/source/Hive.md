@@ -205,7 +205,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 3：正则匹配多表（整库/整库子集）
+### 示例 4：正则匹配多表（整库/整库子集）
 
 ```bash
   Hive {
@@ -238,7 +238,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 4：Kerberos
+### 示例 5：Kerberos
 
 ```bash
 source {
