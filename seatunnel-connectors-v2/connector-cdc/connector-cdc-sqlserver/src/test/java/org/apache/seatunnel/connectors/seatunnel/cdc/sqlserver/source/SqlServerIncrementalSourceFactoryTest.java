@@ -124,14 +124,18 @@ class SqlServerIncrementalSourceFactoryTest {
     public void testSchemaChangesInvalidNameFailsFast() {
         Map<String, Object> cfg = validSqlServerConfig();
         cfg.put("schema-changes.include", Arrays.asList("rename.tabble"));
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("schema-changes.include"));
     }
 
     @Test
     public void testSchemaChangesInvalidExcludeNameFailsFast() {
         Map<String, Object> cfg = validSqlServerConfig();
         cfg.put("schema-changes.exclude", Arrays.asList("create.table"));
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        Assertions.assertTrue(exception.getMessage().contains("schema-changes.exclude"));
     }
 
     /**

@@ -240,76 +240,80 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                         throw new RuntimeException(e);
                     }
                 });
+        try {
+            given().pollDelay(10, TimeUnit.SECONDS)
+                    .await()
+                    .pollDelay(5000L, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            });
 
-        given().pollDelay(10, TimeUnit.SECONDS)
-                .await()
-                .pollDelay(5000L, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
-                        });
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    checkData(
+                                            QUERY,
+                                            ORACLE_CONTAINER.getJdbcUrl(),
+                                            ORACLE_CONTAINER.getJdbcUrl(),
+                                            SCEHMA_NAME,
+                                            SOURCE_TABLE1 + "_SINK",
+                                            false));
 
-        await().atMost(300, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                checkData(
-                                        QUERY,
-                                        ORACLE_CONTAINER.getJdbcUrl(),
-                                        ORACLE_CONTAINER.getJdbcUrl(),
-                                        SCEHMA_NAME,
-                                        SOURCE_TABLE1 + "_SINK",
-                                        false));
+            createAndInitialize("add_columns", CONNECTOR_USER, CONNECTOR_PWD);
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            oracleColumnExists(
+                                                    ORACLE_CONTAINER.getJdbcUrl(),
+                                                    SCEHMA_NAME,
+                                                    SOURCE_TABLE1 + "_SINK",
+                                                    "ADD_COLUMN1"),
+                                            "add.column should propagate before drop.column is excluded"));
 
-        createAndInitialize("add_columns", CONNECTOR_USER, CONNECTOR_PWD);
-        await().atMost(300, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
+            createAndInitialize("drop_columns", CONNECTOR_USER, CONNECTOR_PWD);
+
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
                                 Assertions.assertTrue(
                                         oracleColumnExists(
                                                 ORACLE_CONTAINER.getJdbcUrl(),
                                                 SCEHMA_NAME,
                                                 SOURCE_TABLE1 + "_SINK",
                                                 "ADD_COLUMN1"),
-                                        "add.column should propagate before drop.column is excluded"));
+                                        "drop.column is excluded, so sink should keep ADD_COLUMN1");
+                                Assertions.assertTrue(
+                                        oracleColumnExists(
+                                                ORACLE_CONTAINER.getJdbcUrl(),
+                                                SCEHMA_NAME,
+                                                SOURCE_TABLE1 + "_SINK",
+                                                "ADD_COLUMN3"),
+                                        "drop.column is excluded, so sink should keep ADD_COLUMN3");
+                                Assertions.assertTrue(
+                                        oracleColumnExists(
+                                                ORACLE_CONTAINER.getJdbcUrl(),
+                                                SCEHMA_NAME,
+                                                SOURCE_TABLE1 + "_SINK",
+                                                "ADD_COLUMN4"),
+                                        "drop.column is excluded, so sink should keep ADD_COLUMN4");
+                            });
 
-        createAndInitialize("drop_columns", CONNECTOR_USER, CONNECTOR_PWD);
-
-        await().atMost(300, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(
-                                    oracleColumnExists(
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    checkData(
+                                            PROJECTION_QUERY,
+                                            ORACLE_CONTAINER.getJdbcUrl(),
                                             ORACLE_CONTAINER.getJdbcUrl(),
                                             SCEHMA_NAME,
                                             SOURCE_TABLE1 + "_SINK",
-                                            "ADD_COLUMN1"),
-                                    "drop.column is excluded, so sink should keep ADD_COLUMN1");
-                            Assertions.assertTrue(
-                                    oracleColumnExists(
-                                            ORACLE_CONTAINER.getJdbcUrl(),
-                                            SCEHMA_NAME,
-                                            SOURCE_TABLE1 + "_SINK",
-                                            "ADD_COLUMN3"),
-                                    "drop.column is excluded, so sink should keep ADD_COLUMN3");
-                            Assertions.assertTrue(
-                                    oracleColumnExists(
-                                            ORACLE_CONTAINER.getJdbcUrl(),
-                                            SCEHMA_NAME,
-                                            SOURCE_TABLE1 + "_SINK",
-                                            "ADD_COLUMN4"),
-                                    "drop.column is excluded, so sink should keep ADD_COLUMN4");
-                        });
-
-        await().atMost(300, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                checkData(
-                                        PROJECTION_QUERY,
-                                        ORACLE_CONTAINER.getJdbcUrl(),
-                                        ORACLE_CONTAINER.getJdbcUrl(),
-                                        SCEHMA_NAME,
-                                        SOURCE_TABLE1 + "_SINK",
-                                        false));
+                                            false));
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        }
     }
 
     private void assertSchemaEvolution(

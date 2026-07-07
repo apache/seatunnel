@@ -166,6 +166,18 @@ public class SourceOptions {
      */
     public static class SchemaChangeNameValidator implements ConditionExtension<List<String>> {
 
+        public static final SchemaChangeNameValidator INCLUDE =
+                new SchemaChangeNameValidator(SCHEMA_CHANGES_INCLUDE.key());
+
+        public static final SchemaChangeNameValidator EXCLUDE =
+                new SchemaChangeNameValidator(SCHEMA_CHANGES_EXCLUDE.key());
+
+        private final String optionKey;
+
+        private SchemaChangeNameValidator(String optionKey) {
+            this.optionKey = optionKey;
+        }
+
         @Override
         public String description() {
             return "each value must be a valid schema change event name: "
@@ -180,7 +192,7 @@ public class SourceOptions {
                 }
             } catch (IllegalArgumentException e) {
                 throw new OptionValidationException(
-                        "schema change event name verification failed. event name: " + value);
+                        "Invalid value for option '" + optionKey + "'. " + e.getMessage());
             }
 
             return true;

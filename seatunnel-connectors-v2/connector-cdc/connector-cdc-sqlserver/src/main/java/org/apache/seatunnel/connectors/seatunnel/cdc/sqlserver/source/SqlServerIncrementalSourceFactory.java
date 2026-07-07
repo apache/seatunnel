@@ -85,12 +85,12 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         Conditions.extension(
                                 SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                                new SourceOptions.SchemaChangeNameValidator()))
+                                SourceOptions.SchemaChangeNameValidator.INCLUDE))
                 .optional(
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         Conditions.extension(
                                 SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
-                                new SourceOptions.SchemaChangeNameValidator()))
+                                SourceOptions.SchemaChangeNameValidator.EXCLUDE))
                 .optional(
                         SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(

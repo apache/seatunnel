@@ -153,6 +153,5 @@ public class MongodbIncrementalSourceOptions extends SourceOptions implements Ta
                     .singleChoice(StopMode.class, Collections.singletonList(StopMode.NEVER))
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
-                            "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                            "Optional stop mode for MongoDB CDC source. Only \"never\" is supported.");
 }

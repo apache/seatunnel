@@ -87,12 +87,12 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         Conditions.extension(
                                 MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                                new SourceOptions.SchemaChangeNameValidator()))
+                                SourceOptions.SchemaChangeNameValidator.INCLUDE))
                 .optional(
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         Conditions.extension(
                                 MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
-                                new SourceOptions.SchemaChangeNameValidator()))
+                                SourceOptions.SchemaChangeNameValidator.EXCLUDE))
                 .optional(
                         MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         Conditions.greaterOrEqual(

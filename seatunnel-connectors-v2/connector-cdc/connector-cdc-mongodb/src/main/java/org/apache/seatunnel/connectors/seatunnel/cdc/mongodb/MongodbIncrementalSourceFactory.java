@@ -51,30 +51,6 @@ import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.IL
 @AutoService(Factory.class)
 public class MongodbIncrementalSourceFactory implements TableSourceFactory {
 
-    static class CollectionCountConsistencyValidator implements ConditionExtension<List<String>> {
-        @Override
-        public String description() {
-            return "collection count must align with schema/table_configs definition";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, List<String> value) {
-            if (value == null || value.isEmpty()) {
-                return false;
-            }
-            List<Map<String, Object>> tableConfigs =
-                    config.get(MongodbIncrementalSourceOptions.TABLE_CONFIGS);
-            if (tableConfigs != null) {
-                return value.size() == tableConfigs.size();
-            }
-            Map<String, Object> schema = config.get(MongodbIncrementalSourceOptions.SCHEMA);
-            if (schema != null) {
-                return value.size() == 1;
-            }
-            return true;
-        }
-    }
-
     @Override
     public String factoryIdentifier() {
         return MongodbIncrementalSource.IDENTIFIER;
@@ -158,6 +134,30 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MongodbIncrementalSource<>(context.getOptions(), catalogTables);
         };
+    }
+
+    static class CollectionCountConsistencyValidator implements ConditionExtension<List<String>> {
+        @Override
+        public String description() {
+            return "collection count must align with schema/table_configs definition";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            List<Map<String, Object>> tableConfigs =
+                    config.get(MongodbIncrementalSourceOptions.TABLE_CONFIGS);
+            if (tableConfigs != null) {
+                return value.size() == tableConfigs.size();
+            }
+            Map<String, Object> schema = config.get(MongodbIncrementalSourceOptions.SCHEMA);
+            if (schema != null) {
+                return value.size() == 1;
+            }
+            return true;
+        }
     }
 
     static class MongoStartModeValidator implements ConditionExtension<StartupMode> {
