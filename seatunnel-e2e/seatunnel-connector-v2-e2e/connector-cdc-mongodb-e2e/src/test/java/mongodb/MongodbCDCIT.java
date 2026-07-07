@@ -379,11 +379,15 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
             await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
+                                updateLatestStartupProduct();
                                 List<List<Object>> sinkRows = querySql(SINK_SQL_PRODUCTS);
                                 Assertions.assertEquals(1, sinkRows.size());
                                 Assertions.assertEquals("latest-product", sinkRows.get(0).get(0));
-                                Assertions.assertEquals(
-                                        "captured after latest startup", sinkRows.get(0).get(1));
+                                Assertions.assertTrue(
+                                        sinkRows.get(0)
+                                                .get(1)
+                                                .toString()
+                                                .startsWith("captured after latest startup"));
                                 Assertions.assertEquals("88", sinkRows.get(0).get(2));
                             });
         } finally {
@@ -753,9 +757,17 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         Document product = new Document();
         product.put("_id", new ObjectId("100000000000000000000122"));
         product.put("name", "latest-product");
-        product.put("description", "captured after latest startup");
+        product.put("description", "waiting for latest startup");
         product.put("weight", "88");
         products.insertOne(product);
+    }
+
+    private void updateLatestStartupProduct() {
+        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
+        MongoCollection<Document> products = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
+        products.updateOne(
+                Filters.eq("_id", new ObjectId("100000000000000000000122")),
+                Updates.set("description", "captured after latest startup " + System.nanoTime()));
     }
 
     private void cleanSourceTable() {

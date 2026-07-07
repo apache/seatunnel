@@ -236,6 +236,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
+                                updateOpengaussSourceTable1BigField(11, System.currentTimeMillis());
                                 List<List<Object>> sinkRows =
                                         query(
                                                 "SELECT id FROM "
@@ -685,6 +686,19 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                         + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
                         + "        '2020-07-17', '18:00:22', 500);");
+    }
+
+    private void updateOpengaussSourceTable1BigField(int id, long value) {
+        executeSql(
+                "UPDATE "
+                        + OPENGAUSS_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " SET f_big = "
+                        + value
+                        + " where id = "
+                        + id
+                        + ";");
     }
 
     private void clearTable(String database, String tableName) {

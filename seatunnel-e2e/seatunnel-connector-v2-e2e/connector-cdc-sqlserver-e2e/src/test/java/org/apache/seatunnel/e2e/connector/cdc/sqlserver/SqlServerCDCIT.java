@@ -1194,6 +1194,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
+                                updateSqlServerFullTypesVarchar(
+                                        100, "latest-vc-" + System.nanoTime());
                                 List<List<Object>> sinkRows =
                                         querySql(
                                                 "SELECT id FROM "
@@ -1226,5 +1228,10 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + " VALUES ("
                         + id
                         + ", 'cč', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>', SYSDATETIMEOFFSET(), CAST('test_varbinary' AS varbinary(100)), 5.32)");
+    }
+
+    private void updateSqlServerFullTypesVarchar(int id, String value) {
+        executeSql(
+                "UPDATE " + SOURCE_TABLE + " SET val_varchar = '" + value + "' where id = " + id);
     }
 }

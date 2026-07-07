@@ -191,6 +191,8 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
+                                updateTidbSourceVarchar(
+                                        101, "latest startup captured " + System.nanoTime());
                                 List<List<Object>> sinkRows =
                                         query(
                                                 "SELECT id FROM "
@@ -424,6 +426,18 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                         + SOURCE_TABLE
                         + " WHERE id = "
                         + sourceId);
+    }
+
+    private void updateTidbSourceVarchar(int id, String value) {
+        executeSql(
+                "UPDATE "
+                        + TIDB_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " SET f_varchar = '"
+                        + value
+                        + "' WHERE id = "
+                        + id);
     }
 
     // Execute SQL

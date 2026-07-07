@@ -418,7 +418,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     "This case needs the Zeta job status gate before emitting latest-mode changes.")
     public void testLatestStartupMode(TestContainer container) throws Exception {
         Long jobId = JobIdGenerator.newJobId();
-        String slotVariable = toSlotVariable(createSlotName());
+        String slotName = createSlotName();
+        String slotVariable = toSlotVariable(slotName);
         clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
         clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
         insertPostgresSourceTable1Row(10);
@@ -443,6 +444,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
 
+            waitForReplicationSlotActive(slotName);
             insertPostgresSourceTable1Row(11);
 
             await().atMost(60000, TimeUnit.MILLISECONDS)

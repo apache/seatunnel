@@ -740,6 +740,8 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
             await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
+                                updateLatestStartupRow(
+                                        SCEHMA_NAME, SOURCE_TABLE1, System.nanoTime());
                                 List<List<Object>> sinkRows =
                                         querySql(
                                                 "SELECT ID FROM "
@@ -777,6 +779,17 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                         + " VALUES ("
                         + id
                         + ", 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 1001, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
+    }
+
+    private void updateLatestStartupRow(String database, String tableName, long value) {
+        executeSql(
+                "UPDATE "
+                        + database
+                        + "."
+                        + tableName
+                        + " SET VAL_VARCHAR = 'latest-vc2-"
+                        + value
+                        + "' where ID = 2");
     }
 
     private void updateSourceTable(String database, String tableName) {
