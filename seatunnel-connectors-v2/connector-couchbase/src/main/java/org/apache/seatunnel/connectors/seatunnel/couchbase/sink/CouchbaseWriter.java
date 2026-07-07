@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -103,6 +104,11 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         this.maxRetries = options.getRetryMax();
         this.retryIntervalMs = options.getRetryInterval();
         this.buffer = new ArrayList<>();
+
+        // Validate that every configured primary-key field exists in the schema.
+        // Catching this at construction time gives a clear error message rather than
+        // silently producing "null" or "a_null" document keys at write time.
+        validatePrimaryKeyFields(options.getPrimaryKey(), this.rowType);
 
         // Connect to the cluster and obtain the target collection.
         this.cluster =
@@ -269,14 +275,74 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     /**
-     * Builds the Couchbase document key from the primary-key fields. Falls back to a random UUID
-     * when no primary key fields are configured.
+     * Validates that every configured primary-key field name exists in the row schema.
+     *
+     * <p>Called once during writer construction so that a misconfigured or misspelled key name is
+     * caught immediately rather than surfacing as a mysterious {@code "null"} document key at write
+     * time.
+     *
+     * @param primaryKey configured key field names (may be null or empty)
+     * @param rowType the schema of incoming rows
+     * @throws CouchbaseConnectorException if any key field is absent from the schema
+     */
+    static void validatePrimaryKeyFields(String[] primaryKey, SeaTunnelRowType rowType) {
+        if (primaryKey == null || primaryKey.length == 0) {
+            return;
+        }
+        Set<String> schemaFields = new HashSet<>(Arrays.asList(rowType.getFieldNames()));
+        for (String keyField : primaryKey) {
+            if (!schemaFields.contains(keyField)) {
+                throw new CouchbaseConnectorException(
+                        CouchbaseConnectorErrorCode.INVALID_PRIMARY_KEY,
+                        "Primary-key field '"
+                                + keyField
+                                + "' is not present in the row schema. "
+                                + "Configured schema fields: "
+                                + schemaFields);
+            }
+        }
+    }
+
+    /**
+     * Builds the Couchbase document key from the configured primary-key fields. Falls back to a
+     * random UUID when no primary-key fields are configured.
+     *
+     * <p>Delegates to {@link #buildDocumentKeyFrom} for the key-assembly logic so that the
+     * null-value validation can be exercised in unit tests without a live cluster connection.
      */
     private String buildDocumentKey(JsonObject doc) {
         String[] pk = options.getPrimaryKey();
-        if (pk != null && pk.length > 0) {
-            return java.util.Arrays.stream(pk)
-                    .map(field -> String.valueOf(doc.get(field)))
+        return buildDocumentKeyFrom(pk, doc);
+    }
+
+    /**
+     * Assembles a Couchbase document key from {@code primaryKey} field values in {@code doc}.
+     * Returns a random UUID when {@code primaryKey} is null or empty.
+     *
+     * <p>Package-visible so that unit tests can exercise the null-value guard directly without
+     * needing a live Couchbase cluster.
+     *
+     * @throws CouchbaseConnectorException if any primary-key field value is null in {@code doc},
+     *     which would produce an ambiguous {@code "null"} document key and cause silent data loss
+     *     in upsert mode or hard-to-diagnose duplicate-key errors in insert mode
+     */
+    static String buildDocumentKeyFrom(String[] primaryKey, JsonObject doc) {
+        if (primaryKey != null && primaryKey.length > 0) {
+            return Arrays.stream(primaryKey)
+                    .map(
+                            field -> {
+                                Object value = doc.get(field);
+                                if (value == null) {
+                                    throw new CouchbaseConnectorException(
+                                            CouchbaseConnectorErrorCode.INVALID_PRIMARY_KEY,
+                                            "Primary-key field '"
+                                                    + field
+                                                    + "' is null for the current row. "
+                                                    + "Null primary-key values produce ambiguous"
+                                                    + " document keys and must be rejected.");
+                                }
+                                return String.valueOf(value);
+                            })
                     .collect(Collectors.joining("_"));
         }
         return UUID.randomUUID().toString();
