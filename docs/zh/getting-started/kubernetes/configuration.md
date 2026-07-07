@@ -54,23 +54,20 @@ hazelcast:
 
 SeaTunnel 服务端配置由 `seatunnel.yaml` 中的 `seatunnel.engine` 提供；集群成员发现由 `hazelcast.yaml`、`hazelcast-master.yaml` 或 `hazelcast-worker.yaml` 提供。
 
-Kubernetes 环境推荐使用下面这组 Hazelcast `properties` 作为生产基线配置。它不是所有集群的绝对最优值，但适合作为生产部署的起点：提高成员调用重试能力，使用 `phi-accrual` 心跳故障检测，并配合 `terminationGracePeriodSeconds` 做优雅关闭。上线前应结合网络延迟、Pod 驱逐策略、节点规模和作业并发压测调整。
+下面这组 Hazelcast `properties` 与当前 SeaTunnel 默认 Hazelcast 配置保持一致，Kubernetes 示例也以这组配置作为基线。生产上线前应结合 CPU limit、网络延迟、Pod 驱逐策略、节点规模和作业并发压测调整。
 
 ```yaml
 properties:
-  hazelcast.invocation.max.retry.count: 50
-  hazelcast.tcp.join.port.try.count: 10
+  hazelcast.invocation.max.retry.count: 20
+  hazelcast.tcp.join.port.try.count: 30
   hazelcast.logging.type: log4j2
-  hazelcast.phone.home.enabled: false
-  hazelcast.operation.generic.thread.count: 32
+  hazelcast.operation.generic.thread.count: 50
   hazelcast.heartbeat.failuredetector.type: phi-accrual
-  hazelcast.heartbeat.interval.seconds: 5
-  hazelcast.max.no.heartbeat.seconds: 30
+  hazelcast.heartbeat.interval.seconds: 2
+  hazelcast.max.no.heartbeat.seconds: 180
   hazelcast.heartbeat.phiaccrual.failuredetector.threshold: 10
   hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
   hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
-  hazelcast.shutdownhook.policy: GRACEFUL
-  hazelcast.graceful.shutdown.max.wait: 120
 ```
 
 ## Master 与 Worker 配置分离

@@ -48,19 +48,16 @@ data:
             service-name: seatunnel-cluster
             service-port: 5801
       properties:
-        hazelcast.invocation.max.retry.count: 50
-        hazelcast.tcp.join.port.try.count: 10
+        hazelcast.invocation.max.retry.count: 20
+        hazelcast.tcp.join.port.try.count: 30
         hazelcast.logging.type: log4j2
-        hazelcast.phone.home.enabled: false
-        hazelcast.operation.generic.thread.count: 32
+        hazelcast.operation.generic.thread.count: 50
         hazelcast.heartbeat.failuredetector.type: phi-accrual
-        hazelcast.heartbeat.interval.seconds: 5
-        hazelcast.max.no.heartbeat.seconds: 30
+        hazelcast.heartbeat.interval.seconds: 2
+        hazelcast.max.no.heartbeat.seconds: 180
         hazelcast.heartbeat.phiaccrual.failuredetector.threshold: 10
         hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
         hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
-        hazelcast.shutdownhook.policy: GRACEFUL
-        hazelcast.graceful.shutdown.max.wait: 120
 ```
 
 ### Hazelcast Client 配置

@@ -54,23 +54,20 @@ If SeaTunnel is deployed in a namespace other than `default`, update `namespace`
 
 SeaTunnel server settings come from `seatunnel.engine` in `seatunnel.yaml`; cluster member discovery comes from `hazelcast.yaml`, `hazelcast-master.yaml`, or `hazelcast-worker.yaml`.
 
-Use the following Hazelcast `properties` as the recommended production baseline for Kubernetes. They are not universally optimal for every cluster, but they are a solid starting point: they improve member invocation retries, use the `phi-accrual` heartbeat failure detector, and align graceful shutdown with `terminationGracePeriodSeconds`. Tune them before production rollout based on network latency, Pod eviction behavior, cluster size, and job concurrency.
+Use the following Hazelcast `properties` as the baseline configuration. They are aligned with the current SeaTunnel default Hazelcast configuration so that the Kubernetes examples stay consistent with the codebase. Tune them before production rollout based on CPU limits, network latency, Pod eviction behavior, cluster size, and job concurrency.
 
 ```yaml
 properties:
-  hazelcast.invocation.max.retry.count: 50
-  hazelcast.tcp.join.port.try.count: 10
+  hazelcast.invocation.max.retry.count: 20
+  hazelcast.tcp.join.port.try.count: 30
   hazelcast.logging.type: log4j2
-  hazelcast.phone.home.enabled: false
-  hazelcast.operation.generic.thread.count: 32
+  hazelcast.operation.generic.thread.count: 50
   hazelcast.heartbeat.failuredetector.type: phi-accrual
-  hazelcast.heartbeat.interval.seconds: 5
-  hazelcast.max.no.heartbeat.seconds: 30
+  hazelcast.heartbeat.interval.seconds: 2
+  hazelcast.max.no.heartbeat.seconds: 180
   hazelcast.heartbeat.phiaccrual.failuredetector.threshold: 10
   hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
   hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
-  hazelcast.shutdownhook.policy: GRACEFUL
-  hazelcast.graceful.shutdown.max.wait: 120
 ```
 
 ## Separate Master and Worker Configuration
