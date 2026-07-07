@@ -10,6 +10,23 @@ Among all the Master nodes, only one Master node works at the same time, and the
 
 This is the most recommended usage method. In this mode, the load on the Master will be very low, and the Master has more resources for job scheduling, task fault tolerance index monitoring, and providing RESTful API services, etc., and will have higher stability. At the same time, the Worker node does not store Imap data. All Imap data is stored on the Master node. Even if the Worker node has a high load or crashes, it will not cause the Imap data to be redistributed.
 
+## Minimum Deployment Configuration
+
+The following table lists the minimum and HA-recommended node counts for each role in a separated cluster. Refer to the subsequent sections for detailed parameter descriptions.
+
+**Node Requirements**
+
+| Role | Minimum Count | Recommended (HA) | Description |
+|------|---------------|------------------|-------------|
+| Master | 1 | 2 | Responsible for scheduling and IMap data storage. |
+| Worker | 1 | 2+ | Responsible for task execution. |
+
+:::tip
+
+A single Master node can start and run normally, but provides no high availability. For HA, deploy at least 2 Master nodes: the default `backup-count: 1` requires at least 2 Master nodes to place IMap backup replicas. Without a second Master, a single Master failure will leave the cluster unable to recover.
+
+:::
+
 ## 1. Download
 
 [Download And Make SeaTunnel Installation Package](download-seatunnel.md)
@@ -71,7 +88,7 @@ SeaTunnel Engine implements cluster management based on [Hazelcast IMDG](https:/
 
 The `backup count` is a parameter that defines the number of synchronous backups. For example, if it is set to 1, the backup of the partition will be placed on one other member. If it is set to 2, it will be placed on two other members.
 
-We recommend that the value of `backup-count` be `max(1, min(5, N/2))`. `N` is the number of cluster nodes.
+We recommend that the value of `backup-count` be `max(1, min(5, N/2))`. `N` is the number of Master nodes.
 
 ```yaml
 seatunnel:
@@ -175,6 +192,14 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel also retains terminal job state in distributed maps for a short time before removing it. This retention is controlled by `state-cleanup-delay-ms`, whose default value is `60000` milliseconds. Keeping the terminal tombstone briefly allows late asynchronous callbacks to observe an end state instead of a missing map entry. Setting it to `0` restores more aggressive cleanup but also narrows the protection window for terminal-state races.
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
 ### 4.5 Class Loader Cache Mode
 
 This configuration mainly solves the problem of resource leakage caused by continuously creating and attempting to destroy class loaders.
@@ -207,7 +232,7 @@ The following describes how to use the MapStore persistence configuration. For d
 
 **type**
 
-The type of IMap persistence, currently only supports `hdfs`.
+The type of IMap persistence. Currently, only `hdfs` is supported.
 
 **namespace**
 

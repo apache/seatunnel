@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +43,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.exception.FileConne
 
 @Slf4j
 public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
+
+    private static final long POLL_WAIT_MS = 1000L;
 
     private final Context context;
     private volatile boolean noMoreSplit;
@@ -66,9 +71,10 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
+        FileSourceSplit split;
         synchronized (output.getCheckpointLock()) {
-            FileSourceSplit split = sourceSplits.poll();
-            if (null != split) {
+            split = sourceSplits.poll();
+            if (split != null) {
                 ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
                 if (readStrategy == null) {
                     throw new FileConnectorException(
@@ -84,11 +90,31 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                             String.format("Read data from this file [%s] failed", split.splitId());
                     throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
                 }
-            } else if (noMoreSplit && sourceSplits.isEmpty()) {
-                // signal to the source that we have reached the end of the data.
-                log.info(
-                        "There is no more element for the bounded MultipleTableLocalFileSourceReader");
-                context.signalNoMoreElement();
+            }
+        }
+
+        if (split != null) {
+            if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
+                SourceEvent event = new FileSplitFinishedEvent(split.splitId());
+                context.sendSourceEventToEnumerator(event);
+            }
+            return;
+        }
+
+        if (noMoreSplit
+                && sourceSplits.isEmpty()
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            log.info("There is no more element for bounded MultipleTableFileSourceReader");
+            context.signalNoMoreElement();
+            return;
+        }
+
+        context.sendSplitRequest();
+        if (sourceSplits.isEmpty()) {
+            try {
+                Thread.sleep(POLL_WAIT_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }

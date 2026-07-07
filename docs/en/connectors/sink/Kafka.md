@@ -16,6 +16,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -42,10 +43,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | kafka_headers_fields  | Array  | No       | -       | Configure which fields are used as the headers of the kafka message. The field value will be converted to a string and used as the header value.                                                                                                                                                                                                                                                                                                             |
 | partition             | Int    | No       | -       | We can specify the partition, all messages will be sent to this partition.                                                                                                                                                                                                                                                                                                                                                                                   |
 | assign_partitions     | Array  | No       | -       | We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.                                                                                                                                                                                                                                                                                                                      |
-| transaction_prefix    | String | No       | -       | If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction,kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.                                                                                                                                                                                |
-| format                | String | No       | json    | Data format. The default format is json. Optional text format, canal_json, debezium_json, ogg_json , avro and native.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
+| transaction_prefix    | String | No       | -       | If `semantics` is `EXACTLY_ONCE`, the producer writes messages in Kafka transactions. Kafka distinguishes transactions by transaction id, so use a different prefix for each job.                                                                                                                                                                                                               |
+| format                | String | No       | json    | Data format. The default format is json. Optional text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
 | field_delimiter       | String | No       | ,       | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| common-options        |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
+| common-options        |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                              |
 | protobuf_message_name | String | No       | -       | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema       | String | No       | -       | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                |
 
@@ -74,6 +75,8 @@ If `${name}` is set as the topic. So the first row is sent to Jack topic, and th
 In EXACTLY_ONCE, producer will write all messages in a Kafka transaction that will be committed to Kafka on a checkpoint.
 In AT_LEAST_ONCE, producer will wait for all outstanding messages in the Kafka buffers to be acknowledged by the Kafka producer on a checkpoint.
 NON does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated.
+
+For `EXACTLY_ONCE`, enable checkpoints and make sure every running job uses a unique `transaction_prefix`. Reusing the same transaction prefix across jobs can cause Kafka transaction conflicts.
 
 ### Partition Key Fields
 
@@ -109,6 +112,7 @@ The selected fields must be existing fields in the upstream.
 
 Note:
 Fields configured as Kafka headers will be excluded from the message value (payload) and will only be present in the Kafka message headers.
+`kafka_headers_fields` is not supported when `format = native`.
 
 ### Assign Partitions
 
@@ -149,7 +153,6 @@ sink {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -193,7 +196,6 @@ sink {
       format = json
       partition_key_fields = ["name"]
       kafka_headers_fields = ["source", "traceId"]
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -214,7 +216,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -248,7 +249,6 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       format = json
-      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
          security.protocol=SASL_SSL
@@ -296,7 +296,6 @@ sink {
       topic = "test_protobuf_topic_fake_source"
       bootstrap.servers = "kafkaCluster:9092"
       format = protobuf
-      kafka.request.timeout.ms = 60000
       kafka.config = {
         acks = "all"
         request.timeout.ms = 60000
@@ -367,6 +366,64 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+## FAQ
+
+### Does Kafka Sink automatically create topics?
+
+SeaTunnel Kafka Sink writes records to the configured `topic` but does not explicitly create Kafka topics itself. Whether a missing topic is created automatically depends on the Kafka broker's `auto.create.topics.enable` setting.
+
+In production, we recommend creating topics explicitly in advance to control partition count, replication factor, retention policy, and ACLs. Do not rely on automatic topic creation for production workloads, as brokers may have `auto.create.topics.enable = false`.
+
+### What happens if `partition_key_fields` is not configured?
+
+If `partition_key_fields` is not set, SeaTunnel sends records with a **null** Kafka message key. Kafka then distributes records across partitions using its default round-robin strategy.
+
+This is suitable for load distribution but does **not** preserve ordering for records with the same business key. If you need records with the same business key to land in the same partition, configure `partition_key_fields` with the relevant field names.
+
+### How do I achieve exactly-once delivery to Kafka?
+
+Set `semantics = EXACTLY_ONCE` to enable exactly-once delivery, and configure `transaction_prefix`
+so each job uses a distinct Kafka transactional ID prefix. SeaTunnel coordinates Kafka transactions
+with checkpoints to provide exactly-once semantics:
+
+```hocon
+sink {
+  kafka {
+    topic = "output-topic"
+    bootstrap.servers = "localhost:9092"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
+    kafka.transaction.timeout.ms = "900000"
+  }
+}
+```
+
+Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
+
+### How do I configure SASL/Kerberos authentication?
+
+Pass broker authentication settings via `kafka.*` properties:
+
+```hocon
+sink {
+  kafka {
+    topic = "secure-topic"
+    bootstrap.servers = "broker:9092"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### What message formats does Kafka Sink support?
+
+Kafka Sink supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when the upstream data is already in Kafka-native format (with headers, key, and value as byte fields).
 
 ## Changelog
 

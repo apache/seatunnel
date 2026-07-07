@@ -19,10 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.util.KeyValueMerger;
 
 import lombok.extern.slf4j.Slf4j;
@@ -38,10 +40,12 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     public KeyedRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             RedisClient redisClient,
-            KeyValueMerger keyValueMerger) {
-        super(redisParameters, deserializationSchema, redisClient);
+            KeyValueMerger keyValueMerger,
+            TablePath tablePath) {
+        super(redisParameters, tableConfig, deserializationSchema, redisClient, tablePath);
         this.keyValueMerger = keyValueMerger;
     }
 
@@ -96,7 +100,9 @@ public class KeyedRecordReader extends RedisRecordReader {
                             + key);
         } else {
             String parsed = keyValueMerger.parseWithKey(key, value);
-            deserializationSchema.deserialize(parsed.getBytes(), output);
+            SeaTunnelRow row = deserializationSchema.deserialize(parsed.getBytes());
+            setTableId(row);
+            output.collect(row);
         }
     }
 }

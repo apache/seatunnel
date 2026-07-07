@@ -4,9 +4,30 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 
 ## 概述
 
-v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path，
-同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为开启，
-如果`enable-dynamic-port`为`true`，我们将使用`port`和`port`+`port-range`范围内未使用的端口，默认范围是100。
+v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相同的接口规范。只有当
+`seatunnel.engine.http.enable-http = true` 或 `enable-https = true` 时，Jetty 才会启动。
+
+这里需要区分两个容易混淆的“默认值”来源：
+
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`
+- 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
+
+因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
+`http://<host>:8080/`。如果你是自己精简配置文件、按代码默认值装配配置，或者把
+`enable-http` 删掉了，那么 Jetty 默认不会启动。
+
+固定端口示例如下：
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+如需在 `port` 到 `port + port-range` 范围内自动挑选空闲端口，再显式开启动态端口：
 
 ```yaml
 
@@ -19,7 +40,7 @@ seatunnel:
       port-range: 100
 ```
 
-同时也可以配置context-path,配置如下：
+同时也可以配置 `context-path`，配置如下：
 
 ```yaml
 
@@ -31,11 +52,162 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+## Web UI 与 8080 排查
+
+- 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。
+- 如果开启了 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以启动日志 `SeaTunnel REST service will start on port xxx` 为准。
+- 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
+- Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
+
 ## 开启 HTTPS
 
 请参考 [security](security.md)
 
 ## API参考
+
+### 获取 Connector 的 OptionRule
+
+<details>
+ <summary><code>GET</code> <code><b>/option-rules?type=source&plugin=FakeSource</b></code> <code>(返回 Connector 运行时完整的 OptionRule 元数据。)</code></summary>
+
+#### 参数
+
+> |  参数名称  | 是否必传 | 参数类型 |                   参数描述                    |
+> |--------|------|------|-----------------------------------------|
+> | type   | 是    | string | 插件类型，支持 `source`、`sink` 和 `transform` |
+> | plugin | 是    | string | connector 的 factory identifier，例如 `FakeSource` 或 `Console` |
+
+#### 响应
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
+  }
+}
+```
+
+**说明:**
+- 响应结果来自运行时 plugin discovery，会跟随服务端实际安装的 connector 版本。
+- `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
+- `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
+- 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+- `optionRule.valueConstraints` 描述值级别的校验规则，包括数值范围、字符串模式匹配以及跨字段比较等。每个条目同时提供人类可读的 `expression` 字符串和便于程序处理的结构化 `conditionTree`。当连接器未定义值约束时，该数组为空。
+- 在 `conditionTree` 中，`compareOperator` 字段在 `EQUAL` 场景下为 `null`，其他情况下会返回运行时规则暴露的操作符符号，例如 `>=`、`is not blank` 或 `extension`。`compareOption` 字段仅在跨字段比较场景下有值。
+- `conditionOperator` 是稳定的操作符标识，可选值包括 `EQUAL`、`GREATER_OR_EQUAL`、`NOT_BLANK`、`FIELD_LESS_THAN`、`EXTENSION` 等；`conditionOperatorCategory` 是操作符的分类，可选值包括 `NUMERIC`、`STRING`、`COLLECTION`、`EQUALITY`、`EXTENSION` 等。
+- 对于 `EXTENSION` 条件，`expectValue` 承载的是 `ConditionExtension.description()` 返回的规则说明文本。
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### 返回Zeta集群的概览
 
@@ -576,6 +748,8 @@ seatunnel:
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
+**注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
+
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。
@@ -921,7 +1095,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
-有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/concepts/config-encryption-decryption.md).
+有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/configuration/config-encryption-decryption.md).
 
 #### 请求体
 
@@ -1288,6 +1462,112 @@ Checkpoint 信息字段：
     }
   }
 ]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 获取作业实时可观测性指标（内存时序，realtime）
+
+> 该组接口用于 Web UI 的“实时指标”展示，不依赖 Telemetry，不会落盘，只保留最近 N 分钟的内存 bucket。
+>
+> 配置与指标口径详见：[实时可观测性](realtime-observability.md)。
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(列出当前运行作业的 realtime 指标开关与窗口信息)</code></summary>
+
+#### 响应
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(返回 vertex 维度时序：Source/Transform/Sink)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+> 说明：
+> - ratio 类指标范围为 `0~1`（UI 可显示为百分比）。
+> - 对于非 Source/Transform/Sink 类型的 vertex，相应字段可能为 0。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(返回 queue/edge 维度时序：下游等待占比 + 队列填充率)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述 |
+> |---|---|---|---|
+> | windowMs | 否 | long | 查询窗口（毫秒），默认 3 分钟，最大 10 分钟（超过会被截断为 10 分钟） |
+
+#### 响应（结构）
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
 ```
 
 </details>

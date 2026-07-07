@@ -98,9 +98,13 @@ Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量
 | chunk-key.even-distribution.factor.lower-bound | Double   | 否       | 0.05    | 分块键分布因子的下界。此因子用于确定表数据是否均匀分布。如果计算的分布因子大于或等于此下界（即，(MAX(id) - MIN(id) + 1) / 行数），表分块将被优化以实现均匀分布。否则，如果分布因子较小，如果估计的分片数超过 `sample-sharding.threshold` 指定的值，表将被视为不均匀分布并使用基于采样的分片策略。默认值为 0.05。    |
 | sample-sharding.threshold                      | int      | 否       | 1000    | 此配置指定了触发采样分片策略的估计分片数阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估计的分片数（计算为近似行数 / 分块大小）超过此阈值时，将使用采样分片策略。这可以帮助更有效地处理大型数据集。默认值为 1000 分片。 |
 | inverse-sampling.rate                          | int      | 否       | 1000    | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则意味着在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。对于非常大的数据集，首选较低的采样率时，此选项特别有用。默认值为 1000。                                                                            |
+| split.allow-sampling                         | Boolean  | 否       | true    | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | exactly_once                                   | Boolean  | 否       | false   | 启用精确一次语义。                                                                                                                                                                                                                                                                                                  |
 | debezium.*                                     | config   | 否       | -       | 将 Debezium 的属性传递给 Debezium Embedded Engine，用于捕获来自 SqlServer 服务器的数据变更。<br/>了解更多关于<br/>[Debezium 的 SqlServer 连接器属性](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                 |
 | format                                         | Enum     | 否       | DEFAULT | SqlServer CDC 的可选输出格式，有效枚举为 "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON"。                                                                                                                                                                                                                                    |
+| schema-changes.enabled                         | Boolean  | 否       | false   | 模式演进默认是禁用的。当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`。                                                                                                                                                                                                                |
+| schema-changes.include                          | List     | 否       | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                          |
+| schema-changes.exclude                          | List     | 否       | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                                                                   |
 | common-options                                 |          | 否       | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 获取详细信息。                                                                                                                                                                                                                                     |
 
 ### 启用 Sql Server CDC
@@ -237,6 +241,41 @@ sink {
   }
 }
 ```
+
+### Schema change 事件过滤
+
+当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
+控制哪些 schema change 事件类型会被发送到下游。
+
+使用以下 SeaTunnel 统一的规范名称：
+
+| 规范名称         | 操作                                        |
+|------------------|---------------------------------------------|
+| `add.column`     | 新增列                                      |
+| `drop.column`    | 删除列                                      |
+| `modify.column`  | 修改列的类型/属性，列名不变                  |
+| `change.column`  | 列重命名，可同时改类型                       |
+| `update.columns` | 上述四种列级变更的分组别名                   |
+
+优先级规则（确定性）：
+
+1. 若设置了 `schema-changes.include`，则只有被包含的事件类型才有资格；
+2. 然后应用 `schema-changes.exclude`；
+3. 当某类型同时出现在两个列表中时，**exclude 优先**。
+
+```hocon
+source {
+  SqlServer-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**排除 `drop.column` 时的数据处理方式。对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
+NOT NULL 列排除 `drop.column` 会在 sink 端失败。
 
 ## 变更日志
 

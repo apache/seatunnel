@@ -100,9 +100,13 @@ case-sensitive databases, make sure the configured identifier case matches the d
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | int      | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | int      | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
+| split.allow-sampling                      | Boolean  | No       | true    | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | debezium.*                                | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                                                                                                                                                                                                                                                                    |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                             |
+| schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ### Enable Sql Server CDC
@@ -239,6 +243,42 @@ sink {
   }
 }
 ```
+
+### Schema change event filtering
+
+When `schema-changes.enabled = true`, you can further control which schema change event types are
+propagated downstream using `schema-changes.include` / `schema-changes.exclude`.
+
+Use these SeaTunnel-owned canonical names:
+
+| Canonical name   | Operation                                            |
+|------------------|------------------------------------------------------|
+| `add.column`     | add a column                                         |
+| `drop.column`    | drop a column                                        |
+| `modify.column`  | change a column's type/attributes, name unchanged    |
+| `change.column`  | rename a column, optionally re-type                  |
+| `update.columns` | group alias for all four column-level changes above  |
+
+Precedence is deterministic:
+
+1. if `schema-changes.include` is set, only included event types are eligible;
+2. `schema-changes.exclude` is then applied;
+3. **exclude wins** when a type appears in both lists.
+
+```hocon
+source {
+  SqlServer-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
+will fail at the sink.
 
 ## Changelog
 

@@ -52,7 +52,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | path                        | string  | 是    | -                   |
 | file_format_type            | string  | 是    | -                   |
 | connection_mode             | string  | 否    | active_local        |
-| remote_verification_enabled | boolean | no   | true                |
+| remote_verification_enabled | boolean | 否    | true                |
+| control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |
@@ -72,6 +73,9 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | null_format                 | string  | 否    | -                   |
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
+| discovery_mode              | string  | 否    | once                |
+| scan_interval               | string  | 否    | 10S |
+| start_mode                  | string  | 否    | earliest            |
 | sync_mode                   | string  | 否    | full                |
 | target_path                 | string  | 否    | -                   |
 | target_hadoop_conf          | map     | 否    | -                   |
@@ -83,6 +87,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | quote_char                  | string  | 否    | "                   | 
 | escape_char                 | string  | 否    | -                   |
 | metalake_type               | string  | 否    | gravitino           |
+| recursive_file_scan         | boolean | 否    | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### host [string]
 
@@ -257,6 +263,15 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
 
 ### connection_mode [string]
@@ -337,17 +352,15 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
 
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
-### metalake_type [string]
-
-Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
-
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
 ### read_columns [list]
 
@@ -422,6 +435,26 @@ Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### discovery_mode [string]
+
+文件发现模式，支持：`once`（默认）、`continuous`。
+
+- `once`：启动时枚举一次文件并结束（有界）。
+- `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
+
+当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+
+### scan_interval [string]
+
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，取值必须大于 `0`。推荐使用简写格式 `10S`、`30S`（大小写不敏感，例如 `10s`）；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
+
+### start_mode [string]
+
+仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。
+
+- `earliest`：启动时读取已有文件。
+- `latest`：仅处理作业启动后修改的新文件。
+
 ### sync_mode [string]
 
 文件同步模式，支持：`full`（默认）、`update`。
@@ -477,6 +510,18 @@ compare_mode = "len_mtime"
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ### 通用选项
 
@@ -634,6 +679,52 @@ sink {
 
     path = "/seatunnel/read/binary2/"
     tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 持续发现（discovery_mode=continuous）
+
+`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
+
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
   }
 }

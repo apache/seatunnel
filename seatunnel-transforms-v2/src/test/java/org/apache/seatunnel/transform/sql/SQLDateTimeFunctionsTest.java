@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
+import java.util.TimeZone;
 
 public class SQLDateTimeFunctionsTest {
 
@@ -233,21 +234,28 @@ public class SQLDateTimeFunctionsTest {
 
     @Test
     public void testAtTimeZone() {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"dt"},
-                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        TimeZone originalTz = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        try {
+            SeaTunnelRowType rowType =
+                    new SeaTunnelRowType(
+                            new String[] {"dt"},
+                            new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        LocalDateTime now = LocalDateTime.of(2024, 6, 15, 12, 0, 0);
-        SeaTunnelRow outRow =
-                runSql("select dt AT TIME ZONE '+09:00' as tz from dual", rowType, now);
+            LocalDateTime now = LocalDateTime.of(2024, 6, 15, 12, 0, 0);
+            ZoneId fixedZone = ZoneId.of("UTC");
+            SeaTunnelRow outRow =
+                    runSql("select dt AT TIME ZONE '+09:00' as tz from dual", rowType, now);
 
-        Assertions.assertNotNull(outRow.getField(0));
-        Assertions.assertEquals(
-                now.atZone(ZoneId.systemDefault())
-                        .withZoneSameInstant(ZoneId.of("+09:00"))
-                        .toOffsetDateTime(),
-                outRow.getField(0));
+            Assertions.assertNotNull(outRow.getField(0));
+            Assertions.assertEquals(
+                    now.atZone(fixedZone)
+                            .withZoneSameInstant(ZoneId.of("+09:00"))
+                            .toOffsetDateTime(),
+                    outRow.getField(0));
+        } finally {
+            TimeZone.setDefault(originalTz);
+        }
     }
 
     @Test

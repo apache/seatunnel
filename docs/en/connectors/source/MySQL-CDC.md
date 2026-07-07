@@ -186,23 +186,23 @@ When an initial consistent snapshot is made for large databases, your establishe
 | Name                                      | Type     | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String   | Yes      | -       | The URL of the JDBC connection. Refer to a case: `jdbc:mysql://localhost:3306/test`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| username                                  | String   | Yes      | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| username                                  | String   | Yes      | -       | Username used to connect to the MySQL server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | password                                  | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | database-pattern                          | String   | No       | .*      | The database names RegEx of the database to capture, for example: `database_prefix.*`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| table-names                               | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| table-pattern                             | String   | Yes      | -       | The table names RegEx of the database to capture. The table name needs to include the database name, for example: `database.*\\.table_.*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value must include the database name, for example: `database_name.table_name`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Each matched table name includes the database name, for example: `database.*\\.table_.*`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| table-names-config                        | List     | No       | -       | Per-table config list. For example: `[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column. `snapshotSplitColumn` should be a primary key or unique key. If a non-unique column is provided, SeaTunnel ignores it and automatically selects an appropriate split column internally.                                                                                                                                                                                                                                               |
 | startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| startup.timestamp                         | Long     | No       | -       | Start from the specified timestamp. **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| startup.timestamp                         | Long     | No       | -       | Start from the specified timestamp, in milliseconds since Unix epoch. **Note, This option is required when the `startup.mode` option uses `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for MySQL CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                         |
 | stop.specific-offset.file                 | String   | No       | -       | Stop from the specified binlog file name. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | stop.specific-offset.pos                  | Long     | No       | -       | Stop from the specified binlog file position. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | snapshot.split.size                       | Integer  | No       | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| server-id                                 | String   | No       | -       | A numeric ID or a numeric ID range of this database client, The numeric ID syntax is like `5400`, the numeric ID range syntax is like '5400-5408'. <br/> Every ID must be unique across all currently-running database processes in the MySQL cluster. This connector joins the <br/> MySQL cluster as another server (with this unique ID) so it can read the binlog. <br/> By default, a random number is generated between 6500 and 2,148,492,146, though we recommend setting an explicit value.                                                                                                                 |
+| server-id                                 | String   | No       | -       | Numeric ID or numeric ID range used by this CDC reader, for example `5400` or `5400-5408`. Each ID must be unique in the MySQL cluster. When the job has multiple readers or reads multiple tables in parallel, configure an ID range large enough for the job. If this option is omitted, SeaTunnel generates a random ID, but an explicit value is recommended for production.                                                                                                                 |
 | server-time-zone                          | String   | No       | UTC     | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | connect.timeout.ms                        | Duration | No       | 30000   | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No       | 3       | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -211,9 +211,12 @@ When an initial consistent snapshot is made for large databases, your establishe
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | Integer  | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
+| split.allow-sampling                      | Boolean  | No       | true    | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for MySQL CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                              |
+| schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | debezium                                  | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                        |
 | int_type_narrowing                        | Boolean  | No       | true    | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -339,6 +342,43 @@ sink {
 }
 
 ```
+
+### Schema change event filtering
+
+When `schema-changes.enabled = true`, you can further control which schema change event types are
+propagated downstream using `schema-changes.include` / `schema-changes.exclude`. 
+
+Use these SeaTunnel-owned canonical names:
+
+| Canonical name  | Operation                                                                 |
+|-----------------|---------------------------------------------------------------------------|
+| `add.column`    | add a column                                                              |
+| `drop.column`   | drop a column                                                             |
+| `modify.column` | change a column's type/attributes, name unchanged                         |
+| `change.column` | rename a column, optionally re-type                                       |
+| `update.columns`| group alias for all four column-level changes above                        |
+
+Precedence is deterministic:
+
+1. if `schema-changes.include` is set, only included event types are eligible;
+2. `schema-changes.exclude` is then applied;
+3. **exclude wins** when a type appears in both lists.
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    schema-changes.enabled = true
+    schema-changes.include = ["add.column", "drop.column"]
+    schema-changes.exclude = ["change.column"]
+  }
+}
+```
+
+**Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
+by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
+will fail at the sink.
+
 ### Support table-pattern for multi-table reading
 
 > `table-pattern` and `table-names` are mutually exclusive
@@ -371,7 +411,118 @@ sink {
 }
 ```
 
+### Start From a Specific Binlog Offset
+
+Use `startup.mode = "specific"` when the first record must be read from a known binlog file and position.
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+  }
+}
+```
+
+### Route Multiple Source Tables to JDBC
+
+When one MySQL CDC source reads multiple tables, JDBC sink placeholders can keep the original table name.
+
+```hocon
+source {
+  MySQL-CDC {
+    plugin_output = "customers_mysql_cdc"
+    server-id = 5652-5660
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.orders", "mysql_cdc.products"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  jdbc {
+    plugin_input = "customers_mysql_cdc"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc2"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "st_user_sink"
+    password = "mysqlpw"
+    database = "mysql_cdc2"
+    table = "${table_name}"
+    primary_keys = ["${primary_key}"]
+    generate_sink_sql = true
+  }
+}
+```
+
+## FAQ
+
+### What MySQL permissions are required for CDC?
+
+The MySQL user must have the following privileges:
+
+```sql
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'user'@'%';
+```
+
+Also enable binary logging in `my.cnf` / `my.ini`:
+
+```ini
+[mysqld]
+log_bin = mysql-bin
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+### Can SeaTunnel read CDC from a MySQL replica?
+
+Yes. SeaTunnel subscribes to MySQL binary logs, which are also streamed to replicas. You can point SeaTunnel at a replica to offload the primary. Ensure the replica has binary logging enabled and `log_slave_updates = ON` set in its configuration.
+
+### Does MySQL CDC support tables without primary keys?
+
+By default, MySQL CDC expects primary keys. If the source table does not declare a primary key but
+does have another unique column that can identify rows, you can override it with
+`table-names-config.primaryKeys` as shown in the existing source options example. Without a stable
+unique key, UPDATE and DELETE events cannot be applied safely downstream.
+
+### How does the full snapshot phase work, and when does it switch to incremental reading?
+
+On first startup, SeaTunnel takes a consistent full snapshot of the configured tables. After the snapshot completes, it automatically switches to reading binlog from the position recorded at the beginning of the snapshot, ensuring no events are lost during the transition.
+
+### Does MySQL CDC support DDL propagation?
+
+Yes, but only in a limited form. Enable `schema-changes.enabled = true`, then follow the current
+schema evolution contract already documented on this page and in the
+[Schema Evolution guide](../../introduction/configuration/schema-evolution.md). The current
+documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
+
+### How do I avoid `server-id` conflicts when running multiple CDC jobs?
+
+Each CDC job must use a unique `server-id` or a non-overlapping range. Duplicate `server-id` values cause the MySQL server to disconnect one of the clients. Assign distinct ranges, for example `5400-5600` for one job and `5601-5800` for another.
+
+### Why is the initial snapshot very slow?
+
+Snapshot speed depends on table size, JDBC fetch size, and network bandwidth. You can tune
+`snapshot.split.size` and `snapshot.fetch.size` to control chunking and fetch behavior. For very
+large tables where historical data is not needed, set `startup.mode = "latest"` to start from the
+latest offset and skip the initial snapshot.
+
+### How do I handle timezone and character set issues?
+
+Set `server-time-zone` to match the MySQL server's timezone, for example `"Asia/Shanghai"`. For character set issues, append `characterEncoding=UTF-8&useUnicode=true` to the JDBC connection URL.
+
+## See Also
+
+For a production-grade end-to-end guide covering full + incremental synchronization lifecycle,
+2PC sink configuration, schema evolution, and troubleshooting, see
+[CDC Production Cookbook](../cdc-production-cookbook.md).
+
 ## Changelog
 
 <ChangeLog />
-

@@ -4,7 +4,27 @@ sidebar_position: 1
 
 # SeaTunnel Engine 简介
 
-SeaTunnel Engine 是一个由社区开发的用于数据同步场景的引擎，作为 SeaTunnel 的默认引擎，它支持高吞吐量、低延迟和强一致性的数据同步作业操作，更快、更稳定、更节省资源且易于使用。
+SeaTunnel Engine 是 SeaTunnel 的原生执行引擎，也是新部署场景下的默认推荐引擎。它主要面向数据集成与数据同步任务，强调高吞吐、低延迟、强一致性，以及比完整大数据平台更低的运维负担。
+
+如果你想先理解为什么很多新用户会从 SeaTunnel Engine 开始、它适合解决哪些问题、以及首跑之后应该继续读什么，这一页就是推荐入口。
+
+## 什么时候优先选择 SeaTunnel Engine
+
+以下场景通常最适合先从 SeaTunnel Engine 开始：
+
+- 团队没有现成的 Flink 或 Spark 运维体系
+- 希望用最短路径完成安装并跑通第一个任务
+- 主要需求是 CDC、多表同步或数据库迁移
+- 希望用较低资源消耗承载大量中小规模同步任务
+
+如果你的团队已经长期运行 Flink 或 Spark，并且明确希望复用现有平台，建议先看 [引擎概览](../overview.md)，再进入对应引擎文档。
+
+## 为什么很多新用户会先从这里开始
+
+- **无外部依赖**：集群管理、快照存储和高可用不依赖 Zookeeper、HDFS 等外部服务。
+- **Pipeline 级容错**：故障影响范围控制在 pipeline 粒度，减少不必要的大范围回滚。
+- **更低的运行开销**：动态线程共享、较少的 JDBC 连接，以及 CDC 日志读取资源复用，都有助于降低资源占用。
+- **统一承载常见同步任务**：批处理、流处理和以 CDC 为代表的数据同步场景可以共用一套运行模型。
 
 SeaTunnel Engine 的整体设计遵循以下路径：
 
@@ -34,10 +54,22 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 - 支持在 Pipeline 级别对作业进行容错。任务失败只影响其所在 Pipeline，只需要回滚 Pipeline 下的任务；
 - 支持动态线程共享，以实时同步大量小数据集。
 
-### 快速开始
+## 推荐阅读路径
 
-https://seatunnel.apache.org/docs/getting-started/locally/quick-start-seatunnel-engine
+如果你是第一次接触 SeaTunnel，建议按下面顺序阅读：
 
-### 下载安装
+1. [快速入门总览](../../getting-started/overview.md)
+2. [下载安装](download-seatunnel.md)
+3. [SeaTunnel 引擎快速开始](../../getting-started/locally/quick-start-seatunnel-engine.md)
+4. [作业配置指南](../../getting-started/job-configuration-guide.md)
+5. [REST API 与 Web UI](rest-api-and-web-ui.md)
+
+如果你已经跑通第一个任务，接下来可以继续看：
+
+- [架构概览](../../architecture/overview.md)
+- [检查点机制](../../architecture/fault-tolerance/checkpoint-mechanism.md)
+- [资源管理](../../architecture/engine/resource-management.md)
+
+## 下载安装
 
 [下载安装](download-seatunnel.md)

@@ -84,6 +84,15 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
 
+    public static final Option<Long> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription(
+                            "Write-triggered flush interval (ms). "
+                                    + "0 = disabled (default). "
+                                    + "When > 0, each writeRecord checks elapsed time and flushes synchronously if exceeded.");
+
     public static final Option<Integer> TRANSACTION_TIMEOUT_SEC =
             Options.key("transaction_timeout_sec")
                     .intType()
@@ -118,25 +127,45 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
+            Options.key("oracle_insert_mode")
+                    .enumType(JdbcSinkConfig.OracleInsertMode.class)
+                    .defaultValue(JdbcSinkConfig.OracleInsertMode.CONVENTIONAL)
+                    .withDescription(
+                            "Oracle insert mode. CONVENTIONAL uses normal insert statements. "
+                                    + "APPEND_VALUES adds the Oracle APPEND_VALUES hint for insert-only writes.");
+
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")
                     .enumType(FieldIdeEnum.class)
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
+    /**
+     * @deprecated Use {@link #TABLE} with table placeholder instead, for example {@code table =
+     *     "prefix_${table_name}_suffix"}.
+     */
+    @Deprecated
     public static final Option<String> TABLE_PREFIX =
             Options.key("tablePrefix")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The table prefix name added when the table is automatically created");
+                            "Deprecated. Use `table` with table placeholder instead, for example "
+                                    + "`table = \"prefix_${table_name}_suffix\"`.");
 
+    /**
+     * @deprecated Use {@link #TABLE} with table placeholder instead, for example {@code table =
+     *     "prefix_${table_name}_suffix"}.
+     */
+    @Deprecated
     public static final Option<String> TABLE_SUFFIX =
             Options.key("tableSuffix")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The table suffix name added when the table is automatically created");
+                            "Deprecated. Use `table` with table placeholder instead, for example "
+                                    + "`table = \"prefix_${table_name}_suffix\"`.");
 
     public static final Option<Boolean> CREATE_INDEX =
             Options.key("create_index")

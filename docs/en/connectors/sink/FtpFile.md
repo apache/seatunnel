@@ -48,6 +48,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
 | remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
+| control_encoding                      | string  | no       | UTF-8                                      | Character encoding for the FTP control connection, useful for paths with spaces or non-ASCII characters                                                               |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
@@ -109,6 +110,13 @@ The target ftp connection mode , default is active mode, supported as the follow
 ### remote_verification_enabled [boolean]
 
 Whether to enable remote host verification for FTP data channels, default is `true`.
+
+### control_encoding [string]
+
+Character encoding for the FTP control connection. Default is `UTF-8`.
+
+When file paths contain special characters, spaces, or non-ASCII characters, keep this value as
+`UTF-8` unless your FTP server requires another control-channel encoding.
 
 ### custom_filename [boolean]
 
@@ -352,6 +360,35 @@ FtpFile {
 }
 
 ```
+
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## Changelog
 
