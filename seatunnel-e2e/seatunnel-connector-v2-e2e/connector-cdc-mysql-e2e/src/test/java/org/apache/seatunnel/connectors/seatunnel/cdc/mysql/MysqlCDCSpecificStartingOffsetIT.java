@@ -63,6 +63,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -459,6 +460,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
+                            assertJobHasNotFinished(jobFuture);
                             Assertions.assertIterableEquals(
                                     query(
                                             String.format(
@@ -469,8 +471,27 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
 
-        Container.ExecResult result = jobFuture.join();
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult result = jobFuture.get(60, TimeUnit.SECONDS);
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private static void assertJobHasNotFinished(CompletableFuture<Container.ExecResult> jobFuture) {
+        if (!jobFuture.isDone()) {
+            return;
+        }
+        try {
+            Container.ExecResult result = jobFuture.getNow(null);
+            Assertions.fail(
+                    "Streaming job finished before the sink assertion. exitCode="
+                            + result.getExitCode()
+                            + ", stderr="
+                            + result.getStderr());
+        } catch (CompletionException e) {
+            Assertions.fail("Streaming job failed before the sink assertion.", e);
+        }
     }
 
     @TestTemplate
