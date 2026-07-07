@@ -92,27 +92,43 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         couchbaseContainer.getUsername(),
                         couchbaseContainer.getPassword());
 
-        // Create the scoped collection and a primary index on it for N1QL queries.
-        cluster.query(
+        // Wait for the query/management service to be ready before issuing DDL. The container
+        // signals readiness at the KV/bucket level but the query and index services can still
+        // reject requests for a short window after Cluster.connect() returns. Wrapping the DDL
+        // itself in a retry loop is the safest approach — it eliminates the startup timing race
+        // without relying on a fixed sleep.
+        String createCollectionDdl =
                 "CREATE COLLECTION `"
                         + COUCHBASE_BUCKET
                         + "`.`"
                         + COUCHBASE_SCOPE
                         + "`.`"
                         + COUCHBASE_COLLECTION
-                        + "`");
-        cluster.query(
+                        + "`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query(createCollectionDdl));
+
+        // Similarly retry CREATE PRIMARY INDEX until the collection is visible to the query path.
+        String createIndexDdl =
                 "CREATE PRIMARY INDEX ON `"
                         + COUCHBASE_BUCKET
                         + "`.`"
                         + COUCHBASE_SCOPE
                         + "`.`"
                         + COUCHBASE_COLLECTION
-                        + "`");
+                        + "`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query(createIndexDdl));
 
-        // Wait until the primary index is online before returning. The index build is
-        // asynchronous; without this guard, the first N1QL query in the test body may
-        // hit the collection before the index is ready and return an empty result set.
+        // Wait until the primary index transitions to 'online' before returning.
+        // The index build is asynchronous; without this guard the first N1QL query in the
+        // test body may hit the collection before the index is ready and return no results.
         String indexStatusQuery =
                 String.format(
                         "SELECT state FROM system:indexes WHERE keyspace_id = '%s'"

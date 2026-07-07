@@ -40,17 +40,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * Writes {@link SeaTunnelRow} records to a Couchbase collection.
  *
- * <p>Records are buffered in memory and flushed to Couchbase when either:
+ * <p>Records are buffered in memory and flushed to Couchbase when any of these conditions is met:
  *
  * <ul>
  *   <li>The buffer reaches {@code buffer-flush.max-rows}, or
- *   <li>The time since the last flush exceeds {@code buffer-flush.interval}.
+ *   <li>A periodic background timer fires every {@code buffer-flush.interval} milliseconds (the
+ *       real max-latency guarantee, enforced even when no new rows arrive), or
+ *   <li>A checkpoint or shutdown is triggered.
  * </ul>
  *
  * <p>Each record is converted to a {@link JsonObject}. The document key is derived from the
@@ -74,7 +79,16 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final long batchIntervalMs;
     private final int maxRetries;
     private final long retryIntervalMs;
-    private volatile long lastSendTime = 0L;
+
+    /**
+     * Background scheduler that fires a periodic flush at every {@code batchIntervalMs}. This is
+     * the mechanism that enforces the {@code buffer-flush.interval} contract even when no new rows
+     * arrive (low-throughput / idle streaming jobs). {@code null} when the interval is disabled
+     * ({@code batchIntervalMs == -1}).
+     */
+    private final ScheduledExecutorService flushScheduler;
+
+    private final ScheduledFuture<?> flushFuture;
 
     // TODO: Reserve context for future parallelism/metrics use.
     @SuppressWarnings("unused")
@@ -104,7 +118,32 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                         .scope(options.getScope())
                         .collection(options.getCollection());
 
-        this.lastSendTime = System.currentTimeMillis();
+        // Start a periodic background flush so that buffer-flush.interval is a true max-latency
+        // guarantee, even when no rows arrive (idle or low-throughput streaming jobs).
+        if (batchIntervalMs > 0) {
+            this.flushScheduler =
+                    Executors.newSingleThreadScheduledExecutor(
+                            r -> {
+                                Thread t = new Thread(r, "couchbase-flush-timer");
+                                t.setDaemon(true);
+                                return t;
+                            });
+            this.flushFuture =
+                    flushScheduler.scheduleAtFixedRate(
+                            () -> {
+                                try {
+                                    doFlush();
+                                } catch (Exception e) {
+                                    log.warn("Periodic flush failed", e);
+                                }
+                            },
+                            batchIntervalMs,
+                            batchIntervalMs,
+                            TimeUnit.MILLISECONDS);
+        } else {
+            this.flushScheduler = null;
+            this.flushFuture = null;
+        }
     }
 
     /**
@@ -126,9 +165,11 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     "RowKind.DELETE is not supported by the Couchbase sink. "
                             + "CDC delete handling is out of scope for the initial implementation.");
         }
-        buffer.add(row);
-        if (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit()) {
-            doFlush();
+        synchronized (this) {
+            buffer.add(row);
+            if (isOverMaxBatchSizeLimit()) {
+                doFlush();
+            }
         }
     }
 
@@ -143,6 +184,13 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public void close() {
+        // Cancel the periodic flush timer first so it cannot race with the final flush below.
+        if (flushFuture != null) {
+            flushFuture.cancel(false);
+        }
+        if (flushScheduler != null) {
+            flushScheduler.shutdown();
+        }
         try {
             doFlush();
         } finally {
@@ -382,10 +430,5 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     private boolean isOverMaxBatchSizeLimit() {
         return bulkActions != -1 && buffer.size() >= bulkActions;
-    }
-
-    private boolean isOverMaxBatchIntervalLimit() {
-        return batchIntervalMs != -1
-                && (System.currentTimeMillis() - lastSendTime) >= batchIntervalMs;
     }
 }
