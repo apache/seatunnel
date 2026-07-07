@@ -53,6 +53,7 @@ import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -1705,17 +1706,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        // Feed the source after the streaming job has had a moment to subscribe. Preloading all
-        // records before startup can leave the final record stuck in an in-flight exactly-once
-        // transaction on slow CI machines, which is why the flaky failure stabilizes at 9/10
-        // visible records.
-        try {
-            TimeUnit.SECONDS.sleep(15);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(
-                    "Interrupted while waiting for the exactly-once streaming job to subscribe", e);
-        }
+        waitForKafkaConsumerGroupAssignment(consumerGroup);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
                     new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
@@ -2107,6 +2098,32 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     "Interrupted while creating Kafka topic " + topicName, e);
         } catch (ExecutionException e) {
             throw new IllegalStateException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /**
+     * Wait until the SeaTunnel Kafka source joins its consumer group before producing assertion
+     * records. This avoids a fixed sleep while keeping the test tied to the real subscription
+     * signal.
+     */
+    private void waitForKafkaConsumerGroupAssignment(String consumerGroup) {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            given().ignoreExceptions()
+                    .pollInterval(1, SECONDS)
+                    .atMost(60, SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                ConsumerGroupDescription description =
+                                        adminClient
+                                                .describeConsumerGroups(
+                                                        Collections.singletonList(consumerGroup))
+                                                .all()
+                                                .get(10, SECONDS)
+                                                .get(consumerGroup);
+                                Assertions.assertFalse(
+                                        description.members().isEmpty(),
+                                        "Kafka source consumer group should have active members before test data is produced.");
+                            });
         }
     }
 

@@ -491,10 +491,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // RocketMQ
                 // org.apache.rocketmq.logging.inner.LoggingBuilder$AsyncAppender$Dispatcher
                 || threadName.startsWith("AsyncAppender-Dispatcher-Thread")
-                // RocketMQ pull clients can keep their background fetch threads alive briefly after
-                // a successful job exit. The functional assertions have already completed by the
-                // time this thread-leak filter runs.
-                || threadName.startsWith("PullMsgThread-")
                 // MongoDB
                 || threadName.startsWith("BufferPoolPruner")
                 || threadName.startsWith("MaintenanceTimer")
