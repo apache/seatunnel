@@ -54,8 +54,41 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 - `debezium_json`：读取 Debezium JSON 消息，详见 [Debezium JSON](../formats/debezium-json.md)。
 - `delete_message = true` 会删除已经消费的 SQS 消息。如果只是检查或复制消息，建议保留默认值 `false`。
 - `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
+- 该源连接器只执行一次 receive 请求，最多读取 10 条消息，然后结束这个有界任务。
 
 ## 任务示例
+
+### 在本地兼容队列之间复制消息
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/source_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+    schema = {
+      fields {
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/sink_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+  }
+}
+```
 
 ### 读取 JSON 消息
 

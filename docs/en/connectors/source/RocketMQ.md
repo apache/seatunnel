@@ -36,7 +36,7 @@ Reads messages from Apache RocketMQ topics. The connector can read one or more t
 | topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
 | tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
 | table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
-| tags | String | no | - | Tag list separated by commas. Only messages with these tags are consumed. |
+| tags | String | no | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
 | acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
 | access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
 | secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
@@ -91,6 +91,13 @@ invalid JSON messages instead of failing the job.
 When `format = text`, SeaTunnel splits the message body by `field.delimiter`
 and maps the values to fields in schema order. If `schema` is omitted, the
 message body is read as a single text value.
+
+### Tags
+
+`tags` uses a comma-separated list such as `tag_a,tag_b`. The connector compares
+the pulled message tag with these values, so do not use RocketMQ tag expression
+syntax such as `tag_a || tag_b` here. In multi-table jobs, each `tables_configs`
+entry can set its own `tags` filter.
 
 ### Multi-Table Read
 
