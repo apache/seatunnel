@@ -433,6 +433,93 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case validates bounded completion and manually cancels a streaming job, which is currently only supported by the zeta engine.")
+    public void testPostgresCdcSnapshotOnlyAndCommittedOffsetStartupModes(TestContainer container)
+            throws IOException, InterruptedException {
+        String snapshotSlotVariable = toSlotVariable(createSlotName());
+        String committedSlotName = createSlotName();
+        String committedSlotVariable = toSlotVariable(committedSlotName);
+        Long committedOffsetJobId = JobIdGenerator.newJobId();
+
+        try {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 10);
+
+            container.executeJob(
+                    "/postgrescdc_to_postgres_snapshot_only.conf",
+                    Collections.singletonList(snapshotSlotVariable));
+            Assertions.assertIterableEquals(
+                    query("select * from " + POSTGRESQL_SCHEMA + "." + SOURCE_TABLE_1),
+                    query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1));
+
+            List<List<Object>> snapshotOnlySinkRows =
+                    query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 11);
+            TimeUnit.SECONDS.sleep(5);
+            Assertions.assertIterableEquals(
+                    snapshotOnlySinkRows,
+                    query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1));
+
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            createLogicalReplicationSlot(committedSlotName);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
+
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_committed_offset.conf",
+                                    String.valueOf(committedOffsetJobId),
+                                    committedSlotVariable);
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                "select * from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SOURCE_TABLE_1
+                                                        + " where id = 12"),
+                                        query(
+                                                "select * from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " where id = 12"));
+                                Assertions.assertTrue(
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id in (10, 11)")
+                                                .isEmpty());
+                            });
+        } finally {
+            try {
+                container.cancelJob(String.valueOf(committedOffsetJobId));
+            } catch (Exception e) {
+                log.warn("Failed to cancel committed-offset test job", e);
+            }
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMPostgresCdcCheckDataE2eWithHeartbeat(TestContainer container) {
         String slotVariable = toSlotVariable(createSlotName());
@@ -1067,6 +1154,18 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             return resultSet.next() && resultSet.getBoolean("active");
         } catch (SQLException e) {
             throw new RuntimeException("Failed to query replication slot activity: " + slotName, e);
+        }
+    }
+
+    private void createLogicalReplicationSlot(String slotName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "SELECT * FROM pg_create_logical_replication_slot('"
+                            + slotName
+                            + "', 'decoderbufs')");
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to create replication slot: " + slotName, e);
         }
     }
 

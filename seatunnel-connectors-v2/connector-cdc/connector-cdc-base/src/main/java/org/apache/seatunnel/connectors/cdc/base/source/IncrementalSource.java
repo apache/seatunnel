@@ -44,6 +44,7 @@ import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.HybridSplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSplitAssigner;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.SnapshotOnlySplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.SplitAssigner;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
@@ -251,7 +252,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     @Override
     public Boundedness getBoundedness() {
-        return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
+        return stopMode == StopMode.NEVER
+                        && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
+                ? Boundedness.UNBOUNDED
+                : Boundedness.BOUNDED;
     }
 
     @SuppressWarnings("MagicNumber")
@@ -316,20 +320,31 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashSet<>(remainingTables),
                         new HashMap<>(),
                         new HashMap<>());
-        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL) {
+        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL
+                || sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             try {
 
                 boolean isTableIdCaseSensitive =
                         dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
-                splitAssigner =
-                        new HybridSplitAssigner<>(
-                                assignerContext,
-                                enumeratorContext.currentParallelism(),
-                                incrementalParallelism,
-                                remainingTables,
-                                isTableIdCaseSensitive,
-                                dataSourceDialect,
-                                offsetFactory);
+                if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+                    splitAssigner =
+                            new SnapshotOnlySplitAssigner<>(
+                                    assignerContext,
+                                    enumeratorContext.currentParallelism(),
+                                    remainingTables,
+                                    isTableIdCaseSensitive,
+                                    dataSourceDialect);
+                } else {
+                    splitAssigner =
+                            new HybridSplitAssigner<>(
+                                    assignerContext,
+                                    enumeratorContext.currentParallelism(),
+                                    incrementalParallelism,
+                                    remainingTables,
+                                    isTableIdCaseSensitive,
+                                    dataSourceDialect,
+                                    offsetFactory);
+                }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover captured tables for enumerator", e);
             }
@@ -378,6 +393,20 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             (HybridPendingSplitsState) checkpointState,
                             dataSourceDialect,
                             offsetFactory);
+        } else if (checkpointState instanceof SnapshotPhaseState) {
+            SnapshotPhaseState checkpointSnapshotState = (SnapshotPhaseState) checkpointState;
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig,
+                            capturedTables,
+                            checkpointSnapshotState.getAssignedSplits(),
+                            checkpointSnapshotState.getSplitCompletedOffsets());
+            splitAssigner =
+                    new SnapshotOnlySplitAssigner<>(
+                            assignerContext,
+                            enumeratorContext.currentParallelism(),
+                            checkpointSnapshotState,
+                            dataSourceDialect);
         } else if (checkpointState instanceof IncrementalPhaseState) {
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(

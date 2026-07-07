@@ -24,9 +24,15 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSou
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
+import io.debezium.connector.postgresql.SourceInfo;
+import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.time.Conversions;
 
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 public class LsnOffsetFactory extends OffsetFactory {
@@ -57,6 +63,47 @@ public class LsnOffsetFactory extends OffsetFactory {
         } catch (Exception e) {
             throw new RuntimeException("Read the binlog offset error", e);
         }
+    }
+
+    @Override
+    public Offset committedOffset() {
+        String slotName = sourceConfig.getDbzConfiguration().getString("slot.name");
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
+            return jdbcConnection.prepareQueryAndMap(
+                    "SELECT confirmed_flush_lsn::text FROM pg_replication_slots WHERE slot_name = ?",
+                    statement -> statement.setString(1, slotName),
+                    resultSet -> {
+                        if (!resultSet.next()) {
+                            throw new SQLException(
+                                    String.format(
+                                            "PostgreSQL replication slot '%s' does not exist.",
+                                            slotName));
+                        }
+                        String committedLsn = resultSet.getString(1);
+                        if (committedLsn == null || committedLsn.trim().isEmpty()) {
+                            throw new SQLException(
+                                    String.format(
+                                            "PostgreSQL replication slot '%s' does not have a usable committed LSN.",
+                                            slotName));
+                        }
+                        return toLsnOffset(committedLsn.trim());
+                    });
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    String.format(
+                            "Read the committed offset from PostgreSQL replication slot '%s' error",
+                            slotName),
+                    e);
+        }
+    }
+
+    private LsnOffset toLsnOffset(String committedLsn) {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(SourceInfo.LSN_KEY, String.valueOf(Lsn.valueOf(committedLsn).asLong()));
+        offsetMap.put(
+                SourceInfo.TIMESTAMP_USEC_KEY,
+                String.valueOf(Conversions.toEpochMicros(Instant.MIN)));
+        return LsnOffset.of(offsetMap);
     }
 
     @Override
