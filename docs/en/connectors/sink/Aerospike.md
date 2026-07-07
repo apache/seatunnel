@@ -4,11 +4,11 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 > Aerospike sink connector
 
-## Support Those Engines
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## License Compatibility Notice
 
@@ -27,6 +27,7 @@ When using this connector, you need to comply with AGPL 3.0 license terms.
 Sink connector for Aerospike database. The connector writes records to one Aerospike namespace and set. It uses the configured `key` field as the Aerospike record key.
 
 The connector writes to one fixed target set. It does not route records to different Aerospike sets by table name.
+When a record with the same Aerospike key already exists, the connector updates that record's bins.
 
 ## Supported DataSource Info
 
@@ -84,6 +85,14 @@ The `key` field must be present in the input schema because it is used as the Ae
 For `kv` format, configure `schema.field` for the fields you want to write as independent Aerospike bins. The writer iterates over `schema.field`, so fields not listed there are not written in `kv` mode.
 
 Supported Aerospike type names include `STRING`, `INTEGER`, `LONG`, `DOUBLE`, `BOOLEAN`, `BYTEARRAY`, and `LIST`.
+
+## Usage Notes
+
+- `key` must name an existing input field. The field value is converted to a string and used as the Aerospike record key.
+- `data_format = "string"` stores the selected fields as one JSON string in `bin_name`.
+- `data_format = "map"` stores the selected fields as one Aerospike map in `bin_name`.
+- `data_format = "kv"` writes each configured field as a separate Aerospike bin and ignores `bin_name`.
+- Empty `username` and `password` values are only suitable when Aerospike authentication is disabled.
 
 ## Task Example
 

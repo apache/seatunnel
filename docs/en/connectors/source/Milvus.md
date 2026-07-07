@@ -54,13 +54,12 @@ Common use cases:
 | token      | String | Yes      | -       | Milvus authentication token. For a local Milvus server this is usually `username:password`.                                                                                      |
 | database   | String | No       | default | Source database.                                                                                                                                                                 |
 | collection | String | No       | -       | Source collection. If it is set, only this collection is read. If it is not set, all collections under `database` are read. |
-| batch_size | Int    | No       | 1000    | Number of records fetched in one source read batch.                                                                                                                             |
-| rate_limit | Int    | No       | 1000000 | Maximum source read rate limit.                                                                                                                                                  |
 
 ## Notes
 
 - `database` defaults to `default`, so simple local Milvus jobs do not need to set it.
 - `collection` is optional. Set it when the job should read exactly one collection.
+- The source currently exposes only `url`, `token`, `database`, and `collection` as user-facing options. Read batching and retry behavior use connector defaults.
 - When `collection` is not set, the source discovers all collections in `database` and exposes each collection as a separate SeaTunnel table.
 - The source splits work by Milvus partition. Collections with a partition key are read with one split; collections without a partition key are split by partition name and assigned across readers.
 - When the source reads a collection with partitions, downstream Milvus sink can use that metadata to create the same partition names on the target collection.

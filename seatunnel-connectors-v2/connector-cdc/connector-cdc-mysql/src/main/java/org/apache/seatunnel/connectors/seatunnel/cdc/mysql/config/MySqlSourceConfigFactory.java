@@ -28,6 +28,8 @@ import java.util.UUID;
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
+    private static final long serialVersionUID = -6578851046816898665L;
+
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     private ServerIdRange serverIdRange;

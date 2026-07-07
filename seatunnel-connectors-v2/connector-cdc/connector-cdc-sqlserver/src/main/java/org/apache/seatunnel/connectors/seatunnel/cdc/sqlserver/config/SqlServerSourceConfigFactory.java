@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 /** Factory for creating {@link SqlServerSourceConfig}. */
 public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
 
+    private static final long serialVersionUID = 1L;
+
     private static final String DATABASE_SERVER_NAME = "sqlserver_transaction_log_source";
     private static final String DRIVER_CLASS_NAME = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";

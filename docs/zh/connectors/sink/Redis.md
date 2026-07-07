@@ -12,12 +12,26 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 `key` 可以是固定的 Redis key，也可以是上游字段名。开启 `support_custom_key = true` 后，还可以用上游字段
 拼出 Redis key，例如 `user:${id}`。
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 支持的数据源信息
+
+使用 Redis 连接器时，需要安装以下依赖。可以通过 `install-plugin.sh` 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源 | 依赖 |
+|--------|------|
+| Redis  | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## 选项
 
@@ -75,6 +89,9 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 ### multi_table_sink_replica
 
 多表写入时的写入器副本数。当上游数据带有表标识，并且一个作业需要写入多张 Redis 表时使用。
+
+多表作业中，`key` 可以包含 `${table_name}`，这样不同上游表的数据会写入不同 Redis key，例如
+`key = "redis-result-${table_name}"`。
 
 ## 示例
 
