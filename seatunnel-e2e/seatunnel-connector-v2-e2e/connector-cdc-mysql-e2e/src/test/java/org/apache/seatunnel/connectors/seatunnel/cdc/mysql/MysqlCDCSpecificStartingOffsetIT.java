@@ -192,7 +192,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         String jobConfigFile = "/mysqlcdc_earliest_offset.conf";
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
-        purgeBinaryLogs();
+        rotateAndPurgeBinaryLogs();
         // Insert data
         executeSql(
                 String.format(
@@ -289,7 +289,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
     public void testMysqlCdcSpecificOffset(TestContainer container) throws Exception {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_specific_offset.conf";
-        purgeBinaryLogs();
+        rotateAndPurgeBinaryLogs();
         String source_sql_where_id_template =
                 "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                         + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -427,7 +427,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
-        purgeBinaryLogs();
+        rotateAndPurgeBinaryLogs();
 
         BinlogOffset binlogOffset = getCurrentBinlogOffset();
         String gtidSet = binlogOffset.getGtidSet();
@@ -445,16 +445,16 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                         "INSERT INTO %s.%s (id) VALUES (16), (17)",
                         MYSQL_DATABASE, SOURCE_TABLE_1));
 
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob(jobConfigFile, jobId, variables);
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(jobConfigFile, jobId, variables);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -468,6 +468,9 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                                                     "17")),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
+
+        Container.ExecResult result = jobFuture.join();
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
     @TestTemplate
@@ -647,6 +650,11 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
     private void flushLogs() {
         executeSql("FLUSH LOGS;");
+    }
+
+    private void rotateAndPurgeBinaryLogs() {
+        flushLogs();
+        purgeBinaryLogs();
     }
 
     private String getSourceQuerySQL(String database, String tableName) {
