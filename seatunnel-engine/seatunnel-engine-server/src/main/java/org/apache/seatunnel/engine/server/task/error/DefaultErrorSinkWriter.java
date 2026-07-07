@@ -40,7 +40,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +51,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -72,8 +77,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     private final ErrorSinkConfig sinkConfig;
     private final long jobId;
     private final int subtaskIndex;
-    private final org.apache.seatunnel.engine.core.classloader.ClassLoaderService
-            classLoaderService;
+    private final ClassLoaderService classLoaderService;
 
     private transient volatile boolean initialized;
     private transient volatile boolean closed;
@@ -95,7 +99,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             ErrorSinkConfig sinkConfig,
             long jobId,
             int subtaskIndex,
-            org.apache.seatunnel.engine.core.classloader.ClassLoaderService classLoaderService) {
+            ClassLoaderService classLoaderService) {
         this.stageConfig = stageConfig;
         this.sinkConfig = sinkConfig;
         this.jobId = jobId;
@@ -355,8 +359,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             }
             releaseErrorSinkClassLoaderIfNeeded();
             throw new SeaTunnelRuntimeException(
-                    org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated
-                            .WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "Failed to initialize error sink writer",
                     e);
         }
@@ -387,8 +390,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
 
         if (!unsupportedFeatures.isEmpty()) {
             throw new SeaTunnelRuntimeException(
-                    org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated
-                            .WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     String.format(
                             "ROUTE error sink currently supports only sinks that do not require "
                                     + "writer state or committer lifecycle. pluginName=%s, unsupported=%s. "
@@ -633,6 +635,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         fieldTypes.add(BasicType.STRING_TYPE);
         fieldNames.add("source_table_path");
         fieldTypes.add(BasicType.STRING_TYPE);
+        fieldNames.add("job_id");
+        fieldTypes.add(BasicType.LONG_TYPE);
         fieldNames.add("error_message");
         fieldTypes.add(BasicType.STRING_TYPE);
         fieldNames.add("exception_class");
@@ -685,19 +689,18 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         fields[idx++] = ctx.getPluginType();
         fields[idx++] = ctx.getPluginName();
         fields[idx++] = ctx.getTableId();
+        fields[idx++] = jobId;
         fields[idx++] = t == null ? null : truncate(t.getMessage(), 1024);
         fields[idx++] = t == null ? null : t.getClass().getName();
         fields[idx++] =
                 stageConfig.isIncludeStacktrace() && t != null
-                        ? truncate(
-                                org.apache.seatunnel.common.utils.ExceptionUtils.getMessage(t),
-                                4096)
+                        ? truncate(ExceptionUtils.getMessage(t), 4096)
                         : null;
         fields[idx++] =
                 stageConfig.isIncludeOriginalData()
                         ? truncate(String.valueOf(row), stageConfig.getOriginalDataMaxLength())
                         : null;
-        fields[idx] = java.time.LocalDateTime.ofInstant(Instant.now(), java.time.ZoneOffset.UTC);
+        fields[idx] = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
 
         return new SeaTunnelRow(fields);
     }

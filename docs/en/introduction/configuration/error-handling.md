@@ -174,7 +174,7 @@ The existing error handling options of each Transform / Sink plugin (such as `ro
 |-------------------------------|---------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `mode`                        | String  | `DISABLE` | Row-level error handling mode: `DISABLE` (off), `LOG` (log only), `ROUTE` (log and route to error sink).                                                                                                                          |
 | `max_error_ratio`             | Double  | `0.0`    | Allowed error ratio, 0.0–1.0; for example, `0.01` means fail the job when error records exceed 1%; `0.0` means no ratio-based failure trigger.                                                                                    |
-| `max_error_ratio_min_records` | Integer | `100`    | Warm-up threshold for `max_error_ratio`: when total processed records is less than this value, ratio checks are not performed to avoid premature failure on very small samples.                                                     |
+| `max_error_ratio_min_records` | Integer | `10000`  | Warm-up threshold for `max_error_ratio`: when total processed records is less than this value, ratio checks are not performed to avoid premature failure before enough records have been processed.                                  |
 | `max_error_records`           | Long    | `0`      | Maximum total number of error records allowed; `0` means no count-based failure trigger.                                                                                                                                            |
 | `queue_capacity`              | Integer | `10000`  | Internal error queue (buffer) capacity limit, maximum number of error records that can be buffered simultaneously in the queue.                                                                                                     |
 | `queue_overflow_policy`       | String  | `FAIL`   | Strategy when error queue is full: `FAIL` (fail job), `DROP` (drop new error records), `BLOCK` (block error-producing thread, may affect throughput).                                                                              |
@@ -206,6 +206,7 @@ Currently, the engine constructs a unified error table schema for the error sink
 - `plugin_type`: String, plugin type (such as `TRANSFORM` / `SINK`);
 - `plugin_name`: String, plugin name (such as `Jdbc`, etc.);
 - `source_table_path`: String, source table path or identifier;
+- `job_id`: Long, SeaTunnel job ID used to distinguish error data from different jobs when they share the same error table;
 - `error_message`: String, brief error message of the exception (truncated according to internal upper limit);
 - `exception_class`: String, exception class name;
 - `stacktrace`: String, complete stack information (only filled when `include_stacktrace = true`);
@@ -307,6 +308,7 @@ CREATE TABLE sink_error_basic (
     plugin_type VARCHAR(50),
     plugin_name VARCHAR(100),
     source_table_path VARCHAR(255),
+    job_id BIGINT,
     error_message TEXT,
     exception_class VARCHAR(255),
     stacktrace TEXT,

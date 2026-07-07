@@ -31,6 +31,8 @@ import java.util.Optional;
 @Slf4j
 public final class ErrorHandlerConfigUtil {
 
+    private static final int DEFAULT_MAX_ERROR_RATIO_MIN_RECORDS = 10000;
+
     public enum StageType {
         TRANSFORM,
         SINK
@@ -62,7 +64,11 @@ public final class ErrorHandlerConfigUtil {
 
         double maxErrorRatio = getDouble(stage, global, "max_error_ratio", 0.0d);
         int maxErrorRatioMinRecords =
-                getNonNegativeInt(stage, global, "max_error_ratio_min_records", 100);
+                getNonNegativeInt(
+                        stage,
+                        global,
+                        "max_error_ratio_min_records",
+                        DEFAULT_MAX_ERROR_RATIO_MIN_RECORDS);
         long maxErrorRecords = getLong(stage, global, "max_error_records", 0L);
 
         int queueCapacity = getNonNegativeInt(stage, global, "queue_capacity", 10000);

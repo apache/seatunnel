@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task.error;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Error handler for row-level error counting, logging and threshold checks. */
@@ -53,8 +52,6 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return;
         }
-
-        Objects.requireNonNull(ctx, "RowErrorContext must not be null");
 
         long currentErrorCount = errorRecords.incrementAndGet();
 

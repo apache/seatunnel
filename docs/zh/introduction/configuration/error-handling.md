@@ -174,7 +174,7 @@ env {
 |------------------------|--------|--------|------------------------------------------------------------------------------------------|
 | `mode`                 | String    | `DISABLE` | 行级错误处理模式：`DISABLE`（关闭）、`LOG`（只记录）、`ROUTE`（记录并路由到错误 Sink）。                         |
 | `max_error_ratio`      | Double     | `0.0`   | 允许的错误比例，0.0–1.0；例如 `0.01` 表示错误记录超过 1% 时失败作业；`0.0` 表示不按比例触发失败。                          |
-| `max_error_ratio_min_records` | Integer | `100`  | `max_error_ratio` 的预热阈值：当总处理记录数小于该值时，不进行比例触发，避免在样本很小时误触发失败。 |
+| `max_error_ratio_min_records` | Integer | `10000`  | `max_error_ratio` 的预热阈值：当总处理记录数小于该值时，不进行比例触发，避免在处理记录数还不够时过早失败。 |
 | `max_error_records`    | Long    | `0`     | 允许的错误记录总数上限；`0` 表示不按错误条数触发失败。                                                           |
 | `queue_capacity`       | Integer     | `10000` | 内部错误队列（缓冲区）容量上限，队列中最多可同时缓存的错误记录数量。                                                     |
 | `queue_overflow_policy`| String    | `FAIL`  | 错误队列已满时的策略：`FAIL`（失败作业）、`DROP`（丢弃新错误记录）、`BLOCK`（阻塞生产错误的线程，可能影响吞吐）。                 |
@@ -206,6 +206,7 @@ env {
 - `plugin_type`：字符串，插件类型（例如 `TRANSFORM` / `SINK`）；
 - `plugin_name`：字符串，插件名称（例如 `Jdbc` 等）；
 - `source_table_path`：字符串，源表路径或标识；
+- `job_id`：长整型，SeaTunnel 作业 ID；多个作业共用同一错误表时，可用它区分错误数据来源；
 - `error_message`：字符串，异常的简要错误信息（已按照内部上限截断）；
 - `exception_class`：字符串，异常类名；
 - `stacktrace`：字符串，完整堆栈信息（仅在 `include_stacktrace = true` 时填写）；
@@ -307,6 +308,7 @@ CREATE TABLE sink_error_basic (
     plugin_type VARCHAR(50),
     plugin_name VARCHAR(100),
     source_table_path VARCHAR(255),
+    job_id BIGINT,
     error_message TEXT,
     exception_class VARCHAR(255),
     stacktrace TEXT,

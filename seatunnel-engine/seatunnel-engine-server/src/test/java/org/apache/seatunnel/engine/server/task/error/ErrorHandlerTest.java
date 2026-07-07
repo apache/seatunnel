@@ -338,6 +338,20 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testMaxErrorRatioMinRecordsDefault() {
+        Map<String, Object> envOptions = new HashMap<>();
+        Map<String, Object> errorHandler = new HashMap<>();
+        errorHandler.put("mode", "LOG");
+        envOptions.put("error_handler", errorHandler);
+
+        StageErrorConfig config =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        envOptions, ErrorHandlerConfigUtil.StageType.SINK);
+
+        assertEquals(10000, config.getMaxErrorRatioMinRecords());
+    }
+
+    @Test
     public void testErrorHandlingTransformWrappersDelegateStatefulHooks() {
         RecordingMapTransform mapDelegate = new RecordingMapTransform();
         ErrorHandlingMapTransform<SeaTunnelRow> mapWrapper =
