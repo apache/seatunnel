@@ -39,11 +39,12 @@ import java.util.Properties;
 @Slf4j
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
 
-    private IMapStorage mapStorage = NoOpMapStorage.INSTANCE;
+    private IMapStorage mapStorage;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
         if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
+            this.mapStorage = NoOpMapStorage.INSTANCE;
             log.info(
                     "Skip persistence for map '{}' because runtime metrics snapshots are auxiliary "
                             + "observability state and should not write to persistent IMAP storage.",
