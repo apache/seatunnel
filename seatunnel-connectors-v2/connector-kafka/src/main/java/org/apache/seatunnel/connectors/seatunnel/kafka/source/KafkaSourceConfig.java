@@ -79,6 +79,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseCo
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.VALUE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.AVRO_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.CONSUMER_GROUP;
@@ -300,8 +301,15 @@ public class KafkaSourceConfig implements Serializable {
                         .orElse(ReadonlyConfig.fromMap(Collections.emptyMap()));
 
         return schema.getOptional(TableIdentifierOptions.TABLE)
-                .map(TablePath::of)
+                .map(KafkaSourceConfig::parseKafkaTablePath)
                 .orElseGet(() -> TablePath.of(null, topicName));
+    }
+
+    private static TablePath parseKafkaTablePath(String tableName) {
+        if (StringUtils.countMatches(tableName, ".") > 2) {
+            return TablePath.of(null, tableName);
+        }
+        return TablePath.of(tableName);
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
@@ -395,7 +403,14 @@ public class KafkaSourceConfig implements Serializable {
                     }
                     break;
                 case AVRO:
-                    schema = new AvroDeserializationSchema(catalogTable);
+                    Optional<String> avroSchema = readonlyConfig.getOptional(AVRO_SCHEMA);
+                    schema =
+                            avroSchema
+                                    .map(
+                                            writerSchema ->
+                                                    new AvroDeserializationSchema(
+                                                            catalogTable, writerSchema))
+                                    .orElseGet(() -> new AvroDeserializationSchema(catalogTable));
                     break;
                 case PROTOBUF:
                     boolean stripSchemaRegistryHeader =

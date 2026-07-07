@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## Description
 
-Output data to cos file system.
+Output data to Tencent Cloud COS file system.
 
 :::tip
 
@@ -40,6 +40,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -350,5 +351,4 @@ LocalFile {
 ## Changelog
 
 <ChangeLog />
-
 

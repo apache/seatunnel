@@ -14,9 +14,9 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## 关键特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读写任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
@@ -25,8 +25,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   在一次 pollNext 调用中读取分割中的所有数据。读取哪些分割将保存在快照中。
 
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -70,7 +70,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_key                | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
-| read_columns              | list    | 是  | -                   | 数据源的读取列列表                               |
+| read_columns              | list    | 否  | -                   | 数据源的读取列列表                               |
 | delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |

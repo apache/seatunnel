@@ -103,11 +103,6 @@ public class RocketMqSourceConfig implements Serializable {
 
     private void parseTableConfig(ReadonlyConfig tableConfig, List<String> allTopics) {
         String topicsStr = tableConfig.get(RocketMqSourceOptions.TOPICS);
-        if (topicsStr == null || topicsStr.trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "'topics' must be configured in each tables_configs entry, but got: "
-                            + tableConfig);
-        }
         List<String> topics =
                 Arrays.stream(topicsStr.split(RocketMqSourceOptions.DEFAULT_FIELD_DELIMITER))
                         .map(String::trim)
@@ -135,30 +130,16 @@ public class RocketMqSourceConfig implements Serializable {
             switch (startMode) {
                 case CONSUME_FROM_TIMESTAMP:
                     startTimestamp = tableConfig.get(RocketMqSourceOptions.START_MODE_TIMESTAMP);
-                    if (startTimestamp == null) {
-                        throw new IllegalArgumentException(
-                                "When 'start.mode' is set to 'CONSUME_FROM_TIMESTAMP' in tables_configs, "
-                                        + "'start.mode.timestamp' must also be specified in the same table config entry. "
-                                        + "Topics: "
-                                        + topicsStr);
-                    }
+                    // Runtime check: cannot be declarative (depends on current time)
                     long currentTimestamp = System.currentTimeMillis();
-                    if (startTimestamp < 0 || startTimestamp > currentTimestamp) {
+                    if (startTimestamp > currentTimestamp) {
                         throw new IllegalArgumentException(
-                                "The offsets timestamp value is smaller than 0 or larger"
-                                        + " than the current time");
+                                "start.mode.timestamp must not be greater than the current time");
                     }
                     break;
                 case CONSUME_FROM_SPECIFIC_OFFSETS:
                     Map<String, Long> offsetConfigMap =
                             tableConfig.get(RocketMqSourceOptions.START_MODE_OFFSETS);
-                    if (offsetConfigMap == null || offsetConfigMap.isEmpty()) {
-                        throw new IllegalArgumentException(
-                                "When 'start.mode' is set to 'CONSUME_FROM_SPECIFIC_OFFSETS' in tables_configs, "
-                                        + "'start.mode.offsets' must also be specified in the same table config entry. "
-                                        + "Topics: "
-                                        + topicsStr);
-                    }
                     Map<MessageQueue, Long> specificOffsets = metadata.getSpecificStartOffsets();
                     if (specificOffsets == null) {
                         specificOffsets = new HashMap<>();
@@ -233,10 +214,10 @@ public class RocketMqSourceConfig implements Serializable {
                 long startOffsetsTimestamp =
                         readonlyConfig.get(RocketMqSourceOptions.START_MODE_TIMESTAMP);
                 long currentTimestamp = System.currentTimeMillis();
-                if (startOffsetsTimestamp < 0 || startOffsetsTimestamp > currentTimestamp) {
+                // Runtime check: cannot be declarative (depends on current time)
+                if (startOffsetsTimestamp > currentTimestamp) {
                     throw new IllegalArgumentException(
-                            "The offsets timestamp value is smaller than 0 or larger"
-                                    + " than the current time");
+                            "start.mode.timestamp must not be greater than the current time");
                 }
                 consumerMetadata.setStartOffsetsTimestamp(startOffsetsTimestamp);
                 break;
