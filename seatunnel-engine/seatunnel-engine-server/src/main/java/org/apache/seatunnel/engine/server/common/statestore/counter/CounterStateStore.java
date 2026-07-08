@@ -50,6 +50,8 @@ public interface CounterStateStore<K> {
      *
      * @param key key to increment
      * @return updated value, or {@code null} if absent
+     * @implSpec Implementations must preserve the checkpoint-counter contract for absent keys: they
+     *     must not auto-initialize the counter and must return {@code null} when the key is absent.
      */
     Long incrementAndGet(K key);
 

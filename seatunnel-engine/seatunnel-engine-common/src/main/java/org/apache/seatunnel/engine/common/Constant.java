@@ -61,5 +61,11 @@ public class Constant {
 
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
+    /**
+     * @deprecated Use {@code EngineStateStoreNames.CHECKPOINT_ID} via the engine state-store
+     *     abstraction instead.
+     */
+    @Deprecated public static final String IMAP_CHECKPOINT_ID = "engine_checkpoint-id-map";
+
     public static final String PROP_FILE = "zeta.version.properties";
 }

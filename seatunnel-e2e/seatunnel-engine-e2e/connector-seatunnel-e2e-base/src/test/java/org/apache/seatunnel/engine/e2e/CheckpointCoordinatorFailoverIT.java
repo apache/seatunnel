@@ -29,9 +29,10 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
-import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +40,6 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -279,7 +279,7 @@ public class CheckpointCoordinatorFailoverIT {
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
             // Verify at least one pipeline's checkpoint id strictly grows on the new master.
-            IMap<String, Long> ckIdMap = masterNode2.getMap(EngineStateStoreNames.CHECKPOINT_ID);
+            CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(masterNode2);
             Map<Integer, Long> checkpointBefore = new HashMap<>();
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
@@ -293,7 +293,7 @@ public class CheckpointCoordinatorFailoverIT {
                                     String ckIdKey =
                                             StateStoreCheckpointIDCounter.convertLongIntToBase64(
                                                     jobId, pipelineId);
-                                    Long value = ckIdMap.get(ckIdKey);
+                                    Long value = checkpointCounterStore.get(ckIdKey);
                                     if (value != null) {
                                         checkpointBefore.put(pipelineId, value);
                                     }
@@ -318,7 +318,7 @@ public class CheckpointCoordinatorFailoverIT {
                                     String ckIdKey =
                                             StateStoreCheckpointIDCounter.convertLongIntToBase64(
                                                     jobId, pid);
-                                    Long current = ckIdMap.get(ckIdKey);
+                                    Long current = checkpointCounterStore.get(ckIdKey);
                                     if (current != null && current > before) {
                                         observedPipelineId.set(pid);
                                         ckIdBefore.set(before);
@@ -373,5 +373,11 @@ public class CheckpointCoordinatorFailoverIT {
         TestUtils.createTestConfigFileFromTemplate(templateConf, valueMap, targetConfigFilePath);
 
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
+    }
+
+    private CounterStateStore<String> checkpointCounterStore(HazelcastInstanceImpl instance) {
+        SeaTunnelServer server =
+                instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getEngineContext().getStateStores().checkpointCounterStore();
     }
 }
