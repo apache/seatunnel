@@ -27,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 /** Use to validate the configuration of the SeaTunnel API. */
 @Slf4j
 public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
@@ -41,6 +43,7 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
     public void execute() throws ConfigCheckException {
         Path configPath =
                 SparkTaskExecuteCommand.resolveConfigPath(sparkCommandArgs, SparkFiles::get);
+        checkConfigExist(configPath);
         // TODO: validate the config by new api
     }
 }

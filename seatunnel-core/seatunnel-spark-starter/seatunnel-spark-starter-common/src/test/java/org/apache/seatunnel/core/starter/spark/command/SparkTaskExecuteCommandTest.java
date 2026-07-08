@@ -27,6 +27,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class SparkTaskExecuteCommandTest {
@@ -65,5 +66,65 @@ class SparkTaskExecuteCommandTest {
 
         Assertions.assertEquals(clientConfig, resolvedConfig);
         Assertions.assertFalse(sparkFilesCalled.get());
+    }
+
+    @Test
+    void keepClusterConfigPathWhenSparkFilesReturnsNull() {
+        SparkCommandArgs args = new SparkCommandArgs();
+        args.setDeployMode(DeployMode.CLUSTER);
+        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+
+        Path resolvedConfig = SparkTaskExecuteCommand.resolveConfigPath(args, fileName -> null);
+
+        Assertions.assertEquals(Paths.get("missing.conf"), resolvedConfig);
+    }
+
+    @Test
+    void keepClusterConfigPathWhenSparkFilesThrowsException() {
+        SparkCommandArgs args = new SparkCommandArgs();
+        args.setDeployMode(DeployMode.CLUSTER);
+        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+
+        Path resolvedConfig =
+                SparkTaskExecuteCommand.resolveConfigPath(
+                        args,
+                        fileName -> {
+                            throw new NullPointerException("SparkEnv is not initialized");
+                        });
+
+        Assertions.assertEquals(Paths.get("missing.conf"), resolvedConfig);
+    }
+
+    @Test
+    void keepClusterConfigPathWhenSparkFilesPathDoesNotExist() {
+        SparkCommandArgs args = new SparkCommandArgs();
+        args.setDeployMode(DeployMode.CLUSTER);
+        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+
+        Path resolvedConfig =
+                SparkTaskExecuteCommand.resolveConfigPath(
+                        args, fileName -> tempDir.resolve(fileName).toString());
+
+        Assertions.assertEquals(Paths.get("missing.conf"), resolvedConfig);
+    }
+
+    @Test
+    void preferSparkFilesConfigWhenLocalBasenameExists() throws IOException {
+        Path localConfig = Paths.get("spark-local-basename-exists.conf");
+        Path shippedConfig = Files.createFile(tempDir.resolve(localConfig.getFileName()));
+        Files.createFile(localConfig);
+        try {
+            SparkCommandArgs args = new SparkCommandArgs();
+            args.setDeployMode(DeployMode.CLUSTER);
+            args.setConfigFile("/opt/seatunnel/config/" + localConfig.getFileName());
+
+            Path resolvedConfig =
+                    SparkTaskExecuteCommand.resolveConfigPath(
+                            args, fileName -> tempDir.resolve(fileName).toString());
+
+            Assertions.assertEquals(shippedConfig, resolvedConfig);
+        } finally {
+            Files.deleteIfExists(localConfig);
+        }
     }
 }

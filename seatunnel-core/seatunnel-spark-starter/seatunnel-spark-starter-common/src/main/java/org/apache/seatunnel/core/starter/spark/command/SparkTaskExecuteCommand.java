@@ -75,25 +75,43 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
     static Path resolveConfigPath(
             SparkCommandArgs sparkCommandArgs, Function<String, String> sparkFilesResolver) {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
-        if (!DeployMode.CLUSTER.equals(sparkCommandArgs.getDeployMode())
-                || Files.exists(configFile)) {
+        if (!DeployMode.CLUSTER.equals(sparkCommandArgs.getDeployMode())) {
+            log.info("Resolved SeaTunnel config file: {}", configFile.toAbsolutePath());
             return configFile;
         }
 
         Path fileName = configFile.getFileName();
         if (fileName == null) {
+            log.info("Resolved SeaTunnel config file: {}", configFile.toAbsolutePath());
             return configFile;
         }
 
-        String sparkFilePath = sparkFilesResolver.apply(fileName.toString());
+        String sparkFilePath;
+        try {
+            sparkFilePath = sparkFilesResolver.apply(fileName.toString());
+        } catch (RuntimeException e) {
+            log.debug("Failed to resolve SeaTunnel config file from SparkFiles", e);
+            log.info("Resolved SeaTunnel config file: {}", configFile.toAbsolutePath());
+            return configFile;
+        }
         if (sparkFilePath == null) {
+            log.info("Resolved SeaTunnel config file: {}", configFile.toAbsolutePath());
             return configFile;
         }
 
         Path shippedConfigFile = Paths.get(sparkFilePath);
         if (Files.exists(shippedConfigFile)) {
+            log.info("Resolved SeaTunnel config file: {}", shippedConfigFile.toAbsolutePath());
             return shippedConfigFile;
         }
+        if (Files.exists(configFile)) {
+            log.info("Resolved SeaTunnel config file: {}", configFile.toAbsolutePath());
+            return configFile;
+        }
+        log.warn(
+                "SeaTunnel config file was not found in working directory {} or SparkFiles path {}",
+                configFile.toAbsolutePath(),
+                shippedConfigFile.toAbsolutePath());
         return configFile;
     }
 }
