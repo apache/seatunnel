@@ -39,7 +39,7 @@ downloaded from Maven Central.
 
 | Datasource | Supported Versions | Dependency |
 |------------|--------------------|------------|
-| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
+| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## Sink Options
 
