@@ -48,6 +48,13 @@ public class JdbcDialectLoaderTest {
     }
 
     @Test
+    public void shouldFindSingleStoreDialectWithBracketedIpv6Url() throws Exception {
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load("jdbc:singlestore://[2001:db8::1]/test", null, "");
+        Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
+    }
+
+    @Test
     public void shouldFindSingleStoreDialectByDialect() throws Exception {
         JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:other://host/db", "SingleStore", "");
         Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
@@ -56,7 +63,7 @@ public class JdbcDialectLoaderTest {
     @Test
     public void shouldRejectInvalidSingleStoreUrl() throws Exception {
         JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:singlestore://", null, "");
-        Assertions.assertNotInstanceOf(SingleStoreDialect.class, jdbcDialect);
+        Assertions.assertFalse(jdbcDialect instanceof SingleStoreDialect);
     }
 
     @Test

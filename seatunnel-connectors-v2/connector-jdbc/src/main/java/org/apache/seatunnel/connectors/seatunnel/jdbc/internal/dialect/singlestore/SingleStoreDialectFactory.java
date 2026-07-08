@@ -68,20 +68,8 @@ public class SingleStoreDialectFactory implements JdbcDialectFactory {
             if (trimmedHost.isEmpty()) {
                 return false;
             }
-            int lastColonIndex = trimmedHost.lastIndexOf(':');
-            if (lastColonIndex > -1) {
-                String portPart = trimmedHost.substring(lastColonIndex + 1);
-                if (portPart.isEmpty()) {
-                    return false;
-                }
-                try {
-                    int port = Integer.parseInt(portPart);
-                    if (port < 1 || port > 65535) {
-                        return false;
-                    }
-                } catch (NumberFormatException e) {
-                    return false;
-                }
+            if (!isValidHostSegment(trimmedHost)) {
+                return false;
             }
         }
 
@@ -96,5 +84,53 @@ public class SingleStoreDialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         return new SingleStoreDialect(fieldIde);
+    }
+
+    /**
+     * Validates an individual host segment without rejecting bracketed IPv6 literals that omit a
+     * port.
+     */
+    private boolean isValidHostSegment(String hostSegment) {
+        if (hostSegment.startsWith("[")) {
+            return isValidBracketedIpv6Host(hostSegment);
+        }
+        int firstColonIndex = hostSegment.indexOf(':');
+        int lastColonIndex = hostSegment.lastIndexOf(':');
+        if (firstColonIndex < 0) {
+            return true;
+        }
+        if (firstColonIndex != lastColonIndex) {
+            // Leave ambiguous unbracketed IPv6-like segments to the JDBC driver.
+            return true;
+        }
+        return isValidPort(hostSegment.substring(lastColonIndex + 1));
+    }
+
+    /** Validates bracketed IPv6 hosts with an optional numeric port suffix. */
+    private boolean isValidBracketedIpv6Host(String hostSegment) {
+        int closingBracketIndex = hostSegment.indexOf(']');
+        if (closingBracketIndex <= 1) {
+            return false;
+        }
+        if (closingBracketIndex == hostSegment.length() - 1) {
+            return true;
+        }
+        if (hostSegment.charAt(closingBracketIndex + 1) != ':') {
+            return false;
+        }
+        return isValidPort(hostSegment.substring(closingBracketIndex + 2));
+    }
+
+    /** Validates a JDBC port number when the URL makes the port position unambiguous. */
+    private boolean isValidPort(String portPart) {
+        if (portPart.isEmpty()) {
+            return false;
+        }
+        try {
+            int port = Integer.parseInt(portPart);
+            return port >= 1 && port <= 65535;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

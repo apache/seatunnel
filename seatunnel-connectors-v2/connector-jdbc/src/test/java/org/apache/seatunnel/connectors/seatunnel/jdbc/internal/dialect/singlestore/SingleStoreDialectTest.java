@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.singlestore;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 
@@ -38,8 +39,10 @@ public class SingleStoreDialectTest {
     public void testRowConverter() {
         SingleStoreDialect dialect = new SingleStoreDialect();
         Assertions.assertNotNull(dialect.getRowConverter());
+        Assertions.assertInstanceOf(AbstractJdbcRowConverter.class, dialect.getRowConverter());
         Assertions.assertEquals(
-                DatabaseIdentifier.SINGLESTORE, dialect.getRowConverter().converterName());
+                DatabaseIdentifier.SINGLESTORE,
+                ((AbstractJdbcRowConverter) dialect.getRowConverter()).converterName());
     }
 
     @Test
@@ -96,6 +99,10 @@ public class SingleStoreDialectTest {
         Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://localhost:3306/test"));
         Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore:loadbalance://host1,host2/db"));
         Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://host/database"));
+        Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://[2001:db8::1]/test"));
+        Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://[2001:db8::1]:3306/test"));
+        Assertions.assertTrue(
+                factory.acceptsURL("jdbc:singlestore:loadbalance://[2001:db8::1],host2:3306/test"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:mysql://localhost:3306/test"));
         Assertions.assertFalse(factory.acceptsURL(null));
     }
@@ -109,6 +116,9 @@ public class SingleStoreDialectTest {
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:abc/db"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:0/db"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:65536/db"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://[]/db"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://[2001:db8::1]:abc/db"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://[2001:db8::1]extra/db"));
     }
 
     @Test
