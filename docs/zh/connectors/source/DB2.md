@@ -2,7 +2,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # DB2
 
-> JDBC DB2 Source连接器
+> JDBC DB2 Source 连接器
 
 ## 支持引擎
 
@@ -39,7 +39,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 | 数据源 |                    支持版本                    |             驱动             |                Url                |                                 Maven                                 |
 |------------|----------------------------------------------------------|--------------------------------|-----------------------------------|-----------------------------------------------------------------------|
-| DB2        | 不同的依赖版本有不同的驱动程序类。| com.ibm.db2.jdbc.app.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [下载](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
+| DB2        | 不同的依赖版本有不同的驱动程序类。| com.ibm.db2.jcc.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [下载](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
 
 ## 数据库相关性
 
@@ -49,7 +49,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ## 数据类型映射
 
 |                                            DB2数据类型                                             | SeaTunnel 数据类型 |
-|------------------------------------------------------------------------------------------------------|---------------------|---|
+|------------------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                              | BOOLEAN             |
 | SMALLINT                                                                                             | SHORT               |
 | INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
@@ -62,14 +62,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DATE                                                                                                 | DATE                |
 | TIME                                                                                                 | TIME                |
 | TIMESTAMP                                                                                            | TIMESTAMP           |
-| ROWID<br/>XML                                                                                        | Not supported yet   |
+| ROWID<br/>XML                                                                                        | 暂不支持   |
 
 ## 源选项
 
 | 名称                           |    类型    | 必需 |     默认值     |                                                                                                                            描述                                                                                                                            |
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | 是      | -               | JDBC连接的URL。请参考案例：jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
-| driver                       | String     | 是      | -               | 用于连接到远程数据源的jdbc类名，<br/>如果使用db2，则值为`com.ibm.db2.jdbc.app.DB2Driver`。                                                                                                                                 |
+| driver                       | String     | 是      | -               | 用于连接到远程数据源的jdbc类名，<br/>如果使用db2，则值为`com.ibm.db2.jcc.DB2Driver`。                                                                                                                                 |
 | username                     | String     | 否       | -               | 连接实例用户名                                                                                                                                                                                                                                     |
 | password                     | String     | 否       | -               | 连接实例密码                                                                                                                                                                                                                                      |
 | query                        | String     | 是      | -               | 查询语句                                                                                                                                                                                                                                                   |
@@ -80,7 +80,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_num                | Int        | 否      | job parallelism | 分区计数的数量，只支持正整数。默认值是作业并行性                                                                                                                                                                    |
 | fetch_size                   | Int        | 否       | 0               | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，通过减少满足选择条件所需的数据库请求次数来提高性能。0表示使用jdbc默认值。 |
 | properties                   | Map        | 否       | -               | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。                    |
-| common-options               |            | 否       | -               | source插件常用参数，详见[Source common Options](../common-options/source-common-options.md)                                                                                                                                                 |
+| common-options               |            | 否       | -               | Source 插件常用参数，详见[源通用选项](../common-options/source-common-options.md)                                                                                                                                                 |
 
 ### 小贴士
 
@@ -101,7 +101,7 @@ env {
 source{
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"
@@ -127,7 +127,7 @@ sink {
 source {
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"
@@ -149,7 +149,7 @@ source {
 source {
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"

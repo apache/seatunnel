@@ -55,8 +55,41 @@ Each receive request asks SQS for up to 10 messages. If more messages are waitin
 - `debezium_json` reads Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
 - `delete_message = true` removes consumed messages from SQS. Keep the default `false` when you only want to inspect or copy messages without deleting them.
 - `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
+- The source performs one receive request, with up to 10 messages, and then finishes the bounded job.
 
 ## Task Examples
+
+### Copy Messages Between Local-Compatible Queues
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/source_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+    schema = {
+      fields {
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/sink_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+  }
+}
+```
 
 ### Read JSON Messages
 

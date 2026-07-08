@@ -32,6 +32,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 | batch_size        | int     | 否       | 5000        | 每次 flush 前最多缓存的行数。 |
 | batch_type        | String  | 否       | UNLOGGED    | Cassandra batch 类型，常用值包括 `LOGGED`、`UNLOGGED`、`COUNTER`。 |
 | async_write       | boolean | 否       | true        | 是否异步执行写入。 |
+| common-options    |         | 否       | -           | Sink 插件通用参数，例如 `plugin_input`。 |
 
 ### host [string]
 
@@ -82,6 +83,16 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 ### async_write [boolean]
 
 `cassandra` 是否以异步模式写入, 默认值 `true`.
+
+### common-options
+
+Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。
+
+## 注意事项
+
+- 任务启动前，目标 keyspace 和表必须已经存在。
+- `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
+- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
 
 ## 示例
 

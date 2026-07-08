@@ -75,6 +75,10 @@ Rows are flushed when the buffered row count reaches `batchSize`. Remaining rows
 
 The sink is designed for append-style batch ingestion. It does not interpret CDC update/delete row kinds as Druid upserts or deletes.
 
+Only the data types listed in [Data Type Mapping](#data-type-mapping) are supported. Other SeaTunnel types fail during write planning.
+
+Because the connector submits inline CSV data to Druid, string values should not contain raw commas or line breaks unless they are normalized before the Druid sink.
+
 ## Example
 
 ### Write One Table
@@ -119,6 +123,7 @@ sink {
   Druid {
     coordinatorUrl = "router:8888"
     datasource = "testDataSource"
+    batchSize = 10000
   }
 }
 ```

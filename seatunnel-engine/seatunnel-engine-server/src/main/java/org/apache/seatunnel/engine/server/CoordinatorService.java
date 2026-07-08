@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
@@ -1836,6 +1837,19 @@ public class CoordinatorService {
                         taskExecutionState.getExecutionState()));
         TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
         JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
+
+        if (runningJobMaster == null && !restoreAllJobFromMasterNodeSwitchFuture.isDone()) {
+            // Restore still in progress, return early and let worker retry
+            // This is acceptable because worker already has retry logic
+            logger.info(
+                    String.format(
+                            "Job %s not found and restore still in progress, worker will retry",
+                            taskGroupLocation.getJobId()));
+            throw new JobRestoreInProgressException(
+                    String.format(
+                            "Job %s not running (restore in progress)",
+                            taskGroupLocation.getJobId()));
+        }
         if (runningJobMaster == null) {
             throw new JobNotFoundException(
                     String.format("Job %s not running", taskGroupLocation.getJobId()));

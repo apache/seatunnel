@@ -18,23 +18,23 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 
 ## Options
 
-|        name        |  type   | required |  default value  |
-|--------------------|---------|----------|-----------------|
-| zookeeper_quorum   | string  | yes      | -               |
-| table              | string  | yes      | -               |
-| rowkey_column      | list    | yes      | -               |
-| family_name        | config  | yes      | -               |
-| rowkey_delimiter   | string  | no       | ""              |
-| version_column     | string  | no       | -               |
-| null_mode          | string  | no       | skip            |
-| wal_write          | boolean | no       | false           |
-| write_buffer_size  | int     | no       | 8 * 1024 * 1024 |
-| encoding           | string  | no       | utf8            |
-| schema_save_mode   | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode     | enum    | no       | APPEND_DATA     |
-| hbase_extra_config | config  | no       | -               |
-| multi_table_sink_replica | int | no     | 1               |
-| common-options     |         | no       | -               |
+| Name                     | Type    | Required | Default                      | Description |
+|--------------------------|---------|----------|------------------------------|-------------|
+| zookeeper_quorum         | string  | yes      | -                            | HBase ZooKeeper quorum, for example `hadoop001:2181,hadoop002:2181`. |
+| table                    | string  | yes      | -                            | Target HBase table. Use placeholders such as `${table_name}` for multi-table writes. |
+| rowkey_column            | list    | yes      | -                            | Upstream field names used to build the HBase row key. |
+| family_name              | config  | yes      | -                            | Mapping from upstream fields to HBase column families, or `all_columns` for one family. |
+| rowkey_delimiter         | string  | no       | ""                           | Delimiter used when multiple fields form the row key. |
+| version_column           | string  | no       | -                            | Upstream field used as the HBase cell timestamp. |
+| null_mode                | string  | no       | skip                         | How null values are written. Supported values are `skip` and `empty`. |
+| wal_write                | boolean | no       | false                        | Whether writes should be recorded in the HBase WAL. |
+| write_buffer_size        | int     | no       | 8 * 1024 * 1024              | HBase client write buffer size in bytes. |
+| encoding                 | string  | no       | utf8                         | Encoding for STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY values. Supported values are `utf8` and `gbk`. |
+| schema_save_mode         | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing. |
+| data_save_mode           | enum    | no       | APPEND_DATA                  | How to handle existing data before writing. |
+| hbase_extra_config       | config  | no       | -                            | Extra HBase or Hadoop client configuration. |
+| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. |
+| common-options           |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`. |
 
 ### zookeeper_quorum [string]
 
@@ -129,6 +129,15 @@ Controls how the sink handles existing target data before writing. Supported val
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+
+## Notes
+
+- `table = "${table_name}"` routes each upstream table to an HBase table with the same name. You
+  can also combine placeholders with fixed text, such as `ods_${table_name}`.
+- `family_name { all_columns = "info" }` writes every non-rowkey field to one column family. Use
+  per-field mappings when fields should go to different column families.
+- `schema_save_mode` controls table creation or recreation. `data_save_mode` controls whether
+  existing rows are kept, dropped, or treated as an error.
 
 ## Example
 

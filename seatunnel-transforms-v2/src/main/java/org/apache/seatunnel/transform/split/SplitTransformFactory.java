@@ -44,6 +44,7 @@ public class SplitTransformFactory implements TableTransformFactory {
                         Conditions.notEmpty(SplitTransformConfig.KEY_OUTPUT_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 
