@@ -77,6 +77,8 @@ Base configuration:
 | doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization.                                               |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
+The `doris.request.retriesdoris.deserialize.queue.size` key is the current runtime option name. Use this exact key when tuning the asynchronous Arrow deserialization queue.
+
 Table list configuration:
 
 |               Name               |  Type  | Required |  Default   |                                             Description                                             |

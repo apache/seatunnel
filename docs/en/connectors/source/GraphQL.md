@@ -63,8 +63,9 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 - In normal query mode, `url` must start with `http://` or `https://`.
 - In subscription mode, set `enable_subscription = true` and use a `ws://` or `wss://` URL.
-- Source queries cannot be GraphQL `mutation` operations.
+- Source queries cannot be GraphQL `mutation` operations. Use the GraphQL sink for `mutation` requests.
 - `content_field` is usually needed because GraphQL responses are commonly wrapped under `data`.
+- When `schema.fields` is configured, set `format = "json"` and point `content_field` to the array or object that should become SeaTunnel rows.
 - For streaming query mode over HTTP, configure `poll_interval_millis` to control how often SeaTunnel sends the same query again.
 - For WebSocket subscription mode, `max_retries` and `retry_delay_ms` only control reconnect behavior after a subscription connection fails.
 

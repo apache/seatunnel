@@ -76,6 +76,7 @@ The value of the primary key column is used as the Qdrant point ID. Primary key 
 - The target collection must already exist before the job starts. The connector does not create collections or vector indexes.
 - Vector column names and dimensions must match the vector configuration of the target Qdrant collection.
 - The sink writes vector columns as named vectors. Use a target collection with named vectors that match the SeaTunnel vector column names.
+- Avoid null values in payload and vector fields before writing to Qdrant, because the writer converts each configured field directly into a Qdrant point value.
 - The sink writes each incoming row as an upsert request. It does not interpret `UPDATE` or `DELETE` row kinds as CDC operations.
 - The writer buffers up to 64 points and also flushes when the writer is closed or a commit is prepared. This batch size is not currently exposed as a connector option.
 - Each sink block writes to one collection. Use separate sink blocks when different collections need different settings.

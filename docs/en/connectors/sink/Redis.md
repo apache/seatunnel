@@ -12,12 +12,27 @@ Redis Cluster, and can write to `key`/`string`, `hash`, `list`, `set`, and `zset
 The configured `key` can be either a literal Redis key or an upstream field name. When `support_custom_key = true`,
 the connector can build the Redis key from one or more upstream fields, for example `user:${id}`.
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+To use the Redis connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
+
+| Datasource | Dependency |
+|------------|------------|
+| Redis      | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## Options
 
@@ -77,6 +92,9 @@ row as the hash value.
 ### multi_table_sink_replica
 
 Replica count for multi-table sink writers. It applies when upstream rows carry table identifiers and the job writes multiple Redis tables in one pipeline.
+
+For multi-table jobs, `key` may include `${table_name}` so rows from different upstream tables are written to separate
+Redis keys, for example `key = "redis-result-${table_name}"`.
 
 ## Examples
 

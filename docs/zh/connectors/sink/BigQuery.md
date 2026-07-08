@@ -63,6 +63,8 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 - `batch`：使用 BigQuery buffered write stream，并在 SeaTunnel checkpoint/commit 阶段提交数据。主要特性中的精确一次能力指的是该模式。
 - `streaming`：使用默认 stream，并携带 BigQuery change 字段写入 CDC 记录。该模式适合 CDC 的 upsert/delete 数据，但该连接器没有将它标记为精确一次。
 
+使用 `streaming` 模式写入 CDC 数据时，请先在 BigQuery 中创建好带 Primary Key 的目标表。连接器会把 SeaTunnel 的行类型转换为 BigQuery change 记录：`INSERT` 和 `UPDATE_AFTER` 会写成 `UPSERT`，`DELETE` 和 `UPDATE_BEFORE` 会写成 `DELETE`。
+
 #### sequence_number_column
 
 `sequence_number_column` 是可选配置。
@@ -127,6 +129,18 @@ sink {
 ```
 
 ### CDC 流式模式（MySQL 到 BigQuery)
+
+目标 BigQuery 表需要提前创建，并且应定义 CDC 源表使用的主键。例如：
+
+```sql
+CREATE TABLE `my-gcp-project.cdc_dataset.orders` (
+  uuid INT64 NOT NULL,
+  name STRING,
+  score INT64,
+  PRIMARY KEY (uuid) NOT ENFORCED
+)
+OPTIONS (max_staleness = INTERVAL 0 MINUTE);
+```
 
 ```hocon
 env {
@@ -193,7 +207,7 @@ sink {
 ### 测试
 
 该连接器使用 BigQuery Storage Write API。当前本地 BigQuery emulator 不能完整支持该连接器使用的写入路径。
-因此，目前应在真实的 BigQuery 环境中测试该连接器。
+`emulator_host` 只适合用于本地或 CI 中与 emulator 兼容的检查。生产可用性验证应在真实 BigQuery 环境中完成。
 
 ## 更新日志
 
