@@ -120,6 +120,22 @@ Master nodes handle IMap state storage. In production, enable MapStore and write
 
 MapStore uses `FileMapStoreFactory`. The `type: hdfs` entry is the identifier of the IMap file storage factory and must stay unchanged even when S3 or OSS is used. The actual backend is selected by `storage.type`, which currently supports `hdfs`, `s3`, and `oss`.
 
+### Checkpoint Monitor MapStore
+
+If you do not want to persist checkpoint monitor data, add an explicit override for `engine_checkpoint_monitor`:
+
+```yaml
+hazelcast:
+  map:
+    engine_checkpoint_monitor:
+      map-store:
+        enabled: false
+```
+
+This IMap stores checkpoint overview and history data used by REST APIs and UI observability. It is not the authoritative checkpoint recovery state. Checkpoint recovery state is written by `seatunnel.engine.checkpoint.storage` to HDFS, S3, OSS, or another configured checkpoint storage backend.
+
+This override is optional. Use it when you want to avoid persisting observability-only data and reduce MapStore/WAL write amplification. Omit it if you want checkpoint monitor overview/history to use the same MapStore settings as other `engine*` IMaps.
+
 ### HDFS
 
 ```yaml

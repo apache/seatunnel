@@ -82,7 +82,7 @@ minikube start --kubernetes-version=v1.23.3
 ```Dockerfile
 FROM seatunnelhub/openjdk:8u342
 
-ENV SEATUNNEL_VERSION="3.0.0"
+ARG SEATUNNEL_VERSION
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -95,9 +95,12 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 构建并加载镜像：
 
 ```bash
-docker build -t seatunnel:3.0.0 -f Dockerfile .
-minikube image load seatunnel:3.0.0
+SEATUNNEL_VERSION=your-release-version
+docker build --build-arg SEATUNNEL_VERSION=${SEATUNNEL_VERSION} -t seatunnel:${SEATUNNEL_VERSION} -f Dockerfile .
+minikube image load seatunnel:${SEATUNNEL_VERSION}
 ```
+
+请将 `your-release-version` 替换为已发布的 Apache SeaTunnel 版本。
 
 在生产集群中，应将镜像推送到 Kubernetes 节点可访问的镜像仓库。
 

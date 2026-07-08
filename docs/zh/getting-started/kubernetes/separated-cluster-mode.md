@@ -67,9 +67,6 @@ data:
               clusterName: seatunnel-cluster
               storage.type: hdfs
               fs.defaultFS: hdfs://namenode:8020
-        engine_checkpoint_monitor:
-          map-store:
-            enabled: false
       properties:
         hazelcast.invocation.max.retry.count: 20
         hazelcast.tcp.join.port.try.count: 30
