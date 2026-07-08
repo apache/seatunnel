@@ -90,10 +90,12 @@ public class MySqlTypeUtils {
         String dataType = column.typeName().toUpperCase();
         //  Handle edge case where Debezium may report type as "SET UNSIGNED" #issue-10451
         if ("SET UNSIGNED".equals(dataType)) {
-            log.warn("Normalizing unexpected type name 'SET UNSIGNED' to 'SET' for column {}",
+            log.warn(
+                    "Normalizing unexpected type name 'SET UNSIGNED' to 'SET' for column {}",
                     column.name());
             dataType = "SET";
         }
+        builder.dataType(dataType);
         switch (dataType) {
             case MySqlTypeConverter.MYSQL_CHAR:
             case MySqlTypeConverter.MYSQL_VARCHAR:

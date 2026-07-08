@@ -1109,7 +1109,8 @@ public class MySqlTypeConverterTest {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
-                        .columnType("SET('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED')")
+                        .columnType(
+                                "SET('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES','IGNORE_SPACE','NOT_USED')")
                         .dataType("SET UNSIGNED")
                         .length(100L)
                         .build();
@@ -1120,12 +1121,13 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         // Test with default length
-        typeDefine = BasicTypeDefine.builder()
-                .name("test")
-                .columnType("SET UNSIGNED")
-                .dataType("SET UNSIGNED")
-                .length(0L)
-                .build();
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("SET UNSIGNED")
+                        .dataType("SET UNSIGNED")
+                        .length(0L)
+                        .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(100, column.getColumnLength());
     }
