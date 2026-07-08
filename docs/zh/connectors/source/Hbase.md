@@ -19,23 +19,23 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 ## 选项
 
-| 名称                 | 类型    | 必填 | 默认值 |
-|----------------------|---------|------|--------|
-| zookeeper_quorum     | string  | 是   | -      |
-| table                | string  | 是   | -      |
-| schema               | config  | 是   | -      |
-| hbase_extra_config   | config  | 否   | -      |
-| caching              | int     | 否   | -1     |
-| batch                | int     | 否   | -1     |
-| cache_blocks         | boolean | 否   | false  |
-| is_binary_rowkey     | boolean | 否   | false  |
-| start_rowkey         | string  | 否   | -      |
-| end_rowkey           | string  | 否   | -      |
-| start_row_inclusive | boolean | 否   | true   |
-| end_row_inclusive   | boolean | 否   | false  |
-| start_timestamp     | long    | 否   | -      |
-| end_timestamp       | long    | 否   | -      |
-| common-options      |         | 否   | -      |
+| 名称                 | 类型    | 必填 | 默认值 | 描述 |
+|----------------------|---------|------|--------|------|
+| zookeeper_quorum     | string  | 是   | -      | HBase ZooKeeper 地址，例如 `hadoop001:2181,hadoop002:2181`。 |
+| table                | string  | 是   | -      | 要扫描的 HBase 表。自定义 namespace 请使用 `namespace:table`。 |
+| schema               | config  | 是   | -      | SeaTunnel 表结构。行键写作 `rowkey`，普通单元格写作 `列簇:列名`。 |
+| hbase_extra_config   | config  | 否   | -      | 额外的 HBase 或 Hadoop 客户端配置。 |
+| caching              | int     | 否   | -1     | 每次 RPC 获取的行数。`-1` 表示使用 HBase 客户端默认值。 |
+| batch                | int     | 否   | -1     | 每次 RPC 返回的最大单元格数量。`-1` 表示使用 HBase 客户端默认值。 |
+| cache_blocks         | boolean | 否   | false  | 扫描结果是否写入 HBase block cache。 |
+| is_binary_rowkey     | boolean | 否   | false  | 是否把行键字段按二进制字节处理。 |
+| start_rowkey         | string  | 否   | -      | 范围扫描的起始行键。 |
+| end_rowkey           | string  | 否   | -      | 范围扫描的结束行键。 |
+| start_row_inclusive  | boolean | 否   | true   | 扫描结果是否包含 `start_rowkey`。 |
+| end_row_inclusive    | boolean | 否   | false  | 扫描结果是否包含 `end_rowkey`。 |
+| start_timestamp      | long    | 否   | -      | 时间范围扫描的起始时间戳，包含该时间。 |
+| end_timestamp        | long    | 否   | -      | 时间范围扫描的结束时间戳，不包含该时间。 |
+| common-options       |         | 否   | -      | Source 插件通用参数，例如 `plugin_output`。 |
 
 ### zookeeper_quorum [string]
 

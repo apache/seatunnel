@@ -52,8 +52,8 @@ The tested kudu version is 1.11.1.
 | client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Kudu normal operation time out.                                                                                                                                                                  |
 | client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Kudu admin operation time out.                                                                                                                                                                   |
 | enable_kerberos                           | Bool   | No       | false                                          | Kerberos principal enable.                                                                                                                                                                       |
-| kerberos_principal                        | String | No       | -                                              | Kerberos principal. Note that all zeta nodes require have this file.                                                                                                                             |
-| kerberos_keytab                           | String | No       | -                                              | Kerberos keytab. Note that all zeta nodes require have this file.                                                                                                                                |
+| kerberos_principal                        | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos principal used by the Kudu client. The keytab must be available on every worker node.                                                                                       |
+| kerberos_keytab                           | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos keytab path used by the Kudu client. The file must be available on every worker node.                                                                                       |
 | kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                                                                             |
 | scan_token_query_timeout                  | Long   | No       | 30000                                          | The timeout for connecting scan token. If not set, it will be the same as operationTimeout.                                                                                                      |
 | scan_token_batch_size_bytes               | Int    | No       | 1024 * 1024                                    | Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB.                                                                                                                 |
@@ -68,6 +68,7 @@ The tested kudu version is 1.11.1.
 - Configure exactly one of `table_name` and `table_list`.
 - `filter` is pushed down to Kudu scans and can use Kudu predicate expressions such as `id >= 1 AND id <= 2`.
 - `use_regex = true` treats `table_name` as a Java regular expression. This can be used either at the top level or inside each `table_list` item.
+- When `enable_kerberos = true`, both `kerberos_principal` and `kerberos_keytab` are required.
 
 ## Task Example
 

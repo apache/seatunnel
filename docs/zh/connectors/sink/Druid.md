@@ -75,6 +75,10 @@ Druid 写入需要主时间列。连接器会自动追加一个名为 `timestamp
 
 该 Sink 适合追加式批量写入，不会把 CDC 的更新/删除行自动转换成 Druid 的 upsert 或 delete 操作。
 
+仅支持 [数据类型映射](#数据类型映射) 中列出的 SeaTunnel 类型，其他类型会在写入规划阶段报错。
+
+由于连接器会把数据以内联 CSV 的形式提交给 Druid，字符串字段中不建议直接包含英文逗号或换行符；如有这类内容，建议在进入 Druid Sink 前先做清洗或替换。
+
 ## 示例
 
 ### 写入单表
@@ -119,6 +123,7 @@ sink {
   Druid {
     coordinatorUrl = "router:8888"
     datasource = "testDataSource"
+    batchSize = 10000
   }
 }
 ```
