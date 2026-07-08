@@ -84,11 +84,11 @@ The table you want to access
 
 ### table_list [array]
 
-The list of tables to be read, you can use this configuration instead of `table`
+The list of tables to be read. Use this configuration instead of `table` when one source needs to read multiple Paimon tables. Each item must contain `table`, and can contain its own `query`.
 
 ### hdfs_site_path [string]
 
-The file path of `hdfs-site.xml`
+The file path of `hdfs-site.xml`. This option is deprecated; prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.
 
 ### query [string]
 
@@ -126,7 +126,7 @@ Properties in hadoop conf
 The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
 ## Filesystems
-The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.
+The Paimon connector supports reading data from multiple file systems. Currently, the supported file systems are hdfs and s3.
 If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
 Besides, the warehouse should start with `s3a://`.
 

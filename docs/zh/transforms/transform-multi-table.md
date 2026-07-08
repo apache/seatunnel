@@ -20,7 +20,8 @@ SeaTunnel 的 Multi-Table Transform 支持在上游插件输出多个表时，�
 |----------------------------|--------|----------|---------|--------------------------------------------------------------------------------------------------|
 | table_match_regex          | String | No       | .*      | 表名的正则表达式，通过正则表达式来匹配需要进行转换的表，默认匹配所有的表。注意这个表名是上游的真正表名，不是`plugin_output`。                           |
 | table_transform            | List   | No       | -       | 可以通过table_transform列表来指定部分表的规则，当在table_transform中配置某个表的转换规则后，外层针对当前表的规则不会生效，以table_transform中的为准 |
-| table_transform.table_path | String | No       | -       | 当在table_transform中配置某个表的转换规则后，需要使用table_path字段指定表名，表名需要包含`databaseName[.schemaName].tableName`。  |
+| table_transform.table_path | String | No       | -       | 当在table_transform中配置某个表的转换规则后，需要使用table_path字段指定表名，表名需要包含`databaseName[.schemaName].tableName`，并且按完整表路径精确匹配。  |
+| rule_match_mode            | String | No       | -       | 控制多个 `table_transform` 配置使用相同精确 `table_path` 时的执行方式，支持 `FIRST_MATCH` 和 `ALL_MATCH`。 |
 
 ## 匹配逻辑
 
@@ -61,6 +62,36 @@ transform {
 这样我们就可以通过一个transform完成对多个表的转换操作。
 
 对于每个表来说，配置的优先级是：`table_transform` > `table_match_regex`。如果所有的规则都没有匹配到，那么该表将不会进行任何转换操作。
+
+`table_transform.table_path` 使用精确表路径匹配。`rule_match_mode` 只控制多个 `table_transform` 配置使用相同精确 `table_path` 的场景：
+
+- 如果没有配置 `rule_match_mode`，重复的精确 `table_path` 配置会在配置解析阶段失败。
+- `FIRST_MATCH`：按声明顺序使用第一个匹配的 `table_transform` 配置。
+- `ALL_MATCH`：按声明顺序执行所有匹配的 `table_transform` 配置。前一个规则的输出会作为同一张表上后一个规则的输入。
+
+例如，当 `rule_match_mode` 为 `ALL_MATCH` 时，下面的配置会先为 `test.xyz` 将 `name` 复制为 `name2`，然后继续将 `name2` 复制为 `name3`：
+
+```hocon
+transform {
+  Copy {
+    rule_match_mode = "ALL_MATCH"
+
+    table_transform = [{
+      table_path = "test.xyz"
+      src_field = "name"
+      dest_field = "name2"
+    }, {
+      table_path = "test.xyz"
+      src_field = "name2"
+      dest_field = "name3"
+    }]
+  }
+}
+```
+
+输出表结构：
+
+| id | name | age | name2 | name3 |
 
 针对每个表来说，他们的Transform配置是：
 

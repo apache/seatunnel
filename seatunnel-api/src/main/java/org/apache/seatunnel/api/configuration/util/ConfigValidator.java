@@ -213,8 +213,17 @@ public class ConfigValidator {
         }
 
         for (ConditionRule conditionRule : rule.getConditionRules()) {
-            if (validate(conditionRule.getExpression())) {
-                collectErrors(conditionRule.getOptionRule(), conditionRule.getExpression(), errors);
+            try {
+                if (validate(conditionRule.getExpression())) {
+                    collectErrors(
+                            conditionRule.getOptionRule(), conditionRule.getExpression(), errors);
+                }
+            } catch (OptionValidationException e) {
+                errors.add(
+                        formatError(
+                                conditionRule.getExpression().toString(),
+                                TYPE_CONDITIONAL,
+                                e.getRawMessage()));
             }
         }
 
