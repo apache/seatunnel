@@ -75,20 +75,16 @@ case-sensitive databases, make sure the configured identifier case matches the d
 
 |                      Name                 |   Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| username                                  | String   | Yes      | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| username                                  | String   | Yes      | -       | Username to use when connecting to the SQL Server instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | password                                  | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | Yes      | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| table-names                               | List     | Yes      | -       | Table name is a combination of schema name and table name (databaseName.schemaName.tableName).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| table-names                               | List     | Yes      | -       | Tables to monitor. Use the full table identifier: `databaseName.schemaName.tableName`. This option is mutually exclusive with `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| table-pattern                             | String   | Yes      | -       | Regular expression for tables to monitor. Use the full table identifier in the pattern, for example `column_type_test\\.dbo\\..*`. This option is mutually exclusive with `table-names`.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-names-config                        | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]. The snapshotSplitColumn option must be configured with a unique key. If a non-unique column is provided, the configuration is ignored and SeaTunnel automatically selects an appropriate split column internally.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | url                                       | String   | Yes      | -       | URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for SqlServer CDC consumer, valid enumerations are "initial", "earliest", "latest", "timestamp" and "specific".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for SqlServer CDC consumer. Valid values are `initial`, `earliest`, `latest`, and `timestamp`.<br/>`initial`: read the table snapshot first and then continue with incremental changes.<br/>`earliest`: start from the earliest available CDC LSN.<br/>`latest`: only read changes after the job starts.<br/>`timestamp`: start from the LSN resolved from `startup.timestamp`.                                                                                                                                                                                                                 |
 | startup.timestamp                         | Long     | No       | -       | Start from the specified epoch timestamp (in milliseconds). This timestamp is converted with `server-time-zone` when `startup.mode = timestamp`.<br/> **Note, This option is required when** the **"startup.mode" option used `'timestamp'`.**                                                                                                                                                                                                                                                                                                                                                                  |
-| startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. <br/>**Note, This option is required when the "startup.mode" option used `'specific'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position.<br/>**Note, This option is required when the "startup.mode" option used `'specific'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for SqlServer CDC consumer, valid enumerations are "never".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| stop.timestamp                            | Long     | No       | -       | Stop from the specified epoch timestamp (in milliseconds). <br/>**Note, This option is required when the "stop.mode" option used `'timestamp'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| stop.specific-offset.file                 | String   | No       | -       | Stop from the specified binlog file name.<br/>**Note, This option is required when the "stop.mode" option used `'specific'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| stop.specific-offset.pos                  | Long     | No       | -       | Stop from the specified binlog file position.<br/>**Note, This option is required when the "stop.mode" option used `'specific'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | incremental.parallelism                   | Integer  | No       | 1       | The number of parallel readers in the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | No       | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshotof table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | snapshot.fetch.size                       | Integer  | No       | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -137,6 +133,12 @@ case-sensitive databases, make sure the configured identifier case matches the d
 > USE TestDB; -- Replace with the actual database name <br/>
 > EXEC sys.sp_cdc_enable_db;<br/>
 > SELECT name, is_tracked_by_cdc  FROM sys.tables  WHERE name = 'table'; -- table Replace with the name of the table you want to check
+
+5. Enable CDC for each table that SeaTunnel should read
+
+> USE TestDB; -- Replace with the actual database name <br/>
+> EXEC sys.sp_cdc_enable_table @source_schema = N'dbo', @source_name = N'full_types', @role_name = NULL, @supports_net_changes = 0;<br/>
+> SELECT name, is_tracked_by_cdc FROM sys.tables WHERE name = 'full_types';
 
 ## Task Example
 
@@ -244,6 +246,76 @@ sink {
 }
 ```
 
+### Read multiple tables
+
+Use full table identifiers in `table-names`. Downstream sinks that support multi-table routing can use the source table
+metadata to write each table to its own target table.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    tablePrefix = "sink_"
+    primary_keys = ["id"]
+  }
+}
+```
+
+### Start from a timestamp
+
+When `startup.mode = "timestamp"`, `startup.timestamp` is an epoch millisecond value. Set `server-time-zone`
+explicitly if the database server time zone differs from the JVM time zone.
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types_custom_primary_key"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    startup.mode = "timestamp"
+    startup.timestamp = 1719820800000
+    server-time-zone = "UTC"
+    exactly_once = true
+    table-names-config = [
+      {
+        table = "column_type_test.dbo.full_types_custom_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+  }
+}
+```
+
 ### Schema change event filtering
 
 When `schema-changes.enabled = true`, you can further control which schema change event types are
@@ -276,7 +348,7 @@ source {
 }
 ```
 
-**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+**Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
 

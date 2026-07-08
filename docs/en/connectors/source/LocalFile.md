@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format type
@@ -95,6 +95,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | metalake_type              | string  | no       | gravitino                            |
 | recursive_file_scan        | boolean | no       | true                                 |
 | sort_files_by_modification_time | boolean | no       | false                                |
+
 ### path [string]
 
 The source file path.

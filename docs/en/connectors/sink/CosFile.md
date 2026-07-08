@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## Description
 
-Output data to cos file system.
+Output data to Tencent Cloud COS file system.
 
 :::tip
 
@@ -351,5 +351,4 @@ LocalFile {
 ## Changelog
 
 <ChangeLog />
-
 

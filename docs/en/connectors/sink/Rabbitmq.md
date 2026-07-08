@@ -1,12 +1,12 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq sink connector
+> RabbitMQ sink connector
 
 ## Description
 
-Used to write data to Rabbitmq.
+Used to write data to RabbitMQ queues.
 
 ## Key features
 
@@ -19,14 +19,15 @@ Used to write data to Rabbitmq.
 | host                       | string  | yes      | -             |
 | port                       | int     | yes      | -             |
 | virtual_host               | string  | yes      | -             |
-| username                   | string  | yes      | -             |
-| password                   | string  | yes      | -             |
+| username                   | string  | no       | -             |
+| password                   | string  | no       | -             |
 | queue_name                 | string  | yes      | -             |
 | url                        | string  | no       | -             |
+| routing_key                | string  | no       | -             |
+| exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
 | topology_recovery_enabled  | boolean | no       | -             |
-| automatic_recovery_enabled | boolean | no       | -             |
-| use_correlation_id         | boolean | no       | false         |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
 | connection_timeout         | int     | no       | -             |
 | rabbitmq.config            | map     | no       | -             |
 | common-options             |         | no       | -             |
@@ -54,34 +55,23 @@ the AMQP user name to use when connecting to the broker
 
 the password to use when connecting to the broker
 
+`username` and `password` should be configured together.
+
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
 
 ### queue_name [string]
 
-the queue to write the message to
+the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
 
-### durable [boolean]
+### routing_key [string]
 
-true: The queue will survive a server restart.
-false: The queue will be deleted on server restart.
+The routing key used to publish messages. Configure it together with `exchange` when you want to publish through a specific exchange instead of directly to `queue_name`.
 
-### exclusive [boolean]
+### exchange [string]
 
-true: The queue is used only by the current connection and will be deleted when the connection closes.
-false: The queue can be used by multiple connections.
-
-### auto_delete [boolean]
-
-true: The queue will be deleted automatically when the last consumer unsubscribes.
-false: The queue will not be automatically deleted.
-
-### schema [Config]
-
-#### fields [Config]
-
-the schema fields of upstream data.
+The exchange used when `routing_key` is configured.
 
 ### network_recovery_interval [int]
 
@@ -91,13 +81,11 @@ how long will automatic recovery wait before attempting to reconnect, in ms
 
 if true, enables topology recovery
 
-### automatic_recovery_enabled [boolean]
+### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-if true, enables connection recovery
+If true, enables connection recovery.
 
-### use_correlation_id [boolean]
-
-whether the messages received are supplied with a unique id to deduplicate messages (in case of failed acknowledgments).
+The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
@@ -121,17 +109,40 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - true: The queue is used only by the current connection and will be deleted when the connection closes.
 - false: The queue can be used by multiple connections.
 
-### auto-delete
+### auto_delete
 
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
 
+## Configuration Notes
+
+- If you configure `username`, you must also configure `password`, and vice versa.
+- `host`, `port`, `virtual_host`, and `queue_name` are required connector options. `url` can additionally provide the AMQP URI used by the RabbitMQ client.
+- `durable`, `exclusive`, and `auto_delete` are used when the connector declares the target queue.
+
 ## Example
 
-simple:
+### Write Messages to a Queue
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+    FakeSource {
+        row.num = 10
+        schema = {
+            fields {
+                id = bigint
+                c_string = string
+            }
+        }
+    }
+}
+
 sink {
       RabbitMQ {
           host = "rabbitmq-e2e"
@@ -148,11 +159,28 @@ sink {
 }
 ```
 
-### Example 2
+### Declare Queue Options
 
-queue with durable, exclusive, auto_delete:
+Queue with `durable`, `exclusive`, and `auto_delete`:
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "STREAMING"
+}
+
+source {
+    FakeSource {
+        row.num = 10
+        schema = {
+            fields {
+                id = bigint
+                c_string = string
+            }
+        }
+    }
+}
+
 sink {
       RabbitMQ {
           host = "rabbitmq-e2e"
@@ -161,9 +189,9 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          durable = "true"
-          exclusive = "false"
-          auto_delete = "false"
+          durable = true
+          exclusive = false
+          auto_delete = false
           rabbitmq.config = {
             requested-heartbeat = 10
             connection-timeout = 10
@@ -175,4 +203,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

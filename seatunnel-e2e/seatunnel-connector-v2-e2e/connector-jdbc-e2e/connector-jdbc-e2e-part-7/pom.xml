@@ -121,6 +121,11 @@
             <artifactId>trino-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.yashandb</groupId>
+            <artifactId>yashandb-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 

@@ -8,6 +8,12 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 用于从 `Redis` 读取数据
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 主要功能
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -17,6 +23,14 @@ import ChangeLog from '../changelog/connector-redis.md';
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+
+## 支持的数据源信息
+
+使用 Redis 连接器时，需要安装以下依赖。可以通过 `install-plugin.sh` 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源 | 依赖 |
+|--------|------|
+| Redis  | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## 配置选项
 
@@ -31,6 +45,9 @@ import ChangeLog from '../changelog/connector-redis.md';
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
 | tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
+
+读取单个 key pattern 时使用 `keys` 和 `data_type`。读取多个 key pattern 时使用 `tables_configs`；`keys` 和
+`tables_configs` 不能同时配置。
 
 ### 表级配置参数
 
@@ -49,7 +66,7 @@ import ChangeLog from '../changelog/connector-redis.md';
 | single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
-**注意：** 当配置对应单个表时，可以将 tables_configs 中的配置项平铺到外层（向后兼容）。
+**注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
 
 **重要提示：** 在多表模式下，上述表级参数需要配置在 `tables_configs` 的每个表项中。
 
@@ -125,7 +142,7 @@ schema {
 
 hash key 中的每个 kv 将会被视为一行并被发送给上游。
 
-**提示：连接器将使用 scheme config 的第一个字段信息作为每个 kv 中每个 k 的字段名称**
+**提示：连接器会使用 schema 配置中的第一个字段作为每个 hash kv 中 key 的字段名。**
 
 ### keys [string]
 
@@ -424,6 +441,7 @@ source {
         format = JSON
         batch_size = 50
         schema {
+          table = "user_table"
           fields {
             id = int
             name = string
@@ -439,6 +457,7 @@ source {
         read_key_enabled = true
         key_field_name = "session_id"
         schema {
+          table = "session_table"
           fields {
             session_id = string
             user_id = int
@@ -452,17 +471,28 @@ source {
         data_type = LIST
         format = TEXT
         field_delimiter = "|"
+        schema {
+          table = "task_table"
+          fields {
+            content = string
+          }
+        }
       }
     ]
   }
 }
 
 sink {
-  Console {
-    parallelism = 1
+  Redis {
+    host = "localhost"
+    port = 6379
+    key = "redis-result-${table_name}"
+    data_type = LIST
   }
 }
 ```
+
+多表模式下，表名来自 `schema.table`。下游 Sink 可以使用 `${table_name}`，把不同 Redis key pattern 的数据路由到不同目标表或 key。
 
 **示例 2：集群模式下的多表配置**
 
