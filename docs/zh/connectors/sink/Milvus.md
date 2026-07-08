@@ -60,7 +60,7 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 | enable_upsert          | boolean             | 否    | true                         | 是否使用更新插入模式写入，而不是普通插入模式。更新插入需要集合中有主键。                                             |
 | enable_dynamic_field   | boolean             | 否    | true                         | SeaTunnel 创建集合时，是否启用 Milvus 动态字段。                                                       |
 | batch_size             | int                 | 否    | 1000                         | 写入前缓存的记录数。流任务中，检查点触发时也会刷新写入。                                                     |
-| rate_limit             | int                 | 否    | 100000                       | 连接器用于重试和限流控制的最大写入速率。                                                                 |
+| rate_limit             | int                 | 否    | 100000                       | Milvus collection 写入限速，单位 MB/s。大于 0 时，写入器运行期间会设置 `collection.insertRate.max.mb` 和 `collection.upsertRate.max.mb`。 |
 | partition_key          | String              | 否    | -                            | SeaTunnel 创建集合时使用的 Milvus 分区键字段名。                                                       |
 | create_index           | boolean             | 否    | false                        | 是否为目标集合创建向量索引。从 Milvus 源端复制时，可以利用上游索引元数据在目标集合创建相同索引。                            |
 | load_collection        | boolean             | 否    | false                        | 创建集合后是否把目标集合加载到 Milvus 内存中。如果写完马上要查询，可以开启。                                        |
@@ -74,6 +74,7 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 - Milvus 源端读取分区后，如果目标集合没有使用分区键，接收器可以在目标集合创建相同分区名。
 - `create_index = true` 只有在上游目录信息能提供索引元数据时才会创建向量索引，例如上游也是 Milvus。
 - `enable_upsert = true` 会按主键更新插入，目标集合中需要有主键。希望直接追加写入时，可以设置 `enable_upsert = false`。
+- `rate_limit` 会在写入器运行期间修改 Milvus collection 属性，并在写入器关闭时把 insert/upsert 限速重置为 `-1`。
 - `load_collection = true` 会在创建集合后加载集合，这样写入完成后可以马上查询。
 
 ## 任务示例

@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-google-firestore.md';
 
 > Google Firestore sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The GoogleFirestore sink writes SeaTunnel rows to a Google Cloud Firestore collection.
@@ -22,6 +28,15 @@ indexes in Google Cloud before running queries that need them.
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
+## Supported DataSource Info
+
+In order to use the GoogleFirestore connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from Maven central repository.
+
+| Datasource      | Dependency |
+|-----------------|------------|
+| GoogleFirestore | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-google-firestore) |
+
 ## Options
 
 | name           | type   | required | default value | description |
@@ -29,7 +44,7 @@ indexes in Google Cloud before running queries that need them.
 | project_id     | string | yes      | -             | Google Cloud project ID that owns the Firestore database. |
 | collection     | string | yes      | -             | Firestore collection name to write to. |
 | credentials    | string | no       | -             | Base64-encoded Google Cloud service account JSON. |
-| common-options |        | no       | -             | Sink common options. |
+| common-options |        | no       | -             | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### project_id [string]
 
@@ -84,6 +99,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 ## Notes
 
 - The connector currently provides a sink only. There is no GoogleFirestore source connector.
+- Each sink block writes to one configured collection. It does not switch collections automatically for multi-table input.
 - Firestore document IDs are generated automatically. Use another connector or transform before this sink if you need deterministic document IDs.
 - The sink does not interpret `UPDATE` or `DELETE` row kinds as CDC operations.
 - Do not put raw service account JSON directly in `credentials`; encode it with Base64 first.

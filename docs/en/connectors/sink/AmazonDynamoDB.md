@@ -10,6 +10,12 @@ The Amazon DynamoDB sink connector writes SeaTunnel rows to a DynamoDB table.
 
 The target table must already exist. The connector writes each row as a DynamoDB item and uses batch write requests. It supports single-table writes and multi-table writes when the upstream row carries a table id.
 
+## Supported Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -82,6 +88,13 @@ The maximum delay, in milliseconds, between retries.
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+## Usage Notes
+
+- Create the target DynamoDB table before starting the SeaTunnel job. The sink does not create tables or key schemas.
+- `access_key_id` and `secret_access_key` are required by this connector. For DynamoDB Local, use dummy values accepted by the local service.
+- DynamoDB accepts at most 25 write requests in one batch write call, so keep `batch_size` at or below `25`.
+- The sink retries unprocessed items with exponential backoff. It does not provide exactly-once guarantees.
 
 ## Data Type Mapping
 
