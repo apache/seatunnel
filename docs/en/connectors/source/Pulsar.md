@@ -41,7 +41,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         | Stop position mode. Options: `NEVER` (streaming), `LATEST` (batch), `TIMESTAMP` (batch)                         |
 | cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
-| format                   | String  | No       | json          | Data format. Supports `json` and `canal_json`.                                                                   |
+| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json and avro. **Multi-table mode only supports JSON, CANAL_JSON and AVRO**                            |
 | common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
 ### topic [String]
@@ -73,7 +73,7 @@ Additional rules:
 
 - `table_path` is required when `topic-pattern` is used.
 - `subscription.name` must exist either globally or inside the item.
-- Only `JSON` and `CANAL_JSON` are supported in multi-table mode.
+- Only `JSON`, `CANAL_JSON` and `AVRO` are supported in multi-table mode.
 - Explicit `topic` entries must not overlap with any `topic-pattern` entry.
 - If multiple `topic-pattern` items can match the same topic, the first matching item in `tables_configs` wins. Put more specific patterns before broader ones.
 - In batch mode, multi-table configurations must be bounded. If more than one table is configured and any table uses `cursor.stop.mode = NEVER`, the source is unbounded and batch jobs are rejected. Single-table mode and single-entry `tables_configs` keep backward-compatible batch behavior.
@@ -162,7 +162,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default value is `json`. Pulsar source currently supports `json` and `canal_json`.
+Data format. The default format is json. Supported formats are json, canal_json and avro. The `schema` option is required when using avro format. See [formats](../formats) for more details.
 
 ### common options
 
