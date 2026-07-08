@@ -39,7 +39,7 @@ class SparkTaskExecuteCommandTest {
         Path shippedConfig = Files.createFile(tempDir.resolve("v2.batch.config"));
         SparkCommandArgs args = new SparkCommandArgs();
         args.setDeployMode(DeployMode.CLUSTER);
-        args.setConfigFile("/opt/seatunnel/config/v2.batch.config");
+        args.setConfigFile(configFilePath("v2.batch.config"));
 
         Path resolvedConfig =
                 SparkTaskExecuteCommand.resolveConfigPath(
@@ -72,7 +72,7 @@ class SparkTaskExecuteCommandTest {
     void keepClusterConfigPathWhenSparkFilesReturnsNull() {
         SparkCommandArgs args = new SparkCommandArgs();
         args.setDeployMode(DeployMode.CLUSTER);
-        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+        args.setConfigFile(configFilePath("missing.conf"));
 
         Path resolvedConfig = SparkTaskExecuteCommand.resolveConfigPath(args, fileName -> null);
 
@@ -83,7 +83,7 @@ class SparkTaskExecuteCommandTest {
     void keepClusterConfigPathWhenSparkFilesThrowsException() {
         SparkCommandArgs args = new SparkCommandArgs();
         args.setDeployMode(DeployMode.CLUSTER);
-        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+        args.setConfigFile(configFilePath("missing.conf"));
 
         Path resolvedConfig =
                 SparkTaskExecuteCommand.resolveConfigPath(
@@ -99,7 +99,7 @@ class SparkTaskExecuteCommandTest {
     void keepClusterConfigPathWhenSparkFilesPathDoesNotExist() {
         SparkCommandArgs args = new SparkCommandArgs();
         args.setDeployMode(DeployMode.CLUSTER);
-        args.setConfigFile("/opt/seatunnel/config/missing.conf");
+        args.setConfigFile(configFilePath("missing.conf"));
 
         Path resolvedConfig =
                 SparkTaskExecuteCommand.resolveConfigPath(
@@ -116,7 +116,7 @@ class SparkTaskExecuteCommandTest {
         try {
             SparkCommandArgs args = new SparkCommandArgs();
             args.setDeployMode(DeployMode.CLUSTER);
-            args.setConfigFile("/opt/seatunnel/config/" + localConfig.getFileName());
+            args.setConfigFile(configFilePath(localConfig.getFileName().toString()));
 
             Path resolvedConfig =
                     SparkTaskExecuteCommand.resolveConfigPath(
@@ -126,5 +126,9 @@ class SparkTaskExecuteCommandTest {
         } finally {
             Files.deleteIfExists(localConfig);
         }
+    }
+
+    private String configFilePath(String fileName) {
+        return Paths.get("opt", "seatunnel", "config", fileName).toString();
     }
 }
