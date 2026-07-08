@@ -445,6 +445,24 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             container.getJobStatus(String.valueOf(jobId))));
 
             waitForReplicationSlotActive(slotName);
+
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+
             insertPostgresSourceTable1Row(11);
 
             await().atMost(60000, TimeUnit.MILLISECONDS)

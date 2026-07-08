@@ -231,6 +231,23 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
 
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + OPENGAUSS_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+
             insertOpengaussSourceTable1Row(11);
 
             await().atMost(60000, TimeUnit.MILLISECONDS)

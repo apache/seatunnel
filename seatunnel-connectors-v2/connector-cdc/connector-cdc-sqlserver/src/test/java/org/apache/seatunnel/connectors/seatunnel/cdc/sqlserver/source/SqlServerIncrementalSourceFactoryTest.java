@@ -204,51 +204,27 @@ class SqlServerIncrementalSourceFactoryTest {
     }
 
     @Test
-    public void testStopModeSpecificValid() {
+    public void testStartupModeSpecificRejectedBySingleChoice() {
+        // SqlServer startup.mode does not allow SPECIFIC.
         Map<String, Object> cfg = validSqlServerConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.file", "test.dbo_table");
-        cfg.put("stop.specific-offset.pos", 300L);
+        cfg.put("startup.mode", "SPECIFIC");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    public void testStopModeNeverPass() {
+        Map<String, Object> cfg = validSqlServerConfig();
+        cfg.put("stop.mode", "NEVER");
         Assertions.assertDoesNotThrow(() -> validate(cfg));
     }
 
     @Test
-    public void testStopModeSpecificMissingFileFails() {
-        Map<String, Object> cfg = validSqlServerConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.pos", 300L);
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeSpecificMissingPosFails() {
-        Map<String, Object> cfg = validSqlServerConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.file", "test.dbo_table");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeTimestampValid() {
-        Map<String, Object> cfg = validSqlServerConfig();
-        cfg.put("stop.mode", "TIMESTAMP");
-        cfg.put("stop.timestamp", 2000L);
-        Assertions.assertDoesNotThrow(() -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeTimestampMissingTimestampFails() {
-        Map<String, Object> cfg = validSqlServerConfig();
-        cfg.put("stop.mode", "TIMESTAMP");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeNeverLatestPass() {
-        for (String mode : Arrays.asList("NEVER", "LATEST")) {
+    public void testStopModeNonNeverRejectedBySingleChoice() {
+        // SqlServer stop.mode only allows NEVER.
+        for (String mode : Arrays.asList("LATEST", "TIMESTAMP", "SPECIFIC")) {
             Map<String, Object> cfg = validSqlServerConfig();
             cfg.put("stop.mode", mode);
-            Assertions.assertDoesNotThrow(() -> validate(cfg));
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
         }
     }
 }

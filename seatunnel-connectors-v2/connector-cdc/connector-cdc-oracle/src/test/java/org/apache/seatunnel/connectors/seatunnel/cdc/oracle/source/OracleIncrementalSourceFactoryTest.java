@@ -250,44 +250,19 @@ class OracleIncrementalSourceFactoryTest {
     }
 
     @Test
-    public void testStopModeSpecificValid() {
+    public void testStopModeNeverPass() {
         Map<String, Object> cfg = validOracleConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.file", "redo001.log");
-        cfg.put("stop.specific-offset.pos", 200L);
+        cfg.put("stop.mode", "NEVER");
         Assertions.assertDoesNotThrow(() -> validate(cfg));
     }
 
     @Test
-    public void testStopModeSpecificMissingFileFails() {
-        Map<String, Object> cfg = validOracleConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.pos", 200L);
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeSpecificMissingPosFails() {
-        Map<String, Object> cfg = validOracleConfig();
-        cfg.put("stop.mode", "SPECIFIC");
-        cfg.put("stop.specific-offset.file", "redo001.log");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
-    }
-
-    @Test
-    public void testStopModeNeverLatestPass() {
-        for (String mode : Arrays.asList("NEVER", "LATEST")) {
+    public void testStopModeNonNeverRejectedBySingleChoice() {
+        // Oracle stop.mode only allows NEVER.
+        for (String mode : Arrays.asList("LATEST", "SPECIFIC", "TIMESTAMP")) {
             Map<String, Object> cfg = validOracleConfig();
             cfg.put("stop.mode", mode);
-            Assertions.assertDoesNotThrow(() -> validate(cfg));
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
         }
-    }
-
-    @Test
-    public void testStopModeTimestampRejectedBySingleChoice() {
-        // Oracle stop.mode does not allow TIMESTAMP.
-        Map<String, Object> cfg = validOracleConfig();
-        cfg.put("stop.mode", "TIMESTAMP");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
     }
 }

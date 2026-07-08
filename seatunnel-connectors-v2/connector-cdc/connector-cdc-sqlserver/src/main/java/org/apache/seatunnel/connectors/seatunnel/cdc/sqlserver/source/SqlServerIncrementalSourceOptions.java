@@ -38,19 +38,13 @@ public class SqlServerIncrementalSourceOptions extends JdbcSourceOptions {
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                    + "\"initial\", \"earliest\", \"latest\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key("stop.mode")
-                    .singleChoice(
-                            StopMode.class,
-                            Arrays.asList(
-                                    StopMode.NEVER,
-                                    StopMode.LATEST,
-                                    StopMode.TIMESTAMP,
-                                    StopMode.SPECIFIC))
+                    .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                    + "\"never\"");
 }

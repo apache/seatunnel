@@ -1149,18 +1149,6 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testStopLatestMode(TestContainer container) throws Exception {
-        initializeSqlServerTable(DATABASE_NAME);
-        executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
-
-        Container.ExecResult result =
-                container.executeJob("/sqlservercdc_stop_latest_to_sqlserver.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        Assertions.assertIterableEquals(
-                querySql(SELECT_SOURCE_SQL, SOURCE_TABLE), querySql(SELECT_SINK_SQL, SINK_TABLE));
-    }
-
-    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -1188,6 +1176,23 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
+
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT id FROM "
+                                                        + DATABASE_NAME
+                                                        + "."
+                                                        + SCHEMA_NAME
+                                                        + ".full_types_sink ORDER BY id ASC");
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
 
             insertSqlServerFullTypesRow(100);
 

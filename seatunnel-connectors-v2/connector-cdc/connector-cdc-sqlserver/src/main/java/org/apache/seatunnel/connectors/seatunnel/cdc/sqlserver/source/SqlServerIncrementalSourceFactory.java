@@ -35,7 +35,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import com.google.auto.service.AutoService;
@@ -116,11 +115,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         Conditions.extension(
                                 SqlServerIncrementalSourceOptions.STARTUP_MODE,
                                 new SqlServerStartModeValidator()))
-                .optional(
-                        SqlServerIncrementalSourceOptions.STOP_MODE,
-                        Conditions.extension(
-                                SqlServerIncrementalSourceOptions.STOP_MODE,
-                                new SqlServerStopModeValidator()))
+                .optional(SqlServerIncrementalSourceOptions.STOP_MODE)
                 .build();
     }
 
@@ -162,8 +157,7 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
     static class SqlServerStartModeValidator implements ConditionExtension<StartupMode> {
         @Override
         public String description() {
-            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
-                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0";
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0";
         }
 
         @Override
@@ -178,71 +172,6 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                                 "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
                                         + "but was: "
                                         + startupTimestamp);
-                    }
-                    break;
-                case SPECIFIC:
-                    String startupSpecificOffsetFile =
-                            config.get(
-                                    SqlServerIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
-                    Long startupSpecificOffsetPos =
-                            config.get(
-                                    SqlServerIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_POS);
-
-                    if (startupSpecificOffsetFile == null
-                            || startupSpecificOffsetFile.trim().isEmpty()) {
-                        throw new OptionValidationException(
-                                "When startup.mode is SPECIFIC, startup.specific-offset.file must be configured and not blank.");
-                    }
-
-                    if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
-                        throw new OptionValidationException(
-                                "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
-                                        + "but was: "
-                                        + startupSpecificOffsetPos);
-                    }
-                    break;
-            }
-
-            return true;
-        }
-    }
-
-    static class SqlServerStopModeValidator implements ConditionExtension<StopMode> {
-        @Override
-        public String description() {
-            return "stop.mode=SPECIFIC requires stop.specific-offset.file != null && !blank and stop.specific-offset.pos >= 0";
-        }
-
-        @Override
-        public boolean evaluate(ReadonlyConfig config, StopMode value)
-                throws OptionValidationException {
-            switch (value) {
-                case SPECIFIC:
-                    String stopSpecificOffsetFile =
-                            config.get(SqlServerIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_FILE);
-                    Long stopSpecificOffsetPos =
-                            config.get(SqlServerIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_POS);
-
-                    if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
-                        throw new OptionValidationException(
-                                "When stop.mode is SPECIFIC, stop.specific-offset.file must be configured and not blank.");
-                    }
-
-                    if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
-                        throw new OptionValidationException(
-                                "When stop.mode is SPECIFIC, stop.specific-offset.pos must be configured and >= 0, "
-                                        + "but was: "
-                                        + stopSpecificOffsetPos);
-                    }
-                    break;
-                case TIMESTAMP:
-                    Long stopTimestamp =
-                            config.get(SqlServerIncrementalSourceOptions.STOP_TIMESTAMP);
-                    if (stopTimestamp == null || stopTimestamp < 0) {
-                        throw new OptionValidationException(
-                                "When stop.mode is TIMESTAMP, stop.timestamp must be configured and >= 0, "
-                                        + "but was: "
-                                        + stopTimestamp);
                     }
                     break;
             }

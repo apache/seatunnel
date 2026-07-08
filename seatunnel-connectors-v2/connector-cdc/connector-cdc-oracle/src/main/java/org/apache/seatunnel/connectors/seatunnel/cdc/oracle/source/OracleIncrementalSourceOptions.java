@@ -42,13 +42,11 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
-                    .singleChoice(
-                            StopMode.class,
-                            Arrays.asList(StopMode.NEVER, StopMode.LATEST, StopMode.SPECIFIC))
+                    .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
-                                    + "\"never\", \"latest\", \"specific\"");
+                                    + "\"never\"");
 
     public static final Option<List<String>> SCHEMA_NAMES =
             Options.key("schema-names")

@@ -299,15 +299,6 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                         + stopSpecificOffsetPos);
                     }
                     break;
-                case TIMESTAMP:
-                    Long stopTimestamp = config.get(MySqlIncrementalSourceOptions.STOP_TIMESTAMP);
-                    if (stopTimestamp == null || stopTimestamp < 0) {
-                        throw new OptionValidationException(
-                                "When stop.mode is TIMESTAMP, stop.timestamp must be configured and >= 0, "
-                                        + "but was: "
-                                        + stopTimestamp);
-                    }
-                    break;
             }
 
             return true;

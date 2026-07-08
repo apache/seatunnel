@@ -693,19 +693,6 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     }
 
     @TestTemplate
-    public void testStopLatestMode(TestContainer container) throws Exception {
-        clearTable(SCEHMA_NAME, SINK_TABLE1);
-        clearTable(SCEHMA_NAME, SOURCE_TABLE1);
-        insertSourceTable(SCEHMA_NAME, SOURCE_TABLE1);
-
-        Container.ExecResult result = container.executeJob("/oraclecdc_to_oracle_stop_latest.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        Assertions.assertIterableEquals(
-                querySql(getSourceQuerySQL(SCEHMA_NAME, SOURCE_TABLE1)),
-                querySql(getSourceQuerySQL(SCEHMA_NAME, SINK_TABLE1)));
-    }
-
-    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -734,6 +721,23 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                                     Assertions.assertEquals(
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
+
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT ID FROM "
+                                                        + SCEHMA_NAME
+                                                        + "."
+                                                        + SINK_TABLE1
+                                                        + " ORDER BY ID ASC");
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
 
             insertRow(2, SCEHMA_NAME, SOURCE_TABLE1);
 

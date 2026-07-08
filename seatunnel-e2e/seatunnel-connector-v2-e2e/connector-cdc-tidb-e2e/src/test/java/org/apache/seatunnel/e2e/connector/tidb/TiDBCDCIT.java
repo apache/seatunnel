@@ -186,7 +186,26 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
 
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + TIDB_DATABASE
+                                                        + "."
+                                                        + SINK_TABLE
+                                                        + " ORDER BY id");
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+
             insertTidbSourceRowLike(101, 1);
+            insertTidbSourceRowLike(102, 1);
+            insertTidbSourceRowLike(103, 1);
 
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -207,6 +226,20 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                                                                 row.get(0)
                                                                         .toString()
                                                                         .equals("101")));
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row ->
+                                                                row.get(0)
+                                                                        .toString()
+                                                                        .equals("102")));
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row ->
+                                                                row.get(0)
+                                                                        .toString()
+                                                                        .equals("103")));
                                 Assertions.assertFalse(
                                         sinkRows.stream()
                                                 .anyMatch(

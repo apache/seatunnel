@@ -374,6 +374,11 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
 
+            await().during(30, TimeUnit.SECONDS)
+                    .atMost(45, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(querySql(SINK_SQL_PRODUCTS).isEmpty()));
+
             insertLatestStartupProduct();
 
             await().atMost(60, TimeUnit.SECONDS)
