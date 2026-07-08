@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSou
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
+import io.debezium.connector.postgresql.PostgresOffsetContext;
 import io.debezium.connector.postgresql.SourceInfo;
 import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
@@ -98,8 +99,11 @@ public class LsnOffsetFactory extends OffsetFactory {
     }
 
     private LsnOffset toLsnOffset(String committedLsn) {
+        String lsn = String.valueOf(Lsn.valueOf(committedLsn).asLong());
         Map<String, String> offsetMap = new HashMap<>();
-        offsetMap.put(SourceInfo.LSN_KEY, String.valueOf(Lsn.valueOf(committedLsn).asLong()));
+        offsetMap.put(SourceInfo.LSN_KEY, lsn);
+        offsetMap.put(PostgresOffsetContext.LAST_COMPLETELY_PROCESSED_LSN_KEY, lsn);
+        offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, lsn);
         offsetMap.put(
                 SourceInfo.TIMESTAMP_USEC_KEY,
                 String.valueOf(Conversions.toEpochMicros(Instant.MIN)));

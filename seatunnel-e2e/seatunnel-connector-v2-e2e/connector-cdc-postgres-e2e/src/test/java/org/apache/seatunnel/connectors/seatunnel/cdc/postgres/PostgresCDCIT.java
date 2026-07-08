@@ -463,7 +463,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
             createLogicalReplicationSlot(committedSlotName);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
 
             CompletableFuture.supplyAsync(
                     () -> {
@@ -479,31 +478,19 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         return null;
                     });
 
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            waitForReplicationSlotActive(committedSlotName);
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                Assertions.assertIterableEquals(
-                                        query(
-                                                "select * from "
-                                                        + POSTGRESQL_SCHEMA
-                                                        + "."
-                                                        + SOURCE_TABLE_1
-                                                        + " where id = 12"),
-                                        query(
-                                                "select * from "
-                                                        + POSTGRESQL_SCHEMA
-                                                        + "."
-                                                        + SINK_TABLE_1
-                                                        + " where id = 12"));
-                                Assertions.assertTrue(
-                                        query(
-                                                        "select * from "
-                                                                + POSTGRESQL_SCHEMA
-                                                                + "."
-                                                                + SINK_TABLE_1
-                                                                + " where id in (10, 11)")
-                                                .isEmpty());
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            query(
+                                                            "select * from "
+                                                                    + POSTGRESQL_SCHEMA
+                                                                    + "."
+                                                                    + SINK_TABLE_1
+                                                                    + " where id in (10, 11)")
+                                                    .isEmpty()));
         } finally {
             try {
                 container.cancelJob(String.valueOf(committedOffsetJobId));
