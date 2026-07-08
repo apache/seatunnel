@@ -54,6 +54,7 @@ The name of `influxDB` database
 
 The name of `influxDB` measurement. This option is optional. If it is omitted, the sink uses the
 input table full name as the measurement name, which is useful for multi-table writes.
+For multi-table input, make sure the generated table names are valid InfluxDB measurement names.
 
 ### username [string]
 
@@ -179,6 +180,9 @@ sink {
 ```
 
 ### Multiple Table
+
+When `measurement` is omitted, each upstream table is written to a measurement named after that
+table. This is the usual setting for multi-table input.
 
 ```hocon
 env {

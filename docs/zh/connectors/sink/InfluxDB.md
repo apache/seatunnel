@@ -53,6 +53,7 @@ http://influxdb-host:8086
 
 `influxDB` measurement 的名称。这个配置是可选项；不配置时，sink 会使用输入表完整名称作为
 measurement 名称，这在多表写入场景很有用。
+多表输入时，请确保生成的表名可以作为合法的 InfluxDB measurement 名称。
 
 ### username [string]
 
@@ -177,6 +178,8 @@ sink {
 ```
 
 ### 多表写入
+
+不配置 `measurement` 时，每个上游表会写入一个以该表名命名的 measurement，这是多表输入的常用配置方式。
 
 ```hocon
 env {

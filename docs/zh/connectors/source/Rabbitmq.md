@@ -1,21 +1,22 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq 源连接器
+> RabbitMQ 源连接器
 
 ## 描述
 
-用于从 Rabbitmq 读取数据。
+用于从 RabbitMQ 队列读取数据。
 
-## 关键特性
+## 主要特性
 
-- [ ] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -42,9 +43,9 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | topology_recovery_enabled  | boolean | 否  | -     | 如果为 true，启用拓扑恢复                                                             |
 | AUTOMATIC_RECOVERY_ENABLED | boolean | 否  | -     | 如果为 true，启用连接恢复                                                             |
 | connection_timeout         | int     | 否  | -     | 连接 tcp 建立超时（毫秒）；零表示无限                                                       |
-| requested_channel_max      | int     | 否  | -     | 最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。              |
+| requested_channel_max      | int     | 否  | -     | 最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**             |
 | requested_frame_max        | int     | 否  | -     | 请求的最大帧大小                                                                    |
-| requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。                      |
+| requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**                     |
 | prefetch_count             | int     | 否  | -     | 预取计数，无需确认即可接收的最大消息数                                                         |
 | delivery_timeout           | int     | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）                                                     |
 | use_correlation_id         | boolean | 否  | -     | 消息是否带有可用于去重的唯一 correlation id                                                 |
@@ -99,7 +100,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### tables_configs [array]
 
-用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。
+用于同时从多个队列读取消息。数组中的每个对象必须包含 `queue_name` 和 `schema`。
 
 ### network_recovery_interval [int]
 
@@ -121,7 +122,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### requested_channel_max [int]
 
-最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。
+最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**
 
 ### requested_frame_max [int]
 
@@ -129,7 +130,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### requested_heartbeat [int]
 
-设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。
+设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。**
 
 ### prefetch_count [int]
 
@@ -145,7 +146,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 
 ### common options
 
-源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。
+源插件通用参数，详情请参考 [源通用选项](../common-options/source-common-options.md)。
 
 ### durable
 
@@ -167,9 +168,10 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 如果您从仅支持单表读取的早期版本升级，您现有的配置无需任何更改即可正常工作。
 
 **配置优先级：**
-- 您不能同时配置 `tables_configs` 和根级别的 `queue_name`/`schema`。它们是互斥的。这样做将导致配置验证错误。
+- 不能同时配置 `tables_configs` 和根级别的 `queue_name`。它们是互斥的，同时配置会导致校验失败。
 - 使用 `tables_configs` 进行多表模式。
-- 使用根级别的 `queue_name` 和 `schema` 进行单表模式。
+- 使用根级别的 `queue_name` 和 `schema` 进行单队列模式。
+- 多表模式下，每个队列自己的 `schema` 应放在对应的 `tables_configs` 条目里。
 - 如果配置了 `username`，也必须配置 `password`，反过来也一样。
 - `host` 和 `port` 总是必填。`virtual_host` 是可选项，除非您的 RabbitMQ 环境要求使用非默认虚拟主机。
 
@@ -191,6 +193,9 @@ source {
         username = "guest"
         password = "guest"
         queue_name = "test"
+        durable = true
+        exclusive = false
+        auto_delete = false
         schema = {
             fields {
                 id = bigint
@@ -207,6 +212,7 @@ sink {
     Console {}
 }
 ```
+
 ### 多表读取示例
 您可以使用 `tables_configs` 选项在一个作业中同时从多个 RabbitMQ 队列消费消息。连接器将根据消息来源的队列自动为每行数据分配正确的表标识符，允许您使用 `plugin_input` 将它们路由到不同的 sink。
 

@@ -67,16 +67,16 @@ MongoDB 连接器提供从 MongoDB 读取数据以及向 MongoDB 写入数据的
 |-----------------------|----------|----------|--------|------|
 | uri                   | String   | 是       | -      | MongoDB 标准连接 URI，例如：`mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true`。 |
 | database              | String   | 是       | -      | 要读取或写入的 MongoDB 数据库名称。配置多表同步时，可使用占位符 `${database_name}`，例如：`database = "${database_name}_test_database"`。 |
-| collection            | String   | 是       | -      | 要读取或写入的 MongoDB 集合名称。配置多表同步时，可使用 `${table_name}`、`${schema_name}` 等占位符，例如：`collection = "${database_name}_${schema_name}_${table_name}_check"`。 |
-| buffer-flush.max-rows | String   | 否       | 1000   | 每次批量写入请求的最大缓存行数。 |
-| buffer-flush.interval | String   | 否       | 30000  | 批量写入的最大时间间隔（毫秒）。 |
-| retry.max             | String   | 否       | 3      | 写入失败时的最大重试次数。 |
-| retry.interval        | Duration | 否       | 1000   | 写入失败后的重试间隔时间（毫秒）。 |
+| collection            | String   | 是       | -      | 要读取或写入的 MongoDB 集合名称。配置多表同步时，可使用 `${database_name}`、`${schema_name}`、`${table_name}` 等占位符，例如：`collection = "${database_name}_${schema_name}_${table_name}_check"`。 |
+| buffer-flush.max-rows | Int      | 否       | 1000   | 每次批量写入请求的最大缓存行数。 |
+| buffer-flush.interval | Long     | 否       | 30000  | 批量写入的最大时间间隔（毫秒）。 |
+| retry.max             | Int      | 否       | 3      | 写入失败时的最大重试次数。 |
+| retry.interval        | Long     | 否       | 1000   | 写入失败后的重试间隔时间（毫秒）。 |
 | upsert-enable         | Boolean  | 否       | false  | 是否启用 upsert 模式进行写入。 |
 | primary-key           | List     | 否       | -      | 用于 upsert 或更新操作的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false  | 是否在 MongoSink 中使用事务（需要 MongoDB 4.2+）。 |
 | common-options        | -        | 否       | -      | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
-| data_save_mode        | String   | 否       | APPEND_DATA | 数据写入模式：<br/>- `DROP_DATA`: 插入数据前清空集合；<br/>- `APPEND_DATA`: 追加数据；<br/>- `ERROR_WHEN_DATA_EXISTS`: 如果集合已有数据则报错。 |
+| data_save_mode        | Enum     | 否       | APPEND_DATA | 数据写入模式：`DROP_DATA` 表示插入数据前清空集合，`APPEND_DATA` 表示追加数据，`ERROR_WHEN_DATA_EXISTS` 表示集合已有数据时报错。 |
 
 ### 提示
 
@@ -113,9 +113,61 @@ source {
 
 sink {
   MongoDB {
-    uri = mongodb://user:password@127.0.0.1:27017
+    uri = "mongodb://user:password@127.0.0.1:27017"
     database = "test"
     collection = "test"
+  }
+}
+```
+
+### 多表写入
+
+当上游记录带有表元数据时，`database` 和 `collection` 可以使用占位符。常用占位符包括
+`${database_name}`、`${schema_name}` 和 `${table_name}`。
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "testDatabase1.testSchema1.testTable1"
+          fields {
+            id = int
+            value = string
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [1, "NEW"]
+          }
+        ]
+      },
+      {
+        schema = {
+          table = "testDatabase2.testSchema2.testTable2"
+          fields {
+            id = int
+            amount = "decimal(16, 1)"
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [1, 6.3]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "${database_name}_${schema_name}_${table_name}_check"
   }
 }
 ```
