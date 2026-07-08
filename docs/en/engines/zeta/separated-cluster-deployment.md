@@ -280,11 +280,6 @@ map:
         fs.defaultFS: file:///
 ```
 
-Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
-intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
-avoids excessive WAL growth for observability-only state. After an engine restart, running-job
-metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
-
 If you use OSS, you can configure it like this:
 
 ```yaml
