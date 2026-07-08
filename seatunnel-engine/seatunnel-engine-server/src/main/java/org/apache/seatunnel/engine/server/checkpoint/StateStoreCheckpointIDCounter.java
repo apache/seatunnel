@@ -59,11 +59,7 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
     public void start() throws Exception {
         RetryUtils.retryWithException(
                 () -> checkpointCounterStore.initializeIfAbsent(key, INITIAL_CHECKPOINT_ID),
-                new RetryUtils.RetryMaterial(
-                        Constant.OPERATION_RETRY_TIME,
-                        true,
-                        ExceptionUtil::isOperationNeedRetryException,
-                        Constant.OPERATION_RETRY_SLEEP));
+                operationRetryMaterial());
     }
 
     /**
@@ -74,10 +70,22 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
      */
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
-        if (pipelineStatus.isEndState()) {
-            checkpointCounterStore.remove(key);
+        if (!pipelineStatus.isEndState()) {
+            return CompletableFuture.completedFuture(null);
         }
-        return CompletableFuture.completedFuture(null);
+        return CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        RetryUtils.retryWithException(
+                                () -> {
+                                    checkpointCounterStore.remove(key);
+                                    return null;
+                                },
+                                operationRetryMaterial());
+                    } catch (Exception e) {
+                        ExceptionUtil.sneakyThrow(e);
+                    }
+                });
     }
 
     /**
@@ -107,6 +115,14 @@ public class StateStoreCheckpointIDCounter implements CheckpointIDCounter {
     @Override
     public void setCount(long newId) throws Exception {
         checkpointCounterStore.set(key, newId);
+    }
+
+    private RetryUtils.RetryMaterial operationRetryMaterial() {
+        return new RetryUtils.RetryMaterial(
+                Constant.OPERATION_RETRY_TIME,
+                true,
+                ExceptionUtil::isOperationNeedRetryException,
+                Constant.OPERATION_RETRY_SLEEP);
     }
 
     public static String convertLongIntToBase64(long longValue, int intValue) {

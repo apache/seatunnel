@@ -79,7 +79,7 @@ class StateStoreCheckpointIDCounterTest {
         String key = StateStoreCheckpointIDCounter.convertLongIntToBase64(3L, 1);
 
         counter.start();
-        counter.shutdown(PipelineStatus.FINISHED);
+        counter.shutdown(PipelineStatus.FINISHED).join();
 
         assertNull(store.get(key));
     }
