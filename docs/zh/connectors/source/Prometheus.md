@@ -11,11 +11,25 @@ Prometheus 数据源连接器通过 Prometheus 兼容 HTTP API 读取指标查�
 `url` 只需要填写服务基础地址，例如 `http://prometheus:9090` 或 `http://victoria-metrics:8428`。SeaTunnel 会根据
 `query_type` 自动使用即时查询接口或范围查询接口。
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行处理](../../introduction/concepts/connector-v2-features.md)
+
+## 支持的数据源信息
+
+使用 Prometheus 连接器时，需要安装以下依赖。可以通过 `install-plugin.sh` 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源     | 支持版本  | 依赖 |
+|------------|-----------|------|
+| Prometheus | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## 源选项
 

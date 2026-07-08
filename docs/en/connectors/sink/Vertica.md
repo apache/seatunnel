@@ -27,12 +27,11 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+> Vertica is listed without a JDBC XA data source in the shared JDBC appendix, so this connector should be used with the default `is_exactly_once=false`.
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -70,7 +69,7 @@ semantics (using XA transaction guarantee).
 |                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:vertica://localhost:5433/vertica                                                                                                                                                         |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Vertical the value is `com.vertica.jdbc.Driver`.                                                                                                                |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Vertica the value is `com.vertica.jdbc.Driver`.                                                                                                                |
 | username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
@@ -80,9 +79,10 @@ semantics (using XA transaction guarantee).
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
+| batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables interval flushing. When the value is greater than `0`, each write checks elapsed time and flushes synchronously if the interval has passed. |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                              |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                       |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, vertical is `com.vertical.cj.jdbc.VerticalXADataSource`, and<br/>please refer to appendix for other data sources                                                            |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver. Vertica does not provide a documented value in the shared JDBC appendix, so keep `is_exactly_once=false` unless your driver provides a compatible XA data source.                                                            |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                          |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
@@ -161,24 +161,21 @@ sink {
 }
 ```
 
-### Exactly-once
+### Generate Sink SQL With Upsert
 
-> For accurate write scene we guarantee accurate once
+> When `generate_sink_sql = true` and `primary_keys` is set, Vertica uses a generated `MERGE` statement for upsert writes. This is different from XA exactly-once; keep `is_exactly_once=false` unless your Vertica driver provides a compatible XA data source.
 
 ```
 sink {
     jdbc {
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
-    
-        max_retries = 0
         username = "root"
         password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-    
-        is_exactly_once = "true"
-    
-        xa_data_source_class_name = "com.vertical.cj.jdbc.VerticalXADataSource"
+        generate_sink_sql = true
+        database = "public"
+        table = "test_table"
+        primary_keys = ["id"]
     }
 }
 ```

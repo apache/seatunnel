@@ -45,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +54,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(SerialVersionUIDCheckerTest.TestResultLogger.class)
@@ -62,6 +64,66 @@ public class SerialVersionUIDCheckerTest {
     private static final String CONNECTOR_DIR = "seatunnel-connectors-v2";
     private static final String JAVA_PATH_FRAGMENT =
             "src" + File.separator + "main" + File.separator + "java";
+    private static final String CONNECTOR_CDC_DIR =
+            CONNECTOR_DIR + File.separator + "connector-cdc";
+    private static final String CONNECTOR_JDBC_CONFIG_DIR =
+            CONNECTOR_DIR
+                    + File.separator
+                    + "connector-jdbc"
+                    + File.separator
+                    + JAVA_PATH_FRAGMENT
+                    + File.separator
+                    + "org"
+                    + File.separator
+                    + "apache"
+                    + File.separator
+                    + "seatunnel"
+                    + File.separator
+                    + "connectors"
+                    + File.separator
+                    + "seatunnel"
+                    + File.separator
+                    + "jdbc"
+                    + File.separator
+                    + "config";
+    private static final List<String> CHECKED_PATHS =
+            Arrays.asList(
+                    CONNECTOR_CDC_DIR,
+                    CONNECTOR_JDBC_CONFIG_DIR,
+                    "seatunnel-engine"
+                            + File.separator
+                            + "seatunnel-engine-core"
+                            + File.separator
+                            + JAVA_PATH_FRAGMENT
+                            + File.separator
+                            + "org"
+                            + File.separator
+                            + "apache"
+                            + File.separator
+                            + "seatunnel"
+                            + File.separator
+                            + "engine"
+                            + File.separator
+                            + "core"
+                            + File.separator
+                            + "job",
+                    "seatunnel-engine"
+                            + File.separator
+                            + "seatunnel-engine-common"
+                            + File.separator
+                            + JAVA_PATH_FRAGMENT
+                            + File.separator
+                            + "org"
+                            + File.separator
+                            + "apache"
+                            + File.separator
+                            + "seatunnel"
+                            + File.separator
+                            + "engine"
+                            + File.separator
+                            + "common"
+                            + File.separator
+                            + "job");
     private static final JavaParser JAVA_PARSER;
     private static final Set<String> checkedClasses = new HashSet<>();
     private static final Map<String, ClassOrInterfaceDeclaration> classDeclarationMap =
@@ -95,21 +157,21 @@ public class SerialVersionUIDCheckerTest {
     @Test
     public void checkSerialVersionUID() {
         List<String> missingSerialVersionUID = new ArrayList<>();
-        List<Path> connectorClassPaths = findConnectorClassPaths();
-        LOG.info("Found {} connector class files to check", connectorClassPaths.size());
+        List<Path> classPaths = findClassPaths();
+        LOG.info("Found {} class files to check", classPaths.size());
 
         // First, populate the classDeclarationMap with all classes
-        for (Path path : connectorClassPaths) {
+        for (Path path : classPaths) {
             populateClassDeclarationMap(path);
         }
         LOG.info("Populated class declaration map with {} classes", classDeclarationMap.size());
 
         // Then check each class path for serialVersionUID
-        for (Path path : connectorClassPaths) {
+        for (Path path : classPaths) {
             checkClassPath(path, missingSerialVersionUID);
         }
 
-        LOG.info("Check completed. Checked {} connector classes.", connectorClassPaths.size());
+        LOG.info("Check completed. Checked {} class files.", classPaths.size());
         if (!missingSerialVersionUID.isEmpty()) {
             String errorMessage = generateErrorMessage(missingSerialVersionUID);
             LOG.error("Test failed: {}", errorMessage);
@@ -118,18 +180,34 @@ public class SerialVersionUIDCheckerTest {
         LOG.info("All checked classes have correct serialVersionUID.");
     }
 
-    private List<Path> findConnectorClassPaths() {
+    @Test
+    public void checkJdbcConfigPathIsCovered() {
+        List<Path> classPaths = findClassPaths();
+
+        assertTrue(
+                classPaths.stream()
+                        .anyMatch(
+                                path ->
+                                        path.endsWith(
+                                                Paths.get(
+                                                        "jdbc",
+                                                        "config",
+                                                        "JdbcConnectionConfig.java"))),
+                "JDBC config classes should be covered by serialVersionUID checker.");
+    }
+
+    private List<Path> findClassPaths() {
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             return paths.filter(
                             path -> {
                                 String pathString = path.toString();
                                 return pathString.endsWith(JAVA_FILE_EXTENSION)
-                                        && pathString.contains(CONNECTOR_DIR)
-                                        && pathString.contains(JAVA_PATH_FRAGMENT);
+                                        && pathString.contains(JAVA_PATH_FRAGMENT)
+                                        && CHECKED_PATHS.stream().anyMatch(pathString::contains);
                             })
                     .collect(Collectors.toList());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to walk through connector directories", e);
+            throw new RuntimeException("Failed to walk through class directories", e);
         }
     }
 
@@ -158,8 +236,9 @@ public class SerialVersionUIDCheckerTest {
     }
 
     /**
-     * Check the class path for classes that implement SeaTunnelSource or SeaTunnelSink and verify
-     * they have serialVersionUID.
+     * Check classes that are serialized in job graphs and state restore paths. Source/sink generic
+     * state remains checked, and concrete connector config/config-factory classes plus engine job
+     * graph classes are checked directly.
      */
     private void checkClassPath(Path path, List<String> missingSerialVersionUID) {
         try {
@@ -172,6 +251,10 @@ public class SerialVersionUIDCheckerTest {
                                 List<ClassOrInterfaceDeclaration> classes =
                                         compilationUnit.findAll(ClassOrInterfaceDeclaration.class);
                                 for (ClassOrInterfaceDeclaration classDeclaration : classes) {
+                                    if (shouldCheckClass(path, classDeclaration)) {
+                                        checkClassDeclaration(
+                                                classDeclaration, missingSerialVersionUID);
+                                    }
                                     if (implementsSeaTunnelSourceOrSink(classDeclaration)) {
                                         checkImplementedTypes(
                                                 classDeclaration, missingSerialVersionUID);
@@ -181,6 +264,81 @@ public class SerialVersionUIDCheckerTest {
         } catch (IOException e) {
             LOG.warn("Could not parse file: {}", path, e);
         }
+    }
+
+    private boolean shouldCheckClass(Path path, ClassOrInterfaceDeclaration classDeclaration) {
+        try {
+            if (classDeclaration.isInterface()) {
+                return false;
+            }
+            ResolvedReferenceTypeDeclaration typeDeclaration = classDeclaration.resolve();
+            if (isAbstractClass(typeDeclaration) || !isSerializable(typeDeclaration)) {
+                return false;
+            }
+            if (isEngineJobClass(path)) {
+                return true;
+            }
+            return isConnectorConfigOrFactory(typeDeclaration);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Could not resolve class: {} in file: {}",
+                    classDeclaration.getNameAsString(),
+                    path,
+                    e);
+            return false;
+        }
+    }
+
+    private boolean isEngineJobClass(Path path) {
+        String pathString = path.toString();
+        return pathString.contains(
+                        "seatunnel-engine"
+                                + File.separator
+                                + "seatunnel-engine-core"
+                                + File.separator
+                                + JAVA_PATH_FRAGMENT
+                                + File.separator
+                                + "org"
+                                + File.separator
+                                + "apache"
+                                + File.separator
+                                + "seatunnel"
+                                + File.separator
+                                + "engine"
+                                + File.separator
+                                + "core"
+                                + File.separator
+                                + "job")
+                || pathString.contains(
+                        "seatunnel-engine"
+                                + File.separator
+                                + "seatunnel-engine-common"
+                                + File.separator
+                                + JAVA_PATH_FRAGMENT
+                                + File.separator
+                                + "org"
+                                + File.separator
+                                + "apache"
+                                + File.separator
+                                + "seatunnel"
+                                + File.separator
+                                + "engine"
+                                + File.separator
+                                + "common"
+                                + File.separator
+                                + "job");
+    }
+
+    private boolean isConnectorConfigOrFactory(ResolvedReferenceTypeDeclaration typeDeclaration) {
+        String className = typeDeclaration.getClassName();
+        return className.endsWith("Config")
+                || className.endsWith("ConfigFactory")
+                || hasAncestor(
+                        typeDeclaration,
+                        "org.apache.seatunnel.connectors.cdc.base.config.SourceConfig")
+                || hasAncestor(
+                        typeDeclaration,
+                        "org.apache.seatunnel.connectors.cdc.base.config.SourceConfig.Factory");
     }
 
     private boolean implementsSeaTunnelSourceOrSink(ClassOrInterfaceDeclaration classDeclaration) {
@@ -248,6 +406,24 @@ public class SerialVersionUIDCheckerTest {
         }
     }
 
+    private void checkClassDeclaration(
+            ClassOrInterfaceDeclaration classDeclaration, List<String> missingSerialVersionUID) {
+        try {
+            ResolvedReferenceTypeDeclaration typeDeclaration = classDeclaration.resolve();
+            String className = typeDeclaration.getQualifiedName();
+            if (!checkedClasses.contains(className)) {
+                if (!hasSerialVersionUID(typeDeclaration)) {
+                    missingSerialVersionUID.add(className);
+                    LOG.warn("Class {} is missing serialVersionUID field", className);
+                }
+                checkedClasses.add(className);
+            }
+        } catch (Exception e) {
+            LOG.warn(
+                    "Could not check class declaration: {}", classDeclaration.getNameAsString(), e);
+        }
+    }
+
     private boolean isSerializable(ResolvedReferenceType resolvedType) {
         return resolvedType.getQualifiedName().equals("java.io.Serializable")
                 || resolvedType.getAllAncestors().stream()
@@ -256,9 +432,20 @@ public class SerialVersionUIDCheckerTest {
                                         ancestor.getQualifiedName().equals("java.io.Serializable"));
     }
 
+    private boolean isSerializable(ResolvedReferenceTypeDeclaration typeDeclaration) {
+        return typeDeclaration.getQualifiedName().equals("java.io.Serializable")
+                || hasAncestor(typeDeclaration, "java.io.Serializable");
+    }
+
+    private boolean hasAncestor(
+            ResolvedReferenceTypeDeclaration typeDeclaration, String ancestorClassName) {
+        return typeDeclaration.getAllAncestors().stream()
+                .anyMatch(ancestor -> ancestor.getQualifiedName().equals(ancestorClassName));
+    }
+
     private boolean hasSerialVersionUID(ResolvedReferenceTypeDeclaration typeDeclaration) {
         return typeDeclaration.isInterface()
-                || typeDeclaration.getAllFields().stream()
+                || typeDeclaration.getDeclaredFields().stream()
                         .anyMatch(field -> field.getName().equals("serialVersionUID"));
     }
 
