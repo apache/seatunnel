@@ -100,7 +100,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
     }
 
-    public final synchronized boolean writeRecord(I record) {
+    public final synchronized void writeRecord(I record) {
+        writeRecordWithAutoFlush(record);
+    }
+
+    public final synchronized boolean writeRecordWithAutoFlush(I record) {
         checkFlushException();
         try {
             addToBatch(record);

@@ -34,7 +34,14 @@ import static org.mockito.Mockito.when;
 public class JdbcOutputFormatTest {
 
     @Test
-    public void testWriteRecordReturnsTrueWhenBatchIntervalFlushes() throws Exception {
+    public void testWriteRecordKeepsVoidSignature() throws Exception {
+        Assertions.assertEquals(
+                Void.TYPE,
+                JdbcOutputFormat.class.getMethod("writeRecord", Object.class).getReturnType());
+    }
+
+    @Test
+    public void testWriteRecordWithAutoFlushReturnsTrueWhenBatchIntervalFlushes() throws Exception {
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
         CountingExecutor executor = new CountingExecutor();
@@ -53,7 +60,7 @@ public class JdbcOutputFormatTest {
         outputFormat.open();
         setLastFlushTimeMs(outputFormat, 0L);
 
-        boolean autoFlushed = outputFormat.writeRecord("row-1");
+        boolean autoFlushed = outputFormat.writeRecordWithAutoFlush("row-1");
 
         Assertions.assertTrue(autoFlushed);
         Assertions.assertEquals(1, executor.executeBatchCount);

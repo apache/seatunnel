@@ -190,7 +190,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 tryOpen();
                 try {
                     pendingRows.add(element);
-                    boolean autoFlushed = outputFormat.writeRecord(element);
+                    boolean autoFlushed = outputFormat.writeRecordWithAutoFlush(element);
                     clearPendingRowsIfAutoFlushed(autoFlushed);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
