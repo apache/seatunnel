@@ -18,29 +18,24 @@
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
+/** HubSpot source backed by the shared HTTP source implementation. */
 public class HubSpotSource extends HttpSource {
 
+    /** Keeps the HubSpot-specific URL, auth header, and paging defaults for the reader path. */
     private final HubSpotSourceParameter hubSpotSourceParameter = new HubSpotSourceParameter();
 
     public HubSpotSource(ReadonlyConfig config) {
-        super(config);
-        // Build the custom parameter (injects tokens, builds URL)
+        super(HubSpotSourceParameter.buildRuntimeConfig(config));
         hubSpotSourceParameter.buildWithConfig(config);
 
-        // Safely set the default contentField for the parent class if missing
-        boolean hasContentField =
-                config.getOptional(
-                                org.apache.seatunnel.api.configuration.Options.key("content_field")
-                                        .stringType()
-                                        .noDefaultValue())
-                        .isPresent();
-
-        if (!hasContentField) {
+        if (!config.getOptional(HttpSourceOptions.CONTENT_FIELD).isPresent()) {
             this.contentField = HubSpotSourceParameter.DEFAULT_CONTENT_FIELD;
         }
     }
@@ -48,5 +43,19 @@ public class HubSpotSource extends HttpSource {
     @Override
     public String getPluginName() {
         return "HubSpot";
+    }
+
+    @Override
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
+            SingleSplitReaderContext readerContext) throws Exception {
+        // Reuse the HubSpot-specific parameter object so the reader sees the injected auth, URL,
+        // and cursor pagination defaults instead of rebuilding a generic HTTP parameter.
+        return new HttpSourceReader(
+                this.hubSpotSourceParameter,
+                readerContext,
+                this.deserializationSchema,
+                jsonField,
+                contentField,
+                pageInfo);
     }
 }

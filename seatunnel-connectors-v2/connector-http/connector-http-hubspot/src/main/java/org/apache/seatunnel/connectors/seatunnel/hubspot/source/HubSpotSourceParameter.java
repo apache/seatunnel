@@ -18,43 +18,66 @@
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpPaginationType;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/** HubSpot-specific HTTP parameter builder that injects runtime defaults for the shared reader. */
 public class HubSpotSourceParameter extends HttpParameter {
     public static final String DEFAULT_CONTENT_FIELD = "$.results";
     private static final String HUBSPOT_BASE_URL = "https://api.hubapi.com/crm/v3/objects/";
 
+    /**
+     * Merge the HubSpot-specific defaults into the runtime config so the shared HTTP source path
+     * and the HubSpot parameter object both observe the same pagination contract.
+     */
+    public static ReadonlyConfig buildRuntimeConfig(ReadonlyConfig pluginConfig) {
+        Map<String, Object> configMap = new HashMap<>(pluginConfig.toMap());
+        configMap.putIfAbsent(HttpSourceOptions.CONTENT_FIELD.key(), DEFAULT_CONTENT_FIELD);
+        configMap.putIfAbsent(
+                HttpSourceOptions.FORMAT.key(), HttpConfig.ResponseFormat.JSON.name());
+        configMap.putIfAbsent(HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key(), Boolean.TRUE);
+        configMap.put(
+                HttpSourceOptions.PAGEING.key(),
+                mergePagingDefaults(configMap.get(HttpSourceOptions.PAGEING.key())));
+        return ReadonlyConfig.fromMap(configMap);
+    }
+
+    /**
+     * Build a nested pageing section because HttpSource reads paging defaults from a sub-config
+     * rather than from flattened dotted keys.
+     */
+    private static Map<String, Object> mergePagingDefaults(Object pageingConfig) {
+        Map<String, Object> pageing = new HashMap<>();
+        if (pageingConfig instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> existingConfig = (Map<String, Object>) pageingConfig;
+            pageing.putAll(existingConfig);
+        }
+        pageing.putIfAbsent(HttpSourceOptions.PAGE_TYPE.key(), HttpPaginationType.CURSOR.getCode());
+        pageing.putIfAbsent(HttpSourceOptions.PAGE_CURSOR_FIELD_NAME.key(), "after");
+        pageing.putIfAbsent(
+                HttpSourceOptions.PAGE_CURSOR_RESPONSE_FIELD.key(), "$.paging.next.after");
+        return pageing;
+    }
+
     @Override
     public void buildWithConfig(ReadonlyConfig pluginConfig) {
-        // 1. Create a mutable map to inject our pagination defaults
-        Map<String, Object> configMap = new HashMap<>(pluginConfig.toMap());
+        ReadonlyConfig runtimeConfig = buildRuntimeConfig(pluginConfig);
+        super.buildWithConfig(runtimeConfig);
 
-        // Inject Cursor-based pagination settings
-        configMap.put("pageing.page_type", "Cursor");
-        configMap.put("pageing.cursor_field", "after");
-        configMap.put("pageing.cursor_response_field", "$.paging.next.after");
-
-        // Explicitly tell HttpSourceReader to append the cursor to the HTTP request
-        configMap.put("keep_page_param_as_http_param", true);
-
-        // 2. Wrap the map back into a ReadonlyConfig and pass it to the base class
-        ReadonlyConfig mergedConfig = ReadonlyConfig.fromMap(configMap);
-        super.buildWithConfig(mergedConfig);
-
-        // 3. Inject Authorization Header
-        // Note: Using mergedConfig here in case the base class needs it
         Map<String, String> currentHeaders =
                 this.getHeaders() == null ? new HashMap<>() : new HashMap<>(this.getHeaders());
         currentHeaders.put(
-                "Authorization", "Bearer " + mergedConfig.get(HubSpotSourceOptions.ACCESS_TOKEN));
+                "Authorization", "Bearer " + runtimeConfig.get(HubSpotSourceOptions.ACCESS_TOKEN));
         this.setHeaders(currentHeaders);
 
-        // 4. Construct URL from object_type if url is not explicitly provided
         if (this.getUrl() == null || this.getUrl().isEmpty()) {
-            String objectType = mergedConfig.get(HubSpotSourceOptions.OBJECT_TYPE);
+            String objectType = runtimeConfig.get(HubSpotSourceOptions.OBJECT_TYPE);
             if (objectType != null && !objectType.isEmpty()) {
                 this.setUrl(HUBSPOT_BASE_URL + objectType);
             }
