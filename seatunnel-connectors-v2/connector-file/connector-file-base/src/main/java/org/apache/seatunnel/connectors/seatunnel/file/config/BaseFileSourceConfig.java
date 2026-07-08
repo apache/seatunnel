@@ -33,8 +33,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy
 import org.apache.commons.collections4.CollectionUtils;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,6 +45,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Getter
+@Slf4j
 public abstract class BaseFileSourceConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -53,6 +56,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private final List<String> filePaths;
     private final ReadonlyConfig baseFileSourceConfig;
     private final CatalogTable catalogTableFromConfig;
+    private final boolean fileDiscoveryDeferred;
 
     public abstract HadoopConf getHadoopConfig();
 
@@ -63,20 +67,43 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.baseFileSourceConfig = readonlyConfig;
         this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
+        this.fileDiscoveryDeferred = shouldDeferFileDiscovery(readonlyConfig);
         this.filePaths = parseFilePaths(readonlyConfig);
         this.catalogTableFromConfig = catalogTableFromConfig;
         this.catalogTable = parseCatalogTable(readonlyConfig);
     }
 
+    protected boolean shouldDeferFileDiscovery(ReadonlyConfig readonlyConfig) {
+        return false;
+    }
+
     private List<String> parseFilePaths(ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.get(FileBaseSourceOptions.DISCOVERY_MODE)
-                == FileDiscoveryMode.CONTINUOUS) {
+        if (readonlyConfig.get(FileBaseSourceOptions.DISCOVERY_MODE) == FileDiscoveryMode.CONTINUOUS
+                || fileDiscoveryDeferred) {
             return Collections.emptyList();
         }
-        String rootPath = null;
+        return discoverFilePaths();
+    }
+
+    public List<String> getFilePathsForSplitEnumerator() {
+        if (fileDiscoveryDeferred) {
+            return discoverFilePaths();
+        }
+        return filePaths;
+    }
+
+    private List<String> discoverFilePaths() {
+        String rootPath = baseFileSourceConfig.get(FileBaseSourceOptions.FILE_PATH);
+        long startTime = System.currentTimeMillis();
         try {
-            rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
-            return readStrategy.getFileNamesByPath(rootPath);
+            List<String> discoveredFilePaths = readStrategy.getFileNamesByPath(rootPath);
+            log.info(
+                    "File source discovery finished: plugin={}, path={}, files={}, cost={}ms",
+                    getPluginName(),
+                    maskUriUserInfo(rootPath),
+                    discoveredFilePaths.size(),
+                    System.currentTimeMillis() - startTime);
+            return discoveredFilePaths;
         } catch (Exception ex) {
             String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);
             throw new FileConnectorException(
@@ -125,6 +152,28 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private SeaTunnelRowType getSchemaForEmptyFilePath(ReadonlyConfig readonlyConfig) {
         String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
         return readStrategy.getSeaTunnelRowTypeInfo(rootPath);
+    }
+
+    private static String maskUriUserInfo(String rawPath) {
+        if (rawPath == null) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(rawPath);
+            if (uri.getUserInfo() == null || uri.getAuthority() == null) {
+                return rawPath;
+            }
+            String maskedAuthority = uri.getAuthority().replace(uri.getUserInfo() + "@", "***@");
+            return new URI(
+                            uri.getScheme(),
+                            maskedAuthority,
+                            uri.getPath(),
+                            uri.getQuery(),
+                            uri.getFragment())
+                    .toString();
+        } catch (Exception e) {
+            return rawPath;
+        }
     }
 
     private CatalogTable newCatalogTable(
