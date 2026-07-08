@@ -40,6 +40,8 @@ public class MongodbSourceConfigProvider {
     }
 
     public static class Builder implements SourceConfig.Factory<MongodbSourceConfig> {
+        private static final long serialVersionUID = 1L;
+
         private String hosts;
         private String username;
         private String password;
