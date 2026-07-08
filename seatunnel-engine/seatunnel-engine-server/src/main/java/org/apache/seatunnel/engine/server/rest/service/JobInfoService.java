@@ -32,7 +32,6 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
-import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -121,9 +120,8 @@ public class JobInfoService extends BaseService {
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
-
         return finishedJob.values().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(
                         jobState -> {
                             if (state.isEmpty()) {
@@ -131,29 +129,41 @@ public class JobInfoService extends BaseService {
                             }
                             return jobState.getJobStatus().name().equals(state.toUpperCase());
                         })
-                .sorted(Comparator.comparing(JobState::getFinishTime, Comparator.reverseOrder()))
+                .sorted(
+                        Comparator.comparing(
+                                JobState::getFinishTime,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(
                         jobState -> {
                             Long jobId = jobState.getJobId();
-                            String jobMetrics;
-                            if (seaTunnelServer == null) {
-                                jobMetrics =
-                                        (String)
-                                                NodeEngineUtil.sendOperationToMasterNode(
-                                                                nodeEngine,
-                                                                new GetJobMetricsOperation(jobId))
-                                                        .join();
-                            } else {
-                                jobMetrics =
-                                        seaTunnelServer
-                                                .getCoordinatorService()
-                                                .getJobMetrics(jobId)
-                                                .toJsonString();
-                            }
                             return getJobInfoJson(
-                                    jobState, jobMetrics, finishedJobDAGInfo.get(jobId));
+                                    jobState,
+                                    getFinishedJobMetricsJson(jobId),
+                                    getFinishedJobDAGInfo(finishedJobDAGInfo, jobId));
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private String getFinishedJobMetricsJson(Long jobId) {
+        try {
+            IMap<Long, JobMetrics> finishedJobMetrics =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS);
+            JobMetrics metrics = finishedJobMetrics.getOrDefault(jobId, JobMetrics.empty());
+            return metrics == null ? JobMetrics.empty().toJsonString() : metrics.toJsonString();
+        } catch (Throwable t) {
+            log.warn("Failed to load finished job metrics for job {}: {}", jobId, t.getMessage());
+            return JobMetrics.empty().toJsonString();
+        }
+    }
+
+    private JobDAGInfo getFinishedJobDAGInfo(
+            IMap<Long, JobDAGInfo> finishedJobDAGInfo, Long jobId) {
+        try {
+            return finishedJobDAGInfo.get(jobId);
+        } catch (Throwable t) {
+            log.warn("Failed to load finished job DAG for job {}: {}", jobId, t.getMessage());
+            return null;
+        }
     }
 
     public JsonArray getRunningJobsJson() {
