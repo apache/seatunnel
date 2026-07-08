@@ -41,6 +41,12 @@ public class PulsarSourceOptions extends PulsarBaseOptions {
                     .withDescription(
                             "The regular expression for a pattern of topic names to read from. All topics with names that match the specified regular expression will be subscribed by the consumer when the job starts running. Note, only one of \"topic-pattern\" and \"topic\" can be specified for sources.");
 
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The table path for multi-table configuration.");
+
     public static final Option<Integer> POLL_TIMEOUT =
             Options.key("poll.timeout")
                     .intType()

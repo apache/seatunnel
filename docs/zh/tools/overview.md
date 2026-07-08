@@ -10,9 +10,9 @@ Apache SeaTunnel 工具集是一组面向开发者和运维人员的辅助工具
 
 | 工具 | 用途 | 状态 |
 |------|------|------|
-| [SeaTunnel Skill](seatunnel-skill) | Claude AI 集成，辅助 SeaTunnel 操作 | 可用 |
-| [SeaTunnel MCP 服务](seatunnel-mcp) | 面向 LLM 的模型上下文协议服务 | 可用 |
-| [x2seatunnel](x2seatunnel) | 配置转换工具（DataX → SeaTunnel） | 可用 |
+| [SeaTunnel Skill](seatunnel-skill.md) | Claude AI 集成，辅助 SeaTunnel 操作 | 可用 |
+| [SeaTunnel MCP 服务](seatunnel-mcp.md) | 面向 LLM 的模型上下文协议服务 | 可用 |
+| [x2seatunnel](x2seatunnel.md) | 配置转换工具（DataX → SeaTunnel） | 可用 |
 
 ## 源码仓库
 

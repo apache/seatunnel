@@ -36,8 +36,9 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 | 名称                                  | 类型                                  | 是否必填 | 默认值                          | 描述                                                                                                                                                                                                                                                                                                                             |
 |-------------------------------------|-------------------------------------|------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                               | String                              | 是    | -                            | 使用表作为数据源时要读取数据的主题名称。它也支持通过逗号分隔的多个主题列表，例如 'topic-1,topic-2'。                                                                                                                                                                                                                                                                    |
-| table_list                          | Map                                 | 否    | -                            | 主题列表配置，你可以同时配置一个 `table_list` 和一个 `topic`。                                                                                                                                                                                                                                                                                     |
+| topic                               | String                              | 否    | -                            | 使用表作为数据源时要读取数据的主题名称。未使用 `tables_configs` 或 `table_list` 时需要配置。也支持通过逗号分隔多个主题，例如 `topic-1,topic-2`。                                                                                                                                                                                                                         |
+| tables_configs                      | List                                | 否    | -                            | 推荐使用的多主题表配置。当不同 topic 需要不同 schema 或 format 时使用。`topic`、`tables_configs`、`table_list` 三者只能配置一个。                                                                                                                                                                                                                   |
+| table_list                          | List                                | 否    | -                            | 旧版兼容的多主题表配置。`topic`、`tables_configs`、`table_list` 三者只能配置一个。                                                                                                                                                                                                                                                                  |
 | bootstrap.servers                   | String                              | 是    | -                            | 逗号分隔的 Kafka brokers 列表。                                                                                                                                                                                                                                                                                                        |
 | pattern                             | Boolean                             | 否    | false                        | 如果 `pattern` 设置为 `true`，则会使用指定的正则表达式匹配并订阅主题。                                                                                                                                                                                                                                                                                   |
 | consumer.group                      | String                              | 否    | SeaTunnel-Consumer-Group     | `Kafka 消费者组 ID`，用于区分不同的消费者组。                                                                                                                                                                                                                                                                                                   |
@@ -46,24 +47,48 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
 | format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
+| avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
 | format_error_handle_way             | String                              | 否    | fail                         | 数据格式错误的处理方式。默认值为 fail，可选值为 fail 和 skip。当选择 fail 时，数据格式错误将阻塞并抛出异常。当选择 skip 时，数据格式错误将跳过此行数据。                                                                                                                                                                                                                                     |
+| debezium_record_include_schema      | Boolean                             | 否    | true                         | 当 `format` 为 `debezium_json` 时生效，用于说明 Debezium 记录中是否携带 schema 信息。                                                                                                                                                                                                                                          |
 | debezium_record_table_filter        | Config                              | 否    | -                            | 用于过滤 debezium 格式的数据，仅当格式设置为 `debezium_json` 时使用。请参阅下面的 `debezium_record_table_filter`                                                                                                                                                                                                                                          |
 | field_delimiter                     | String                              | 否    | ,                            | 自定义数据格式的字段分隔符。                                                                                                                                                                                                                                                                                                                 |
-| start_mode                          | StartMode[earliest],[group_offsets] | 否    | group_offsets                | 消费者的初始消费模式。                                                                                                                                                                                                                                                                                                                    |
+| start_mode                          | StartMode[earliest],[group_offsets],[latest],[specific_offsets],[timestamp] | 否    | group_offsets                | 消费者的初始消费模式。                                                                                                                                                                                                                                                                                                                    |
 | start_mode.offsets                  | Config                              | 否    | -                            | 用于 specific_offsets 消费模式的偏移量。                                                                                                                                                                                                                                                                                                  |
 | start_mode.timestamp                | Long                                | 否    | -                            | 用于 "timestamp" 消费模式的时间。                                                                                                                                                                                                                                                                                                        |
-| start_mode.end_timestamp             | Long                                | 否    | -                            | 用于 "timestamp" 消费模式的结束时间，只支持批模式                                                                                                                                                                                                                                                                                             |
+| start_mode.end_timestamp             | Long                                | 否    | -                            | 用于 "timestamp" 消费模式的结束时间，只支持批模式。                                                                                                                                                                                                                                                                                             |
 | partition-discovery.interval-millis | Long                                | 否    | -1                           | 动态发现主题和分区的间隔时间。                                                                                                                                                                                                                                                                                                                |
 | ignore_no_leader_partition          | Boolean                             | 否    | false                        | 是否忽略没有 leader 的分区。如果设置为 true，在分区发现过程中将跳过没有 leader 的分区。如果设置为 false（默认值），连接器将包含所有分区，无论 leader 状态如何。这在处理可能存在临时 leader 问题的 Kafka 集群时很有用。                                                                                                                                                                                  |
 | common-options                      |                                     | 否    | -                            | 源插件的常见参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                           |
 | protobuf_message_name               | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定消息名称。                                                                                                                                                                                                                                                                                                    |
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
 | strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 时有效。是否在 Protobuf 反序列化之前去除 Confluent Schema Registry 线格式头部（magic byte、schema id 和 message indexes）。当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，此选项非常有用。启用后，连接器将尝试在解析 Protobuf 消息之前检测并删除 Schema Registry 头部。如果未检测到头部，它将回退到标准的 Protobuf 反序列化。                                                                                                                                                                                                                                                                                              |
-| reader_cache_queue_size             | Integer                             | 否    | 1024                         | Reader分片缓存队列，用于缓存分片对应的数据。占用大小取决于每个reader得到的分片量，而不是每个分片的数据量。                                                                                                                                                                                                                                                                    |
-| is_native                           | Boolean                             | No   | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
+| reader_cache_queue_size             | Integer                             | 否    | 2                            | Fetcher 与 Reader 线程之间缓冲队列的容量。每个元素是一次 `consumer.poll()` 的整批结果，而非单条消息。详见 [reader_cache_queue_size](#reader_cache_queue_size)。 |
 
 > 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
 > `start_mode` 和 consumer group offset 只在首次启动，或为尚未存在 checkpoint 状态的新发现分区初始化位点时生效。
+
+:::tip
+
+读取一个或多个 topic 时使用 `topic`。如果不同 topic 需要不同的 schema 或 format，请使用 `tables_configs`。`topic`、`tables_configs`、`table_list` 互斥，不能同时配置。
+
+:::
+
+### reader_cache_queue_size
+
+连接器在 Fetcher 线程和 Reader 线程之间缓冲的 poll 结果批次的最大数量。
+
+:::tip
+
+队列中的每个元素是一次完整的 `consumer.poll()` 结果，最多包含 `max.poll.records`（默认 500）条消息。
+当下游产生背压时，队列可能被填满，此时驻留在内存中的消息数上限为 `reader_cache_queue_size × max.poll.records`。
+
+:::
+
+:::caution
+
+当消费的消息体较大时，过高的值会导致堆内存占用过高。如果观察到内存压力，请减小此值或降低 `kafka.max.poll.records`。
+
+:::
 
 ### debezium_record_table_filter
 
@@ -73,7 +98,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 debezium_record_table_filter {
   database_name = "test"
   schema_name = "public" // null 如果不存在
- table_name = "products"
+  table_name = "products"
 }
 ```
 
@@ -152,10 +177,32 @@ sink {
 source {
     Kafka {
           topic = ".*seatunnel*."
-          pattern = "true" 
+          pattern = true
           bootstrap.servers = "localhost:9092"
           consumer.group = "seatunnel_group"
     }
+}
+```
+
+### 动态发现分区
+
+流任务运行期间，如果 Kafka topic 会新增分区，可以配置 `partition-discovery.interval-millis` 定时发现新分区。新分区没有 checkpoint 位点时，会按 `start_mode` 初始化消费位置。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Kafka {
+    topic = "seatunnel_topic"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "seatunnel_group"
+    start_mode = latest
+    partition-discovery.interval-millis = 5000
+    format = json
+  }
 }
 ```
 
@@ -252,7 +299,7 @@ source {
     tables_configs = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -310,7 +357,7 @@ source {
     table_list = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -507,6 +554,73 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+## 常见问题
+
+### `start_mode` 各取值有什么区别？
+
+| `start_mode` | 行为 |
+|---|---|
+| `earliest` | 从每个分区最早可用的 offset 开始消费 |
+| `latest` | 只消费任务启动后新产生的消息 |
+| `group_offsets` | 从消费组已提交的 offset 恢复消费 |
+| `specific_offsets` | 从每个分区指定的 offset 开始消费 |
+| `timestamp` | 从指定时间戳处或其后的第一条消息开始消费 |
+
+任务中断后重启时使用 `group_offsets` 恢复；需要从头重放全量数据时使用 `earliest`。
+
+### 如何按 Kafka 消息 key 过滤同一 topic 中的消息？
+
+将 `format` 设为 `"NATIVE"` 可以把 Kafka 原始元数据（包括 `key` 字段）作为记录的一部分暴露出来。再用 SQL Transform 保留所需 key 值的消息：
+
+```hocon
+source {
+  Kafka {
+    topic = "events"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "my-group"
+  }
+}
+transform {
+  Sql {
+    plugin_input = "kafka_source"
+    plugin_output = "filtered"
+    query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
+  }
+}
+```
+
+注意：NATIVE 格式中 `key` 字段为 base64 编码的字节数组。
+
+### Kafka Source 支持哪些消息格式？
+
+支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
+
+### 如何配置 SASL/Kerberos 认证？
+
+通过 `kafka.*` 属性传入认证参数：
+
+```hocon
+source {
+  Kafka {
+    bootstrap.servers = "broker:9092"
+    topic = "secure-topic"
+    consumer.group = "my-group"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### 消费组 offset 是如何提交的？
+
+SeaTunnel 在 checkpoint 完成时向 Kafka 提交 offset。需在 `env` 块中通过 `checkpoint.interval` 开启 checkpoint。使用 `start_mode = "group_offsets"` 重启任务时，将从上次 checkpoint 提交的 offset 恢复消费。
 
 ## 变更日志
 

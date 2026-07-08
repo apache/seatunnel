@@ -70,7 +70,7 @@ It only supports hadoop version **2.9.X+**.
 | access_key                 | string  | yes      | -                   | The access key of obs file system                                                                                                                                                    |
 | access_secret              | string  | yes      | -                   | The access secret of obs file system                                                                                                                                                 |
 | endpoint                   | string  | yes      | -                   | The endpoint of obs file system                                                                                                                                                      |
-| read_columns               | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
+| read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
 | delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                                                                                         |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
@@ -86,6 +86,8 @@ It only supports hadoop version **2.9.X+**.
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                               |
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                          |
+| recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                              |
+| sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### Tips
 
@@ -145,15 +147,11 @@ It only supports hadoop version **2.9.X+**.
 >
 > If you assign file type to `json`, you should also assign schema option to tell the connector how to parse data to the row you want.
 >
-> For example,upstream data is the following:
+> For example, upstream data is the following:
 >
 > ```json
->
+> {"code": 200, "data": "get success", "success": true}
 > ```
-
-{"code":  200, "data":  "get success", "success":  true}
-
-```
 
 > You can also save multiple pieces of data in one file and split them by one newline:
 
@@ -237,6 +235,15 @@ schema {
 > - `parent_id`: ID of the parent element
 > - `child_ids`: Comma-separated list of child element IDs
 >
+> When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+> - `source_uri`: Source file path or URI
+> - `document_id`: Stable document identifier derived from `source_uri`
+> - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+> - `chunk_index`: One-based chunk order in the parsed document
+> - `content_hash`: SHA-256 hash of the emitted `text` value
+>
+> The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+>
 > Note: Markdown format only supports reading, not writing.
 
 #### <span id="schema"> schema  </span>
@@ -263,6 +270,14 @@ schema {
 #### <span id="common_options "> common options </span>
 
 > Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+#### <span id="sort_files_by_modification_time"> sort_files_by_modification_time </span>
+
+> Whether to sort files by modification time in descending order. Default is `false`.
+>
+> When enabled, files will be sorted by their modification time (newest first). This is useful when:
+> - Reading files with evolving schemas and you want schema inference to use the latest file
+> - You need to process files in chronological order
 
 ## Task Example
 
@@ -372,4 +387,3 @@ schema {
 ## Changelog
 
 <ChangeLog />
-

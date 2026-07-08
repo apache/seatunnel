@@ -24,16 +24,21 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 /** Exception for all errors occurring during option validation phase. */
 public class OptionValidationException extends SeaTunnelRuntimeException {
 
+    private final String rawMessage;
+
     public OptionValidationException(String message, Throwable cause) {
         super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message, cause);
+        this.rawMessage = message;
     }
 
     public OptionValidationException(String message) {
         super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message);
+        this.rawMessage = message;
     }
 
     public OptionValidationException(String formatMessage, Object... args) {
         super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format(formatMessage, args));
+        this.rawMessage = String.format(formatMessage, args);
     }
 
     public OptionValidationException(Option<?> option) {
@@ -42,5 +47,17 @@ public class OptionValidationException extends SeaTunnelRuntimeException {
                 String.format(
                         "The option(\"%s\")  is incorrectly configured, please refer to the doc: %s",
                         option.key(), option.getDescription()));
+        this.rawMessage =
+                String.format(
+                        "The option(\"%s\")  is incorrectly configured, please refer to the doc: %s",
+                        option.key(), option.getDescription());
+    }
+
+    /**
+     * Returns the raw validation message without the ErrorCode prefix. Use this instead of parsing
+     * {@link #getMessage()} to avoid coupling to the error code format.
+     */
+    public String getRawMessage() {
+        return rawMessage;
     }
 }

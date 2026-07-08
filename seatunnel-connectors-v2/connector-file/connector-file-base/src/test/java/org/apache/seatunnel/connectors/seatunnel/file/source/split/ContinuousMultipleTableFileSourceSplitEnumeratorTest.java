@@ -43,9 +43,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -382,7 +385,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
         config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
         config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
-        config.put(FileBaseSourceOptions.SCAN_INTERVAL.key(), "0S");
+        config.put(FileBaseSourceOptions.SCAN_INTERVAL.key(), Duration.ZERO);
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
 
@@ -421,8 +424,91 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 "continuous mode should require a positive scan_interval");
     }
 
+    @Test
+    void testContinuousDiscoveryWithNonRecursiveFileScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src_recursive_disabled"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst_recursive_disabled"));
+        Path rootFile = srcDir.resolve("root.bin");
+        Path nestedFile = Files.createDirectories(srcDir.resolve("nested")).resolve("nested.bin");
+        Files.write(rootFile, "abc".getBytes());
+        Files.write(nestedFile, "def".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir, false);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    1, enumeratorWithContext.enumerator.currentUnassignedSplitSize());
+
+            List<String> filePaths = assignAndCaptureFilePaths(enumeratorWithContext);
+            Assertions.assertEquals(1, filePaths.size());
+            Assertions.assertTrue(filePaths.get(0).endsWith(rootFile.toString()));
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testContinuousDiscoveryWithDefaultRecursiveFileScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src_recursive_default"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst_recursive_default"));
+        Path rootFile = srcDir.resolve("root.bin");
+        Path nestedFile = Files.createDirectories(srcDir.resolve("nested")).resolve("nested.bin");
+        Files.write(rootFile, "abc".getBytes());
+        Files.write(nestedFile, "def".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    2, enumeratorWithContext.enumerator.currentUnassignedSplitSize());
+
+            List<String> filePaths = assignAndCaptureFilePaths(enumeratorWithContext);
+            Assertions.assertTrue(
+                    filePaths.stream().anyMatch(path -> path.endsWith(rootFile.toString())));
+            Assertions.assertTrue(
+                    filePaths.stream().anyMatch(path -> path.endsWith(nestedFile.toString())));
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testContinuousDiscoveryWithRecursiveFileScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src_recursive_enabled"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst_recursive_enabled"));
+        Path rootFile = srcDir.resolve("root.bin");
+        Path nestedFile = Files.createDirectories(srcDir.resolve("nested")).resolve("nested.bin");
+        Files.write(rootFile, "abc".getBytes());
+        Files.write(nestedFile, "def".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir, true);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    2, enumeratorWithContext.enumerator.currentUnassignedSplitSize());
+
+            List<String> filePaths = assignAndCaptureFilePaths(enumeratorWithContext);
+            Assertions.assertTrue(
+                    filePaths.stream().anyMatch(path -> path.endsWith(rootFile.toString())));
+            Assertions.assertTrue(
+                    filePaths.stream().anyMatch(path -> path.endsWith(nestedFile.toString())));
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
     private EnumeratorWithContext createEnumerator(Path srcDir, Path dstDir) throws IOException {
         return createEnumerator(srcDir, dstDir, "earliest");
+    }
+
+    private EnumeratorWithContext createEnumerator(
+            Path srcDir, Path dstDir, boolean recursiveFileScan) throws IOException {
+        return createEnumerator(
+                srcDir,
+                dstDir,
+                "earliest",
+                new FileSourceState(Collections.emptySet()),
+                recursiveFileScan);
     }
 
     private EnumeratorWithContext createEnumerator(Path srcDir, Path dstDir, String startMode)
@@ -434,6 +520,16 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     private EnumeratorWithContext createEnumerator(
             Path srcDir, Path dstDir, String startMode, FileSourceState checkpointState)
             throws IOException {
+        return createEnumerator(srcDir, dstDir, startMode, checkpointState, null);
+    }
+
+    private EnumeratorWithContext createEnumerator(
+            Path srcDir,
+            Path dstDir,
+            String startMode,
+            FileSourceState checkpointState,
+            Boolean recursiveFileScan)
+            throws IOException {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
         config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "binary");
@@ -443,6 +539,9 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
         config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
         config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+        if (recursiveFileScan != null) {
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), recursiveFileScan);
+        }
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
 
@@ -476,6 +575,19 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                         new DefaultFileSplitStrategy(),
                         checkpointState);
         return new EnumeratorWithContext(enumerator, context);
+    }
+
+    private static List<String> assignAndCaptureFilePaths(
+            EnumeratorWithContext enumeratorWithContext) {
+        enumeratorWithContext.enumerator.handleSplitRequest(0);
+        ArgumentCaptor<java.util.List<FileSourceSplit>> splitsCaptor =
+                ArgumentCaptor.forClass((Class) java.util.List.class);
+        Mockito.verify(enumeratorWithContext.context)
+                .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+        return splitsCaptor.getValue().stream()
+                .map(FileSourceSplit::getFilePath)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     private static final class EnumeratorWithContext {

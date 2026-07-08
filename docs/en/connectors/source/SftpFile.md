@@ -83,7 +83,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | host                       | String  | Yes      | -                             | The target sftp host is required                                                                                                                                                                                                                                                                                                                                                |
 | port                       | Int     | Yes      | -                             | The target sftp port is required                                                                                                                                                                                                                                                                                                                                                |
 | user                       | String  | Yes      | -                             | The target sftp username is required                                                                                                                                                                                                                                                                                                                                            |
-| password                   | String  | Yes      | -                             | The target sftp password is required                                                                                                                                                                                                                                                                                                                                            |
+| password                   | String  | No       | -                             | The target sftp password. Required when `keyfile` is not set.                                                                                                                                                                                                                                                                                                                   |
+| keyfile                    | String  | No       | -                             | The private key file path used for SFTP public key authentication.                                                                                                                                                                                                                                                                                                              |
 | path                       | String  | Yes      | -                             | The source file path.                                                                                                                                                                                                                                                                                                                                                           |
 | file_format_type           | String  | Yes      | -                             | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
@@ -121,6 +122,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | quote_char                 | string  | no       | "                             | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                          |
 | escape_char                | string  | no       | -                             | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                     |
 | metalake_type              | string  | no       | gravitino                    | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                                                                                              |
+| recursive_file_scan        | boolean | no       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                         |
+| sort_files_by_modification_time | boolean | no       | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_filter_pattern [string]
 
@@ -258,6 +261,15 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
+When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
 Note: Markdown format only supports reading, not writing.
 
 ### compress_codec [string]
@@ -369,23 +381,34 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
+
 ### schema [config]
 
 #### fields [Config]
 
 The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
-### metalake_type [string]
-
-The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
-
-For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 
 ## How to Create a Sftp Data Synchronization Jobs
 

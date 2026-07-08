@@ -4,27 +4,35 @@ import ChangeLog from '../changelog/connector-assert.md';
 
 > Assert sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> Seatunnel Zeta<br/>
+
 ## Description
 
-A sink plugin which can assert illegal data by user defined rules
+Assert is a sink connector used to validate pipeline output. It checks row count, field type, field value, and catalog table metadata by user-defined rules. If the actual data does not match the rules, the job fails.
 
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
 | Name                                                                                           | Type                                            | Required | Default |
 |------------------------------------------------------------------------------------------------|-------------------------------------------------|----------|---------|
 | rules                                                                                          | ConfigMap                                       | yes      | -       |
-| rules.field_rules                                                                              | string                                          | yes      | -       |
+| rules.field_rules                                                                              | ConfigList                                      | no       | -       |
 | rules.field_rules.field_name                                                                   | string\|ConfigMap                               | yes      | -       |
 | rules.field_rules.field_type                                                                   | string                                          | no       | -       |
 | rules.field_rules.field_value                                                                  | ConfigList                                      | no       | -       |
 | rules.field_rules.field_value.rule_type                                                        | string                                          | no       | -       |
 | rules.field_rules.field_value.rule_value                                                       | numeric                                         | no       | -       |
 | rules.field_rules.field_value.equals_to                                                        | boolean\|numeric\|string\|ConfigList\|ConfigMap | no       | -       |
-| rules.row_rules                                                                                | string                                          | yes      | -       |
+| rules.row_rules                                                                                | ConfigList                                      | no       | -       |
 | rules.row_rules.rule_type                                                                      | string                                          | no       | -       |
 | rules.row_rules.rule_value                                                                     | string                                          | no       | -       |
 | rules.catalog_table_rule                                                                       | ConfigMap                                       | no       | -       |
@@ -47,15 +55,18 @@ A sink plugin which can assert illegal data by user defined rules
 | rules.table-names                                                                              | ConfigList                                      | no       | -       |
 | rules.tables_configs                                                                           | ConfigList                                      | no       | -       |
 | rules.tables_configs.table_path                                                                | String                                          | no       | -       |
+| multi_table_sink_replica                                                                       | int                                             | no       | -       |
 | common-options                                                                                 |                                                 | no       | -       |
+
+Only `rules` is required by the connector. The nested rule blocks are optional, but at least one meaningful rule should be configured; otherwise the sink has nothing to validate.
 
 ### rules [ConfigMap]
 
-Rule definition of user's available data.  Each rule represents one field validation or row num validation.
+Rule definition of expected data. Each rule represents a field validation, row count validation, table-name validation, or catalog table validation.
 
 ### field_rules [ConfigList]
 
-field rules for field validation
+Field rules for field validation. Use this block when you need to check field type, nullability, value range, string length, or exact value.
 
 ### field_name [string]
 
@@ -95,28 +106,39 @@ The value related to rule type. When the `rule_type` is `MIN`, `MAX`, `MIN_LENGT
 
 ### catalog_table_rule [ConfigMap]
 
-Used to assert the catalog table is same with the user defined table.
+Used to assert that the actual catalog table metadata is the same as the user-defined table metadata.
 
 ### table-names [ConfigList]
 
-Used to assert the table should be in the data.
+Used to assert that the listed table names exist in the input data.
 
 ### tables_configs [ConfigList]
 
-Used to assert the multiple tables should be in the data.
+Used to define different assertion rules for multiple input tables. Each item should include a `table_path`.
 
 ### table_path [String]
 
 The path of the table.
 
+### multi_table_sink_replica [int]
+
+The replica number used by the multi-table sink common option. Configure it only when the job needs more than one sink replica per table.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
+### Rule Matching Notes
+
+- `row_rules` checks the number of rows received by the Assert sink.
+- `field_rules` checks field values in every received row.
+- `tables_configs` is used for multi-table jobs. The `table_path` value must match the table path carried by the upstream source.
+- `equals_to` compares the actual field value with the configured expected value. For complex values such as array, map, and row, use the same HOCON value shape as the source data.
+
 ## Example
 
 ### Simple
-the whole config obey with `hocon` style
+The following example validates that a pipeline outputs between 5 and 100 rows, and that the selected fields follow the expected rules.
 
 ```hocon
 Assert {
@@ -496,9 +518,9 @@ sink{
 }
 ```
 
-### Assert Multiple Tables 
+### Assert Multiple Tables
 
-check multiple tables
+The following example validates two tables in one job. Each table has its own row count and field rules.
 
 ```hocon
 env {

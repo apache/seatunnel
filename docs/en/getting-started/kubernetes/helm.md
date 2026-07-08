@@ -41,6 +41,21 @@ Install with another namespace.
 helm install seatunnel . -n <your namespace>
 ```
 
+For managed Kubernetes services, keep provider-specific changes in a separate values file and pass it with `-f`, for example:
+
+```bash
+helm install seatunnel . -n <your namespace> -f values-eks.yaml
+```
+
+Common managed-cluster values to review include:
+
+- image repository and `imagePullSecrets` for ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or an OpenShift internal registry
+- ServiceAccount, RBAC, and OpenShift SecurityContextConstraint requirements for the target namespace
+- Service or Ingress annotations for the provider load balancer, subnet, certificate, and internal/external exposure model
+- object storage or PersistentVolume settings for checkpoint and state paths
+- resource requests, limits, node selectors, tolerations, and affinity rules for the node pools that should run SeaTunnel pods
+- log and metrics collection settings for the provider monitoring stack
+
 ## Submit Job
 
 The default config doesn't enable ingress, so you need forward the master restapi.

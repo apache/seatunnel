@@ -22,7 +22,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum MqttConnectorErrorCode implements SeaTunnelErrorCode {
     CONNECTION_FAILED("MQTT-01", "MQTT connection failed"),
     PUBLISH_FAILED("MQTT-02", "MQTT message publish failed"),
-    INVALID_CONFIG("MQTT-03", "Invalid MQTT configuration");
+    INVALID_CONFIG("MQTT-03", "Invalid MQTT configuration"),
+    RECEIVE_FAILED("MQTT-04", "MQTT message receive failed");
 
     private final String code;
     private final String description;
