@@ -53,6 +53,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OUTPUT_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.buildConnectionNamespacePrefix;
 
 public class MongodbRecordUtils {
 
@@ -194,9 +195,7 @@ public class MongodbRecordUtils {
 
     public static @Nonnull Map<String, String> createPartitionMap(
             String hosts, String database, String collection) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("mongodb://");
-        builder.append(hosts);
+        StringBuilder builder = new StringBuilder(buildConnectionNamespacePrefix(hosts));
         builder.append("/");
         if (StringUtils.isNotEmpty(database)) {
             builder.append(database);
@@ -209,7 +208,7 @@ public class MongodbRecordUtils {
     }
 
     public static @Nonnull Map<String, Object> createHeartbeatPartitionMap(String hosts) {
-        String builder = "mongodb://" + hosts + "/" + "__mongodb_heartbeats";
+        String builder = buildConnectionNamespacePrefix(hosts) + "/" + "__mongodb_heartbeats";
         return Collections.singletonMap(NS_FIELD, builder);
     }
 

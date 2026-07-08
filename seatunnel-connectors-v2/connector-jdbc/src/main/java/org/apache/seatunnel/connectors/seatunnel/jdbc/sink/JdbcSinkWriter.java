@@ -24,10 +24,12 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -95,8 +97,19 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
         }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
+        applyConnectionValidation(ds, jdbcSinkConfig.getJdbcConnectionConfig());
         jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
+    }
+
+    /**
+     * Configures pool-level validation for JDBC drivers that cannot pass Hikari's default
+     * Connection.isValid(timeout) probe.
+     */
+    static void applyConnectionValidation(
+            HikariDataSource dataSource, JdbcConnectionConfig jdbcConnectionConfig) {
+        JdbcConnectionValidationUtils.getConnectionValidationQuery(jdbcConnectionConfig)
+                .ifPresent(dataSource::setConnectionTestQuery);
     }
 
     @Override

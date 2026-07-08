@@ -156,15 +156,13 @@ public class PostgresDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String uniqueColumns =
-                Arrays.stream(uniqueKeyFields)
-                        .map(this::quoteIdentifier)
-                        .collect(Collectors.joining(", "));
-        final Set<String> uniqueKeyFieldsSet = new HashSet<>(Arrays.asList(uniqueKeyFields));
+                Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(", "));
+        final Set<String> pkNamesSet = new HashSet<>(Arrays.asList(pkNames));
         String updateClause =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !uniqueKeyFieldsSet.contains(fieldName))
+                        .filter(fieldName -> !pkNamesSet.contains(fieldName))
                         .map(
                                 fieldName ->
                                         quoteIdentifier(fieldName)

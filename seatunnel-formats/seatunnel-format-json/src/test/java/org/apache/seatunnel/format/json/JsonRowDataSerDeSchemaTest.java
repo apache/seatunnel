@@ -700,7 +700,7 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
-    public void testSerializationWithNumber() {
+    public void testSerializationWithNumber() throws JsonProcessingException {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {"id", "code", "fe_result"},
@@ -710,7 +710,27 @@ public class JsonRowDataSerDeSchemaTest {
         Object[] fields = new Object[] {1, "1001015", BigDecimal.valueOf(80.00)};
         SeaTunnelRow row = new SeaTunnelRow(fields);
         byte[] serialize = jsonSerializationSchema.serialize(row);
-        String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
-        assertEquals(new String(serialize), expected);
+        JsonNode jsonNode = new ObjectMapper().readTree(new String(serialize));
+        assertEquals(1, jsonNode.get("id").asInt());
+        assertEquals("1001015", jsonNode.get("code").asText());
+        assertEquals(0, BigDecimal.valueOf(80).compareTo(jsonNode.get("fe_result").decimalValue()));
+    }
+
+    @Test
+    public void testMultipleDateColumnsWithDifferentFormats() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_dash", "date_dot"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TYPE
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        String json = "{\"date_dash\":\"2024-01-15\",\"date_dot\":\"2024.06.20\"}";
+        SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
+
+        assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
+        assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
     }
 }

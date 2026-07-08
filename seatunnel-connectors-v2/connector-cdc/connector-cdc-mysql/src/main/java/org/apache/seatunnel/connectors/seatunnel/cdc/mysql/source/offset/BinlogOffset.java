@@ -141,9 +141,14 @@ public class BinlogOffset extends Offset {
                 GtidSet gtidSet = new GtidSet(gtidSetStr);
                 GtidSet targetGtidSet = new GtidSet(targetGtidSetStr);
                 if (gtidSet.equals(targetGtidSet)) {
-                    long restartSkipEvents = this.getRestartSkipEvents();
-                    long targetRestartSkipEvents = that.getRestartSkipEvents();
-                    return Long.compare(restartSkipEvents, targetRestartSkipEvents);
+                    // Same GTID set means both offsets are within the same transaction
+                    // boundary, so ordering must also consider per-event and per-row progress.
+                    int eventCompare =
+                            Long.compare(this.getRestartSkipEvents(), that.getRestartSkipEvents());
+                    if (eventCompare != 0) {
+                        return eventCompare;
+                    }
+                    return Long.compare(this.getRestartSkipRows(), that.getRestartSkipRows());
                 }
                 // The GTIDs are not an exact match, so figure out if this is a subset of the target
                 // offset

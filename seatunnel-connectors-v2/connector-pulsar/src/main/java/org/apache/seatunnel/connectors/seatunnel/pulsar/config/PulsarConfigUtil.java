@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
@@ -77,6 +78,23 @@ public class PulsarConfigUtil {
         } catch (PulsarClientException e) {
             throw new PulsarConnectorException(
                     PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
+        }
+    }
+
+    /**
+     * Runs a Pulsar action with the connector classloader as the thread context classloader.
+     *
+     * <p>Pulsar and its shaded Netty/Jersey stack can lazily resolve implementation classes while
+     * closing clients, consumers, producers, and admins. SeaTunnel may call connector close methods
+     * from engine threads whose context classloader no longer points to the Pulsar connector, so
+     * the cleanup action must restore the connector classloader instead of preloading
+     * version-specific Pulsar private classes.
+     */
+    public static void runWithConnectorClassLoader(ConnectorClassLoaderAction action)
+            throws Exception {
+        try (TemporaryClassLoaderContext ignored =
+                TemporaryClassLoaderContext.of(PulsarConfigUtil.class.getClassLoader())) {
+            action.run();
         }
     }
 
@@ -197,5 +215,17 @@ public class PulsarConfigUtil {
             Producer<byte[]> producer, TransactionImpl transaction) throws PulsarClientException {
         ProducerBase<byte[]> producerBase = (ProducerBase<byte[]>) producer;
         return new TypedMessageBuilderImpl<byte[]>(producerBase, Schema.BYTES, transaction);
+    }
+
+    /** Action that may throw while running under the Pulsar connector classloader. */
+    @FunctionalInterface
+    public interface ConnectorClassLoaderAction {
+
+        /**
+         * Executes the action.
+         *
+         * @throws Exception when the wrapped Pulsar operation fails
+         */
+        void run() throws Exception;
     }
 }

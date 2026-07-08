@@ -71,8 +71,7 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                         });
 
         // waiting for JOB_1 status turn to FINISHED
-        await().pollDelay(5, TimeUnit.SECONDS)
-                .atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             List<JobStatusData> jobStatusData = listJob();

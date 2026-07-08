@@ -8,14 +8,14 @@ Slot分配策略是SeaTunnel Engine的一个重要组成部分，它决定了Sea
 
 **配置方法：**
 
-设置参数`slot-allocation-strategy`, 可选值有`RANDOM`, `SYSTEM_LOAD`, `SLOT_RATIO`。
+设置参数`slot-allocate-strategy`, 可选值有`RANDOM`, `SYSTEM_LOAD`, `SLOT_RATIO`。
 
 例：
 ```yaml
 seatunnel:
   engine:
     slot-service:
-      slot-allocation-strategy: RANDOM
+      slot-allocate-strategy: RANDOM
 ...
 ```
 

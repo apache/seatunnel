@@ -22,7 +22,7 @@ Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal:
 
 ```shell
-export version="2.3.13"
+export version="3.0.0"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -35,10 +35,10 @@ Starting from version 2.2.0-beta, the binary package no longer provides connecto
 sh bin/install-plugin.sh
 ```
 
-If you need a specific connector version, taking 2.3.13 as an example, you need to execute the following command:
+If you need a specific connector version, taking 3.0.0 as an example, you need to execute the following command:
 
 ```bash
-sh bin/install-plugin.sh 2.3.13
+sh bin/install-plugin.sh 3.0.0
 ```
 
 Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin_config` configuration file as follows:
@@ -71,7 +71,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 cd seatunnel
 sh ./mvnw clean install -DskipTests -Dskip.spotless=true
 # get the binary package
-cp seatunnel-dist/target/apache-seatunnel-2.3.13-bin.tar.gz /The-Path-You-Want-To-Copy
+cp seatunnel-dist/target/apache-seatunnel-3.0.0-bin.tar.gz /The-Path-You-Want-To-Copy
 
 cd /The-Path-You-Want-To-Copy
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
@@ -82,6 +82,13 @@ When built from the source code, all the connector plugins and some necessary de
 # Run SeaTunnel
 
 Now you have downloaded the SeaTunnel binary package and the connector plugins. Next, you can choose different engine option to run synchronization tasks.
+
+:::tip
+
+If you are new to SeaTunnel, start with [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md).
+It is the default engine and usually the shortest path to a successful first run.
+
+:::
 
 If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start With Flink](quick-start-flink.md) to run your synchronization task.
 

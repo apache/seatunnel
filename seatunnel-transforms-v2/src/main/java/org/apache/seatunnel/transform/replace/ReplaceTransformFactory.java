@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.replace;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -30,23 +31,22 @@ import com.google.auto.service.AutoService;
 public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Replace";
+        return ReplaceTransform.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
-                        ReplaceTransformConfig.KEY_REPLACE_FIELD,
-                        ReplaceTransformConfig.KEY_PATTERN,
-                        ReplaceTransformConfig.KEY_REPLACEMENT)
+                .required(
+                        ReplaceTransformConfig.KEY_REPLACE_FIELDS,
+                        Conditions.notEmpty(ReplaceTransformConfig.KEY_REPLACE_FIELDS))
+                .required(ReplaceTransformConfig.KEY_PATTERN)
+                .required(ReplaceTransformConfig.KEY_REPLACEMENT)
                 .optional(ReplaceTransformConfig.KEY_IS_REGEX)
-                .conditional(
-                        ReplaceTransformConfig.KEY_IS_REGEX,
-                        true,
-                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                .optional(ReplaceTransformConfig.KEY_REPLACE_FIRST)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

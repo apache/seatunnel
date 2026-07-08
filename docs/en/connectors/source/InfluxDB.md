@@ -6,7 +6,8 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ## Description
 
-Read external data source data through InfluxDB.
+Read data from InfluxDB 1.x by using an InfluxQL query. The connector supports a normal single
+query and an optional parallel scan mode that splits one query by an integer column range.
 
 ## Key features
 
@@ -18,26 +19,27 @@ Read external data source data through InfluxDB.
 supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-|        name        |  type  | required | default value |
-|--------------------|--------|----------|---------------|
-| url                | string | yes      | -             |
-| sql                | string | yes      | -             |
-| schema             | config | yes      | -             |
-| database           | string | yes      |               |
-| username           | string | no       | -             |
-| password           | string | no       | -             |
-| lower_bound        | long   | no       | -             |
-| upper_bound        | long   | no       | -             |
-| partition_num      | int    | no       | -             |
-| split_column       | string | no       | -             |
-| epoch              | string | no       | n             |
-| connect_timeout_ms | long   | no       | 15000         |
-| query_timeout_sec  | int    | no       | 3             |
-| common-options     | config | no       | -             |
+| name               | type   | required | default value | description                                                                                      |
+|--------------------|--------|----------|---------------|--------------------------------------------------------------------------------------------------|
+| url                | string | yes      | -             | InfluxDB server URL, for example `http://influxdb-host:8086`.                                    |
+| sql                | string | yes      | -             | InfluxQL query used to read data.                                                                |
+| schema             | config | yes      | -             | Output schema returned by the source.                                                            |
+| database           | string | yes      | -             | InfluxDB database name.                                                                          |
+| username           | string | no       | -             | InfluxDB username. It must be configured together with `password`.                               |
+| password           | string | no       | -             | InfluxDB password. It must be configured together with `username`.                               |
+| lower_bound        | int    | no       | -             | Lower bound of `split_column` when parallel scan is enabled.                                      |
+| upper_bound        | int    | no       | -             | Upper bound of `split_column` when parallel scan is enabled.                                      |
+| partition_num      | int    | no       | 0             | Number of query splits. `0` means the source runs the original `sql` as one split.                |
+| split_column       | string | no       | -             | Integer column used to split the query when parallel scan is enabled.                             |
+| where              | string | no       | -             | Reserved source option. The current split logic reads the lowercase `where` keyword from `sql` directly. |
+| epoch              | string | no       | n             | Time precision returned by InfluxDB. For example: `H`, `m`, `s`, `MS`, `u`, `n`.                 |
+| connect_timeout_ms | long   | no       | 15000         | Timeout for connecting to InfluxDB, in milliseconds.                                             |
+| query_timeout_sec  | int    | no       | 3             | Timeout for querying InfluxDB, in seconds.                                                       |
+| common-options     | config | no       | -             | Source plugin common options.                                                                    |
 
 ### url
 
@@ -85,18 +87,20 @@ the password of the influxDB when you select
 
 ### split_column [string]
 
-the `split_column` of the influxDB when you select
+The column used to split one query into multiple range queries.
 
 > Tips:
 > - influxDB tags is not supported as a segmented primary key because the type of tags can only be a string
 > - influxDB time is not supported as a segmented primary key because the time field cannot participate in mathematical calculation
 > - Currently, `split_column` only supports integer data segmentation, and does not support `float`, `string`, `date` and other types.
+> - `split_column`, `lower_bound`, `upper_bound`, and `partition_num` must be configured together.
+> - If the split query contains a filter, use lowercase `where` in `sql`, for example `select * from test where age > 0`. The current split parser is case-sensitive.
 
-### upper_bound [long]
+### upper_bound [int]
 
 upper bound of the `split_column`column
 
-### lower_bound [long]
+### lower_bound [int]
 
 lower bound of the `split_column` column
 
@@ -142,50 +146,113 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Examples
 
-Example of multi parallelism and multi partition scanning
+### Read With Parallel Range Splits
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
 source {
 
     InfluxDB {
         url = "http://influxdb-host:8086"
-        sql = "select label, value, rt, time from test"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
         database = "test"
-        upper_bound = 100
-        lower_bound = 1
+        upper_bound = 99
+        lower_bound = 0
         partition_num = 4
-        split_column = "value"
+        split_column = "c_int"
         schema {
             fields {
                 label = STRING
-                value = INT
-                rt = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
                 time = BIGINT
             }
+        }
     }
 
 }
 
+sink {
+    Console {}
+}
 ```
 
-Example of not using partition scan
+### Read Without Parallel Range Splits
 
 ```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
 source {
 
     InfluxDB {
         url = "http://influxdb-host:8086"
-        sql = "select label, value, rt, time from test"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
         database = "test"
         schema {
             fields {
                 label = STRING
-                value = INT
-                rt = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
                 time = BIGINT
             }
+        }
     }
 
+}
+
+sink {
+    Console {}
+}
+```
+
+### Read With InfluxQL Time Zone
+
+```hocon
+env {
+    parallelism = 1
+    job.mode = "BATCH"
+}
+
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source tz('Asia/Shanghai')"
+        database = "test"
+        schema {
+            fields {
+                label = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
+                time = BIGINT
+            }
+        }
+    }
+}
+
+sink {
+    Console {}
 }
 ```
 

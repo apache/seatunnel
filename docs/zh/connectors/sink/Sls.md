@@ -2,59 +2,61 @@ import ChangeLog from '../changelog/connector-sls.md';
 
 # Sls
 
-> Sls sink connector
+> Sls Sink 连接器
 
-## Support Those Engines
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-Sink connector for Aliyun Sls.
-
-从写入数据到阿里云Sls日志服务
-
-为了使用Sls连接器，需要以下依赖关系。
-它们可以通过install-plugin.sh或Maven中央存储库下载。
-
-| Datasource | Supported Versions | Maven                                                                             |
-|------------|--------------------|-----------------------------------------------------------------------------------|
-| Sls        | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-sls) |
+Sls sink 连接器用于把 SeaTunnel 数据写入阿里云日志服务 SLS。每条 SeaTunnel 数据会先序列化为
+JSON，然后作为 SLS 日志项写入，日志内容的 key 为 `content`。
 
 ## 支持的数据源信息
 
-|                Name                 | Type     | Required | Default           | Description                                                                                                                        |
-|-------------------------------------|----------|----------|-------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| project                             | String   | Yes      | -                 | [阿里云 Sls 项目](https://help.aliyun.com/zh/sls/user-guide/manage-a-project?spm=a2c4g.11186623.0.0.6f9755ebyfaYSl)                     |
-| logstore                            | String   | Yes      | -                 | [阿里云 Sls 日志库](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore?spm=a2c4g.11186623.0.0.13137c08nfuiBC)                   |
-| endpoint                            | String   | Yes      | -                 | [阿里云访问服务点](https://help.aliyun.com/zh/sls/developer-reference/api-sls-2020-12-30-endpoint?spm=a2c4g.11186623.0.0.548945a8UyJULa)   |
-| access_key_id                       | String   | Yes      | -                 | [阿里云访问用户ID](https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#task-2245479) |
-| access_key_secret                   | String   | Yes      | -                 | [阿里云访问用户密码](https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#task-2245479) |
-| source                              | String   | No       | SeaTunnel-Source  | 在sls中数据来源标记                                                                                                                        |
-| topic                               | String   | No       | SeaTunnel-Topic   | 在sls中数据主题标记                                                                                                                        |
+使用 Sls 连接器前，需要通过 `install-plugin.sh` 或 Maven 中央仓库获取以下依赖。
+
+| 数据源 | 支持版本      | Maven                                                                             |
+|--------|---------------|-----------------------------------------------------------------------------------|
+| Sls    | Universal     | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-sls) |
+
+## Sink 选项
+
+| 名称              | 类型   | 是否必填 | 默认值             | 描述                                                                                                   |
+|-------------------|--------|----------|--------------------|--------------------------------------------------------------------------------------------------------|
+| endpoint          | String | 是       | -                  | 阿里云 SLS 访问地址，例如 `cn-hangzhou.log.aliyuncs.com` 或内网访问地址。                              |
+| project           | String | 是       | -                  | [阿里云 SLS Project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project)。                      |
+| logstore          | String | 是       | -                  | [阿里云 SLS Logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore)。                    |
+| access_key_id     | String | 是       | -                  | 阿里云 AccessKey ID。                                                                                  |
+| access_key_secret | String | 是       | -                  | 阿里云 AccessKey Secret。                                                                              |
+| source            | String | 否       | `SeaTunnel-Source` | 写入 SLS log group 的 source 标记。                                                                    |
+| topic             | String | 否       | `SeaTunnel-Topic`  | 写入 SLS log group 的 topic 标记。                                                                     |
+
+## 注意事项
+
+- 配置的 RAM 用户需要有向目标 project 和 logstore 写入日志的权限。
+- sink 在收到数据时立即写入，不提供精确一次提交语义。
+- 不要在日志或任务说明里打印 `access_key_secret`。
 
 ## 任务示例
 
-### 简单示例
-
-> 此示例写入sls的logstore1的数据。如果您尚未安装和部署SeaTunnel，则需要按照安装SeaTunnel中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../Start-v2/locale/Quick-Start SeaTunnel Engine.md)中的说明运行此作业。
-
-[创建RAM用户及授权](https://help.aliyun.com/zh/sls/create-a-ram-user-and-authorize-the-ram-user-to-access-log-service?spm=a2c4g.11186623.0.i4), 请确认RAM用户有足够的权限来读取及管理数据，参考：[RAM自定义授权示例](https://help.aliyun.com/zh/sls/use-custom-policies-to-grant-permissions-to-a-ram-user?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#reference-s3z-m1l-z2b)
+### 写入数据到 SLS
 
 ```hocon
-# Defining the runtime environment
 env {
-  parallelism = 2
-  job.mode = "STREAMING"
-  checkpoint.interval = 30000
+  parallelism = 1
+  job.mode = "BATCH"
 }
+
 source {
   FakeSource {
     row.num = 10
@@ -64,10 +66,10 @@ source {
     string.length = 10
     schema = {
       fields = {
-            id = "int"
-            name = "string"
-            description = "string"
-            weight = "string"
+        id = "int"
+        name = "string"
+        description = "string"
+        weight = "string"
       }
     }
   }
@@ -80,6 +82,8 @@ sink {
     logstore = "logstore1"
     access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    source = "seatunnel-demo"
+    topic = "fake-source"
   }
 }
 ```

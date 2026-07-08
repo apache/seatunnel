@@ -16,10 +16,11 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Description
 
-Sink connector for Apache Iceberg. It can support cdc mode 、auto create table and table schema evolution.
+Sink connector for Apache Iceberg. It supports CDC writes, automatic table creation, table schema evolution, and multi-table write jobs.
 
 ## Key features
 
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
@@ -66,11 +67,11 @@ libfb303-xxx.jar
 | catalog_name                           | string  | yes      | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                         |
 | namespace                              | string  | yes      | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                    |
 | table                                  | string  | yes      | -                            | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                            |
-| iceberg.catalog.config                 | map     | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:"https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java"                                                                                                              |
+| iceberg.catalog.config                 | map     | yes      | -                            | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file: [CatalogProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java)                                                                                                              |
 | hadoop.config                          | map     | no       | -                            | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                     |
 | iceberg.hadoop-conf-path               | string  | no       | -                            | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                              |
 | case_sensitive                         | boolean | no       | false                        | If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.                                                                                                                                                                                          |
-| iceberg.table.write-props              | map     | no       | -                            | Properties passed through to Iceberg writer initialization, these take precedence, such as 'write.format.default', 'write.target-file-size-bytes', and other settings, can be found with specific parameters at 'https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java'. |
+| iceberg.table.write-props              | map     | no       | -                            | Properties passed through to Iceberg writer initialization, these take precedence, such as 'write.format.default', 'write.target-file-size-bytes', and other settings, can be found with specific parameters at [TableProperties.java](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/TableProperties.java). |
 | iceberg.table.auto-create-props        | map     | no       | -                            | Configuration specified by Iceberg during automatic table creation.                                                                                                                                                                                                                                                       |
 | iceberg.table.schema-evolution-enabled | boolean | no       | false                        | Setting to true enables Iceberg tables to support schema evolution during the synchronization process                                                                                                                                                                                                                     |
 | iceberg.table.primary-keys             | string  | no       | -                            | Default comma-separated list of columns that identify a row in tables (primary key)                                                                                                                                                                                                                                       |
@@ -80,6 +81,36 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
 | custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| multi_table_sink_replica               | int     | no       | -                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
+| krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
+
+## Sink Option descriptions
+
+### iceberg.table.upsert-mode-enabled [boolean]
+
+When this option is `true`, `iceberg.table.primary-keys` must be configured explicitly. The sink does not inherit primary keys from the source table automatically.
+
+### iceberg.table.partition-keys [string]
+
+Use a comma-separated list, for example `dt,region` or Iceberg transforms such as `days(ts)`. In multi-table jobs, `${partition_keys}` can be used as a placeholder from the upstream table metadata.
+
+### iceberg.table.commit-branch [string]
+
+Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### krb5_path [string]
+
+The path of `krb5.conf`, used for Kerberos authentication.
+
+### kerberos_principal [string]
+
+The principal for Kerberos authentication.
+
+### kerberos_keytab_path [string]
+
+The keytab file path for Kerberos authentication.
 
 ## Task Example
 
@@ -179,6 +210,23 @@ sink {
 }
 ```
 
+### Commit To Iceberg Branch
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.commit-branch = "audit_branch"
+  }
+}
+```
+
 ### Glue Catalog
 
 ```hocon
@@ -233,6 +281,42 @@ sink {
   }
 }
 ```
+
+### Kerberos Authentication
+
+The following example demonstrates how to configure Iceberg sink with Kerberos authentication when using Hadoop catalog with HDFS:
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+Description:
+
+- `krb5_path`: The path to the `krb5.conf` file used for Kerberos authentication.
+- `kerberos_principal`: The principal for Kerberos authentication in the format `primary/instance@REALM`.
+- `kerberos_keytab_path`: The keytab file path for Kerberos authentication.
 
 ### Multiple table
 

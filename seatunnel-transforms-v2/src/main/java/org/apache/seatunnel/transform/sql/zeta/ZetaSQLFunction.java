@@ -96,6 +96,8 @@ public class ZetaSQLFunction {
     public static final String CONCAT_WS = "CONCAT_WS";
     public static final String HEXTORAW = "HEXTORAW";
     public static final String RAWTOHEX = "RAWTOHEX";
+    public static final String TO_BASE64 = "TO_BASE64";
+    public static final String FROM_BASE64 = "FROM_BASE64";
     public static final String INSERT = "INSERT";
     public static final String LOWER = "LOWER";
     public static final String LCASE = "LCASE";
@@ -225,13 +227,30 @@ public class ZetaSQLFunction {
     private final ZetaSQLFilter zetaSQLFilter;
 
     private final List<ZetaUDF> udfList;
+    private final ZetaUDFContext udfContext;
 
     public ZetaSQLFunction(
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
+        this(inputRowType, zetaSQLType, udfList, null);
+    }
+
+    public ZetaSQLFunction(
+            SeaTunnelRowType inputRowType,
+            ZetaSQLType zetaSQLType,
+            List<ZetaUDF> udfList,
+            ZetaUDFContext udfContext) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
         this.zetaSQLFilter = new ZetaSQLFilter(this, zetaSQLType);
         this.udfList = udfList;
+        this.udfContext = udfContext;
+    }
+
+    public void updateUDFContext(Object[] fields, SeaTunnelRow row) {
+        if (udfContext == null) {
+            return;
+        }
+        udfContext.update(fields, row);
     }
 
     public Object computeForValue(Expression expression, Object[] inputFields) {
@@ -458,6 +477,10 @@ public class ZetaSQLFunction {
                 return StringFunction.hextoraw(args);
             case RAWTOHEX:
                 return StringFunction.rawtohex(args);
+            case TO_BASE64:
+                return StringFunction.toBase64(args);
+            case FROM_BASE64:
+                return StringFunction.fromBase64(args);
             case INSERT:
                 return StringFunction.insert(args);
             case LOWER:
@@ -648,6 +671,9 @@ public class ZetaSQLFunction {
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {
+                        if (udf.requiresContext() && udfContext != null) {
+                            return udf.evaluateWithContext(args, udfContext);
+                        }
                         return udf.evaluate(args);
                     }
                 }
@@ -847,6 +873,7 @@ public class ZetaSQLFunction {
             } else if (expression instanceof Function) {
                 List<SeaTunnelRow> next = new ArrayList<>();
                 for (SeaTunnelRow row : seaTunnelRows) {
+                    updateUDFContext(row.getFields(), row);
                     Object splitFieldValue = computeForValue(expression, row.getFields());
                     transformExplodeValue(
                             splitFieldValue,

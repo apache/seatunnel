@@ -108,16 +108,16 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     @SneakyThrows
     private int generateTestDataSet() {
         int rowCount;
+        waitForDatabaseReady(connection1, "CREATE DATABASE power KEEP 3650");
         try (Statement stmt = connection1.createStatement()) {
-            stmt.execute("CREATE DATABASE power KEEP 3650");
             stmt.execute(
                     "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
             String sql = getSQL();
             rowCount = stmt.executeUpdate(sql);
         }
+        waitForDatabaseReady(connection2, "CREATE DATABASE power2 KEEP 3650");
         try (Statement stmt = connection2.createStatement()) {
-            stmt.execute("CREATE DATABASE power2 KEEP 3650");
             stmt.execute(
                     "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
@@ -134,13 +134,31 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                     "CREATE STABLE power2.meters4 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
+        waitForDatabaseReady(connection2, "CREATE DATABASE power3 KEEP 3650");
         try (Statement stmt = connection2.createStatement()) {
-            stmt.execute("CREATE DATABASE power3 KEEP 3650");
             stmt.execute(
                     "CREATE STABLE power3.meters5 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
         return rowCount;
+    }
+
+    /**
+     * Waits for TDengine dnode to be fully online before creating the database. The REST adapter
+     * (port 6041) may accept connections before the dnode registers with the management node,
+     * causing "Out of dnodes" errors on CREATE DATABASE.
+     */
+    private void waitForDatabaseReady(Connection connection, String createDbSql) {
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement stmt = connection.createStatement()) {
+                                stmt.execute(createDbSql);
+                            }
+                        });
     }
 
     @TestTemplate

@@ -18,12 +18,16 @@
 package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -36,7 +40,9 @@ import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.PASS
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.BENODES;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DIRECT_TO_BE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
@@ -48,6 +54,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
 
+@Slf4j
 @Setter
 @Getter
 @ToString
@@ -55,6 +62,7 @@ public class DorisSinkConfig implements Serializable {
 
     // common option
     private String frontends;
+    private String backends;
     private String database;
     private String table;
     private String username;
@@ -71,6 +79,7 @@ public class DorisSinkConfig implements Serializable {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private boolean directToBe;
     private boolean needsUnsupportedTypeCasting;
     private boolean caseSensitive;
 
@@ -81,12 +90,18 @@ public class DorisSinkConfig implements Serializable {
         return of(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
+    public static void validate(ReadonlyConfig config) {
+        validateDirectWriteOptions(
+                config.get(DIRECT_TO_BE), config.getOptional(BENODES).orElse(null), false);
+    }
+
     public static DorisSinkConfig of(ReadonlyConfig config) {
 
         DorisSinkConfig dorisSinkConfig = new DorisSinkConfig();
 
         // common option
         dorisSinkConfig.setFrontends(config.get(FENODES));
+        dorisSinkConfig.setBackends(config.getOptional(BENODES).orElse(null));
         dorisSinkConfig.setUsername(config.get(USERNAME));
         dorisSinkConfig.setPassword(config.get(PASSWORD));
         dorisSinkConfig.setQueryPort(config.get(QUERY_PORT));
@@ -103,10 +118,13 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
+        dorisSinkConfig.setDirectToBe(config.get(DIRECT_TO_BE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
         dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
+        validateDirectWriteOptions(
+                dorisSinkConfig.isDirectToBe(), dorisSinkConfig.getBackends(), true);
 
         return dorisSinkConfig;
     }
@@ -121,5 +139,17 @@ public class DorisSinkConfig implements Serializable {
                     });
         }
         return streamLoadProps;
+    }
+
+    private static void validateDirectWriteOptions(
+            boolean directToBe, String backends, boolean logInactiveBenodes) {
+        if (directToBe && StringUtils.isBlank(backends)) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'benodes' must be configured when 'direct_to_be=true'.");
+        }
+        if (logInactiveBenodes && !directToBe && StringUtils.isNotBlank(backends)) {
+            log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
+        }
     }
 }

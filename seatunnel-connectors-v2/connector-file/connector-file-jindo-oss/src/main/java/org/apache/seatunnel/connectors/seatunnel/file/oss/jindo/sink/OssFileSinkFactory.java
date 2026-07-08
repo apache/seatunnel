@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -109,5 +111,10 @@ public class OssFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new OssFileSink(context.getOptions(), context.getCatalogTable());
     }
 }

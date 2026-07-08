@@ -1,9 +1,17 @@
 # 常见问题解答
 
+## 遇到问题时，应该去哪里获取帮助并加入社区？
+建议优先从这些入口进入：
+
+- 问题跟踪：[GitHub Issues](https://github.com/apache/seatunnel/issues)
+- 长线程讨论：[dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- 稳定贡献入口：[贡献路径](./developer/contribution-path.md)
+- 贡献者入门：[开发环境搭建](./developer/setup.md) 与 [贡献插件](./developer/contribute-plugin.md)
+
 ## SeaTunnel 支持哪些数据来源和数据目的地？
 SeaTunnel 支持多种数据源来源和数据目的地，您可以在官网找到详细的列表：
-SeaTunnel 支持的数据来源(Source)列表：https://seatunnel.apache.org/docs/connector-v2/source
-SeaTunnel 支持的数据目的地(Sink)列表：https://seatunnel.apache.org/docs/connector-v2/sink
+SeaTunnel 支持的数据来源(Source)列表：[Source List](./connectors/source)
+SeaTunnel 支持的数据目的地(Sink)列表：[Sink List](./connectors/sink)
 
 ## SeaTunnel 是否支持批处理和流处理？
 SeaTunnel 支持批流一体，SeaTunnel 可以设置批处理和流处理两种模式。您可以根据具体的业务场景和需求选择合适的处理模式。批处理适合定时数据同步场景，而流处理适合实时同步和数据变更捕获 (CDC) 场景。
@@ -13,7 +21,7 @@ Spark 和 Flink 不是必需的，SeaTunnel 可以支持 Zeta、Spark 和 Flink 
 社区对 Zeta 的支持力度是最大的，功能也更丰富。
 
 ## SeaTunnel 支持的数据转换功能有哪些？
-SeaTunnel 支持多种数据转换功能，包括字段映射、数据过滤、数据格式转换等。可以通过在配置文件中定义 `transform` 模块来实现数据转换。详情请参考 SeaTunnel [Transform 文档](https://seatunnel.apache.org/docs/transform-v2)。
+SeaTunnel 支持多种数据转换功能，包括字段映射、数据过滤、数据格式转换等。可以通过在配置文件中定义 `transform` 模块来实现数据转换。详情请参考 SeaTunnel [Transform 文档](./transforms)。
 
 ## SeaTunnel 是否可以自定义数据清洗规则？
 SeaTunnel 支持自定义数据清洗规则。可以在 `transform` 模块中配置自定义规则，例如清理脏数据、删除无效记录或字段转换。
@@ -22,7 +30,7 @@ SeaTunnel 支持自定义数据清洗规则。可以在 `transform` 模块中配
 SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据库的增量同步，适用于需要实时捕获数据变更的场景。
 
 ## SeaTunnel 目前支持哪些数据源的 CDC ？
-目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](https://seatunnel.apache.org/docs/connector-v2/source)。
+目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](./connectors/source)。
 
 ## SeaTunnel CDC 同步需要的权限如何开启？
 这样就可以了。
@@ -43,7 +51,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`CREATE_SCHEMA_WHEN_NOT_EXIST`**：当表不存在时会创建，若表已存在则跳过创建。
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**：当表不存在时会报错。
 - **`IGNORE`**：忽略对表的处理。
-  目前很多 connector 已经支持了自动建表，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc#schema_save_mode-enum)
+  目前很多 connector 已经支持了自动建表，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](./connectors/sink/Jdbc.md#schema_save_mode-enum)
 
 ## SeaTunnel 是否支持数据同步任务开始前对已有数据进行处理？
 在同步任务启动之前，可以为目标端已有的数据选择不同的处理方案。是通过 `data_save_mode` 参数来控制的。
@@ -52,7 +60,9 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`APPEND_DATA`**：保留数据库结构，保留数据。
 - **`CUSTOM_PROCESSING`**：用户自定义处理。
 - **`ERROR_WHEN_DATA_EXISTS`**：当存在数据时，报错。
-  目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc#data_save_mode-enum)
+
+  目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum)
+  注意：对于 JDBC sink，当 sink 配置了 `query`（自定义写入 SQL）时，当前不会执行 save mode 处理，因此 `CUSTOM_PROCESSING`/`custom_sql` 不会生效。
 
 ## SeaTunnel 是否支持精确一致性管理？
 SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、PostgreSQL 等数据库的事务写入，确保数据在同步过程中的一致性，另外精确一致性也要看数据库本身是否可以支持
@@ -89,7 +99,7 @@ $SEATUNNEL_HOME/bin/seatunnel.sh \
 -i date=20231110
 ```
 
-您可以使用参数“-i”或“--variable”后跟“key=value”来指定变量的值，其中key需要与配置中的变量名称相同。详情可以参考：https://seatunnel.apache.org/docs/concept/config
+您可以使用参数“-i”或“--variable”后跟“key=value”来指定变量的值，其中key需要与配置中的变量名称相同。详情可以参考：[配置概念](./introduction/concepts/config.md)
 
 ## 如何在配置文件中写入多行文本的配置项？
 当配置的文本很长并且想要将其换行时，您可以使用三个双引号来指示其开始和结束：
@@ -121,6 +131,4 @@ SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码�
 
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？
 不需要，您只需要关注 source、sink、transform 对应的接口即可。
-如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)** 。
-
-
+如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](../../seatunnel-connectors-v2/README.zh.md)** 。

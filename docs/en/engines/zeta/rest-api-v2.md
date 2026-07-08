@@ -5,10 +5,31 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 
 ## Overview
 
-The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
-, you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
-you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is enabled,
-If enable-dynamic-port is true, We will use the unused port in the range within the range of `port` and `port` + `port-range`, default range is 100
+The v2 API and the Web UI are both served by the embedded Jetty server. Jetty starts only when
+`seatunnel.engine.http.enable-http = true` or `enable-https = true`.
+
+There are two different "default" sources that are easy to mix up:
+
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`
+- The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
+
+As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
+listen on `http://<host>:8080/`. If you build a minimal config yourself, rely on code defaults, or
+remove `enable-http`, Jetty will not start by default.
+
+Use the following configuration for a fixed port:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+```
+
+If you want Jetty to choose the first free port between `port` and `port + port-range`, enable
+dynamic ports explicitly:
 
 ```yaml
 
@@ -21,7 +42,7 @@ seatunnel:
       port-range: 100
 ```
 
-Context-path can also be configured as follows:
+`context-path` can also be configured as follows:
 
 ```yaml
 
@@ -33,11 +54,162 @@ seatunnel:
       context-path: /seatunnel
 ```
 
+## Web UI and Port 8080 Troubleshooting
+
+- If `http://<host>:8080/` is unreachable, first check whether `seatunnel.engine.http.enable-http` or `enable-https` is actually enabled. The `network.rest-api.enabled` setting in `hazelcast.yaml` does not replace the Jetty switch.
+- If `enable-dynamic-port = true`, the actual listening port may not be 8080. Jetty will choose the first available port between `port` and `port + port-range`. Use the startup log `SeaTunnel REST service will start on port xxx` as the source of truth.
+- If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
+- The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
+
 ## Enable HTTPS
 
 Please refer [security](security.md)
 
 ## API reference
+
+### Get Connector Option Rules
+
+<details>
+ <summary><code>GET</code> <code><b>/option-rules?type=source&plugin=FakeSource</b></code> <code>(Returns the full runtime OptionRule metadata of a connector.)</code></summary>
+
+#### Parameters
+
+> |  name  |   type   | data type |                            description                             |
+> |--------|----------|-----------|--------------------------------------------------------------------|
+> | type   | required | string    | plugin type, supports `source`, `sink` and `transform`             |
+> | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
+
+#### Responses
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "compareOperator": null,
+            "compareOption": null,
+            "conditionOperator": "EQUAL",
+            "conditionOperatorCategory": "EQUALITY",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": [],
+    "valueConstraints": [
+      {
+        "expression": "'row.num' >= 1",
+        "conditionTree": {
+          "option": {
+            "key": "row.num",
+            "type": "java.lang.Integer",
+            "defaultValue": 5,
+            "description": "The total number of data generated per degree of parallelism",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": 1,
+          "compareOperator": ">=",
+          "compareOption": null,
+          "conditionOperator": "GREATER_OR_EQUAL",
+          "conditionOperatorCategory": "NUMERIC",
+          "operator": null,
+          "next": null
+        }
+      },
+      {
+        "expression": "'port' must be between 1 and 65535",
+        "conditionTree": {
+          "option": {
+            "key": "port",
+            "type": "java.lang.Integer",
+            "defaultValue": null,
+            "description": "Server port",
+            "fallbackKeys": [],
+            "optionValues": null
+          },
+          "expectValue": "must be between 1 and 65535",
+          "compareOperator": "extension",
+          "compareOption": null,
+          "conditionOperator": "EXTENSION",
+          "conditionOperatorCategory": "EXTENSION",
+          "operator": null,
+          "next": null
+        }
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- The response is resolved from runtime plugin discovery, so it follows the connector version installed on the server.
+- `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
+- `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
+- For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+- `optionRule.valueConstraints` describes value-level validation rules such as numeric ranges, string patterns, and cross-field comparisons. Each entry provides a human-readable `expression` string alongside a structured `conditionTree` for programmatic use. This array is empty when the connector does not define any value constraints.
+- Within `conditionTree`, the `compareOperator` field is `null` for `EQUAL` and otherwise uses the operator symbol exposed by the runtime rule (for example `>=`, `is not blank`, or `extension`). The `compareOption` field is populated only for cross-field comparisons.
+- `conditionOperator` is a stable operator identifier. Possible values include `EQUAL`, `GREATER_OR_EQUAL`, `NOT_BLANK`, `FIELD_LESS_THAN`, `EXTENSION`, etc. `conditionOperatorCategory` indicates the operator category, such as `NUMERIC`, `STRING`, `COLLECTION`, `EQUALITY`, `EXTENSION`, etc.
+- For `EXTENSION` conditions, `expectValue` carries the rule description text returned by `ConditionExtension.description()`.
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### Returns an overview over the Zeta engine cluster.
 
@@ -597,6 +769,8 @@ When we can't get the job info, the response will be:
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
+**Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
+
 #### Body
 
 You can choose json, hocon or sql to pass request body.
@@ -858,14 +1032,24 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stopped successfully.)</code></summary>
+
+#### Parameters
+
+> | name                | required | data type | description                                                      |
+> |---------------------|----------|-----------|------------------------------------------------------------------|
+> | jobId               | yes      | long      | job id                                                           |
+> | isStopWithSavePoint | no       | boolean   | If the job is stopped with a savepoint.                          |
+> | force               | no       | boolean   | If true, the job is force-stopped (ignores isStopWithSavePoint). |
+
 
 #### Body
 
 ```json
 {
-    "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+  "jobId": 733584788375666689,
+  "isStopWithSavePoint": false,
+  "force": false
 }
 ```
 
@@ -876,6 +1060,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 "jobId": 733584788375666689
 }
 ```
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 </details>
 
@@ -891,11 +1079,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```
@@ -920,7 +1110,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 #### Body
 
@@ -1294,3 +1484,107 @@ Checkpoint metadata fields:
 | --- | --- |
 | `pipelineId` | ID of the pipeline to which the record belongs. |
 | `checkpoint` | Checkpoint metadata described above. |
+
+------------------------------------------------------------------------------------------
+
+### Get Job Realtime Observability Metrics
+
+These APIs are used by the Web UI realtime metrics view. They do not depend on Telemetry and do not write historical data to disk. The master only keeps recent in-memory buckets.
+
+See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs</b></code> <code>(List realtime metric state and window information for running jobs.)</code></summary>
+
+#### Response
+
+```json
+{
+  "jobs": [
+    {
+      "jobId": 12345,
+      "enabled": true,
+      "bucketMs": 5000,
+      "retentionMinutes": 3,
+      "latestBucketStartMs": 1700000000000
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(Return Source/Transform/Sink vertex time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "vertices": [
+    {
+      "vertexId": 1,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "sourceReadRatio": 0.12,
+          "sourceIdleRatio": 0.45,
+          "transformBusyRatio": 0.00,
+          "sinkBusyRatio": 0.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+Ratio fields are in the range `0~1` and can be displayed as percentages. Fields that do not apply to a vertex type may be `0`.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(Return queue/edge downstream wait ratio and queue fill ratio time series.)</code></summary>
+
+#### Query Parameters
+
+| Name | Required | Type | Description |
+| --- | --- | --- | --- |
+| `windowMs` | No | long | Query window in milliseconds. Defaults to 3 minutes and is capped at 10 minutes. |
+
+#### Response Structure
+
+```json
+{
+  "enabled": true,
+  "bucketMs": 5000,
+  "fromMs": 1700000000000,
+  "toMs": 1700000600000,
+  "edges": [
+    {
+      "queueId": -101,
+      "targetVertexId": 50,
+      "points": [
+        {
+          "ts": 1700000550000,
+          "bpRatio": 0.78,
+          "queueFillRatio": 0.92,
+          "queueSize": 46,
+          "queueCapacity": 50
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>

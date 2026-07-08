@@ -39,7 +39,6 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSer
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -89,10 +88,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
-        if (pluginConfig.get(ASSIGN_PARTITIONS) != null
-                && !CollectionUtils.isEmpty(pluginConfig.get(ASSIGN_PARTITIONS))) {
-            MessageContentPartitioner.setAssignPartitions(pluginConfig.get(ASSIGN_PARTITIONS));
-        }
 
         if (pluginConfig.get(TRANSACTION_PREFIX) != null) {
             this.transactionPrefix = pluginConfig.get(TRANSACTION_PREFIX);
@@ -169,6 +164,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             kafkaProperties.put(
                     ProducerConfig.PARTITIONER_CLASS_CONFIG,
                     "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
+            kafkaProperties.put(
+                    MessageContentPartitioner.ASSIGN_PARTITIONS_CONFIG,
+                    pluginConfig.get(ASSIGN_PARTITIONS));
         }
 
         kafkaProperties.put(
