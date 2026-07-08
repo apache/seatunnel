@@ -36,7 +36,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 
 | 数据源     | 支持版本  | 依赖 |
 |------------|-----------|------|
-| Prometheus | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
+| Prometheus | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## 接收器选项
 
