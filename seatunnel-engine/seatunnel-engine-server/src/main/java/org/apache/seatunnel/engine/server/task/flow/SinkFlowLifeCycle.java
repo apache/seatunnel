@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -119,6 +120,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     /** Mapping relationship between upstream TablePath and downstream TablePath. */
     private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+
+    /**
+     * Ensures sink DDL runs only after the schema-change-before checkpoint has drained old rows.
+     */
+    private final SchemaChangeDrainGuard schemaChangeDrainGuard = new SchemaChangeDrainGuard();
 
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
@@ -277,6 +283,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     }
                 }
                 runningTask.ack(barrier);
+                schemaChangeDrainGuard.checkpointBarrierHandled(barrier);
 
                 log.debug(
                         "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
@@ -288,6 +295,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
+                schemaChangeDrainGuard.checkSchemaChangeCanApply(event);
                 if (writer instanceof SupportSchemaEvolutionSinkWriter) {
                     ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
                 } else {
@@ -367,6 +375,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        notifyCheckpointComplete(checkpointId, null);
+    }
+
+    /**
+     * Commits sink committables and updates the schema-change drain guard with checkpoint type.
+     *
+     * @param checkpointId completed checkpoint id
+     * @param checkpointType completed checkpoint type
+     * @throws Exception if committing sink committables fails
+     */
+    @Override
+    public void notifyCheckpointComplete(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             long commitStartNs = metricsEnabled ? System.nanoTime() : 0L;
@@ -376,10 +397,24 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
+        schemaChangeDrainGuard.checkpointCompleted(checkpointId, checkpointType);
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        notifyCheckpointAborted(checkpointId, null);
+    }
+
+    /**
+     * Aborts sink committables and clears schema-change drain state for aborted schema checkpoints.
+     *
+     * @param checkpointId aborted checkpoint id
+     * @param checkpointType aborted checkpoint type
+     * @throws Exception if aborting sink committables fails
+     */
+    @Override
+    public void notifyCheckpointAborted(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             long abortStartNs = metricsEnabled ? System.nanoTime() : 0L;
@@ -389,6 +424,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
+        schemaChangeDrainGuard.checkpointAborted(checkpointId, checkpointType);
     }
 
     @Override
