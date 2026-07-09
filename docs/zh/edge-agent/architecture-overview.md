@@ -96,6 +96,15 @@ flowchart LR
   claimSend --> tcpBatch
   tcpBatch --> received
   received --> walAcked
+
+  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+  class readLocal,memBatch,posStore layerCyan;
+  class walPending,claimSend,walAcked layerBlue;
+  class tcpBatch,received layerPurple;
+  linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 控制面（配置加载、插件选择、启停生命周期）在启动与关闭时执行；上图热路径为数据面。
@@ -117,6 +126,7 @@ flowchart LR
 ### 3.1 启动与关闭
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "sequenceNumberColor": "#f8fbff"}}}%%
 sequenceDiagram
     participant Process as AgentProcess
     participant Config as ConfigLoader
@@ -209,6 +219,7 @@ ACK 属于认证阶段；RECEIVED 属于批次接入阶段，也是唯一会将 
 batchId 是线上使用的 WAL 行 batch_id（`__BATCH__:<batchId>:...`），由 edge_agent_meta.next_batch_id 分配并在该 Agent 数据库内单调递增；它不是 WAL 行主键 id。
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "sequenceNumberColor": "#f8fbff"}}}%%
 sequenceDiagram
     participant Scheduler as SchedulerLoop
     participant Queue as OutboundQueue

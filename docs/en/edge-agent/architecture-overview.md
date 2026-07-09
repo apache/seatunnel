@@ -96,6 +96,15 @@ flowchart LR
   claimSend --> tcpBatch
   tcpBatch --> received
   received --> walAcked
+
+  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+  class readLocal,memBatch,posStore layerCyan;
+  class walPending,claimSend,walAcked layerBlue;
+  class tcpBatch,received layerPurple;
+  linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Control plane (configuration load, plugin selection, lifecycle start/stop) runs once at startup and on shutdown; the hot path above is the data plane.
@@ -117,6 +126,7 @@ Distribution packaging is produced by seatunnel-dist edge-agent assemblies; see 
 ### 3.1 Startup and Shutdown
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "sequenceNumberColor": "#f8fbff"}}}%%
 sequenceDiagram
     participant Process as AgentProcess
     participant Config as ConfigLoader
@@ -209,6 +219,7 @@ ACK belongs to authentication. RECEIVED belongs to batch ingest and is the only 
 batchId is the WAL row batch_id used on the wire (`__BATCH__:<batchId>:...`), allocated from edge_agent_meta.next_batch_id and monotonic for that agent database. It is not the WAL row primary key id.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "sequenceNumberColor": "#f8fbff"}}}%%
 sequenceDiagram
     participant Scheduler as SchedulerLoop
     participant Queue as OutboundQueue
