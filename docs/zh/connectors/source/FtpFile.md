@@ -83,6 +83,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | target_hadoop_conf          | map     | 否    | -                   |
 | update_strategy             | string  | 否    | distcp              |
 | compare_mode                | string  | 否    | len_mtime           |
+| post_sync_action            | string  | 否    | none                |
+| backup_path                 | string  | 否    | -                   |
+| retention_max_age           | string  | 否    | -                   |
+| retention_check_interval    | string  | 否    | 1H                  |
 | common-options              |         | 否    | -                   |
 | file_filter_modified_start  | string  | 否    | -                   | 
 | file_filter_modified_end    | string  | 否    | -                   | 
@@ -503,6 +507,35 @@ compare_mode = "len_mtime"
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
 
+### post_sync_action [string]
+
+仅在 `discovery_mode=continuous` 时使用。支持：`none`（默认）、`delete`、`backup`。当 `discovery_mode=once` 时，若配置 `post_sync_action=delete` 或 `post_sync_action=backup`，会在配置校验阶段被显式拒绝。
+
+- `none`：默认行为，不对源文件执行运维动作。
+- `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
+- `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
+
+执行 `delete` 或 `backup` 前，SeaTunnel 会重新检查读取 split 时记录的源文件长度和修改时间；如果当前文件版本不一致，会跳过该后置动作，让变更后的文件在后续扫描中再次被发现。
+
+### backup_path [string]
+
+仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+
+`backup_path` 不能与 `path` 相同，不能位于 `path` 之下，`path` 也不能位于 `backup_path` 之下。建议使用专用备份目录，因为保留清理只会管理带 SeaTunnel 版本后缀的备份文件。
+
+### retention_max_age [string]
+
+`backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
+仅在 `post_sync_action=backup` 时有效。
+
+支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
+
+### retention_check_interval [string]
+
+保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
+
+支持的时长格式与 `retention_max_age` 相同，例如 `1H` 或 `PT30M`。
+
 ### file_filter_modified_start
 
 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
@@ -698,7 +731,7 @@ sink {
 
 `discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
 
-**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。phase-1 暂不在 FTP 暴露 post-sync delete/backup/retention，因为 FTP 的 rename/delete 语义需要连接器专属 e2e 覆盖。
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
 
 ```hocon
 env {
@@ -724,6 +757,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 sink {

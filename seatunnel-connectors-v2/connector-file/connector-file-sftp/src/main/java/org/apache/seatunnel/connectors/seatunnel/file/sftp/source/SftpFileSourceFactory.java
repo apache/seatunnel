@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpFileSourceOptions;
@@ -106,10 +107,19 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,
                         FileBaseSourceOptions.COMPARE_MODE)
+                .optional(
+                        FileBaseSourceOptions.POST_SYNC_ACTION,
+                        FileBaseSourceOptions.BACKUP_PATH,
+                        FileBaseSourceOptions.RETENTION_MAX_AGE,
+                        FileBaseSourceOptions.RETENTION_CHECK_INTERVAL)
                 .conditional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         FileBaseSourceOptions.TARGET_PATH)
+                .conditional(
+                        FileBaseSourceOptions.POST_SYNC_ACTION,
+                        FilePostSyncAction.BACKUP,
+                        FileBaseSourceOptions.BACKUP_PATH)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }

@@ -437,7 +437,7 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     public void testHdfsContinuousBackupRetentionCleanup(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
-        putHdfsFile("/continuous/backup/retention-old.bin", "abc");
+        putHdfsFile("/continuous/backup/retention-old.bin.v3_123456", "abc");
 
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
@@ -457,7 +457,8 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () ->
                                 Assertions.assertFalse(
-                                        hdfsFileExists("/continuous/backup/retention-old.bin"),
+                                        hdfsFileExists(
+                                                "/continuous/backup/retention-old.bin.v3_123456"),
                                         "retention should remove expired backup files"));
 
         cancelContinuousJob(container, jobId, jobFuture);

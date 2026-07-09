@@ -677,7 +677,7 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileContinuousBackupRetentionCleanup(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
-        putLocalFile("/tmp/seatunnel/continuous/backup/retention-old.bin", "abc");
+        putLocalFile("/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456", "abc");
 
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture =
@@ -699,7 +699,7 @@ public class LocalFileIT extends TestSuiteBase {
                                 Assertions.assertEquals(
                                         0L,
                                         countLocalFiles(
-                                                "/tmp/seatunnel/continuous/backup", "*.bin"),
+                                                "/tmp/seatunnel/continuous/backup", "*.bin.v*"),
                                         "retention should remove expired backup files"));
 
         cancelContinuousJob(container, jobId, jobFuture);
