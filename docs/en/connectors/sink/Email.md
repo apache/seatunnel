@@ -6,13 +6,14 @@ import ChangeLog from '../changelog/connector-email.md';
 
 ## Description
 
-Send the data as a file to email.
+Send the received rows as an attachment file to one or more email addresses.
 
 The tested email version is 1.5.6.
 
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -24,11 +25,12 @@ The tested email version is 1.5.6.
 | email_transport_protocol | string  | yes      | -             |
 | email_smtp_auth          | boolean | yes      | -             |
 | email_smtp_port          | int     | no       | 465           |
-| email_authorization_code | string  | no       | -             |
+| email_authorization_code | string  | yes      | -             |
 | email_message_headline   | string  | yes      | -             |
 | email_message_content    | string  | yes      | -             |
 | email_attachment_name    | string  | no       | emailsink.csv |
 | email_field_delimiter    | string  | no       | ,             |
+| multi_table_sink_replica | int     | no       | 1             |
 | common-options           |         | no       | -             |
 
 ### email_from_address [string]
@@ -38,6 +40,8 @@ Sender Email Address.
 ### email_to_address [string]
 
 Address to receive mail, Support multiple email addresses, separated by commas (,).
+
+Example: `receiver-1@example.com,receiver-2@example.com`.
 
 ### email_host [string]
 
@@ -57,7 +61,10 @@ Select port for authentication.
 
 ### email_authorization_code [string]
 
-authorization code,You can obtain the authorization code from the mailbox Settings.
+Authorization code or password. You can obtain the authorization code from the mailbox settings.
+
+This option is required by the connector configuration. When `email_smtp_auth = false`, it can be
+set to an empty string.
 
 ### email_message_headline [string]
 
@@ -69,11 +76,25 @@ The body of the entire message.
 
 ### email_attachment_name [string]
 
-The name of the email attachment file. Default is `emailsink.csv`.
+The name of the email attachment file. Default is `emailsink.csv`. The connector writes the rows to
+this local file before sending the email.
 
 ### email_field_delimiter [string]
 
 The delimiter used to separate fields in the attachment file. Default is comma `,`.
+
+The attachment has no header row. Field values are written in the upstream schema order. `null`
+values are written as empty strings.
+
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. The default value
+is `1`.
+
+### Empty input behavior
+
+The sink sends an email only after at least one row is written. If the upstream table has no rows,
+the email is skipped.
 
 ### common options
 
@@ -81,24 +102,110 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Example
 
-```bash
+### Send one table to multiple recipients
 
- EmailSink {
-      email_from_address = "xxxxxx@qq.com"
-      email_to_address = "xxxxxx@163.com"
-      email_host="smtp.qq.com"
-      email_transport_protocol="smtp"
-      email_smtp_auth="true"
-      email_authorization_code=""
-      email_message_headline=""
-      email_message_content=""
-      email_attachment_name="report.csv"  # Optional, default is emailsink.csv
-      email_field_delimiter="|"           # Optional, default is ,
-   }
+This example uses an SMTP server without authentication and sends one email whose recipient list is
+defined by `email_to_address`.
 
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        row.num = 100
+        schema = {
+          table = "test.table1"
+          columns = [
+            {
+              name = "id"
+              type = "bigint"
+            },
+            {
+              name = "name"
+              type = "string"
+            },
+            {
+              name = "age"
+              type = "int"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  EmailSink {
+    email_from_address = "sender@example.com"
+    email_to_address = "receiver-1@example.com,receiver-2@example.com"
+    email_host = "smtp.example.com"
+    email_transport_protocol = "smtp"
+    email_smtp_auth = false
+    email_smtp_port = 3025
+    email_authorization_code = ""
+    email_message_headline = "test-title"
+    email_message_content = "test-content"
+    email_attachment_name = "report.csv"
+    email_field_delimiter = "|"
+  }
+}
+```
+
+### Send multiple tables
+
+Email sink supports multi-table input. Two upstream tables create two emails for each recipient.
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        row.num = 100
+        schema {
+          table = "test.table1"
+          fields {
+            id = bigint
+            name = string
+            age = int
+          }
+        }
+      },
+      {
+        row.num = 100
+        schema {
+          table = "test.table2"
+          fields {
+            id = bigint
+            name = string
+            age = int
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  EmailSink {
+    email_from_address = "sender@example.com"
+    email_to_address = "receiver-3@example.com,receiver-4@example.com"
+    email_host = "smtp.example.com"
+    email_transport_protocol = "smtp"
+    email_smtp_auth = false
+    email_smtp_port = 3025
+    email_authorization_code = ""
+    email_message_headline = "test-title"
+    email_message_content = "test-content"
+  }
+}
 ```
 
 ## Changelog
 
 <ChangeLog />
-

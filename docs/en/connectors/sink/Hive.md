@@ -42,10 +42,11 @@ By default, we use 2PC commit to ensure `exactly-once`
 | hive_site_path                        | string  | no       | -              |
 | hive.hadoop.conf                      | Map     | no       | -              |
 | hive.hadoop.conf-path                 | string  | no       | -              |
+| remote_user                           | string  | no       | -              |
 | krb5_path                             | string  | no       | /etc/krb5.conf |
 | kerberos_principal                    | string  | no       | -              |
 | kerberos_keytab_path                  | string  | no       | -              |
-| abort_drop_partition_metadata         | boolean | no       | true           |
+| abort_drop_partition_metadata         | boolean | no       | false          |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
 | data_save_mode                        | enum    | no       | APPEND_DATA    |
@@ -77,6 +78,10 @@ Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
 
 The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
+### remote_user [string]
+
+Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.
+
 ### krb5_path [string]
 
 The path of `krb5.conf`, used to authentication kerberos
@@ -94,6 +99,8 @@ The keytab path of kerberos
 ### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+The default value is `false`.
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -115,6 +122,8 @@ Select how to handle existing data on the target before writing new data.
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
 
 Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
+
+For batch jobs, use either `overwrite = true` or `data_save_mode = "DROP_DATA"` when the target Hive table should be replaced by the current run. For normal append jobs, keep the default `data_save_mode = "APPEND_DATA"`.
 
 ### schema_save_mode [enum]
 
