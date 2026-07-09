@@ -47,6 +47,12 @@ Agent 首先发送 `__AUTH__:<token>`。常见响应：
 | REJECTED | 重复采集端或策略冲突 | 快速失败，不自动重连 — 检查是否多个 Agent 连同一监听 |
 | AUTH_FAILED | 密钥不一致 | 对齐 YAML 与作业配置后重启 |
 
+:::note ACK 与 RECEIVED
+
+ACK 仅表示认证成功。WAL 行在收到批次响应 RECEIVED 前保持 SENDING；只有 RECEIVED 会将该 WAL 行标记为 ACKED。
+
+:::
+
 线路细节见 [EdgeSocket Source](../connectors/source/EdgeSocket.md)。
 
 ## RAW 与 PACKET
@@ -68,7 +74,7 @@ compression、encryption 仅在 packet-mode: PACKET 时生效。RAW 模式下 YA
 
 | 响应 | Agent 处理 |
 |------|------------|
-| RECEIVED | 出站队列行确认 |
+| RECEIVED | 将出站队列行标记为 ACKED |
 | RETRY | 重发同一批次 |
 | `QUEUE_FULL:<ms>` | 等待后重试 |
 | DECRYPT_FAILED | 致命错误 — 检查 PACKET/加密与 Engine 是否一致 |
@@ -170,4 +176,3 @@ output:
 ## output.id 与迁移
 
 output.id 用于出站侧日志与迁移标识（不写入线协议）。见 [身份文件](configuration.md#身份文件edge-agentid)。迁移时请一并拷贝 edge-agent.id、WAL 及 config/agent.yaml。
-

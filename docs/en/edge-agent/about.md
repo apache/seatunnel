@@ -32,10 +32,10 @@ Edge Agent is not a replacement for SeaTunnel Engine. Typical topology:
 
 | Term | Definition |
 |------|------------|
-| WAL | The local WAL outbound queue durability mechanism in Edge Agent, used to persist and retry outbound records until RECEIVED. |
+| WAL | The local outbound queue durability mechanism in Edge Agent, used to persist and retry records until the engine returns RECEIVED for a batch. |
 | BEST_EFFORT | Delivery behavior in this release: persist to local WAL and retry until RECEIVED; duplicate delivery can occur. |
-| WAL row states | PENDING (ready), SENDING (in-flight), ACKED (acknowledged), DEAD (retry limit exceeded). |
-| Engine response codes | ACK, AUTH_FAILED, REJECTED, RECEIVED, RETRY, QUEUE_FULL, DECRYPT_FAILED. |
+| WAL row states | PENDING (ready), SENDING (in-flight), ACKED (engine returned RECEIVED for the batch), DEAD (retry limit exceeded). |
+| Engine response codes | ACK confirms authentication only. RECEIVED confirms batch ingest and moves a SENDING WAL row to ACKED. Other responses are AUTH_FAILED, REJECTED, RETRY, QUEUE_FULL, and DECRYPT_FAILED. |
 
 ## Recommended reading order
 
@@ -48,4 +48,3 @@ Edge Agent is not a replacement for SeaTunnel Engine. Typical topology:
 | Deep dive | [Architecture Overview](./architecture-overview.md) | Design, reliability and Engine boundary |
 | Engine side | [EdgeSocket Source](../connectors/source/EdgeSocket.md) | Engine-side receive protocol |
 | Operate | [Operations](operations.md) | Start/stop, logs, troubleshooting |
-

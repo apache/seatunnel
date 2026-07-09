@@ -43,7 +43,7 @@ To keep architecture decisions explicit, treat these boundaries as stable contra
 
 | Boundary | Owned by Edge Agent | Owned by Engine / Job |
 |----------|---------------------|------------------------|
-| Durability boundary | Persist local outbound rows and retry until ingest ACK (RECEIVED) | Durable processing after ingest is accepted |
+| Durability boundary | Persist local outbound rows and retry until the engine returns RECEIVED | Durable processing after ingest is accepted |
 | Checkpoint boundary | Not checkpoint-aware in this release (`__COMMIT__` not used) | Checkpoint lifecycle and exactly-once semantics |
 | Failure ownership | Local file read, local WAL state, transport reconnect behavior | Source ingress policy, downstream transform/sink correctness |
 
@@ -159,7 +159,7 @@ SENDING
   │ send success + engine RECEIVED
   ├──────────────► ACKED
   │
-  └ send failure / timeout / crash before ACK
+  └ send failure / timeout / crash before RECEIVED
                  ▼
                PENDING (attempt counter increased; via resurrect)
   │
@@ -168,7 +168,7 @@ SENDING
         DEAD (no further sends; operator cleanup)
 ```
 
-resurrect periodically moves SENDING rows back to PENDING so a crash between claim and ACK does not strand data. retry.max-attempts stops claiming rows that exceeded the limit; markExceededAsDead moves them to DEAD.
+resurrect periodically moves SENDING rows back to PENDING so a crash between claim and RECEIVED does not strand data. retry.max-attempts stops claiming rows that exceeded the limit; markExceededAsDead moves them to DEAD.
 
 File positions are persisted when events are appended to the outbound queue (same flush as WAL insert), not when the engine acknowledges a batch. Recovery relies on WAL rows plus saved input positions.
 
@@ -178,7 +178,7 @@ The agent maintains two separate local persistence concerns:
 
 | Store | Purpose | Updated when | Recovery after restart |
 |-------|---------|--------------|------------------------|
-| Outbound queue | Durability until the engine acknowledges a batch | Events are flushed from memory; rows move PENDING → SENDING → ACKED | SENDING rows revert to PENDING; unsent data is retried |
+| Outbound queue | Durability until the engine returns RECEIVED for a batch | Events are flushed from memory; rows move PENDING → SENDING → ACKED | SENDING rows revert to PENDING; unsent data is retried |
 | Input position store | Resume reading local files without re-reading already persisted events | Same flush as outbound append (per-event position) | Collector reopens at saved byte offset / line |
 
 Keeping them separate avoids coupling “what was sent to the network” with “where to read next on disk.” A network outage should not reset file tail positions; conversely, advancing a file cursor must not imply the remote pipeline has committed data.
@@ -193,12 +193,18 @@ The transport client connects to the statically configured output.endpoint (host
 
 ### 5.2 Wire Protocol
 
-The agent implements the collector side of [EdgeSocket](../connectors/source/EdgeSocket.md). It does not send `__COMMIT__`. Durability on the agent is the outbound queue ACK, not engine checkpoint polling.
+The agent implements the collector side of [EdgeSocket](../connectors/source/EdgeSocket.md). It does not send `__COMMIT__`. Durability on the agent is the WAL row ACKED state after RECEIVED, not engine checkpoint polling.
 
 | Step | Agent → Engine | Engine → Agent | Agent handling |
 |------|----------------|----------------|----------------|
 | Auth | `__AUTH__:<token>` | ACK / AUTH_FAILED / REJECTED | REJECTED: fail fast, no auto-reconnect (duplicate collector) |
 | Batch | `__BATCH__:<batchId>:<payload>` | RECEIVED / RETRY / `QUEUE_FULL:<ms>` / DECRYPT_FAILED | QUEUE_FULL: wait and resend; DECRYPT_FAILED: fatal configuration error |
+
+:::note ACK and RECEIVED
+
+ACK belongs to authentication. RECEIVED belongs to batch ingest and is the only success response that advances a WAL row from SENDING to ACKED.
+
+:::
 
 batchId is the WAL row batch_id used on the wire (`__BATCH__:<batchId>:...`), allocated from edge_agent_meta.next_batch_id and monotonic for that agent database. It is not the WAL row primary key id.
 
@@ -255,7 +261,7 @@ When agent.delivery-guarantee is not configured, it defaults to BEST_EFFORT.
 #### BEST_EFFORT (default)
 
 - The agent keeps a local WAL outbound queue and retries until the engine returns RECEIVED (or the row is marked DEAD after retry.max-attempts).
-- The same WAL row may be sent more than once after failures, crashes between claim and ACK, resurrectSending, or operator db wal-retry-dead.
+- The same WAL row may be sent more than once after failures, crashes between claim and RECEIVED, resurrectSending, or operator db wal-retry-dead.
 - The agent does not send `__COMMIT__`; durability ends at engine RECEIVED for a batch.
 
 Design for downstream: treat the output boundary as may deliver duplicates — use idempotent sinks or deduplication keys when you need strict uniqueness. See [Configuration — agent](./configuration.md#agent).
@@ -271,7 +277,7 @@ Design for downstream: treat the output boundary as may deliver duplicates — u
 
 | Concern | Edge Agent | SeaTunnel Engine |
 |---------|------------|------------------|
-| Durability until ingest ACK | WAL-backed outbound queue | — |
+| Durability until engine RECEIVED | WAL-backed outbound queue | — |
 | Pipeline exactly-once / checkpoint | — | Checkpoint mechanism on tasks |
 | Commit cursor to agent | Not used (`__COMMIT__` not sent) | — |
 
@@ -305,4 +311,3 @@ See [Input Configuration](./input-configuration.md) for parameters and examples.
 Transport vs console, endpoint alignment with the engine, and RAW vs PACKET scenarios are documented in [Output Configuration](./output-configuration.md). Wire-level responses: [EdgeSocket Source](../connectors/source/EdgeSocket.md).
 
 Plugins are selected by input.type and output.type in YAML; adding a new input or transport implementation is an extension point without changing the scheduler contract.
-

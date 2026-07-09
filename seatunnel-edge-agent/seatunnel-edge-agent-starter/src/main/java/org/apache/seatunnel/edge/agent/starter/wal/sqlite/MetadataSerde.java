@@ -17,37 +17,29 @@
 
 package org.apache.seatunnel.edge.agent.starter.wal.sqlite;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class MetadataSerde {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, String>> METADATA_TYPE =
+            new TypeReference<Map<String, String>>() {};
+
     public static byte[] serialize(Map<String, String> metadata) throws Exception {
         Map<String, String> safeMetadata =
                 metadata == null ? new HashMap<>() : new HashMap<>(metadata);
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
-            objectOutputStream.writeObject(safeMetadata);
-            objectOutputStream.flush();
-            return outputStream.toByteArray();
-        }
+        return OBJECT_MAPPER.writeValueAsBytes(safeMetadata);
     }
 
     public static Map<String, String> deserialize(byte[] metadataBytes) throws Exception {
         if (metadataBytes == null || metadataBytes.length == 0) {
             return new HashMap<>();
         }
-        try (ObjectInputStream objectInputStream =
-                new ObjectInputStream(new ByteArrayInputStream(metadataBytes))) {
-            Object metadata = objectInputStream.readObject();
-            if (metadata instanceof Map) {
-                return (Map<String, String>) metadata;
-            }
-        }
-        return new HashMap<>();
+        Map<String, String> metadata = OBJECT_MAPPER.readValue(metadataBytes, METADATA_TYPE);
+        return metadata == null ? new HashMap<>() : new HashMap<>(metadata);
     }
 }

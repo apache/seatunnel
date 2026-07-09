@@ -18,12 +18,17 @@
 package org.apache.seatunnel.edge.agent.starter.command.db;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
+import java.nio.file.Paths;
+import java.util.Optional;
 
 public class EdgeAgentProcessProbe {
+
+    private static final Path PROC_ROOT = Paths.get("/proc");
 
     public static boolean isAgentRunning(Path pidFile) throws IOException {
         if (!Files.isRegularFile(pidFile)) {
@@ -42,26 +47,48 @@ public class EdgeAgentProcessProbe {
     }
 
     private static boolean isProcessAlive(long pid) {
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        try {
-            Process process;
-            if (os.contains("win")) {
-                process =
-                        new ProcessBuilder(
-                                        "cmd.exe", "/c", "tasklist /FI \"PID eq " + pid + "\" /NH")
-                                .redirectErrorStream(true)
-                                .start();
-            } else {
-                process =
-                        new ProcessBuilder("kill", "-0", String.valueOf(pid))
-                                .redirectErrorStream(true)
-                                .start();
-            }
-            return process.waitFor() == 0;
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
+        if (pid <= 0) {
             return false;
-        } catch (IOException ex) {
+        }
+        if (isCurrentProcess(pid)) {
+            return true;
+        }
+        Boolean processHandleAlive = isProcessAliveWithProcessHandle(pid);
+        if (processHandleAlive != null) {
+            return processHandleAlive;
+        }
+        if (Files.isDirectory(PROC_ROOT)) {
+            return Files.exists(PROC_ROOT.resolve(String.valueOf(pid)));
+        }
+        return false;
+    }
+
+    private static boolean isCurrentProcess(long pid) {
+        String runtimeName = ManagementFactory.getRuntimeMXBean().getName();
+        int hostSeparator = runtimeName.indexOf('@');
+        if (hostSeparator <= 0) {
+            return false;
+        }
+        try {
+            return Long.parseLong(runtimeName.substring(0, hostSeparator)) == pid;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    private static Boolean isProcessAliveWithProcessHandle(long pid) {
+        try {
+            Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
+            Method of = processHandleClass.getMethod("of", long.class);
+            Optional<?> optionalHandle = (Optional<?>) of.invoke(null, pid);
+            if (!optionalHandle.isPresent()) {
+                return false;
+            }
+            Method isAlive = processHandleClass.getMethod("isAlive");
+            return (Boolean) isAlive.invoke(optionalHandle.get());
+        } catch (ClassNotFoundException ex) {
+            return null;
+        } catch (ReflectiveOperationException | RuntimeException ex) {
             return false;
         }
     }

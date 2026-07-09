@@ -68,5 +68,5 @@ dist/
 
 seatunnel-engine/seatunnel-engine-server/**/ui/*
 
-edge-agent.id
-tmp/
+seatunnel-edge-agent/**/edge-agent.id
+seatunnel-edge-agent/**/tmp/

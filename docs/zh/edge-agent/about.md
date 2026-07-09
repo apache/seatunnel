@@ -32,10 +32,10 @@ Edge Agent 不能替代 SeaTunnel Engine。典型拓扑如下：
 
 | 术语 | 定义 |
 |------|------|
-| WAL | Edge Agent 本地 WAL 出站队列持久化机制，用于在收到 RECEIVED 前保存并重试出站记录。 |
+| WAL | Edge Agent 本地出站队列持久化机制，用于在引擎对批次返回 RECEIVED 前保存并重试出站记录。 |
 | BEST_EFFORT | 当前版本的投递语义：写入本地 WAL 并在收到 RECEIVED 前重试，可能重复投递。 |
-| WAL 行状态 | PENDING（待发送）、SENDING（发送中）、ACKED（已确认）、DEAD（超过重试上限）。 |
-| Engine 响应码 | ACK、AUTH_FAILED、REJECTED、RECEIVED、RETRY、QUEUE_FULL、DECRYPT_FAILED。 |
+| WAL 行状态 | PENDING（待发送）、SENDING（发送中）、ACKED（引擎已对批次返回 RECEIVED）、DEAD（超过重试上限）。 |
+| Engine 响应码 | ACK 仅表示认证成功；RECEIVED 表示批次已被接入侧接受，并将 SENDING 的 WAL 行推进到 ACKED。其他响应包括 AUTH_FAILED、REJECTED、RETRY、QUEUE_FULL、DECRYPT_FAILED。 |
 
 ## 推荐阅读顺序
 
@@ -50,4 +50,3 @@ Edge Agent 不能替代 SeaTunnel Engine。典型拓扑如下：
 | 深入理解 | [架构概览](./architecture-overview.md) | 设计原理、可靠性与 Engine 边界 |
 | Engine 侧 | [EdgeSocket Source](../connectors/source/EdgeSocket.md) | Engine 端接收协议 |
 | 日常运维 | [运维](operations.md) | 启停、日志、排障 |
-

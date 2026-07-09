@@ -131,5 +131,5 @@ netty-resolver-4.1.118.Final.jar
 eventstream-1.0.1.jar
 java-diff-utils-4.12.jar
 jline-3.22.0.jar
-snakeyaml-1.30.jar
+snakeyaml-2.1.jar
 sqlite-jdbc-3.39.3.0.jar

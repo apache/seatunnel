@@ -43,7 +43,7 @@ If a path has no glob characters and points to a directory, the agent collects a
 
 :::note
 
-Positions are stored in the same WAL database as the outbound queue. Restart continues from the last persisted flush offset (written with WAL append, not engine ACK).
+Positions are stored in the same WAL database as the outbound queue. Restart continues from the last persisted flush offset (written with WAL append, not after engine RECEIVED).
 
 :::
 
@@ -238,4 +238,3 @@ input:
 ```
 
 ---
-

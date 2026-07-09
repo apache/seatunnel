@@ -43,7 +43,7 @@ SeaTunnel Edge Agent 遵循以下目标：
 
 | 边界 | Edge Agent 负责 | Engine / Job 负责 |
 |------|-----------------|-------------------|
-| 耐久边界 | 本地出站行持久化并重试，直到接入 ACK（RECEIVED） | 接入后的持久处理与下游一致性 |
+| 耐久边界 | 本地出站行持久化并重试，直到引擎返回 RECEIVED | 接入后的持久处理与下游一致性 |
 | Checkpoint 边界 | 本版本不感知 checkpoint（不使用 `__COMMIT__`） | checkpoint 生命周期与 exactly-once 语义 |
 | 故障归属 | 本地文件读取、WAL 状态、传输重连行为 | Source 接入策略、下游转换与 Sink 正确性 |
 
@@ -159,7 +159,7 @@ SENDING
   │ 发送成功且引擎返回 RECEIVED
   ├──────────────► ACKED
   │
-  └ 发送失败 / 超时 / ACK 前崩溃
+  └ 发送失败 / 超时 / RECEIVED 前崩溃
                  ▼
                PENDING（尝试次数递增；经 resurrect 恢复）
   │
@@ -168,9 +168,9 @@ SENDING
         DEAD（不再发送，需运维处理）
 ```
 
-resurrect 定期将 SENDING 行恢复为 PENDING，避免在「认领」与「ACK」之间崩溃导致数据悬挂。超过 retry.max-attempts 的行不再被认领；markExceededAsDead 将其标为 DEAD。
+resurrect 定期将 SENDING 行恢复为 PENDING，避免在「认领」与「RECEIVED」之间崩溃导致数据悬挂。超过 retry.max-attempts 的行不再被认领；markExceededAsDead 将其标为 DEAD。
 
-文件位点在事件写入出站队列（与 WAL append 同一 flush）时持久化，而非引擎 ACK 批次之后。恢复依赖 WAL 行与已保存的输入位点。
+文件位点在事件写入出站队列（与 WAL append 同一 flush）时持久化，而非引擎返回 RECEIVED 之后。恢复依赖 WAL 行与已保存的输入位点。
 
 ## 4. 出站队列与输入位点
 
@@ -178,7 +178,7 @@ Agent 维护 两条独立的持久化路径：
 
 | 存储 | 用途 | 更新时机 | 重启后恢复 |
 |------|------|----------|------------|
-| 出站队列 | 保证数据在引擎确认批次前不丢失 | 内存刷盘；行状态 PENDING → SENDING → ACKED | SENDING 恢复为 PENDING，未发送数据重试 |
+| 出站队列 | 保证数据在引擎对批次返回 RECEIVED 前不丢失 | 内存刷盘；行状态 PENDING → SENDING → ACKED | SENDING 恢复为 PENDING，未发送数据重试 |
 | 输入位点存储 | 从本地文件正确续读，避免重复读取已持久化事件 | 与出站刷盘同步（按事件位点） | 采集器从已保存的字节偏移 / 行号继续 |
 
 二者分离，避免把「网络上是否已送达」与「磁盘上下次读哪里」绑在一起。网络中断不应重置文件尾读位置；反之，推进文件游标也不代表远端管道已提交。
@@ -193,12 +193,18 @@ Agent 将出站记录与位点信息写入本地持久化存储：出站记录�
 
 ### 5.2 线路协议
 
-Agent 实现 [EdgeSocket](../connectors/source/EdgeSocket.md) 的采集端。不发送 `__COMMIT__`；Agent 侧耐久性以出站队列 ACK 为准，而非轮询引擎 checkpoint。
+Agent 实现 [EdgeSocket](../connectors/source/EdgeSocket.md) 的采集端。不发送 `__COMMIT__`；Agent 侧耐久性以收到 RECEIVED 后的 WAL 行 ACKED 状态为准，而非轮询引擎 checkpoint。
 
 | 步骤 | Agent → 引擎 | 引擎 → Agent | Agent 处理 |
 |------|--------------|--------------|------------|
 | 认证 | `__AUTH__:<token>` | ACK / AUTH_FAILED / REJECTED | REJECTED：快速失败，不自动重连（重复采集实例） |
 | 批次 | `__BATCH__:<batchId>:<payload>` | RECEIVED / RETRY / `QUEUE_FULL:<ms>` / DECRYPT_FAILED | QUEUE_FULL：等待后重发；DECRYPT_FAILED：配置致命错误 |
+
+:::note ACK 与 RECEIVED
+
+ACK 属于认证阶段；RECEIVED 属于批次接入阶段，也是唯一会将 WAL 行从 SENDING 推进到 ACKED 的成功响应。
+
+:::
 
 batchId 是线上使用的 WAL 行 batch_id（`__BATCH__:<batchId>:...`），由 edge_agent_meta.next_batch_id 分配并在该 Agent 数据库内单调递增；它不是 WAL 行主键 id。
 
@@ -255,7 +261,7 @@ agent.delivery-guarantee 未配置时默认 BEST_EFFORT。
 #### BEST_EFFORT（默认）
 
 - Agent 使用本地 WAL 出站队列，在引擎返回 RECEIVED 前自动重试（或超过 retry.max-attempts 后标为 DEAD）。
-- 同一 WAL 行可能因发送失败、claim 与 ACK 之间崩溃、resurrectSending 或运维 db wal-retry-dead 而多次发送。
+- 同一 WAL 行可能因发送失败、claim 与 RECEIVED 之间崩溃、resurrectSending 或运维 db wal-retry-dead 而多次发送。
 - Agent 不发送 `__COMMIT__`；耐久性在引擎对批次 RECEIVED 时结束。
 
 下游设计：按可能重复投递处理输出边界；需要严格唯一性时使用幂等 Sink 或去重键。见 [配置说明 — agent](./configuration.md#agent)。
@@ -271,7 +277,7 @@ agent.delivery-guarantee 未配置时默认 BEST_EFFORT。
 
 | 关注点 | Edge Agent | SeaTunnel Engine |
 |--------|------------|------------------|
-| 直至接入 ACK 的耐久 | 本地 WAL 出站队列 | — |
+| 直至引擎返回 RECEIVED 的耐久 | 本地 WAL 出站队列 | — |
 | 管道 exactly-once / checkpoint | — | Task checkpoint 机制 |
 | 向 Agent 回传提交游标 | 不使用（不发送 `__COMMIT__`） | — |
 
@@ -305,4 +311,3 @@ Agent 的契约在引擎对批次返回 RECEIVED 时结束；后续正确性由�
 transport 与 console、与 Engine 的端点对齐、RAW/PACKET 场景见 [输出配置指南](./output-configuration.md)。线路级响应见 [EdgeSocket Source](../connectors/source/EdgeSocket.md)。
 
 通过 YAML 中的 input.type、output.type 选择插件；新增输入或传输实现属于扩展点，无需改动调度循环契约。
-

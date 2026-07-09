@@ -47,6 +47,12 @@ The agent sends `__AUTH__:<token>` first. Typical responses:
 | REJECTED | Duplicate collector or policy conflict | Fail fast; do not auto-reconnect — check for a second agent on the same listener |
 | AUTH_FAILED | Token mismatch | Fix YAML vs job config and restart |
 
+:::note ACK and RECEIVED
+
+ACK is only the authentication response. A WAL row remains SENDING until the batch response is RECEIVED; only RECEIVED marks that WAL row ACKED.
+
+:::
+
 Wire details: [EdgeSocket Source](../connectors/source/EdgeSocket.md).
 
 ## RAW vs PACKET
@@ -68,7 +74,7 @@ After auth, each batch uses `__BATCH__:<batchId>:<payload>`. Common engine repli
 
 | Response | Agent handling |
 |----------|----------------|
-| RECEIVED | Outbound queue row marked acknowledged |
+| RECEIVED | Mark the outbound queue row ACKED |
 | RETRY | Resend same batch |
 | `QUEUE_FULL:<ms>` | Wait and retry |
 | DECRYPT_FAILED | Fatal — fix PACKET/encryption alignment with the engine |
@@ -170,4 +176,3 @@ Transport reconnect is separate from WAL retry.* (scheduler / outbound row repla
 ## output.id and migration
 
 output.id labels the outbound side for logs and migration only (not on the wire). See [Identity file](configuration.md#identity-file-edge-agentid). When moving hosts, copy edge-agent.id with the WAL database and config/agent.yaml.
-
