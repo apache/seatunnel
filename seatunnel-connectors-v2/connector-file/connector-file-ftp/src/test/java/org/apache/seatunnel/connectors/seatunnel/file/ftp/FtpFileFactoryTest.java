@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.sink.FtpFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.source.FtpFileSourceFactory;
@@ -49,13 +48,13 @@ class FtpFileFactoryTest {
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
-        Assertions.assertTrue(
+        Assertions.assertFalse(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.POST_SYNC_ACTION));
-        Assertions.assertTrue(
+        Assertions.assertFalse(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BACKUP_PATH));
-        Assertions.assertTrue(
+        Assertions.assertFalse(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.RETENTION_MAX_AGE));
-        Assertions.assertTrue(
+        Assertions.assertFalse(
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
@@ -71,18 +70,6 @@ class FtpFileFactoryTest {
                                         required.getOptions()
                                                 .contains(FileBaseSourceOptions.TARGET_PATH))
                         .anyMatch(required -> expectExpression.equals(required.getExpression())));
-
-        Expression backupExpression =
-                Expression.of(FileBaseSourceOptions.POST_SYNC_ACTION, FilePostSyncAction.BACKUP);
-        Assertions.assertTrue(
-                optionRule.getRequiredOptions().stream()
-                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
-                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
-                        .filter(
-                                required ->
-                                        required.getOptions()
-                                                .contains(FileBaseSourceOptions.BACKUP_PATH))
-                        .anyMatch(required -> backupExpression.equals(required.getExpression())));
         Assertions.assertNotNull((new FtpFileSinkFactory()).optionRule());
     }
 }

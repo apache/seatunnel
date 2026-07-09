@@ -116,10 +116,6 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | target_hadoop_conf         | map     | no       | -                             | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                           |
 | update_strategy            | string  | no       | distcp                        | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                               |
 | compare_mode               | string  | no       | len_mtime                     | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                              |
-| post_sync_action           | string  | no       | none                          | Post-sync action in `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`.                                                                                                                                                                                                                        |
-| backup_path                | string  | no       | -                             | Backup destination base path when `post_sync_action=backup`.                                                                                                                                                                                                                                                                     |
-| retention_max_age          | string  | no       | -                             | Optional retention age for files in `backup_path`, only valid when `post_sync_action=backup`.                                                                                                                                                                                                                                   |
-| retention_check_interval   | string  | no       | 1H                            | Retention scan interval, only effective when `retention_max_age` is configured.                                                                                                                                                                                                                                                  |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                              |
 | file_filter_modified_start | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | file_filter_modified_end   | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
@@ -377,27 +373,6 @@ Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict
 
 Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
 
-### post_sync_action [string]
-
-Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
-
-- `none`: default behavior, no source-side file operation.
-- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
-- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
-
-### backup_path [string]
-
-Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `file_path` (same scheme and authority); cross-filesystem backup is rejected.
-
-### retention_max_age [string]
-
-Optional retention policy for `backup_path`. Files older than this age are cleaned up during checkpoint-complete retention scans.
-Only valid when `post_sync_action=backup`.
-
-### retention_check_interval [string]
-
-Retention scan interval, default `1H`. Cleanup runs at most once per interval when `retention_max_age` is configured.
-
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -615,7 +590,7 @@ sink {
 
 `discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
 
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem. Post-sync delete/backup/retention is not exposed for SFTP in phase-1 because SFTP rename/delete semantics need connector-specific e2e coverage.
 
 ```hocon
 env {

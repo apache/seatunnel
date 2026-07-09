@@ -232,14 +232,15 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Backup base path for post_sync_action=backup. "
-                                    + "Used as the destination path when moving processed source files.");
+                                    + "Used as the destination path when moving processed source files. "
+                                    + "It must not overlap with path.");
 
     public static final Option<Duration> RETENTION_MAX_AGE =
             Options.key("retention_max_age")
                     .durationType()
                     .noDefaultValue()
                     .withDescription(
-                            "Maximum age for files in backup_path before cleanup. "
+                            "Maximum age for SeaTunnel backup files in backup_path before cleanup. "
                                     + "Only valid when post_sync_action=backup.");
 
     public static final Option<Duration> RETENTION_CHECK_INTERVAL =
@@ -248,7 +249,7 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .defaultValue(Duration.ofHours(1))
                     .withDescription(
                             "Retention scan interval for backup cleanup. "
-                                    + "Only effective when retention_max_age is configured.");
+                                    + "Only effective when post_sync_action=backup and retention_max_age is configured.");
 
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")

@@ -90,9 +90,9 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                 |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                             |
 | post_sync_action           | string  | 否    | none                | `discovery_mode=continuous` 下的后置运维动作，支持：`none`（默认）、`delete`、`backup`。                                                                                                                              |
-| backup_path                | string  | 否    | -                   | `post_sync_action=backup` 时的备份目标基础路径。                                                                                                                                                                   |
-| retention_max_age          | string  | 否    | -                   | `backup_path` 的可选保留时长，仅在 `post_sync_action=backup` 时有效。                                                                                                                                              |
-| retention_check_interval   | string  | 否    | 1H                  | 保留清理扫描间隔，仅在配置 `retention_max_age` 时生效。                                                                                                                                                             |
+| backup_path                | string  | 否    | -                   | `post_sync_action=backup` 时的备份目标基础路径，不能与 `path` 重叠。                                                                                                                                                 |
+| retention_max_age          | string  | 否    | -                   | `backup_path` 中 SeaTunnel 备份文件的可选保留时长，仅在 `post_sync_action=backup` 时有效。                                                                                                                         |
+| retention_check_interval   | string  | 否    | 1H                  | 保留清理扫描间隔，仅在 `post_sync_action=backup` 且配置 `retention_max_age` 时生效。                                                                                                                                 |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../common-options/source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
@@ -311,18 +311,26 @@ abc.*
 - `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
 - `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
 
+执行 `delete` 或 `backup` 前，SeaTunnel 会重新检查读取 split 时记录的源文件长度和修改时间；如果当前文件版本不一致，会跳过该后置动作，让变更后的文件在后续扫描中再次被发现。
+
 ### backup_path [string]
 
-仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `file_path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+
+`backup_path` 不能与 `path` 相同，不能位于 `path` 之下，`path` 也不能位于 `backup_path` 之下。建议使用专用备份目录，因为保留清理只会管理带 SeaTunnel 版本后缀的备份文件。
 
 ### retention_max_age [string]
 
-`backup_path` 的可选保留策略。超过该时长的备份文件会在 checkpoint 完成后的保留扫描中被清理。
+`backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
 仅在 `post_sync_action=backup` 时有效。
+
+支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
 
 ### retention_check_interval [string]
 
-保留清理扫描间隔，默认 `1H`。配置 `retention_max_age` 后，清理任务最多按该间隔执行一次。
+保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
+
+支持的时长格式与 `retention_max_age` 相同，例如 `1H` 或 `PT30M`。
 
 ### enable_file_split [boolean]
 
@@ -493,6 +501,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 
@@ -566,6 +579,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 

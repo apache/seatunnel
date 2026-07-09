@@ -116,10 +116,6 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                                                                                     |
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                                                     |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                                                             |
-| post_sync_action           | string  | 否    | none                | `discovery_mode=continuous` 下的后置运维动作，支持：`none`（默认）、`delete`、`backup`。                                                                                                                                                             |
-| backup_path                | string  | 否    | -                   | `post_sync_action=backup` 时的备份目标基础路径。                                                                                                                                                                                                      |
-| retention_max_age          | string  | 否    | -                   | `backup_path` 的可选保留时长，仅在 `post_sync_action=backup` 时有效。                                                                                                                                                                                 |
-| retention_check_interval   | string  | 否    | 1H                  | 保留清理扫描间隔，仅在配置 `retention_max_age` 时生效。                                                                                                                                                                                                |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                           |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                          |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                         |
@@ -376,27 +372,6 @@ compare_mode = "len_mtime"
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
 
-### post_sync_action [string]
-
-仅在 `discovery_mode=continuous` 时使用。支持：`none`（默认）、`delete`、`backup`。当 `discovery_mode=once` 时，若配置 `post_sync_action=delete` 或 `post_sync_action=backup`，会在配置校验阶段被显式拒绝。
-
-- `none`：默认行为，不对源文件执行运维动作。
-- `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
-- `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
-
-### backup_path [string]
-
-仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `file_path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
-
-### retention_max_age [string]
-
-`backup_path` 的可选保留策略。超过该时长的备份文件会在 checkpoint 完成后的保留扫描中被清理。
-仅在 `post_sync_action=backup` 时有效。
-
-### retention_check_interval [string]
-
-保留清理扫描间隔，默认 `1H`。配置 `retention_max_age` 后，清理任务最多按该间隔执行一次。
-
 ### schema [config]
 
 #### fields [Config]
@@ -605,7 +580,7 @@ sink {
 
 `discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
 
-**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。phase-1 暂不在 SFTP 暴露 post-sync delete/backup/retention，因为 SFTP 的 rename/delete 语义需要连接器专属 e2e 覆盖。
 
 ```hocon
 env {

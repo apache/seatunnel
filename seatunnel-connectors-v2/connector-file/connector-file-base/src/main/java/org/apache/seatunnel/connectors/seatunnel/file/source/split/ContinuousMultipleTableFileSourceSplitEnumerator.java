@@ -94,6 +94,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             "post_sync_operations_stale_skipped";
     private static final String METRIC_RETENTION_DELETED = "retention_deleted_files";
     private static final String METRIC_RETENTION_FAILED = "retention_failed_operations";
+    private static final Pattern BACKUP_VERSION_SUFFIX_PATTERN =
+            Pattern.compile("^.+\\.v\\d+_\\d+$");
 
     private final Context<FileSourceSplit> context;
     private final List<TableScanContext> tableScanContexts;
@@ -821,6 +823,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             if (!status.isFile()) {
                 continue;
             }
+            if (!BACKUP_VERSION_SUFFIX_PATTERN.matcher(status.getPath().getName()).matches()) {
+                continue;
+            }
             if (status.getModificationTime() > expireBefore) {
                 continue;
             }
@@ -974,7 +979,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     "post_sync_action=backup requires backup_path.");
         }
         if (action == FilePostSyncAction.BACKUP) {
-            validateBackupPathInSameFileSystem(baseFileSourceConfig, backupPath.get());
+            validateBackupPath(baseFileSourceConfig, backupPath.get());
         }
 
         if (action != FilePostSyncAction.BACKUP && backupPath.isPresent()) {
@@ -1006,7 +1011,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
     }
 
-    private static void validateBackupPathInSameFileSystem(
+    private static void validateBackupPath(
             BaseFileSourceConfig baseFileSourceConfig, String backupPath) {
         ReadonlyConfig config = baseFileSourceConfig.getBaseFileSourceConfig();
         String sourcePath = config.get(FileBaseSourceOptions.FILE_PATH);
@@ -1016,12 +1021,17 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         String sourceFsIdentity = resolveFsIdentity(sourcePath, defaultFsIdentity);
         String backupFsIdentity = resolveFsIdentity(backupPath, defaultFsIdentity);
         if (Objects.equals(sourceFsIdentity, backupFsIdentity)) {
+            if (isPathOverlapped(sourcePath, backupPath)) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "backup_path must not overlap with path. Please configure backup_path outside the scanned path tree.");
+            }
             return;
         }
         throw new FileConnectorException(
                 SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 "post_sync_action=backup currently only supports same-filesystem backup in phase-1. "
-                        + "Please configure backup_path with the same scheme and authority as file_path.");
+                        + "Please configure backup_path with the same scheme and authority as path.");
     }
 
     private static String resolveFsIdentity(String path, String defaultFsIdentity) {
@@ -1061,6 +1071,45 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         return uri.getScheme().toLowerCase(Locale.ROOT)
                 + "://"
                 + StringUtils.defaultString(authority).toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isPathOverlapped(String sourcePath, String backupPath) {
+        String normalizedSourcePath = normalizePathForOverlap(sourcePath);
+        String normalizedBackupPath = normalizePathForOverlap(backupPath);
+        if (StringUtils.isBlank(normalizedSourcePath)
+                || StringUtils.isBlank(normalizedBackupPath)) {
+            return false;
+        }
+        return Objects.equals(normalizedSourcePath, normalizedBackupPath)
+                || isParentPath(normalizedSourcePath, normalizedBackupPath)
+                || isParentPath(normalizedBackupPath, normalizedSourcePath);
+    }
+
+    private static boolean isParentPath(String parentPath, String childPath) {
+        String parentPrefix = parentPath.endsWith("/") ? parentPath : parentPath + "/";
+        return childPath.startsWith(parentPrefix);
+    }
+
+    private static String normalizePathForOverlap(String rawPath) {
+        if (StringUtils.isBlank(rawPath)) {
+            return rawPath;
+        }
+        try {
+            return trimTrailingPathSeparator(new Path(rawPath).toUri().normalize().getPath());
+        } catch (Exception e) {
+            return trimTrailingPathSeparator(rawPath);
+        }
+    }
+
+    private static String trimTrailingPathSeparator(String path) {
+        if (StringUtils.isBlank(path)) {
+            return path;
+        }
+        String normalized = path.replace('\\', '/');
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private static <T> T resolveGlobalOption(

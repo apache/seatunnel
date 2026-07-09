@@ -427,6 +427,42 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testContinuousDiscoveryBackupActionRejectsOverlappingBackupPath() throws Exception {
+        Path rootDir = Files.createDirectories(tempDir.resolve("overlap_root"));
+        Path srcDir = Files.createDirectories(rootDir.resolve("src"));
+        Path dstDir = Files.createDirectories(rootDir.resolve("dst"));
+
+        Map<String, Object> nestedBackupConfig = baseContinuousConfig(srcDir, dstDir);
+        nestedBackupConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        nestedBackupConfig.put(
+                FileBaseSourceOptions.BACKUP_PATH.key(), srcDir.resolve("backup").toString());
+
+        FileConnectorException nestedBackupException =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                createValidationEnumerator(
+                                        ReadonlyConfig.fromMap(nestedBackupConfig)));
+        Assertions.assertTrue(
+                nestedBackupException.getMessage().contains("must not overlap with path"),
+                "backup_path under source path should be rejected");
+
+        Map<String, Object> parentBackupConfig = baseContinuousConfig(srcDir, dstDir);
+        parentBackupConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        parentBackupConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), rootDir.toString());
+
+        FileConnectorException parentBackupException =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                createValidationEnumerator(
+                                        ReadonlyConfig.fromMap(parentBackupConfig)));
+        Assertions.assertTrue(
+                parentBackupException.getMessage().contains("must not overlap with path"),
+                "source path under backup_path should be rejected");
+    }
+
+    @Test
     void testContinuousDiscoveryDeleteActionRejectsBackupPath() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src10"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst10"));
@@ -534,6 +570,51 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testPostSyncDeleteVersionGuardSkipsStaleOperation() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src13_stale_delete"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst13_stale_delete"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(assigned.splitId()));
+            enumeratorWithContext.enumerator.snapshotState(1L);
+
+            Files.write(srcFile, "abcd".getBytes());
+            Files.setLastModifiedTime(
+                    srcFile, FileTime.fromMillis(System.currentTimeMillis() + 5_000));
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile),
+                    "new source version should not be deleted by stale post-sync delete operation");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testPostSyncBackupVersionGuardSkipsStaleOperation() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst14"));
@@ -632,11 +713,51 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testRetentionKeepsExpiredFilesWithoutSeaTunnelVersionSuffix() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src16_suffix"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst16_suffix"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup16_suffix"));
+        Path expiredManagedFile = backupDir.resolve("source.bin.v3_123456");
+        Path expiredUnmanagedFile = backupDir.resolve("unmanaged.bin");
+        Files.write(expiredManagedFile, "old-managed".getBytes());
+        Files.write(expiredUnmanagedFile, "old-unmanaged".getBytes());
+        FileTime expiredTime = FileTime.fromMillis(System.currentTimeMillis() - 60_000);
+        Files.setLastModifiedTime(expiredManagedFile, expiredTime);
+        Files.setLastModifiedTime(expiredUnmanagedFile, expiredTime);
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        extraConfig.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "1S");
+        extraConfig.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "1S");
+
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertFalse(
+                    Files.exists(expiredManagedFile),
+                    "retention should remove expired files created with SeaTunnel version suffix");
+            Assertions.assertTrue(
+                    Files.exists(expiredUnmanagedFile),
+                    "retention should not remove files without SeaTunnel version suffix");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testRetentionDeletesExpiredBackupFiles() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src16"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst16"));
         Path backupDir = Files.createDirectories(tempDir.resolve("backup16"));
-        Path expiredFile = backupDir.resolve("expired.bin");
+        Path expiredFile = backupDir.resolve("expired.bin.v3_123456");
         Files.write(expiredFile, "old".getBytes());
         Files.setLastModifiedTime(
                 expiredFile, FileTime.fromMillis(System.currentTimeMillis() - 60_000));

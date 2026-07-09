@@ -513,18 +513,26 @@ Only used when `discovery_mode=continuous`. Supported values: `none` (default), 
 - `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 - `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 
+Before `delete` or `backup`, SeaTunnel rechecks the source file length and modification time captured when the split was read. If the current file version differs, the post-sync operation is skipped so the changed file can be discovered again.
+
 ### backup_path [string]
 
-Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `file_path` (same scheme and authority); cross-filesystem backup is rejected.
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `path` (same scheme and authority); cross-filesystem backup is rejected.
+
+`backup_path` must not be the same as `path`, must not be under `path`, and `path` must not be under `backup_path`. Use a dedicated backup directory because retention only manages files created by SeaTunnel with the version suffix.
 
 ### retention_max_age [string]
 
-Optional retention policy for `backup_path`. Files older than this age are cleaned up during checkpoint-complete retention scans.
+Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
 Only valid when `post_sync_action=backup`.
+
+Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
 
 ### retention_check_interval [string]
 
-Retention scan interval, default `1H`. Cleanup runs at most once per interval when `retention_max_age` is configured.
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
+
+Supported duration formats are the same as `retention_max_age`, for example `1H` or `PT30M`.
 
 ### file_filter_modified_start [string]
 
@@ -760,6 +768,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 sink {
