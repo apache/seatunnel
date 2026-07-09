@@ -531,7 +531,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
-| YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
 
 ## Common patterns
 
