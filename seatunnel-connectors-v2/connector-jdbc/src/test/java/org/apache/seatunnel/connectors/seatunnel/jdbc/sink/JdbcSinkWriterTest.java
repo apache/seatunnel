@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -48,6 +49,20 @@ import static org.mockito.Mockito.when;
 
 /** Tests JDBC sink writer helper behavior. */
 class JdbcSinkWriterTest {
+
+    @Test
+    void testLegacyConstructorSignatureIsKept() throws Exception {
+        Constructor<JdbcSinkWriter> constructor =
+                JdbcSinkWriter.class.getConstructor(
+                        TablePath.class,
+                        JdbcDialect.class,
+                        JdbcSinkConfig.class,
+                        TableSchema.class,
+                        TableSchema.class,
+                        Integer.class);
+
+        Assertions.assertNotNull(constructor);
+    }
 
     @Test
     void testPendingRowsAreClearedAfterIntervalAutoFlush() throws Exception {

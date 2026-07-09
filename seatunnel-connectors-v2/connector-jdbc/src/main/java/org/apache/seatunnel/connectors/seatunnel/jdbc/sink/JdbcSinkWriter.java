@@ -66,6 +66,23 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            Integer primaryKeyIndex) {
+        this(
+                sinkTablePath,
+                null,
+                dialect,
+                jdbcSinkConfig,
+                tableSchema,
+                databaseTableSchema,
+                primaryKeyIndex);
+    }
+
+    public JdbcSinkWriter(
+            TablePath sinkTablePath,
             SinkWriter.Context context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
