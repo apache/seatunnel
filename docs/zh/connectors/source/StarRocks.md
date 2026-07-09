@@ -27,8 +27,8 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 | username                | string | 是    | -                 | StarRocks 用户名。                                               |
 | password                | string | 是    | -                 | StarRocks 密码。                                                 |
 | database                | string | 是    | -                 | StarRocks 数据库名。                                             |
-| table                   | string | 是/否  | -                 | StarRocks 表名。未配置 `table_list` 时必须配置。                    |
-| table_list              | array  | 是/否  | -                 | 要读取的表列表。未配置 `table` 时必须配置，每个表项可单独配置 `schema` 和过滤条件。 |
+| table                   | string | 否    | -                 | StarRocks 表名。未配置 `table_list` 时必须配置。                    |
+| table_list              | array  | 否    | -                 | 要读取的表列表。未配置 `table` 时必须配置，每个表项可单独配置 `schema` 和过滤条件。 |
 | schema                  | config | 否    | -                 | 输出数据结构。读取单表时配置在顶层，读取多表时配置在每个 `table_list` 表项中。     |
 | scan_filter             | string | 否    | ""                | 下推到 StarRocks 源端执行的过滤表达式。                              |
 | request_tablet_size     | int    | 否    | Integer.MAX_VALUE | 一个 SeaTunnel 分片最多包含的 tablet 数量，值越小通常分片越多。              |
@@ -125,7 +125,7 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 ### scan_connect_timeout_ms [int]
 
-连接 StarRocks BE 进行扫描时的超时时间，单位毫秒。默认值为 `1000`。
+连接 StarRocks BE 进行扫描时的超时时间，单位毫秒。默认值以参数表为准。
 
 ### scan_query_timeout_sec [int]
 
@@ -139,7 +139,7 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 一次从 `BE` 节点读取的最大数据行数。增加此值可以减少引擎与 `StarRocks` 之间建立的连接数量，从而减轻由网络延迟引起的开销。
 ### scan_mem_limit [long]
 
-单个查询在 BE 节点上允许的最大内存空间，单位为字节，默认值为 1073741824 字节（即 1 GB）。
+单个查询在 BE 节点上允许的最大内存空间，单位为字节。默认值以参数表为准。
 
 ### max_retries [int]
 

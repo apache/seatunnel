@@ -27,6 +27,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 - [x] 文件格式类型
   - [x] text
@@ -40,7 +41,6 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
@@ -359,7 +359,7 @@ SftpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 22
     user = "username"
-    password = "password"
+    password = "xxxxxxxxxxxxxxxxx"
     path = "/data/sftp/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true

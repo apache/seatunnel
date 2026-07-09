@@ -558,6 +558,8 @@ S3File {
 }
 ```
 
+For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
+
 ## Changelog
 
 <ChangeLog />

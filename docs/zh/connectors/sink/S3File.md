@@ -546,6 +546,8 @@ S3File {
 }
 ```
 
+生产作业中不建议把长期有效的密钥直接写入任务文件。优先使用 IAM 类认证方式，例如 `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`，或通过 SeaTunnel 变量替换注入 `access_key` 和 `secret_key`。
+
 ## 变更日志
 
 <ChangeLog />

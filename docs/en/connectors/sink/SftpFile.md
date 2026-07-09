@@ -28,6 +28,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 - [x] file format type
   - [x] text
@@ -41,7 +42,6 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -367,7 +367,7 @@ SftpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 22
     user = "username"
-    password = "password"
+    password = "xxxxxxxxxxxxxxxxx"
     path = "/data/sftp/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
