@@ -10,6 +10,7 @@
 - **多 LLM 提供商** -- 支持 AWS Bedrock、Anthropic API、OpenAI（及兼容 API，如 Azure OpenAI）
 - **多智能体流水线** -- 规划器 -> 生成器 -> 校验器 -> 自动修复，最多 3 轮纠错
 - **100+ 连接器** -- 全面覆盖 SeaTunnel 连接器生态，支持运行时元数据反射
+- **Transform 元数据** -- Source、Sink 和 Transform 插件在生成配置时都支持完整选项规则和值约束
 - **技能框架** -- 三层生成：技能 SOP -> 黄金示例 -> 连接器元数据
 - **自动保存** -- 生成的配置自动保存到 `.data/last_job.conf`（与 CLI 同目录）
 - **自动修复** -- `/check` 和 `/run` 失败时自动触发 LLM 诊断和配置修复
@@ -101,6 +102,9 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 # export AWS_SECRET_ACCESS_KEY=...
 ```
 
+当 Bedrock 流式 Converse 响应返回 Claude `reasoningContent` blocks 时，
+Bedrock provider 会在 assistant 历史中保留并回传。
+
 #### 方案 B：Anthropic API
 
 ```bash
@@ -111,6 +115,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-4-5-20251001
 ```
+
+当 API 返回 Claude thinking blocks 时，Anthropic provider 会在 assistant 历史中保留并回传
+`thinking`、`signature` 和 `redacted_thinking`。
 
 #### 方案 C：OpenAI API
 
@@ -124,6 +131,9 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 
 # 兼容 API 的自定义端点（Azure OpenAI、本地模型等）
 # export OPENAI_BASE_URL=https://your-endpoint.openai.azure.com/
+
+# 对需要 reasoning_content 回放的兼容推理模型保持开启
+# export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
 ### SEATUNNEL_HOME
@@ -173,6 +183,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `ANTHROPIC_API_KEY` | Anthropic 必需 | -- | Anthropic API 密钥 |
 | `OPENAI_API_KEY` | OpenAI 必需 | -- | OpenAI API 密钥 |
 | `OPENAI_BASE_URL` | 否 | -- | OpenAI 兼容 API 的自定义端点 |
+| `OPENAI_ECHO_REASONING_CONTENT` | 否 | `true` | 为 DeepSeek、GLM 思考模式等 OpenAI 兼容推理模型保留并回传 `reasoning_content` |
 | `ANTHROPIC_MODEL` | 否 | 提供商默认值 | 覆盖主模型 ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | 否 | 提供商默认值 | 覆盖快速模型 ID |
 | `OPENAI_MODEL` | 否 | `gpt-4o` | OpenAI 提供商的主模型 |
@@ -231,7 +242,7 @@ seatunnel [request] [options]
 | `/save <path>` | 将配置保存到自定义路径（生成时自动保存到 `.data/last_job.conf`） |
 | `/check` | 试运行校验最近的配置；失败时自动诊断并修复 |
 | `/run` | 通过 REST API 或 `seatunnel.sh` 执行最近的配置；失败时自动诊断 |
-| `/connectors` | 列出所有可用的 Source、Sink 和 Transform |
+| `/connectors` | 列出所有可用的 Source、Sink 和 Transform；生成配置时支持 Transform 选项规则和值约束 |
 | `/sessions` | 列出最近的对话会话 |
 | `/resume [id]` | 恢复之前的会话 |
 | `/new` | 开始新会话 |
@@ -361,7 +372,9 @@ seatunnel [request] [options]
 两级解析，智能回退：
 
 1. **运行时 API** -- 从运行中的 SeaTunnel 引擎获取实时元数据（`/option-rules` 端点）。始终准确，零维护成本。
-2. **内置元数据** -- `connector_metadata.json` 随 CLI 包分发。包含 150 个连接器的完整选项规则，通过 SeaTunnel 引擎反射导出。零 LLM Token 消耗。
+2. **内置元数据** -- `connector_metadata.json` 随 CLI 包分发。Source、Sink 和 Transform 插件都包含通过 SeaTunnel 引擎反射导出的完整选项规则和值约束。零 LLM Token 消耗。
+
+Transform 元数据与 Source、Sink 元数据走同一条解析路径，因此提示词可以包含 Transform 专属必填项和值约束，例如 SQL 查询不能为空。
 
 ### 记忆系统
 
@@ -384,7 +397,7 @@ CLI 跨会话记忆信息，以提高配置准确性：
 
 ## 连接器元数据
 
-CLI 内置 `connector_metadata.json`（150 个连接器），通过运行时反射从 SeaTunnel 引擎导出，无需额外步骤。
+CLI 内置 `connector_metadata.json`，通过运行时反射从 SeaTunnel 引擎导出。它包含 Source、Sink 和 Transform 插件的选项规则、条件选项和值约束，无需额外步骤。
 
 如需为不同 SeaTunnel 版本重新导出（需要运行中的引擎）：
 

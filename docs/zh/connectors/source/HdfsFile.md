@@ -25,7 +25,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -52,6 +52,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | 名称                         | 类型      | 是否必须 | 默认值                 | 描述                                                                                                                                                                               |
 |----------------------------|---------|------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                   | 源文件路径。                                                                                                                                                                           |
+| tables_configs             | list    | 否    | -                   | 在一个 Source 块中配置多张 HDFS 源表。每一项都使用与单表 `HdfsFile` Source 相同的参数，并可通过 `schema.table` 设置传递给下游的表名。                                                                 |
 | file_format_type           | string  | 是    | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
 | fs.defaultFS               | string  | 是    | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                            |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                                           |
@@ -99,6 +100,9 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | file_split_size            | long    | 否    | 134217728           | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
+| metalake_type              | string  | 否    | gravitino           | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                  |
+| recursive_file_scan        | boolean | 否    | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                                                     |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### file_format_type [string]
 
@@ -128,6 +132,11 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+### tables_configs [list]
+
+当一个 HDFS Source 需要读取多张表或多个目录时，可以使用 `tables_configs`。每一项都可以单独配置
+`path`、`file_format_type`、`schema` 以及 HDFS 相关参数。下游 Sink 需要按表路由时，请设置 `schema.table`。
 
 ### delimiter/field_delimiter [string]
 
@@ -346,6 +355,14 @@ abc.*
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
 ### schema [config]
 
 仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
@@ -361,6 +378,11 @@ abc.*
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
 
 ### 提示
 
@@ -582,6 +604,9 @@ sink {
 ```
 
 ### 多表配置
+
+`tables_configs` 中的每一项都会作为一张独立表读取。不同 HDFS 目录需要在下游保留各自表名时，可以使用这种配置。
+
 ```hocon
 env {
   parallelism = 1

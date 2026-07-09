@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] 文本
   - [x] CSV
@@ -50,9 +51,11 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | user                        | string  | 是    | -                   |
 | password                    | string  | 是    | -                   |
 | path                        | string  | 是    | -                   |
+| tables_configs              | list    | 否    | -                   |
 | file_format_type            | string  | 是    | -                   |
 | connection_mode             | string  | 否    | active_local        |
-| remote_verification_enabled | boolean | no   | true                |
+| remote_verification_enabled | boolean | 否    | true                |
+| control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |
@@ -89,6 +92,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | file_filter_modified_end    | string  | 否    | -                   | 
 | quote_char                  | string  | 否    | "                   | 
 | escape_char                 | string  | 否    | -                   |
+| metalake_type               | string  | 否    | gravitino           |
+| recursive_file_scan         | boolean | 否    | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+
 ### host [string]
 
 目标 FTP 主机地址，必填项。
@@ -108,6 +115,12 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ### path [string]
 
 源文件路径。
+
+### tables_configs [list]
+
+在一个 Source 块中配置多张 FTP 源表。`tables_configs` 中每一项都使用与单表 `FtpFile` Source 相同的参数，
+例如 `host`、`port`、`user`、`password`、`path`、`file_format_type` 和 `schema`。可通过 `schema.table`
+指定传递给下游的表名。
 
 ### remote_verification_enabled [boolean]
 
@@ -531,6 +544,18 @@ compare_mode = "len_mtime"
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
 ### 通用选项
 
 源插件的通用参数，详情请参考 [源通用选项](../common-options/source-common-options.md)。
@@ -556,6 +581,8 @@ compare_mode = "len_mtime"
 ```
 
 ### 多表配置
+
+`tables_configs` 中的每一项都会作为一张独立表读取。除非通过外层共享配置复用相同参数，否则建议在每一项中明确写出连接和格式参数。
 
 ```hocon
 

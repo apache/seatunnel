@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
   在pollNext调用中读取拆分的所有数据。读取的拆分内容将保存在快照中。
 
-- [x] [列映射](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
@@ -38,15 +38,15 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 描述
 
-从阿里云Cos文件系统读取数据。
+从腾讯云 COS 文件系统读取数据。
 
 :::提示
 
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flilk集群已经集成了hadoop。测试的hadoop版本是2.x
+如果你使用 Spark/Flink，为了使用这个连接器，你必须确保 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本是 2.x。
 
-如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点.
+如果你使用 SeaTunnel Engine，当你下载并安装 SeaTunnel Engine 时，它会自动集成 Hadoop jar。你可以在 `${SEATUNNEL_HOME}/lib` 下检查 jar 包以确认这一点。
 
-要使用此连接器，您需要将hadoop-cos-{hadoop.version}-{version}.jar和cos_api-bundle-{version}.jar位于${SEATUNNEL_HOME}/lib目录中，下载：[Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). 它只支持hadoop 2.6.5+和8.0.2版本+.
+要使用此连接器，你需要将 `hadoop-cos-{hadoop.version}-{version}.jar` 和 `cos_api-bundle-{version}.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录中，下载地址：[Hadoop COS release](https://github.com/tencentyun/hadoop-cos/releases)。它仅支持 Hadoop 2.6.5+ 和 hadoop-cos 8.0.2+。
 
 :::
 
@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | secret_id                  | string  | 是  | -                   |
 | secret_key                 | string  | 是  | -                   |
 | region                     | string  | 是  | -                   |
-| read_columns               | list    | 是  | -                   |
+| read_columns               | list    | 否  | -                   |
 | delimiter/field_delimiter  | string  | 否  | \001                |
 | row_delimiter              | string  | 否  | \n                  |
 | parse_partition_from_path  | boolean | 否  | true                |
@@ -84,6 +84,8 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | file_filter_modified_end   | string  | 否  | -                   |
 | quote_char                 | string  | 否  | "                   | 
 | escape_char                | string  | 否  | -                   |
+| recursive_file_scan        | boolean | 否  | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### path [string]
 
@@ -430,9 +432,21 @@ abc.*
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
 ### common options
 
-源插件常用参数，详见[源端通用选项]（../common-options/source-common-options.md）。
+源插件常用参数，详见[源端通用选项](../common-options/source-common-options.md)。
 
 ## 例如
 

@@ -171,6 +171,7 @@ public class SplitClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         return seaTunnelConfig;
     }
 
@@ -1064,6 +1065,7 @@ public class SplitClusterFaultToleranceIT {
         Config hazelcastConfig = Config.loadFromString(yaml);
         hazelcastConfig.setClusterName(testClusterName);
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         return seaTunnelConfig;
     }
 }

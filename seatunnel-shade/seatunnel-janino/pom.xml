@@ -26,7 +26,7 @@
     <artifactId>seatunnel-janino</artifactId>
     <name>SeaTunnel : Shade : Janino</name>
     <properties>
-        <janino.verion>3.0.11</janino.verion>
+        <janino.verion>3.1.12</janino.verion>
     </properties>
 
     <dependencies>

@@ -39,10 +39,27 @@ public class PaimonStreamSourceSplitEnumerator extends AbstractSplitEnumerator {
             @Nullable Long nextSnapshotId,
             Map<String, ReadBuilder> readBuilders,
             int splitMaxPerTask) {
+        this(
+                context,
+                pendingSplits,
+                nextSnapshotId,
+                java.util.Collections.emptyMap(),
+                readBuilders,
+                splitMaxPerTask);
+    }
+
+    public PaimonStreamSourceSplitEnumerator(
+            Context<PaimonSourceSplit> context,
+            Deque<PaimonSourceSplit> pendingSplits,
+            @Nullable Long nextSnapshotId,
+            Map<String, Long> nextSnapshotIds,
+            Map<String, ReadBuilder> readBuilders,
+            int splitMaxPerTask) {
         super(
                 context,
                 pendingSplits,
                 nextSnapshotId,
+                nextSnapshotIds,
                 readBuilders,
                 splitMaxPerTask,
                 JobMode.STREAMING);

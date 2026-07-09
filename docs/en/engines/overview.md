@@ -127,21 +127,30 @@ For most new deployments, SeaTunnel Engine is the recommended default because it
 
 ## Decision Flowchart
 
-```
-Start
-  │
-  ▼
-Do you have existing Flink/Spark infrastructure?
-  │
-  ├─ Yes ──► Do you want to reuse it?
-  │            │
-  │            ├─ Yes (Flink) ──► Use Flink Engine
-  │            │
-  │            ├─ Yes (Spark) ──► Use Spark Engine
-  │            │
-  │            └─ No ──► Use SeaTunnel Engine
-  │
-  └─ No ──► Use SeaTunnel Engine (Recommended)
+```mermaid
+flowchart TD
+    start["Start"]
+    infra{"Do you already have<br/>Flink or Spark infrastructure?"}
+    reuse{"Do you want to reuse it?"}
+    flink["Use Flink Engine"]
+    spark["Use Spark Engine"]
+    zeta["Use SeaTunnel Engine<br/>(Recommended by default)"]
+
+    start --> infra
+    infra -- "Yes" --> reuse
+    infra -- "No" --> zeta
+    reuse -- "Yes, Flink" --> flink
+    reuse -- "Yes, Spark" --> spark
+    reuse -- "No" --> zeta
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class start,infra,reuse layerBlue;
+    class flink,spark layerCyan;
+    class zeta layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## Configuration Examples

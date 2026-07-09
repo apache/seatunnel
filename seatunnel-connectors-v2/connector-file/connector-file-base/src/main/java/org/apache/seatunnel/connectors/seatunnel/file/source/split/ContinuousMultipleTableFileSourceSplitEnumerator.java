@@ -381,7 +381,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         int queued = 0;
         Set<String> activeKnownSplitIds = new HashSet<>();
         for (TableScanContext ctx : tableScanContexts) {
-            List<FileStatus> files = ctx.listFilesRecursively(ctx.rootPath);
+            List<FileStatus> files = ctx.listFiles(ctx.rootPath);
             scanned += files.size();
             for (FileStatus fileStatus : files) {
                 if (!ctx.shouldProcess(fileStatus, jobStartTimeMillis, startMode)) {
@@ -1097,6 +1097,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         private final Duration retentionMaxAge;
         private final Duration retentionCheckInterval;
         private boolean checksumUnavailableWarned;
+        private final boolean recursiveFileScan;
 
         private final Pattern pattern;
         private final String fileBasePath;
@@ -1145,6 +1146,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     config.getOptional(FileBaseSourceOptions.RETENTION_MAX_AGE).orElse(null);
             this.retentionCheckInterval =
                     config.get(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL);
+            this.recursiveFileScan = config.get(FileBaseSourceOptions.RECURSIVE_FILE_SCAN);
 
             String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);
             Map<String, String> targetHadoopConf =
@@ -1172,14 +1174,14 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return fileSplitStrategy.split(tableId, fileStatus.getPath().toString());
         }
 
-        private List<FileStatus> listFilesRecursively(String path) throws IOException {
+        private List<FileStatus> listFiles(String path) throws IOException {
             List<FileStatus> files = new ArrayList<>();
             FileStatus[] statuses = sourceFs.listStatus(path);
             for (FileStatus status : statuses) {
                 if (status.isDirectory()) {
                     String name = status.getPath().getName();
-                    if (!name.startsWith(".")) {
-                        files.addAll(listFilesRecursively(status.getPath().toString()));
+                    if (recursiveFileScan && !name.startsWith(".")) {
+                        files.addAll(listFiles(status.getPath().toString()));
                     }
                     continue;
                 }

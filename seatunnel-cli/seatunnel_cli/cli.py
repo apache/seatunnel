@@ -39,7 +39,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
 from . import __version__, get_data_dir
-from .llm_provider import create_provider
+from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
 
 
@@ -70,7 +70,7 @@ Generate Apache SeaTunnel configs with natural language.
   [bold]/save <path>[/bold]     — Save config to custom path (auto-saved to .data/last_job.conf)
   [bold]/check[/bold]           — Dry-run validate last config (auto-fixes on failure)
   [bold]/run[/bold]             — Execute last config with SeaTunnel
-  [bold]/connectors[/bold]      — List available connectors
+  [bold]/connectors[/bold]      — List available sources, sinks, and transforms
   [bold]/config[/bold]          — Show/change LLM provider settings
   [bold]/sessions[/bold]        — List recent sessions
   [bold]/resume [id][/bold]     — Resume a previous session
@@ -928,7 +928,7 @@ class SeaTunnelCLI:
             result = self.orchestrator.process_user_input(user_input)
         except Exception as e:
             self._stop_live()
-            self.console.print(f"\n[error]Error: {e}[/error]")
+            self.console.print(f"\n[error]Error: {format_llm_error(e)}[/error]")
             import traceback
             self.console.print(f"[dim]{traceback.format_exc()}[/dim]")
             return None
@@ -1066,6 +1066,7 @@ class SeaTunnelCLI:
             self.console.print(f"  [bold]Sources:[/bold] {', '.join(names['sources'])}")
             self.console.print(f"  [bold]Sinks:[/bold]   {', '.join(names['sinks'])}")
             self.console.print(f"  [bold]Transforms:[/bold] {', '.join(names['transforms'])}")
+            self.console.print("  Transform option rules and value constraints are supported during generation.")
 
         elif command == "/config":
             self._cmd_config(arg.strip())
