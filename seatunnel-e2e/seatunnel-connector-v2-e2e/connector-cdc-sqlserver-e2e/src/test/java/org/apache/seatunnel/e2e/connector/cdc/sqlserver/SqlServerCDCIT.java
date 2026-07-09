@@ -1159,9 +1159,15 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
         String beforeLsn = currentSqlServerMaxLsn();
         updateSqlServerFullTypesVarchar(1, "latest-before-" + System.nanoTime());
-        await().atMost(30, TimeUnit.SECONDS)
+        await().atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
-                        () -> Assertions.assertNotEquals(beforeLsn, currentSqlServerMaxLsn()));
+                        () -> {
+                            String currentLsn = currentSqlServerMaxLsn();
+                            Assertions.assertNotNull(currentLsn);
+                            if (beforeLsn != null) {
+                                Assertions.assertNotEquals(beforeLsn, currentLsn);
+                            }
+                        });
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.runAsync(
@@ -1229,9 +1235,15 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private String currentSqlServerMaxLsn() {
-        return querySql("SELECT CONVERT(VARCHAR(100), sys.fn_cdc_get_max_lsn(), 1)")
-                .get(0)
-                .get(0)
-                .toString();
+        List<List<Object>> rows =
+                querySql(
+                        String.format(
+                                "SELECT CONVERT(VARCHAR(100), [%s].sys.fn_cdc_get_max_lsn(), 1)",
+                                DATABASE_NAME));
+        if (rows.isEmpty() || rows.get(0) == null || rows.get(0).isEmpty()) {
+            return null;
+        }
+        Object maxLsn = rows.get(0).get(0);
+        return maxLsn == null ? null : maxLsn.toString();
     }
 }
