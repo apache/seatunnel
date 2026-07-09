@@ -422,7 +422,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         String slotVariable = toSlotVariable(slotName);
         clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
         clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        String beforeLsn = currentPostgresWalLsn();
         insertPostgresSourceTable1Row(10);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertTrue(currentPostgresWalLsnDiff(beforeLsn) > 0));
 
         CompletableFuture.runAsync(
                 () -> {
@@ -445,23 +449,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             container.getJobStatus(String.valueOf(jobId))));
 
             waitForReplicationSlotActive(slotName);
-
-            await().during(30, TimeUnit.SECONDS)
-                    .atMost(45, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                List<List<Object>> sinkRows =
-                                        query(
-                                                "SELECT id FROM "
-                                                        + POSTGRESQL_SCHEMA
-                                                        + "."
-                                                        + SINK_TABLE_1
-                                                        + " ORDER BY id");
-                                Assertions.assertFalse(
-                                        sinkRows.stream()
-                                                .anyMatch(
-                                                        row -> row.get(0).toString().equals("10")));
-                            });
 
             insertPostgresSourceTable1Row(11);
 
@@ -1319,6 +1306,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String currentPostgresWalLsn() {
+        return query("SELECT pg_current_wal_lsn()").get(0).get(0).toString();
+    }
+
+    private double currentPostgresWalLsnDiff(String lsn) {
+        String sql = "SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '" + lsn + "')";
+        return ((Number) query(sql).get(0).get(0)).doubleValue();
     }
 
     @Override

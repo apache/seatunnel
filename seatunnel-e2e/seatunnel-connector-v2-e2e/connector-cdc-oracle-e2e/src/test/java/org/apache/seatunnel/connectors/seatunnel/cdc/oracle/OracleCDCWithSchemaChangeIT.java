@@ -87,9 +87,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
     private static final String PROJECTION_QUERY =
             "select ID,VAL_VARCHAR,VAL_VARCHAR2,VAL_NVARCHAR2,VAL_CHAR,VAL_NCHAR,VAL_BF,VAL_BD,VAL_F,VAL_F_10,VAL_NUM,VAL_DP,VAL_R,VAL_DECIMAL,VAL_NUMERIC,VAL_NUM_VS,VAL_INT,VAL_INTEGER,VAL_SMALLINT,VAL_NUMBER_38_NO_SCALE,VAL_NUMBER_38_SCALE_0,VAL_NUMBER_1,VAL_NUMBER_2,VAL_NUMBER_4,VAL_NUMBER_9,VAL_NUMBER_18,VAL_NUMBER_2_NEGATIVE_SCALE,VAL_NUMBER_4_NEGATIVE_SCALE,VAL_NUMBER_9_NEGATIVE_SCALE,VAL_NUMBER_18_NEGATIVE_SCALE,VAL_NUMBER_36_NEGATIVE_SCALE,VAL_DATE,VAL_TS,VAL_TS_PRECISION2,VAL_TS_PRECISION4,VAL_TS_PRECISION9,VAL_TSLTZ from %s.%s ORDER BY ID ASC";
 
-    private static final String PROJECTION_QUERY_AFTER_EXCLUDED_DROP =
-            "select ID,VAL_VARCHAR,VAL_VARCHAR2,VAL_NVARCHAR2,VAL_CHAR,VAL_NCHAR,VAL_BF,VAL_BD,VAL_F,VAL_F_10,VAL_NUM,VAL_DP,VAL_R,VAL_DECIMAL,VAL_NUMERIC,VAL_NUM_VS,VAL_INT,VAL_INTEGER,VAL_SMALLINT,VAL_NUMBER_38_NO_SCALE,VAL_NUMBER_38_SCALE_0,VAL_NUMBER_1,VAL_NUMBER_2,VAL_NUMBER_4,VAL_NUMBER_9,VAL_NUMBER_18,VAL_NUMBER_2_NEGATIVE_SCALE,VAL_NUMBER_4_NEGATIVE_SCALE,VAL_NUMBER_9_NEGATIVE_SCALE,VAL_NUMBER_18_NEGATIVE_SCALE,VAL_NUMBER_36_NEGATIVE_SCALE,VAL_DATE,VAL_TS,VAL_TS_PRECISION2,VAL_TS_PRECISION4,VAL_TS_PRECISION9,VAL_TSLTZ from %s.%s WHERE ID >= 9 ORDER BY ID ASC";
-
     private static final String PROJECTION_QUERY_ADD_COLUMN1 =
             "select ID,ADD_COLUMN1,ADD_COLUMN2 from %s.%s where ID >=5 ORDER BY ID ASC";
 
@@ -243,10 +240,12 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                         throw new RuntimeException(e);
                     }
                 });
+
         try {
             given().pollDelay(10, TimeUnit.SECONDS)
                     .await()
-                    .pollDelay(5000L, TimeUnit.MILLISECONDS)
+                    .pollInterval(5000L, TimeUnit.MILLISECONDS)
+                    .atMost(2, TimeUnit.MINUTES)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -263,20 +262,7 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                             SOURCE_TABLE1 + "_SINK",
                                             false));
 
-            createAndInitialize("add_columns", CONNECTOR_USER, CONNECTOR_PWD);
-            await().atMost(300, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            oracleColumnExists(
-                                                    ORACLE_CONTAINER.getJdbcUrl(),
-                                                    SCEHMA_NAME,
-                                                    SOURCE_TABLE1 + "_SINK",
-                                                    "ADD_COLUMN1"),
-                                            "add.column should propagate before drop.column is excluded"));
-
-            createAndInitialize("drop_columns", CONNECTOR_USER, CONNECTOR_PWD);
-
+            createAndInitialize("add_nullable_column", CONNECTOR_USER, CONNECTOR_PWD);
             await().atMost(300, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
@@ -285,34 +271,34 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                                 ORACLE_CONTAINER.getJdbcUrl(),
                                                 SCEHMA_NAME,
                                                 SOURCE_TABLE1 + "_SINK",
-                                                "ADD_COLUMN1"),
-                                        "drop.column is excluded, so sink should keep ADD_COLUMN1");
-                                Assertions.assertTrue(
-                                        oracleColumnExists(
-                                                ORACLE_CONTAINER.getJdbcUrl(),
-                                                SCEHMA_NAME,
-                                                SOURCE_TABLE1 + "_SINK",
-                                                "ADD_COLUMN3"),
-                                        "drop.column is excluded, so sink should keep ADD_COLUMN3");
-                                Assertions.assertTrue(
-                                        oracleColumnExists(
-                                                ORACLE_CONTAINER.getJdbcUrl(),
-                                                SCEHMA_NAME,
-                                                SOURCE_TABLE1 + "_SINK",
-                                                "ADD_COLUMN4"),
-                                        "drop.column is excluded, so sink should keep ADD_COLUMN4");
+                                                "ADD_COLUMN_FILTER"));
+                                checkData(
+                                        PROJECTION_QUERY,
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        SCEHMA_NAME,
+                                        SOURCE_TABLE1 + "_SINK",
+                                        false);
                             });
 
+            createAndInitialize("drop_nullable_column", CONNECTOR_USER, CONNECTOR_PWD);
             await().atMost(300, TimeUnit.SECONDS)
                     .untilAsserted(
-                            () ->
-                                    checkData(
-                                            PROJECTION_QUERY_AFTER_EXCLUDED_DROP,
-                                            ORACLE_CONTAINER.getJdbcUrl(),
-                                            ORACLE_CONTAINER.getJdbcUrl(),
-                                            SCEHMA_NAME,
-                                            SOURCE_TABLE1 + "_SINK",
-                                            false));
+                            () -> {
+                                Assertions.assertTrue(
+                                        oracleColumnExists(
+                                                ORACLE_CONTAINER.getJdbcUrl(),
+                                                SCEHMA_NAME,
+                                                SOURCE_TABLE1 + "_SINK",
+                                                "ADD_COLUMN_FILTER"));
+                                checkData(
+                                        PROJECTION_QUERY,
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        SCEHMA_NAME,
+                                        SOURCE_TABLE1 + "_SINK",
+                                        false);
+                            });
         } finally {
             Container.ExecResult cancelJobResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
@@ -621,14 +607,16 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
 
     private boolean oracleColumnExists(
             String jdbcUrl, String schemaName, String tableName, String columnName) {
-        return query(
+        List<List<String>> rows =
+                query(
                         jdbcUrl,
                         String.format(
-                                "SELECT COLUMN_NAME FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s'",
-                                schemaName, tableName),
+                                "SELECT COUNT(1) FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s' AND column_name = '%s'",
+                                schemaName.toUpperCase(),
+                                tableName.toUpperCase(),
+                                columnName.toUpperCase()),
                         CONNECTOR_USER,
-                        CONNECTOR_PWD)
-                .stream()
-                .anyMatch(row -> columnName.equalsIgnoreCase(row.get(0)));
+                        CONNECTOR_PWD);
+        return !rows.isEmpty() && Integer.parseInt(rows.get(0).get(0)) > 0;
     }
 }

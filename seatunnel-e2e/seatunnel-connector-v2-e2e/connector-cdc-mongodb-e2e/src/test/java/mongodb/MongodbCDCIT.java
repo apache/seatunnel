@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
+import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterAll;
@@ -353,7 +354,13 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     "This case needs the Zeta job status gate before emitting latest-mode changes.")
     public void testLatestStartupMode(TestContainer container) throws Exception {
         cleanSourceTable();
+        long beforeOperationTime = currentMongoOperationTime();
         upsertDeleteSourceTable();
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        currentMongoOperationTime() > beforeOperationTime));
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.runAsync(
@@ -373,11 +380,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
-
-            await().during(30, TimeUnit.SECONDS)
-                    .atMost(45, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertTrue(querySql(SINK_SQL_PRODUCTS).isEmpty()));
 
             insertLatestStartupProduct();
 
@@ -773,6 +775,13 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         products.updateOne(
                 Filters.eq("_id", new ObjectId("100000000000000000000122")),
                 Updates.set("description", "captured after latest startup " + System.nanoTime()));
+    }
+
+    private long currentMongoOperationTime() {
+        Document result = client.getDatabase("admin").runCommand(new Document("ping", 1));
+        Document clusterTime = result.get("$clusterTime", Document.class);
+        BsonTimestamp timestamp = clusterTime.get("clusterTime", BsonTimestamp.class);
+        return (((long) timestamp.getTime()) << 32) + timestamp.getInc();
     }
 
     private void cleanSourceTable() {

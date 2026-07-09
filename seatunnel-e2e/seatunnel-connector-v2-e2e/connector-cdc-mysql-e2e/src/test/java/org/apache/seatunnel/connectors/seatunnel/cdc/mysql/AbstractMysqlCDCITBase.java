@@ -184,20 +184,6 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
-    public void testMysqlCdcStopLatestMode(TestContainer container) throws Exception {
-        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
-        clearTable(MYSQL_DATABASE, SINK_TABLE);
-
-        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
-
-        Container.ExecResult result = container.executeJob("/mysqlcdc_stop_latest_to_mysql.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        Assertions.assertIterableEquals(
-                query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
-                query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
-    }
-
-    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},

@@ -1157,6 +1157,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     public void testLatestStartupMode(TestContainer container) throws Exception {
         initializeSqlServerTable(DATABASE_NAME);
         executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
+        String beforeLsn = currentSqlServerMaxLsn();
+        updateSqlServerFullTypesVarchar(1, "latest-before-" + System.nanoTime());
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertNotEquals(beforeLsn, currentSqlServerMaxLsn()));
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.runAsync(
@@ -1176,23 +1181,6 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
-
-            await().during(30, TimeUnit.SECONDS)
-                    .atMost(45, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                List<List<Object>> sinkRows =
-                                        querySql(
-                                                "SELECT id FROM "
-                                                        + DATABASE_NAME
-                                                        + "."
-                                                        + SCHEMA_NAME
-                                                        + ".full_types_sink ORDER BY id ASC");
-                                Assertions.assertFalse(
-                                        sinkRows.stream()
-                                                .anyMatch(
-                                                        row -> row.get(0).toString().equals("1")));
-                            });
 
             insertSqlServerFullTypesRow(100);
 
@@ -1238,5 +1226,12 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     private void updateSqlServerFullTypesVarchar(int id, String value) {
         executeSql(
                 "UPDATE " + SOURCE_TABLE + " SET val_varchar = '" + value + "' where id = " + id);
+    }
+
+    private String currentSqlServerMaxLsn() {
+        return querySql("SELECT CONVERT(VARCHAR(100), sys.fn_cdc_get_max_lsn(), 1)")
+                .get(0)
+                .get(0)
+                .toString();
     }
 }

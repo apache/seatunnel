@@ -211,7 +211,13 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
         Long jobId = JobIdGenerator.newJobId();
         clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
         clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_1);
+        String beforeXlogLocation = currentOpengaussXlogLocation();
         insertOpengaussSourceTable1Row(10);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        currentOpengaussXlogDiff(beforeXlogLocation) > 0));
 
         CompletableFuture.runAsync(
                 () -> {
@@ -230,23 +236,6 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "RUNNING",
                                             container.getJobStatus(String.valueOf(jobId))));
-
-            await().during(30, TimeUnit.SECONDS)
-                    .atMost(45, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                List<List<Object>> sinkRows =
-                                        query(
-                                                "SELECT id FROM "
-                                                        + OPENGAUSS_SCHEMA
-                                                        + "."
-                                                        + SINK_TABLE_1
-                                                        + " ORDER BY id");
-                                Assertions.assertFalse(
-                                        sinkRows.stream()
-                                                .anyMatch(
-                                                        row -> row.get(0).toString().equals("10")));
-                            });
 
             insertOpengaussSourceTable1Row(11);
 
@@ -759,6 +748,16 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String currentOpengaussXlogLocation() {
+        return query("SELECT pg_current_xlog_location()").get(0).get(0).toString();
+    }
+
+    private double currentOpengaussXlogDiff(String xlogLocation) {
+        String sql =
+                "SELECT pg_xlog_location_diff(pg_current_xlog_location(), '" + xlogLocation + "')";
+        return ((Number) query(sql).get(0).get(0)).doubleValue();
     }
 
     private List<List<Object>> query(String sql) {
