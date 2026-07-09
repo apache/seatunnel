@@ -54,7 +54,7 @@ public class SeaTunnelRowStreamingRecordDeserializer
                 values = decodeDeleteValues(row, handle);
                 SeaTunnelRow record = converter.convert(values, tableInfo, rowType);
                 record.setRowKind(RowKind.DELETE);
-                output.collect(record);
+                collect(record, output);
                 break;
             case PUT:
                 try {
@@ -66,11 +66,11 @@ public class SeaTunnelRowStreamingRecordDeserializer
                     if (row.getOldValue() == null || row.getOldValue().isEmpty()) {
                         SeaTunnelRow insert = converter.convert(values, tableInfo, rowType);
                         insert.setRowKind(RowKind.INSERT);
-                        output.collect(insert);
+                        collect(insert, output);
                     } else {
                         SeaTunnelRow update = converter.convert(values, tableInfo, rowType);
                         update.setRowKind(RowKind.UPDATE_AFTER);
-                        output.collect(update);
+                        collect(update, output);
                     }
                     break;
                 } catch (final RuntimeException e) {

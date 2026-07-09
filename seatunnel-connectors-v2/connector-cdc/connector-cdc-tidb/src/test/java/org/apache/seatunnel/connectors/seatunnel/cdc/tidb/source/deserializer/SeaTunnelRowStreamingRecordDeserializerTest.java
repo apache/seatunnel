@@ -66,6 +66,7 @@ class SeaTunnelRowStreamingRecordDeserializerTest {
 
         SeaTunnelRow row = collector.rows.get(0);
         assertEquals(RowKind.DELETE, row.getRowKind());
+        assertEquals("test_db.test_table", row.getTableId());
         assertEquals(HANDLE, row.getField(0));
         assertEquals("Alice", row.getField(1));
     }
