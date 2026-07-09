@@ -114,6 +114,19 @@ public class MilvusSinkConverterTest {
     }
 
     @Test
+    void keepsPartitionKeyNotNullableWhenNullableFieldEnabled() {
+        Column partitionKeyColumn =
+                PhysicalColumn.of("partition_col", BasicType.STRING_TYPE, 0L, true, null, "");
+
+        FieldType partitionKey =
+                MilvusSinkConverter.convertToFieldType(
+                        partitionKeyColumn, null, "partition_col", null, true);
+
+        assertFalse(partitionKey.isNullable());
+        assertTrue(partitionKey.isPartitionKey());
+    }
+
+    @Test
     void throwsWhenFieldValueIsNullByDefault() {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {null});
 
@@ -160,6 +173,25 @@ public class MilvusSinkConverterTest {
                                         .buildMilvusData(
                                                 catalogTable(false),
                                                 nullableFieldConfig(),
+                                                Collections.emptyList(),
+                                                null,
+                                                row));
+
+        assertEquals("MILVUS-10", exception.getSeaTunnelErrorCode().getCode());
+    }
+
+    @Test
+    void throwsWhenPartitionKeyValueIsNullAndNullableFieldEnabled() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {null});
+
+        MilvusConnectorException exception =
+                assertThrows(
+                        MilvusConnectorException.class,
+                        () ->
+                                new MilvusSinkConverter()
+                                        .buildMilvusData(
+                                                catalogTable(),
+                                                nullablePartitionKeyConfig(),
                                                 Collections.emptyList(),
                                                 null,
                                                 row));
@@ -235,6 +267,13 @@ public class MilvusSinkConverterTest {
     private ReadonlyConfig nullableFieldConfig() {
         Map<String, Object> options = new HashMap<>();
         options.put(MilvusSinkOptions.ENABLE_NULLABLE_FIELD.key(), true);
+        return ReadonlyConfig.fromMap(options);
+    }
+
+    private ReadonlyConfig nullablePartitionKeyConfig() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(MilvusSinkOptions.ENABLE_NULLABLE_FIELD.key(), true);
+        options.put(MilvusSinkOptions.PARTITION_KEY.key(), "nullable_col");
         return ReadonlyConfig.fromMap(options);
     }
 

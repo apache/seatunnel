@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.VectorUtils;
+import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
@@ -52,6 +53,7 @@ import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyFiel
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_AUTO_ID;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_DYNAMIC_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.ENABLE_NULLABLE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.PARTITION_KEY;
 
 public class MilvusSinkConverter {
     private static final Gson gson = new Gson();
@@ -144,7 +146,12 @@ public class MilvusSinkConverter {
                 FieldType.newBuilder()
                         .withName(column.getName())
                         .withDataType(milvusDataType)
-                        .withNullable(allowNullableField(column, primaryKey, enableNullableField));
+                        .withNullable(
+                                allowNullableField(
+                                        column,
+                                        primaryKey,
+                                        partitionKeyField,
+                                        enableNullableField));
         if (StringUtils.isNotEmpty(column.getComment())) {
             build.withDescription(column.getComment());
         }
@@ -220,14 +227,21 @@ public class MilvusSinkConverter {
     }
 
     private static boolean allowNullableField(
-            Column column, PrimaryKey primaryKey, Boolean enableNullableField) {
+            Column column,
+            PrimaryKey primaryKey,
+            String partitionKeyField,
+            Boolean enableNullableField) {
         return Boolean.TRUE.equals(enableNullableField)
                 && column.isNullable()
-                && supportNullableField(column, primaryKey);
+                && supportNullableField(column, primaryKey, partitionKeyField);
     }
 
-    private static boolean supportNullableField(Column column, PrimaryKey primaryKey) {
+    private static boolean supportNullableField(
+            Column column, PrimaryKey primaryKey, String partitionKeyField) {
         if (isPrimaryKeyField(primaryKey, column.getName())) {
+            return false;
+        }
+        if (StringUtils.equals(column.getName(), partitionKeyField)) {
             return false;
         }
         switch (column.getDataType().getSqlType()) {
@@ -293,6 +307,7 @@ public class MilvusSinkConverter {
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         Boolean autoId = config.get(ENABLE_AUTO_ID);
         Boolean enableNullableField = config.get(ENABLE_NULLABLE_FIELD);
+        String partitionKeyField = getPartitionKeyField(catalogTable, config);
 
         JsonObject data = new JsonObject();
         Gson gson = new Gson();
@@ -308,7 +323,8 @@ public class MilvusSinkConverter {
             Object value = element.getField(i);
             if (value == null) {
                 Column column = catalogTable.getTableSchema().getColumn(fieldName);
-                if (!allowNullableField(column, primaryKey, enableNullableField)) {
+                if (!allowNullableField(
+                        column, primaryKey, partitionKeyField, enableNullableField)) {
                     throw new MilvusConnectorException(
                             MilvusConnectionErrorCode.FIELD_IS_NULL, fieldName);
                 }
@@ -337,5 +353,13 @@ public class MilvusSinkConverter {
             data.add(fieldName, gson.toJsonTree(object));
         }
         return data;
+    }
+
+    private String getPartitionKeyField(CatalogTable catalogTable, ReadonlyConfig config) {
+        String partitionKeyField = catalogTable.getOptions().get(MilvusOptions.PARTITION_KEY_FIELD);
+        if (StringUtils.isNotEmpty(config.get(PARTITION_KEY))) {
+            partitionKeyField = config.get(PARTITION_KEY);
+        }
+        return partitionKeyField;
     }
 }
