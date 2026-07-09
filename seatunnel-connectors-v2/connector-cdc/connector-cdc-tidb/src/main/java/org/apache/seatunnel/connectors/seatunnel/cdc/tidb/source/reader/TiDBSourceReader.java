@@ -268,7 +268,7 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         int pendingCommitsBeforeFlush = commits.size();
         int committedEventsBeforeFlush = committedEvents.size();
         if (commits.size() > 0) {
-            resolvedTs = flushRows(resolvedTs);
+            resolvedTs = flushRowsAndGetSafeResolvedTs(resolvedTs);
         }
         long flushCostMs = nanosToMillis(System.nanoTime() - flushStartNanos);
         long emitStartNanos = System.nanoTime();
@@ -386,7 +386,11 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
         return true;
     }
 
-    protected long flushRows(final long resolvedTs) throws Exception {
+    protected void flushRows(final long resolvedTs) throws Exception {
+        flushRowsAndGetSafeResolvedTs(resolvedTs);
+    }
+
+    private long flushRowsAndGetSafeResolvedTs(final long resolvedTs) throws Exception {
         long safeResolvedTs = resolvedTs;
         while (!commits.isEmpty() && commits.firstKey().getTimestamp() <= resolvedTs) {
             final RowKeyWithTs commitKey = commits.firstKey();

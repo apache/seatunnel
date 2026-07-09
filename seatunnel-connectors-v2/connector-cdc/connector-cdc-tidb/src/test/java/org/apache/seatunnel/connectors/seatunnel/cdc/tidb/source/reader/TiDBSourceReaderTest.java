@@ -46,7 +46,7 @@ class TiDBSourceReaderTest {
 
         assertTrue(handleRow(reader, commit));
 
-        long safeResolvedTs = reader.flushRows(RESOLVED_TS);
+        long safeResolvedTs = flushRowsAndGetSafeResolvedTs(reader, RESOLVED_TS);
 
         assertEquals(COMMIT_TS - 1, safeResolvedTs);
         assertEquals(1, commits(reader).size());
@@ -56,7 +56,7 @@ class TiDBSourceReaderTest {
 
         assertTrue(handleRow(reader, prewrite));
 
-        safeResolvedTs = reader.flushRows(RESOLVED_TS);
+        safeResolvedTs = flushRowsAndGetSafeResolvedTs(reader, RESOLVED_TS);
 
         assertEquals(RESOLVED_TS, safeResolvedTs);
         assertTrue(commits(reader).isEmpty());
@@ -82,6 +82,15 @@ class TiDBSourceReaderTest {
                 TiDBSourceReader.class.getDeclaredMethod("handleRow", Cdcpb.Event.Row.class);
         handleRow.setAccessible(true);
         return (Boolean) handleRow.invoke(reader, row);
+    }
+
+    private static long flushRowsAndGetSafeResolvedTs(TiDBSourceReader reader, long resolvedTs)
+            throws Exception {
+        Method flushRowsAndGetSafeResolvedTs =
+                TiDBSourceReader.class.getDeclaredMethod(
+                        "flushRowsAndGetSafeResolvedTs", long.class);
+        flushRowsAndGetSafeResolvedTs.setAccessible(true);
+        return (Long) flushRowsAndGetSafeResolvedTs.invoke(reader, resolvedTs);
     }
 
     private static TreeMap<RowKeyWithTs, Cdcpb.Event.Row> commits(TiDBSourceReader reader)
