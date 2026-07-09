@@ -17,8 +17,8 @@
 
 import { getJobLogs } from '@/service/job-log'
 import type { JobLog } from '@/service/job-log/types'
-import { NCollapse, NCollapseItem, NSpace } from 'naive-ui'
-import { defineComponent, ref } from 'vue'
+import { NCollapse, NCollapseItem } from 'naive-ui'
+import { defineComponent, ref, watch } from 'vue'
 
 export default defineComponent({
   props: {
@@ -29,7 +29,14 @@ export default defineComponent({
   },
   setup(props) {
     const logList = ref([] as JobLog[])
-    getJobLogs(props.jobId).then((res) => (logList.value = res))
+    watch(
+      () => props.jobId,
+      (jobId) => {
+        if (!jobId) return
+        getJobLogs(jobId).then((res) => (logList.value = res))
+      },
+      { immediate: true }
+    )
     return () => (
       <div class="p-6">
         <NCollapse accordion>
