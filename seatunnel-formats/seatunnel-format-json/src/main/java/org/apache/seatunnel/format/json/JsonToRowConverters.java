@@ -358,7 +358,15 @@ public class JsonToRowConverters implements Serializable {
         }
         Float[] values = new Float[jsonNode.size()];
         for (int i = 0; i < jsonNode.size(); i++) {
-            values[i] = convertToFloat(jsonNode.get(i));
+            JsonNode element = jsonNode.get(i);
+            if (element == null || element.isNull() || !element.isNumber()) {
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Field '%s' expects numeric values for FLOAT_VECTOR, but element at index %d is '%s'.",
+                                fieldName, i, element));
+            }
+            values[i] = convertToFloat(element);
         }
         return VectorUtils.toByteBuffer(values);
     }
