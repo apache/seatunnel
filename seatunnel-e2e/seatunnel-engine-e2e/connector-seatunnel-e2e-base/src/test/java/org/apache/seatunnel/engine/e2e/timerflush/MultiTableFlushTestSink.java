@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.e2e.timerflush;
 
-import java.io.IOException;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-public interface FlowLifeCycle {
+public class MultiTableFlushTestSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    default void init() throws Exception {}
+    @Override
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+        return new MultiTableFlushTestSinkWriter(context);
+    }
 
-    default void open() throws Exception {}
-
-    default void close() throws IOException {}
-
-    default void hook() throws IOException {}
-
-    default void prepareClose() throws IOException {}
+    @Override
+    public String getPluginName() {
+        return MultiTableFlushTestSinkFactory.IDENTIFIER;
+    }
 }

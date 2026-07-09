@@ -76,4 +76,12 @@ public final class MetricNames {
 
     /** Total nanoseconds spent in SinkCommitter.abort. */
     public static final String SINK_ABORT_NANOS = "SinkAbortNs";
+
+    public static final String FLUSH_SIGNAL_TOTAL = "FlushSignalTotal";
+    public static final String FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL = "FlushSignalQueueSuccessTotal";
+    public static final String FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL = "FlushSignalQueueFailureTotal";
+    public static final String FLUSH_SIGNAL_SINK_SUCCESS_TOTAL = "FlushSignalSinkSuccessTotal";
+    public static final String FLUSH_SIGNAL_SINK_FAILURE_TOTAL = "FlushSignalSinkFailureTotal";
+    public static final String FLUSH_SIGNAL_QPS = "FlushSignalQPS";
+    public static final String FLUSH_SIGNAL_SINK_QPS = "FlushSignalSinkQPS";
 }
