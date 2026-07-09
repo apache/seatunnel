@@ -18,6 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 
@@ -33,14 +38,78 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.zip.CRC32;
 
 @Slf4j
 public class MysqlDialectTest {
+
+    @Test
+    public void testValidateTableOptionsForMysql() {
+        MysqlDialect dialect = new MysqlDialect();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("engine", "InnoDB");
+        tableOptions.put("charset", "utf8mb4");
+        tableOptions.put("collate", "utf8mb4_unicode_ci");
+
+        Assertions.assertDoesNotThrow(() -> dialect.validateTableOptions(tableOptions));
+    }
+
+    @Test
+    public void testValidateTableOptionsForMysqlWithUnknownOption() {
+        MysqlDialect dialect = new MysqlDialect();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("bucket_num", "3");
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> dialect.validateTableOptions(tableOptions));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+    }
+
+    @Test
+    public void testValidateTableOptionsForUnsupportedDialect() {
+        JdbcDialect unsupportedDialect =
+                new JdbcDialect() {
+                    @Override
+                    public String dialectName() {
+                        return DatabaseIdentifier.POSTGRESQL;
+                    }
+
+                    @Override
+                    public JdbcRowConverter getRowConverter() {
+                        return null;
+                    }
+
+                    @Override
+                    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+                        return null;
+                    }
+
+                    @Override
+                    public Optional<String> getUpsertStatement(
+                            String database,
+                            String tableName,
+                            String[] fieldNames,
+                            String[] pkNames) {
+                        return Optional.empty();
+                    }
+                };
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                unsupportedDialect.validateTableOptions(
+                                        Collections.singletonMap("engine", "InnoDB")));
+        Assertions.assertTrue(exception.getMessage().contains("not supported"));
+    }
 
     @Test
     public void testValidateStringRangeSplitAcceptsPrintableAsciiPunctuation() throws Exception {

@@ -39,8 +39,6 @@ import java.util.HashSet;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_VERSION_INFO_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.INVALID_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.REDIS_NODE_EMPTY_ERROR;
 
 @Data
 @Slf4j
@@ -196,18 +194,8 @@ public class RedisParameters implements Serializable {
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
-                if (redisNodes.isEmpty()) {
-                    throw new RedisConnectorException(
-                            REDIS_NODE_EMPTY_ERROR, "Redis nodes parameter must not be empty");
-                }
                 for (String redisNode : redisNodes) {
                     String[] splits = redisNode.split(":");
-                    if (splits.length != 2) {
-                        throw new RedisConnectorException(
-                                INVALID_CONFIG,
-                                "Invalid redis node information,"
-                                        + "redis node information must like as the following: [host:port]");
-                    }
                     HostAndPort hostAndPort =
                             new HostAndPort(splits[0], Integer.parseInt(splits[1]));
                     nodes.add(hostAndPort);
