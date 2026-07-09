@@ -38,6 +38,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -122,6 +123,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                     + "    `c_mediumtext`           mediumtext,\n"
                     + "    `c_text`                 text,\n"
                     + "    `c_varchar`              varchar(255)          DEFAULT NULL,\n"
+                    + "    `c_varchar_bin`          varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,\n"
                     + "    `c_json`                 json                  DEFAULT NULL,\n"
                     + "    `c_longtext`             longtext,\n"
                     + "    `c_date`                 date                  DEFAULT NULL,\n"
@@ -266,6 +268,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                     "c_mediumtext",
                     "c_text",
                     "c_varchar",
+                    "c_varchar_bin",
                     "c_json",
                     "c_longtext",
                     "c_date",
@@ -327,6 +330,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
+                                String.format("key%05d", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
                                 Date.valueOf(currentDate),
@@ -466,6 +470,22 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         configMap.put("partition_column", "c_date");
         assertDateSplit(splitArray);
 
+        configMap.put("split.string-strategy", "none");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar", 1);
+        assertStringSingleSplit(splitArray);
+
+        configMap.put("split.string-strategy", "hash");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar", 11);
+        assertStringHashSplit(splitArray);
+
+        configMap.put("split.string-strategy", "range");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar_bin", 11);
+        assertStringRangeSplit(splitArray);
+
+        configMap.put("split.string-strategy", "auto");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar_bin", 11);
+        assertStringRangeSplit(splitArray);
+
         mySqlCatalog.close();
     }
 
@@ -534,6 +554,32 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void assertStringSingleSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertEquals(1, splitArray.length);
+        Assertions.assertNull(splitArray[0].getSplitStart());
+        Assertions.assertNull(splitArray[0].getSplitEnd());
+    }
+
+    private void assertStringHashSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertTrue(splitArray.length > 1);
+        for (JdbcSourceSplit split : splitArray) {
+            Assertions.assertTrue(split.getSplitStart() instanceof Integer);
+            Assertions.assertNull(split.getSplitEnd());
+        }
+    }
+
+    private void assertStringRangeSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertTrue(splitArray.length > 1);
+        Assertions.assertNull(splitArray[0].getSplitStart());
+        for (int i = 0; i < splitArray.length; i++) {
+            if (i == splitArray.length - 1) {
+                Assertions.assertNull(splitArray[i].getSplitEnd());
+                continue;
+            }
+            Assertions.assertTrue(splitArray[i].getSplitEnd() instanceof String);
+        }
+    }
+
     @NotNull private DynamicChunkSplitter getDynamicChunkSplitter(Map<String, Object> configMap) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
         JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(readonlyConfig);
@@ -549,6 +595,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Override
+    @AfterAll
     public void tearDown() throws Exception {
         if (mysql_container != null) {
             mysql_container.close();
@@ -614,6 +661,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 }
             } catch (Exception e) {
                 LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+                Assertions.fail("Error splitting on column " + charColumn, e);
             }
         }
 
@@ -673,9 +721,52 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 }
             } catch (Exception e) {
                 LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+                Assertions.fail("Error splitting on column " + charColumn, e);
             }
         }
 
+        mySqlCatalog.close();
+    }
+
+    @Test
+    public void testSampleShardingAllowSwitch() throws Exception {
+        Map<String, Object> baseConfig = new HashMap<>();
+        baseConfig.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        baseConfig.put("driver", "com.mysql.cj.jdbc.Driver");
+        baseConfig.put("username", MYSQL_USERNAME);
+        baseConfig.put("password", MYSQL_PASSWORD);
+        baseConfig.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
+        baseConfig.put("split.size", "3");
+        baseConfig.put("split.even-distribution.factor.upper-bound", 0.5d); // Forced uneven
+        baseConfig.put("split.sample-sharding.threshold", 10);
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
+
+        // enable default true
+        Map<String, Object> enabledConfig = new HashMap<>(baseConfig);
+        Collection<JdbcSourceSplit> enabledSplits =
+                getDynamicChunkSplitter(enabledConfig).generateSplits(jdbcSourceTable);
+
+        // enable set is false
+        Map<String, Object> disabledConfig = new HashMap<>(baseConfig);
+        disabledConfig.put("split.allow-sampling", false);
+        Collection<JdbcSourceSplit> disabledSplits =
+                getDynamicChunkSplitter(disabledConfig).generateSplits(jdbcSourceTable);
+
+        Assertions.assertFalse(enabledSplits.isEmpty(), "Enabled splits should not be empty");
+        Assertions.assertFalse(disabledSplits.isEmpty(), "Disabled splits should not be empty");
+        LOG.info("Sample sharding enabled: {} splits", enabledSplits.size());
+        LOG.info("Sample sharding disabled: {} splits", disabledSplits.size());
+
+        Assertions.assertNotEquals(
+                enabledSplits.size(),
+                disabledSplits.size(),
+                "Enable and disable should produce different split counts");
         mySqlCatalog.close();
     }
 

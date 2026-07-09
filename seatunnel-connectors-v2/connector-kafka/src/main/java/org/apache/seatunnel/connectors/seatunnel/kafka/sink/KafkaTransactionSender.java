@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -100,7 +101,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
         for (long i = checkpointId; ; i++) {
             String transactionId = generateTransactionId(this.transactionPrefix, i);
-            producer.setTransactionalId(transactionId);
+            producer.initTransactionId(transactionId);
             if (log.isDebugEnabled()) {
                 log.debug("Abort kafka transaction: {}", transactionId);
             }
@@ -125,10 +126,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void close() {
         if (kafkaProducer != null) {
-            kafkaProducer.flush();
-            // kafkaProducer will abort the transaction if you call close() without a duration arg
-            // which will cause an exception when Committer commit the transaction later.
-            kafkaProducer.close(Duration.ZERO);
+            KafkaClientUtils.runWithConnectorClassLoader(
+                    () -> {
+                        kafkaProducer.flush();
+                        // kafkaProducer will abort the transaction if you call close() without a
+                        // duration arg which will cause an exception when Committer commit the
+                        // transaction later.
+                        kafkaProducer.close(Duration.ZERO);
+                    });
         }
     }
 

@@ -18,14 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 public class HdfsFileSourceConfig extends BaseFileSourceConfig {
 
-    public HdfsFileSourceConfig(ReadonlyConfig readonlyConfig) {
-        super(readonlyConfig);
+    public HdfsFileSourceConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
+        super(readonlyConfig, catalogTableFromConfig);
     }
 
     @Override

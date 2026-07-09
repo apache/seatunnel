@@ -32,6 +32,66 @@ schema = {
 
 schema所属的表标识符的表全名，包含数据库、schema、表名。 例如 `database.schema.table`、`database.table`、`table`。
 
+### metadata_table_id
+
+元数据 SPI（Service Provider Interface）是 SeaTunnel 引入的扩展机制，用于集中管理数据源连接配置和表结构元数据。它允许外部元数据系统管理数据源元数据，而 SeaTunnel 作业通过简单的 `metadata_table_id` 引用这些配置。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义 `columns`。
+
+对于 Gravitino，`metadata_table_id` 应格式化为 `{catalog}.{database}.{table}`。例如，`mysql-catalog.test_db.users`。
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](./gravitino-type-mapping.md)。
+
+详见 [元数据 SPI](./metadata-spi.md)。
+
+#### metadata_table_id 配置示例
+
+**1. 单表配置，使用 metadata_table_id：**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      table = "db.table2"
+      metadata_table_id = "mysql-catalog.test_db.table2"
+    }
+  }
+}
+```
+
+**2. 多表配置，使用 metadata_table_id：**
+
+```hocon
+source {
+  LocalFile {
+    tables_configs = [
+      {
+        path = "/tmp/data/table1"
+        file_format_type = "json"
+        schema {
+          table = "db.table1"
+          columns = [
+            { name = id, type = bigint, nullable = false },
+            { name = name, type = string },
+            { name = age, type = int }
+          ]
+        }
+      },
+      {
+        path = "/tmp/data/table2"
+        file_format_type = "json"
+        schema {
+          table = "db.table2"
+          metadata_table_id = "mysql-catalog.test_db.table2"
+        }
+      }
+    ]
+  }
+}
+```
+
 ### schema_first
 
 默认是false。
@@ -170,7 +230,7 @@ constraintKeys = [
 |:------------------|:-----|:----|------------------------------------------------------------------------|
 | constraintName    | 是    | -   | 约束键的名称                                                                 |
 | constraintType    | 否    | KEY | 约束键的类型                                                                 |
-| constraintColumns | 是    | -   | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
+| constraintColumns | 是    | -   | 约束键中的列。每列必须包含 `columnName`。当 `constraintType` 为 `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY` 时，支持 `sortType`（ASC/DESC，默认 ASC）；当 `constraintType` 为 `VECTOR_INDEX_KEY` 时，`indexName` 为可选项；`indexType` 和 `metricType` 在 schema 解析层面为可选项，但需要创建向量索引的 connector（如 Milvus）可能要求必填。 |
 
 #### 目前支持哪些约束类型
 
@@ -178,6 +238,46 @@ constraintKeys = [
 |:-----------|:----|
 | INDEX_KEY  | 键   |
 | UNIQUE_KEY | 唯一键 |
+| FOREIGN_KEY | 外键 |
+| VECTOR_INDEX_KEY | 向量索引键 |
+
+#### VECTOR_INDEX_KEY
+
+当 `constraintType = VECTOR_INDEX_KEY` 时，`constraintColumns` 中每一项必须包含：
+
+- `columnName`：向量列名
+- `indexName`：索引名称（可选，未指定时默认使用列名）
+- `indexType`：向量索引类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
+  - 浮点型：`FLAT`，`IVF_FLAT`，`IVF_SQ8`，`IVF_PQ`，`HNSW`，`DISKANN`，`AUTOINDEX`，`SCANN`
+  - 二进制型：`BIN_FLAT`，`BIN_IVF_FLAT`
+  - GPU 浮点型：`GPU_IVF_FLAT`，`GPU_IVF_PQ`，`GPU_BRUTE_FORCE`，`GPU_CAGRA`
+  - 字符串型：`TRIE`
+  - 标量字段：`STL_SORT`（数值类型），`INVERTED`（所有类型，JSON 除外）
+  - 稀疏向量：`SPARSE_INVERTED_INDEX`，`SPARSE_WAND`
+  - 大小写不敏感（如：`hnsw`，`HNSW`，`Hnsw`，均满足）
+- `metricType`：距离度量类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
+  - 浮点型：`L2`，`IP`，`COSINE`
+  - 二进制型：`HAMMING`，`JACCARD`
+  - 大小写不敏感（如：`cosine`，`COSINE`，`Cosine`，均满足）
+
+示例：
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## 多表Schema
 

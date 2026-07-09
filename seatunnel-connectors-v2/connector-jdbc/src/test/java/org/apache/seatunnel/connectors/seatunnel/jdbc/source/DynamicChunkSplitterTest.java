@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -28,7 +29,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -110,6 +113,25 @@ public class DynamicChunkSplitterTest {
         Assertions.assertEquals(
                 "SELECT * FROM (select * from table1) tmp WHERE \"id\"::text >= ? AND NOT (\"id\"::text = ?) AND \"id\"::text <= ?",
                 splitQuerySQL);
+    }
+
+    @Test
+    public void testSampleShardingAllowConfigParsing() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", "jdbc:mysql://localhost:3306/test");
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("table_path", "test.table1");
+        JdbcSourceConfig defaultConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
+
+        Assertions.assertTrue(
+                defaultConfig.isSplitSampleShardingAllow(),
+                "Default value of split.allow-sampling should be true");
+
+        configMap.put("split.allow-sampling", false);
+        JdbcSourceConfig disabledConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
+        Assertions.assertFalse(
+                disabledConfig.isSplitSampleShardingAllow(),
+                "split.allow-sampling should be false when explicitly set");
     }
 
     @Test

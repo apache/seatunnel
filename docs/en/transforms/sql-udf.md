@@ -34,8 +34,47 @@ public interface ZetaUDF {
      * @return result value
      */
     Object evaluate(List<Object> args);
+
+    /**
+     * Whether current udf requires row level context.
+     */
+    default boolean requiresContext() {
+        return false;
+    }
+
+    /**
+     * Evaluate with row level context.
+     */
+    default Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        return evaluate(args);
+    }
+
+    /**
+     * Initialize udf resources.
+     */
+    default void open() throws Exception {}
+
+    /**
+     * Release udf resources.
+     */
+    default void close() {}
 }
 ```
+
+`ZetaUDFContext` provides runtime row-level metadata and fields:
+
+- `getRawTableId()`
+- `getDatabase()`
+- `getSchema()`
+- `getTable()`
+- `getRowKind()`
+- `getAllFields()`
+
+Notes:
+
+- `database/schema/table` parsing follows `TablePath.of(tableId)` semantics.
+- If `tableId` is in an unsupported format, accessing `database/schema/table` throws `IllegalArgumentException`.
+- Existing UDFs remain backward compatible and continue using `evaluate(List<Object> args)`.
 
 ## UDF Implements Example
 
@@ -93,6 +132,50 @@ public class ExampleUDF implements ZetaUDF {
 
 Package the UDF project and copy the jar to the path: ${SEATUNNEL_HOME}/lib. And if your UDF use third party library, you also need put it to ${SEATUNNEL_HOME}/lib.  
 If you use cluster mode, you need put the lib to all your node's ${SEATUNNEL_HOME}/lib folder and re-start the cluster.
+
+## Context-aware & lifecycle UDF example
+
+```java
+@AutoService(ZetaUDF.class)
+public class ContextLifecycleUdf implements ZetaUDF {
+
+    private transient String prefix;
+
+    @Override
+    public String functionName() {
+        return "CTX_LIFE";
+    }
+
+    @Override
+    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    public boolean requiresContext() {
+        return true;
+    }
+
+    @Override
+    public void open() {
+        this.prefix = "OPENED";
+    }
+
+    @Override
+    public Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        String arg = args.get(0) == null ? null : String.valueOf(args.get(0));
+        if (arg == null) {
+            return null;
+        }
+        return prefix + ":" + context.getRowKind().shortString() + ":" + arg;
+    }
+
+    @Override
+    public void close() {
+        this.prefix = null;
+    }
+}
+```
 
 ## Example
 

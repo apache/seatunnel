@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [（CDC）](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -100,12 +101,12 @@ source {
         }
     }
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的源插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+    # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 transform {
 
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 sink {
     jdbc {
@@ -116,7 +117,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
     }
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的接收器插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+    # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

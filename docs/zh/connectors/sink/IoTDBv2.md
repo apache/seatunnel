@@ -1,8 +1,8 @@
 import ChangeLog from '../changelog/connector-iotdb.md';
 
-# IoTDB
+# IoTDBv2
 
-> IoTDB 数据接收器
+> IoTDBv2 数据接收器
 
 ## 支持引擎
 
@@ -12,13 +12,14 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## 描述
 
-用于将数据写入 IoTDB。
+用于将数据写入 IoTDB 2.x。作业配置中的连接器名称为 `IoTDBv2`。
 
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
     > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
   
 ## 支持的数据源信息
 
@@ -48,23 +49,27 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | node_urls                   | Array   | 是    | -      | IoTDB 集群地址，格式为 `["host1:port"]` 或 `["host1:port","host2:port"]`                                                                                                                                                                         |
 | username                    | String  | 是    | -      | IoTDB 用户名                                                                                                                                                                                                                               |
 | password                    | String  | 是    | -      | IoTDB 用户密码                                                                                                                                                                                                                              |
-| sql_dialect                 | String  | 否    | tree   | IoTDB 模型，tree：树模型；table：表模型                                                                                                                                                                                                             |
-| storage_group               | String  | 是    | -      | IoTDB 树模型：指定设备存储组（路径前缀） <br/> 例如: deviceId = \${storage_group} + "." +  \${key_device} <br/> IoTDB 表模型：指定数据库                                                                                                                            |
+| sql_dialect                 | String  | 否    | tree   | IoTDB 模型，可选值为 `tree` 和 `table`。`tree` 表示树模型，`table` 表示表模型。                                                                                                                                                                      |
+| storage_group               | String  | 是    | -      | IoTDB 树模型：指定设备路径前缀。例如设备路径为 `storage_group + "." + key_device`。如果 `key_device` 已经是完整设备路径，可以设置为空字符串。<br/> IoTDB 表模型：指定数据库。                                                                                           |
 | key_device                  | String  | 是    | -      | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 设备 ID 的字段名；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 表名的字段名                                                                                                                                           |
 | key_timestamp               | String  | 否    | 数据处理时间 | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 时间戳的字段名（如未指定，则使用处理时间作为时间戳）；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 时间列的字段名（如未指定，则使用处理时间作为时间戳）                                                                                                       |
 | key_measurement_fields      | Array   | 否    | 见描述    | IoTDB 树模型：在 SeaTunnelRow 中指定 IoTDB 测量列表的字段名（如未指定，则包括排除`key_device`&`key_timestamp`后的其余字段）；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 测点列（FIELD）的字段名（如未指定，则包括排除`key_device`&`key_timestamp`&`key_tag_fields`&`key_attribute_fields`后的其余字段） |
 | key_tag_fields              | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 标签列（TAG）的字段名                                                                                                                                                                     |
 | key_attribute_fields        | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 属性列（ATTRIBUTE）的字段名                                                                                                                                                               |
-| batch_size                  | Integer | 否    | 1024   | 对于批写入，当缓冲区的数量达到`batch_size`的数量或时间达到`batch_interval_ms`时，数据将被刷新到 IoTDB 中                                                                                                                                                                 |
-| max_retries                 | Integer | 否    | -      | 刷新的重试次数                                                                                                                                                                                                                                 |
-| retry_backoff_multiplier_ms | Integer | 否    | -      | 用作生成下一个退避延迟的乘数                                                                                                                                                                                                                          |
-| max_retry_backoff_ms        | Integer | 否    | -      | 尝试重试对 IoTDB 的请求之前等待的时间量                                                                                                                                                                                                                 |
-| default_thrift_buffer_size  | Integer | 否    | -      | 在 IoTDB 客户端中节省初始化缓冲区大小                                                                                                                                                                                                                  |
-| max_thrift_frame_size       | Integer | 否    | -      | 在 IoTDB 客户端中节约最大帧大小                                                                                                                                                                                                                     |
-| zone_id                     | String  | 否    | -      | IoTDB java.time.ZoneId  client                                                                                                                                                                                                          |
+| batch_size                  | Integer | 否    | 1024   | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。                                                                                                                                                                  |
+| max_retries                 | Integer | 否    | 0      | 刷新失败时的最大重试次数。                                                                                                                                                                                                                           |
+| retry_backoff_multiplier_ms | Integer | 否    | 0      | 计算重试等待时间的退避倍数，单位为毫秒。                                                                                                                                                                                                                   |
+| max_retry_backoff_ms        | Integer | 否    | 0      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
+| default_thrift_buffer_size  | Integer | 否    | -      | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                                                                                                                                                                             |
+| max_thrift_frame_size       | Integer | 否    | -      | IoTDB 客户端使用的最大 Thrift 帧大小。                                                                                                                                                                                                               |
+| zone_id                     | String  | 否    | -      | IoTDB 客户端使用的 `java.time.ZoneId`。                                                                                                                                                                                                        |
 | enable_rpc_compression      | Boolean | 否    | -      | 在 IoTDB 客户端中启用 rpc 压缩，只在树模型中生效                                                                                                                                                                                                          |
 | connection_timeout_in_ms    | Integer | 否    | -      | 连接到 IoTDB 时等待的最长时间（毫秒）                                                                                                                                                                                                                  |
-| common-options              |         | 否    | -      | Sink 插件常用参数，详见 [Sink common Options](../Sink common Options.md)                                                                                                                                                                         |
+| common-options              |         | 否    | -      | Sink 插件常用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)                                                                                                                                                                              |
+
+树模型下，`key_device` 用作 IoTDB 设备路径，`key_measurement_fields` 决定哪些字段写成测点。未配置 `key_measurement_fields` 时，除 `key_device` 和 `key_timestamp` 之外的所有字段都会写成测点。
+
+表模型下，`storage_group` 表示数据库，`key_device` 表示目标表名字段，`key_tag_fields` 表示 TAG 列，`key_attribute_fields` 表示 ATTRIBUTE 列，`key_measurement_fields` 表示 FIELD 列。未配置 `key_measurement_fields` 时，除表名、时间、TAG 和 ATTRIBUTE 字段之外的所有字段都会写成 FIELD 列。
 
 
 ## 示例
@@ -117,7 +122,7 @@ source {
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -147,7 +152,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -178,7 +183,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -244,7 +249,7 @@ source {
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -291,7 +296,7 @@ IoTDB> DESC "test_database"."0700HK";
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -339,7 +344,7 @@ IoTDB> DESC "test_database"."0700HK";
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"

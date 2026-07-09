@@ -83,7 +83,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | host                       | String  | Yes      | -                             | The target sftp host is required                                                                                                                                                                                                                                                                                                                                                |
 | port                       | Int     | Yes      | -                             | The target sftp port is required                                                                                                                                                                                                                                                                                                                                                |
 | user                       | String  | Yes      | -                             | The target sftp username is required                                                                                                                                                                                                                                                                                                                                            |
-| password                   | String  | Yes      | -                             | The target sftp password is required                                                                                                                                                                                                                                                                                                                                            |
+| password                   | String  | No       | -                             | The target sftp password. Required when `keyfile` is not set.                                                                                                                                                                                                                                                                                                                   |
+| keyfile                    | String  | No       | -                             | The private key file path used for SFTP public key authentication.                                                                                                                                                                                                                                                                                                              |
 | path                       | String  | Yes      | -                             | The source file path.                                                                                                                                                                                                                                                                                                                                                           |
 | file_format_type           | String  | Yes      | -                             | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
@@ -107,6 +108,9 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | null_format                | string  | no       | -                             | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                              |
 | binary_chunk_size          | int     | no       | 1024                          | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                |
 | binary_complete_file_mode  | boolean | no       | false                         | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                      |
+| discovery_mode             | string  | no       | once                          | File discovery mode. Supported values: `once` (default), `continuous`. When `continuous`, the source keeps scanning the path and processes new/changed files at runtime (unbounded). In the current implementation, `continuous` requires `sync_mode=update` (binary only).                                                                 |
+| scan_interval              | string  | no       | 10S | Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, recommended shorthand format `10S`, `30S`; ISO-8601 format `PT10S`, `PT30S` is also supported.                                                                                                                                                                                                                                                                    |
+| start_mode                 | string  | no       | earliest                      | Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.                                                                                                                                                                                                                                                                                 |
 | sync_mode                  | string  | no       | full                          | File sync mode. Supported values: `full`, `update`. When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).                                                                                                                               |
 | target_path                | string  | no       | -                             | Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).                                                                                                                                                                                                           |
 | target_hadoop_conf         | map     | no       | -                             | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                           |
@@ -117,6 +121,9 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | file_filter_modified_end   | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | quote_char                 | string  | no       | "                             | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                          |
 | escape_char                | string  | no       | -                             | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                     |
+| metalake_type              | string  | no       | gravitino                    | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                                                                                              |
+| recursive_file_scan        | boolean | no       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                         |
+| sort_files_by_modification_time | boolean | no       | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_filter_pattern [string]
 
@@ -254,6 +261,15 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
+When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
 Note: Markdown format only supports reading, not writing.
 
 ### compress_codec [string]
@@ -296,6 +312,26 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### discovery_mode [string]
+
+File discovery mode. Supported values: `once` (default), `continuous`.
+
+- `once`: enumerate current files once and finish (bounded).
+- `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
+
+In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+
+### scan_interval [string]
+
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery; value must be greater than `0`. Recommended shorthand format `10S`, `30S` (case-insensitive, e.g. `10s`); ISO-8601 format `PT10S`, `PT30S` is also supported. Default is `10S`.
+
+### start_mode [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.
+
+- `earliest`: read existing files on startup.
+- `latest`: only process files modified after the job starts.
 
 ### sync_mode [string]
 
@@ -345,11 +381,34 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
+
 ### schema [config]
 
 #### fields [Config]
 
 The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### metadata_table_id [string]
+
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 
 ## How to Create a Sftp Data Synchronization Jobs
 
@@ -522,6 +581,53 @@ sink {
 
     path = "tmp/seatunnel/update/dst"
     tmp_path = "tmp/seatunnel/update/tmp"
+    file_format_type = "binary"
+  }
+}
+```
+
+### Continuous Discovery (discovery_mode=continuous)
+
+`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
+
+**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/watch/src"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "tmp/seatunnel/watch/dst"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/watch/dst"
+    tmp_path = "tmp/seatunnel/watch/tmp"
     file_format_type = "binary"
   }
 }

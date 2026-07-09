@@ -97,6 +97,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             "mysql_cdc_e2e_source_table_2_custom_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
 
+    private static final String MULTI_DATABASE_A = "mysql_multi_cdc_db_a";
+    private static final String MULTI_DATABASE_B = "mysql_multi_cdc_db_b";
+    private static final String MULTI_DATABASE_SINK = "mysql_multi_cdc_db_sink";
+    private static final String MULTI_DATABASE_TABLE_A = "multi_src_a";
+    private static final String MULTI_DATABASE_TABLE_B = "multi_src_b";
+
     protected MySqlContainer MYSQL_CONTAINER;
     protected UniqueDatabase inventoryDatabase;
 
@@ -414,6 +420,186 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     @TestTemplate
     @DisabledOnContainer(
             value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
+    public void testMysqlCdcMultiDatabaseMultiTableE2e(TestContainer container) {
+        inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
+
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_A);
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_B);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_multi_db_multi_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_A,
+                                                                        MULTI_DATABASE_TABLE_A)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_A))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_B,
+                                                                        MULTI_DATABASE_TABLE_B)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_B)))));
+
+        // incremental phase
+        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_DATABASE_TABLE_A);
+        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_DATABASE_TABLE_B);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_A,
+                                                                        MULTI_DATABASE_TABLE_A)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_A))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_B,
+                                                                        MULTI_DATABASE_TABLE_B)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_B)))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support restore")
+    public void testMultiDatabaseWithRestore(TestContainer container)
+            throws IOException, InterruptedException {
+
+        inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
+
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_B);
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_A);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_multi_db_multi_table.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // wait for snapshot data
+        await().atMost(100000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MULTI_DATABASE_SINK,
+                                                                                        MULTI_DATABASE_TABLE_A))
+                                                                        .size()
+                                                                > 1),
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MULTI_DATABASE_SINK,
+                                                                                        MULTI_DATABASE_TABLE_B))
+                                                                        .size()
+                                                                > 1)));
+
+        // savepoint + restore
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_multi_db_multi_table.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // incremental changes after restore
+        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_DATABASE_TABLE_A);
+        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_DATABASE_TABLE_B);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
+
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .pollInterval(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_A,
+                                                                        MULTI_DATABASE_TABLE_A)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_A))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MULTI_DATABASE_B,
+                                                                        MULTI_DATABASE_TABLE_B)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MULTI_DATABASE_SINK,
+                                                                        MULTI_DATABASE_TABLE_B)))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
@@ -570,7 +756,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY);
 
         // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .pollInterval(2000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(

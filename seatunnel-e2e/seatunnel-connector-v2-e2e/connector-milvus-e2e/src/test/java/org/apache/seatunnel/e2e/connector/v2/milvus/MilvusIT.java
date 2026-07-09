@@ -73,6 +73,8 @@ import io.milvus.param.dml.InsertParam;
 import io.milvus.param.dml.QueryParam;
 import io.milvus.param.index.CreateIndexParam;
 import io.milvus.param.index.DescribeIndexParam;
+import io.milvus.param.partition.CreatePartitionParam;
+import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -107,6 +109,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     private static final String COLLECTION_NAME_2 = "simple_example_2";
     private static final String COLLECTION_NAME_WITH_PARTITIONKEY =
             "simple_example_with_partitionkey";
+    private static final String COLLECTION_NAME_WITH_PARTITIONS = "simple_example_with_partitions";
+    private static final String COLLECTION_NAME_SOURCE_WITH_PARTITIONS =
+            "simple_example_source_with_partitions";
     private static final String ID_FIELD = "book_id";
     private static final String VECTOR_FIELD = "book_intro";
     private static final String VECTOR_FIELD2 = "book_kind";
@@ -253,6 +258,93 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
         log.info("Collection created");
 
+        R<RpcStatus> retWithPartitions =
+                milvusClient.createCollection(
+                        CreateCollectionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldTypes(fieldsSchema)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create collection! Error: " + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD2)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD3)
+                                .withIndexType(IndexType.BIN_FLAT)
+                                .withMetricType(MetricType.HAMMING)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD4)
+                                .withIndexType(IndexType.SPARSE_INVERTED_INDEX)
+                                .withMetricType(MetricType.IP)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        milvusClient.loadCollection(
+                LoadCollectionParam.newBuilder()
+                        .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                        .build());
+        R<RpcStatus> partitionRet =
+                milvusClient.createPartition(
+                        CreatePartitionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withPartitionName("p1")
+                                .build());
+        if (partitionRet.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create partition! Error: " + partitionRet.getMessage());
+        }
+        partitionRet =
+                milvusClient.createPartition(
+                        CreatePartitionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withPartitionName("p2")
+                                .build());
+        if (partitionRet.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create partition! Error: " + partitionRet.getMessage());
+        }
+
         // Define fields With Partition Key
         List<FieldType> fieldsSchemaWithPartitionKey =
                 Arrays.asList(
@@ -395,9 +487,16 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .withCollectionName(COLLECTION_NAME_WITH_PARTITIONKEY)
                                 .withRows(rows)
                                 .build());
+        R<MutationResult> insertRet3 =
+                milvusClient.insert(
+                        InsertParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withRows(rows)
+                                .build());
 
         if (insertRet.getStatus() != R.Status.Success.getCode()
-                || insertRet2.getStatus() != R.Status.Success.getCode()) {
+                || insertRet2.getStatus() != R.Status.Success.getCode()
+                || insertRet3.getStatus() != R.Status.Success.getCode()) {
             throw new RuntimeException("Failed to insert! Error: " + insertRet.getMessage());
         }
     }
@@ -482,6 +581,33 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fields.contains(VECTOR_FIELD3));
         Assertions.assertTrue(fields.contains(VECTOR_FIELD4));
         Assertions.assertTrue(fields.contains(TITLE_FIELD));
+    }
+
+    @TestTemplate
+    public void testMilvusWithPartitions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/milvus-to-milvus-with-partitions.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        R<Boolean> hasCollectionResponse =
+                this.milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONS)
+                                .build());
+        Assertions.assertTrue(hasCollectionResponse.getData());
+
+        R<io.milvus.grpc.ShowPartitionsResponse> showPartitionsResponse =
+                this.milvusClient.showPartitions(
+                        ShowPartitionsParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONS)
+                                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), showPartitionsResponse.getStatus());
+        List<String> partitionNames = showPartitionsResponse.getData().getPartitionNamesList();
+        Assertions.assertTrue(partitionNames.contains("p1"));
+        Assertions.assertTrue(partitionNames.contains("p2"));
     }
 
     @TestTemplate

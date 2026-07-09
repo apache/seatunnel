@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
@@ -74,6 +75,9 @@ public class SubmitJobByUploadFileServlet extends BaseServlet {
                 config = ConfigFactory.parseString(content);
                 break;
         }
+
+        config = ConfigShadeUtils.decryptConfig(config);
+
         writeJson(resp, jobInfoService.submitJob(getParameterMap(req), config));
     }
 

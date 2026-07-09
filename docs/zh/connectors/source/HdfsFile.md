@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
-- [x] [支持多表读](../../concept/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -52,6 +52,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | 名称                         | 类型      | 是否必须 | 默认值                 | 描述                                                                                                                                                                               |
 |----------------------------|---------|------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                   | 源文件路径。                                                                                                                                                                           |
+| tables_configs             | list    | 否    | -                   | 在一个 Source 块中配置多张 HDFS 源表。每一项都使用与单表 `HdfsFile` Source 相同的参数，并可通过 `schema.table` 设置传递给下游的表名。                                                                 |
 | file_format_type           | string  | 是    | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
 | fs.defaultFS               | string  | 是    | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                            |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                                           |
@@ -80,18 +81,24 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | null_format                | string  | 否    | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                             |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                       |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。                                                                                            |
+| discovery_mode             | string  | 否    | once                | 文件发现模式，支持：`once`（默认）、`continuous`。continuous 模式下将周期性扫描并处理新/变更文件（无界）。当前实现中 continuous 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。                                                                                              |
+| scan_interval              | string  | 否    | 10S | 仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，推荐使用简写格式 `10S`、`30S`；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。                                                                                                                                                                                       |
+| start_mode                 | string  | 否    | earliest            | 仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。                                                                                                                                                                                        |
 | sync_mode                  | string  | 否    | full                | 文件同步模式，支持：`full`（默认）、`update`。当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。                                                                                                          |
 | target_path                | string  | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。                                                                                                                     |
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                 |
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                 |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                             |
-| common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
+| common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../common-options/source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
 | enable_file_split          | boolean | 否    | false               | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
 | file_split_size            | long    | 否    | 134217728           | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
+| metalake_type              | string  | 否    | gravitino           | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                  |
+| recursive_file_scan        | boolean | 否    | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                                                     |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### file_format_type [string]
 
@@ -111,7 +118,21 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
+
+### tables_configs [list]
+
+当一个 HDFS Source 需要读取多张表或多个目录时，可以使用 `tables_configs`。每一项都可以单独配置
+`path`、`file_format_type`、`schema` 以及 HDFS 相关参数。下游 Sink 需要按表路由时，请设置 `schema.table`。
 
 ### delimiter/field_delimiter [string]
 
@@ -130,7 +151,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
-该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
+该模式遵循标准正则表达式。详情请参考 [正则表达式](https://en.wikipedia.org/wiki/Regular_expression)。
 以下是一些示例。
 
 若`path`为`/data/seatunnel`,且文件结构示例：
@@ -220,6 +241,26 @@ abc.*
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### discovery_mode [string]
+
+文件发现模式，支持：`once`（默认）、`continuous`。
+
+- `once`：启动时枚举一次文件并结束（有界）。
+- `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
+
+当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+
+### scan_interval [string]
+
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，取值必须大于 `0`。推荐使用简写格式 `10S`、`30S`（大小写不敏感，例如 `10s`）；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
+
+### start_mode [string]
+
+仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。
+
+- `earliest`：启动时读取已有文件。
+- `latest`：仅处理作业启动后修改的新文件。
+
 ### sync_mode [string]
 
 文件同步模式，支持：`full`（默认）`update`。
@@ -289,6 +330,35 @@ abc.*
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
+### schema [config]
+
+仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
+
+上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### metadata_table_id [string]
+
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
 ### 提示
 
 > 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
@@ -319,12 +389,12 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的数据源插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -334,7 +404,80 @@ sink {
       file_format_type = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
+}
+```
+
+### 增量同步（sync_mode=update，仅 binary）
+
+`sync_mode=update` 会对比 source 与 `target_path`，仅读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
+多数情况下，`target_path` 需要与 sink 的 `path` 对齐（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/update/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/update/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/update/dst/"
+    tmp_path = "/seatunnel/update/tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 持续发现（discovery_mode=continuous）
+
+`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
+
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/tmp/"
+    file_format_type = "binary"
+  }
 }
 ```
 
@@ -363,6 +506,9 @@ sink {
 ```
 
 ### 多表配置
+
+`tables_configs` 中的每一项都会作为一张独立表读取。不同 HDFS 目录需要在下游保留各自表名时，可以使用这种配置。
+
 ```hocon
 env {
   parallelism = 1

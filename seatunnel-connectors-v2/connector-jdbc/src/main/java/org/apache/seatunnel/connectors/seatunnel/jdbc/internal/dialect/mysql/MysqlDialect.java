@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -29,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
@@ -40,10 +43,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -51,6 +58,9 @@ public class MysqlDialect implements JdbcDialect {
 
     private static final List NOT_SUPPORTED_DEFAULT_VALUES =
             Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
+    private static final Set<String> SUPPORTED_TABLE_OPTIONS =
+            Collections.unmodifiableSet(
+                    new LinkedHashSet<>(Arrays.asList("engine", "charset", "collate")));
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
@@ -98,7 +108,7 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
@@ -239,6 +249,123 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    public StringRangeSplitDecision validateStringRangeSplit(
+            Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
+            throws SQLException {
+        if (table.getTablePath() == null
+                || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())) {
+            return StringRangeSplitDecision.unsafe(
+                    "missing physical table path for MySQL string range split validation");
+        }
+
+        String collation = queryColumnCollation(connection, table, columnName);
+        if (StringUtils.isBlank(collation)) {
+            return StringRangeSplitDecision.unsafe(
+                    String.format(
+                            "column collation is unavailable for %s.%s",
+                            table.getTablePath(), columnName));
+        }
+        if (!collation.toLowerCase(Locale.ROOT).endsWith("_bin")) {
+            return StringRangeSplitDecision.unsafe(
+                    String.format("collation %s is not binary", collation));
+        }
+
+        List<String> samples = sampleStringValues(connection, table, columnName, sampleSize);
+        if (samples.isEmpty()) {
+            return StringRangeSplitDecision.unsafe("no non-null sample values found");
+        }
+        Integer sampleLength = null;
+        for (String sample : samples) {
+            if (!isPrintableAscii(sample)) {
+                return StringRangeSplitDecision.unsafe(
+                        String.format("sample value contains non-ASCII characters: [%s]", sample));
+            }
+            if (sampleLength == null) {
+                sampleLength = sample.length();
+            } else if (sample.length() != sampleLength) {
+                return StringRangeSplitDecision.unsafe(
+                        "sample values have variable lengths and cannot preserve string range order");
+            }
+        }
+        return StringRangeSplitDecision.safe(
+                String.format(
+                        "collation %s is binary and %s sampled values are fixed-length printable ASCII",
+                        collation, samples.size()));
+    }
+
+    @Override
+    public boolean supportStringRangeSplit() {
+        return true;
+    }
+
+    private String queryColumnCollation(
+            Connection connection, JdbcSourceTable table, String columnName) throws SQLException {
+        TablePath tablePath = table.getTablePath();
+        String sql =
+                "SELECT COLLATION_NAME "
+                        + "FROM information_schema.COLUMNS "
+                        + "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, tablePath.getDatabaseName());
+            ps.setString(2, tablePath.getTableName());
+            ps.setString(3, columnName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+                return null;
+            }
+        }
+    }
+
+    private List<String> sampleStringValues(
+            Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
+            throws SQLException {
+        String quotedColumn = quoteIdentifier(columnName);
+        String sql;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sql =
+                    String.format(
+                            "SELECT %s FROM (%s) tmp WHERE %s IS NOT NULL ORDER BY %s ASC LIMIT %s",
+                            quotedColumn, table.getQuery(), quotedColumn, quotedColumn, sampleSize);
+        } else {
+            sql =
+                    String.format(
+                            "SELECT %s FROM %s WHERE %s IS NOT NULL ORDER BY %s ASC LIMIT %s",
+                            quotedColumn,
+                            tableIdentifier(table.getTablePath()),
+                            quotedColumn,
+                            quotedColumn,
+                            sampleSize);
+        }
+        List<String> samples = new ArrayList<>(sampleSize);
+        try (Statement stmt =
+                connection.createStatement(
+                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            stmt.setFetchSize(Integer.MIN_VALUE);
+            try (ResultSet rs = stmt.executeQuery(sql)) {
+                while (rs.next()) {
+                    String value = rs.getString(1);
+                    if (value != null) {
+                        samples.add(value);
+                    }
+                }
+            }
+        }
+        return samples;
+    }
+
+    private boolean isPrintableAscii(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch < 32 || ch > 126) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public boolean supportDefaultValue(BasicTypeDefine typeBasicTypeDefine) {
         MysqlType nativeType = (MysqlType) typeBasicTypeDefine.getNativeType();
         return !(NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType));
@@ -268,6 +395,25 @@ public class MysqlDialect implements JdbcDialect {
                 return true;
             default:
                 return false;
+        }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+
+        Set<String> unsupportedOptions = new LinkedHashSet<>(tableOptions.keySet());
+        unsupportedOptions.removeAll(SUPPORTED_TABLE_OPTIONS);
+        if (!unsupportedOptions.isEmpty()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
+                            dialectName(),
+                            String.join(", ", unsupportedOptions),
+                            String.join(", ", SUPPORTED_TABLE_OPTIONS)));
         }
     }
 }

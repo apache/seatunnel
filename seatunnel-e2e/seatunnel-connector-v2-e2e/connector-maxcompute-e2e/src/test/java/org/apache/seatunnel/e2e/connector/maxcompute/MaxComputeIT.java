@@ -33,6 +33,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -172,6 +173,14 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(odps.tables().exists(tableName));
     }
 
+    private static void createEmptyTableWithNoPrimaryKey(Odps odps, String tableName)
+            throws OdpsException {
+        Instance instance =
+                SQLTask.run(odps, "create table " + tableName + " (id INT, name STRING, age INT);");
+        instance.waitForSuccess();
+        Assertions.assertTrue(odps.tables().exists(tableName));
+    }
+
     private static List<Record> queryTable(Odps odps, String tableName) throws OdpsException {
         Instance instance = SQLTask.run(odps, "select * from " + tableName + ";");
         instance.waitForSuccess();
@@ -200,6 +209,32 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         createEmptyTable(odps, "test_table_sink");
         prepareContainer();
         Container.ExecResult execResult = container.executeJob("/maxcompute_to_maxcompute.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        prepareLocal();
+        List<Record> records = queryTable(odps, "test_table_sink");
+        Assertions.assertEquals(3, records.size());
+        Assertions.assertEquals("1", records.get(0).get(0));
+        Assertions.assertEquals("INSERT_TEST1", records.get(0).get(1));
+        Assertions.assertEquals("20", records.get(0).get(2));
+        Assertions.assertEquals("2", records.get(1).get(0));
+        Assertions.assertEquals("INSERT_TEST2", records.get(1).get(1));
+        Assertions.assertEquals("30", records.get(1).get(2));
+        Assertions.assertEquals("3", records.get(2).get(0));
+        Assertions.assertEquals("INSERT_TEST3", records.get(2).get(1));
+        Assertions.assertEquals("40", records.get(2).get(2));
+    }
+
+    @TestTemplate
+    @Disabled(
+            "maxcompute-emulator does not support upload session for now. MaxcomputeWriter uses upload session to insert data.")
+    public void testMaxComputeWithNoPrimaryKey(TestContainer container)
+            throws IOException, InterruptedException, OdpsException {
+        Odps odps = getTestOdps();
+        odps.tables().delete("mocked_mc", "test_table_sink", true);
+        createEmptyTableWithNoPrimaryKey(odps, "test_table_sink");
+        prepareContainer();
+        Container.ExecResult execResult = container.executeJob("/fake_to_maxcompute_no_pk.conf");
+        System.out.println(execResult.getStdout());
         Assertions.assertEquals(0, execResult.getExitCode());
         prepareLocal();
         List<Record> records = queryTable(odps, "test_table_sink");

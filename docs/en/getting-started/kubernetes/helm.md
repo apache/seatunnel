@@ -41,6 +41,21 @@ Install with another namespace.
 helm install seatunnel . -n <your namespace>
 ```
 
+For managed Kubernetes services, keep provider-specific changes in a separate values file and pass it with `-f`, for example:
+
+```bash
+helm install seatunnel . -n <your namespace> -f values-eks.yaml
+```
+
+Common managed-cluster values to review include:
+
+- image repository and `imagePullSecrets` for ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or an OpenShift internal registry
+- ServiceAccount, RBAC, and OpenShift SecurityContextConstraint requirements for the target namespace
+- Service or Ingress annotations for the provider load balancer, subnet, certificate, and internal/external exposure model
+- object storage or PersistentVolume settings for checkpoint and state paths
+- resource requests, limits, node selectors, tolerations, and affinity rules for the node pools that should run SeaTunnel pods
+- log and metrics collection settings for the provider monitoring stack
+
 ## Submit Job
 
 The default config doesn't enable ingress, so you need forward the master restapi.
@@ -72,9 +87,9 @@ curl http://127.0.0.1:5801/running-jobs
 curl http://127.0.0.1:5801/system-monitoring-information
 ```
 
-After that you can submit your job by [rest-api-v2](../../seatunnel-engine/rest-api-v2.md)
+After that you can submit your job by [rest-api-v2](../../engines/zeta/rest-api-v2.md)
 
 ## What's More
 
-For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2/source) to find all sources and sinks SeaTunnel supported.
-Or see [deployment](../../seatunnel-engine/deployment.md) if you want to submit your application in another kind of your engine cluster.
+For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connectors/source) to find all sources and sinks SeaTunnel supported.
+Or see [deployment](../../engines/zeta/deployment.md) if you want to submit your application in another kind of your engine cluster.

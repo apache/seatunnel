@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -67,6 +68,14 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.charset = StandardCharsets.UTF_8;
     }
 
+    public JsonSerializationSchema(SeaTunnelRowType rowType, boolean serializeTimestampTzAsLocal) {
+        this.rowType = rowType;
+        this.runtimeConverter =
+                new RowToJsonConverters(serializeTimestampTzAsLocal)
+                        .createConverter(checkNotNull(rowType));
+        this.charset = StandardCharsets.UTF_8;
+    }
+
     {
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
@@ -82,6 +91,18 @@ public class JsonSerializationSchema implements SerializationSchema {
             return mapper.writeValueAsString(node).getBytes(charset);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
+        }
+    }
+
+    public JsonNode convert(SeaTunnelRow row) {
+        if (node == null) {
+            node = mapper.createObjectNode();
+        }
+
+        try {
+            return runtimeConverter.convert(mapper, node, row);
+        } catch (Exception e) {
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), e);
         }
     }
 }

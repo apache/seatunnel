@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.ZetaDateTimeFormat;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.text.DateFormatSymbols;
@@ -32,6 +34,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.WeekFields;
@@ -75,6 +78,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusYears(count);
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusYears(count);
+                }
                 break;
             case "MONTH":
                 if (datetime instanceof LocalDate) {
@@ -82,6 +88,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusMonths(count);
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusMonths(count);
                 }
                 break;
             case "WEEK":
@@ -91,6 +100,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusWeeks(count);
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusWeeks(count);
+                }
                 break;
             case "DAY":
                 if (datetime instanceof LocalDate) {
@@ -98,6 +110,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusDays(count);
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusDays(count);
                 }
                 break;
             case "HOUR":
@@ -107,6 +122,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusHours(count);
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusHours(count);
+                }
                 break;
             case "MINUTE":
                 if (datetime instanceof LocalTime) {
@@ -114,6 +132,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusMinutes(count);
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusMinutes(count);
                 }
                 break;
             case "SECOND":
@@ -123,6 +144,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusSeconds(count);
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusSeconds(count);
+                }
                 break;
             case "MILLISECOND":
                 if (datetime instanceof LocalTime) {
@@ -130,6 +154,9 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).plusNanos(count * 1000_000L);
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).plusNanos(count * 1000_000L);
                 }
                 break;
             default:
@@ -166,14 +193,16 @@ public class DateTimeFunction {
                 || "DAY".equals(datetimeField)) {
             if (datetime1 instanceof LocalDateTime) {
                 date1 = ((LocalDateTime) datetime1).toLocalDate();
-            }
-            if (datetime1 instanceof LocalDate) {
+            } else if (datetime1 instanceof OffsetDateTime) {
+                date1 = ((OffsetDateTime) datetime1).toLocalDate();
+            } else if (datetime1 instanceof LocalDate) {
                 date1 = (LocalDate) datetime1;
             }
             if (datetime2 instanceof LocalDateTime) {
                 date2 = ((LocalDateTime) datetime2).toLocalDate();
-            }
-            if (datetime2 instanceof LocalDate) {
+            } else if (datetime2 instanceof OffsetDateTime) {
+                date2 = ((OffsetDateTime) datetime2).toLocalDate();
+            } else if (datetime2 instanceof LocalDate) {
                 date2 = (LocalDate) datetime2;
             }
         }
@@ -220,10 +249,14 @@ public class DateTimeFunction {
     }
 
     public static LocalDateTime dateTrunc(List<Object> args) {
-        LocalDateTime datetime = (LocalDateTime) args.get(0);
-        if (datetime == null) {
+        Object raw = args.get(0);
+        if (raw == null) {
             return null;
         }
+        LocalDateTime datetime =
+                raw instanceof OffsetDateTime
+                        ? ((OffsetDateTime) raw).toLocalDateTime()
+                        : (LocalDateTime) raw;
         String datetimeField = "DAY";
         if (args.size() >= 2) {
             String df = (String) args.get(1);
@@ -307,6 +340,8 @@ public class DateTimeFunction {
         LocalDate localDate = null;
         if (datetime instanceof LocalDateTime) {
             localDate = ((LocalDateTime) datetime).toLocalDate();
+        } else if (datetime instanceof OffsetDateTime) {
+            localDate = ((OffsetDateTime) datetime).toLocalDate();
         } else if (datetime instanceof LocalDate) {
             localDate = (LocalDate) datetime;
         }
@@ -518,6 +553,9 @@ public class DateTimeFunction {
                 if (datetime instanceof LocalDateTime) {
                     return ((LocalDateTime) datetime).getDayOfWeek().getValue();
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    return ((OffsetDateTime) datetime).getDayOfWeek().getValue();
+                }
                 break;
             case "DOY":
             case "DAYOFYEAR":
@@ -540,6 +578,10 @@ public class DateTimeFunction {
                     LocalDate date = ((LocalDateTime) datetime).toLocalDate();
                     return date.get(WeekFields.ISO.weekBasedYear());
                 }
+                if (datetime instanceof OffsetDateTime) {
+                    LocalDate date = ((OffsetDateTime) datetime).toLocalDate();
+                    return date.get(WeekFields.ISO.weekBasedYear());
+                }
                 break;
             case "MILLENNIUM":
                 if (datetime instanceof LocalDate) {
@@ -548,6 +590,10 @@ public class DateTimeFunction {
                 }
                 if (datetime instanceof LocalDateTime) {
                     int year = ((LocalDateTime) datetime).getYear();
+                    return (year > 0) ? (year - 1) / 1000 + 1 : year / 1000;
+                }
+                if (datetime instanceof OffsetDateTime) {
+                    int year = ((OffsetDateTime) datetime).getYear();
                     return (year > 0) ? (year - 1) / 1000 + 1 : year / 1000;
                 }
                 break;
@@ -584,6 +630,8 @@ public class DateTimeFunction {
         LocalTime localTime = null;
         if (datetime instanceof LocalDateTime) {
             localTime = ((LocalDateTime) datetime).toLocalTime();
+        } else if (datetime instanceof OffsetDateTime) {
+            localTime = ((OffsetDateTime) datetime).toLocalTime();
         } else if (datetime instanceof LocalTime) {
             localTime = (LocalTime) datetime;
         }
@@ -619,10 +667,38 @@ public class DateTimeFunction {
     }
 
     public static boolean isDate(List<Object> args) {
+        String str = (String) args.get(0);
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+
+        String format = (String) args.get(1);
+        if (format == null) {
+            return false;
+        }
+
+        ZetaDateTimeFormat dateTimeFormat = ZetaDateTimeFormat.fromPattern(format).orElse(null);
+        if (dateTimeFormat == null) {
+            return false;
+        }
+
         try {
-            parsedatetime(args);
-            return true;
-        } catch (Throwable e) {
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    LocalDateTime.parse(str, formatter);
+                    return true;
+                case DATE:
+                    LocalDate.parse(str, formatter);
+                    return true;
+                case TIME:
+                    LocalTime.parse(str, formatter);
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (DateTimeParseException e) {
             return false;
         }
     }
@@ -633,23 +709,32 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        if (format.contains("yy") && format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDateTime.parse(str, df);
+
+        ZetaDateTimeFormat dateTimeFormat =
+                ZetaDateTimeFormat.fromPattern(format)
+                        .orElseThrow(
+                                () ->
+                                        CommonError.illegalArgument(
+                                                format, "unsupported datetime format"));
+
+        try {
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    return LocalDateTime.parse(str, formatter);
+                case DATE:
+                    return LocalDate.parse(str, formatter);
+                case TIME:
+                    return LocalTime.parse(str, formatter);
+                default:
+                    throw CommonError.illegalArgument(
+                            dateTimeFormat.getType().toString(),
+                            "unsupported datetime format type");
+            }
+        } catch (DateTimeParseException e) {
+            throw CommonError.illegalArgument(str, "parsing datetime with format: " + format);
         }
-        if (format.contains("yy")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDate.parse(str, df);
-        }
-        if (format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalTime.parse(str, df);
-        }
-        throw new TransformException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                String.format(
-                        "Unknown pattern letter %s for function: %s",
-                        format, ZetaSQLFunction.PARSEDATETIME));
     }
 
     public static Integer quarter(List<Object> args) {

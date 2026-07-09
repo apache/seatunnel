@@ -88,7 +88,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int     | 否       | -1      | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                           |
 | auto_commit                  | Boolean | 否       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
 | properties                   | Map     | 否       | -       | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
-| common-options               |         | 否       | -       | Sink插件常用参数，详见[Sink common Options]（../common-options/sink-common-options.md）                                                                                                                                    |
+| common-options               |         | 否       | -       | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)                                                                                                                                    |
 | enable_upsert                | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
 
 ### 提示
@@ -99,7 +99,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单示例
 
-> 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在mysql中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start-SeaTunnel-Engine.md）中的说明运行此作业。
+> 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在mysql中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 ```
 # 定义运行环境
@@ -122,12 +122,12 @@ source {
     }
   }
   # 如果你想了解更多关于如何配置seatunnel的信息，并查看完整的source插件列表，
-  # 请前往https://seatunnel.apache.org/docs/connector-v2/source
+  # 请前往https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # 如果你想了解更多关于如何配置seatunnel的信息，并查看transform插件的完整列表，
-    # 请前往https://seatunnel.apache.org/docs/transform-v2
+    # 请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -140,7 +140,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
     }
   # 如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
-  # 请前往https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请前往https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

@@ -94,6 +94,42 @@ Example:
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+Encodes a string or bytes to Base64.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+For bytes input, the charset argument is not supported because the value is already raw bytes.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+Decodes a Base64 string to text.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
@@ -889,22 +925,97 @@ MONTHNAME(CREATED)
 ### IS_DATE
 
 ```IS_DATE(string, formatString) -> BOOLEAN```
-Parses a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see java.time.format.DateTimeFormatter.
+Validates whether a string can be parsed as a date/time value using the specified format pattern.
+
+**Supported Format Patterns:**
+
+DateTime Formats:
+- `yyyy-MM-dd HH:mm:ss` - Standard datetime format
+- `yyyy-MM-dd HH:mm:ss.SSS` - Datetime with milliseconds
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 datetime format
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - ISO 8601 datetime with milliseconds
+- `yyyy/MM/dd HH:mm:ss` - Datetime with slash separator
+- `yyyy/MM/dd HH:mm:ss.SSS` - Datetime with slash separator and milliseconds
+- `yyyyMMddHHmmss` - Compact datetime format
+
+Date Formats:
+- `yyyy-MM-dd` - ISO 8601 date format
+- `yyyy/MM/dd` - Date with slash separator
+- `yyyyMMdd` - Compact date format
+
+Time Formats:
+- `HH:mm:ss` - Standard time format
+- `HH:mm:ss.SSS` - Time with milliseconds
+- `HHmmss` - Compact time format
 
 Example:
 
-CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+```sql
+CALL IS_DATE('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+-- Returns true
+
+CALL IS_DATE('2021/04/08', 'yyyy/MM/dd')
+-- Returns true
+
+CALL IS_DATE('20210408', 'yyyyMMdd')
+-- Returns true
+
+-- Consistent with TO_DATE
+SELECT CASE
+  WHEN IS_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  THEN TO_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  ELSE NULL
+END as parsed_date
+```
 
 ### PARSEDATETIME / TO_DATE
 
-```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
-Parses a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see java.time.format.DateTimeFormatter.
+```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP | DATE | TIME```
+Parses a string into a date/time value using the specified format pattern.
 
-Example:
+**Supported Format Patterns:**
 
-CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
-CALL TO_DATE('2021-04-08'T'13:34:45','yyyy-MM-dd''T''HH:mm:ss')
-Note that when filling in `'` in SQL functions, it needs to be escaped to `''`.
+DateTime Formats (returns TIMESTAMP):
+- `yyyy-MM-dd HH:mm:ss` - Standard datetime format
+- `yyyy-MM-dd HH:mm:ss.SSS` - Datetime with milliseconds
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 datetime format
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - ISO 8601 datetime with milliseconds
+- `yyyy/MM/dd HH:mm:ss` - Datetime with slash separator
+- `yyyy/MM/dd HH:mm:ss.SSS` - Datetime with slash separator and milliseconds
+- `yyyyMMddHHmmss` - Compact datetime format
+
+Date Formats (returns DATE):
+- `yyyy-MM-dd` - ISO 8601 date format
+- `yyyy/MM/dd` - Date with slash separator
+- `yyyyMMdd` - Compact date format
+
+Time Formats (returns TIME):
+- `HH:mm:ss` - Standard time format
+- `HH:mm:ss.SSS` - Time with milliseconds
+- `HHmmss` - Compact time format
+
+**Note:** When using single quotes (`'`) in format patterns (e.g., for ISO 8601 'T' separator), they must be escaped as `''` in SQL.
+
+Examples:
+
+```sql
+-- DateTime examples
+CALL PARSEDATETIME('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45', 'yyyy-MM-dd''T''HH:mm:ss')
+CALL PARSEDATETIME('2024-06-15 14:30:45.123', 'yyyy-MM-dd HH:mm:ss.SSS')
+CALL PARSEDATETIME('2021/04/08 13:34:45', 'yyyy/MM/dd HH:mm:ss')
+CALL PARSEDATETIME('20210408133445', 'yyyyMMddHHmmss')
+
+-- Date examples
+CALL TO_DATE('2021-04-08', 'yyyy-MM-dd')
+CALL TO_DATE('2021/04/08', 'yyyy/MM/dd')
+CALL TO_DATE('20210408', 'yyyyMMdd')
+
+-- Time examples
+CALL PARSEDATETIME('14:30:45', 'HH:mm:ss')
+CALL PARSEDATETIME('14:30:45.123', 'HH:mm:ss.SSS')
+CALL PARSEDATETIME('143045', 'HHmmss')
+```
 
 ### QUARTER
 
@@ -1275,4 +1386,3 @@ Normalizes a vector to unit length (magnitude = 1). This is useful for computing
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
 ```
-

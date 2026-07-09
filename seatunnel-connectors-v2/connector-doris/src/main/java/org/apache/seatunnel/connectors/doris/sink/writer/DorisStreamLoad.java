@@ -30,8 +30,11 @@ import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
+import org.apache.seatunnel.connectors.doris.util.DorisRedirectExceptionBuilder;
+import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.ResponseUtil;
 
+import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -61,7 +64,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Slf4j
 public class DorisStreamLoad implements Serializable {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final int HTTP_TEMPORARY_REDIRECT = 200;
+    private static final int HTTP_OK = 200;
+    private static final int HTTP_TEMPORARY_REDIRECT = 307;
     private final LabelGenerator labelGenerator;
     private final byte[] lineDelimiter;
     private static final String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load";
@@ -76,6 +80,7 @@ public class DorisStreamLoad implements Serializable {
     private final String table;
     private final boolean enable2PC;
     private final boolean enableDelete;
+    private final boolean directToBe;
     private final Properties streamLoadProp;
     private final RecordStream recordStream;
     @Getter private Future<CloseableHttpResponse> pendingLoadFuture;
@@ -104,6 +109,7 @@ public class DorisStreamLoad implements Serializable {
         this.loadUrlStr = String.format(LOAD_URL_PATTERN, hostPort, db, table);
         this.abortUrlStr = String.format(ABORT_URL_PATTERN, hostPort, db);
         this.enable2PC = dorisSinkConfig.getEnable2PC();
+        this.directToBe = dorisSinkConfig.isDirectToBe();
         this.streamLoadProp = dorisSinkConfig.getStreamLoadProps();
         this.enableDelete = dorisSinkConfig.getEnableDelete();
         this.httpClient = httpClient;
@@ -137,7 +143,16 @@ public class DorisStreamLoad implements Serializable {
                         .setEmptyEntity()
                         .addProperties(streamLoadProp);
                 RespContent respContent =
-                        handlePreCommitResponse(httpClient.execute(builder.build()));
+                        handlePreCommitResponse(
+                                HttpUtil.executeWithRedirectTracking(
+                                        httpClient,
+                                        builder.build(),
+                                        loadUrlStr,
+                                        directToBe,
+                                        enable2PC,
+                                        "pre-commit"),
+                                "pre-commit",
+                                loadUrlStr);
                 checkState("true".equals(respContent.getTwoPhaseCommit()));
                 if (LoadStatus.LABEL_ALREADY_EXIST.equals(respContent.getStatus())) {
                     // label already exist and job finished
@@ -198,7 +213,10 @@ public class DorisStreamLoad implements Serializable {
         if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
             String errorMessage;
             try {
-                errorMessage = handlePreCommitResponse(pendingLoadFuture.get()).getMessage();
+                errorMessage =
+                        handlePreCommitResponse(
+                                        pendingLoadFuture.get(), "stream-load-write", loadUrlStr)
+                                .getMessage();
             } catch (Exception e) {
                 errorMessage = ExceptionUtils.getMessage(e);
             }
@@ -209,12 +227,25 @@ public class DorisStreamLoad implements Serializable {
         }
     }
 
-    private RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
+    private RespContent handlePreCommitResponse(
+            CloseableHttpResponse response, String requestStage, String requestUrl)
+            throws Exception {
         final int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode == HTTP_TEMPORARY_REDIRECT && response.getEntity() != null) {
+        if (statusCode == HTTP_OK && response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
             log.info("load Result {}", loadResult);
             return OBJECT_MAPPER.readValue(loadResult, RespContent.class);
+        }
+        if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+            Header location = response.getFirstHeader("Location");
+            throw new DorisConnectorException(
+                    DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                    DorisRedirectExceptionBuilder.build(
+                            requestUrl,
+                            location == null ? null : location.getValue(),
+                            directToBe,
+                            enable2PC,
+                            requestStage));
         }
         throw new DorisConnectorException(
                 DorisConnectorErrorCode.STREAM_LOAD_FAILED, response.getStatusLine().toString());
@@ -226,7 +257,8 @@ public class DorisStreamLoad implements Serializable {
             log.info("stream load stopped.");
             recordStream.endInput();
             try {
-                return handlePreCommitResponse(pendingLoadFuture.get());
+                return handlePreCommitResponse(
+                        pendingLoadFuture.get(), "stream-load-write", loadUrlStr);
             } catch (Exception e) {
                 throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
             } finally {
@@ -264,7 +296,13 @@ public class DorisStreamLoad implements Serializable {
                     executorService.submit(
                             () -> {
                                 log.info("start execute load");
-                                return httpClient.execute(putBuilder.build());
+                                return HttpUtil.executeWithRedirectTracking(
+                                        httpClient,
+                                        putBuilder.build(),
+                                        loadUrlStr,
+                                        directToBe,
+                                        enable2PC,
+                                        "stream-load-write");
                             });
         } catch (Exception e) {
             String err = "failed to stream load data with label: " + label;
@@ -281,10 +319,23 @@ public class DorisStreamLoad implements Serializable {
                 .addTxnId(txnID)
                 .setEmptyEntity()
                 .abort();
-        CloseableHttpResponse response = httpClient.execute(builder.build());
+        CloseableHttpResponse response =
+                HttpUtil.executeWithRedirectTracking(
+                        httpClient, builder.build(), abortUrlStr, directToBe, enable2PC, "abort");
 
         int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode != HTTP_TEMPORARY_REDIRECT || response.getEntity() == null) {
+        if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+            Header location = response.getFirstHeader("Location");
+            throw new DorisConnectorException(
+                    DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                    DorisRedirectExceptionBuilder.build(
+                            abortUrlStr,
+                            location == null ? null : location.getValue(),
+                            directToBe,
+                            enable2PC,
+                            "abort"));
+        }
+        if (statusCode != HTTP_OK || response.getEntity() == null) {
             log.warn("abort transaction response: " + response.getStatusLine().toString());
             throw new DorisConnectorException(
                     DorisConnectorErrorCode.STREAM_LOAD_FAILED,

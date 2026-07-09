@@ -2,28 +2,41 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 # Maxcompute
 
-> Maxcompute Sink 连接器
+> Maxcompute 接收器连接器
 
 ## 描述
 
-用于从 Maxcompute 读取数据。
+用于向 Maxcompute 写入数据。
 
-## 关键特性
+## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持 CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-|      参数名      |  类型   | 必须 | 默认值 |
-|----------------|---------|------|--------|
-| accessId       | string  | 是   | -      |
-| accesskey      | string  | 是   | -      |
-| endpoint       | string  | 是   | -      |
-| project        | string  | 是   | -      |
-| table_name     | string  | 是   | -      |
-| partition_spec | string  | 否   | -      |
-| overwrite      | boolean | 否   | false  |
-| common-options | string  | 否   |        |
+| 参数名                    | 类型    | 必须 | 默认值 |
+|---------------------------|---------|------|--------|
+| accessId                  | string  | 否   | -      |
+| accesskey                 | string  | 否   | -      |
+| sts_token                 | string  | 否   | -      |
+| endpoint                  | string  | 是   | -      |
+| project                   | string  | 是   | -      |
+| table_name                | string  | 是   | -      |
+| schema_name               | string  | 否   | -      |
+| partition_spec            | string  | 否   | -      |
+| overwrite                 | boolean | 否   | false  |
+| schema_save_mode          | enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode            | enum    | 否   | APPEND_DATA |
+| custom_sql                | string  | 否   | -      |
+| save_mode_create_template | string  | 否   | 见下文 |
+| datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss |
+| tunnel_endpoint           | string  | 否   | -      |
+| insert_strategy           | string  | 否   | upload |
+| multi_table_sink_replica  | int     | 否   | 1      |
+| common-options            | string  | 否   |        |
 
 ### accessId [string]
 
@@ -32,6 +45,13 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ### accesskey [string]
 
 `accesskey` 您的 Maxcompute accessKey，可从阿里云访问。
+
+### sts_token [string]
+
+`sts_token` 您的 MaxCompute STS Token，用于临时认证。 **注意：** 如果提供了 `sts_token`，则必须同时提供 `accessId` 和 `accesskey`。
+
+> **免密认证 (ECS RAM Role, 环境变量等)**
+> 要使用免密认证，只需将 `accessId`、`accesskey` 和 `sts_token` 全部留空不填。连接器将自动回退到阿里云默认凭据链 (DefaultCredentialsProvider) 读取凭证（包括环境变量、系统属性、CLI 配置文件、OIDC 以及 ECS RAM 角色）。
 
 ### endpoint [string]
 
@@ -48,6 +68,14 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ### partition_spec [string]
 
 `partition_spec` Maxcompute 分区表的规范，例如：ds='20220101'。
+
+### schema_name [string]
+
+`schema_name` MaxCompute Schema 名称（Project 与 Table 之间的命名空间）。
+仅当表位于 MaxCompute 项目的**非默认 Schema** 时才需要设置。
+参见 [Schema 相关操作](https://help.aliyun.com/zh/maxcompute/user-guide/schema-related-operations)。
+
+默认值：不设置（使用项目默认 Schema）。
 
 ### overwrite [boolean]
 
@@ -149,11 +177,30 @@ CREATE TABLE IF NOT EXISTS `${table}`
 
 默认值：未设置（从区域自动推断）
 
+### insert_strategy [string]
+
+如果将 `insert_strategy` 设置为 `upload`，插入操作将使用 upload 会话。
+如果设置为 `upsert`，插入操作将使用 upsert 会话。Upsert 会话 需要主键。
+
+注意：
+在同时存在更新或删除操作的情况下，使用 upload 会话进行插入操作，可能会导致插入的记录 比预期更晚出现在表中。
+当表中存在主键时，建议将 `insert_strategy` 设置为 `upsert`，以确保一致的 upsert 行为。
+
+`UPDATE_AFTER` 和 `DELETE` 数据都会通过 MaxCompute upsert 会话写入，所以任务包含更新或删除数据时，目标表必须有主键。当前 Sink 不支持 `UPDATE_BEFORE` 数据。
+
+### multi_table_sink_replica [int]
+
+多表写入模式下的 writer 副本数，默认值为 `1`。
+
+当上游数据包含多张表，并且 `table_name` 使用 `${table_name}` 这类占位符时可以配置该参数。例如 `table_name = "${table_name}_sink"` 会把上游表 `test_table` 写入目标表 `test_table_sink`。
+
 ### 通用选项
 
 Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见。
 
 ## 示例
+
+### 追加写入
 
 ```hocon
 sink {
@@ -169,8 +216,110 @@ sink {
 }
 ```
 
+### 多表写入
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+          { kind = INSERT, fields = [2, "INSERT_TEST2", 30] }
+        ]
+      },
+      {
+        schema = {
+          table = "test_table_2"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "${table_name}_sink"
+    insert_strategy = "upsert"
+    multi_table_sink_replica = 1
+  }
+}
+```
+
+### 更新插入或删除数据
+
+当上游表结构有主键，并且任务里包含更新或删除数据时，建议配置 `insert_strategy = "upsert"`。
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table_sink"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          {
+            kind = UPDATE_AFTER
+            fields = [1, "UPSERT_TEST", 100]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "test_table_sink"
+    insert_strategy = "upsert"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
-
-

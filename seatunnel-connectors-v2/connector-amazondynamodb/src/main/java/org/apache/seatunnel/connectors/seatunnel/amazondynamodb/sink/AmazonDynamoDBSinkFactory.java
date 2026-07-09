@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -28,7 +29,10 @@ import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.MAX_RETRIES;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.REGION;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.RETRY_BASE_DELAY_MS;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.RETRY_MAX_DELAY_MS;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.SECRET_ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.URL;
@@ -44,7 +48,12 @@ public class AmazonDynamoDBSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE)
-                .optional(BATCH_SIZE)
+                .optional(
+                        BATCH_SIZE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        MAX_RETRIES,
+                        RETRY_BASE_DELAY_MS,
+                        RETRY_MAX_DELAY_MS)
                 .build();
     }
 

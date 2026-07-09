@@ -21,6 +21,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -42,12 +43,14 @@ The internal implementation of Doris sink connector is cached and imported by st
 |              Name              |  Type   | Required |           Default            |                                                                                                                                      Description                                                                                                                                       |
 |--------------------------------|---------|----------|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | fenodes                        | String  | Yes      | -                            | `Doris` cluster fenodes address, the format is `"fe_ip:fe_http_port, ..."`                                                                                                                                                                                                             |
+| benodes                        | String  | No       | -                            | `Doris` BE http address list used when `direct_to_be=true`, the format is `"be_ip:be_http_port, ..."`                                                                                                                                                                                   |
+| direct_to_be                   | bool    | No       | false                        | Whether to send stream load write requests directly to `benodes`. This is an opt-in mode and does not change the default FE path.                                                                                                                                                       |
 | query-port                     | int     | No       | 9030                         | `Doris` Fenodes query_port                                                                                                                                                                                                                                                             |
 | username                       | String  | Yes      | -                            | `Doris` user username                                                                                                                                                                                                                                                                  |
 | password                       | String  | Yes      | -                            | `Doris` user password                                                                                                                                                                                                                                                                  |
 | database                       | String  | Yes      | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream table name                                                                                                                                                                                        |
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                             |
-| table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                           |
+| table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
 | sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
@@ -63,6 +66,19 @@ The internal implementation of Doris sink connector is cached and imported by st
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
 | doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
+
+## Redirect Behavior
+
+By default, Doris sink sends Stream Load requests to the FE nodes configured by `fenodes`.
+
+When `direct_to_be=true`, SeaTunnel uses `benodes` for the Stream Load data write path.
+
+If `sink.enable-2pc=true` at the same time:
+
+- pre-commit data write requests use `benodes`
+- 2PC commit/abort control requests still use `fenodes`
+
+This mixed path keeps the default FE control path while allowing the data path to bypass unstable FE redirect scenarios.
 
 ### schema_save_mode [Enum]
 
@@ -175,6 +191,16 @@ This is because the total amount of data arriving at the end may not exceed the 
 
 Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sink.buffer-size` will have no effect. So only the checkpoint can trigger the commit.
 
+## Troubleshooting 307 Temporary Redirect
+
+If the job fails with `HTTP/1.1 307 Temporary Redirect`, check the following items first:
+
+1. Whether the SeaTunnel worker can reach the redirected Doris BE address
+2. Whether Doris FE is under heavy load, timeout, or Full GC pressure
+3. Whether a proxy, SLB, ingress, or gateway rewrites or blocks the redirect path
+
+If your environment already has reachable Doris BE HTTP addresses, you can configure `benodes` and set `direct_to_be=true` to bypass FE redirect on the data write path.
+
 ## Task Example
 
 ### Simple
@@ -227,6 +253,49 @@ sink {
     sink.label-prefix = "test-cdc"
     sink.enable-2pc = "true"
     sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### Direct To BE
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+### Direct To BE With 2PC
+
+```hocon
+sink {
+  Doris {
+    fenodes = "fe1:8030,fe2:8030"
+    benodes = "be1:8040,be2:8040"
+    direct_to_be = true
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.label-prefix = "test-direct-be-2pc"
+    sink.enable-2pc = true
     doris.config {
       format = "json"
       read_json_by_line = "true"
@@ -458,6 +527,63 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Doris Sink support automatic table creation?
+
+Yes. Use the `schema_save_mode` and `save_mode_create_template` sections above as the canonical
+reference for the exact behavior, defaults, and DDL customization path.
+
+### How does exactly-once work with Doris Sink?
+
+Doris Sink uses Stream Load with two-phase commit (2PC) for exactly-once semantics:
+
+```hocon
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "unique-job-label"
+  }
+}
+```
+
+The `sink.label-prefix` must be unique per job to avoid label conflicts when retrying or restarting.
+
+### Why do I get a "Label already exists" error?
+
+Doris uses Stream Load labels to detect and reject duplicate submissions. If a job is restarted with 2PC enabled, the same label prefix may be reused. To resolve:
+
+- Include a timestamp or unique token in `sink.label-prefix` to ensure uniqueness across restarts.
+- Abort uncommitted transactions in Doris before restarting: `CANCEL LOAD WHERE LABEL LIKE 'your-prefix%'`.
+
+### Does Doris Sink support DELETE propagation from CDC sources?
+
+Yes. Set `sink.enable-delete = "true"` to propagate DELETE operations from CDC sources (e.g., MySQL CDC) to Doris. This requires the target table to use the Unique Key model in Doris.
+
+### Are Doris column names case-sensitive?
+
+See the case-sensitivity example above for the exact behavior. If upstream field names still do not
+match the Doris schema, normalize them before the sink stage or align the target schema explicitly
+instead of relying on an undocumented `column_mapping` option.
+
+### What data format does Doris Stream Load use?
+
+Doris Sink uses JSON format for Stream Load by default. Configure it explicitly if needed:
+
+```hocon
+doris.config {
+  format = "json"
+  read_json_by_line = "true"
+}
+```
+
+CSV format is also supported but requires careful delimiter configuration.
 
 ## Changelog
 

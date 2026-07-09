@@ -18,14 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
+import java.util.List;
+
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
-    public HdfsFileSource(ReadonlyConfig readonlyConfig) {
-        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+    public HdfsFileSource(
+            ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     private HdfsFileSource(MultipleTableHdfsFileSourceConfig sourceConfig) {

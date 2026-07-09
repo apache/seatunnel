@@ -39,7 +39,9 @@ public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
             "TRANSFORM_COMMON-06", "The expression '<expression>' of SQL transform execute failed"),
     WHERE_STATEMENT_ERROR(
             "TRANSFORM_COMMON-07",
-            "The where statement '<wherebody>' of SQL transform execute failed");
+            "The where statement '<wherebody>' of SQL transform execute failed"),
+    ENCRYPTION_FAILED("TRANSFORM_COMMON-08", "Field '<field>' encryption failed."),
+    ;
 
     private final String code;
     private final String description;

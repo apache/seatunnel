@@ -25,6 +25,23 @@ Take kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) as an examp
 minikube start --kubernetes-version=v1.23.3
 ```
 
+## Managed Kubernetes Notes
+
+The examples below use Minikube, but the same manifests can be adapted to managed Kubernetes services such as Amazon EKS, Google Kubernetes Engine (GKE), Azure Kubernetes Service (AKS), Alibaba Cloud ACK, Tencent TKE, Huawei Cloud CCE, Volcengine VKE, and Red Hat OpenShift. Before applying the manifests to a managed cluster, check the following platform-specific settings.
+
+| Area | What to verify |
+| --- | --- |
+| Image registry | Push the SeaTunnel image to a registry reachable by the cluster, such as ECR, Artifact Registry, ACR, ACK Container Registry, TCR, SWR, Volcengine Container Registry, or the internal OpenShift registry. Update `image` and `imagePullSecrets` when the image is private. |
+| Namespace and access | Create a dedicated namespace for SeaTunnel and bind the required ServiceAccount, Role, and RoleBinding there. OpenShift deployments may also need a SecurityContextConstraint compatible with the container user. |
+| Config and secrets | Keep non-sensitive SeaTunnel configuration in ConfigMaps and mount credentials through Secrets or the cloud provider's secret integration. Avoid putting connector credentials directly into the job ConfigMap. |
+| Connector packaging | Package commonly used connectors in the image for repeatable deployments, or mount connector libraries from a PersistentVolume or object-storage backed init step when connector sets change frequently. |
+| Storage and checkpoints | Use the storage service that matches the cloud, such as S3, GCS, Azure Blob Storage, OSS, COS, OBS, TOS, or a Kubernetes PersistentVolume. Confirm that the SeaTunnel pods have both network access and credentials for the chosen checkpoint or state path. |
+| Networking | Use `ClusterIP` for in-cluster access, `LoadBalancer` or Ingress for external access, and the cloud provider's annotations when a specific load balancer type, subnet, or certificate is required. |
+| Scheduling | Set CPU and memory requests, node selectors, tolerations, or affinity rules when the cluster has mixed node pools. If cluster autoscaling is enabled, make sure worker pods have enough requested resources to trigger scale-out before jobs are submitted. |
+| Observability | Send pod logs and SeaTunnel metrics to the managed logging and monitoring stack. For example, use CloudWatch, Cloud Logging, Azure Monitor, Alibaba Cloud Log Service, Tencent CLS, Huawei LTS, Volcengine TLS, or OpenShift monitoring. |
+
+For production environments, pin the SeaTunnel image tag, keep platform-specific values in separate manifests or Helm values files, and test upgrades in a staging namespace before changing the running cluster.
+
 ## Installation
 
 ### SeaTunnel Docker Image
@@ -44,7 +61,7 @@ To run the image with SeaTunnel, first create a `Dockerfile`:
 ```Dockerfile
 FROM flink:1.13
 
-ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_VERSION="3.0.0"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -56,13 +73,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.13-flink-1.13 -f Dockerfile .
+docker build -t seatunnel:3.0.0-flink-1.13 -f Dockerfile .
 ```
-Image `seatunnel:2.3.13-flink-1.13` needs to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:3.0.0-flink-1.13` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.13-flink-1.13
+minikube image load seatunnel:3.0.0-flink-1.13
 ```
 
 </TabItem>
@@ -70,9 +87,9 @@ minikube image load seatunnel:2.3.13-flink-1.13
 <TabItem value="Zeta (local-mode)">
 
 ```Dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
-ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_VERSION="3.0.0"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -84,13 +101,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.13 -f Dockerfile .
+docker build -t seatunnel:3.0.0 -f Dockerfile .
 ```
-Image `seatunnel:2.3.13` need to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:3.0.0` need to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.13
+minikube image load seatunnel:3.0.0
 ```
 
 </TabItem>
@@ -98,9 +115,9 @@ minikube image load seatunnel:2.3.13
 <TabItem value="Zeta (cluster-mode)">
 
 ```Dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
-ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_VERSION="3.0.0"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 
 RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
@@ -112,13 +129,13 @@ RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
 
 Then run the following commands to build the image:
 ```bash
-docker build -t seatunnel:2.3.13 -f Dockerfile .
+docker build -t seatunnel:3.0.0 -f Dockerfile .
 ```
-Image `seatunnel:2.3.13` needs to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:3.0.0` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
-minikube image load seatunnel:2.3.13
+minikube image load seatunnel:3.0.0
 ```
 
 </TabItem>
@@ -191,7 +208,7 @@ none
   ]}>
 <TabItem value="flink">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/3.0.0-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -245,7 +262,7 @@ kind: FlinkDeployment
 metadata:
   name: seatunnel-flink-streaming-example
 spec:
-  image: seatunnel:2.3.13-flink-1.13
+  image: seatunnel:3.0.0-flink-1.13
   flinkVersion: v1_13
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "2"
@@ -291,7 +308,7 @@ kubectl apply -f seatunnel-flink.yaml
 
 <TabItem value="Zeta (local-mode)">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/3.0.0-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -334,7 +351,7 @@ metadata:
 spec:
   containers:
   - name: seatunnel
-    image: seatunnel:2.3.13
+    image: seatunnel:3.0.0
     command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel.sh --config /data/seatunnel.streaming.conf -e local"]
     resources:
       limits:
@@ -366,7 +383,7 @@ kubectl apply -f seatunnel.yaml
 
 <TabItem value="Zeta (cluster-mode)">
 
-In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/3.0.0-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -524,7 +541,7 @@ spec:
     spec:
       containers:
         - name: seatunnel
-          image: seatunnel:2.3.13
+          image: seatunnel:3.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5801
@@ -768,5 +785,5 @@ Happy SeaTunneling!
 
 ## What's More
 
-For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connector-v2/source) to find all sources and sinks SeaTunnel supported.
-Or see [deployment](../deployment.mdx) if you want to submit your application in another kind of your engine cluster.
+For now, you have taken a quick look at SeaTunnel, and you can see [connector](../../connectors/source) to find all sources and sinks SeaTunnel supported.
+Or see [deployment](../../engines/zeta/deployment.md) if you want to submit your application in another kind of your engine cluster.

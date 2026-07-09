@@ -15,6 +15,7 @@ import ChangeLog from '../changelog/connector-http.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -39,17 +40,19 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
 | url                         | String | Yes      | -       | Http request url                                                                                            |
 | headers                     | Map    | No       | -       | Http headers                                                                                                |
+| params                      | Map    | No       | -       | Accepted by the option rule. For the current sink writer, put query parameters directly in `url`; rows are posted to the final URL as the request body. |
 | retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                           |
 | retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
-| connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
-| socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
 | array_mode                  | Boolean| No       | false   | Send data as a JSON array when true, or as a single JSON object when false (default)                        |
 | batch_size                  | Int    | No       | 1       | The batch size of records to send in one HTTP request. Only works when array_mode is true.                  |
 | request_interval_ms         | Int    | No       | 0       | The interval milliseconds between two HTTP requests, to avoid sending requests too frequently.              |
+| multi_table_sink_replica    | Int    | No       | -       | Number of sink replicas used for multi-table write. See [Sink Common Options](../common-options/sink-common-options.md). |
 | common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Example
+
+The Http sink always sends `POST` requests. Each upstream row is converted to JSON and used as the request body. When `array_mode = true`, rows are accumulated into a JSON array before sending; `batch_size` controls the maximum number of rows in one request.
 
 simple:
 

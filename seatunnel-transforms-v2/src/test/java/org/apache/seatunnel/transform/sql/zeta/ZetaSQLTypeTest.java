@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.udf.DesEncrypt;
 
@@ -271,7 +272,8 @@ public class ZetaSQLTypeTest {
         badPattern.setParameters(
                 new ExpressionList<>(
                         Arrays.asList(new StringValue("data"), new StringValue("invalid"))));
-        Assertions.assertThrows(TransformException.class, () -> type.getExpressionType(badPattern));
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class, () -> type.getExpressionType(badPattern));
 
         Assertions.assertEquals(
                 LocalTimeType.LOCAL_DATE_TYPE,
