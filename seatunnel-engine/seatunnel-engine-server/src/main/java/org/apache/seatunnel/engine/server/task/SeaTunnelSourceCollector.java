@@ -274,9 +274,16 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 rowType = dataTypeChangeEventHandler.reset((SeaTunnelRowType) rowType).apply(event);
             } else if (rowType instanceof MultipleRowType) {
                 String tableId = event.tablePath().toString();
+                SeaTunnelRowType currentRowType = rowTypeMap.get(tableId);
+                if (currentRowType == null) {
+                    log.warn(
+                            "Ignore schema change event for unknown table {}, current table ids: {}",
+                            tableId,
+                            rowTypeMap.keySet());
+                    return;
+                }
                 rowTypeMap.put(
-                        tableId,
-                        dataTypeChangeEventHandler.reset(rowTypeMap.get(tableId)).apply(event));
+                        tableId, dataTypeChangeEventHandler.reset(currentRowType).apply(event));
             } else {
                 throw new SeaTunnelEngineException(
                         "Unsupported row type: " + rowType.getClass().getName());

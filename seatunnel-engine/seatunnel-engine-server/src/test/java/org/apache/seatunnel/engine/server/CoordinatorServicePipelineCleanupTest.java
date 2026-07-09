@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -252,14 +253,9 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
     }
 
     private boolean hasMetricsForPipeline(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        return metricsIMap.entrySet().stream()
-                .flatMap(entry -> entry.getValue().keySet().stream())
-                .anyMatch(
-                        taskLocation ->
-                                pipelineLocation.equals(
-                                        taskLocation.getTaskGroupLocation().getPipelineLocation()));
+        MetricsSnapshotStateStore metricsStore =
+                server.getEngineContext().getStateStores().metricsSnapshotStore();
+        return metricsStore.containsPipeline(pipelineLocation);
     }
 
     private void awaitCoordinatorActive(CoordinatorService coordinatorService) {

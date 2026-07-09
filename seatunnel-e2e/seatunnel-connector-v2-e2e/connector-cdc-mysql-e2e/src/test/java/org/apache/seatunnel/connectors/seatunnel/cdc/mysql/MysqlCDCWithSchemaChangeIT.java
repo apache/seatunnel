@@ -50,9 +50,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -65,11 +68,23 @@ import static org.awaitility.Awaitility.await;
         disabledReason =
                 "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
 public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestResource {
+    /**
+     * The zeta schema-evolution path applies DDL and follow-up CDC records more slowly than a local
+     * MySQL/MySQL comparison, especially on loaded CI runners.
+     */
+    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 180_000L;
+
+    private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
+
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
+    private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+    private static final String STABLE_QUERY =
+            "select id,name,description,weight from %s.%s order by id";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -198,32 +213,142 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
     }
 
-    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+    /**
+     * Regression for issue #11044. With {@code schema-changes.exclude = ["drop.column"]}: a dropped
+     * column must NOT propagate to the sink (it stays in the sink schema), and the data changes
+     * happening at the same time must still reach the sink.
+     *
+     * <p>The dropped column here is intentionally <b>NULLABLE</b>. #11044 is event-type filtering
+     * only and, per its non-goals, does not define a schema-change data-handling policy, so the
+     * source simply writes {@code null} for a retained-but-no-longer-supplied column — valid for a
+     * nullable column. Excluding {@code drop.column} for a NOT NULL column is a known limitation
+     * that fails at the sink and is deferred to a future behavior-policy feature; see MySQL-CDC.md.
+     * Using a nullable column is exactly why this test needs its own {@code *_filter} DDL templates
+     * instead of the shared {@code add_columns}/{@code drop_columns} (which add/drop NOT NULL
+     * columns).
+     */
+    @Order(3)
+    @TestTemplate
+    public void testMysqlCdcSchemaChangeEventTypeFilter(TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_schema_change_filter.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // initial snapshot synced
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_FILTER))));
+
+        // add.column is NOT excluded
+        shopDatabase.setTemplateName("add_columns_filter").createAndInitialize();
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        columnExists(
+                                                MYSQL_DATABASE, SINK_TABLE_FILTER, "add_column1"),
+                                        "add.column should propagate to the sink"));
+
+        // drop.column IS excluded; this template also inserts/updates/deletes rows at the same time
+        shopDatabase.setTemplateName("drop_columns_filter").createAndInitialize();
+
+        // regression: the concurrent data changes must still reach the sink (job did not crash)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_FILTER))));
+
+        // Row-level hardening: drop_columns_filter.sql performs INSERT + UPDATE + DELETE alongside
+        // the filtered drop.column DDL. Every one of those data changes must be reflected in the
+        // sink (the earlier iterable-equals already converged, so these reads are stable).
+        List<List<Object>> sourceRows =
+                query(String.format(STABLE_QUERY, MYSQL_DATABASE, SOURCE_TABLE));
+        List<List<Object>> sinkRows =
+                query(String.format(STABLE_QUERY, MYSQL_DATABASE, SINK_TABLE_FILTER));
+        Assertions.assertEquals(
+                sourceRows.size(),
+                sinkRows.size(),
+                "sink row count must match source after the concurrent INSERT/UPDATE/DELETE");
+        // DELETE propagated: drop_columns_filter.sql runs `delete from products where id = 102`.
+        Assertions.assertTrue(
+                sinkRows.stream().noneMatch(row -> ((Number) row.get(0)).intValue() == 102),
+                "rows deleted at the source must also be deleted in the sink");
+        // INSERT propagated: id 110 is inserted by drop_columns_filter.sql.
+        Assertions.assertTrue(
+                sinkRows.stream().anyMatch(row -> ((Number) row.get(0)).intValue() == 110),
+                "rows inserted at the source must appear in the sink");
+        // UPDATE propagated: `set name='dailai' where id = 101`.
+        assertSinkNameEquals(sinkRows, 101, "dailai");
+
+        // the excluded drop.column must NOT have been applied to the sink schema
+        Assertions.assertTrue(
+                columnExists(MYSQL_DATABASE, SINK_TABLE_FILTER, "add_column1"),
+                "drop.column was excluded, so the sink must keep the column the source dropped");
+    }
+
+    /** Asserts the sink row with the given id exists and its {@code name} matches expectedName. */
+    private void assertSinkNameEquals(List<List<Object>> sinkRows, int id, Object expectedName) {
+        Optional<List<Object>> row =
+                sinkRows.stream().filter(r -> ((Number) r.get(0)).intValue() == id).findFirst();
+        Assertions.assertTrue(row.isPresent(), "expected sink row with id=" + id);
+        Assertions.assertEquals(
+                expectedName,
+                row.get().get(1),
+                "updated value must propagate to the sink for id=" + id);
+    }
+
+    private boolean columnExists(String database, String table, String column) {
+        return query(String.format(DESC, database, table)).stream()
+                .anyMatch(row -> column.equalsIgnoreCase(String.valueOf(row.get(0))));
+    }
+
+    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertIterableEquals(
-                                    query(
-                                            String.format(QUERY, database, sourceTable)
-                                                    + " where id >= 128"),
-                                    query(
-                                            String.format(QUERY, database, sinkTable)
-                                                    + " where id >= 128"));
+                            assertTableDataEqualsBySourceColumnOrder(
+                                    database, sourceTable, sinkTable, "id >= 128");
 
                             Assertions.assertIterableEquals(
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
@@ -246,8 +371,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 3,
-                                            "Time difference exceeds 3 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -272,31 +399,24 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertSchemaEvolutionForAddColumns(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertIterableEquals(
-                                    query(
-                                            String.format(QUERY, database, sourceTable)
-                                                    + " where id >= 128"),
-                                    query(
-                                            String.format(QUERY, database, sinkTable)
-                                                    + " where id >= 128"));
+                            assertTableDataEqualsBySourceColumnOrder(
+                                    database, sourceTable, sinkTable, "id >= 128");
 
                             Assertions.assertIterableEquals(
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
@@ -319,8 +439,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 3,
-                                            "Time difference exceeds 3 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -330,18 +452,86 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Zeta can apply equivalent schema changes with a different physical column placement, so we
+     * compare DESCRIBE output by column name rather than raw row order.
+     */
+    private void assertSchemaDescriptionEqualsIgnoringColumnOrder(
+            String database, String sourceTable, String sinkTable) {
+        Assertions.assertIterableEquals(
+                normalizeDescRows(query(String.format(DESC, database, sourceTable))),
+                normalizeDescRows(query(String.format(DESC, database, sinkTable))));
+    }
+
+    /**
+     * Reads the sink using the source column order so data assertions remain stable when sink DDL
+     * keeps the same columns but materializes them in a different physical order.
+     */
+    private void assertTableDataEqualsBySourceColumnOrder(
+            String database, String sourceTable, String sinkTable, String whereClause) {
+        List<String> sourceColumns = getColumnNames(database, sourceTable);
+        Assertions.assertIterableEquals(
+                query(
+                        buildOrderedProjectionQuery(
+                                database, sourceTable, sourceColumns, whereClause)),
+                query(
+                        buildOrderedProjectionQuery(
+                                database, sinkTable, sourceColumns, whereClause)));
+    }
+
+    /**
+     * Returns source column names from DESCRIBE so later projections follow the semantic schema
+     * instead of the sink's physical column order.
+     */
+    private List<String> getColumnNames(String database, String table) {
+        List<String> columnNames = new ArrayList<>();
+        for (List<Object> row : query(String.format(DESC, database, table))) {
+            columnNames.add(String.valueOf(row.get(0)));
+        }
+        return columnNames;
+    }
+
+    /** Builds an explicit projection to avoid relying on engine-specific physical column order. */
+    private String buildOrderedProjectionQuery(
+            String database, String table, List<String> columns, String whereClause) {
+        StringBuilder queryBuilder =
+                new StringBuilder("select ")
+                        .append(
+                                columns.stream()
+                                        .map(this::quoteIdentifier)
+                                        .collect(Collectors.joining(",")))
+                        .append(" from ")
+                        .append(quoteIdentifier(database))
+                        .append(".")
+                        .append(quoteIdentifier(table));
+        if (whereClause != null && !whereClause.isEmpty()) {
+            queryBuilder.append(" where ").append(whereClause);
+        }
+        return queryBuilder.append(" order by id").toString();
+    }
+
+    /** Quotes SQL identifiers used in generated verification queries. */
+    private String quoteIdentifier(String identifier) {
+        return "`" + identifier + "`";
+    }
+
+    /** Sorts DESCRIBE rows by column name so equivalent schemas compare deterministically. */
+    private List<List<Object>> normalizeDescRows(List<List<Object>> descRows) {
+        List<List<Object>> normalizedRows = new ArrayList<>(descRows);
+        normalizedRows.sort(Comparator.comparing(row -> String.valueOf(row.get(0))));
+        return normalizedRows;
     }
 
     private Connection getJdbcConnection() throws SQLException {

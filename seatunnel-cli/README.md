@@ -10,6 +10,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 - **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
+- **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
 - **Skill Framework** -- Three-layer generation: Skill SOP -> Golden Example -> Connector Metadata
 - **Auto-Save** -- Generated configs automatically saved to `.data/last_job.conf` (co-located with CLI)
 - **Auto-Fix** -- `/check` and `/run` failures trigger automatic LLM-powered diagnosis and config repair
@@ -241,7 +242,7 @@ Options:
 | `/save <path>` | Save config to custom path (auto-saved to `.data/last_job.conf` on generation) |
 | `/check` | Dry-run validate last config; auto-diagnoses and fixes on failure |
 | `/run` | Execute last config via REST API or `seatunnel.sh`; auto-diagnoses on failure |
-| `/connectors` | List all available sources, sinks, and transforms |
+| `/connectors` | List all available sources, sinks, and transforms; transform option rules and constraints are supported during generation |
 | `/sessions` | List recent conversation sessions |
 | `/resume [id]` | Resume a previous session |
 | `/new` | Start a fresh session |
@@ -371,7 +372,9 @@ User Input (natural language)
 Two-tier resolution with intelligent fallback:
 
 1. **Runtime API** -- Live metadata from running SeaTunnel engine (`/option-rules` endpoint). Always accurate, zero maintenance.
-2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. 150 connectors with full option rules, exported from SeaTunnel engine via reflection. Zero LLM token cost.
+2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. Source, sink, and transform plugins include full option rules and value constraints exported from SeaTunnel engine via reflection. Zero LLM token cost.
+
+Transform metadata is resolved through the same path as source and sink metadata, so prompts can include transform-specific required options and constraints such as non-blank SQL queries.
 
 ### Memory System
 
@@ -394,7 +397,7 @@ Memory is stored locally at `.data/memory.json` (co-located with the CLI package
 
 ## Connector Metadata
 
-The CLI ships with `connector_metadata.json` (150 connectors), exported from the SeaTunnel engine via runtime reflection. No extra steps needed.
+The CLI ships with `connector_metadata.json`, exported from the SeaTunnel engine via runtime reflection. It includes source, sink, and transform plugin option rules, conditional options, and value constraints. No extra steps needed.
 
 To re-export for a different SeaTunnel version (requires a running engine):
 

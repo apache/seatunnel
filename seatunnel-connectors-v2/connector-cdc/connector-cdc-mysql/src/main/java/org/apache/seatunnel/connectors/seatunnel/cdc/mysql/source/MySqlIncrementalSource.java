@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -129,6 +130,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .setSchemaChangeResolver(
                                 new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .build();
     }
 

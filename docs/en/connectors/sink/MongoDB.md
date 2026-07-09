@@ -67,16 +67,16 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 |-----------------------|----------|----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | uri                   | String   | Yes      | -      | The MongoDB standard connection uri. eg. mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true.                                                                                                                                          |
 | database              | String   | Yes      | -      | The name of the MongoDB database to read or write to. When configuring multiple tables at the source, you can use `${database_name}` as a placeholder, for example: `database = "${database_name}_test_database"` .                                                     |
-| collection            | String   | Yes      | -      | The name of the MongoDB collection to read or write. When configuring multiple tables at the source end, you can use `${table_name}`,`${schema_name}`,`${table_name}` as placeholders, for example: `collection = "${database_name}_${schema_name}_${table_name}_check"` |
-| buffer-flush.max-rows | String   | No       | 1000   | Specifies the maximum number of buffered rows per batch request.                                                                                                                                                                                                      |
-| buffer-flush.interval | String   | No       | 30000  | Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.                                                                                                                                                                           |
-| retry.max             | String   | No       | 3      | Specifies the max number of retry if writing records to database failed.                                                                                                                                                                                              |
-| retry.interval        | Duration | No       | 1000   | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                                                                                                                                                                     |
+| collection            | String   | Yes      | -      | The name of the MongoDB collection to read or write. When configuring multiple tables at the source end, you can use `${database_name}`, `${schema_name}`, and `${table_name}` as placeholders, for example: `collection = "${database_name}_${schema_name}_${table_name}_check"` |
+| buffer-flush.max-rows | Int      | No       | 1000   | Specifies the maximum number of buffered rows per batch request.                                                                                                                                                                                                      |
+| buffer-flush.interval | Long     | No       | 30000  | Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.                                                                                                                                                                           |
+| retry.max             | Int      | No       | 3      | Specifies the max number of retry if writing records to database failed.                                                                                                                                                                                              |
+| retry.interval        | Long     | No       | 1000   | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                                                                                                                                                                     |
 | upsert-enable         | Boolean  | No       | false  | Whether to write documents via upsert mode.                                                                                                                                                                                                                           |
 | primary-key           | List     | No       | -      | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                                                                                                                                                            |
 | transaction           | Boolean  | No       | false  | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                     |
-| common-options        |          | No       | -      | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                       |
-| data_save_mode        | String   | No       | APPEND_DATA       | The data saving mode of mongodb，Option introduction,`DROP_DATA`:The collection will be cleared before inserting data;`APPEND_DATA`:Append data ;`ERROR_WHEN_DATA_EXISTS`:An error will be reported if there is data in the collection.                                |
+| common-options        |          | No       | -      | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                         |
+| data_save_mode        | Enum     | No       | APPEND_DATA       | The data saving mode of mongodb. Supported values: `DROP_DATA`, `APPEND_DATA`, and `ERROR_WHEN_DATA_EXISTS`.                                |
 
 
 ### Tips
@@ -114,9 +114,61 @@ source {
 
 sink {
   MongoDB{
-    uri = mongodb://user:password@127.0.0.1:27017
+    uri = "mongodb://user:password@127.0.0.1:27017"
     database = "test"
     collection = "test"
+  }
+}
+```
+
+### Multiple Table Write
+
+When upstream records carry table metadata, `database` and `collection` can use placeholders. The common placeholders are
+`${database_name}`, `${schema_name}`, and `${table_name}`.
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "testDatabase1.testSchema1.testTable1"
+          fields {
+            id = int
+            value = string
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [1, "NEW"]
+          }
+        ]
+      },
+      {
+        schema = {
+          table = "testDatabase2.testSchema2.testTable2"
+          fields {
+            id = int
+            amount = "decimal(16, 1)"
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [1, 6.3]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017/test_db?retryWrites=true"
+    database = "test_db"
+    collection = "${database_name}_${schema_name}_${table_name}_check"
   }
 }
 ```
@@ -206,4 +258,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-
