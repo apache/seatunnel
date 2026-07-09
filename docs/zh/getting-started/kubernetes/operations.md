@@ -36,7 +36,9 @@ curl http://127.0.0.1:8080/system-monitoring-information
 curl http://127.0.0.1:8080/running-jobs
 ```
 
+:::caution 注意
 生产环境可以通过 Ingress 或 LoadBalancer 暴露 REST API，并按需增加认证、网络策略和访问控制。
+:::
 
 ## 扩容 Worker
 
@@ -62,7 +64,9 @@ kubectl get pods -l app=seatunnel,component=worker
 - 剩余 Worker 的 slot 足够承载当前和后续任务。
 - checkpoint 已正常完成。
 
+:::caution 注意
 不建议直接一次性缩容多个 Worker。可以逐个降低副本数，并观察作业状态。
+:::
 
 ## 滚动更新
 
@@ -74,7 +78,9 @@ kubectl get pods -l app=seatunnel,component=worker
 - 避免在高峰期同时更新 Master 和 Worker。
 - 如果配置文件通过 `subPath` 挂载，ConfigMap 更新不会自动同步到容器内，需要执行滚动重启或通过 Reloader 等工具触发重启。
 
+:::caution 注意
 如果使用 Reloader 等工具自动重启 Pod，需要确保不会在短时间内同时重启过多 Worker。
+:::
 
 ## PodDisruptionBudget
 
@@ -111,7 +117,9 @@ spec:
 检查：
 
 - `seatunnel-cluster` Headless Service 是否存在。
-- `hazelcast.yaml`、`hazelcast-master.yaml` 或 `hazelcast-worker.yaml` 中的 `namespace`、`service-name` 和 `service-port` 是否与 Service 一致。
+- 使用 API 发现时，`hazelcast.yaml`、`hazelcast-master.yaml` 或 `hazelcast-worker.yaml` 中的 `namespace`、`service-name` 和 `service-port` 是否与 Service 一致。
+- 在启用 RBAC 的集群中使用 API 发现时，Pod 使用的 ServiceAccount 是否具有 `get`、`list` 和 `watch` Pod、Service、Endpoint 的权限。
+- 使用 DNS 发现时，`service-dns` 是否指向正确命名空间中的 `seatunnel-cluster` Headless Service。
 - 5801 端口是否被 Service 暴露。
 - Pod 标签是否匹配 Service selector。
 

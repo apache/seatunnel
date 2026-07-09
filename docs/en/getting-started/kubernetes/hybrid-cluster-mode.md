@@ -6,7 +6,11 @@ sidebar_position: 3
 
 In Hybrid Cluster Mode, SeaTunnel Engine Master and Worker run in the same process. Every node can participate in Master election and execute tasks.
 
-This mode is simple to deploy and suitable for small clusters. For production environments, [Separated Cluster Mode](separated-cluster-mode.md) is recommended because it isolates scheduling resources from execution resources.
+This mode is simple to deploy and suitable for small clusters.
+
+:::tip Tip
+For production environments, [Separated Cluster Mode](separated-cluster-mode.md) is recommended because it isolates scheduling resources from execution resources.
+:::
 
 ## Deployment Principles
 
@@ -17,7 +21,11 @@ This mode is simple to deploy and suitable for small clusters. For production en
 
 ## Create ConfigMaps
 
-Store sensitive values in Secret for production environments. The following example only shows non-sensitive configuration. Split ConfigMaps by responsibility to avoid an overly long YAML file.
+:::caution Warning
+Store sensitive values in Secret for production environments. The following example only shows non-sensitive configuration.
+:::
+
+Split ConfigMaps by responsibility to avoid an overly long YAML file.
 
 ### Hazelcast ConfigMap
 
@@ -59,6 +67,20 @@ data:
         hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
         hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
 ```
+
+This example uses Hazelcast Kubernetes API discovery. If you prefer DNS discovery and do not want Hazelcast to call the Kubernetes API, replace the `join.kubernetes` block with:
+
+```yaml
+join:
+  kubernetes:
+    enabled: true
+    service-dns: seatunnel-cluster.default.svc.cluster.local
+    service-dns-timeout: 10
+```
+
+:::info Note
+When DNS discovery is used, the RBAC section below is not required for member discovery. If you skip the RBAC manifest, also remove `serviceAccountName: seatunnel` from the StatefulSet or create that ServiceAccount separately.
+:::
 
 ### Hazelcast Client ConfigMap
 
@@ -114,6 +136,38 @@ data:
         http:
           enable-http: true
           port: 8080
+```
+
+## Create RBAC for API Discovery
+
+The default `namespace`, `service-name`, and `service-port` settings in `hazelcast.yaml` use Hazelcast Kubernetes API discovery. In RBAC-enabled clusters, create a ServiceAccount, Role, and RoleBinding before starting the StatefulSet. Skip this section if you use `service-dns` discovery instead:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-hazelcast-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-hazelcast-discovery
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-hazelcast-discovery
 ```
 
 ## Create Services
@@ -180,6 +234,7 @@ spec:
         app: seatunnel
         component: hybrid
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -265,10 +320,15 @@ lifecycle:
 
 Apply the manifests:
 
+:::info Note
+Apply `seatunnel-rbac.yaml` only when API discovery is used, or when the StatefulSet keeps `serviceAccountName: seatunnel`.
+:::
+
 ```bash
 kubectl apply -f seatunnel-hazelcast-config.yaml
 kubectl apply -f seatunnel-client-config.yaml
 kubectl apply -f seatunnel-engine-config.yaml
+kubectl apply -f seatunnel-rbac.yaml
 kubectl apply -f seatunnel-services.yaml
 kubectl apply -f seatunnel-hybrid.yaml
 ```
@@ -282,4 +342,6 @@ curl http://127.0.0.1:8080/system-monitoring-information
 
 ## Recommendation
 
+:::tip Tip
 In Hybrid Cluster Mode, Master nodes also run tasks. When task load is high, execution load may affect Master election, scheduling, and REST API stability. For a more stable production deployment, use [Separated Cluster Mode](separated-cluster-mode.md).
+:::

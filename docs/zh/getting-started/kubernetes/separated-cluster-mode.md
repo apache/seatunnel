@@ -17,10 +17,8 @@ sidebar_position: 4
 | Hazelcast discovery | Headless Service | 1 | `publishNotReadyAddresses: true` |
 | REST API | ClusterIP Service | 1 | 可按需通过 Ingress 或 LoadBalancer 暴露 |
 
-:::tip
-
+:::tip 提示
 单 Master 可以启动集群，但不具备高可用能力。若 `backup-count: 1`，建议至少部署 2 个 Master，否则 Master 宕机后集群无法依赖备份副本恢复 IMap 状态。
-
 :::
 
 ## 创建 ConfigMap
@@ -125,6 +123,20 @@ data:
           value: worker
 ```
 
+这些示例使用 Hazelcast Kubernetes API 发现。如果希望使用 DNS 发现，并避免 Hazelcast 访问 Kubernetes API，可以将 `hazelcast-master.yaml` 和 `hazelcast-worker.yaml` 中的 `join.kubernetes` 都替换为：
+
+```yaml
+join:
+  kubernetes:
+    enabled: true
+    service-dns: seatunnel-cluster.default.svc.cluster.local
+    service-dns-timeout: 10
+```
+
+:::info 说明
+使用 DNS 发现时，下面的 RBAC 章节不是成员发现所必需的。如果跳过 RBAC 清单，也需要从两个 StatefulSet 中移除 `serviceAccountName: seatunnel`，或单独创建这个 ServiceAccount。
+:::
+
 ### Hazelcast Client 配置
 
 ```yaml
@@ -186,7 +198,41 @@ data:
           port: 8080
 ```
 
+:::caution 注意
 如果使用 S3、OSS、COS、OBS、TOS 等对象存储作为 checkpoint 或 MapStore 后端，需要保证每个 Pod 都具备网络访问能力和对应凭据。不要在 ConfigMap 的 YAML 内容中写 `secretKeyRef`；需要在部署前渲染最终配置，或使用 Hadoop credential provider、云厂商凭据链、挂载凭据文件等底层文件系统支持的方式。
+:::
+
+## 为 API 发现创建 RBAC
+
+`hazelcast-master.yaml` 和 `hazelcast-worker.yaml` 默认使用的 `namespace`、`service-name` 和 `service-port` 属于 Hazelcast Kubernetes API 发现。在启用 RBAC 的集群中，请先创建 ServiceAccount、Role 和 RoleBinding，再启动 StatefulSet。如果改用 `service-dns` 发现，可以跳过本节：
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-hazelcast-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-hazelcast-discovery
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-hazelcast-discovery
+```
 
 ## 创建 Service
 
@@ -273,6 +319,7 @@ spec:
         app: seatunnel
         component: master
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -344,6 +391,7 @@ spec:
         app: seatunnel
         component: worker
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -433,11 +481,16 @@ lifecycle:
 
 ## 应用配置
 
+:::info 说明
+仅在使用 API 发现，或 StatefulSet 保留 `serviceAccountName: seatunnel` 时应用 `seatunnel-rbac.yaml`。
+:::
+
 ```bash
 kubectl apply -f seatunnel-master-hazelcast-config.yaml
 kubectl apply -f seatunnel-worker-hazelcast-config.yaml
 kubectl apply -f seatunnel-client-config.yaml
 kubectl apply -f seatunnel-engine-config.yaml
+kubectl apply -f seatunnel-rbac.yaml
 kubectl apply -f seatunnel-services.yaml
 kubectl apply -f seatunnel-master.yaml
 kubectl apply -f seatunnel-worker.yaml

@@ -6,7 +6,11 @@ sidebar_position: 3
 
 混合集群模式中，SeaTunnel Engine 的 Master 与 Worker 运行在同一个进程中。所有节点都可以参与 Master 选举，也都可以执行任务。
 
-该模式部署简单，适合小规模集群。生产环境更推荐使用 [分离集群模式](separated-cluster-mode.md)，将调度与执行资源隔离。
+该模式部署简单，适合小规模集群。
+
+:::tip 提示
+生产环境更推荐使用 [分离集群模式](separated-cluster-mode.md)，将调度与执行资源隔离。
+:::
 
 ## 部署原则
 
@@ -17,7 +21,11 @@ sidebar_position: 3
 
 ## 创建 ConfigMap
 
-生产环境应将敏感信息放入 Secret。以下示例只展示非敏感配置。建议按配置职责拆分 ConfigMap，避免单个 YAML 过长。
+:::caution 注意
+生产环境应将敏感信息放入 Secret。以下示例只展示非敏感配置。
+:::
+
+建议按配置职责拆分 ConfigMap，避免单个 YAML 过长。
 
 ### Hazelcast 配置
 
@@ -59,6 +67,20 @@ data:
         hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
         hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
 ```
+
+该示例使用 Hazelcast Kubernetes API 发现。如果希望使用 DNS 发现，并避免 Hazelcast 访问 Kubernetes API，可以将 `join.kubernetes` 替换为：
+
+```yaml
+join:
+  kubernetes:
+    enabled: true
+    service-dns: seatunnel-cluster.default.svc.cluster.local
+    service-dns-timeout: 10
+```
+
+:::info 说明
+使用 DNS 发现时，下面的 RBAC 章节不是成员发现所必需的。如果跳过 RBAC 清单，也需要从 StatefulSet 中移除 `serviceAccountName: seatunnel`，或单独创建这个 ServiceAccount。
+:::
 
 ### Hazelcast Client 配置
 
@@ -114,6 +136,38 @@ data:
         http:
           enable-http: true
           port: 8080
+```
+
+## 为 API 发现创建 RBAC
+
+`hazelcast.yaml` 默认使用的 `namespace`、`service-name` 和 `service-port` 属于 Hazelcast Kubernetes API 发现。在启用 RBAC 的集群中，请先创建 ServiceAccount、Role 和 RoleBinding，再启动 StatefulSet。如果改用 `service-dns` 发现，可以跳过本节：
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-hazelcast-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-hazelcast-discovery
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-hazelcast-discovery
 ```
 
 ## 创建 Service
@@ -180,6 +234,7 @@ spec:
         app: seatunnel
         component: hybrid
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -265,10 +320,15 @@ lifecycle:
 
 应用配置：
 
+:::info 说明
+仅在使用 API 发现，或 StatefulSet 保留 `serviceAccountName: seatunnel` 时应用 `seatunnel-rbac.yaml`。
+:::
+
 ```bash
 kubectl apply -f seatunnel-hazelcast-config.yaml
 kubectl apply -f seatunnel-client-config.yaml
 kubectl apply -f seatunnel-engine-config.yaml
+kubectl apply -f seatunnel-rbac.yaml
 kubectl apply -f seatunnel-services.yaml
 kubectl apply -f seatunnel-hybrid.yaml
 ```
@@ -282,4 +342,6 @@ curl http://127.0.0.1:8080/system-monitoring-information
 
 ## 使用建议
 
+:::tip 提示
 混合集群模式中，Master 节点同时运行任务。当任务负载较高时，执行负载可能影响 Master 选举、调度和 REST API 稳定性。需要更稳定的生产部署时，请使用 [分离集群模式](separated-cluster-mode.md)。
+:::

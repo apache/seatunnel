@@ -36,7 +36,9 @@ curl http://127.0.0.1:8080/system-monitoring-information
 curl http://127.0.0.1:8080/running-jobs
 ```
 
+:::caution Warning
 In production, expose REST API through Ingress or LoadBalancer as needed, and add authentication, network policy, and access control.
+:::
 
 ## Scale Worker Up
 
@@ -62,7 +64,9 @@ Before scaling down, confirm:
 - Remaining Workers have enough slots for current and future jobs.
 - Checkpoints have completed successfully.
 
+:::caution Warning
 Do not scale down multiple Workers at once. Decrease replicas one by one and observe job status.
+:::
 
 ## Rolling Updates
 
@@ -74,7 +78,9 @@ When image or configuration changes, StatefulSet updates Pods in order. Recommen
 - Avoid updating Master and Worker at the same time during peak hours.
 - If configuration files are mounted through `subPath`, ConfigMap updates are not propagated into the running container automatically. Run a rolling restart or use a tool such as Reloader to trigger restarts.
 
+:::caution Warning
 If tools such as Reloader automatically restart Pods, ensure they do not restart too many Workers in a short time.
+:::
 
 ## PodDisruptionBudget
 
@@ -111,7 +117,9 @@ spec:
 Check:
 
 - Whether the `seatunnel-cluster` Headless Service exists.
-- Whether `namespace`, `service-name`, and `service-port` in `hazelcast.yaml`, `hazelcast-master.yaml`, or `hazelcast-worker.yaml` match the Service.
+- For API discovery, whether `namespace`, `service-name`, and `service-port` in `hazelcast.yaml`, `hazelcast-master.yaml`, or `hazelcast-worker.yaml` match the Service.
+- For API discovery in RBAC-enabled clusters, whether the Pod uses a ServiceAccount with permission to `get`, `list`, and `watch` Pods, Services, and Endpoints.
+- For DNS discovery, whether `service-dns` points to the `seatunnel-cluster` Headless Service in the correct namespace.
 - Whether port 5801 is exposed by the Service.
 - Whether Pod labels match Service selectors.
 

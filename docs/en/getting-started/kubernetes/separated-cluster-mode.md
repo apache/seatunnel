@@ -17,10 +17,8 @@ This is the recommended deployment mode for Kubernetes production environments. 
 | Hazelcast discovery | Headless Service | 1 | `publishNotReadyAddresses: true` |
 | REST API | ClusterIP Service | 1 | Expose with Ingress or LoadBalancer as needed |
 
-:::tip
-
+:::tip Tip
 A single Master can start the cluster, but it does not provide high availability. If `backup-count: 1` is used, deploy at least 2 Masters. Otherwise, the cluster cannot rely on backup replicas to recover IMap state after a Master failure.
-
 :::
 
 ## Create ConfigMaps
@@ -125,6 +123,20 @@ data:
           value: worker
 ```
 
+These examples use Hazelcast Kubernetes API discovery. If you prefer DNS discovery and do not want Hazelcast to call the Kubernetes API, replace the `join.kubernetes` block in both `hazelcast-master.yaml` and `hazelcast-worker.yaml` with:
+
+```yaml
+join:
+  kubernetes:
+    enabled: true
+    service-dns: seatunnel-cluster.default.svc.cluster.local
+    service-dns-timeout: 10
+```
+
+:::info Note
+When DNS discovery is used, the RBAC section below is not required for member discovery. If you skip the RBAC manifest, also remove `serviceAccountName: seatunnel` from both StatefulSets or create that ServiceAccount separately.
+:::
+
 ### Hazelcast Client ConfigMap
 
 ```yaml
@@ -186,7 +198,41 @@ data:
           port: 8080
 ```
 
+:::caution Warning
 If S3, OSS, COS, OBS, TOS, or another object store is used for checkpoint or MapStore, every Pod must have network access and credentials. Do not put `secretKeyRef` inside the YAML content stored in ConfigMap. Render the final configuration before deployment, or use credential mechanisms supported by the underlying filesystem, such as Hadoop credential provider, cloud-provider credential chains, or mounted credential files.
+:::
+
+## Create RBAC for API Discovery
+
+The default `namespace`, `service-name`, and `service-port` settings in `hazelcast-master.yaml` and `hazelcast-worker.yaml` use Hazelcast Kubernetes API discovery. In RBAC-enabled clusters, create a ServiceAccount, Role, and RoleBinding before starting the StatefulSets. Skip this section if you use `service-dns` discovery instead:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: seatunnel-hazelcast-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: seatunnel-hazelcast-discovery
+subjects:
+  - kind: ServiceAccount
+    name: seatunnel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: seatunnel-hazelcast-discovery
+```
 
 ## Create Services
 
@@ -273,6 +319,7 @@ spec:
         app: seatunnel
         component: master
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -344,6 +391,7 @@ spec:
         app: seatunnel
         component: worker
     spec:
+      serviceAccountName: seatunnel
       containers:
         - name: app
           image: seatunnel:3.0.0
@@ -433,11 +481,16 @@ lifecycle:
 
 ## Apply Manifests
 
+:::info Note
+Apply `seatunnel-rbac.yaml` only when API discovery is used, or when the StatefulSets keep `serviceAccountName: seatunnel`.
+:::
+
 ```bash
 kubectl apply -f seatunnel-master-hazelcast-config.yaml
 kubectl apply -f seatunnel-worker-hazelcast-config.yaml
 kubectl apply -f seatunnel-client-config.yaml
 kubectl apply -f seatunnel-engine-config.yaml
+kubectl apply -f seatunnel-rbac.yaml
 kubectl apply -f seatunnel-services.yaml
 kubectl apply -f seatunnel-master.yaml
 kubectl apply -f seatunnel-worker.yaml

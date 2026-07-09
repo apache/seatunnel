@@ -20,7 +20,7 @@ In Zeta cluster mode, both Master and Worker should be deployed with StatefulSet
 
 StatefulSet provides stable Pod names, stable network identities, and ordered rolling updates. Master nodes handle leader election, job scheduling, REST API, and IMap state management, so stable Pod identity helps member discovery and failure recovery. Worker nodes do not store IMap data in separated cluster mode, but they still provide the execution slots required by running jobs. If Deployment is used, rolling updates, eviction, or rescheduling may terminate multiple Worker Pods at the same time. Available slots can drop suddenly, causing scheduling, failover, or cluster stability issues.
 
-The recommended production topology is shown below. This follows the Kubernetes StatefulSet model: StatefulSet manages ordered Pods, while the Headless Service provides Pod network identity and DNS-based discovery.
+The recommended production topology is shown below. This follows the Kubernetes StatefulSet model: StatefulSet manages ordered Pods, while the Headless Service provides Pod network identity and the stable Service target used by Hazelcast member discovery.
 
 ```mermaid
 flowchart TB
@@ -55,6 +55,15 @@ flowchart TB
   master0 <-->|Hazelcast member traffic| worker0
   master1 <-->|Hazelcast member traffic| worker1
   master0 <-->|Hazelcast member traffic| worker2
+
+  classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+  classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+  classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+  class ns,masterSet,workerSet layerBlue;
+  class masterSvc,discoverySvc layerCyan;
+  class client,master0,master1,worker0,worker1,worker2 layerPurple;
+  linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 Here, `seatunnel-cluster` is a Headless Service used only for Hazelcast member discovery. `seatunnel-master` is a regular ClusterIP Service used to expose the Master REST API.
@@ -112,7 +121,7 @@ The examples can be adapted to managed Kubernetes services such as Amazon EKS, G
 | --- | --- |
 | Image registry | SeaTunnel images and plugin images must be pullable by the cluster. Configure `imagePullSecrets` for private images. |
 | Namespace and access | Use a dedicated namespace and configure ServiceAccount, Role, and RoleBinding as needed. |
-| Network discovery | Hazelcast Kubernetes discovery depends on the Headless Service. `namespace`, `service-name`, and `service-port` in `hazelcast*.yaml` must match the Service. |
+| Network discovery | Hazelcast Kubernetes discovery depends on the Headless Service. For API discovery, `namespace`, `service-name`, and `service-port` in `hazelcast*.yaml` must match the Service. For DNS discovery, `service-dns` must point to the same Headless Service. |
 | Config and secrets | Store non-sensitive config in ConfigMap. Mount passwords, access keys, tokens, and other secrets through Secret or a cloud secret service. |
 | Checkpoint and state storage | Multi-node clusters must use shared storage or object storage so state can be recovered after any Pod is recreated. |
 | Scheduling | Plan Worker requests, limits, slots, and job parallelism together. When cluster autoscaling is enabled, Worker requests must be large enough to trigger scale-out. |
