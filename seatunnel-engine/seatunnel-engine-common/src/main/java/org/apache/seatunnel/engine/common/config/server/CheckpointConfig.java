@@ -47,6 +47,10 @@ public class CheckpointConfig implements Serializable {
 
     private boolean checkpointEnable = true;
 
+    public boolean isRetainAfterJobCancelled() {
+        return retainAfterJobCancelled;
+    }
+
     public void setCheckpointInterval(long checkpointInterval) {
         checkArgument(
                 checkpointInterval >= MINIMAL_CHECKPOINT_TIME,
