@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecto
 import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
 import io.milvus.grpc.DataType;
 import io.milvus.param.collection.FieldType;
 
@@ -169,19 +168,22 @@ public class MilvusSinkConverterTest {
     }
 
     @Test
-    void skipsNullDynamicFieldBeforeNullValidation() {
+    void throwsWhenDynamicFieldValueIsNullByDefault() {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {null});
 
-        JsonObject milvusData =
-                new MilvusSinkConverter()
-                        .buildMilvusData(
-                                dynamicCatalogTable(),
-                                ReadonlyConfig.fromMap(Collections.emptyMap()),
-                                Collections.emptyList(),
-                                "dynamic_col",
-                                row);
+        MilvusConnectorException exception =
+                assertThrows(
+                        MilvusConnectorException.class,
+                        () ->
+                                new MilvusSinkConverter()
+                                        .buildMilvusData(
+                                                dynamicCatalogTable(),
+                                                ReadonlyConfig.fromMap(Collections.emptyMap()),
+                                                Collections.emptyList(),
+                                                "dynamic_col",
+                                                row));
 
-        assertFalse(milvusData.has("dynamic_col"));
+        assertEquals("MILVUS-10", exception.getSeaTunnelErrorCode().getCode());
     }
 
     private CatalogTable catalogTable() {

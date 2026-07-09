@@ -306,28 +306,31 @@ public class MilvusSinkConverter {
 
             SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(i);
             Object value = element.getField(i);
-            // if the field is dynamic field, then parse the dynamic field
-            if (dynamicField != null
-                    && dynamicField.equals(fieldName)
-                    && config.get(ENABLE_DYNAMIC_FIELD)) {
-                if (value != null) {
-                    JsonObject dynamicData = gson.fromJson(value.toString(), JsonObject.class);
-                    dynamicData
-                            .entrySet()
-                            .forEach(
-                                    entry -> {
-                                        data.add(entry.getKey(), entry.getValue());
-                                    });
-                }
-                continue;
-            }
             if (value == null) {
                 Column column = catalogTable.getTableSchema().getColumn(fieldName);
                 if (!allowNullableField(column, primaryKey, enableNullableField)) {
                     throw new MilvusConnectorException(
                             MilvusConnectionErrorCode.FIELD_IS_NULL, fieldName);
                 }
+                if (dynamicField != null
+                        && dynamicField.equals(fieldName)
+                        && config.get(ENABLE_DYNAMIC_FIELD)) {
+                    continue;
+                }
                 data.add(fieldName, JsonNull.INSTANCE);
+                continue;
+            }
+            // if the field is dynamic field, then parse the dynamic field
+            if (dynamicField != null
+                    && dynamicField.equals(fieldName)
+                    && config.get(ENABLE_DYNAMIC_FIELD)) {
+                JsonObject dynamicData = gson.fromJson(value.toString(), JsonObject.class);
+                dynamicData
+                        .entrySet()
+                        .forEach(
+                                entry -> {
+                                    data.add(entry.getKey(), entry.getValue());
+                                });
                 continue;
             }
             Object object = convertBySeaTunnelType(fieldType, isJson, value);
