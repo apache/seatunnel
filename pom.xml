@@ -68,7 +68,7 @@
         <seatunnel.shade.hadoop-aws.version>3.1.4</seatunnel.shade.hadoop-aws.version>
         <seatunnel.shade.hazelcast.version>5.1</seatunnel.shade.hazelcast.version>
         <seatunnel.shade.hikari.version>4.0.3</seatunnel.shade.hikari.version>
-        <seatunnel.shade.jackson.version>2.13.3</seatunnel.shade.jackson.version>
+        <seatunnel.shade.jackson.version>2.15.4</seatunnel.shade.jackson.version>
         <seatunnel.shade.janino.version>3.1.12</seatunnel.shade.janino.version>
         <seatunnel.shade.jetty.version>9.4.56.v20240826</seatunnel.shade.jetty.version>
         <seatunnel.shade.scala-compiler.version>2.12.15</seatunnel.shade.scala-compiler.version>
