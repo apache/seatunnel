@@ -35,7 +35,7 @@ The Pulsar sink writes SeaTunnel rows to Apache Pulsar topics. It can write to o
 | admin.service-url        | String | Yes      | -                   | Pulsar admin HTTP URL, for example `http://localhost:8080`.                                                       |
 | auth.plugin-class        | String | No       | -                   | Pulsar authentication plugin class name.                                                                         |
 | auth.params              | String | No       | -                   | Parameters for the authentication plugin. Configure it together with `auth.plugin-class`.                         |
-| format                   | String | No       | json                | Data format. Supports `json` and `text`.                                                                         |
+| format                   | String | No       | json                | Data format. The default format is json. Optional text and avro format.                                                                        |
 | field_delimiter          | String | No       | ,                   | Field delimiter used when `format = "text"`.                                                                     |
 | semantics                | Enum   | No       | AT_LEAST_ONCE       | Write consistency. Valid values: `NON`, `AT_LEAST_ONCE`, `EXACTLY_ONCE`.                                         |
 | transaction_timeout      | Int    | No       | 600                 | Pulsar transaction timeout in seconds. Used by `EXACTLY_ONCE`.                                                    |
@@ -77,7 +77,8 @@ For example, `key1:val1,key2:val2`.
 
 ### format [String]
 
-Data format. The default format is `json`. You can also use `text`. When using `text`, configure `field_delimiter` if the default comma delimiter is not suitable.
+Data format. The default format is `json`. Optional text and avro format. You can also use `text`. When using `text`, configure `field_delimiter` if the default comma delimiter is not suitable.
+When using avro format, the Avro schema is derived from the upstream row type; no sink-side `schema` option is required.
 
 ### field_delimiter [String]
 
