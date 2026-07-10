@@ -266,6 +266,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 break;
             case STARTING:
                 currState = RUNNING;
+                for (FlowLifeCycle cycle : allCycles) {
+                    cycle.hook();
+                }
                 break;
             case RUNNING:
                 collect();
