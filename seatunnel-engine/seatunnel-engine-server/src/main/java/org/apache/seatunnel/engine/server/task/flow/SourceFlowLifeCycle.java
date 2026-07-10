@@ -198,12 +198,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             return;
         }
         try {
-            FlushSignal flushSignal =
-                    FlushSignal.of(currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
-            log.debug("Broadcasting FlushSignal {} ", flushSignal);
-            Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
-            collector.sendRecordToNext(flushSignalRecord);
-        } catch (Throwable e) {
+            collector.sendFlushSignal(
+                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+        } catch (Exception e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
         }
     }
@@ -373,17 +370,16 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (flushIntervalMs <= 0) {
             return;
         }
-        try {
-            flushFuture =
-                    runningTask
-                            .getExecutionContext()
-                            .getTaskExecutionService()
-                            .registerTimerFlushTask(
-                                    currentTaskLocation, this::onTimerTick, flushIntervalMs);
-        } catch (Exception e) {
-            log.warn("Failed to register flush timer for task {}", currentTaskLocation, e);
-            throw new RuntimeException(e);
-        }
+        flushFuture =
+                runningTask
+                        .getExecutionContext()
+                        .getTaskExecutionService()
+                        .registerTimerFlushTask(
+                                currentTaskLocation, this::onTimerTick, flushIntervalMs);
+        log.info(
+                "Registered flush timer for source task {}, intervalMs={}",
+                currentTaskLocation,
+                flushIntervalMs);
     }
 
     private void closeFlushTimer() {

@@ -991,6 +991,71 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
+     * Register or replace a periodic timer-flush task for one source subtask.
+     *
+     * <p>If a timer already exists for the same {@link TaskLocation}, cancel it first. The task is
+     * scheduled with fixed delay on {@code timerFlushWorker} and stored in {@code
+     * timerFlushFutures}.
+     *
+     * @param taskLocation source subtask location (map key)
+     * @param callback flush callback to run on each tick
+     * @param intervalMs flush interval in milliseconds, must be > 0
+     * @return scheduled future for later cancellation
+     * @throws IllegalArgumentException if intervalMs <= 0
+     */
+    public ScheduledFuture<?> registerTimerFlushTask(
+            TaskLocation taskLocation, Runnable callback, long intervalMs) {
+        if (intervalMs <= 0) {
+            throw new IllegalArgumentException("intervalMs must be positive, got: " + intervalMs);
+        }
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.computeIfAbsent(groupLocation, k -> new ConcurrentHashMap<>());
+
+        ScheduledFuture<?> existing = groupFutures.remove(taskLocation);
+        if (existing != null && !existing.isDone()) {
+            existing.cancel(false);
+        }
+
+        MDCScheduledExecutorService mdcTimerFlushWorker = MDCTracer.tracing(timerFlushWorker);
+        Runnable namedCallback = new NamedTaskWrapper(callback, "TimerFlush-" + taskLocation);
+        ScheduledFuture<?> future =
+                mdcTimerFlushWorker.scheduleWithFixedDelay(
+                        namedCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+        groupFutures.put(taskLocation, future);
+        logger.info(
+                String.format(
+                        "Registered timer-flush task for %s, intervalMs=%d",
+                        taskLocation, intervalMs));
+        return future;
+    }
+
+    /**
+     * Cancel and remove the timer-flush task for one source subtask.
+     *
+     * <p>No-op if the task group or task entry does not exist. If the task-group bucket becomes
+     * empty, remove the bucket as well.
+     *
+     * @param taskLocation source subtask location
+     */
+    public void closeTimerFlushTask(TaskLocation taskLocation) {
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.get(groupLocation);
+        if (groupFutures == null) {
+            return;
+        }
+        ScheduledFuture<?> future = groupFutures.remove(taskLocation);
+        if (future != null && !future.isDone()) {
+            future.cancel(false);
+        }
+        if (groupFutures.isEmpty()) {
+            timerFlushFutures.remove(groupLocation, groupFutures);
+        }
+        logger.info(String.format("Closed timer-flush task for %s", taskLocation));
+    }
+
+    /**
      * Cancel and remove all timer-flush tasks in one task group.
      *
      * <p>No-op if the group has no registered timers.
