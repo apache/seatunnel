@@ -44,6 +44,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -199,16 +201,11 @@ public class FixedChunkSplitter extends ChunkSplitter {
     private Collection<JdbcSourceSplit> getJdbcSourceSplits(
             JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
             throws SQLException {
-        BigDecimal partitionStart =
-                StringUtils.isBlank(table.getPartitionStart())
-                        ? null
-                        : new BigDecimal(table.getPartitionStart());
-        BigDecimal partitionEnd =
-                StringUtils.isBlank(table.getPartitionEnd())
-                        ? null
-                        : new BigDecimal(table.getPartitionEnd());
+        BigDecimal partitionStart = parsePartitionBound(table.getPartitionStart(), splitKeyType);
+        BigDecimal partitionEnd = parsePartitionBound(table.getPartitionEnd(), splitKeyType);
         if (partitionStart == null || partitionEnd == null) {
-            Pair<BigDecimal, BigDecimal> range = findSplitColumnRange(table, splitKeyName);
+            Pair<BigDecimal, BigDecimal> range =
+                    findSplitColumnRange(table, splitKeyName, splitKeyType);
             partitionStart = range.getLeft();
             partitionEnd = range.getRight();
         }
@@ -424,8 +421,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
                             table.getQuery(),
                             splitKeyName,
                             splitKeyType,
-                            parameterValues[i][0],
-                            parameterValues[i][1]);
+                            convertSplitBoundary(splitKeyType, parameterValues[i][0]),
+                            convertSplitBoundary(splitKeyType, parameterValues[i][1]));
             splits.add(split);
         }
         return splits;
@@ -522,17 +519,61 @@ public class FixedChunkSplitter extends ChunkSplitter {
     }
 
     private Pair<BigDecimal, BigDecimal> findSplitColumnRange(
-            JdbcSourceTable table, String columnName) throws SQLException {
+            JdbcSourceTable table, String columnName, SeaTunnelDataType splitKeyType)
+            throws SQLException {
         Pair<Object, Object> splitColumnRange = queryMinMax(table, columnName);
         Object min = splitColumnRange.getLeft();
         Object max = splitColumnRange.getRight();
         if (min != null) {
-            min = convertToBigDecimal(min);
+            min = convertToBigDecimal(min, splitKeyType);
         }
         if (max != null) {
-            max = convertToBigDecimal(max);
+            max = convertToBigDecimal(max, splitKeyType);
         }
         return Pair.of(((BigDecimal) min), ((BigDecimal) max));
+    }
+
+    private BigDecimal parsePartitionBound(String bound, SeaTunnelDataType splitKeyType) {
+        if (StringUtils.isBlank(bound)) {
+            return null;
+        }
+        if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
+            try {
+                return BigDecimal.valueOf(LocalDate.parse(bound).toEpochDay());
+            } catch (DateTimeParseException ignored) {
+                return new BigDecimal(bound);
+            }
+        }
+        return new BigDecimal(bound);
+    }
+
+    private Serializable convertSplitBoundary(
+            SeaTunnelDataType splitKeyType, Serializable splitBoundary) {
+        if (!(splitBoundary instanceof BigDecimal)) {
+            return splitBoundary;
+        }
+        BigDecimal boundary = (BigDecimal) splitBoundary;
+        if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
+            return Date.valueOf(LocalDate.ofEpochDay(boundary.longValueExact()));
+        } else if (SqlType.TIME.equals(splitKeyType.getSqlType())) {
+            return new Time(boundary.longValueExact());
+        } else if (SqlType.TIMESTAMP.equals(splitKeyType.getSqlType())
+                || SqlType.TIMESTAMP_TZ.equals(splitKeyType.getSqlType())) {
+            return new Timestamp(boundary.longValueExact());
+        }
+        return splitBoundary;
+    }
+
+    private BigDecimal convertToBigDecimal(Object o, SeaTunnelDataType splitKeyType) {
+        if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
+            if (o instanceof Date) {
+                return BigDecimal.valueOf(((Date) o).toLocalDate().toEpochDay());
+            } else if (o instanceof Timestamp) {
+                return BigDecimal.valueOf(
+                        ((Timestamp) o).toLocalDateTime().toLocalDate().toEpochDay());
+            }
+        }
+        return convertToBigDecimal(o);
     }
 
     private BigDecimal convertToBigDecimal(Object o) {

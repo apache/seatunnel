@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
@@ -34,12 +35,17 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -115,6 +121,71 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
+    public void testCreateDateColumnSplitsUseSqlDateBoundaries() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "tbl"))
+                        .partitionNumber(3)
+                        .build();
+        Method createNumberColumnSplitsMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "createNumberColumnSplits",
+                        JdbcSourceTable.class,
+                        String.class,
+                        SeaTunnelDataType.class,
+                        BigDecimal.class,
+                        BigDecimal.class);
+        createNumberColumnSplitsMethod.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        Collection<JdbcSourceSplit> splits =
+                (Collection<JdbcSourceSplit>)
+                        createNumberColumnSplitsMethod.invoke(
+                                splitter,
+                                table,
+                                "create_date",
+                                LocalTimeType.LOCAL_DATE_TYPE,
+                                BigDecimal.valueOf(
+                                        Date.valueOf("2024-01-01").toLocalDate().toEpochDay()),
+                                BigDecimal.valueOf(
+                                        Date.valueOf("2024-01-03").toLocalDate().toEpochDay()));
+
+        List<JdbcSourceSplit> splitList = new ArrayList<>(splits);
+        assertEquals(3, splitList.size());
+        assertEquals(Date.valueOf("2024-01-01"), splitList.get(0).getSplitStart());
+        assertEquals(Date.valueOf("2024-01-01"), splitList.get(0).getSplitEnd());
+        assertEquals(Date.valueOf("2024-01-02"), splitList.get(1).getSplitStart());
+        assertEquals(Date.valueOf("2024-01-02"), splitList.get(1).getSplitEnd());
+        assertEquals(Date.valueOf("2024-01-03"), splitList.get(2).getSplitStart());
+        assertEquals(Date.valueOf("2024-01-03"), splitList.get(2).getSplitEnd());
+    }
+
+    @Test
+    public void testCreateDateSplitStatementBindsSqlDateParameters() throws SQLException {
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(mysqlConfig());
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "tbl"),
+                        "split-0",
+                        null,
+                        "create_date",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        Date.valueOf("2024-01-01"),
+                        Date.valueOf("2024-01-02"));
+
+        splitter.generateSplitStatement(split, TableSchema.builder().build());
+
+        assertEquals(
+                "SELECT * FROM `db`.`tbl` WHERE `create_date` >= ? AND `create_date` <= ?",
+                splitter.sql);
+        assertEquals(Date.valueOf("2024-01-01"), splitter.dateParameters.get(1));
+        assertEquals(Date.valueOf("2024-01-02"), splitter.dateParameters.get(2));
+        assertFalse(splitter.bigDecimalParameters.containsKey(1));
+        assertFalse(splitter.bigDecimalParameters.containsKey(2));
+    }
+
+    @Test
     public void testConvertFloat() throws Exception {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
@@ -179,6 +250,8 @@ public class FixedChunkSplitterTest {
     private static class CapturingFixedChunkSplitter extends FixedChunkSplitter {
         private String sql;
         private final Map<Integer, String> stringParameters = new HashMap<>();
+        private final Map<Integer, Date> dateParameters = new HashMap<>();
+        private final Map<Integer, BigDecimal> bigDecimalParameters = new HashMap<>();
 
         private CapturingFixedChunkSplitter(JdbcSourceConfig config) {
             super(config);
@@ -191,6 +264,10 @@ public class FixedChunkSplitterTest {
                     (proxy, method, args) -> {
                         if ("setString".equals(method.getName())) {
                             stringParameters.put((Integer) args[0], (String) args[1]);
+                        } else if ("setDate".equals(method.getName())) {
+                            dateParameters.put((Integer) args[0], (Date) args[1]);
+                        } else if ("setBigDecimal".equals(method.getName())) {
+                            bigDecimalParameters.put((Integer) args[0], (BigDecimal) args[1]);
                         }
                         return null;
                     };
