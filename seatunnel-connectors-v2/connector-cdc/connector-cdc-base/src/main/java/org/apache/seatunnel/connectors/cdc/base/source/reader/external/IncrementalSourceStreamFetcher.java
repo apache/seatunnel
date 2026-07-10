@@ -64,6 +64,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private final Set<TableId> pureBinlogPhaseTables;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
+    private volatile boolean taskStarted = false;
 
     private FetchTask<SourceSplitBase> streamFetchTask;
 
@@ -97,6 +98,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         configureFilter();
         taskContext.configure(currentIncrementalSplit);
         this.queue = taskContext.getQueue();
+        taskStarted = true;
         executorService.submit(
                 () -> {
                     try {
@@ -118,13 +120,26 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     @Override
     public boolean isFinished() {
-        return currentIncrementalSplit == null || !streamFetchTask.isRunning();
+        return taskStarted && (currentIncrementalSplit == null || !streamFetchTask.isRunning());
     }
 
     @Override
     public Iterator<SourceRecords> pollSplitRecords()
             throws InterruptedException, SeaTunnelException {
         checkReadException();
+
+        // If the fetch task is finished and this is a bounded read (stop.mode = "specific"),
+        // return null to signal split completion. This is important for bounded reads
+        // to properly terminate the task. For unbounded reads (stop.mode = "never"),
+        // we should never return null even if the task is not running due to errors,
+        // because that would incorrectly mark the job as FINISHED.
+        if (isFinished()
+                && currentIncrementalSplit != null
+                && currentIncrementalSplit.getStopOffset() != null
+                && !currentIncrementalSplit.getStopOffset().isNeverStop()) {
+            log.info("Bounded read completed, returning null to signal split completion");
+            return null;
+        }
 
         Iterator<SourceRecords> sourceRecordsIterator = Collections.emptyIterator();
         if (streamFetchTask.isRunning()) {

@@ -121,6 +121,11 @@ public class BinlogOffset extends Offset {
         return longOffsetValue(offset, SERVER_ID_KEY);
     }
 
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
+
     /**
      * This method is inspired by {@link io.debezium.relational.history.HistoryRecordComparator}.
      */

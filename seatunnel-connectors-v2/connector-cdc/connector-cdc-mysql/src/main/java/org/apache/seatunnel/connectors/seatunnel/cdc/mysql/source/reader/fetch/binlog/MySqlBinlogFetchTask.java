@@ -73,6 +73,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         StartupConfig startupConfig = sourceFetchContext.getSourceConfig().getStartupConfig();
 
         StartupMode startupMode = startupConfig.getStartupMode();
+        // Check if we need bounded read (stop at specific position or timestamp)
+        boolean isBoundedRead = !NO_STOPPING_OFFSET.equals(split.getStopOffset());
+
         if (shouldFilterByTimestamp(startupMode, split.getStartupOffset())) {
             log.info(
                     "Starting MySQL binlog reader,with timestamp filter {}",
@@ -88,6 +91,21 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                             sourceFetchContext.getTaskContext(),
                             sourceFetchContext.getStreamingChangeEventSourceMetrics(),
                             startupConfig.getTimestamp());
+        } else if (isBoundedRead) {
+            // Bounded read: stop at specific offset
+            log.info(
+                    "Starting MySQL binlog reader with bounded read, stop offset: {}",
+                    split.getStopOffset());
+            mySqlStreamingChangeEventSource =
+                    new BoundedMySqlStreamingChangeEventSource(
+                            sourceFetchContext.getDbzConnectorConfig(),
+                            sourceFetchContext.getConnection(),
+                            sourceFetchContext.getDispatcher(),
+                            sourceFetchContext.getErrorHandler(),
+                            Clock.SYSTEM,
+                            sourceFetchContext.getTaskContext(),
+                            sourceFetchContext.getStreamingChangeEventSourceMetrics(),
+                            split);
         } else {
             mySqlStreamingChangeEventSource =
                     new MySqlStreamingChangeEventSource(
@@ -123,6 +141,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 changeEventSourceContext,
                 sourceFetchContext.getPartition(),
                 sourceFetchContext.getOffsetContext());
+        taskRunning = false;
     }
 
     @Override
@@ -158,6 +177,10 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private final JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
+        private long eventCount = 0;
+        private long lastLogTime = System.currentTimeMillis();
+        private static final long LOG_INTERVAL_MS = 10000;
+        private BinlogOffset lastLoggedOffset = null;
 
         public MySqlBinlogSplitReadTask(
                 MySqlConnectorConfig connectorConfig,
@@ -196,6 +219,8 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         protected void handleEvent(
                 MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
             super.handleEvent(partition, offsetContext, event);
+            eventCount++;
+            logBinlogProgress(offsetContext);
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
                 final BinlogOffset currentBinlogOffset =
@@ -221,6 +246,24 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             }
         }
 
+        private void logBinlogProgress(MySqlOffsetContext offsetContext) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastLogTime >= LOG_INTERVAL_MS) {
+                BinlogOffset currentOffset = getBinlogPosition(offsetContext.getOffset());
+                if (lastLoggedOffset == null
+                        || !currentOffset.getFilename().equals(lastLoggedOffset.getFilename())
+                        || currentOffset.getPosition() != lastLoggedOffset.getPosition()) {
+                    LOG.info(
+                            "MySQL CDC binlog progress - file: {}, position: {}, events processed: {}",
+                            currentOffset.getFilename(),
+                            currentOffset.getPosition(),
+                            eventCount);
+                    lastLoggedOffset = currentOffset;
+                }
+                lastLogTime = currentTime;
+            }
+        }
+
         private boolean isBoundedRead() {
             return !NO_STOPPING_OFFSET.equals(binlogSplit.getStopOffset());
         }
@@ -243,6 +286,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private long logTimestamp;
         private boolean loggedWaitingMessage;
         private final long LOG_INTERVAL_MS = 10000;
+        private long eventCount = 0;
+        private long lastLogTime = System.currentTimeMillis();
+        private BinlogOffset lastLoggedOffset = null;
 
         public TimestampFilterMySqlStreamingChangeEventSource(
                 MySqlConnectorConfig connectorConfig,
@@ -272,6 +318,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 return;
             }
 
+            eventCount++;
+            logBinlogProgress(offsetContext);
+
             long eventTs = event.getHeader().getTimestamp();
             if (eventTs == 0 || targetTimestamp == null || targetTimestamp == 0) {
                 super.handleEvent(partition, offsetContext, event);
@@ -295,6 +344,25 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             super.handleEvent(partition, offsetContext, event);
         }
 
+        private void logBinlogProgress(MySqlOffsetContext offsetContext) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastLogTime >= LOG_INTERVAL_MS) {
+                BinlogOffset currentOffset =
+                        MySqlBinlogSplitReadTask.getBinlogPosition(offsetContext.getOffset());
+                if (lastLoggedOffset == null
+                        || !currentOffset.getFilename().equals(lastLoggedOffset.getFilename())
+                        || currentOffset.getPosition() != lastLoggedOffset.getPosition()) {
+                    log.info(
+                            "MySQL CDC binlog progress - file: {}, position: {}, events processed: {}",
+                            currentOffset.getFilename(),
+                            currentOffset.getPosition(),
+                            eventCount);
+                    lastLoggedOffset = currentOffset;
+                }
+                lastLogTime = currentTime;
+            }
+        }
+
         private void updateOffsetPosition(
                 MySqlOffsetContext offsetContext, EventHeader eventHeader) {
             try {
@@ -308,6 +376,138 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             } catch (Exception e) {
                 log.warn("Failed to update offset for skipped event: {}", e.getMessage());
             }
+        }
+    }
+
+    /**
+     * A bounded MySQL streaming change event source that stops at a specific offset. Used when
+     * stop.mode = "specific" is configured.
+     */
+    private class BoundedMySqlStreamingChangeEventSource extends MySqlStreamingChangeEventSource {
+
+        private final IncrementalSplit binlogSplit;
+        private final JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
+        private final ErrorHandler errorHandler;
+        private BoundedBinlogChangeEventSourceContext boundedContext;
+        private long eventCount = 0;
+        private long lastLogTime = System.currentTimeMillis();
+        private static final long LOG_INTERVAL_MS = 10000;
+        private BinlogOffset lastLoggedOffset = null;
+
+        public BoundedMySqlStreamingChangeEventSource(
+                MySqlConnectorConfig connectorConfig,
+                MySqlConnection connection,
+                JdbcSourceEventDispatcher<MySqlPartition> dispatcher,
+                ErrorHandler errorHandler,
+                Clock clock,
+                MySqlTaskContext taskContext,
+                MySqlStreamingChangeEventSourceMetrics metrics,
+                IncrementalSplit binlogSplit) {
+            super(
+                    connectorConfig,
+                    connection,
+                    dispatcher,
+                    errorHandler,
+                    clock,
+                    taskContext,
+                    metrics);
+            this.binlogSplit = binlogSplit;
+            this.dispatcher = dispatcher;
+            this.errorHandler = errorHandler;
+        }
+
+        @Override
+        protected void handleEvent(
+                MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
+            try {
+                super.handleEvent(partition, offsetContext, event);
+            } finally {
+                eventCount++;
+                logBinlogProgress(offsetContext);
+                checkStopOffset(partition, offsetContext);
+            }
+        }
+
+        private void logBinlogProgress(MySqlOffsetContext offsetContext) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastLogTime >= LOG_INTERVAL_MS) {
+                BinlogOffset currentOffset =
+                        MySqlBinlogSplitReadTask.getBinlogPosition(offsetContext.getOffset());
+                if (lastLoggedOffset == null
+                        || !currentOffset.getFilename().equals(lastLoggedOffset.getFilename())
+                        || currentOffset.getPosition() != lastLoggedOffset.getPosition()) {
+                    log.info(
+                            "MySQL CDC binlog progress - file: {}, position: {}, events processed: {}",
+                            currentOffset.getFilename(),
+                            currentOffset.getPosition(),
+                            eventCount);
+                    lastLoggedOffset = currentOffset;
+                }
+                lastLogTime = currentTime;
+            }
+        }
+
+        private void checkStopOffset(MySqlPartition partition, MySqlOffsetContext offsetContext) {
+            final BinlogOffset currentBinlogOffset =
+                    MySqlBinlogSplitReadTask.getBinlogPosition(offsetContext.getOffset());
+
+            if (currentBinlogOffset.isAtOrAfter(binlogSplit.getStopOffset())) {
+                log.info(
+                        "Reached stop offset {} at current position {}. Stopping binlog reader.",
+                        binlogSplit.getStopOffset(),
+                        currentBinlogOffset);
+
+                // Send end watermark event
+                try {
+                    dispatcher.dispatchWatermarkEvent(
+                            partition.getSourcePartition(),
+                            binlogSplit,
+                            currentBinlogOffset,
+                            WatermarkKind.END);
+                } catch (InterruptedException e) {
+                    log.error("Error sending binlog end watermark event", e);
+                    errorHandler.setProducerThrowable(
+                            new DebeziumException("Error processing binlog end event", e));
+                }
+
+                // Stop the task
+                if (boundedContext != null) {
+                    boundedContext.finished();
+                }
+            }
+        }
+
+        @Override
+        public void execute(
+                ChangeEventSourceContext context,
+                MySqlPartition partition,
+                MySqlOffsetContext offsetContext)
+                throws InterruptedException {
+            // Wrap the context to allow stopping
+            this.boundedContext = new BoundedBinlogChangeEventSourceContext(context);
+            super.execute(boundedContext, partition, offsetContext);
+        }
+    }
+
+    /** A context wrapper that allows stopping the binlog reader. */
+    private class BoundedBinlogChangeEventSourceContext
+            implements ChangeEventSource.ChangeEventSourceContext {
+
+        private final ChangeEventSource.ChangeEventSourceContext delegate;
+        private volatile boolean running = true;
+
+        public BoundedBinlogChangeEventSourceContext(
+                ChangeEventSource.ChangeEventSourceContext delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public boolean isRunning() {
+            return running && delegate.isRunning();
+        }
+
+        public void finished() {
+            running = false;
         }
     }
 
