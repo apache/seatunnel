@@ -47,6 +47,5 @@ public class SqlServerIncrementalSourceOptions extends JdbcSourceOptions {
                             .singleChoice(StopMode.class, Arrays.asList(StopMode.NEVER))
                             .defaultValue(StopMode.NEVER)
                             .withDescription(
-                                    "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                    "Optional stop mode for SqlServer CDC source, valid enumeration is \"never\"");
 }
