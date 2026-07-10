@@ -167,7 +167,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
     /** Wait for Elasticsearch to be ready */
     private void waitForElasticsearchReady() throws IOException, InterruptedException {
         String elasticsearchUrl = "https://" + elasticsearchContainer.getHttpHostAddress();
-        String healthUrl = elasticsearchUrl + "/_cluster/health";
+        String healthUrl = elasticsearchUrl + "/_cluster/health?wait_for_status=yellow&timeout=30s";
 
         log.info("Waiting for Elasticsearch to be ready at: {}", healthUrl);
 
@@ -197,7 +197,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
     }
 
     /** Create real API keys using Elasticsearch API */
-    private void createRealApiKeys() throws IOException {
+    private void createRealApiKeys() throws IOException, InterruptedException {
         String elasticsearchUrl = "https://" + elasticsearchContainer.getHttpHostAddress();
         String apiKeyUrl = elasticsearchUrl + "/_security/api_key";
 
@@ -225,21 +225,40 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                         + "  }\n"
                         + "}";
 
-        HttpPost request = new HttpPost(apiKeyUrl);
         String auth =
                 Base64.getEncoder()
                         .encodeToString(
                                 (VALID_USERNAME + ":" + VALID_PASSWORD)
                                         .getBytes(StandardCharsets.UTF_8));
-        request.setHeader("Authorization", "Basic " + auth);
-        request.setHeader("Content-Type", "application/json");
-        request.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));
 
-        HttpResponse response = httpClient.execute(request);
-        String responseBody = EntityUtils.toString(response.getEntity());
+        // Retry API key creation: Elasticsearch may return 503
+        // "Cluster state has not been recovered yet" even after the health
+        // endpoint reports 200, because the security index is not ready yet.
+        HttpResponse response = null;
+        String responseBody = null;
+        for (int attempt = 1; attempt <= 10; attempt++) {
+            HttpPost request = new HttpPost(apiKeyUrl);
+            request.setHeader("Authorization", "Basic " + auth);
+            request.setHeader("Content-Type", "application/json");
+            request.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new RuntimeException("Failed to create API key: " + responseBody);
+            response = httpClient.execute(request);
+            responseBody = EntityUtils.toString(response.getEntity());
+
+            if (response.getStatusLine().getStatusCode() == 200) {
+                break;
+            }
+
+            log.warn(
+                    "API key creation attempt {}/10 failed with status {}: {}",
+                    attempt,
+                    response.getStatusLine().getStatusCode(),
+                    responseBody);
+
+            if (attempt == 10) {
+                throw new RuntimeException("Failed to create API key: " + responseBody);
+            }
+            TimeUnit.SECONDS.sleep(3);
         }
 
         // Parse response to extract API key details
