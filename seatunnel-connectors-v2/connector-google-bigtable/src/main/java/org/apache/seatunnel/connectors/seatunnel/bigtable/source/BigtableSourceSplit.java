@@ -21,21 +21,42 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import java.io.Serializable;
 
+/**
+ * Describes a bounded Bigtable scan split and optional in-split resume progress.
+ *
+ * <p>When {@link #lastReadRowKey} is present, checkpoint restore resumes from that row key
+ * (inclusive) instead of re-scanning from {@link #startRowKey}. Semantics are at-least-once: the
+ * resume row may be read again after failover.
+ */
 public class BigtableSourceSplit implements SourceSplit, Serializable {
 
+    /** Kept at {@code 1L} so existing checkpoint/savepoint bytes remain deserializable. */
     private static final long serialVersionUID = 1L;
+
     public static final String SPLIT_PREFIX = "bigtable_source_split_";
 
     private final String splitId;
-    /** Inclusive start row key (empty means the table start). */
+    /** Inclusive start row key (empty means table start). */
     private final String startRowKey;
-    /** Exclusive end row key (empty means the table end). */
+    /** Exclusive end row key (empty means table end). */
     private final String endRowKey;
 
+    /**
+     * Last successfully emitted row key (UTF-8), persisted in checkpoint state. {@code null} for
+     * legacy checkpoints written before row-level resume was added.
+     */
+    private volatile String lastReadRowKey;
+
     public BigtableSourceSplit(int splitIndex, String startRowKey, String endRowKey) {
+        this(splitIndex, startRowKey, endRowKey, null);
+    }
+
+    public BigtableSourceSplit(
+            int splitIndex, String startRowKey, String endRowKey, String lastReadRowKey) {
         this.splitId = SPLIT_PREFIX + splitIndex;
         this.startRowKey = startRowKey;
         this.endRowKey = endRowKey;
+        this.lastReadRowKey = lastReadRowKey;
     }
 
     @Override
@@ -51,10 +72,36 @@ public class BigtableSourceSplit implements SourceSplit, Serializable {
         return endRowKey;
     }
 
+    public String getLastReadRowKey() {
+        return lastReadRowKey;
+    }
+
+    /**
+     * Updates in-split progress; called under the same lock as {@code collect()} so snapshots see
+     * the last emitted row.
+     *
+     * @param rowKeyUtf8 current row key (UTF-8)
+     */
+    void setLastReadRowKey(String rowKeyUtf8) {
+        this.lastReadRowKey = rowKeyUtf8;
+    }
+
+    /**
+     * Row key used as the inclusive scan start when building a Bigtable {@code Query}.
+     *
+     * <p>Returns {@link #lastReadRowKey} when set, otherwise {@link #startRowKey}.
+     */
+    public String getResumeStartRowKey() {
+        if (lastReadRowKey != null && !lastReadRowKey.isEmpty()) {
+            return lastReadRowKey;
+        }
+        return startRowKey;
+    }
+
     @Override
     public String toString() {
         return String.format(
-                "{\"split_id\":\"%s\", \"start\":\"%s\", \"end\":\"%s\"}",
-                splitId, startRowKey, endRowKey);
+                "{\"split_id\":\"%s\", \"start\":\"%s\", \"end\":\"%s\", \"last_read\":\"%s\"}",
+                splitId, startRowKey, endRowKey, lastReadRowKey);
     }
 }
