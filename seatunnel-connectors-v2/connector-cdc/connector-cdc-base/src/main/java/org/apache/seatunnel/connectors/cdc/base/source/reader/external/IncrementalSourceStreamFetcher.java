@@ -98,10 +98,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         configureFilter();
         taskContext.configure(currentIncrementalSplit);
         this.queue = taskContext.getQueue();
-        taskStarted = true;
         executorService.submit(
                 () -> {
                     try {
+                        taskStarted = true;  // Set flag inside the background thread
                         log.info(
                                 "Start incremental read task for incremental split: {} exactly-once: {}",
                                 currentIncrementalSplit,
