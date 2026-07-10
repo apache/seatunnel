@@ -713,13 +713,13 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     private void putSftpFile(String containerPath, String content)
             throws IOException, InterruptedException {
         String command =
-                "mkdir -p $(dirname '"
+                "parent=$(dirname '"
                         + containerPath
-                        + "') && printf '"
+                        + "') && mkdir -p \"$parent\" && printf '"
                         + content
                         + "' > '"
                         + containerPath
-                        + "' && chmod 666 '"
+                        + "' && chmod -R 777 \"$parent\" && chmod 666 '"
                         + containerPath
                         + "'";
         Container.ExecResult putResult = sftpContainer.execInContainer("sh", "-c", command);
