@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
