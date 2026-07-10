@@ -22,7 +22,10 @@ The Metadata transform plugin is used to extract metadata information from data 
 |    Metadata Key    | Output Type |          Description          | Data Source |
 |:---------:|:--------:|:-----------------------------:|:----:|
 | Database  |  string  |  Name of the database containing the data  | All connectors |
+| Schema | string | Relational schema or owner name only. It is not database-qualified or table-qualified. | PostgreSQL-CDC, Opengauss-CDC, Oracle-CDC, SQLServer-CDC |
 |   Table   |  string  |  Name of the table containing the data  | All connectors |
+| Collection | string | MongoDB collection name only. | MongoDB-CDC |
+| Namespace | string | Source-native combined namespace. For MongoDB-CDC this is `database.collection`. | MongoDB-CDC |
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
@@ -36,9 +39,30 @@ The Metadata transform plugin is used to extract metadata information from data 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
-3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
-4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
+2. **CDC source identifiers**: `Database`, `Schema`, `Table`, `Collection`, and `Namespace` are SeaTunnel-owned identifier metadata fields. Unavailable identifiers remain absent and are not filled with placeholders or duplicated values.
+3. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
+4. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
+5. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
+
+### CDC Source Identifier Contract
+
+CDC identifier metadata uses the following stable SeaTunnel field semantics:
+
+| Metadata Key | Semantics |
+|:-------------|:----------|
+| Database | Logical database name only. It must not contain schema, table, collection, or namespace composition. |
+| Schema | Relational schema or owner name only. It is absent when the backend has no schema concept. |
+| Table | Physical table name only. It must not be database-qualified or schema-qualified. |
+| Collection | Document collection name only. |
+| Namespace | Source-native combined namespace string. For MongoDB-CDC, this is `database.collection`. |
+
+Connector coverage for the first delivery:
+
+| Connector | Identifier Metadata |
+|:----------|:--------------------|
+| MySQL-CDC / TiDB-CDC | `Database`, `Table` |
+| PostgreSQL-CDC / Opengauss-CDC / Oracle-CDC / SQLServer-CDC | `Database` where available, `Schema`, `Table` |
+| MongoDB-CDC | `Database`, `Collection`, `Namespace` |
 
 ## Options
 
@@ -179,7 +203,43 @@ sink {
 }
 ```
 
-### Example 3: Kafka record time for partitioning
+### Example 3: CDC structured source identifiers
+
+For relational CDC connectors that expose a schema or owner, project `Database`, `Schema`, and
+`Table` separately instead of parsing a composed table identifier.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "postgres_cdc"
+    plugin_output = "postgres_with_source"
+    metadata_fields {
+      Database = source_database
+      Schema = source_schema
+      Table = source_table
+    }
+  }
+}
+```
+
+For MongoDB-CDC, project collection-oriented identifiers. `Namespace` is the native
+`database.collection` string.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "mongodb_cdc"
+    plugin_output = "mongodb_with_source"
+    metadata_fields {
+      Database = source_database
+      Collection = source_collection
+      Namespace = source_namespace
+    }
+  }
+}
+```
+
+### Example 4: Kafka record time for partitioning
 
 Expose Kafka `ConsumerRecord.timestamp` (injected into `EventTime`) as `kafka_ts`, convert it to a partition field, and write to Hive. This pattern is useful when replaying Kafka data and aligning partitions by the original record time.
 
@@ -247,7 +307,7 @@ sink {
 
 Here `pt` is derived from the Kafka event time and can be used as a Hive partition column.
 
-### Example 4: Combine Metadata and Sql to extract table suffixes and add a load date
+### Example 5: Combine Metadata and Sql to extract table suffixes and add a load date
 
 When the upstream CDC source uses sharded tables such as monthly or daily tables, a common pattern
 is to expose the `Table` metadata as a regular field first, then use `Sql` to derive the shard

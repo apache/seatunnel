@@ -36,4 +36,9 @@ public abstract class AbstractSeaTunnelRowDeserializer<Input> {
     }
 
     abstract void deserialize(Input record, Collector<SeaTunnelRow> output) throws Exception;
+
+    protected void collect(SeaTunnelRow row, Collector<SeaTunnelRow> output) {
+        row.setTableId(catalogTable.getTablePath().toString());
+        output.collect(row);
+    }
 }

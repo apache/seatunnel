@@ -21,8 +21,10 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -140,36 +142,7 @@ public class MongoDBConnectorDeserializationSchemaTest {
                 new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
 
         // Build SourceRecord
-        Map<String, String> partitionMap =
-                MongodbRecordUtils.createPartitionMap("localhost:27017", "inventory", "products");
-
-        BsonDocument valueDocument =
-                new BsonDocument()
-                        .append(
-                                ID_FIELD,
-                                new BsonDocument(ID_FIELD, new BsonInt64(10000000000001L)))
-                        .append(OPERATION_TYPE, new BsonString(OPERATION_TYPE_INSERT))
-                        .append(
-                                NS_FIELD,
-                                new BsonDocument(DB_FIELD, new BsonString("inventory"))
-                                        .append(COLL_FIELD, new BsonString("products")))
-                        .append(
-                                DOCUMENT_KEY,
-                                new BsonDocument(ID_FIELD, new BsonInt64(10000000000001L)))
-                        .append(FULL_DOCUMENT, new BsonDocument())
-                        .append(TS_MS_FIELD, new BsonInt64(System.currentTimeMillis()))
-                        .append(
-                                SOURCE_FIELD,
-                                new BsonDocument(SNAPSHOT_FIELD, new BsonString(SNAPSHOT_TRUE))
-                                        .append(TS_MS_FIELD, new BsonInt64(0L)));
-        BsonDocument keyDocument = new BsonDocument(ID_FIELD, valueDocument.get(ID_FIELD));
-        SourceRecord sourceRecord =
-                MongodbRecordUtils.buildSourceRecord(
-                        partitionMap,
-                        createSourceOffsetMap(keyDocument.getDocument(ID_FIELD), true),
-                        "inventory.products",
-                        keyDocument,
-                        valueDocument);
+        SourceRecord sourceRecord = insertRecord("inventory", "products");
         Object tableId = schema.extractTableIdForTest(sourceRecord);
         Assertions.assertEquals("inventory.products", tableId);
     }
@@ -198,6 +171,26 @@ public class MongoDBConnectorDeserializationSchemaTest {
                         () -> schema.deserialize(record, new ListCollector(new ArrayList<>())));
 
         Assertions.assertTrue(exception.getMessage().contains(OPERATION_TYPE));
+    }
+
+    @Test
+    public void deserializePopulatesSourceIdentifierMetadata() throws Exception {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(
+                        Collections.singletonList(catalogTable("inventory", "products")));
+        List<SeaTunnelRow> rows = new ArrayList<>();
+
+        schema.deserialize(insertRecord("inventory", "products"), new ListCollector(rows));
+
+        Assertions.assertEquals(1, rows.size());
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals("inventory.products", row.getTableId());
+        Assertions.assertEquals("inventory", TablePath.of(row.getTableId()).getDatabaseName());
+        Assertions.assertEquals(
+                "products", row.getOptions().get(CommonOptions.COLLECTION.getName()));
+        Assertions.assertEquals(
+                "inventory.products", row.getOptions().get(CommonOptions.NAMESPACE.getName()));
+        Assertions.assertFalse(row.getOptions().containsKey(CommonOptions.SCHEMA.getName()));
     }
 
     @Test
@@ -320,6 +313,49 @@ public class MongoDBConnectorDeserializationSchemaTest {
                 null,
                 valueSchema,
                 value);
+    }
+
+    private static CatalogTable catalogTable(String databaseName, String collectionName) {
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", databaseName, collectionName),
+                tableSchema,
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "comment");
+    }
+
+    private static SourceRecord insertRecord(String databaseName, String collectionName) {
+        Map<String, String> partitionMap =
+                MongodbRecordUtils.createPartitionMap(
+                        "localhost:27017", databaseName, collectionName);
+
+        BsonDocument valueDocument =
+                new BsonDocument()
+                        .append(
+                                ID_FIELD,
+                                new BsonDocument(ID_FIELD, new BsonInt64(10000000000001L)))
+                        .append(OPERATION_TYPE, new BsonString(OPERATION_TYPE_INSERT))
+                        .append(
+                                NS_FIELD,
+                                new BsonDocument(DB_FIELD, new BsonString(databaseName))
+                                        .append(COLL_FIELD, new BsonString(collectionName)))
+                        .append(
+                                DOCUMENT_KEY,
+                                new BsonDocument(ID_FIELD, new BsonInt64(10000000000001L)))
+                        .append(FULL_DOCUMENT, new BsonDocument())
+                        .append(TS_MS_FIELD, new BsonInt64(System.currentTimeMillis()))
+                        .append(
+                                SOURCE_FIELD,
+                                new BsonDocument(SNAPSHOT_FIELD, new BsonString(SNAPSHOT_TRUE))
+                                        .append(TS_MS_FIELD, new BsonInt64(0L)));
+        BsonDocument keyDocument = new BsonDocument(ID_FIELD, valueDocument.get(ID_FIELD));
+        String namespace = databaseName + "." + collectionName;
+        return MongodbRecordUtils.buildSourceRecord(
+                partitionMap,
+                createSourceOffsetMap(keyDocument.getDocument(ID_FIELD), true),
+                namespace,
+                keyDocument,
+                valueDocument);
     }
 
     private static class ListCollector implements Collector<SeaTunnelRow> {

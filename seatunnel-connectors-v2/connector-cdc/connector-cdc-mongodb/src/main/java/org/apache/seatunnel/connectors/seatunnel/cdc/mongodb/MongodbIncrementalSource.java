@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
@@ -45,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmit
 
 import javax.annotation.Nonnull;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,6 +72,11 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    @Override
+    protected List<CommonOptions> getSourceIdentifierMetadataOptions() {
+        return Arrays.asList(CommonOptions.COLLECTION, CommonOptions.NAMESPACE);
     }
 
     @Override

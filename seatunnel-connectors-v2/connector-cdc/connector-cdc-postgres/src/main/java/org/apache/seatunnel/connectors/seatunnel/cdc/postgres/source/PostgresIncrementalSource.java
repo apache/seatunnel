@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -49,6 +50,7 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +73,11 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    @Override
+    protected List<CommonOptions> getSourceIdentifierMetadataOptions() {
+        return Collections.singletonList(CommonOptions.SCHEMA);
     }
 
     @Override

@@ -116,7 +116,8 @@ public class MongoDBConnectorDeserializationSchema
                         Objects.requireNonNull(
                                 extractBsonDocument(value, valueSchema, DOCUMENT_KEY)));
         BsonDocument fullDocument = extractBsonDocument(value, valueSchema, FULL_DOCUMENT);
-        String tableId = extractTableId(record);
+        SourceIdentifier sourceIdentifier = extractSourceIdentifier(record);
+        String tableId = sourceIdentifier.toTableId();
         DeserializationRuntimeConverter tableRowConverter;
         if (tableId == null && tableRowConverters.size() == 1) {
             tableRowConverter = tableRowConverters.values().iterator().next();
@@ -138,6 +139,7 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow insert = extractRowData(tableRowConverter, fullDocument);
                 insert.setRowKind(RowKind.INSERT);
                 insert.setTableId(tableId);
+                setSourceIdentifierMetadata(insert, sourceIdentifier);
                 MetadataUtil.setDelay(insert, delay);
                 MetadataUtil.setEventTime(insert, fetchTimestamp);
                 emit(record, insert, out);
@@ -146,6 +148,7 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow delete = extractRowData(tableRowConverter, documentKey);
                 delete.setRowKind(RowKind.DELETE);
                 delete.setTableId(tableId);
+                setSourceIdentifierMetadata(delete, sourceIdentifier);
                 MetadataUtil.setDelay(delete, delay);
                 MetadataUtil.setEventTime(delete, fetchTimestamp);
                 emit(record, delete, out);
@@ -157,6 +160,7 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow updateAfter = extractRowData(tableRowConverter, fullDocument);
                 updateAfter.setRowKind(RowKind.UPDATE_AFTER);
                 updateAfter.setTableId(tableId);
+                setSourceIdentifierMetadata(updateAfter, sourceIdentifier);
                 MetadataUtil.setDelay(updateAfter, delay);
                 MetadataUtil.setEventTime(updateAfter, fetchTimestamp);
                 emit(record, updateAfter, out);
@@ -165,6 +169,7 @@ public class MongoDBConnectorDeserializationSchema
                 SeaTunnelRow replaceAfter = extractRowData(tableRowConverter, fullDocument);
                 replaceAfter.setRowKind(RowKind.UPDATE_AFTER);
                 replaceAfter.setTableId(tableId);
+                setSourceIdentifierMetadata(replaceAfter, sourceIdentifier);
                 MetadataUtil.setDelay(replaceAfter, delay);
                 MetadataUtil.setEventTime(replaceAfter, fetchTimestamp);
                 emit(record, replaceAfter, out);
@@ -229,16 +234,46 @@ public class MongoDBConnectorDeserializationSchema
     }
 
     private String extractTableId(SourceRecord record) {
+        return extractSourceIdentifier(record).toTableId();
+    }
+
+    private SourceIdentifier extractSourceIdentifier(SourceRecord record) {
         Struct messageStruct = (Struct) record.value();
         Struct nsStruct = (Struct) messageStruct.get(NS_FIELD);
         String databaseName = nsStruct.getString(DB_FIELD);
-        String tableName = nsStruct.getString(COLL_FIELD);
-        return TablePath.of(databaseName, null, tableName).toString();
+        String collectionName = nsStruct.getString(COLL_FIELD);
+        return new SourceIdentifier(databaseName, collectionName);
     }
 
     @VisibleForTesting
     public String extractTableIdForTest(SourceRecord record) {
         return extractTableId(record);
+    }
+
+    private void setSourceIdentifierMetadata(SeaTunnelRow row, SourceIdentifier sourceIdentifier) {
+        MetadataUtil.setCollection(row, sourceIdentifier.collectionName);
+        MetadataUtil.setNamespace(row, sourceIdentifier.toNamespace());
+    }
+
+    private static class SourceIdentifier {
+        private final String databaseName;
+        private final String collectionName;
+
+        private SourceIdentifier(String databaseName, String collectionName) {
+            this.databaseName = databaseName;
+            this.collectionName = collectionName;
+        }
+
+        private String toTableId() {
+            return TablePath.of(databaseName, null, collectionName).toString();
+        }
+
+        private String toNamespace() {
+            if (databaseName == null || collectionName == null) {
+                return null;
+            }
+            return databaseName + "." + collectionName;
+        }
     }
 
     // -------------------------------------------------------------------------------------

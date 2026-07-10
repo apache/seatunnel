@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -71,6 +72,11 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    @Override
+    protected List<CommonOptions> getSourceIdentifierMetadataOptions() {
+        return Collections.singletonList(CommonOptions.SCHEMA);
     }
 
     @Override
