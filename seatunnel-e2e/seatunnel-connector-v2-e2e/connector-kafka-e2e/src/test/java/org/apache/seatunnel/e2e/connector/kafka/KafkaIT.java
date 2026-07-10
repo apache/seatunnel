@@ -106,12 +106,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -142,6 +144,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
     private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
+
+    private final AtomicInteger startModeTestSequence = new AtomicInteger();
 
     @BeforeAll
     @Override
@@ -1120,6 +1124,96 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaTablesConfigsEarliestStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "earliest");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_earliest_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsLatestStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "latest");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_latest_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsGroupOffsetsStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "group_offsets");
+        String consumerGroup = "SeaTunnel-Start-Mode-Tables-Group-Offsets";
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 5);
+        commitOffset(topic, consumerGroup);
+        generateSimpleJsonRecords(topic, 5, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_group_offsets_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsTimestampStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "timestamp");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecordsWithTimestamp(topic, 0, 4, 1738395839000L);
+        generateSimpleJsonRecordsWithTimestamp(topic, 4, 10, 1738395840000L);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_timestamp_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsSpecificOffsetsStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = fixedStartModeTopic(container, "specific_offsets");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_specific_offsets_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private String fixedStartModeTopic(TestContainer container, String startMode) {
+        return "test_topic_start_mode_"
+                + container.identifier().name().toLowerCase(Locale.ROOT)
+                + "_"
+                + startMode;
+    }
+
+    private String startModeTopic(TestContainer container, String startMode) {
+        return "test_topic_start_mode_"
+                + container.identifier().name().toLowerCase(Locale.ROOT)
+                + "_"
+                + startMode
+                + "_"
+                + startModeTestSequence.incrementAndGet();
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -1133,6 +1227,31 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         commitOffset("test_topic_group", "SeaTunnel-Consumer-Group-Offset");
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
+    }
+
+    private void generateSimpleJsonRecords(String topic, int startInclusive, int endExclusive) {
+        generateSimpleJsonRecordsWithTimestamp(topic, startInclusive, endExclusive, null);
+    }
+
+    private void generateSimpleJsonRecordsWithTimestamp(
+            String topic, int startInclusive, int endExclusive, Long timestamp) {
+        try {
+            for (int i = startInclusive; i < endExclusive; i++) {
+                byte[] value = ("{\"id\":" + i + "}").getBytes(StandardCharsets.UTF_8);
+                ProducerRecord<byte[], byte[]> record =
+                        timestamp == null
+                                ? new ProducerRecord<>(topic, null, value)
+                                : new ProducerRecord<>(topic, null, timestamp, null, value);
+                producer.send(record).get();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while writing Kafka records to " + topic, e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to write Kafka start mode records to " + topic, e);
+        } finally {
+            producer.flush();
+        }
     }
 
     public void commitOffset(String topic, String groupId) {
@@ -1712,7 +1831,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
+        given().pollDelay(120, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
