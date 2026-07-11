@@ -178,7 +178,8 @@ public class TiDBSourceReader implements SourceReader<SeaTunnelRow, TiDBSourceSp
             }
             handleRow(row);
         }
-        resolvedTs = cdcClient.getMaxResolvedTs();
+        // A split is safe to advance only after every TiKV region has reached the timestamp.
+        resolvedTs = cdcClient.getMinResolvedTs();
         if (commits.size() > 0) {
             flushRows(resolvedTs);
         }
