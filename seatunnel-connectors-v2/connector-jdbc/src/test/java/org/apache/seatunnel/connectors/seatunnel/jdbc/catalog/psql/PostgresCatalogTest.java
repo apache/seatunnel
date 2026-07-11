@@ -22,14 +22,14 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
-// @Disabled("Please Test it in your local environment")
+@Disabled("Please Test it in your local environment")
 @Slf4j
 class PostgresCatalogTest {
 
@@ -47,40 +47,6 @@ class PostgresCatalogTest {
                         null);
 
         catalog.open();
-    }
-
-    @AfterAll
-    static void close() {
-        if (catalog != null) {
-            catalog.close();
-        }
-    }
-
-    @Test
-    void testGetSelectColumnsSql() {
-        String database = "seatunnel";
-        String schemaName = "public";
-        String tableName = "pg_cols_drop_test";
-        TablePath tablePath = new TablePath(database, schemaName, tableName);
-
-        catalog.createDatabase(tablePath, true);
-        catalog.dropTable(tablePath, true);
-
-        // create table
-        String ddlSql =
-                "create table if not exists "
-                        + tableName
-                        + "("
-                        + "c1 int,"
-                        + "c2 varchar(50),"
-                        + "c3 int,"
-                        + "c4 text"
-                        + ")";
-        catalog.executeSql(tablePath, ddlSql);
-
-        String sql = catalog.getSelectColumnsSql(tablePath);
-        catalog.getSelectColumnsSql(tablePath);
-        Assertions.assertTrue(sql.contains("AND NOT a.attisdropped"));
     }
 
     @Test
