@@ -38,9 +38,9 @@ import java.util.List;
 /**
  * Spark 4.1 task execution entry point.
  *
- * <p>Orchestrates source, transform, and sink plugin processors against the Spark 4.1 runtime.
- * This class is compiled for Spark 4.1 / Scala 2.13 and is packaged only in the Spark 4.1 starter
- * jar, keeping the Spark 2.4 / 3.3 execution path in starter-common unchanged.
+ * <p>Orchestrates source, transform, and sink plugin processors against the Spark 4.1 runtime. This
+ * class is compiled for Spark 4.1 / Scala 2.13 and is packaged only in the Spark 4.1 starter jar,
+ * keeping the Spark 2.4 / 3.3 execution path in starter-common unchanged.
  */
 @Slf4j
 public class SparkExecution implements TaskExecution {
