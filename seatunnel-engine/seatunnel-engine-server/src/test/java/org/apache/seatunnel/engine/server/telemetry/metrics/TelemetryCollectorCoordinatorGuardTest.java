@@ -20,13 +20,16 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ReportMetricsOperationExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.RequestSlotOperationExports;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -252,6 +255,80 @@ public class TelemetryCollectorCoordinatorGuardTest {
                         .orElse(null);
         Assertions.assertNotNull(maxLatencyMetric);
         assertSingleMetricSample(maxLatencyMetric, 27D);
+    }
+
+    @Test
+    void testRequestSlotOperationExportsReturnsEmptyWhenNotMaster() {
+        Mockito.when(mockNode.isMaster()).thenReturn(false);
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(result.isEmpty(), "collect() must return empty on non-master node");
+        Mockito.verify(mockServer, Mockito.never()).isCoordinatorActive();
+    }
+
+    @Test
+    void testRequestSlotOperationExportsReturnsEmptyWhenCoordinatorNotReady() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(false);
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must return empty when coordinator is not ready"
+                        + " to avoid initializing resource manager from scrape path");
+        Mockito.verify(mockServer, Mockito.never()).getCoordinatorService();
+    }
+
+    @Test
+    void testRequestSlotOperationExportsReturnsMetricsWhenCoordinatorReady() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        Mockito.when(mockCoordinatorService.getResourceManager()).thenReturn(resourceManager);
+        Mockito.when(resourceManager.getRequestSlotOperationStats())
+                .thenReturn(new RequestSlotOperationStats(4L, 2L, 1L, 18L, 44L));
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertFalse(
+                result.isEmpty(), "collect() must return metrics when coordinator is ready");
+        Collector.MetricFamilySamples totalMetric =
+                result.stream()
+                        .filter(s -> "request_slot_operation".equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(totalMetric);
+        Assertions.assertEquals(3, totalMetric.samples.size());
+        assertMetricSample(totalMetric, "request_slot_operation_total", "success", 4D);
+        assertMetricSample(totalMetric, "request_slot_operation_total", "no_slot", 2D);
+        assertMetricSample(totalMetric, "request_slot_operation_total", "failure", 1D);
+
+        Collector.MetricFamilySamples lastLatencyMetric =
+                result.stream()
+                        .filter(
+                                s ->
+                                        "request_slot_operation_last_invocation_latency_ms"
+                                                .equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(lastLatencyMetric);
+        assertSingleMetricSample(lastLatencyMetric, 18D);
+
+        Collector.MetricFamilySamples maxLatencyMetric =
+                result.stream()
+                        .filter(
+                                s ->
+                                        "request_slot_operation_max_invocation_latency_ms"
+                                                .equals(s.name))
+                        .findFirst()
+                        .orElse(null);
+        Assertions.assertNotNull(maxLatencyMetric);
+        assertSingleMetricSample(maxLatencyMetric, 44D);
     }
 
     // -------------------------------------------------------------------------
