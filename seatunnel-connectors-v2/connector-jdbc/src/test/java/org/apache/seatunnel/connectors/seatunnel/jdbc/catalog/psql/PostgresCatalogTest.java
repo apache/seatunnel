@@ -56,7 +56,6 @@ class PostgresCatalogTest {
         }
     }
 
-
     @Test
     void testGetSelectColumnsSql() {
         String database = "seatunnel";
