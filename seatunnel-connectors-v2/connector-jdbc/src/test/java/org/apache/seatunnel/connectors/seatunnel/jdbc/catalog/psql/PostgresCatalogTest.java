@@ -56,7 +56,7 @@ class PostgresCatalogTest {
         }
     }
 
-    //mvn test -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-2 -Dtest=JdbcOpenGaussCatalogDropColumnsIT
+
     @Test
     void testGetSelectColumnsSql() {
         String database = "seatunnel";
