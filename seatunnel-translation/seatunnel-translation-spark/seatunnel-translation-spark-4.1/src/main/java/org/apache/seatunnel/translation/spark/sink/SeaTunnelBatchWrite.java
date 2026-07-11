@@ -41,6 +41,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * Spark 4.1 DataSource V2 bridge for SeaTunnel sinks.
+ *
+ * <p>Adapts a {@link SeaTunnelSink} to Spark's {@link BatchWrite} / {@link StreamingWrite}
+ * interfaces. Spark 4.1 requires overriding {@code useCommitCoordinator()} to disable the
+ * commit coordinator introduced in newer Spark versions.
+ */
 public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements BatchWrite, StreamingWrite {
 
