@@ -35,7 +35,7 @@ import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConsta
 
 public class SparkStarterJarContentIT {
 
-    private static final String ARTIFACT_ID = "seatunnel-spark-3-starter";
+    private static final String ARTIFACT_ID = "seatunnel-spark-2-starter";
     private static final String SPARK_STARTER_MAIN =
             "org.apache.seatunnel.core.starter.spark.SparkStarter";
 
@@ -72,8 +72,7 @@ public class SparkStarterJarContentIT {
 
     @Test
     public void testStarterBuildsSparkSubmitCommandFromShadedJar() throws Exception {
-        Path configFile =
-                Paths.get("src/test/resources/config/fake_to_inmemory.json").toAbsolutePath();
+        Path configFile = Paths.get("src/main/resources/spark_application.conf").toAbsolutePath();
         Process process =
                 new ProcessBuilder(
                                 javaExecutable().toString(),
