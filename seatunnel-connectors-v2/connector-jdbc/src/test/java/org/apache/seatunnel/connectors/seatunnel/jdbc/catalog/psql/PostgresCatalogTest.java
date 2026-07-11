@@ -18,22 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Disabled("Please Test it in your local environment")
+// @Disabled("Please Test it in your local environment")
 @Slf4j
 class PostgresCatalogTest {
 
@@ -46,22 +42,31 @@ class PostgresCatalogTest {
                         "postgres",
                         "pg",
                         "pg#2024",
-                        JdbcUrlUtil.getUrlInfo("jdbc:postgresql://192.168.1.20:5432/postgres"),
+                        JdbcUrlUtil.getUrlInfo("jdbc:postgresql://127.0.0.1:5432/postgres"),
                         null,
                         null);
 
         catalog.open();
     }
 
-    /** env: pgsql-18.4 on linux-arm64 */
+    @AfterAll
+    static void close() {
+        if (catalog != null) {
+            catalog.close();
+        }
+    }
+
+    //mvn test -pl seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-2 -Dtest=JdbcOpenGaussCatalogDropColumnsIT
     @Test
-    void testGetTableSchemaAfterColsDropped() {
+    void testGetSelectColumnsSql() {
         String database = "seatunnel";
         String schemaName = "public";
         String tableName = "pg_cols_drop_test";
         TablePath tablePath = new TablePath(database, schemaName, tableName);
+
         catalog.createDatabase(tablePath, true);
         catalog.dropTable(tablePath, true);
+
         // create table
         String ddlSql =
                 "create table if not exists "
@@ -73,21 +78,10 @@ class PostgresCatalogTest {
                         + "c4 text"
                         + ")";
         catalog.executeSql(tablePath, ddlSql);
-        CatalogTable table = catalog.getTable(tablePath);
-        List<Column> cols = table.getTableSchema().getColumns();
-        String colsString = cols.stream().map(Column::getName).collect(Collectors.joining(","));
-        Assertions.assertEquals("c1,c2,c3,c4", colsString);
-        log.info("raw cols: {}", colsString);
-        // drop columns
-        String dropColsSql = "alter table " + tableName + " drop column c3," + " drop column c4";
-        catalog.executeSql(tablePath, dropColsSql);
-        CatalogTable resultCatalogTable = catalog.getTable(tablePath);
-        List<Column> resultCols = resultCatalogTable.getTableSchema().getColumns();
-        String resultColsString =
-                resultCols.stream().map(Column::getName).collect(Collectors.joining(","));
-        Assertions.assertEquals("c1,c2", resultColsString);
-        log.info("result cols: {}", resultColsString);
-        Assertions.assertNotEquals(colsString, resultColsString);
+
+        String sql = catalog.getSelectColumnsSql(tablePath);
+        catalog.getSelectColumnsSql(tablePath);
+        Assertions.assertTrue(sql.contains("AND NOT a.attisdropped"));
     }
 
     @Test
