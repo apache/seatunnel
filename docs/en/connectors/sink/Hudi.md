@@ -15,6 +15,12 @@ Used to write data to Hudi.
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
+:::caution Hive Metastore synchronization
+
+The SeaTunnel Hudi sink writes Hudi data files and `.hoodie` metadata, but it does not register the table in or synchronize the table with Hive Metastore. Options matching `hoodie.datasource.hive_sync.*` are not supported sink options and are not passed to the Hudi write client. Run Apache Hudi's `HiveSyncTool` or another table registration process separately when Hive Metastore registration is required.
+
+:::
+
 ## Options
 
 Base configuration:
