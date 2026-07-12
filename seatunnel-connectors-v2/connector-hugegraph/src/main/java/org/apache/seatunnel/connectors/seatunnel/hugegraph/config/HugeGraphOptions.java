@@ -45,6 +45,13 @@ public class HugeGraphOptions {
                     .noDefaultValue()
                     .withDescription("The graph space of the graph to be operated on");
 
+    public static final Option<String> PROTOCOL =
+            Options.key("protocol")
+                    .stringType()
+                    .defaultValue("http")
+                    .withDescription(
+                            "The protocol to use for HugeGraph server connection (http or https)");
+
     public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()

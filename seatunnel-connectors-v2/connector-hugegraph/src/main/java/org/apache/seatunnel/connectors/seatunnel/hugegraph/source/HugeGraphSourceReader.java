@@ -89,7 +89,8 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                             sourceConfig.getUsername(),
                             sourceConfig.getPassword(),
                             sourceConfig.getMaxRetries(),
-                            sourceConfig.getRetryBackoffMs());
+                            sourceConfig.getRetryBackoffMs(),
+                            sourceConfig.getProtocol());
         }
     }
 

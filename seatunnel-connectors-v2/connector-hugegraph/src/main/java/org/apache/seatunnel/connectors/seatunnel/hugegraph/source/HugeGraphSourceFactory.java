@@ -75,6 +75,7 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         HugeGraphOptions.GRAPH_SPACE,
                         HugeGraphOptions.USERNAME,
                         HugeGraphOptions.PASSWORD,
+                        HugeGraphOptions.PROTOCOL,
                         HugeGraphSourceOptions.PROPERTIES,
                         HugeGraphSourceOptions.PAGE_SIZE,
                         HugeGraphSourceOptions.LIMIT,
@@ -115,7 +116,8 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         sourceConfig.getUsername(),
                         sourceConfig.getPassword(),
                         sourceConfig.getMaxRetries(),
-                        sourceConfig.getRetryBackoffMs());
+                        sourceConfig.getRetryBackoffMs(),
+                        sourceConfig.getProtocol());
 
         try {
             SeaTunnelRowType rowType;

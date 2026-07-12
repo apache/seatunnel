@@ -18,13 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
+@ToString
 public class HugeGraphSourceConfig implements Serializable {
 
     // connection config
@@ -33,7 +39,7 @@ public class HugeGraphSourceConfig implements Serializable {
     private String graphName;
     private String graphSpace;
     private String username;
-    private String password;
+    @ToString.Exclude private String password;
     private int maxRetries;
     private int retryBackoffMs;
 
@@ -43,6 +49,7 @@ public class HugeGraphSourceConfig implements Serializable {
     private List<String> properties;
     private int pageSize;
     private Integer limit;
+    private String protocol;
 
     public static HugeGraphSourceConfig of(ReadonlyConfig config) {
         HugeGraphSourceConfig sourceConfig = new HugeGraphSourceConfig();
@@ -54,6 +61,9 @@ public class HugeGraphSourceConfig implements Serializable {
         config.getOptional(HugeGraphOptions.GRAPH_SPACE).ifPresent(sourceConfig::setGraphSpace);
         config.getOptional(HugeGraphOptions.USERNAME).ifPresent(sourceConfig::setUsername);
         config.getOptional(HugeGraphOptions.PASSWORD).ifPresent(sourceConfig::setPassword);
+        sourceConfig.setProtocol(
+                config.getOptional(HugeGraphOptions.PROTOCOL)
+                        .orElse(HugeGraphOptions.PROTOCOL.defaultValue()));
 
         sourceConfig.setMaxRetries(
                 config.getOptional(HugeGraphOptions.MAX_RETRIES)
@@ -67,10 +77,20 @@ public class HugeGraphSourceConfig implements Serializable {
         sourceConfig.setPageSize(
                 config.getOptional(HugeGraphSourceOptions.PAGE_SIZE)
                         .orElse(HugeGraphSourceOptions.PAGE_SIZE.defaultValue()));
+        if (sourceConfig.getPageSize() <= 0) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "page_size must be greater than 0, got: " + sourceConfig.getPageSize());
+        }
 
         config.getOptional(HugeGraphSourceOptions.PROPERTIES)
                 .ifPresent(sourceConfig::setProperties);
         config.getOptional(HugeGraphSourceOptions.LIMIT).ifPresent(sourceConfig::setLimit);
+        if (sourceConfig.getLimit() != null && sourceConfig.getLimit() <= 0) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "limit must be greater than 0 when specified, got: " + sourceConfig.getLimit());
+        }
 
         return sourceConfig;
     }
