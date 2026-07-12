@@ -1190,7 +1190,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             this.updateStrategy = config.get(FileBaseSourceOptions.UPDATE_STRATEGY);
             this.compareMode = config.get(FileBaseSourceOptions.COMPARE_MODE);
             this.postSyncAction = config.get(FileBaseSourceOptions.POST_SYNC_ACTION);
-            this.backupPath = config.getOptional(FileBaseSourceOptions.BACKUP_PATH).orElse(null);
+            this.backupPath =
+                    config.getOptional(FileBaseSourceOptions.BACKUP_PATH)
+                            .map(sourceFs::makeQualifiedPath)
+                            .orElse(null);
             this.retentionMaxAge =
                     config.getOptional(FileBaseSourceOptions.RETENTION_MAX_AGE).orElse(null);
             this.retentionCheckInterval =

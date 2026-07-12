@@ -615,6 +615,54 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testPostSyncBackupStagesTargetOnSourceFileSystem() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_qualified_backup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_qualified_backup"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_qualified_backup"));
+        Files.write(srcDir.resolve("test.bin"), "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(assigned.splitId()));
+
+            FileSourceOperationState operation =
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(1L)
+                            .getPendingOpsByCheckpoint()
+                            .get(1L)
+                            .get(0);
+            org.apache.hadoop.fs.Path backupTargetPath =
+                    new org.apache.hadoop.fs.Path(operation.getBackupTargetPath());
+            Assertions.assertEquals("file", backupTargetPath.toUri().getScheme());
+            Assertions.assertTrue(
+                    backupTargetPath.toUri().getPath().startsWith(backupDir.toString()),
+                    "backup target should remain on the source filesystem");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testPostSyncBackupVersionGuardSkipsStaleOperation() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst14"));

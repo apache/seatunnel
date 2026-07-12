@@ -66,6 +66,19 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return execute(() -> getFileSystem().exists(new Path(filePath)));
     }
 
+    /**
+     * Qualifies a path against this proxy's configured filesystem.
+     *
+     * <p>This preserves the filesystem scheme and authority for paths configured without a URI,
+     * such as a relative FTP backup path.
+     *
+     * @param filePath path to qualify
+     * @return path qualified with the configured filesystem URI
+     */
+    public String makeQualifiedPath(@NonNull String filePath) {
+        return getFileSystem().makeQualified(new Path(filePath)).toString();
+    }
+
     public boolean isFile(@NonNull String filePath) throws IOException {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)).isFile());
     }
