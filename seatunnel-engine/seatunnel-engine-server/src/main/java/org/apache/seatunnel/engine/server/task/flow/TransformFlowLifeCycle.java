@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -79,9 +80,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private transient Counter processNs;
     private transient Counter recordsIn;
     private transient Counter recordsOut;
-    private volatile int stainTraceMaxEntriesPerTrace = -1;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile Boolean stainTracePropagateToAllSplits;
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -119,7 +120,6 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         }
     }
 
-    /** Propagates barriers and schema changes, and extends stain trace payloads for row data. */
     @Override
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
@@ -167,6 +167,11 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             if (event != null) {
                 collector.collect(new Record<>(event));
             }
+        } else if (record.getData() instanceof Signal) {
+            if (prepareClose) {
+                return;
+            }
+            collector.collect(record);
         } else {
             if (prepareClose) {
                 return;
@@ -243,7 +248,6 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         }
     }
 
-    /** Runs the configured transform chain and returns all rows produced from the current input. */
     public List<T> transform(T inputData) {
         if (transform.isEmpty()) {
             return Collections.singletonList(inputData);

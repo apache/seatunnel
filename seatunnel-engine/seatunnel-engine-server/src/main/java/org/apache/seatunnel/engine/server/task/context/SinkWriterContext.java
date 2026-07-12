@@ -23,6 +23,10 @@ import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
+
+import java.util.Objects;
+import java.util.Optional;
 
 public class SinkWriterContext implements SinkWriter.Context {
 
@@ -32,6 +36,15 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
     private final transient RowErrorCollector rowErrorCollector;
+    private transient volatile RunnableWithException flushAction;
+
+    public SinkWriterContext(
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener) {
+        this(numberOfParallelSubtasks, indexOfSubtask, metricsContext, eventListener, null);
+    }
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
@@ -70,7 +83,18 @@ public class SinkWriterContext implements SinkWriter.Context {
     }
 
     @Override
-    public java.util.Optional<RowErrorCollector> getRowErrorCollector() {
-        return java.util.Optional.ofNullable(rowErrorCollector);
+    public Optional<RowErrorCollector> getRowErrorCollector() {
+        return Optional.ofNullable(rowErrorCollector);
+    }
+
+    @Override
+    public void registerFlushAction(RunnableWithException action) {
+        Objects.requireNonNull(action, "flushAction");
+        this.flushAction = action;
+    }
+
+    @Override
+    public RunnableWithException getFlushAction() {
+        return flushAction;
     }
 }

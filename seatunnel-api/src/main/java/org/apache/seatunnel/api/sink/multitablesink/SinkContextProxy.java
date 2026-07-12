@@ -21,16 +21,17 @@ import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class SinkContextProxy implements SinkWriter.Context {
 
     private final int index;
-
     private final int replicaNum;
-
     private final SinkWriter.Context context;
+    private transient volatile RunnableWithException flushAction;
 
     public SinkContextProxy(int index, int replicaNum, SinkWriter.Context context) {
         this.index = index;
@@ -61,5 +62,16 @@ public class SinkContextProxy implements SinkWriter.Context {
     @Override
     public Optional<RowErrorCollector> getRowErrorCollector() {
         return context.getRowErrorCollector();
+    }
+
+    @Override
+    public void registerFlushAction(RunnableWithException action) {
+        Objects.requireNonNull(action, "flushAction");
+        this.flushAction = action;
+    }
+
+    @Override
+    public RunnableWithException getFlushAction() {
+        return flushAction;
     }
 }

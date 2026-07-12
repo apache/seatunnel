@@ -18,10 +18,14 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.Meter;
+import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.event.StainTraceEvent;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.signal.FlushSignal;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -118,6 +122,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Optional<CommitInfoT> lastCommitInfo;
 
+    private final boolean containAggCommitter;
+
+    private final EventListener eventListener;
+
+    /** Mapping relationship between upstream TablePath and downstream TablePath. */
+    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+
     private final MetricsContext metricsContext;
 
     private final ConnectorMetricsCalcContext connectorMetricsCalcContext;
@@ -128,21 +139,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private final Counter sinkCommitNs;
     private final Counter sinkAbortNs;
 
-    private final boolean containAggCommitter;
-
-    private final EventListener eventListener;
-
     private transient StageErrorConfig stageErrorConfig;
     private transient ErrorHandler<T> stageErrorHandler;
     private transient RowErrorClassifier<T> stageRowErrorClassifier;
     private transient org.apache.seatunnel.api.common.error.RowErrorCollector
             stageRowErrorCollector;
 
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
-
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
+    private final Counter flushSignalSinkSuccessTotal;
+    private final Counter flushSignalSinkFailureTotal;
+    private final Meter flushSignalSinkQPS;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
@@ -189,6 +196,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         metricsContext, PluginType.SINK, isMulti, sinkTables);
         this.stainTraceInvalidPayloadTotal =
                 metricsContext.counter(StainTraceConstants.METRIC_INVALID_PAYLOAD_TOTAL);
+        this.flushSignalSinkSuccessTotal =
+                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_SUCCESS_TOTAL);
+        this.flushSignalSinkFailureTotal =
+                metricsContext.counter(MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL);
+        this.flushSignalSinkQPS = metricsContext.meter(MetricNames.FLUSH_SIGNAL_SINK_QPS);
     }
 
     @Override
@@ -238,150 +250,29 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     @Override
     public void received(Record<?> record) {
         try {
-            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             if (record.getData() instanceof Barrier) {
-                long startTime = System.currentTimeMillis();
-
                 Barrier barrier = (Barrier) record.getData();
-                connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
-                if (barrier.prepareClose(this.taskLocation)) {
-                    prepareClose = true;
-                }
-                if (barrier.snapshot()) {
-                    try {
-                        long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
-                        lastCommitInfo = writer.prepareCommit(barrier.getId());
-                        if (metricsEnabled) {
-                            sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
-                        }
-                    } catch (Exception e) {
-                        writer.abortPrepare();
-                        throw e;
-                    }
-                    List<StateT> states = writer.snapshotState(barrier.getId());
-                    if (!writerStateSerializer.isPresent()) {
-                        runningTask.addState(
-                                barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
-                    } else {
-                        runningTask.addState(
-                                barrier,
-                                ActionStateKey.of(sinkAction),
-                                serializeStates(writerStateSerializer.get(), states));
-                    }
-                    if (containAggCommitter) {
-                        CommitInfoT commitInfoT = null;
-                        if (lastCommitInfo.isPresent()) {
-                            commitInfoT = lastCommitInfo.get();
-                        }
-                        runningTask
-                                .getExecutionContext()
-                                .sendToMember(
-                                        new SinkPrepareCommitOperation<CommitInfoT>(
-                                                barrier,
-                                                committerTaskLocation,
-                                                commitInfoSerializer.isPresent()
-                                                        ? commitInfoSerializer
-                                                                .get()
-                                                                .serialize(commitInfoT)
-                                                        : null),
-                                        committerTaskAddress)
-                                .join();
-                    }
-                } else {
-                    if (containAggCommitter) {
-                        runningTask
-                                .getExecutionContext()
-                                .sendToMember(
-                                        new BarrierFlowOperation(barrier, committerTaskLocation),
-                                        committerTaskAddress)
-                                .join();
-                    }
-                }
-                runningTask.ack(barrier);
-
-                log.debug(
-                        "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
-                        barrier.getId(),
-                        System.currentTimeMillis() - startTime,
-                        taskLocation);
+                processCheckpointBarrier(barrier);
             } else if (record.getData() instanceof SchemaChangeEvent) {
                 if (prepareClose) {
                     return;
                 }
                 SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
-                if (writer instanceof SupportSchemaEvolutionSinkWriter) {
-                    ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
-                } else {
-                    // todo remove deprecated method
-                    writer.applySchemaChange(event);
+                processSchemaChangeEvent(event);
+            } else if (record.getData() instanceof Signal) {
+                if (prepareClose) {
+                    return;
                 }
+                Signal signal = (Signal) record.getData();
+                processSignal(signal);
             } else {
                 if (prepareClose) {
                     return;
                 }
-                String tableId;
-                Object data = record.getData();
-                long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
-                writer.write((T) data);
-                if (metricsEnabled) {
-                    sinkWriteNs.inc(System.nanoTime() - writeStartNs);
-                    sinkRecordsIn.inc();
-                }
-                if (data instanceof SeaTunnelRow) {
-                    SeaTunnelRow row = (SeaTunnelRow) data;
-                    if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                        if (row.getTableId() == null || row.getTableId().isEmpty()) {
-                            tableId = row.getTableId();
-                        } else {
-
-                            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
-                            tableId =
-                                    tablePath != null
-                                            ? tablePath.getFullName()
-                                            : TablePath.DEFAULT.getFullName();
-                        }
-
-                    } else {
-                        Optional<CatalogTable> writeCatalogTable =
-                                this.sinkAction.getSink().getWriteCatalogTable();
-                        tableId =
-                                writeCatalogTable
-                                        .map(
-                                                catalogTable ->
-                                                        catalogTable.getTablePath().getFullName())
-                                        .orElseGet(TablePath.DEFAULT::getFullName);
-                    }
-
-                    connectorMetricsCalcContext.updateMetrics(data, tableId);
-
-                    if (StainTraceUtils.hasPayload(row)) {
-                        long nowMs = System.currentTimeMillis();
-                        StainTraceUtils.appendIfPresent(
-                                row,
-                                StainTraceStage.SINK_WRITE_DONE,
-                                runningTask.getTaskID(),
-                                nowMs,
-                                getStainTraceMaxEntriesPerTrace(),
-                                getStainTraceEntriesTruncatedTotal());
-                        byte[] payload = StainTraceUtils.getPayloadOrNull(row);
-                        if (payload != null) {
-                            try {
-                                long traceId = StainTracePayload.readTraceId(payload);
-                                eventListener.onEvent(
-                                        new StainTraceEvent(
-                                                traceId,
-                                                payload,
-                                                taskLocation.getTaskID(),
-                                                tableId));
-                                stainTraceEventsReportedTotal.inc();
-                            } catch (Exception e) {
-                                stainTraceInvalidPayloadTotal.inc();
-                                log.debug("Failed to report stain trace event", e);
-                            }
-                        }
-                    }
-                }
+                processDataRecord(record);
             }
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -544,6 +435,152 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 seaTunnelTask.getTaskLocation().getJobId(),
                                 seaTunnelTask.getTaskLocation().getTaskIndex(),
                                 seaTunnelTask.getExecutionContext().getClassLoaderService()));
+    }
+
+    private void processDataRecord(Record<?> record) throws IOException {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        String tableId;
+        long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
+        writer.write((T) record.getData());
+        if (metricsEnabled) {
+            sinkWriteNs.inc(System.nanoTime() - writeStartNs);
+            sinkRecordsIn.inc();
+        }
+        if (record.getData() instanceof SeaTunnelRow) {
+            SeaTunnelRow row = (SeaTunnelRow) record.getData();
+            if (this.sinkAction.getSink() instanceof MultiTableSink) {
+                if (row.getTableId() == null || row.getTableId().isEmpty()) {
+                    tableId = row.getTableId();
+                } else {
+
+                    TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
+                    tableId =
+                            tablePath != null
+                                    ? tablePath.getFullName()
+                                    : TablePath.DEFAULT.getFullName();
+                }
+
+            } else {
+                Optional<CatalogTable> writeCatalogTable =
+                        this.sinkAction.getSink().getWriteCatalogTable();
+                tableId =
+                        writeCatalogTable
+                                .map(catalogTable -> catalogTable.getTablePath().getFullName())
+                                .orElseGet(TablePath.DEFAULT::getFullName);
+            }
+
+            connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
+
+            if (StainTraceUtils.hasPayload(row)) {
+                long nowMs = System.currentTimeMillis();
+                StainTraceUtils.appendIfPresent(
+                        row,
+                        StainTraceStage.SINK_WRITE_DONE,
+                        runningTask.getTaskID(),
+                        nowMs,
+                        getStainTraceMaxEntriesPerTrace(),
+                        getStainTraceEntriesTruncatedTotal());
+                byte[] payload = StainTraceUtils.getPayloadOrNull(row);
+                if (payload != null) {
+                    try {
+                        long traceId = StainTracePayload.readTraceId(payload);
+                        eventListener.onEvent(
+                                new StainTraceEvent(
+                                        traceId, payload, taskLocation.getTaskID(), tableId));
+                        stainTraceEventsReportedTotal.inc();
+                    } catch (Exception e) {
+                        stainTraceInvalidPayloadTotal.inc();
+                        log.debug("Failed to report stain trace event", e);
+                    }
+                }
+            }
+        }
+    }
+
+    private void processSignal(Signal signal) throws Exception {
+        if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
+            try {
+                writerContext.getFlushAction().run();
+                flushSignalSinkSuccessTotal.inc();
+                flushSignalSinkQPS.markEvent();
+            } catch (Exception e) {
+                flushSignalSinkFailureTotal.inc();
+                throw e;
+            }
+        }
+    }
+
+    private void processCheckpointBarrier(Barrier barrier) throws IOException {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        long startTime = System.currentTimeMillis();
+        connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
+        if (barrier.prepareClose(this.taskLocation)) {
+            prepareClose = true;
+        }
+        if (barrier.snapshot()) {
+            try {
+                long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
+                lastCommitInfo = writer.prepareCommit(barrier.getId());
+                if (metricsEnabled) {
+                    sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
+                }
+            } catch (Exception e) {
+                writer.abortPrepare();
+                throw e;
+            }
+            List<StateT> states = writer.snapshotState(barrier.getId());
+            if (!writerStateSerializer.isPresent()) {
+                runningTask.addState(
+                        barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
+            } else {
+                runningTask.addState(
+                        barrier,
+                        ActionStateKey.of(sinkAction),
+                        serializeStates(writerStateSerializer.get(), states));
+            }
+            if (containAggCommitter) {
+                CommitInfoT commitInfoT = null;
+                if (lastCommitInfo.isPresent()) {
+                    commitInfoT = lastCommitInfo.get();
+                }
+                runningTask
+                        .getExecutionContext()
+                        .sendToMember(
+                                new SinkPrepareCommitOperation<CommitInfoT>(
+                                        barrier,
+                                        committerTaskLocation,
+                                        commitInfoSerializer.isPresent()
+                                                ? commitInfoSerializer.get().serialize(commitInfoT)
+                                                : null),
+                                committerTaskAddress)
+                        .join();
+            }
+        } else {
+            if (containAggCommitter) {
+                runningTask
+                        .getExecutionContext()
+                        .sendToMember(
+                                new BarrierFlowOperation(barrier, committerTaskLocation),
+                                committerTaskAddress)
+                        .join();
+            }
+        }
+        runningTask.ack(barrier);
+
+        log.debug(
+                "trigger barrier [{}] finished, cost {}ms. taskLocation [{}]",
+                barrier.getId(),
+                System.currentTimeMillis() - startTime,
+                taskLocation);
+    }
+
+    private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
+        if (writer instanceof SupportSchemaEvolutionSinkWriter) {
+            ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
+        } else {
+            // todo remove deprecated method
+            writer.applySchemaChange(event);
+        }
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {
