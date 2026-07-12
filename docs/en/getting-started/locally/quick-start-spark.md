@@ -20,8 +20,8 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Deploy And Config Spark
 
-Please [Download Spark](https://spark.apache.org/downloads.html) first(**required version >= 2.4.0**). For more information you can
-see [Getting Started: Standalone](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
+Please [Download Spark](https://archive.apache.org/dist/spark/) first(**required version >= 2.4.0**). For more information you can
+see [Getting Started: Standalone](https://archive.apache.org/dist/spark/docs/3.5.6/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
 **Configure SeaTunnel**: Change the setting in `${SEATUNNEL_HOME}/config/seatunnel-env.sh` and set `SPARK_HOME` to the Spark deployment dir.
 

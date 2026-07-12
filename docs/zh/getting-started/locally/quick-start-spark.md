@@ -20,7 +20,7 @@ sidebar_position: 4
 
 ## 步骤 2: 部署并配置Spark
 
-请先[下载Spark](https://spark.apache.org/downloads.html)(**需要版本 >= 2.4.0**)。 更多信息您可以查看[入门: Standalone模式](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
+请先[下载Spark](https://archive.apache.org/dist/spark/)(**需要版本 >= 2.4.0**)。 更多信息您可以查看[入门: Standalone模式](https://archive.apache.org/dist/spark/docs/3.5.6/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
 **配置SeaTunnel**: 修改`config/seatunnel-env.sh`中的设置,它是基于你的引擎在[部署](deployment.md)时的安装路径。
 将`SPARK_HOME`修改为Spark的部署目录。
