@@ -17,7 +17,7 @@ For example, `seatunnel-shade-guava` shades Guava `27.0-jre` into `org.apache.se
 | Module | Library | Version |
 |--------|---------|---------|
 | `seatunnel-shade-guava` | Guava | 27.0-jre |
-| `seatunnel-shade-jackson` | Jackson | 2.13.3 |
+| `seatunnel-shade-jackson` | Jackson | 2.15.4 |
 | `seatunnel-shade-commons-lang3` | Commons Lang3 | 3.18.0 |
 | `seatunnel-shade-arrow` | Apache Arrow | 15.0.1 |
 | `seatunnel-shade-hikari` | HikariCP | 4.0.3 |
