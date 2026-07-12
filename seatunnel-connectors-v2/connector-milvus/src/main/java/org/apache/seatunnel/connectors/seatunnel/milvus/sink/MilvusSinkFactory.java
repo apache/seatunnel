@@ -50,6 +50,7 @@ public class MilvusSinkFactory implements TableSinkFactory {
                         MilvusSinkOptions.PARTITION_KEY,
                         MilvusSinkOptions.ENABLE_UPSERT,
                         MilvusSinkOptions.ENABLE_DYNAMIC_FIELD,
+                        MilvusSinkOptions.ENABLE_NULLABLE_FIELD,
                         MilvusSinkOptions.ENABLE_AUTO_ID,
                         MilvusSinkOptions.BATCH_SIZE,
                         MilvusSinkOptions.RATE_LIMIT,
