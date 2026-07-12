@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
-public class SparkStarterJarContentIT {
+public class TestSparkStarterJarContentIT {
 
     private static final String ARTIFACT_ID = "seatunnel-spark-2-starter";
     private static final String SPARK_STARTER_MAIN =
