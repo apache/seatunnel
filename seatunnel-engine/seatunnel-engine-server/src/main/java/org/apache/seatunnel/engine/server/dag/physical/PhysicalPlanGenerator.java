@@ -29,6 +29,8 @@ import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.core.dag.actions.TransformChainConfig;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -50,6 +52,7 @@ import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
@@ -125,6 +128,8 @@ public class PhysicalPlanGenerator {
 
     private final QueueType queueType;
 
+    private final ObservabilityConfig observabilityConfig;
+
     public PhysicalPlanGenerator(
             @NonNull ExecutionPlan executionPlan,
             @NonNull NodeEngine nodeEngine,
@@ -150,6 +155,9 @@ public class PhysicalPlanGenerator {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.queueType = queueType;
+        this.observabilityConfig =
+                ObservabilityConfig.fromEnvOptions(
+                        jobImmutableInformation.getJobConfig().getEnvOptions());
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -387,8 +395,26 @@ public class PhysicalPlanGenerator {
                         flow -> {
                             List<PhysicalVertex> t = new ArrayList<>();
                             List<Flow> flows = new ArrayList<>(Collections.singletonList(flow));
-                            if (sourceWithSink(flow)) {
-                                flows.addAll(splitSinkFromFlow(flow));
+                            if (observabilityConfig.isEnabled()
+                                    && !observabilityConfig.getAsyncBoundaries().isEmpty()) {
+                                // Split async boundaries across the whole flow graph. Note that
+                                // splitAsyncBoundaryFromFlow() uses an "intermediateFlow +
+                                // intermediateFlowQuote" pattern (producer/consumer side), so
+                                // newly created quote flows are not reachable from the original
+                                // root by recursion. We must iterate over the growing flow list
+                                // to apply boundaries in deeper segments.
+                                int idx = 0;
+                                while (idx < flows.size()) {
+                                    flows.addAll(splitAsyncBoundaryFromFlow(flows.get(idx++)));
+                                }
+                            }
+                            // Keep the legacy sink split regardless of realtime observability.
+                            // Do not gate the legacy split on `split_sink_io`; otherwise enabling
+                            // observability without that flag would move Source and Sink back into
+                            // one thread.
+                            List<Flow> sinkSplitRoots = new ArrayList<>(flows);
+                            for (Flow root : sinkSplitRoots) {
+                                flows.addAll(splitSinkFromFlow(root));
                             }
                             for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                                 long taskGroupId = taskGroupIdGenerator.getNextId();
@@ -551,7 +577,8 @@ public class PhysicalPlanGenerator {
             ((IntermediateExecutionFlow<IntermediateQueueConfig>) f)
                     .setConfig(
                             new IntermediateQueueConfig(
-                                    ((IntermediateExecutionFlow<?>) f).getQueue().getId()));
+                                    ((IntermediateExecutionFlow<?>) f).getQueue().getId(),
+                                    ((IntermediateExecutionFlow<?>) f).getQueue().getCapacity()));
         } else {
             throw new UnknownFlowException(f);
         }
@@ -568,19 +595,26 @@ public class PhysicalPlanGenerator {
      * @return flows after split
      */
     private static List<Flow> splitSinkFromFlow(Flow flow) {
+        // Only split when the producer is a normal PhysicalExecutionFlow. If the producer itself is
+        // an IntermediateExecutionFlow (queue), the sink is already isolated and must not be
+        // wrapped again; otherwise it may keep inserting nested queues.
+        boolean allowDirectSinkSplit = flow instanceof PhysicalExecutionFlow;
         List<PhysicalExecutionFlow<?, ?>> sinkFlows =
-                flow.getNext().stream()
-                        .filter(f -> f instanceof PhysicalExecutionFlow)
-                        .map(f -> (PhysicalExecutionFlow<?, ?>) f)
-                        .filter(f -> f.getAction() instanceof SinkAction)
-                        .collect(Collectors.toList());
+                allowDirectSinkSplit
+                        ? flow.getNext().stream()
+                                .filter(f -> f instanceof PhysicalExecutionFlow)
+                                .map(f -> (PhysicalExecutionFlow<?, ?>) f)
+                                .filter(f -> f.getAction() instanceof SinkAction)
+                                .collect(Collectors.toList())
+                        : Collections.emptyList();
         List<Flow> allFlows = new ArrayList<>();
         flow.getNext().removeAll(sinkFlows);
         sinkFlows.forEach(
                 s -> {
+                    long queueId = sinkSplitQueueId(s.getAction().getId());
                     IntermediateQueue queue =
                             new IntermediateQueue(
-                                    s.getAction().getId(),
+                                    queueId,
                                     s.getAction().getName() + "-Queue",
                                     s.getAction().getParallelism());
                     IntermediateExecutionFlow<?> intermediateFlow =
@@ -592,7 +626,7 @@ public class PhysicalPlanGenerator {
                     allFlows.add(intermediateFlowQuote);
                 });
 
-        if (flow.getNext().size() > sinkFlows.size()) {
+        if (!flow.getNext().isEmpty()) {
             allFlows.addAll(
                     flow.getNext().stream()
                             .flatMap(f -> splitSinkFromFlow(f).stream())
@@ -601,13 +635,82 @@ public class PhysicalPlanGenerator {
         return allFlows;
     }
 
-    private static boolean sourceWithSink(PhysicalExecutionFlow<?, ?> flow) {
-        return flow.getAction() instanceof SinkAction
-                || flow.getNext().stream()
-                        .map(f -> (PhysicalExecutionFlow<?, ?>) f)
-                        .map(PhysicalPlanGenerator::sourceWithSink)
-                        .collect(Collectors.toList())
-                        .contains(true);
+    private List<Flow> splitAsyncBoundaryFromFlow(Flow flow) {
+        // Only split when the producer is a normal PhysicalExecutionFlow. If the producer itself
+        // is an IntermediateExecutionFlow (queue), the boundary is already isolated at this edge
+        // and must not be wrapped again; otherwise it may keep inserting nested queues.
+        boolean allowDirectAsyncSplit = flow instanceof PhysicalExecutionFlow;
+        List<PhysicalExecutionFlow<?, ?>> targetFlows =
+                allowDirectAsyncSplit
+                        ? flow.getNext().stream()
+                                .filter(f -> f instanceof PhysicalExecutionFlow)
+                                .map(f -> (PhysicalExecutionFlow<?, ?>) f)
+                                .filter(f -> f.getAction() instanceof TransformChainAction)
+                                .filter(
+                                        f -> {
+                                            TransformChainAction<?> action =
+                                                    (TransformChainAction<?>) f.getAction();
+                                            if (!(action.getConfig()
+                                                    instanceof TransformChainConfig)) {
+                                                return false;
+                                            }
+                                            String start =
+                                                    ((TransformChainConfig) action.getConfig())
+                                                            .getStartTransformName();
+                                            return observabilityConfig
+                                                    .getAsyncBoundaries()
+                                                    .contains(start);
+                                        })
+                                .collect(Collectors.toList())
+                        : Collections.emptyList();
+
+        List<Flow> allFlows = new ArrayList<>();
+        flow.getNext().removeAll(targetFlows);
+        targetFlows.forEach(
+                f -> {
+                    TransformChainAction<?> action = (TransformChainAction<?>) f.getAction();
+                    String start =
+                            ((TransformChainConfig) action.getConfig()).getStartTransformName();
+                    int capacity = Math.max(0, observabilityConfig.capacityForBoundary(start));
+                    long queueId = asyncBoundaryQueueId(action.getId());
+                    IntermediateQueue queue =
+                            new IntermediateQueue(
+                                    queueId,
+                                    action.getName() + "-AsyncBoundary-Queue",
+                                    action.getParallelism(),
+                                    capacity);
+                    IntermediateExecutionFlow<?> intermediateFlow =
+                            new IntermediateExecutionFlow<>(queue);
+                    flow.getNext().add(intermediateFlow);
+                    IntermediateExecutionFlow<?> intermediateFlowQuote =
+                            new IntermediateExecutionFlow<>(queue);
+                    intermediateFlowQuote.getNext().add(f);
+                    allFlows.add(intermediateFlowQuote);
+                });
+
+        if (!flow.getNext().isEmpty()) {
+            allFlows.addAll(
+                    flow.getNext().stream()
+                            .flatMap(f -> splitAsyncBoundaryFromFlow(f).stream())
+                            .collect(Collectors.toList()));
+        }
+        return allFlows;
+    }
+
+    /**
+     * IntermediateQueue IDs must be stable and must not collide with Action IDs or other queue IDs.
+     *
+     * <p>We encode different queue types into the ID space to avoid collisions even if Action IDs
+     * are not globally unique across different action types.
+     */
+    private static long asyncBoundaryQueueId(long actionId) {
+        // negative even number
+        return -((actionId * 2));
+    }
+
+    private static long sinkSplitQueueId(long actionId) {
+        // negative odd number
+        return -((actionId * 2) + 1);
     }
 
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {

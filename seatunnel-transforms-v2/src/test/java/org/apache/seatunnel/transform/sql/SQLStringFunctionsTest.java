@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -291,6 +293,79 @@ public class SQLStringFunctionsTest {
         SeaTunnelRow outRow = runSql("select RAWTOHEX(data) as s from dual", rowType, bytes);
 
         Assertions.assertEquals("010a", outRow.getField(0));
+    }
+
+    @Test
+    public void testToBase64() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"data"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select TO_BASE64(data) as encoded_data,"
+                                + " TO_BASE64(data, 'UTF-16') as utf16_encoded_data"
+                                + " from dual",
+                        rowType,
+                        "SeaTunnel");
+
+        Assertions.assertEquals("U2VhVHVubmVs", outRow.getField(0));
+        Assertions.assertEquals("/v8AUwBlAGEAVAB1AG4AbgBlAGw=", outRow.getField(1));
+    }
+
+    @Test
+    public void testFromBase64() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"data"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select FROM_BASE64(data) as decoded_data,"
+                                + " FROM_BASE64('/v8AUwBlAGEAVAB1AG4AbgBlAGw=', 'UTF-16') as utf16_decoded_data"
+                                + " from dual",
+                        rowType,
+                        "U2VhVHVubmVs");
+
+        Assertions.assertEquals("SeaTunnel", outRow.getField(0));
+        Assertions.assertEquals("SeaTunnel", outRow.getField(1));
+    }
+
+    @Test
+    public void testToBase64WithBytesColumn() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"data"},
+                        new SeaTunnelDataType[] {PrimitiveByteArrayType.INSTANCE});
+
+        byte[] bytes = "SeaTunnel".getBytes(StandardCharsets.UTF_8);
+        SeaTunnelRow outRow =
+                runSql("select TO_BASE64(data) as encoded_data from dual", rowType, bytes);
+
+        Assertions.assertEquals("U2VhVHVubmVs", outRow.getField(0));
+    }
+
+    @Test
+    public void testToBase64BytesColumnRejectsCharset() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"data"},
+                        new SeaTunnelDataType[] {PrimitiveByteArrayType.INSTANCE});
+
+        byte[] bytes = "SeaTunnel".getBytes(StandardCharsets.UTF_8);
+        TransformException exception =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                runSql(
+                                        "select TO_BASE64(data, 'UTF-16') as encoded_data from dual",
+                                        rowType,
+                                        bytes));
+
+        Assertions.assertInstanceOf(IllegalArgumentException.class, exception.getCause());
+        Assertions.assertEquals(
+                "TO_BASE64 does not support charset for bytes input",
+                exception.getCause().getMessage());
     }
 
     @Test

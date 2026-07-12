@@ -33,11 +33,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,6 +204,8 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HIVE_CONTAINER_HOST)
                         .withEnv("SERVICE_NAME", "hiveserver2")
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));

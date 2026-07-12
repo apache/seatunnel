@@ -25,10 +25,10 @@ Usage: seatunnel.sh [options]
     -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
-    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     -d, --dry-run                               Run the job in dry-run mode (Currently only 'static' is supported).
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
-    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
     -h, --help                                  Show the usage message.
     -j, --job-id                                Get the job status by JobId.

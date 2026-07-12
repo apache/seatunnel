@@ -39,7 +39,6 @@ import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
-/** Collects the engine-side runtime configuration shared by master, worker, and telemetry logic. */
 @Data
 public class EngineConfig {
 
@@ -83,6 +82,9 @@ public class EngineConfig {
 
     private QueueType queueType =
             ServerConfigOptions.WorkerServerConfigOptions.QUEUE_TYPE.defaultValue();
+
+    private int timerFlushPoolSize =
+            ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.defaultValue();
     private int historyJobExpireMinutes =
             ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
@@ -93,6 +95,7 @@ public class EngineConfig {
 
     private String eventReportHttpApi;
     private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
+    private boolean reportNonTerminalJobState = false;
 
     private ExecutionMode mode = ExecutionMode.CLUSTER;
 
@@ -171,6 +174,10 @@ public class EngineConfig {
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }
 
+    public void setReportNonTerminalJobState(boolean reportNonTerminalJobState) {
+        this.reportNonTerminalJobState = reportNonTerminalJobState;
+    }
+
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {
         checkNotNull(queueType);
         this.taskExecutionThreadShareMode = taskExecutionThreadShareMode;
@@ -213,6 +220,14 @@ public class EngineConfig {
     public EngineConfig setEventReportHttpHeaders(Map<String, String> eventReportHttpHeaders) {
         this.eventReportHttpHeaders = eventReportHttpHeaders;
         return this;
+    }
+
+    public void setTimerFlushPoolSize(int timerFlushPoolSize) {
+        checkPositive(
+                timerFlushPoolSize,
+                ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.key()
+                        + " must be > 0");
+        this.timerFlushPoolSize = timerFlushPoolSize;
     }
 
     public void setStainTraceSampleRate(int stainTraceSampleRate) {

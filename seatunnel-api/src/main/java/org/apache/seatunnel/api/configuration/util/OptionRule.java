@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -181,7 +183,7 @@ public class OptionRule {
          */
         public Builder optional(@NonNull Option<?>... options) {
             for (Option<?> option : options) {
-                verifyOptionOptionsDuplicate(option, "OptionsOption");
+                verifyOptionOptionsDuplicate(option, CurrentOptionType.OPTIONS_OPTION.getType());
             }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
@@ -345,7 +347,8 @@ public class OptionRule {
                 @NonNull Option<?> option,
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
-            verifyOptionOptionsDuplicate(option, "OptionsOption");
+            verifyOptionOptionsDuplicate(
+                    option, CurrentOptionType.OPTIONS_OPTION_WITH_CONSTRAINT.getType());
             this.optionalOptions.add(option);
             this.valueConstraints.add(condition1);
             Collections.addAll(this.valueConstraints, conditions);
@@ -358,8 +361,10 @@ public class OptionRule {
                 @NonNull Option<?> option2,
                 @NonNull Condition<?> condition1,
                 @NonNull Condition<?>... conditions) {
-            verifyOptionOptionsDuplicate(option1, "OptionsOption");
-            verifyOptionOptionsDuplicate(option2, "OptionsOption");
+            verifyOptionOptionsDuplicate(
+                    option1, CurrentOptionType.OPTIONS_OPTION_WITH_CONSTRAINT.getType());
+            verifyOptionOptionsDuplicate(
+                    option2, CurrentOptionType.OPTIONS_OPTION_WITH_CONSTRAINT.getType());
             this.optionalOptions.add(option1);
             this.optionalOptions.add(option2);
             this.valueConstraints.add(condition1);
@@ -544,8 +549,17 @@ public class OptionRule {
                 @NonNull Option<?> option, @NonNull String currentOptionType) {
             verifyDuplicateWithOptionOptions(option, currentOptionType);
 
+            boolean hasOptionsOptionWithConstraint =
+                    CurrentOptionType.OPTIONS_OPTION_WITH_CONSTRAINT.type.equals(currentOptionType);
             requiredOptions.forEach(
                     requiredOption -> {
+                        if (hasOptionsOptionWithConstraint
+                                && (requiredOption
+                                                instanceof RequiredOption.ExclusiveRequiredOptions
+                                        || requiredOption
+                                                instanceof RequiredOption.BundledRequiredOptions)) {
+                            return;
+                        }
                         if (requiredOption.getOptions().contains(option)) {
                             throw new OptionValidationException(
                                     String.format(
@@ -572,5 +586,14 @@ public class OptionRule {
                         String.format("Conditional '%s' not found in options.", option.key()));
             }
         }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    private enum CurrentOptionType {
+        OPTIONS_OPTION("OptionsOption"),
+        OPTIONS_OPTION_WITH_CONSTRAINT("OptionsOptionWithConstraint");
+
+        private final String type;
     }
 }

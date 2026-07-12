@@ -46,15 +46,10 @@ public final class ConditionEvaluators {
             throw new OptionValidationException(
                     "Condition for option '%s' has a null operator", condition.getOption().key());
         }
-        try {
-            Object value = config.get(condition.getOption());
-            Evaluator evaluator = REGISTRY.get(operator);
-            return evaluator.evaluate(value, condition, config);
-        } catch (OptionValidationException e) {
-            throw new OptionValidationException(
-                    "Failed to evaluate constraint '%s' on option '%s': %s",
-                    condition.toString(), condition.getOption().key(), e.getRawMessage());
-        }
+
+        Object value = config.get(condition.getOption());
+        Evaluator evaluator = REGISTRY.get(operator);
+        return evaluator.evaluate(value, condition, config);
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -119,6 +114,22 @@ public final class ConditionEvaluators {
                     return false;
                 });
 
+        // Map
+        m.put(
+                ConditionOperator.MAP_NOT_EMPTY,
+                (v, c, cfg) -> v instanceof Map && !((Map) v).isEmpty());
+        m.put(
+                ConditionOperator.MAP_CONTAINS_KEY,
+                (v, c, cfg) -> v instanceof Map && ((Map) v).containsKey(c.getExpectValue()));
+        m.put(
+                ConditionOperator.MAP_CONTAINS_KEYS,
+                (v, c, cfg) -> {
+                    if (!(v instanceof Map)) return false;
+                    Object expect = c.getExpectValue();
+                    if (!(expect instanceof Collection)) return false;
+                    return ((Map) v).keySet().containsAll((Collection) expect);
+                });
+
         // Cross-field (null on either side -> false, preserving or() short-circuit)
         m.put(
                 ConditionOperator.FIELD_LESS_THAN,
@@ -151,6 +162,14 @@ public final class ConditionEvaluators {
                     Object other = cfg.get(c.getCompareOption());
                     if (other == null) return false;
                     return compareNumbers(v, other) >= 0;
+                });
+
+        // Extension (custom logic delegated to ConditionExtension)
+        m.put(
+                ConditionOperator.EXTENSION,
+                (v, c, cfg) -> {
+                    ConditionExtension<Object> ext = (ConditionExtension<Object>) c.getExtension();
+                    return ext.evaluate(cfg, v);
                 });
 
         for (ConditionOperator op : ConditionOperator.values()) {
