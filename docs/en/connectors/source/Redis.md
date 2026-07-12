@@ -157,10 +157,10 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, 
-you must also specify `single_field_name` to map the value to a schema column, and `key_field_name` to map the Redis key.
+If you are using a single-value Redis data type (such as `string`, `list`, `set`, or `zset`) with `read_key_enabled = true`,
+you must specify `single_field_name` to map the value to a schema column. `key_field_name` is optional and defaults to `key`.
 
-Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
+When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
 Example :
 ```hocon

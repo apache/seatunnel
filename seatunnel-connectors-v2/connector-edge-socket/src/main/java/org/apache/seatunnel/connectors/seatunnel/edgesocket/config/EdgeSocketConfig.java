@@ -52,61 +52,15 @@ public class EdgeSocketConfig implements Serializable {
         this.maxNumRetries = config.get(EdgeSocketSourceOptions.MAX_RETRIES);
         this.reconnectIntervalMs = config.get(EdgeSocketSourceOptions.RECONNECT_INTERVAL_MS);
         this.acceptTimeoutMs = config.get(EdgeSocketSourceOptions.ACCEPT_TIMEOUT_MS);
-        this.packetMode =
-                EdgeSocketPacketMode.from(config.get(EdgeSocketSourceOptions.PACKET_MODE));
+        this.packetMode = config.get(EdgeSocketSourceOptions.PACKET_MODE);
         this.secretKey = config.getOptional(EdgeSocketSourceOptions.SECRET_KEY).orElse(null);
-        this.authType = EdgeSocketAuthType.from(config.get(EdgeSocketSourceOptions.AUTH_TYPE));
+        this.authType = config.get(EdgeSocketSourceOptions.AUTH_TYPE);
         this.token = config.getOptional(EdgeSocketSourceOptions.TOKEN).orElse(null);
         if (this.endpoint != null && this.endpoint.trim().isEmpty()) {
             this.endpoint = null;
         }
-        if (this.endpoint != null) {
-            int separatorIndex = this.endpoint.lastIndexOf(':');
-            if (separatorIndex <= 0 || separatorIndex >= this.endpoint.length() - 1) {
-                throw new IllegalArgumentException(
-                        "Invalid endpoint: " + this.endpoint + ", expected format host:port");
-            }
-            String endpointPort = this.endpoint.substring(separatorIndex + 1);
-            try {
-                Integer.parseInt(endpointPort);
-            } catch (NumberFormatException parseException) {
-                throw new IllegalArgumentException(
-                        "Invalid endpoint port in endpoint: " + this.endpoint, parseException);
-            }
-        }
-        if (this.localQueueCapacity <= 0) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid local_queue_capacity: %s, it must be greater than 0",
-                            this.localQueueCapacity));
-        }
-        if (this.queueBackpressureWatermarkRatio <= 0 || this.queueBackpressureWatermarkRatio > 1) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid queue_backpressure_watermark_ratio: %s, "
-                                    + "it must be in (0, 1]",
-                            this.queueBackpressureWatermarkRatio));
-        }
-        if (this.queueFullRetryAfterMs <= 0) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid queue_full_retry_after_ms: %s, it must be greater than 0",
-                            this.queueFullRetryAfterMs));
-        }
         if (this.packetMode == EdgeSocketPacketMode.PACKET && this.secretKey != null) {
             this.secretKeyBytes = Base64.getDecoder().decode(this.secretKey);
-            if (this.secretKeyBytes.length != 32) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Invalid secret_key: AES-256 requires exactly 32 bytes, "
-                                        + "but got %d bytes after Base64 decoding",
-                                this.secretKeyBytes.length));
-            }
-        }
-        if (this.authType == EdgeSocketAuthType.TOKEN
-                && (this.token == null || this.token.trim().isEmpty())) {
-            throw new IllegalArgumentException(
-                    "Invalid token: token is required and cannot be empty when auth_type is TOKEN");
         }
     }
 }
