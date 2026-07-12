@@ -37,6 +37,22 @@ public class LsnOffset extends Offset {
         return new LsnOffset(Lsn.valueOf(commitLsn), null, null);
     }
 
+    /**
+     * Creates an offset from the full SQL Server position reported by Debezium.
+     *
+     * <p>SQL Server can emit multiple change events for the same commit LSN. The change LSN and
+     * event serial number are therefore required to resume without skipping records.
+     */
+    public static LsnOffset valueOf(Map<String, ?> offset) {
+        Object eventSerialNo = offset.get(SourceInfo.EVENT_SERIAL_NO_KEY);
+        Object commitLsn = offset.get(SourceInfo.COMMIT_LSN_KEY);
+        Object changeLsn = offset.get(SourceInfo.CHANGE_LSN_KEY);
+        return new LsnOffset(
+                Lsn.valueOf(commitLsn == null ? null : commitLsn.toString()),
+                Lsn.valueOf(changeLsn == null ? null : changeLsn.toString()),
+                eventSerialNo == null ? null : Long.valueOf(eventSerialNo.toString()));
+    }
+
     private LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
 
@@ -68,7 +84,19 @@ public class LsnOffset extends Offset {
     public int compareTo(Offset o) {
         LsnOffset that = (LsnOffset) o;
         final int comparison = getCommitLsn().compareTo(that.getCommitLsn());
-        return comparison == 0 ? getChangeLsn().compareTo(that.getChangeLsn()) : comparison;
+        if (comparison != 0) {
+            return comparison;
+        }
+        final int changeLsnComparison = getChangeLsn().compareTo(that.getChangeLsn());
+        if (changeLsnComparison != 0) {
+            return changeLsnComparison;
+        }
+        return Long.compare(eventSerialNo(), that.eventSerialNo());
+    }
+
+    private long eventSerialNo() {
+        Object eventSerialNo = getEventSerialNo();
+        return eventSerialNo == null ? 0L : Long.parseLong(eventSerialNo.toString());
     }
 
     public boolean equals(Object obj) {
