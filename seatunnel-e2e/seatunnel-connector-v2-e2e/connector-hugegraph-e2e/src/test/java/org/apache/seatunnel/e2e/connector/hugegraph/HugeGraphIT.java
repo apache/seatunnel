@@ -404,7 +404,8 @@ public class HugeGraphIT {
         writer.write(row);
         writer.close();
 
-        assertEquals(0, hugeClient.graph().listEdges("knows").size(), "Edge should have been deleted");
+        assertEquals(
+                0, hugeClient.graph().listEdges("knows").size(), "Edge should have been deleted");
         Map<String, Object> props = new HashMap<>();
         props.put("name", "Alice");
         Assertions.assertTrue(
