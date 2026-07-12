@@ -111,7 +111,9 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                         postgreSQLContainer.getUsername(),
                         postgreSQLContainer.getPassword())) {
             try (Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("select * from sink")) {
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "select pk_id, name, score from sink order by pk_id")) {
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -125,7 +127,7 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
         Set<List<Object>> expected =
                 Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
                         .collect(Collectors.toSet());
-        Assertions.assertIterableEquals(expected, actual);
+        Assertions.assertEquals(expected, actual);
         try (Connection connection =
                 DriverManager.getConnection(
                         postgreSQLContainer.getJdbcUrl(),

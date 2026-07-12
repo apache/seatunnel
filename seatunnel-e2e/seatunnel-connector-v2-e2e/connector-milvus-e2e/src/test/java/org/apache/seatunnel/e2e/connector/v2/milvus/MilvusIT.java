@@ -54,9 +54,11 @@ import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
 import io.milvus.grpc.DescribeIndexResponse;
+import io.milvus.grpc.FieldData;
 import io.milvus.grpc.FieldSchema;
 import io.milvus.grpc.IndexDescription;
 import io.milvus.grpc.KeyValuePair;
+import io.milvus.grpc.ListDatabasesResponse;
 import io.milvus.grpc.MutationResult;
 import io.milvus.grpc.QueryResults;
 import io.milvus.param.ConnectParam;
@@ -73,6 +75,8 @@ import io.milvus.param.dml.InsertParam;
 import io.milvus.param.dml.QueryParam;
 import io.milvus.param.index.CreateIndexParam;
 import io.milvus.param.index.DescribeIndexParam;
+import io.milvus.param.partition.CreatePartitionParam;
+import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -98,15 +102,19 @@ import java.util.stream.Stream;
 public class MilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "milvus-e2e";
-    private static final String MILVUS_IMAGE = "milvusdb/milvus:2.4-20240711-7e2a9d6b";
+    private static final String MILVUS_IMAGE = "milvusdb/milvus:v2.5.11";
     private static final String TOKEN = "root:Milvus";
     private MilvusContainer container;
     private MilvusServiceClient milvusClient;
     private static final String COLLECTION_NAME = "simple_example";
     private static final String COLLECTION_NAME_1 = "simple_example_1";
     private static final String COLLECTION_NAME_2 = "simple_example_2";
+    private static final String COLLECTION_NAME_NULLABLE = "simple_example_nullable";
     private static final String COLLECTION_NAME_WITH_PARTITIONKEY =
             "simple_example_with_partitionkey";
+    private static final String COLLECTION_NAME_WITH_PARTITIONS = "simple_example_with_partitions";
+    private static final String COLLECTION_NAME_SOURCE_WITH_PARTITIONS =
+            "simple_example_source_with_partitions";
     private static final String ID_FIELD = "book_id";
     private static final String VECTOR_FIELD = "book_intro";
     private static final String VECTOR_FIELD2 = "book_kind";
@@ -253,6 +261,93 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
         log.info("Collection created");
 
+        R<RpcStatus> retWithPartitions =
+                milvusClient.createCollection(
+                        CreateCollectionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldTypes(fieldsSchema)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create collection! Error: " + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD2)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD3)
+                                .withIndexType(IndexType.BIN_FLAT)
+                                .withMetricType(MetricType.HAMMING)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        retWithPartitions =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withFieldName(VECTOR_FIELD4)
+                                .withIndexType(IndexType.SPARSE_INVERTED_INDEX)
+                                .withMetricType(MetricType.IP)
+                                .build());
+        if (retWithPartitions.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create index on vector field! Error: "
+                            + retWithPartitions.getMessage());
+        }
+        milvusClient.loadCollection(
+                LoadCollectionParam.newBuilder()
+                        .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                        .build());
+        R<RpcStatus> partitionRet =
+                milvusClient.createPartition(
+                        CreatePartitionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withPartitionName("p1")
+                                .build());
+        if (partitionRet.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create partition! Error: " + partitionRet.getMessage());
+        }
+        partitionRet =
+                milvusClient.createPartition(
+                        CreatePartitionParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withPartitionName("p2")
+                                .build());
+        if (partitionRet.getStatus() != R.Status.Success.getCode()) {
+            throw new RuntimeException(
+                    "Failed to create partition! Error: " + partitionRet.getMessage());
+        }
+
         // Define fields With Partition Key
         List<FieldType> fieldsSchemaWithPartitionKey =
                 Arrays.asList(
@@ -395,9 +490,16 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .withCollectionName(COLLECTION_NAME_WITH_PARTITIONKEY)
                                 .withRows(rows)
                                 .build());
+        R<MutationResult> insertRet3 =
+                milvusClient.insert(
+                        InsertParam.newBuilder()
+                                .withCollectionName(COLLECTION_NAME_SOURCE_WITH_PARTITIONS)
+                                .withRows(rows)
+                                .build());
 
         if (insertRet.getStatus() != R.Status.Success.getCode()
-                || insertRet2.getStatus() != R.Status.Success.getCode()) {
+                || insertRet2.getStatus() != R.Status.Success.getCode()
+                || insertRet3.getStatus() != R.Status.Success.getCode()) {
             throw new RuntimeException("Failed to insert! Error: " + insertRet.getMessage());
         }
     }
@@ -485,6 +587,33 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testMilvusWithPartitions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/milvus-to-milvus-with-partitions.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        R<Boolean> hasCollectionResponse =
+                this.milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONS)
+                                .build());
+        Assertions.assertTrue(hasCollectionResponse.getData());
+
+        R<io.milvus.grpc.ShowPartitionsResponse> showPartitionsResponse =
+                this.milvusClient.showPartitions(
+                        ShowPartitionsParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME_WITH_PARTITIONS)
+                                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), showPartitionsResponse.getStatus());
+        List<String> partitionNames = showPartitionsResponse.getData().getPartitionNamesList();
+        Assertions.assertTrue(partitionNames.contains("p1"));
+        Assertions.assertTrue(partitionNames.contains("p2"));
+    }
+
+    @TestTemplate
     public void testFakeToMilvus(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake-to-milvus.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -514,6 +643,38 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fields.contains(ID_FIELD));
         Assertions.assertTrue(fields.contains(VECTOR_FIELD));
         Assertions.assertTrue(fields.contains(TITLE_FIELD));
+    }
+
+    @TestTemplate
+    public void testFakeToMilvusWithNullableField(TestContainer container)
+            throws IOException, InterruptedException {
+        String databaseName = "test_nullable";
+        catalog.createDatabase(TablePath.of(databaseName, COLLECTION_NAME_NULLABLE), true);
+
+        Container.ExecResult execResult = container.executeJob("/fake-to-milvus-nullable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        waitCollectionReady(databaseName, COLLECTION_NAME_NULLABLE, VECTOR_FIELD);
+        Assertions.assertEquals(2, countCollectionEntities(databaseName, COLLECTION_NAME_NULLABLE));
+
+        FieldSchema titleFieldSchema =
+                describeField(databaseName, COLLECTION_NAME_NULLABLE, TITLE_FIELD);
+        Assertions.assertTrue(titleFieldSchema.getNullable());
+
+        FieldData nullTitleFieldData =
+                queryField(databaseName, COLLECTION_NAME_NULLABLE, TITLE_FIELD, ID_FIELD + " == 1");
+        Assertions.assertEquals(
+                Collections.singletonList(false), nullTitleFieldData.getValidDataList());
+        Assertions.assertEquals(
+                Collections.singletonList(""),
+                nullTitleFieldData.getScalars().getStringData().getDataList());
+
+        FieldData titleFieldData =
+                queryField(databaseName, COLLECTION_NAME_NULLABLE, TITLE_FIELD, ID_FIELD + " == 2");
+        Assertions.assertEquals(Collections.singletonList(true), titleFieldData.getValidDataList());
+        Assertions.assertEquals(
+                Collections.singletonList("nullable title"),
+                titleFieldData.getScalars().getStringData().getDataList());
     }
 
     @TestTemplate
@@ -759,6 +920,26 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
     private void waitCollectionReady(
             String databaseName, String collectionName, String vectorFieldName) {
+        // assert database exist
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            R<ListDatabasesResponse> listDatabasesResponse =
+                                    this.milvusClient.listDatabases();
+                            Assertions.assertEquals(
+                                    R.Status.Success.getCode(),
+                                    listDatabasesResponse.getStatus(),
+                                    Optional.ofNullable(listDatabasesResponse.getException())
+                                            .map(Exception::getMessage)
+                                            .orElse(""));
+                            return listDatabasesResponse
+                                    .getData()
+                                    .getDbNamesList()
+                                    .contains(databaseName);
+                        });
+
         // assert table exist
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
@@ -828,5 +1009,37 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                 .getLongData()
                 .getDataList()
                 .get(0);
+    }
+
+    private FieldSchema describeField(
+            String databaseName, String collectionName, String fieldName) {
+        R<DescribeCollectionResponse> describeCollectionResponse =
+                this.milvusClient.describeCollection(
+                        DescribeCollectionParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), describeCollectionResponse.getStatus());
+        return describeCollectionResponse.getData().getSchema().getFieldsList().stream()
+                .filter(field -> fieldName.equals(field.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Field not found: " + fieldName));
+    }
+
+    private FieldData queryField(
+            String databaseName, String collectionName, String fieldName, String expr) {
+        R<QueryResults> queryResults =
+                milvusClient.query(
+                        QueryParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .withExpr(expr)
+                                .withOutFields(Collections.singletonList(fieldName))
+                                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), queryResults.getStatus());
+        return queryResults.getData().getFieldsDataList().stream()
+                .filter(fieldData -> fieldName.equals(fieldData.getFieldName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Field data not found: " + fieldName));
     }
 }

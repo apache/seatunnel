@@ -46,13 +46,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 /** The utils for SqlServer data source. */
 @Slf4j
@@ -282,6 +285,83 @@ public class SqlServerUtils {
         }
     }
 
+    /**
+     * Convert timestamp (in milliseconds) to LSN using SQL Server's sys.fn_cdc_map_time_to_lsn
+     * function.
+     *
+     * @param connection SQL Server connection
+     * @param timestampMs timestamp in milliseconds
+     * @param serverTimeZone database server time zone
+     * @return LsnOffset corresponding to the timestamp
+     */
+    public static LsnOffset timestampToLsn(
+            SqlServerConnection connection, long timestampMs, String serverTimeZone) {
+        try {
+            String effectiveServerTimeZone =
+                    serverTimeZone == null ? TimeZone.getDefault().getID() : serverTimeZone;
+            String sql =
+                    "SELECT sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', ?) AS lsn";
+
+            return connection.prepareQueryAndMap(
+                    sql,
+                    ps -> {
+                        Timestamp timestamp = new Timestamp(timestampMs);
+                        Calendar calendar =
+                                Calendar.getInstance(TimeZone.getTimeZone(effectiveServerTimeZone));
+                        ps.setTimestamp(1, timestamp, calendar);
+                    },
+                    rs -> {
+                        if (!rs.next()) {
+                            throw new SQLException(
+                                    String.format(
+                                            "No LSN found for timestamp %d (%s)",
+                                            timestampMs, new Timestamp(timestampMs)));
+                        }
+                        byte[] lsnBytes = rs.getBytes("lsn");
+                        if (lsnBytes == null) {
+                            throw new SQLException(
+                                    String.format(
+                                            "LSN is null for timestamp %d (%s). "
+                                                    + "This may indicate that CDC is not enabled or the timestamp is too old.",
+                                            timestampMs, new java.sql.Timestamp(timestampMs)));
+                        }
+                        Lsn lsn = Lsn.valueOf(lsnBytes);
+                        log.info(
+                                "Converted timestamp {} ({}) to LSN: {}",
+                                timestampMs,
+                                new Timestamp(timestampMs),
+                                lsn);
+                        return LsnOffset.valueOf(lsn.toString());
+                    });
+        } catch (SQLException e) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Failed to convert timestamp %d (%s) to LSN: %s",
+                            timestampMs, new Timestamp(timestampMs), e.getMessage()),
+                    e);
+        }
+    }
+
+    /**
+     * Convert LSN string to LsnOffset.
+     *
+     * @param lsnString LSN string in format "00000027:00000a80:0003"
+     * @return LsnOffset
+     */
+    public static LsnOffset lsnStringToOffset(String lsnString) {
+        try {
+            // Validate LSN format
+            Lsn.valueOf(lsnString);
+            return LsnOffset.valueOf(lsnString);
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "Invalid LSN format: %s. Expected format: 00000027:00000a80:0003",
+                            lsnString),
+                    e);
+        }
+    }
+
     /** Get split scan query for the given table. */
     public static String buildSplitScanQuery(
             TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
@@ -441,7 +521,7 @@ public class SqlServerUtils {
             sql.append(" TOP( ").append(limit).append(") ");
         }
         sql.append(projection).append(" FROM ");
-        sql.append(quoteSchemaAndTable(tableId));
+        sql.append(quote(tableId));
         if (condition.isPresent()) {
             sql.append(" WHERE ").append(condition.get());
         }
@@ -467,7 +547,16 @@ public class SqlServerUtils {
     }
 
     public static String quote(TableId tableId) {
-        return "[" + tableId.schema() + "].[" + tableId.table() + "]";
+        StringBuilder quoted = new StringBuilder();
+        if (tableId.catalog() != null && !tableId.catalog().isEmpty()) {
+            quoted.append("[").append(tableId.catalog()).append("].");
+        }
+        quoted.append("[")
+                .append(tableId.schema())
+                .append("].[")
+                .append(tableId.table())
+                .append("]");
+        return quoted.toString();
     }
 
     private static void addPrimaryKeyColumnsToCondition(
@@ -495,7 +584,7 @@ public class SqlServerUtils {
         sql.append(" TOP( ").append(limit).append(") ");
         sql.append(projection);
         sql.append(" FROM ");
-        sql.append(quoteSchemaAndTable(tableId));
+        sql.append(quote(tableId));
         if (condition.isPresent()) {
             sql.append(" WHERE ").append(condition.get());
         }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsChange;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -297,7 +298,7 @@ public class KafkaPartitionSplitReader
 
     @Override
     public void close() throws Exception {
-        consumer.close();
+        KafkaClientUtils.runWithConnectorClassLoader(consumer::close);
     }
 
     public void notifyCheckpointComplete(

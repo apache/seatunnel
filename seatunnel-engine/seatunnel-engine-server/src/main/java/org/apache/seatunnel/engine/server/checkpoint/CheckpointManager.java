@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
@@ -80,6 +81,8 @@ public class CheckpointManager {
 
     private final JobMaster jobMaster;
 
+    private final CheckpointMonitorService checkpointMonitorService;
+
     public CheckpointManager(
             long jobId,
             boolean isStartWithSavePoint,
@@ -89,12 +92,14 @@ public class CheckpointManager {
             CheckpointConfig checkpointConfig,
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
-            IMap<Object, Object> runningJobStateIMap) {
+            IMap<Object, Object> runningJobStateIMap,
+            CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
         this.checkpointStorage = checkpointStorage;
         this.checkpointConfig = checkpointConfig;
+        this.checkpointMonitorService = checkpointMonitorService;
 
         this.coordinatorMap =
                 MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
@@ -133,7 +138,8 @@ public class CheckpointManager {
                                                 pipelineState,
                                                 executorService,
                                                 runningJobStateIMap,
-                                                isStartWithSavePoint);
+                                                isStartWithSavePoint,
+                                                checkpointMonitorService);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
                                     }
@@ -160,6 +166,9 @@ public class CheckpointManager {
                 "reported pipeline running stack: {}",
                 Arrays.toString(Thread.currentThread().getStackTrace()));
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
+        if (!alreadyStarted && checkpointMonitorService != null) {
+            checkpointMonitorService.onPipelineRestored(jobId, pipelineId);
+        }
     }
 
     protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
@@ -235,6 +244,10 @@ public class CheckpointManager {
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
+        }
+        if (checkpointMonitorService != null
+                && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)) {
+            checkpointMonitorService.cleanupJob(jobId);
         }
     }
 

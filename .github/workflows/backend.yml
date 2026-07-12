@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Check license header
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Check code style
@@ -79,6 +79,13 @@ jobs:
           else
             echo "No .class files found in git repository."
           fi
+      - name: Check connector registration completeness
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
+          else
+            echo "GITHUB_BASE_REF is not set (push event), skipping connector registration check."
+          fi
 
   helm-chart-check:
     name: Check Helm Chart Syntax
@@ -87,24 +94,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Helm
-        uses: azure/setup-helm@v4.3.0
-        id: install
+        run: |
+          if ! command -v helm >/dev/null 2>&1; then
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          fi
+          helm version
       - name: Lint Chart
         run: helm lint deploy/kubernetes/seatunnel
 
-#  dead-link:
-#    name: Dead links
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 150
-#    # Temporarily ignore this job to avoid blocking PRs
-#    continue-on-error: true
-#    steps:
-#      - uses: actions/checkout@v2
-#      - run: sudo npm install -g markdown-link-check@3.8.7
-#      - run: |
-#          for file in $(find . -name "*.md"); do
-#            markdown-link-check -c .dlc.json -q "$file"
-#          done
+  dead-link:
+    name: Dead links
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    # Temporarily ignore this job to avoid blocking PRs
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo npm install -g markdown-link-check@3.8.7
+      - run: |
+          for file in $(find . -name "*.md"); do
+            markdown-link-check -c .dlc.json -q "$file"
+          done
 
   sanity-check:
     name: Sanity check results
@@ -119,7 +129,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     outputs:
       api: ${{ steps.filter.outputs.api }}
       engine: ${{ steps.filter.outputs.engine }}
@@ -139,7 +149,7 @@ jobs:
           /usr/bin/git checkout apache/dev
           /usr/bin/git checkout '${{ github.ref }}'
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11.0'
       - name: Check for file changes by python
@@ -256,6 +266,16 @@ jobs:
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          if [[ "zz"$connector_modules == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already route the full downstream engine test set through engine=true.
+            # Keep the fixed smoke modules as the output without resolving the Maven dependency tree.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
@@ -272,9 +292,9 @@ jobs:
       - name: Make integration test modules
         id: it-modules
         timeout-minutes: 60
-        if: ${{ steps.filter.outputs.api == 'false' && (steps.engine-modules.outputs.modules != '' || steps.cv2-modules.outputs.modules != '' || steps.cv2-e2e-modules.outputs.modules != '' || steps.cv2-flink-e2e-modules.outputs.modules != '' || steps.cv2-spark-e2e-modules.outputs.modules != '') }}
+        if: ${{ steps.filter.outputs.api == 'false' && (steps.engine-modules.outputs.modules != '' || steps.cv2-modules.outputs.modules != '' || steps.cv2-e2e-modules.outputs.modules != '' || steps.engine-e2e-modules.outputs.modules != '') }}
         run: |
-          modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
+          modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           pl_modules=`python tools/update_modules_check/update_modules_check.py replace "$modules"`
           # remove deleted modules
@@ -284,6 +304,18 @@ jobs:
           fi
           
           if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+
+          engine_modules='${{ steps.engine-modules.outputs.modules }}'
+          connector_modules='${{ steps.cv2-modules.outputs.modules }}'
+          connector_modules="$connector_modules"'${{ steps.cv2-e2e-modules.outputs.modules }}'
+          engine_e2e_modules='${{ steps.engine-e2e-modules.outputs.modules }}'
+          if [[ "zz${connector_modules}${engine_e2e_modules}" == "zz" && "zz"$engine_modules != "zz" ]];then
+            # Engine changes already trigger the broad downstream integration jobs through engine=true.
+            # Avoid a second Maven dependency tree pass when no connector or engine-e2e module changed.
+            echo $pl_modules
+            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
             exit 0
           fi
           
@@ -303,16 +335,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '8'
           cache: 'maven'
       - name: Install
-        uses: nick-fields/retry@v2
+        uses: nick-fields/retry@v3
         with:
           timeout_minutes: 40
           max_attempts: 3
@@ -327,24 +359,27 @@ jobs:
     needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: seatunnel-pr
       - name: Checkout website repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/seatunnel-website
           path: seatunnel-website
       - name: Sync PR changes to website
         run: |
           bash seatunnel-pr/tools/documents/sync.sh seatunnel-pr seatunnel-website
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.20.7
       - name: Run docusaurus build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           cd seatunnel-website
           npm set strict-ssl false
@@ -359,8 +394,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v3
-      - uses: actions/setup-node@v2
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
       - name: Install Dependencies and Check Code Style
@@ -387,9 +422,9 @@ jobs:
         os: [ 'ubuntu-latest', 'windows-latest' ]
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -410,9 +445,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -429,7 +464,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
@@ -439,11 +474,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -470,11 +505,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -491,7 +526,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
@@ -503,9 +538,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 200
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -533,9 +568,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -552,7 +587,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -561,11 +596,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -582,7 +617,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
@@ -591,11 +626,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -612,7 +647,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
@@ -622,11 +657,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -643,7 +678,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xmx4096m
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -653,11 +688,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -688,11 +723,11 @@ jobs:
           cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: free disk space
         run: tools/github/free_disk_space.sh
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -717,9 +752,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -745,9 +780,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -773,9 +808,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -802,11 +837,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -818,6 +853,13 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
+          # Keep the longest Iceberg and HBase suites in a dedicated shard so this hosted runner
+          # does not lose heartbeat before the rest of the part-2 modules finish.
+          # Handle both first-position (no leading comma) and mid/last-position (leading comma).
+          run_it_modules=${run_it_modules//:connector-iceberg-e2e,/}
+          run_it_modules=${run_it_modules//,:connector-iceberg-e2e/}
+          run_it_modules=${run_it_modules//:connector-hbase-e2e,/}
+          run_it_modules=${run_it_modules//,:connector-hbase-e2e/}
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -835,9 +877,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -864,11 +906,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 270
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -895,11 +937,11 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 270
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -928,9 +970,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -959,9 +1001,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -974,6 +1016,35 @@ jobs:
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  all-connectors-it-8:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ${{ matrix.os }}
+    env:
+      RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
+      RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run connector-v2 integration test (part-8)
+        run: |
+          # These two suites dominated part-2 and triggered hosted-runner heartbeat loss.
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e,:connector-hbase-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -990,9 +1061,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1018,9 +1089,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1046,9 +1117,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1074,9 +1145,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1102,9 +1173,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1130,9 +1201,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1158,9 +1229,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1186,9 +1257,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1209,11 +1280,12 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 60
+    # Kudu E2E expands each @TestTemplate case across several PR test containers.
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1236,9 +1308,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1261,9 +1333,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1286,9 +1358,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1312,9 +1384,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1337,9 +1409,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1363,9 +1435,9 @@ jobs:
     timeout-minutes: 210
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1392,9 +1464,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1417,9 +1489,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1442,9 +1514,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -1467,9 +1539,9 @@ jobs:
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'

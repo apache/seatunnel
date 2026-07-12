@@ -46,6 +46,9 @@ public class AmazonDynamoDBConfig implements Serializable {
     public int batchSize;
     public int scanItemLimit;
     public int parallelScanThreads;
+    private int maxRetries;
+    private long retryBaseDelayMs;
+    private long retryMaxDelayMs;
 
     public AmazonDynamoDBConfig(ReadonlyConfig config) {
         this.url = config.get(AmazonDynamoDBBaseOptions.URL);
@@ -60,5 +63,14 @@ public class AmazonDynamoDBConfig implements Serializable {
         this.batchSize = config.get(AmazonDynamoDBSinkOptions.BATCH_SIZE);
         this.scanItemLimit = config.get(AmazonDynamoDBSourceOptions.SCAN_ITEM_LIMIT);
         this.parallelScanThreads = config.get(AmazonDynamoDBSourceOptions.PARALLEL_SCAN_THREADS);
+        this.maxRetries = config.get(AmazonDynamoDBSinkOptions.MAX_RETRIES);
+        if (this.maxRetries < 0) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "max_retries must be a non-negative integer, but got: %d",
+                            this.maxRetries));
+        }
+        this.retryBaseDelayMs = config.get(AmazonDynamoDBSinkOptions.RETRY_BASE_DELAY_MS);
+        this.retryMaxDelayMs = config.get(AmazonDynamoDBSinkOptions.RETRY_MAX_DELAY_MS);
     }
 }

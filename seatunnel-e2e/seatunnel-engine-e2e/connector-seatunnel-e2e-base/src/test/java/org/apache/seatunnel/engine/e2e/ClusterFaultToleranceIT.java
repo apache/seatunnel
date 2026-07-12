@@ -83,6 +83,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -211,6 +212,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -305,6 +307,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -404,6 +407,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -521,6 +525,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -621,6 +626,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -786,6 +792,7 @@ public class ClusterFaultToleranceIT {
             hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -1002,6 +1009,7 @@ public class ClusterFaultToleranceIT {
             hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);

@@ -29,6 +29,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 
 public class ProtobufDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -52,7 +53,19 @@ public class ProtobufDeserializationSchema implements DeserializationSchema<SeaT
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         Descriptors.Descriptor descriptor = this.converter.getDescriptor();
         DynamicMessage dynamicMessage = DynamicMessage.parseFrom(descriptor, message);
-        SeaTunnelRow seaTunnelRow = this.converter.converter(descriptor, dynamicMessage, rowType);
+        return convertToRow(dynamicMessage);
+    }
+
+    /** Deserialize from InputStream. Zero-copy when using ByteArrayInputStream. */
+    public SeaTunnelRow deserialize(InputStream inputStream) throws IOException {
+        Descriptors.Descriptor descriptor = this.converter.getDescriptor();
+        DynamicMessage dynamicMessage = DynamicMessage.parseFrom(descriptor, inputStream);
+        return convertToRow(dynamicMessage);
+    }
+
+    private SeaTunnelRow convertToRow(DynamicMessage dynamicMessage) {
+        SeaTunnelRow seaTunnelRow =
+                this.converter.converter(this.converter.getDescriptor(), dynamicMessage, rowType);
         Optional<TablePath> tablePath =
                 Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
         if (tablePath.isPresent()) {

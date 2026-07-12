@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
@@ -59,8 +60,12 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     static final String IDENTIFIER = "Postgres-CDC";
 
+    private final boolean requireReplicaIdentityFull;
+
     public PostgresIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
+        this.requireReplicaIdentityFull =
+                options.get(PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL);
     }
 
     @Override
@@ -115,7 +120,10 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
+        return new PostgresDialect(
+                (PostgresSourceConfigFactory) configFactory,
+                catalogTables,
+                requireReplicaIdentityFull);
     }
 
     @Override
@@ -132,7 +140,10 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
         PostgresDialect dialect =
-                new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
+                new PostgresDialect(
+                        (PostgresSourceConfigFactory) configFactory,
+                        catalogTables,
+                        requireReplicaIdentityFull);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         SchemaNameAdjuster adjuster = SchemaNameAdjuster.create();
         ConnectTableChangeSerializer connectTableChangeSerializer =

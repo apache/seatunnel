@@ -43,8 +43,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Elasticsea
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -76,22 +74,9 @@ public class ElasticsearchSource
         boolean multiSource = config.getOptional(ElasticsearchSourceOptions.INDEX_LIST).isPresent();
         boolean singleSource = config.getOptional(ElasticsearchSourceOptions.INDEX).isPresent();
 
-        boolean sqlQuery = config.getOptional(SQL_QUERY).isPresent();
-
-        if (SearchTypeEnum.SQL.equals(config.get(SEARCH_TYPE)) && !sqlQuery) {
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02,
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02.getDescription());
-        }
-
         if (multiSource && singleSource) {
             log.warn(
                     "Elasticsearch Source config warn: when both 'index' and 'index_list' are present in the configuration, only the 'index_list' configuration will take effect");
-        }
-        if (!multiSource && !singleSource) {
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01,
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01.getDescription());
         }
         if (multiSource) {
             this.elasticsearchConfigList = createMultiSource(config);
@@ -107,6 +92,11 @@ public class ElasticsearchSource
                 configMaps.stream().map(ReadonlyConfig::fromMap).collect(Collectors.toList());
         List<ElasticsearchConfig> elasticsearchConfigList = new ArrayList<>(configList.size());
         for (ReadonlyConfig readonlyConfig : configList) {
+            // NOTE: per-entry configs inside `index_list` are NOT validated by the factory's
+            // OptionRule (which only validates the top-level config). If an entry is missing
+            // `index`, or sets `search_type=SQL` without `sql_query`, parseOneIndexQueryConfig
+            // below will fail at runtime. This is a pre-existing limitation; revisit if/when
+            // per-entry declarative validation is supported.
             ElasticsearchConfig elasticsearchConfig = parseOneIndexQueryConfig(readonlyConfig);
             elasticsearchConfigList.add(elasticsearchConfig);
         }
@@ -181,9 +171,22 @@ public class ElasticsearchSource
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
+        int sliceMax = readonlyConfig.get(ElasticsearchSourceOptions.SLICE_MAX);
+        if (SearchTypeEnum.SQL.equals(searchType) && sliceMax > 1) {
+            log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
+            sliceMax = 1;
+        }
 
         long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
         int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
+
+        // Parse runtime fields configuration
+        Map<String, Object> runtimeFields = null;
+        if (readonlyConfig.getOptional(ElasticsearchSourceOptions.RUNTIME_FIELDS).isPresent()) {
+            runtimeFields =
+                    parseRuntimeFields(
+                            readonlyConfig.get(ElasticsearchSourceOptions.RUNTIME_FIELDS));
+        }
 
         ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
         elasticsearchConfig.setSource(source);
@@ -196,10 +199,57 @@ public class ElasticsearchSource
         elasticsearchConfig.setSqlQuery(sqlQuery);
         elasticsearchConfig.setSearchType(searchType);
         elasticsearchConfig.setSearchApiType(searchApiType);
+        elasticsearchConfig.setRuntimeFields(runtimeFields);
 
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
+        elasticsearchConfig.setSliceMax(sliceMax);
         return elasticsearchConfig;
+    }
+
+    /**
+     * Parse runtime fields configuration from list of maps to Elasticsearch runtime_mappings format
+     *
+     * @param runtimeFieldsList List of runtime field configurations
+     * @return Runtime mappings in Elasticsearch format
+     */
+    private Map<String, Object> parseRuntimeFields(List<Map<String, Object>> runtimeFieldsList) {
+        if (runtimeFieldsList == null || runtimeFieldsList.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Object> runtimeMappings = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> fieldConfig : runtimeFieldsList) {
+            String name = (String) fieldConfig.get("name");
+            String type = (String) fieldConfig.get("type");
+            String script = (String) fieldConfig.get("script");
+
+            if (name == null || type == null || script == null) {
+                log.warn("Invalid runtime field configuration: {}, skipping", fieldConfig);
+                continue;
+            }
+
+            Map<String, Object> fieldDef = new java.util.LinkedHashMap<>();
+            fieldDef.put("type", type);
+
+            Map<String, Object> scriptDef = new java.util.LinkedHashMap<>();
+            scriptDef.put("source", script);
+
+            // Optional: script language (default is painless)
+            if (fieldConfig.containsKey("script_lang")) {
+                scriptDef.put("lang", fieldConfig.get("script_lang"));
+            }
+
+            // Optional: script parameters
+            if (fieldConfig.containsKey("script_params")) {
+                scriptDef.put("params", fieldConfig.get("script_params"));
+            }
+
+            fieldDef.put("script", scriptDef);
+            runtimeMappings.put(name, fieldDef);
+        }
+
+        return runtimeMappings.isEmpty() ? null : runtimeMappings;
     }
 
     @Override

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitStrategy;
 
 import java.util.List;
 
@@ -96,6 +97,15 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
 
+    public static final Option<Boolean> SPLIT_ALLOW_SAMPLING =
+            Options.key("split.allow-sampling")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to allow sampling-based sharding strategy. "
+                                    + "When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. "
+                                    + "The default value is true.");
+
     public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")
                     .booleanType()
@@ -152,6 +162,13 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .defaultValue(StringSplitMode.SAMPLE)
                     .withDescription(
                             "Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.");
+
+    public static final Option<StringSplitStrategy> STRING_SPLIT_STRATEGY =
+            Options.key("split.string-strategy")
+                    .enumType(StringSplitStrategy.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "Controls how String partition columns are split. `range` uses range-based splitting, `hash` uses hash-based splitting, `none` disables String splitting, and `auto` prefers range splitting then falls back to hash when needed. `range` and `auto` currently require MySQL binary collation and fixed-length printable ASCII key values. When this option is not set, SeaTunnel keeps the existing split.string_split_mode behavior.");
 
     public static final Option<String> STRING_SPLIT_MODE_COLLATE =
             Options.key("split.string_split_mode_collate")

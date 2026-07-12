@@ -28,6 +28,7 @@ public class DatabaseIdentifier {
     public static final String MYSQL = "MySQL";
     public static final String STARROCKS = "StarRocks";
     public static final String ORACLE = "Oracle";
+    public static final String YASHANDB = "YashanDB";
     public static final String PHOENIX = "Phoenix";
     public static final String POSTGRESQL = "Postgres";
     public static final String REDSHIFT = "Redshift";
@@ -47,5 +48,6 @@ public class DatabaseIdentifier {
     public static final String HIGHGO = "Highgo";
     public static final String GREENPLUM = "Greenplum";
     public static final String PRESTO = "Presto";
+    public static final String DUCKDB = "DuckDB";
     public static final String DSQL = "Dsql";
 }

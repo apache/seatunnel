@@ -30,7 +30,10 @@ public enum FileConnectorErrorCode implements SeaTunnelErrorCode {
     FILE_READ_FAILED("FILE-08", "File read failed"),
     BINARY_FILE_PART_ORDER_ERROR("FILE-09", "Binary file fragment order abnormality"),
     FILE_SPLIT_SIZE_ILLEGAL("FILE-10", "SplitSizeBytes must be greater than 0"),
-    FILE_SPLIT_FAIL("FILE-11", "File split fail");
+    FILE_SPLIT_FAIL("FILE-11", "File split fail"),
+    FILE_NOT_FOUND("FILE-12", "File not found"),
+    FILE_ACCESS_DENIED("FILE-13", "File access denied"),
+    FILE_IO_TIMEOUT("FILE-14", "File IO timeout");
 
     private final String code;
     private final String description;

@@ -279,63 +279,85 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x, length);
+        }
     }
 
     @Override
     public void setUnicodeStream(int parameterIndex, InputStream x, int length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setUnicodeStream(index, x, length);
+        }
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBinaryStream(index, x, length);
+        }
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, int length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader, length);
+        }
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNCharacterStream(index, value, length);
+        }
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setClob(index, reader, length);
+        }
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBlob(index, inputStream, length);
+        }
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x, length);
+        }
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBinaryStream(index, x, length);
+        }
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, long length)
             throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader, length);
+        }
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setAsciiStream(index, x);
+        }
     }
 
     @Override
@@ -347,27 +369,37 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setCharacterStream(index, reader);
+        }
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNCharacterStream(index, value);
+        }
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setClob(index, reader);
+        }
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBlob(index, inputStream);
+        }
     }
 
     @Override
     public void setNClob(int parameterIndex, Reader reader) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setNClob(index, reader);
+        }
     }
 
     @Override

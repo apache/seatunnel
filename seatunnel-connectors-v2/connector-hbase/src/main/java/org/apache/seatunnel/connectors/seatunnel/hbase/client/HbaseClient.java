@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.client;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
@@ -310,15 +311,13 @@ public class HbaseClient {
      * @return true if the table has data, false otherwise
      */
     public boolean isExistsData(String databaseName, String tableName) {
-        try {
-            Table table = connection.getTable(TableName.valueOf(databaseName, tableName));
-            Scan scan = new Scan();
-            scan.setCaching(1);
-            scan.setLimit(1);
-            try (ResultScanner scanner = table.getScanner(scan)) {
-                Result result = scanner.next();
-                return !result.isEmpty();
-            }
+        Scan scan = new Scan();
+        scan.setCaching(1);
+        scan.setLimit(1);
+        try (Table table = connection.getTable(TableName.valueOf(databaseName, tableName));
+                ResultScanner scanner = table.getScanner(scan)) {
+            Result result = scanner.next();
+            return result != null && !result.isEmpty();
         } catch (IOException e) {
             throw new HbaseConnectorException(
                     HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION,
@@ -367,7 +366,20 @@ public class HbaseClient {
     public ResultScanner scan(
             HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
             throws IOException {
+        Scan scan = buildScan(split, hbaseParameters, columnNames);
+        return this.connection
+                .getTable(
+                        TableName.valueOf(
+                                hbaseParameters.getNamespace(), hbaseParameters.getTable()))
+                .getScanner(scan);
+    }
+
+    @VisibleForTesting
+    static Scan buildScan(
+            HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
+            throws IOException {
         Scan scan = new Scan();
+        applyTimeRange(scan, hbaseParameters);
         scan.withStartRow(split.getStartRow(), hbaseParameters.isStartRowInclusive());
         scan.withStopRow(split.getEndRow(), hbaseParameters.isEndRowInclusive());
         scan.setCacheBlocks(hbaseParameters.isCacheBlocks());
@@ -377,19 +389,47 @@ public class HbaseClient {
             String[] columnNameSplit = columnName.split(":");
             scan.addColumn(Bytes.toBytes(columnNameSplit[0]), Bytes.toBytes(columnNameSplit[1]));
         }
-        return this.connection
-                .getTable(TableName.valueOf(hbaseParameters.getTable()))
-                .getScanner(scan);
+        return scan;
+    }
+
+    private static void applyTimeRange(Scan scan, HbaseParameters hbaseParameters)
+            throws IOException {
+        Long startTimestamp = hbaseParameters.getStartTimestamp();
+        Long endTimestamp = hbaseParameters.getEndTimestamp();
+        if (startTimestamp == null && endTimestamp == null) {
+            return;
+        }
+
+        if (startTimestamp != null && startTimestamp < 0) {
+            throw new IllegalArgumentException("start_timestamp can't be negative");
+        }
+        if (endTimestamp != null && endTimestamp < 0) {
+            throw new IllegalArgumentException("end_timestamp can't be negative");
+        }
+
+        long min = startTimestamp == null ? 0L : startTimestamp;
+        long max = endTimestamp == null ? Long.MAX_VALUE : endTimestamp;
+        if (min >= max) {
+            throw new IllegalArgumentException("start_timestamp must be less than end_timestamp");
+        }
+        scan.setTimeRange(min, max);
     }
 
     /**
      * Get a RegionLocator.
      *
-     * @param tableName table name
+     * @param tableName table name (preferably fully qualified as {@code namespace:table})
      * @return RegionLocator
      * @throws IOException exception
+     * @deprecated Use {@link #getRegionLocator(String, String)} instead to avoid relying on the
+     *     default namespace behavior.
      */
+    @Deprecated
     public RegionLocator getRegionLocator(String tableName) throws IOException {
         return this.connection.getRegionLocator(TableName.valueOf(tableName));
+    }
+
+    public RegionLocator getRegionLocator(String namespace, String tableName) throws IOException {
+        return this.connection.getRegionLocator(TableName.valueOf(namespace, tableName));
     }
 }

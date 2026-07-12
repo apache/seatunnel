@@ -23,9 +23,12 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.util.HBaseUtil;
 
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -59,14 +62,14 @@ public class HbaseSourceSplitEnumerator
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context, HbaseParameters hbaseParameters) {
-        this(context, hbaseParameters, new HashSet<>());
+        this(context, hbaseParameters, new HashSet<>(), null);
     }
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             HbaseSourceState sourceState) {
-        this(context, hbaseParameters, sourceState.getAssignedSplits());
+        this(context, hbaseParameters, sourceState.getAssignedSplits(), null);
     }
 
     @VisibleForTesting
@@ -90,7 +93,7 @@ public class HbaseSourceSplitEnumerator
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             Set<HbaseSourceSplit> assignedSplit) {
-        this(context, hbaseParameters, assignedSplit, HbaseClient.createInstance(hbaseParameters));
+        this(context, hbaseParameters, assignedSplit, null);
     }
 
     private HbaseSourceSplitEnumerator(
@@ -216,64 +219,103 @@ public class HbaseSourceSplitEnumerator
 
     @VisibleForTesting
     public Set<HbaseSourceSplit> getTableSplits() {
-
+        String namespace = hbaseParameters.getNamespace();
+        TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
         try {
-            RegionLocator regionLocator = hbaseClient.getRegionLocator(hbaseParameters.getTable());
-            byte[][] startKeys = regionLocator.getStartKeys();
-            byte[][] endKeys = regionLocator.getEndKeys();
-            List<HbaseSourceSplit> splits = new ArrayList<>();
-            boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
-            byte[] userStartRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getStartRowkey(), isBinaryRowkey);
-            byte[] userEndRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getEndRowkey(), isBinaryRowkey);
-            HBaseUtil.validateRowKeyRange(userStartRowkey, userEndRowkey);
-
-            int i = 0;
-            while (i < startKeys.length) {
-                byte[] regionStartKey = startKeys[i];
-                byte[] regionEndKey = endKeys[i];
-                if (userEndRowkey.length > 0
-                        && Bytes.compareTo(userEndRowkey, regionStartKey) <= 0
-                        && Bytes.compareTo(regionStartKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
-                    i++;
-                    continue;
-                }
-
-                if (userStartRowkey.length > 0
-                        && Bytes.compareTo(userStartRowkey, regionEndKey) >= 0
-                        && Bytes.compareTo(regionEndKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
-                    i++;
-                    continue;
-                }
-                byte[] splitStartKey =
-                        userStartRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionStartKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userStartRowkey, regionStartKey)
-                                                        > 0)
-                                ? userStartRowkey
-                                : regionStartKey;
-
-                byte[] splitEndKey =
-                        userEndRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionEndKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userEndRowkey, regionEndKey) < 0)
-                                ? userEndRowkey
-                                : regionEndKey;
-
-                splits.add(new HbaseSourceSplit(i, splitStartKey, splitEndKey));
-                i++;
+            HbaseClient hbaseClient = getHbaseClient();
+            log.info("Enumerating HBase source splits for table [{}]", tableName.getNameAsString());
+            if (!hbaseClient.tableExists(tableName.getNameAsString())) {
+                String errorMsg =
+                        String.format(
+                                "HBase table [%s] does not exist", tableName.getNameAsString());
+                log.error(errorMsg);
+                throw new HbaseConnectorException(
+                        HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
             }
-            return new HashSet<>(splits);
+
+            try (RegionLocator regionLocator =
+                    hbaseClient.getRegionLocator(namespace, hbaseParameters.getTable())) {
+                byte[][] startKeys = regionLocator.getStartKeys();
+                byte[][] endKeys = regionLocator.getEndKeys();
+                if (startKeys.length == 0 || endKeys.length == 0) {
+                    String errorMsg =
+                            String.format(
+                                    "No region information found for HBase table [%s], please check whether the table exists "
+                                            + "and current user has permission to access it",
+                                    tableName.getNameAsString());
+                    log.error(errorMsg);
+                    throw new HbaseConnectorException(
+                            HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
+                }
+                List<HbaseSourceSplit> splits = new ArrayList<>();
+                boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
+                byte[] userStartRowkey =
+                        HBaseUtil.convertRowKey(hbaseParameters.getStartRowkey(), isBinaryRowkey);
+                byte[] userEndRowkey =
+                        HBaseUtil.convertRowKey(hbaseParameters.getEndRowkey(), isBinaryRowkey);
+                HBaseUtil.validateRowKeyRange(userStartRowkey, userEndRowkey);
+
+                int i = 0;
+                while (i < startKeys.length) {
+                    byte[] regionStartKey = startKeys[i];
+                    byte[] regionEndKey = endKeys[i];
+                    if (userEndRowkey.length > 0
+                            && Bytes.compareTo(userEndRowkey, regionStartKey) <= 0
+                            && Bytes.compareTo(regionStartKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
+                        i++;
+                        continue;
+                    }
+
+                    if (userStartRowkey.length > 0
+                            && Bytes.compareTo(userStartRowkey, regionEndKey) >= 0
+                            && Bytes.compareTo(regionEndKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
+                        i++;
+                        continue;
+                    }
+                    byte[] splitStartKey =
+                            userStartRowkey.length > 0
+                                            && (Bytes.compareTo(
+                                                                    regionStartKey,
+                                                                    HConstants.EMPTY_BYTE_ARRAY)
+                                                            == 0
+                                                    || Bytes.compareTo(
+                                                                    userStartRowkey, regionStartKey)
+                                                            > 0)
+                                    ? userStartRowkey
+                                    : regionStartKey;
+
+                    byte[] splitEndKey =
+                            userEndRowkey.length > 0
+                                            && (Bytes.compareTo(
+                                                                    regionEndKey,
+                                                                    HConstants.EMPTY_BYTE_ARRAY)
+                                                            == 0
+                                                    || Bytes.compareTo(userEndRowkey, regionEndKey)
+                                                            < 0)
+                                    ? userEndRowkey
+                                    : regionEndKey;
+
+                    splits.add(new HbaseSourceSplit(i, splitStartKey, splitEndKey));
+                    i++;
+                }
+                return new HashSet<>(splits);
+            }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            String errorMsg =
+                    String.format(
+                            "Failed to enumerate splits for HBase table [%s]",
+                            tableName.getNameAsString());
+            log.error(errorMsg, e);
+            throw new HbaseConnectorException(
+                    HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg, e);
         }
+    }
+
+    private synchronized HbaseClient getHbaseClient() {
+        if (hbaseClient == null) {
+            hbaseClient = HbaseClient.createInstance(hbaseParameters);
+        }
+        return hbaseClient;
     }
 
     /** Hash algorithm for assigning splits to readers */

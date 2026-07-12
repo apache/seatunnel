@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.config;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
 public class MaxcomputeBaseOptions implements Serializable {
 
@@ -42,6 +38,11 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .noDefaultValue()
                     .withDescription(
                             "Your Maxcompute accessKey which cloud be access from Alibaba Cloud");
+    public static final Option<String> STS_TOKEN =
+            Options.key("sts_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Your Maxcompute stsToken for temporary access");
     public static final Option<String> ENDPOINT =
             Options.key("endpoint")
                     .stringType()
@@ -54,17 +55,20 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .noDefaultValue()
                     .withDescription("Your Maxcompute project which is created in Alibaba Cloud");
 
-    public static final Option<List<Map<String, Object>>> TABLE_LIST =
-            Options.key("table_list")
-                    .type(new TypeReference<List<Map<String, Object>>>() {})
-                    .noDefaultValue()
-                    .withDescription("List of tables to be written to MaxCompute.");
-
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Target Maxcompute table name eg: fake");
+
+    public static final Option<String> SCHEMA_NAME =
+            Options.key("schema_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The MaxCompute Schema name (namespace between Project and Table). "
+                                    + "Only required when the table resides in a non-default schema. "
+                                    + "See https://www.alibabacloud.com/help/en/maxcompute/user-guide/schema-related-operations");
 
     public static final Option<String> PARTITION_SPEC =
             Options.key("partition_spec")

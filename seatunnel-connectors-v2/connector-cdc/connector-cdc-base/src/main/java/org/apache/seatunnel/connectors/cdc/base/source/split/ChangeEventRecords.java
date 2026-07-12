@@ -74,7 +74,17 @@ public final class ChangeEventRecords implements RecordsWithSplitIds<SourceRecor
         return new ChangeEventRecords(splitId, recordsForSplit, Collections.emptySet());
     }
 
+    /**
+     * Creates a {@link ChangeEventRecords} that only indicates a split is finished.
+     *
+     * @param splitId the ID of the finished split, must not be null
+     * @return a new {@link ChangeEventRecords} instance
+     * @throws IllegalArgumentException if splitId is null
+     */
     public static ChangeEventRecords forFinishedSplit(final String splitId) {
+        if (splitId == null) {
+            throw new IllegalArgumentException("splitId must not be null");
+        }
         return new ChangeEventRecords(null, null, Collections.singleton(splitId));
     }
 }

@@ -25,10 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
+import java.io.StringReader;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_CLOB;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_NCLOB;
 
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -47,10 +50,28 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             throws SQLException {
         if (seaTunnelDataType.getSqlType().equals(SqlType.BYTES)) {
             if (ORACLE_BLOB.equals(sourceType)) {
-                statement.setBinaryStream(statementIndex, new ByteArrayInputStream((byte[]) value));
+                byte[] bytes = (byte[]) value;
+                statement.setBinaryStream(
+                        statementIndex, new ByteArrayInputStream(bytes), bytes.length);
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
             }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.STRING)) {
+            if (ORACLE_CLOB.equals(sourceType)) {
+                String str = (String) value;
+                statement.setCharacterStream(statementIndex, new StringReader(str), str.length());
+            } else if (ORACLE_NCLOB.equals(sourceType)) {
+                String str = (String) value;
+                statement.setNCharacterStream(statementIndex, new StringReader(str), str.length());
+            } else {
+                statement.setString(statementIndex, (String) value);
+            }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            // Delegate to AbstractJdbcRowConverter which uses setObject() first (preserving the
+            // offset for Oracle JDBC 12.2+) and falls back to setTimestamp() with an explicit UTC
+            // Calendar for older drivers, avoiding JVM-default-timezone corruption.
+            super.setValueToStatementByDataType(
+                    value, statement, seaTunnelDataType, statementIndex, sourceType);
         } else {
             super.setValueToStatementByDataType(
                     value, statement, seaTunnelDataType, statementIndex, sourceType);

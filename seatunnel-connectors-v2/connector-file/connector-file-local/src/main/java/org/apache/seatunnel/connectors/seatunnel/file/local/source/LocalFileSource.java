@@ -18,17 +18,22 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+
+import java.util.List;
 
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
-    public LocalFileSource(ReadonlyConfig readonlyConfig) {
-        super(
-                new MultipleTableLocalFileSourceConfig(readonlyConfig),
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(readonlyConfig));
+    public LocalFileSource(
+            ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        this(new MultipleTableLocalFileSourceConfig(readonlyConfig, catalogTablesFromConfig));
+    }
+
+    private LocalFileSource(MultipleTableLocalFileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override

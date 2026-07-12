@@ -74,7 +74,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.IntStream;
 
 public class SqlToPaimonPredicateConverter {
 
@@ -123,12 +122,11 @@ public class SqlToPaimonPredicateConverter {
             }
         }
 
-        String[] columnNamesArray = columnNames.toArray(new String[0]);
         projectionIndex =
-                IntStream.range(0, columnNamesArray.length)
-                        .map(
-                                i -> {
-                                    String fieldName = columnNamesArray[i];
+                columnNames.stream()
+                        .mapToInt(
+                                columnName -> {
+                                    String fieldName = columnName.replace("`", "");
                                     int index = Arrays.asList(fieldNames).indexOf(fieldName);
                                     if (index == -1) {
                                         throw new IllegalArgumentException(
@@ -360,7 +358,7 @@ public class SqlToPaimonPredicateConverter {
             RowType rowType, String columnName, Object jsqlParserDataTypeValue) {
         Optional<DataField> theFiled =
                 rowType.getFields().stream()
-                        .filter(field -> field.name().equalsIgnoreCase(columnName))
+                        .filter(field -> field.name().equalsIgnoreCase(columnName.replace("`", "")))
                         .findFirst();
         String strValue = jsqlParserDataTypeValue.toString();
         if (theFiled.isPresent()) {
@@ -424,7 +422,7 @@ public class SqlToPaimonPredicateConverter {
     }
 
     private static int getColumnIndex(PredicateBuilder builder, Column column) {
-        int index = builder.indexOf(column.getColumnName());
+        int index = builder.indexOf(column.getColumnName().replace("`", ""));
         if (index == -1) {
             throw new IllegalArgumentException(
                     String.format("The column named [%s] is not exists", column.getColumnName()));

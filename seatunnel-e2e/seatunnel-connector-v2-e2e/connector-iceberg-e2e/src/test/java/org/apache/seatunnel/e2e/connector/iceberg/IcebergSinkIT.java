@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
@@ -114,8 +115,34 @@ public class IcebergSinkIT extends TestSuiteBase {
         Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 
-    private List<Record> loadIcebergTable() {
-        List<Record> results = new ArrayList<>();
+    @TestTemplate
+    public void testPartitionKeysPlaceholderE2e(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/iceberg/fake_to_iceberg_with_partition_keys_placeholder.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Table table = loadIcebergTableObject();
+        Assertions.assertFalse(table.spec().isUnpartitioned());
+        Assertions.assertEquals(2, table.spec().fields().size());
+
+        List<PartitionField> fields = table.spec().fields();
+        Assertions.assertTrue(containsPartitionField(table, fields, "c_bigint", "bucket[16]"));
+        Assertions.assertTrue(containsPartitionField(table, fields, "c_timestamp", "identity"));
+    }
+
+    private static boolean containsPartitionField(
+            Table table, List<PartitionField> fields, String sourceFieldName, String transform) {
+        return fields.stream()
+                .anyMatch(
+                        field ->
+                                sourceFieldName.equals(
+                                                table.schema().findField(field.sourceId()).name())
+                                        && transform.equals(field.transform().toString()));
+    }
+
+    private Table loadIcebergTableObject() throws IOException {
         Map<String, Object> configs = new HashMap<>();
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
@@ -124,11 +151,18 @@ public class IcebergSinkIT extends TestSuiteBase {
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");
         configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
-        IcebergTableLoader tableLoader =
-                IcebergTableLoader.create(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)));
-        tableLoader.open();
+        try (IcebergTableLoader tableLoader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            tableLoader.open();
+            return tableLoader.loadTable();
+        }
+    }
+
+    private List<Record> loadIcebergTable() {
+        List<Record> results = new ArrayList<>();
         try {
-            Table table = tableLoader.loadTable();
+            Table table = loadIcebergTableObject();
             try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
                 for (Record record : records) {
                     results.add(record);

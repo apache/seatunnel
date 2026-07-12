@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -68,6 +69,9 @@ public class MaxcomputeSource
                             TableIdentifier.of(
                                     "maxcompute",
                                     readonlyConfig.get(MaxcomputeSourceOptions.PROJECT),
+                                    readonlyConfig
+                                            .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                            .orElse(null),
                                     readonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME)),
                             catalogTable);
             tables.put(
@@ -79,9 +83,9 @@ public class MaxcomputeSource
         } else {
             try (MaxComputeCatalog catalog = new MaxComputeCatalog("maxcompute", readonlyConfig)) {
                 catalog.open();
-                if (readonlyConfig.getOptional(MaxcomputeSourceOptions.TABLE_LIST).isPresent()) {
+                if (readonlyConfig.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
                     for (Map<String, Object> subConfig :
-                            readonlyConfig.get(MaxcomputeSourceOptions.TABLE_LIST)) {
+                            readonlyConfig.get(CatalogOptions.TABLE_LIST)) {
                         ReadonlyConfig subReadonlyConfig = ReadonlyConfig.fromMap(subConfig);
                         String project =
                                 subReadonlyConfig
@@ -89,9 +93,19 @@ public class MaxcomputeSource
                                         .orElse(
                                                 readonlyConfig.get(
                                                         MaxcomputeSourceOptions.PROJECT));
+                        // schema_name: per-table override, falls back to top-level value
+                        String schemaName =
+                                subReadonlyConfig
+                                        .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                        .orElse(
+                                                readonlyConfig
+                                                        .getOptional(
+                                                                MaxcomputeSourceOptions.SCHEMA_NAME)
+                                                        .orElse(null));
                         TablePath tablePath =
                                 TablePath.of(
                                         project,
+                                        schemaName,
                                         subReadonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME));
                         String partitionSpec =
                                 subReadonlyConfig
@@ -138,6 +152,9 @@ public class MaxcomputeSource
                     TablePath tablePath =
                             TablePath.of(
                                     readonlyConfig.get(MaxcomputeSourceOptions.PROJECT),
+                                    readonlyConfig
+                                            .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                            .orElse(null),
                                     readonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME));
                     tables.put(
                             tablePath,

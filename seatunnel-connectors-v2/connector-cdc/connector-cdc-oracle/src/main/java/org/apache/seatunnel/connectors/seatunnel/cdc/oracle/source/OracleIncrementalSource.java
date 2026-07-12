@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -72,12 +73,12 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return OracleSourceOptions.STARTUP_MODE;
+        return OracleIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return OracleSourceOptions.STOP_MODE;
+        return OracleIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -86,9 +87,9 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         configFactory.fromReadonlyConfig(readonlyConfig);
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
-        configFactory.schemaList(config.get(OracleSourceOptions.SCHEMA_NAMES));
-        configFactory.useSelectCount(config.get(OracleSourceOptions.USE_SELECT_COUNT));
-        configFactory.skipAnalyze(config.get(OracleSourceOptions.SKIP_ANALYZE));
+        configFactory.schemaList(config.get(OracleIncrementalSourceOptions.SCHEMA_NAMES));
+        configFactory.useSelectCount(config.get(OracleIncrementalSourceOptions.USE_SELECT_COUNT));
+        configFactory.skipAnalyze(config.get(OracleIncrementalSourceOptions.SKIP_ANALYZE));
         configFactory.originUrl(config.get(JdbcCommonOptions.URL));
         return configFactory;
     }
@@ -112,6 +113,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setSchemaChangeResolver(
                                 new OracleSchemaChangeResolver(createSourceConfigFactory(config)))
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .setTableIdTableChangeMap(tableIdStructMap)
                         .build();
     }

@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+/** Deletes per-job telemetry log files after a job reaches its retention boundary. */
 @Slf4j
 public class TaskLogManagerService {
     private String path;
@@ -36,6 +37,12 @@ public class TaskLogManagerService {
     public void initClean() {
         try {
             path = LogUtil.getLogPath();
+        } catch (IllegalArgumentException e) {
+            // When log4j appender is not configured (e.g. local example / custom log config), avoid
+            // polluting logs with stack traces
+            log.debug(
+                    "The corresponding log file path is not properly configured, please check the log configuration file. {}",
+                    e.getMessage());
         } catch (Exception e) {
             log.debug(
                     "The corresponding log file path is not properly configured, please check the log configuration file.",
@@ -43,6 +50,7 @@ public class TaskLogManagerService {
         }
     }
 
+    /** Removes local log files whose names still include the target job id. */
     public void clean(long jobId) {
         log.info("Cleaning logs for jobId: {} , path : {}", jobId, path);
         if (path == null) {

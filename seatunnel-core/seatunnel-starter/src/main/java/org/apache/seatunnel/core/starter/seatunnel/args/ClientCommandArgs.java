@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
@@ -41,6 +42,14 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
+
+    @Parameter(
+            names = {"-d", "--dry-run"},
+            description =
+                    "Static config validation without running the job. Currently only [static] is supported.",
+            converter = DryRunConverter.class)
+    protected DryRun dryRun = null;
+
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
             description = "SeaTunnel job submit master, support [local, cluster]",
@@ -49,12 +58,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private MasterType masterType = MasterType.CLUSTER;
 
     @Parameter(
-            names = {"-r", "--restore"},
+            names = {"-r", "--restore", "--restore-job"},
             description = "restore with savepoint by jobId")
     private String restoreJobId;
 
     @Parameter(
-            names = {"-s", "--savepoint"},
+            names = {"-s", "--savepoint", "--savepoint-job"},
             description = "savepoint job by jobId")
     private String savePointJobId;
 
@@ -69,10 +78,16 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String jobId;
 
     @Parameter(
-            names = {"-can", "--cancel-job"},
+            names = {"-can", "--cancel", "--cancel-job"},
             variableArity = true,
-            description = "Cancel job by JobId")
+            description = "Cancel job(s) by JobId")
     private List<String> cancelJobId;
+
+    @Parameter(
+            names = {"-f", "--force-cancel", "--force-cancel-job"},
+            variableArity = true,
+            description = "Force Cancel job(s) by JobId")
+    private List<String> forceCancelJobId;
 
     @Parameter(
             names = {"--metrics"},
@@ -90,6 +105,31 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean getRunningJobMetrics = false;
 
     @Parameter(
+            names = {"--checkpoint-overview"},
+            description = "Get checkpoint overview by JobId")
+    private String checkpointOverviewJobId;
+
+    @Parameter(
+            names = {"--checkpoint-history"},
+            description = "Get checkpoint history by JobId")
+    private String checkpointHistoryJobId;
+
+    @Parameter(
+            names = {"--checkpoint-history-pipeline"},
+            description = "Filter checkpoint history by pipeline id")
+    private Integer checkpointHistoryPipeline;
+
+    @Parameter(
+            names = {"--checkpoint-history-limit"},
+            description = "Limit checkpoint history size")
+    private Integer checkpointHistoryLimit = 20;
+
+    @Parameter(
+            names = {"--checkpoint-history-status"},
+            description = "Filter checkpoint history by status: COMPLETED,FAILED,CANCELED")
+    private String checkpointHistoryStatus;
+
+    @Parameter(
             names = {"-l", "--list"},
             description = "list job status")
     private boolean listJob = false;
@@ -101,14 +141,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean async = false;
 
     @Parameter(
-            names = {"-cj", "--close-job"},
+            names = {"-cj", "--close", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
 
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
-        if (checkConfig) {
+        if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {
@@ -122,6 +162,25 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
+    }
+
+    public static class DryRunConverter implements IStringConverter<DryRun> {
+        @Override
+        public DryRun convert(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                throw new IllegalArgumentException("Dry-run mode must not be empty.");
+            }
+            String trimmed = value.trim();
+            if (DryRun.STATIC.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.STATIC;
+            }
+            throw new IllegalArgumentException(
+                    "Unsupported dry-run mode '"
+                            + value
+                            + "'. Currently only [static] is supported; connect, sample, and shadow"
+                            + " are not implemented yet.");
+        }
     }
 
     public static class SeaTunnelMasterTargetConverter implements IStringConverter<MasterType> {

@@ -42,4 +42,12 @@ public class ExampleUdfIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/custom_udf.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testCustomUdfContextLifecycle(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/custom_udf_context_lifecycle.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

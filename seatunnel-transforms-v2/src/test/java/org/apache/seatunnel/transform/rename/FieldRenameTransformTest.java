@@ -240,4 +240,38 @@ public class FieldRenameTransformTest {
         Assertions.assertEquals("f5", outputChangeEvent.getColumn().getName());
         Assertions.assertEquals("f5", outputDropEvent.getColumn());
     }
+
+    @Test
+    public void testRegexReplacementEnabledByDefault() {
+        FieldRenameConfig.ReplacementsWithRegex rule =
+                new FieldRenameConfig.ReplacementsWithRegex();
+        rule.setReplaceFrom("(?<=[a-z0-9])(?=[A-Z])");
+        rule.setReplaceTo("_");
+
+        FieldRenameConfig config =
+                new FieldRenameConfig()
+                        .setConvertCase(ConvertCase.LOWER)
+                        .setReplacementsWithRegex(Collections.singletonList(rule));
+        FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
+
+        Assertions.assertEquals("invoice_num", transform.convertName("InvoiceNum"));
+        Assertions.assertEquals("vendor_id", transform.convertName("VendorID"));
+    }
+
+    @Test
+    public void testRegexReplacementCanBeDisabled() {
+        FieldRenameConfig.ReplacementsWithRegex rule =
+                new FieldRenameConfig.ReplacementsWithRegex();
+        rule.setReplaceFrom("(?<=[a-z0-9])(?=[A-Z])");
+        rule.setReplaceTo("_");
+        rule.setIsRegex(false);
+
+        FieldRenameConfig config =
+                new FieldRenameConfig()
+                        .setConvertCase(ConvertCase.LOWER)
+                        .setReplacementsWithRegex(Collections.singletonList(rule));
+        FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
+
+        Assertions.assertEquals("invoicenum", transform.convertName("InvoiceNum"));
+    }
 }

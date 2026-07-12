@@ -24,7 +24,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
 import finishedJobs from '@/views/jobs/finished-jobs'
 import { JobsService } from '@/service/job'
-import type { Job } from '@/service/job/types'
+import type { JobPage, Job } from '@/service/job/types'
 
 describe('jobs', () => {
   const app = createApp({})
@@ -34,7 +34,7 @@ describe('jobs', () => {
     setActivePinia(createPinia())
   })
   test('Running Jobs component', async () => {
-    const mockData = [] as Job[]
+    const mockData = {} as JobPage
 
     vi.spyOn(JobsService, 'getRunningJobs').mockResolvedValue(mockData)
     const wrapper = mount(runningJobs, {
@@ -47,16 +47,16 @@ describe('jobs', () => {
     expect(wrapper.text()).toContain('Running Jobs')
   })
   test('Finished Jobs component', async () => {
-    const mockData = [
-      {
-        jobId: '888413907541032961',
-        jobName: 'SeaTunnel_Job',
-        jobStatus: 'FINISHED',
-        errorMsg: '',
-        createTime: '2024-09-17 21:19:41',
-        finishTime: '2024-09-17 21:19:44'
-      }
-    ] as Job[]
+    const mockData = { data: [
+        {
+          jobId: '888413907541032961',
+          jobName: 'SeaTunnel_Job',
+          jobStatus: 'FINISHED',
+          errorMsg: '',
+          createTime: '2024-09-17 21:19:41',
+          finishTime: '2024-09-17 21:19:44'
+        }
+      ] as Job[], total: 1} as JobPage
 
     vi.spyOn(JobsService, 'getFinishedJobs').mockResolvedValue(mockData)
 
@@ -67,7 +67,7 @@ describe('jobs', () => {
       }
     })
     expect(JobsService.getFinishedJobs).toHaveBeenCalledTimes(1)
-    expect(JobsService.getFinishedJobs).toHaveBeenCalledWith()
+    expect(JobsService.getFinishedJobs).toHaveBeenCalledWith(1, 10)
     await flushPromises()
     expect(wrapper.text()).toContain('SeaTunnel_Job')
   })

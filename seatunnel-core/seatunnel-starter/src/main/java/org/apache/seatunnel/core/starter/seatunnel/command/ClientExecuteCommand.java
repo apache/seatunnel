@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
@@ -42,6 +43,9 @@ import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -122,12 +126,53 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 for (String cancelJobId : cancelJobIds) {
                     engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId));
                 }
+            } else if (null != clientCommandArgs.getForceCancelJobId()) {
+                List<String> forceCancelJobIds = clientCommandArgs.getForceCancelJobId();
+                for (String cancelJobId : forceCancelJobIds) {
+                    engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId), true);
+                }
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics =
                         engineClient
                                 .getJobClient()
                                 .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
+            } else if (null != clientCommandArgs.getCheckpointOverviewJobId()) {
+                CheckpointOverview overview =
+                        engineClient
+                                .getJobClient()
+                                .getCheckpointOverview(
+                                        Long.parseLong(
+                                                clientCommandArgs.getCheckpointOverviewJobId()));
+                System.out.println(JsonUtils.toJsonString(overview));
+            } else if (null != clientCommandArgs.getCheckpointHistoryJobId()) {
+                Long historyJobId = Long.parseLong(clientCommandArgs.getCheckpointHistoryJobId());
+                Integer pipelineId = clientCommandArgs.getCheckpointHistoryPipeline();
+                int limit =
+                        clientCommandArgs.getCheckpointHistoryLimit() == null
+                                ? 20
+                                : clientCommandArgs.getCheckpointHistoryLimit();
+                CheckpointStatus status = null;
+                if (clientCommandArgs.getCheckpointHistoryStatus() != null) {
+                    try {
+                        status =
+                                CheckpointStatus.valueOf(
+                                        clientCommandArgs
+                                                .getCheckpointHistoryStatus()
+                                                .toUpperCase());
+                    } catch (IllegalArgumentException ex) {
+                        throw new CommandExecuteException(
+                                String.format(
+                                        "Unsupported checkpoint history status %s",
+                                        clientCommandArgs.getCheckpointHistoryStatus()),
+                                ex);
+                    }
+                }
+                List<CheckpointHistoryEntry> history =
+                        engineClient
+                                .getJobClient()
+                                .getCheckpointHistory(historyJobId, pipelineId, limit, status);
+                System.out.println(JsonUtils.toJsonString(history));
             } else if (null != clientCommandArgs.getSavePointJobId()) {
                 engineClient
                         .getJobClient()
@@ -243,8 +288,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 "Total Write Count",
                                 jobMetricsSummary.getSinkWriteCount(),
                                 "Total Failed Count",
-                                jobMetricsSummary.getSourceReadCount()
-                                        - jobMetricsSummary.getSinkWriteCount()));
+                                Math.max(
+                                        0,
+                                        jobMetricsSummary.getSourceReadCount()
+                                                - jobMetricsSummary.getSinkWriteCount())));
             }
             closeClient();
         }
@@ -275,6 +322,25 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         // set local mode
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
+
+        // Ensure the local mode can expose REST/UI endpoints by default when users didn't provide
+        // a custom seatunnel.yaml. If users explicitly provide a config (system property:
+        // `seatunnel.config`), respect their choice.
+        boolean userProvidedSeatunnelConfig = System.getProperty("seatunnel.config") != null;
+        if (!userProvidedSeatunnelConfig
+                && seaTunnelConfig.getEngineConfig().getHttpConfig() != null
+                && !seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()
+                && !seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(true);
+        }
+        if (seaTunnelConfig.getEngineConfig().getHttpConfig() != null) {
+            log.info(
+                    "Local mode REST config: enableHttp={}, port={}, enableHttps={}, httpsPort={}",
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getPort(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps(),
+                    seaTunnelConfig.getEngineConfig().getHttpConfig().getHttpsPort());
+        }
 
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);

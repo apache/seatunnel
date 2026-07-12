@@ -119,18 +119,19 @@ public class JobClientTest {
                 "{"
                         + "\"SourceReceivedCount\": ["
                         + "  {\"value\": 500, \"name\": \"source1\"},"
-                        + "  {\"value\": 400, \"name\": \"source2\"},"
-                        + "  {\"value\": 300, \"name\": \"source3\"}"
+                        + "  {\"value\": 600, \"name\": \"source2\"}"
                         + "],"
                         + "\"SinkWriteCount\": ["
-                        + "  {\"value\": 500, \"name\": \"sink1\"},"
+                        + "  {\"value\": 100, \"name\": \"sink1\"},"
                         + "  {\"value\": 400, \"name\": \"sink2\"},"
-                        + "  {\"value\": 300, \"name\": \"sink3\"}"
+                        + "  {\"value\": 300, \"name\": \"sink3\"},"
+                        + "  {\"value\": 300, \"name\": \"sink4\"}"
                         + "],"
                         + "\"SinkCommittedCount\": ["
-                        + "  {\"value\": 450, \"name\": \"sink1\"},"
+                        + "  {\"value\": 100, \"name\": \"sink1\"},"
                         + "  {\"value\": 380, \"name\": \"sink2\"},"
-                        + "  {\"value\": 290, \"name\": \"sink3\"}"
+                        + "  {\"value\": 290, \"name\": \"sink3\"},"
+                        + "  {\"value\": 290, \"name\": \"sink4\"}"
                         + "]"
                         + "}";
 
@@ -140,9 +141,9 @@ public class JobClientTest {
         JobMetricsRunner.JobMetricsSummary summary = jobClient.getJobMetricsSummary(123456L);
 
         Assertions.assertNotNull(summary);
-        Assertions.assertEquals(1200L, summary.getSourceReadCount());
-        Assertions.assertEquals(1200L, summary.getSinkWriteCount());
-        Assertions.assertEquals(1120L, summary.getSinkCommittedCount());
+        Assertions.assertEquals(1100L, summary.getSourceReadCount());
+        Assertions.assertEquals(1100L, summary.getSinkWriteCount());
+        Assertions.assertEquals(1060L, summary.getSinkCommittedCount());
     }
 
     @Test

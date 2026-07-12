@@ -143,7 +143,7 @@ public class FieldRenameTransform extends AbstractCatalogSupportMapTransform {
                 String replacement = replacementsWithRegex.getReplaceFrom();
                 if (StringUtils.isNotEmpty(replacement)) {
                     Map<Integer, Integer> matched = new LinkedHashMap<>();
-                    if (BooleanUtils.isNotTrue(isRegex)) {
+                    if (BooleanUtils.isFalse(isRegex)) {
                         if (StringUtils.equals(replacement, name)) {
                             matched.put(0, name.length());
                         }

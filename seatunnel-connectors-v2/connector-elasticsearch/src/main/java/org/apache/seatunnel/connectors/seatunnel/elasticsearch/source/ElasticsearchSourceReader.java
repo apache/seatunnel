@@ -117,18 +117,23 @@ public class ElasticsearchSourceReader
             // Check if we should use PIT API
             if (SearchApiTypeEnum.PIT.equals(sourceIndexInfo.getSearchApiType())) {
                 log.info("Using Point-in-Time (PIT) API for index: {}", sourceIndexInfo.getIndex());
+                logSliceInfo(sourceIndexInfo);
                 searchWithPointInTime(sourceIndexInfo, output, deserializer);
             } else {
                 log.info("Using Scroll API for index: {}", sourceIndexInfo.getIndex());
                 String scrollId = null;
                 try {
+                    logSliceInfo(sourceIndexInfo);
                     ScrollResult scrollResult =
                             esRestClient.searchByScroll(
                                     sourceIndexInfo.getIndex(),
                                     sourceIndexInfo.getSource(),
                                     sourceIndexInfo.getQuery(),
                                     sourceIndexInfo.getScrollTime(),
-                                    sourceIndexInfo.getScrollSize());
+                                    sourceIndexInfo.getScrollSize(),
+                                    sourceIndexInfo.getRuntimeFields(),
+                                    sourceIndexInfo.getSliceId(),
+                                    sourceIndexInfo.getSliceMax());
                     scrollId = scrollResult.getScrollId();
 
                     outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
@@ -153,6 +158,16 @@ public class ElasticsearchSourceReader
         }
     }
 
+    private void logSliceInfo(ElasticsearchConfig sourceIndexInfo) {
+        if (sourceIndexInfo.getSliceMax() > 1) {
+            log.info(
+                    "Elasticsearch slicing enabled. index={}, slice_id={}, slice_max={}",
+                    sourceIndexInfo.getIndex(),
+                    sourceIndexInfo.getSliceId(),
+                    sourceIndexInfo.getSliceMax());
+        }
+    }
+
     /**
      * Search using Point-in-Time API.
      *
@@ -165,15 +180,24 @@ public class ElasticsearchSourceReader
             Collector<SeaTunnelRow> output,
             SeaTunnelRowDeserializer deserializer) {
 
-        // Create a PIT
-        String pitId =
-                esRestClient.createPointInTime(
-                        sourceIndexInfo.getIndex(), sourceIndexInfo.getPitKeepAlive());
-        sourceIndexInfo.setPitId(pitId);
-        log.info(
-                "Created Point-in-Time with ID: {} for index: {}",
-                pitId,
-                sourceIndexInfo.getIndex());
+        String pitId = sourceIndexInfo.getPitId();
+        boolean pitOwnedByReader = false;
+        if (StringUtils.isEmpty(pitId)) {
+            pitId =
+                    esRestClient.createPointInTime(
+                            sourceIndexInfo.getIndex(), sourceIndexInfo.getPitKeepAlive());
+            sourceIndexInfo.setPitId(pitId);
+            pitOwnedByReader = true;
+            log.info(
+                    "Created Point-in-Time with ID: {} for index: {}",
+                    pitId,
+                    sourceIndexInfo.getIndex());
+        } else {
+            log.info(
+                    "Using shared Point-in-Time with ID: {} for index: {}",
+                    pitId,
+                    sourceIndexInfo.getIndex());
+        }
 
         try {
             // Initial search
@@ -184,7 +208,10 @@ public class ElasticsearchSourceReader
                             sourceIndexInfo.getQuery(),
                             sourceIndexInfo.getPitBatchSize(),
                             null, // No search_after for first request
-                            sourceIndexInfo.getPitKeepAlive());
+                            sourceIndexInfo.getPitKeepAlive(),
+                            sourceIndexInfo.getRuntimeFields(),
+                            sourceIndexInfo.getSliceId(),
+                            sourceIndexInfo.getSliceMax());
 
             // Output the results
             outputFromPitResult(pitResult, sourceIndexInfo, output, deserializer);
@@ -203,18 +230,21 @@ public class ElasticsearchSourceReader
                                 sourceIndexInfo.getQuery(),
                                 sourceIndexInfo.getPitBatchSize(),
                                 sourceIndexInfo.getSearchAfter(),
-                                sourceIndexInfo.getPitKeepAlive());
+                                sourceIndexInfo.getPitKeepAlive(),
+                                sourceIndexInfo.getRuntimeFields(),
+                                sourceIndexInfo.getSliceId(),
+                                sourceIndexInfo.getSliceMax());
 
                 // Output the results
                 outputFromPitResult(pitResult, sourceIndexInfo, output, deserializer);
             }
         } finally {
             // Always clean up the PIT when done
-            if (pitId != null) {
+            if (pitOwnedByReader && pitId != null) {
                 try {
                     esRestClient.deletePointInTime(pitId);
                 } catch (Exception e) {
-                    log.warn("Failed to delete Point-in-Time with ID: " + pitId, e);
+                    log.warn("Failed to delete Point-in-Time with ID: {}", pitId, e);
                 }
             }
         }

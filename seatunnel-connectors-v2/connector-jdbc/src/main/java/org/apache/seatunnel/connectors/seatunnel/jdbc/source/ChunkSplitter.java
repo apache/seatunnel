@@ -143,11 +143,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connection.getAutoCommit() != autoCommit) {
             connection.setAutoCommit(autoCommit);
         }
-        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
-            sql = String.format("SELECT * FROM (%s) tmp %s", sql, config.getWhereConditionClause());
-        }
-        log.debug("Prepared statement: {}", sql);
+        log.info("Prepared statement: {}", sql);
         return jdbcDialect.creatPreparedStatement(connection, sql, fetchSize);
+    }
+
+    protected String applyUserWhereCondition(String sql) {
+        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+            return SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                    sql, config.getWhereConditionClause(), true);
+        }
+        return sql;
     }
 
     protected Connection getOrEstablishConnection() throws SQLException {
@@ -173,6 +178,51 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                 null);
     }
 
+    protected StringSplitStrategy resolveStringSplitStrategy(
+            JdbcSourceTable table, String splitKeyName) throws SQLException {
+        StringSplitStrategy requestedStrategy = config.getStringSplitStrategy();
+        if (requestedStrategy == null
+                || (requestedStrategy != StringSplitStrategy.RANGE
+                        && requestedStrategy != StringSplitStrategy.AUTO)) {
+            return requestedStrategy;
+        }
+
+        if (!jdbcDialect.supportStringRangeSplit()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String split strategy %s requires validated range split support, but dialect %s does not support range/auto string split strategy.",
+                            requestedStrategy, jdbcDialect.dialectName()));
+        }
+
+        StringRangeSplitDecision decision =
+                jdbcDialect.validateStringRangeSplit(
+                        getOrEstablishConnection(), table, splitKeyName, 256);
+        if (decision.isSafe()) {
+            return StringSplitStrategy.RANGE;
+        }
+        if (requestedStrategy == StringSplitStrategy.RANGE) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String range split is unsafe for table %s, split column %s: %s",
+                            table.getTablePath(), splitKeyName, decision.getReason()));
+        }
+
+        StringSplitStrategy fallback =
+                jdbcDialect.supportHashSplitter()
+                        ? StringSplitStrategy.HASH
+                        : StringSplitStrategy.NONE;
+        log.warn(
+                "String range split is unsafe for table {}, split column {}. Requested strategy: {}, fallback strategy: {}, reason: {}",
+                table.getTablePath(),
+                splitKeyName,
+                requestedStrategy,
+                fallback,
+                decision.getReason());
+        return fallback;
+    }
+
     protected PreparedStatement createSingleSplitStatement(JdbcSourceSplit split)
             throws SQLException {
         String splitQuery = split.getSplitQuery();
@@ -181,6 +231,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     String.format(
                             "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
         }
+        splitQuery = applyUserWhereCondition(splitQuery);
         return createPreparedStatement(splitQuery);
     }
 
