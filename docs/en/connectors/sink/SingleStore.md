@@ -10,7 +10,7 @@ Write data to SingleStore (formerly MemSQL) through JDBC. SingleStore is a high-
 
 ## Supported SingleStore Version
 
-- **SingleStore v7.1+** (tested on 7.1 and later). Required for JDBC driver and MySQL-compatible SQL used by the connector. See [SingleStore Source](source/SingleStore.md) for details.
+- **SingleStore v7.1+** (tested on 7.1 and later). Required for JDBC driver and MySQL-compatible SQL used by the connector. See [SingleStore Source](../source/SingleStore.md) for details.
 
 ## Support Those Engines
 
@@ -42,11 +42,11 @@ Write data to SingleStore (formerly MemSQL) through JDBC. SingleStore is a high-
 
 ### Connection URL Format
 
-Same as [SingleStore Source](source/SingleStore.md#connection-url-format): `jdbc:singlestore://host:port/database[?params]`
+Same as [SingleStore Source](../source/SingleStore.md#connection-url-format): `jdbc:singlestore://host:port/database[?params]`
 
 ## FAQ / Troubleshooting
 
-See the [SingleStore Source FAQ](source/SingleStore.md#faq--troubleshooting) for connection, driver, and URL issues. For sink-specific problems (upsert, batch, schema evolution), test with a small table and verify primary keys and `rewriteBatchedStatements=true`.
+See the [SingleStore Source FAQ](../source/SingleStore.md#faq--troubleshooting) for connection, driver, and URL issues. For sink-specific problems (upsert, batch, schema evolution), test with a small table and verify primary keys and `rewriteBatchedStatements=true`.
 
 ## Sink Options
 
@@ -101,3 +101,5 @@ sink {
   }
 }
 ```
+
+<ChangeLog />

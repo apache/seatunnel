@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 支持的 SingleStore 版本
 
-- **SingleStore v7.1+**（已在 7.1 及更高版本上测试）。连接器所需的 JDBC 驱动与 MySQL 兼容 SQL 详见 [SingleStore 源](source/SingleStore.md)。
+- **SingleStore v7.1+**（已在 7.1 及更高版本上测试）。连接器所需的 JDBC 驱动与 MySQL 兼容 SQL 详见 [SingleStore 源](../source/SingleStore.md)。
 
 ## 支持的引擎
 
@@ -42,11 +42,11 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 连接 URL 格式
 
-与 [SingleStore 源](source/SingleStore.md#连接-url-格式) 相同：`jdbc:singlestore://host:port/database[?params]`
+与 [SingleStore 源](../source/SingleStore.md#连接-url-格式) 相同：`jdbc:singlestore://host:port/database[?params]`
 
 ## 常见问题与排查
 
-连接、驱动与 URL 问题请参见 [SingleStore 源常见问题](source/SingleStore.md#常见问题与排查)。针对 sink 的 upsert、批量写入或 schema 变更问题，建议先用小表验证主键与 `rewriteBatchedStatements=true`。
+连接、驱动与 URL 问题请参见 [SingleStore 源常见问题](../source/SingleStore.md#常见问题与排查)。针对 sink 的 upsert、批量写入或 schema 变更问题，建议先用小表验证主键与 `rewriteBatchedStatements=true`。
 
 ## 目标选项
 
@@ -101,3 +101,5 @@ sink {
   }
 }
 ```
+
+<ChangeLog />
