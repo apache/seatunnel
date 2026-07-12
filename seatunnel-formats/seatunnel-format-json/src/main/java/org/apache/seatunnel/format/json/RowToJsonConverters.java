@@ -34,6 +34,7 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -112,49 +113,49 @@ public class RowToJsonConverters implements Serializable {
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((byte) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case SMALLINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((short) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case INT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((int) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case BIGINT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((long) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case FLOAT:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((float) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case DOUBLE:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((double) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case DECIMAL:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
-                        return mapper.getNodeFactory().numberNode((BigDecimal) value);
+                        return createNumericNode(mapper, value);
                     }
                 };
             case BYTES:
@@ -270,6 +271,34 @@ public class RowToJsonConverters implements Serializable {
                 return node;
             }
         };
+    }
+
+    private JsonNode createNumericNode(ObjectMapper mapper, Object value) {
+        if (value instanceof Byte) {
+            return mapper.getNodeFactory().numberNode((Byte) value);
+        }
+        if (value instanceof Short) {
+            return mapper.getNodeFactory().numberNode((Short) value);
+        }
+        if (value instanceof Integer) {
+            return mapper.getNodeFactory().numberNode((Integer) value);
+        }
+        if (value instanceof Long) {
+            return mapper.getNodeFactory().numberNode((Long) value);
+        }
+        if (value instanceof Float) {
+            return mapper.getNodeFactory().numberNode((Float) value);
+        }
+        if (value instanceof Double) {
+            return mapper.getNodeFactory().numberNode((Double) value);
+        }
+        if (value instanceof BigInteger) {
+            return mapper.getNodeFactory().numberNode((BigInteger) value);
+        }
+        if (value instanceof BigDecimal) {
+            return mapper.getNodeFactory().numberNode((BigDecimal) value);
+        }
+        return mapper.getNodeFactory().textNode(String.valueOf(value));
     }
 
     private RowToJsonConverter createArrayConverter(ArrayType arrayType) {

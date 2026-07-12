@@ -295,6 +295,21 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
+    public void testSerializeHeterogeneousNumericFields() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"value", "amount"},
+                        new SeaTunnelDataType[] {INT_TYPE, LONG_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"text value", new BigDecimal("123.45")});
+
+        assertEquals(
+                "{\"value\":\"text value\",\"amount\":123.45}",
+                new String(
+                        new JsonSerializationSchema(schema).serialize(row),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
     public void testSerDeMultiRowsWithNullValues() throws Exception {
         String[] jsons =
                 new String[] {
