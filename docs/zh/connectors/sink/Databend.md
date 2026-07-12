@@ -37,7 +37,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 
 | 名称                  | 类型 | 是否必须 | 默认值 | 描述                                 |
 |---------------------|------|----------|--------|------------------------------------|
-| url                 | String | 是 | - | Databend JDBC 连接 URL               |
+| url                 | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username            | String | 是 | - | Databend 数据库用户名                    |
 | password            | String | 是 | - | Databend 数据库密码                     |
 | database            | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
@@ -159,6 +159,7 @@ sink {
 
 `conflict_key` 用来指定合并更新/删除事件的主键列。只有当 DELETE 事件需要删除
 Databend 中的数据时，才需要设置 `enable_delete = true`。
+如果不配置 `conflict_key`，sink 会按普通批量插入方式写入。
 
 ```hocon
 sink {

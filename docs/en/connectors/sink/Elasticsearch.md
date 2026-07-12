@@ -11,6 +11,7 @@ Output data to `Elasticsearch`.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -47,7 +48,7 @@ Engine Supported
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
 | vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | -                            |
+| vector_dimensions       | int     | no       | 0                            |
 | multi_table_sink_replica | int     | no       | 1                            |
 
 ### hosts [array]

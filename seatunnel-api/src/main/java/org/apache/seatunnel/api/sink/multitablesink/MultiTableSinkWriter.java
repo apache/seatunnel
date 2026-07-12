@@ -889,6 +889,28 @@ public class MultiTableSinkWriter
     }
 
     /**
+     * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
+     * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
+     * to prevent concurrent writes.
+     *
+     * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
+     */
+    void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
+        checkQueueRemain();
+        subSinkErrorCheck();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            synchronized (runnable.get(i)) {
+                for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
+                    SinkContextProxy proxy = proxyContexts.get(id);
+                    if (proxy != null && proxy.getFlushAction() != null) {
+                        proxy.getFlushAction().run();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Busy-waits until all blocking queues are fully drained.
      *
      * <p>Polls each queue every 100 milliseconds, checking for sub-sink errors between iterations

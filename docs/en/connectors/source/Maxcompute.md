@@ -25,7 +25,7 @@ Used to read data from Maxcompute.
 | sts_token      | string | no       | -             |
 | endpoint       | string | yes      | -             |
 | project        | string | yes      | -             |
-| table_name     | string | yes      | -             |
+| table_name     | string | yes when `table_list` is not set | -             |
 | schema_name    | string | no       | -             |
 | partition_spec | string | no       | -             |
 | split_row      | int    | no       | 10000         |
@@ -60,7 +60,9 @@ Used to read data from Maxcompute.
 
 ### table_name [string]
 
-`table_name` Target Maxcompute table name eg: fake.
+`table_name` Target Maxcompute table name, for example `fake`.
+
+`table_name` and `table_list` are mutually exclusive. Use `table_name` for one table and `table_list` for multiple tables.
 
 ### partition_spec [string]
 
@@ -87,6 +89,10 @@ Default: not set (uses the project default schema).
 ### table_list [Array]
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
+
+Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set those values, the connector uses the top-level value.
+
+This mode is useful when one job needs to read several MaxCompute tables with the same account, endpoint, and default project.
 
 ### tunnel_endpoint [String]
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.

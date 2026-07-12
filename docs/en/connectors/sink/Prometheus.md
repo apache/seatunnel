@@ -39,7 +39,7 @@ downloaded from Maven Central.
 
 | Datasource | Supported Versions | Dependency |
 |------------|--------------------|------------|
-| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
+| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## Sink Options
 
@@ -55,12 +55,16 @@ downloaded from Maven Central.
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
 | batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
 | flush_interval              | Long   | No       | 300000  | Maximum flush interval in milliseconds. |
+| multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### key_label
 
 The named field should be `map<string, string>`. It is converted to Prometheus labels. Include `__name__` in the map
 to set the metric name.
+
+The sink adds the required remote write headers automatically: `Content-type`,
+`Content-Encoding`, and `X-Prometheus-Remote-Write-Version`.
 
 ### key_timestamp
 
@@ -70,6 +74,11 @@ Supported timestamp field types:
 - `bigint`: treated as epoch milliseconds
 - `double`: treated as Unix seconds and converted to milliseconds
 - `string`: parsed as epoch milliseconds
+
+### multi_table_sink_replica
+
+Replica count for multi-table sink writers. It applies to each table in a multi-table job. Keep the
+default value `1` unless one table needs more writer parallelism.
 
 ## Example
 

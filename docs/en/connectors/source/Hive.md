@@ -211,7 +211,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ```
 
-### Example 3: Regex matching (whole database / subset)
+### Example 4: Regex matching (whole database / subset)
 
 ```bash
   Hive {
@@ -244,7 +244,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
   }
 ```
 
-### Example 4 : Kerberos
+### Example 5: Kerberos
 
 ```bash
 source {

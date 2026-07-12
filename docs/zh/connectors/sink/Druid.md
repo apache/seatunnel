@@ -57,6 +57,8 @@ SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为
 
 写入器关闭时，SeaTunnel 也会把剩余缓存数据提交到 Druid。
 
+批量写入量较大时，可以适当调大该值，减少提交给 Druid 的索引任务数量。如果希望数据更早提交到 Druid，可以适当调小该值，但这会产生更多索引任务。
+
 ### common options
 
 Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。
@@ -70,6 +72,12 @@ Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-co
 Druid 写入需要主时间列。连接器会自动追加一个名为 `timestamp` 的处理时间列给 Druid 使用；上游的 `TIMESTAMP` 字段会按上面的类型映射写成字符串维度。
 
 当缓存行数达到 `batchSize` 时会触发一次写入；写入器关闭时，也会把剩余缓存数据提交到 Druid。当前没有按时间间隔定期刷新的配置。
+
+该 Sink 适合追加式批量写入，不会把 CDC 的更新/删除行自动转换成 Druid 的 upsert 或 delete 操作。
+
+仅支持 [数据类型映射](#数据类型映射) 中列出的 SeaTunnel 类型，其他类型会在写入规划阶段报错。
+
+由于连接器会把数据以内联 CSV 的形式提交给 Druid，字符串字段中不建议直接包含英文逗号或换行符；如有这类内容，建议在进入 Druid Sink 前先做清洗或替换。
 
 ## 示例
 
@@ -115,6 +123,7 @@ sink {
   Druid {
     coordinatorUrl = "router:8888"
     datasource = "testDataSource"
+    batchSize = 10000
   }
 }
 ```

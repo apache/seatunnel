@@ -60,6 +60,7 @@ Cassandra source 支持两种读取方式：
 | password          | String     | 否       | -           | Cassandra 密码，需要和 `username` 一起配置。 |
 | datacenter        | String     | 否       | datacenter1 | Cassandra Java Driver 使用的本地数据中心名称。 |
 | consistency_level | String     | 否       | LOCAL_ONE   | 读取一致性级别，例如 `LOCAL_ONE`、`ONE`、`QUORUM`、`LOCAL_QUORUM`。 |
+| common-options    |            | 否       | -           | Source 插件通用参数，例如 `plugin_output`。 |
 
 > \* `cql` 与 `tables_configs` 二选一，必须提供其中之一。
 
@@ -109,6 +110,10 @@ Cassandra source 支持两种读取方式：
 
 `Cassandra` 的读取一致性级别, 默认为 `LOCAL_ONE`.
 
+### common-options
+
+Source 插件通用参数，详情请参考 [Source 常用选项](../common-options/source-common-options.md)。
+
 ## 注意事项
 
 - `username` 和 `password` 是一组配置。集群开启认证时两个都要配；未开启认证时两个都可以不配。
@@ -117,6 +122,7 @@ Cassandra source 支持两种读取方式：
 - `cql` 和 `tables_configs` 互斥。读取一个结果表时用 `cql`，需要让一个 source 读取多张 Cassandra 表时用
   `tables_configs`。
 - 这是批处理 source。它读取当前查询结果后就会结束。
+- 一个 CQL 查询会作为一个 source split 读取。调大任务并行度不会自动把单张 Cassandra 表拆成多个扫描任务。
 
 ## 示例
 

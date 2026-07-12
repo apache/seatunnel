@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 支持查询 SQL 并可以实现投影效果。
 
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -35,7 +35,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | upper_bound        | int    | 否  | -     | 启用并行范围读取时，`split_column` 的上界。                                                   |
 | partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 分割列                                                                           |
-| where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取 `where` 关键字。                              |
+| where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取小写 `where` 关键字。                              |
 | epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询超时时间（秒）                                                                     |
@@ -93,6 +93,7 @@ InfluxDB 密码
 > - InfluxDB time 不支持作为分割主键，因为 time 字段无法参与数学计算
 > - 目前，`split_column` 仅支持整数数据分割，不支持 `float`、`string`、`date` 等类型。
 > - `split_column`、`lower_bound`、`upper_bound`、`partition_num` 需要一起配置。
+> - 如果切分读取的 SQL 中包含过滤条件，请在 `sql` 里使用小写 `where`，例如 `select * from test where age > 0`。当前切分解析逻辑区分大小写。
 
 ### upper_bound [int]
 

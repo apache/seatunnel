@@ -10,22 +10,28 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 该连接器会订阅配置的 MQTT topic，将消息 payload 按 JSON 或 text 格式反序列化，并转换为 SeaTunnel Row。
 
-## 关键特性
+## 支持引擎
 
-- [ ] [批](../../introduction/concepts/connector-v2-features.md)
-- [x] [流](../../introduction/concepts/connector-v2-features.md)
+> SeaTunnel Zeta<br/>
+> Flink<br/>
+> Spark<br/>
+
+## 主要特性
+
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 :::caution 交付语义
 
-`qos` 选项只控制 MQTT broker 和 MQTT client 之间的交付语义。它没有与 SeaTunnel checkpoint 集成，因此该 Source 不提供端到端的精确一次或至少一次保证。
+`qos` 选项只控制 MQTT broker 和 MQTT client 之间的交付语义。它没有与 SeaTunnel checkpoint 集成，因此该源连接器不提供端到端的精确一次或至少一次保证。
 
-如需使用 MQTT 持久会话，请设置 `clean_session=false` 并配置稳定的 `client_id`。当 `clean_session=false` 时，Source 在关闭时只断开连接，不会取消订阅，因此 broker 可以根据 MQTT 会话语义保留订阅。
+如需使用 MQTT 持久会话，请设置 `clean_session=false` 并配置稳定的 `client_id`。当 `clean_session=false` 时，源连接器在关闭时只断开连接，不会取消订阅，因此 broker 可以根据 MQTT 会话语义保留订阅。
 
-Source 使用 MQTT 自动重连。如果 client 断开连接的时间超过 `reconnect_timeout`，Source task 会失败，以避免静默停止摄取。
+源连接器使用 MQTT 自动重连。如果客户端断开连接的时间超过 `reconnect_timeout`，源任务会失败，以避免静默停止摄取。
 
 :::
 
@@ -120,7 +126,7 @@ MQTT keep alive 间隔，单位为秒。
 
 ### reconnect_timeout [int]
 
-等待 MQTT 自动重连的最长时间，单位为秒。如果 MQTT client 断开连接的时间超过该超时时间，`pollNext()` 会使 Source task 失败，避免无限期静默等待。
+等待 MQTT 自动重连的最长时间，单位为秒。如果 MQTT 客户端断开连接的时间超过该超时时间，`pollNext()` 会使源任务失败，避免无限期静默等待。
 
 ### max_queue_size [int]
 
@@ -128,11 +134,11 @@ MQTT keep alive 间隔，单位为秒。
 
 ### common options
 
-源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。
+源插件通用参数，详情请参考 [源通用选项](../common-options/source-common-options.md)。
 
 ## 示例
 
-### JSON Source
+### JSON 源
 
 ```hocon
 env {
@@ -164,9 +170,14 @@ sink {
 }
 ```
 
-### 持久会话 Source
+### 持久会话源
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
 source {
   MQTT {
     url = "tcp://broker.example.com:1883"
@@ -182,6 +193,10 @@ source {
       }
     }
   }
+}
+
+sink {
+  Console {}
 }
 ```
 

@@ -12,6 +12,9 @@ The sink writes rows to an existing Cassandra table. If `fields` is not configur
 uses all columns from the target Cassandra table schema. If `fields` is configured, only those
 columns are written, and every configured field must exist in the target table.
 
+The connector does not create keyspaces, tables, or missing columns. Prepare the target Cassandra
+schema before starting the job.
+
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -31,6 +34,7 @@ columns are written, and every configured field must exist in the target table.
 | batch_size        | int     | No       | 5000        | Maximum number of rows buffered before one flush. |
 | batch_type        | String  | No       | UNLOGGED    | Cassandra batch type. Supported driver values include `LOGGED`, `UNLOGGED`, and `COUNTER`. |
 | async_write       | boolean | No       | true        | Whether to execute writes asynchronously. |
+| common-options    |         | No       | -           | Sink plugin common parameters, such as `plugin_input`. |
 
 ### host [string]
 
@@ -69,6 +73,8 @@ connector reads the target table schema and writes all columns from that table.
 When this option is configured, the field names must exist in the target Cassandra table and must
 also exist in the upstream SeaTunnel row.
 
+Use this option when the upstream row has extra fields that should not be written to Cassandra.
+
 ### batch_size [number]
 
 The number of rows written through [Cassandra-Java-Driver](https://github.com/datastax/java-driver) each time,
@@ -81,6 +87,17 @@ The `Cassandra` batch processing mode, default is `UNLOGGED`.
 ### async_write [boolean]
 
 Whether `cassandra` writes in asynchronous mode, default is `true`.
+
+### common-options
+
+Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).
+
+## Notes
+
+- The target keyspace and table must already exist before the job starts.
+- `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
+- `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
+  before a flush.
 
 ## Examples
 

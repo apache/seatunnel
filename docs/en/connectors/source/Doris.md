@@ -70,12 +70,14 @@ Base configuration:
 | doris.request.retries            | int    | no       | 3          | Number of retries to send requests to Doris FE.                                                     |
 | doris.request.read.timeout.ms    | int    | no       | 30000      | Socket read timeout for requests sent to Doris BE.                                                  |
 | doris.request.connect.timeout.ms | int    | no       | 30000      | Connection timeout for requests sent to Doris FE or BE.                                             |
-| query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
+| query-port                       | int    | no       | 9030       | Doris query port.                                                                                   |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization.                                               |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
+
+The `doris.request.retriesdoris.deserialize.queue.size` key is the current runtime option name. Use this exact key when tuning the asynchronous Arrow deserialization queue.
 
 Table list configuration:
 
@@ -85,10 +87,11 @@ Table list configuration:
 | table                            | string | yes      | -          | The name of Doris table                                                                             |
 | doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
 | doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
+| doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split for this table. The minimum value is `1`. |
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
  
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer. If `table_list` is not configured, `database` and `table` must be configured at the outer source level.
 
 ### Tips
 
@@ -197,6 +200,8 @@ source{
             table = "doris_table_0"
             doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
             doris.filter.query = "F_ID >= 50"
+            doris.request.tablet.size = 1
+            doris.exec.mem.limit = 2147483648
           },
           {
             database = "st_source_1"

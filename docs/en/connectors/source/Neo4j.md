@@ -30,6 +30,7 @@ the returned fields to a SeaTunnel schema.
 | Float            | FLOAT / DOUBLE      |
 | ByteArray        | BYTES               |
 | Date             | DATE                |
+| LocalTime        | TIME                |
 | LocalDateTime    | TIMESTAMP           |
 | List             | ARRAY               |
 | Map              | MAP                 |
@@ -55,6 +56,8 @@ the returned fields to a SeaTunnel schema.
 - Use exactly one authentication method: username/password, bearer token, or Kerberos ticket.
 - `query` controls which fields are returned. `schema.fields` must list the returned field names and their SeaTunnel types.
 - Returned field names can contain dots, such as `t.string`, when the Cypher query returns properties from a node.
+- `MAP` fields must use `STRING` keys, for example `MAP<STRING, INT>`.
+- Neo4j integer and floating-point values are converted according to the SeaTunnel type declared in `schema.fields`. Use `BIGINT`/`DOUBLE` when the value may exceed the range of `INT`/`FLOAT`.
 
 ## Task Example
 
