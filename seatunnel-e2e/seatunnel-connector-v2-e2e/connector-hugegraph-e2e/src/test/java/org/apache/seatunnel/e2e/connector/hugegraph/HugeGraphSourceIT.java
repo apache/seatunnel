@@ -146,6 +146,20 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSizeTriggeredFlushWithEdgeFirstMappingOrder(TestContainer container)
+            throws IOException, InterruptedException {
+        clearGraph();
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/hugegraph/fake_to_hugegraph_multi_mapping_edge_first.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode(), buildFailureMessage(execResult));
+        awaitLabelVertexCount("person", 25);
+        awaitEdgeCount("knows", 25);
+    }
+
+    @TestTemplate
     public void testEdgeSourceToAssert(TestContainer container)
             throws IOException, InterruptedException {
         clearGraph();

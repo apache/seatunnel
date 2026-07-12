@@ -220,6 +220,9 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     }
 
     private void handleUpsert(SeaTunnelRow row, boolean update) throws IOException {
+        List<GraphElementEnvelope> vertexEnvelopes = new ArrayList<>();
+        List<GraphElementEnvelope> edgeEnvelopes = new ArrayList<>();
+
         for (MappingEntry entry : mappingEntries) {
             try {
                 if (update
@@ -239,7 +242,11 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 GraphElementEnvelope envelope =
                         new GraphElementEnvelope(
                                 entry.config.getLabel(), entry.config.getType(), row, element);
-                buffer.add(envelope);
+                if (entry.config.getType() == LabelType.VERTEX) {
+                    vertexEnvelopes.add(envelope);
+                } else {
+                    edgeEnvelopes.add(envelope);
+                }
             } catch (Exception e) {
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
@@ -248,6 +255,13 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                                 entry.config.getType(), entry.config.getLabel()),
                         e);
             }
+        }
+
+        for (GraphElementEnvelope envelope : vertexEnvelopes) {
+            buffer.add(envelope);
+        }
+        for (GraphElementEnvelope envelope : edgeEnvelopes) {
+            buffer.add(envelope);
         }
     }
 
@@ -261,7 +275,17 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                     e);
         }
 
+        List<MappingEntry> edgeEntries = new ArrayList<>();
+        List<MappingEntry> vertexEntries = new ArrayList<>();
         for (MappingEntry entry : mappingEntries) {
+            if (entry.config.getType() == LabelType.VERTEX) {
+                vertexEntries.add(entry);
+            } else {
+                edgeEntries.add(entry);
+            }
+        }
+
+        for (MappingEntry entry : edgeEntries) {
             try {
                 Object id = entry.mapper.extractId(row);
                 if (id == null) {
@@ -271,15 +295,31 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                                     "Mapping[%s/%s]: Cannot delete because a required ID field is null or matches nullValues",
                                     entry.config.getType(), entry.config.getLabel()));
                 }
+                client.deleteEdge((String) id);
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to delete graph element",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
+            }
+        }
 
-                if (entry.config.getType() == LabelType.VERTEX) {
-                    if (sinkConfig.isDeleteVertexWithEdges()) {
-                        client.deleteVertexWithEdges(id);
-                    } else {
-                        client.deleteVertex(id);
-                    }
+        for (MappingEntry entry : vertexEntries) {
+            try {
+                Object id = entry.mapper.extractId(row);
+                if (id == null) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Mapping[%s/%s]: Cannot delete because a required ID field is null or matches nullValues",
+                                    entry.config.getType(), entry.config.getLabel()));
+                }
+                if (sinkConfig.isDeleteVertexWithEdges()) {
+                    client.deleteVertexWithEdges(id);
                 } else {
-                    client.deleteEdge((String) id);
+                    client.deleteVertex(id);
                 }
             } catch (Exception e) {
                 throw new HugeGraphConnectorException(

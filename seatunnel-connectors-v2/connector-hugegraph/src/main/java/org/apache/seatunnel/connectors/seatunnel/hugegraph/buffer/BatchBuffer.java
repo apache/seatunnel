@@ -103,6 +103,9 @@ public class BatchBuffer implements AutoCloseable {
             } else {
                 edgeBuffer.add(envelope);
                 if (edgeBuffer.size() >= batchSize) {
+                    if (!vertexBuffer.isEmpty()) {
+                        doFlushVertices();
+                    }
                     doFlushEdges();
                 }
             }

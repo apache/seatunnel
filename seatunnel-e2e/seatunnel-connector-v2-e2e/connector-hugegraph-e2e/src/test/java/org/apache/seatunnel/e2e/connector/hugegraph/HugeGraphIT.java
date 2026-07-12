@@ -124,6 +124,16 @@ public class HugeGraphIT {
 
     private HugeGraphSinkWriter createSinkWriter(
             MappingConfig mappingConfig, SeaTunnelRowType rowType) throws IOException {
+        return createSinkWriter(
+                Collections.singletonList(mappingConfig), rowType, false, 100);
+    }
+
+    private HugeGraphSinkWriter createSinkWriter(
+            List<MappingConfig> mappingConfigs,
+            SeaTunnelRowType rowType,
+            boolean deleteVertexWithEdges,
+            int batchSize)
+            throws IOException {
         HugeGraphConnectionConfig connectionConfig = new HugeGraphConnectionConfig();
         connectionConfig.setHost(HUGE_GRAPH_CONTAINER.getHost());
         connectionConfig.setPort(HUGE_GRAPH_CONTAINER.getMappedPort(8080));
@@ -131,11 +141,12 @@ public class HugeGraphIT {
 
         HugeGraphSinkConfig config = new HugeGraphSinkConfig();
         config.setConnectionConfig(connectionConfig);
-        config.setBatchSize(100);
+        config.setBatchSize(batchSize);
         config.setBatchIntervalMs(0);
         config.setMaxRetries(0);
         config.setRetryBackoffMs(0);
-        config.setMappings(Collections.singletonList(mappingConfig));
+        config.setMappings(mappingConfigs);
+        config.setDeleteVertexWithEdges(deleteVertexWithEdges);
         return new HugeGraphSinkWriter(config, rowType);
     }
 
@@ -301,5 +312,106 @@ public class HugeGraphIT {
         writer.close();
 
         Assertions.assertTrue(hugeClient.graph().listEdges("knows").isEmpty());
+    }
+
+    private List<MappingConfig> buildMultiMappingConfigs() {
+        MappingConfig vertexMapping = new MappingConfig();
+        vertexMapping.setType(LabelType.VERTEX);
+        vertexMapping.setLabel(VERTEX_LABEL);
+        vertexMapping.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        vertexMapping.setIdFields(Collections.singletonList("v_name"));
+        vertexMapping.setProperties(Arrays.asList("v_name", "v_age"));
+        Map<String, String> vertexFm = new HashMap<>();
+        vertexFm.put("v_name", "name");
+        vertexFm.put("v_age", "age");
+        vertexMapping.setFieldMapping(vertexFm);
+
+        MappingConfig edgeMapping = new MappingConfig();
+        edgeMapping.setType(LabelType.EDGE);
+        edgeMapping.setLabel("knows");
+        SourceTargetConfig srcCfg = new SourceTargetConfig();
+        srcCfg.setLabel(VERTEX_LABEL);
+        srcCfg.setIdFields(Collections.singletonList("src"));
+        edgeMapping.setSourceConfig(srcCfg);
+        SourceTargetConfig tgtCfg = new SourceTargetConfig();
+        tgtCfg.setLabel(VERTEX_LABEL);
+        tgtCfg.setIdFields(Collections.singletonList("tgt"));
+        edgeMapping.setTargetConfig(tgtCfg);
+        edgeMapping.setProperties(Collections.singletonList("weight"));
+        Map<String, String> edgeFm = new HashMap<>();
+        edgeFm.put("src", "name");
+        edgeFm.put("tgt", "name");
+        edgeMapping.setFieldMapping(edgeFm);
+
+        return Arrays.asList(vertexMapping, edgeMapping);
+    }
+
+    private static final SeaTunnelRowType MULTI_MAPPING_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {"v_name", "v_age", "src", "tgt", "weight"},
+                    new SeaTunnelDataType<?>[] {
+                        BasicType.STRING_TYPE, BasicType.INT_TYPE,
+                        BasicType.STRING_TYPE, BasicType.STRING_TYPE,
+                        BasicType.DOUBLE_TYPE
+                    });
+
+    @Test
+    public void testMultiMappingDeleteWithoutCascade() throws IOException {
+        Vertex alice = new Vertex(VERTEX_LABEL).property("name", "Alice").property("age", 30);
+        Vertex bob = new Vertex(VERTEX_LABEL).property("name", "Bob").property("age", 25);
+        alice = hugeClient.graph().addVertex(alice);
+        bob = hugeClient.graph().addVertex(bob);
+        Edge edge = new Edge("knows").source(alice).target(bob).property("weight", 1.0);
+        hugeClient.graph().addEdge(edge);
+        assertEquals(1, hugeClient.graph().listEdges("knows").size());
+
+        HugeGraphSinkWriter writer =
+                createSinkWriter(buildMultiMappingConfigs(), MULTI_MAPPING_ROW_TYPE, false, 100);
+        SeaTunnelRow row =
+                new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
+        row.setRowKind(RowKind.DELETE);
+        writer.write(row);
+        writer.close();
+
+        assertEquals(0, hugeClient.graph().listEdges("knows").size(),
+                "Edge should have been deleted before vertex");
+        Map<String, Object> props = new HashMap<>();
+        props.put("name", "Alice");
+        Assertions.assertTrue(
+                hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).isEmpty(),
+                "Vertex Alice should have been deleted");
+        props.put("name", "Bob");
+        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
+                "Vertex Bob should still exist");
+    }
+
+    @Test
+    public void testMultiMappingDeleteWithCascade() throws IOException {
+        Vertex alice = new Vertex(VERTEX_LABEL).property("name", "Alice").property("age", 30);
+        Vertex bob = new Vertex(VERTEX_LABEL).property("name", "Bob").property("age", 25);
+        alice = hugeClient.graph().addVertex(alice);
+        bob = hugeClient.graph().addVertex(bob);
+        Edge edge = new Edge("knows").source(alice).target(bob).property("weight", 1.0);
+        hugeClient.graph().addEdge(edge);
+        assertEquals(1, hugeClient.graph().listEdges("knows").size());
+
+        HugeGraphSinkWriter writer =
+                createSinkWriter(buildMultiMappingConfigs(), MULTI_MAPPING_ROW_TYPE, true, 100);
+        SeaTunnelRow row =
+                new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
+        row.setRowKind(RowKind.DELETE);
+        writer.write(row);
+        writer.close();
+
+        assertEquals(0, hugeClient.graph().listEdges("knows").size(),
+                "Edge should have been deleted");
+        Map<String, Object> props = new HashMap<>();
+        props.put("name", "Alice");
+        Assertions.assertTrue(
+                hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).isEmpty(),
+                "Vertex Alice should have been deleted (cascade as safety net)");
+        props.put("name", "Bob");
+        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
+                "Vertex Bob should still exist");
     }
 }
