@@ -14,6 +14,21 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
+## 数据类型映射
+
+| SeaTunnel 数据类型 | InfluxDB 用法 |
+|--------------------|---------------|
+| BOOLEAN            | 写为 InfluxDB field。 |
+| SMALLINT           | 写为 InfluxDB field。 |
+| INT                | 写为 InfluxDB field。 |
+| BIGINT             | 写为 InfluxDB field；配置为 `key_time` 时也可以作为时间戳。 |
+| FLOAT              | 写为 InfluxDB field。 |
+| DOUBLE             | 写为 InfluxDB field。 |
+| STRING             | 可写为 InfluxDB field、tag 值，或在配置为 `key_time` 时作为时间戳字符串。 |
+| TIMESTAMP          | 可用于 `key_time`，连接器会按 UTC 时区转换成 epoch 毫秒。 |
+
+当前 InfluxDB sink 序列化器不支持其他 SeaTunnel 类型。
+
 ## 选项
 
 | 参数名                         | 类型     | 必须 | 默认值          | 描述                                                       |
@@ -80,6 +95,8 @@ measurement 名称，这在多表写入场景很有用。
 
 刷新失败的重试次数
 
+不配置该选项时，sink 只尝试写入一次，失败后直接报错。
+
 ### retry_backoff_multiplier_ms [int]
 
 用作生成下一个退避延迟的乘数
@@ -87,6 +104,8 @@ measurement 名称，这在多表写入场景很有用。
 ### max_retry_backoff_ms [int]
 
 在尝试重新请求 `influxDB` 之前等待的时间量
+
+使用重试配置时，建议同时配置 `retry_backoff_multiplier_ms` 和 `max_retry_backoff_ms`；否则重试等待时间仍为 `0`。
 
 ### write_timeout [int]
 
