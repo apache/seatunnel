@@ -74,7 +74,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                         .withRegEx(".*Master: Starting Spark master at.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         List<String> dockerCommand = getDockerCommand();
-        if (!dockerCommand.isEmpty()) {
+        if (dockerCommand != null && !dockerCommand.isEmpty()) {
             master.withCommand(dockerCommand.toArray(new String[0]));
         }
         copySeaTunnelStarterToContainer(master);

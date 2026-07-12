@@ -43,7 +43,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoder;
-import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 
@@ -177,7 +176,7 @@ public class TransformExecuteProcessor
                         (CatalogTable[])
                                 transform.getProducedCatalogTables().toArray(new CatalogTable[0]));
         Dataset<Row> stream = tableInfo.getDataset();
-        Encoder<Row> encoder = Encoders.row(outputManager.getTableSchema());
+        Encoder<Row> encoder = SparkRowEncoder.create(outputManager.getTableSchema());
         return stream.flatMap(
                         new TransformMapPartitionsFunction(transform, inputManager, outputManager),
                         encoder)
