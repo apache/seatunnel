@@ -151,8 +151,7 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
         clearGraph();
 
         Container.ExecResult execResult =
-                container.executeJob(
-                        "/hugegraph/fake_to_hugegraph_multi_mapping_edge_first.conf");
+                container.executeJob("/hugegraph/fake_to_hugegraph_multi_mapping_edge_first.conf");
 
         Assertions.assertEquals(0, execResult.getExitCode(), buildFailureMessage(execResult));
         awaitLabelVertexCount("person", 25);

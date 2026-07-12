@@ -124,8 +124,7 @@ public class HugeGraphIT {
 
     private HugeGraphSinkWriter createSinkWriter(
             MappingConfig mappingConfig, SeaTunnelRowType rowType) throws IOException {
-        return createSinkWriter(
-                Collections.singletonList(mappingConfig), rowType, false, 100);
+        return createSinkWriter(Collections.singletonList(mappingConfig), rowType, false, 100);
     }
 
     private HugeGraphSinkWriter createSinkWriter(
@@ -367,13 +366,14 @@ public class HugeGraphIT {
 
         HugeGraphSinkWriter writer =
                 createSinkWriter(buildMultiMappingConfigs(), MULTI_MAPPING_ROW_TYPE, false, 100);
-        SeaTunnelRow row =
-                new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
         row.setRowKind(RowKind.DELETE);
         writer.write(row);
         writer.close();
 
-        assertEquals(0, hugeClient.graph().listEdges("knows").size(),
+        assertEquals(
+                0,
+                hugeClient.graph().listEdges("knows").size(),
                 "Edge should have been deleted before vertex");
         Map<String, Object> props = new HashMap<>();
         props.put("name", "Alice");
@@ -381,7 +381,9 @@ public class HugeGraphIT {
                 hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).isEmpty(),
                 "Vertex Alice should have been deleted");
         props.put("name", "Bob");
-        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
+        assertEquals(
+                1,
+                hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
                 "Vertex Bob should still exist");
     }
 
@@ -397,13 +399,14 @@ public class HugeGraphIT {
 
         HugeGraphSinkWriter writer =
                 createSinkWriter(buildMultiMappingConfigs(), MULTI_MAPPING_ROW_TYPE, true, 100);
-        SeaTunnelRow row =
-                new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"Alice", 30, "Alice", "Bob", 1.0});
         row.setRowKind(RowKind.DELETE);
         writer.write(row);
         writer.close();
 
-        assertEquals(0, hugeClient.graph().listEdges("knows").size(),
+        assertEquals(
+                0,
+                hugeClient.graph().listEdges("knows").size(),
                 "Edge should have been deleted");
         Map<String, Object> props = new HashMap<>();
         props.put("name", "Alice");
@@ -411,7 +414,9 @@ public class HugeGraphIT {
                 hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).isEmpty(),
                 "Vertex Alice should have been deleted (cascade as safety net)");
         props.put("name", "Bob");
-        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
+        assertEquals(
+                1,
+                hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
                 "Vertex Bob should still exist");
     }
 }
