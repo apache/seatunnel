@@ -24,6 +24,8 @@ import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
+import java.lang.reflect.Array;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -90,22 +92,29 @@ public final class DataTypeUtil {
             Cardinality cardinality,
             String dateFormat,
             String timeZone) {
-        // JSON file should not parse again
-        if (values instanceof Collection
-                && checkCollectionDataType(key, (Collection<?>) values, dataType)) {
-            return values;
+        Collection<?> sourceValues;
+        if (values instanceof Collection) {
+            sourceValues = (Collection<?>) values;
+        } else if (values.getClass().isArray()) {
+            List<Object> arrayValues = new ArrayList<>(Array.getLength(values));
+            for (int i = 0; i < Array.getLength(values); i++) {
+                arrayValues.add(Array.get(values, i));
+            }
+            sourceValues = arrayValues;
+        } else {
+            E.checkState(
+                    values instanceof String,
+                    "The value(key='%s') must be a Collection, array, or String type, "
+                            + "but got '%s'(%s)",
+                    key,
+                    values,
+                    values.getClass());
+            sourceValues = split(key, (String) values);
         }
 
-        E.checkState(
-                values instanceof String,
-                "The value(key='%s') must be String type, " + "but got '%s'(%s)",
-                key,
-                values);
-        String rawValue = (String) values;
-        List<Object> valueColl = split(key, rawValue);
         Collection<Object> results =
                 cardinality == Cardinality.LIST ? new ArrayList<>() : new LinkedHashSet<>();
-        valueColl.forEach(
+        sourceValues.forEach(
                 value -> {
                     results.add(parseSingleValue(key, value, dataType, dateFormat, timeZone));
                 });
@@ -123,6 +132,13 @@ public final class DataTypeUtil {
         if (rawColumnValue instanceof Collection) {
             Collection<?> collection = (Collection<?>) rawColumnValue;
             return new ArrayList<>(collection);
+        }
+        if (rawColumnValue.getClass().isArray()) {
+            List<Object> values = new ArrayList<>(Array.getLength(rawColumnValue));
+            for (int i = 0; i < Array.getLength(rawColumnValue); i++) {
+                values.add(Array.get(rawColumnValue, i));
+            }
+            return values;
         }
         String rawValue = rawColumnValue.toString();
         return split(key, rawValue);
@@ -365,7 +381,12 @@ public final class DataTypeUtil {
 
             try {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
-                LocalDateTime ldt = LocalDateTime.parse(strValue, formatter);
+                LocalDateTime ldt;
+                try {
+                    ldt = LocalDateTime.parse(strValue, formatter);
+                } catch (java.time.format.DateTimeParseException dateTimeFailure) {
+                    ldt = LocalDate.parse(strValue, formatter).atStartOfDay();
+                }
                 ZonedDateTime zdt = ldt.atZone(zoneId);
                 return Date.from(zdt.toInstant());
             } catch (Exception e) {

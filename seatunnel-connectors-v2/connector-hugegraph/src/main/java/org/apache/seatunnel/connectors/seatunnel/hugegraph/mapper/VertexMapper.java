@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
-import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.SchemaConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
@@ -31,93 +30,108 @@ import org.apache.hugegraph.structure.graph.Vertex;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class VertexMapper implements GraphDataMapper {
 
-    private final SchemaConfig schemaConfig;
     private final MappingConfig mappingConfig;
     private final Map<String, Integer> fieldsIndex;
     private final String labelId;
     private final HugeGraphClient client;
     private final Map<String, PropertyKey> propertyKeyCache;
+    private final Set<String> propertySourceFields;
 
     public VertexMapper(
-            SchemaConfig schemaConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
-        this.schemaConfig = schemaConfig;
-        this.mappingConfig = getMappingConfig();
+            MappingConfig mappingConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
+        this.mappingConfig = mappingConfig;
         this.client = client;
-        this.labelId = client.getVertexLabelId(schemaConfig.getLabel());
+        this.labelId = client.getVertexLabelId(mappingConfig.getLabel());
         this.fieldsIndex = fieldsIndex;
-        this.propertyKeyCache = getPropertyKeyCache();
+        this.propertySourceFields = resolvePropertySourceFields();
+        this.propertyKeyCache = buildPropertyKeyCache();
     }
 
-    private MappingConfig getMappingConfig() {
-        MappingConfig mapping =
-                schemaConfig.getMapping() == null ? new MappingConfig() : schemaConfig.getMapping();
-        if (mapping.getFieldMapping() == null) {
-            mapping.setFieldMapping(Collections.emptyMap());
+    private Set<String> resolvePropertySourceFields() {
+        Set<String> fields = new HashSet<>();
+        if (mappingConfig.getProperties().isEmpty()) {
+            fields.addAll(fieldsIndex.keySet());
+        } else {
+            fields.addAll(mappingConfig.getProperties());
         }
-        if (mapping.getValueMapping() == null) {
-            mapping.setValueMapping(Collections.emptyMap());
+        // PRIMARY_KEY idFields are always written as properties.
+        if (mappingConfig.getIdStrategy() == IdStrategy.PRIMARY_KEY
+                && mappingConfig.getIdFields() != null) {
+            fields.addAll(mappingConfig.getIdFields());
         }
-        schemaConfig.setMapping(mapping);
-        return mapping;
+        return fields;
     }
 
-    private HashMap<String, PropertyKey> getPropertyKeyCache() {
+    private HashMap<String, PropertyKey> buildPropertyKeyCache() {
         HashMap<String, PropertyKey> cache = new HashMap<>();
-        Map<String, String> fieldMapping = mappingConfig.getFieldMapping();
-        for (String fieldName : fieldsIndex.keySet()) {
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            cache.put(propertyName, client.getPropertyKey(propertyName));
+        Map<String, String> fm = mappingConfig.getFieldMapping();
+        for (String sourceField : propertySourceFields) {
+            String propName = fm.getOrDefault(sourceField, sourceField);
+            if (!cache.containsKey(propName)) {
+                cache.put(propName, client.getPropertyKey(propName));
+            }
+        }
+        if (mappingConfig.getIdFields() != null) {
+            for (String idField : mappingConfig.getIdFields()) {
+                String propName = fm.getOrDefault(idField, idField);
+                if (!cache.containsKey(propName)) {
+                    PropertyKey propertyKey = client.getPropertyKeyOrNull(propName);
+                    if (propertyKey != null) {
+                        cache.put(propName, propertyKey);
+                    }
+                }
+            }
         }
         return cache;
     }
 
     @Override
     public Vertex map(SeaTunnelRow row) {
-        String label = schemaConfig.getLabel();
+        String label = mappingConfig.getLabel();
         E.checkArgument(label != null && !label.isEmpty(), "Vertex label can't be null or empty.");
         Vertex vertex = new Vertex(label);
 
-        // 1. Set vertex ID
         Object id = extractId(row);
-        if (id == null && schemaConfig.getIdStrategy() != IdStrategy.AUTOMATIC) {
+        if (id == null && mappingConfig.getIdStrategy() != IdStrategy.AUTOMATIC) {
             return null;
         }
 
-        if (id != null && schemaConfig.getIdStrategy() != IdStrategy.PRIMARY_KEY) {
+        if (id != null && mappingConfig.getIdStrategy() != IdStrategy.PRIMARY_KEY) {
             vertex.id(id);
         }
 
-        // 2. Set properties
-        Map<String, String> fieldMapping = mappingConfig.getFieldMapping();
+        Map<String, String> fm = mappingConfig.getFieldMapping();
+        for (String sourceField : propertySourceFields) {
+            Integer index = fieldsIndex.get(sourceField);
+            if (index == null) {
+                continue;
+            }
 
-        for (Map.Entry<String, Integer> fieldEntry : fieldsIndex.entrySet()) {
-
-            String fieldName = fieldEntry.getKey();
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            Object rawValue = row.getField(fieldEntry.getValue());
-            PropertyKey propertyKey = propertyKeyCache.get(propertyName);
+            String propName = fm.getOrDefault(sourceField, sourceField);
+            Object rawValue = row.getField(index);
+            PropertyKey propertyKey = propertyKeyCache.get(propName);
 
             if (isConsideredNull(rawValue)) {
                 continue;
             }
 
-            Object fieldValue =
+            Object converted =
                     DataTypeUtil.convert(
                             rawValue,
                             propertyKey,
                             mappingConfig.getDateFormat(),
                             mappingConfig.getTimeZone());
-
-            vertex.property(propertyName, getMappedValue(fieldValue));
+            vertex.property(propName, getMappedValue(converted));
         }
 
         return vertex;
@@ -125,12 +139,12 @@ public class VertexMapper implements GraphDataMapper {
 
     @Override
     public Object extractId(SeaTunnelRow row) {
-        IdStrategy strategy = schemaConfig.getIdStrategy();
+        IdStrategy strategy = mappingConfig.getIdStrategy();
         if (strategy == null || strategy == IdStrategy.AUTOMATIC) {
             return null;
         }
 
-        List<String> idFields = schemaConfig.getIdFields();
+        List<String> idFields = mappingConfig.getIdFields();
         E.checkArgument(
                 idFields != null && !idFields.isEmpty(),
                 "The 'idFields' must be specified for ID strategy '%s'.",
@@ -184,16 +198,16 @@ public class VertexMapper implements GraphDataMapper {
 
     private List<Object> getFieldValues(SeaTunnelRow row, List<String> fields) {
         List<Object> values = new ArrayList<>(fields.size());
-        Map<String, String> fieldMapping = mappingConfig.getFieldMapping();
+        Map<String, String> fm = mappingConfig.getFieldMapping();
         for (String fieldName : fields) {
-
             Integer index = fieldsIndex.get(fieldName);
             if (index == null) {
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                         String.format(
-                                "Field '%s' specified in id_fields not found in row schema. Available fields: %s",
-                                fieldName, fieldsIndex.keySet()));
+                                "Mapping[VERTEX/%s]: Field '%s' specified in idFields not found in row schema. "
+                                        + "Available fields: %s",
+                                mappingConfig.getLabel(), fieldName, fieldsIndex.keySet()));
             }
 
             Object rawValue = row.getField(index);
@@ -201,17 +215,19 @@ public class VertexMapper implements GraphDataMapper {
                 continue;
             }
 
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            PropertyKey propertyKey = propertyKeyCache.get(propertyName);
+            String propName = fm.getOrDefault(fieldName, fieldName);
+            PropertyKey propertyKey = propertyKeyCache.get(propName);
 
-            Object fieldValue =
-                    DataTypeUtil.convert(
-                            rawValue,
-                            propertyKey,
-                            mappingConfig.getDateFormat(),
-                            mappingConfig.getTimeZone());
-
-            values.add(getMappedValue(fieldValue));
+            Object converted = rawValue;
+            if (propertyKey != null) {
+                converted =
+                        DataTypeUtil.convert(
+                                rawValue,
+                                propertyKey,
+                                mappingConfig.getDateFormat(),
+                                mappingConfig.getTimeZone());
+            }
+            values.add(getMappedValue(converted));
         }
         return values;
     }
@@ -221,18 +237,15 @@ public class VertexMapper implements GraphDataMapper {
             return true;
         }
         List<String> nullValues = mappingConfig.getNullValues();
-        if (nullValues == null || nullValues.isEmpty()) {
-            return false;
-        }
-        return nullValues.contains(String.valueOf(value));
+        return !nullValues.isEmpty() && nullValues.contains(String.valueOf(value));
     }
 
     private Object getMappedValue(Object originalValue) {
-        Map<Object, Object> valueMapping = mappingConfig.getValueMapping();
-        if (valueMapping.isEmpty()) {
+        Map<Object, Object> vm = mappingConfig.getValueMapping();
+        if (vm.isEmpty()) {
             return originalValue;
         }
-        return valueMapping.getOrDefault(originalValue, originalValue);
+        return vm.getOrDefault(originalValue, originalValue);
     }
 
     private String spliceVertexId(List<Object> primaryValues) {

@@ -15,26 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
+package org.apache.seatunnel.connectors.seatunnel.hugegraph.client;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.hugegraph.structure.constant.Cardinality;
+import org.apache.hugegraph.structure.constant.DataType;
+import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Vertex;
 
-import org.apache.hugegraph.structure.GraphElement;
+import java.util.Set;
 
-import java.io.Serializable;
+public interface HugeGraphOperations {
 
-public interface GraphDataMapper extends Serializable {
+    Set<String> getVertexLabelPropertiesOrNull(String label);
 
-    /**
-     * Maps a SeaTunnelRow to a HugeGraph GraphElement (Vertex or Edge). Returns null if the element
-     * should be skipped (e.g. null ID fields matched by nullValues).
-     */
-    GraphElement map(SeaTunnelRow row);
+    Set<String> getEdgeLabelPropertiesOrNull(String label);
 
-    /**
-     * Extracts the graph element ID from a SeaTunnelRow. The ID format must match the server-side
-     * format to ensure DELETE operations target the correct element. Returns null if the ID cannot
-     * be built (e.g. null ID fields).
-     */
-    Object extractId(SeaTunnelRow row);
+    DataType getPropertyDataType(String propertyName);
+
+    Cardinality getPropertyCardinality(String propertyName);
+
+    PageResult<Vertex> listVertices(String label, String page, int limit);
+
+    PageResult<Edge> listEdges(String label, String page, int limit);
+
+    void close();
 }

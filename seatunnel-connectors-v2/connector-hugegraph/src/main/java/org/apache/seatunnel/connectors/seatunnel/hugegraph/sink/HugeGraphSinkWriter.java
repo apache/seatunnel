@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.buffer.BatchBuffer;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.buffer.GraphElementEnvelope;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.SchemaConfig;
-import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.SchemaConfig.LabelType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper.EdgeMapper;
@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,61 +48,154 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
-        implements SupportMultiTableSinkWriter<Void> {
+public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HugeGraphSinkWriter.class);
 
     private final HugeGraphSinkConfig sinkConfig;
-    private final GraphDataMapper mapper;
+    private final List<MappingEntry> mappingEntries;
     private final HugeGraphClient client;
     private final BatchBuffer buffer;
 
     public HugeGraphSinkWriter(HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType) {
+        this(sinkConfig, rowType, new HugeGraphClient(sinkConfig.getConnectionConfig()));
+    }
+
+    HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, HugeGraphClient client) {
         this.sinkConfig = sinkConfig;
-        this.client = new HugeGraphClient(sinkConfig);
-        this.mapper = getMapper(rowType);
+        this.sinkConfig.applyLegacyFieldSelection(rowType);
+        this.client = client;
+        try {
+            // buildMappingEntries issues live schema lookups; if any fails the framework will not
+            // call close() on this half-constructed writer, so release the client here.
+            this.mappingEntries = buildMappingEntries(rowType);
+        } catch (RuntimeException e) {
+            try {
+                this.client.close();
+            } catch (RuntimeException closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
         this.buffer =
                 new BatchBuffer(
                         this.client, sinkConfig.getBatchSize(), sinkConfig.getBatchIntervalMs());
     }
 
-    private GraphDataMapper getMapper(SeaTunnelRowType rowType) {
-        SchemaConfig schemaConfig = sinkConfig.getSchemaConfig();
-        List<String> selectedFields = sinkConfig.getSelectedFields();
-        List<String> ignoredFields = sinkConfig.getIgnoredFields();
+    private List<MappingEntry> buildMappingEntries(SeaTunnelRowType rowType) {
         Map<String, Integer> originalFieldsIndex =
                 IntStream.range(0, rowType.getTotalFields())
                         .boxed()
-                        .collect(Collectors.toMap(rowType::getFieldName, i -> i));
+                        .collect(
+                                Collectors.toMap(
+                                        rowType::getFieldName,
+                                        i -> i,
+                                        (a, b) -> a,
+                                        LinkedHashMap::new));
+        Map<String, Integer> availableFieldsIndex = resolveLegacyFieldsIndex(originalFieldsIndex);
 
-        Map<String, Integer> finalFieldsIndex = new LinkedHashMap<>();
-
-        if (selectedFields != null && !selectedFields.isEmpty()) {
-            for (String field : selectedFields) {
-                Integer originalIndex = originalFieldsIndex.get(field);
-                if (originalIndex != null) {
-                    finalFieldsIndex.put(field, originalIndex);
-                }
+        List<MappingEntry> entries = new ArrayList<>();
+        for (MappingConfig mapping : sinkConfig.getMappings()) {
+            Map<String, Integer> fieldsIndex = resolveFieldsIndex(mapping, availableFieldsIndex);
+            GraphDataMapper mapper;
+            if (mapping.getType() == LabelType.VERTEX) {
+                mapper = new VertexMapper(mapping, fieldsIndex, client);
+            } else {
+                mapper = new EdgeMapper(mapping, fieldsIndex, client);
             }
-        } else if (ignoredFields != null && !ignoredFields.isEmpty()) {
-            Set<String> ignoreSet = new HashSet<>(ignoredFields);
-            for (Map.Entry<String, Integer> entry : originalFieldsIndex.entrySet()) {
-                String fieldName = entry.getKey();
-                Integer originalIndex = entry.getValue();
+            entries.add(new MappingEntry(mapping, mapper));
+        }
+        return entries;
+    }
 
-                if (!ignoreSet.contains(fieldName)) {
-                    finalFieldsIndex.put(fieldName, originalIndex);
-                }
-            }
-        } else {
-            finalFieldsIndex = originalFieldsIndex;
+    private Map<String, Integer> resolveLegacyFieldsIndex(
+            Map<String, Integer> originalFieldsIndex) {
+        if (sinkConfig.getSchemaConfig() == null) {
+            return originalFieldsIndex;
         }
 
-        if (schemaConfig.getType() == LabelType.VERTEX) {
-            return new VertexMapper(schemaConfig, finalFieldsIndex, client);
-        } else {
-            return new EdgeMapper(schemaConfig, finalFieldsIndex, client);
+        List<String> selectedFields = sinkConfig.getSelectedFields();
+        if (selectedFields != null && !selectedFields.isEmpty()) {
+            Map<String, Integer> selected = new LinkedHashMap<>();
+            for (String field : selectedFields) {
+                Integer index = originalFieldsIndex.get(field);
+                if (index != null) {
+                    selected.put(field, index);
+                }
+            }
+            return selected;
+        }
+
+        List<String> ignoredFields = sinkConfig.getIgnoredFields();
+        if (ignoredFields != null && !ignoredFields.isEmpty()) {
+            Set<String> ignored = new HashSet<>(ignoredFields);
+            Map<String, Integer> selected = new LinkedHashMap<>();
+            for (Map.Entry<String, Integer> entry : originalFieldsIndex.entrySet()) {
+                if (!ignored.contains(entry.getKey())) {
+                    selected.put(entry.getKey(), entry.getValue());
+                }
+            }
+            return selected;
+        }
+        return originalFieldsIndex;
+    }
+
+    private Map<String, Integer> resolveFieldsIndex(
+            MappingConfig mapping, Map<String, Integer> originalFieldsIndex) {
+        // If no explicit properties, use all fields from the row
+        if (mapping.getProperties().isEmpty()) {
+            return new LinkedHashMap<>(originalFieldsIndex);
+        }
+
+        // Build index from explicit properties + id fields
+        Map<String, Integer> result = new LinkedHashMap<>();
+
+        for (String field : mapping.getProperties()) {
+            Integer idx = originalFieldsIndex.get(field);
+            if (idx != null) {
+                result.put(field, idx);
+            }
+        }
+
+        // New mappings always include fields required to build IDs. Legacy selected_fields keeps
+        // its original strict filtering behavior for backward compatibility.
+        if (sinkConfig.getSchemaConfig() == null && mapping.getIdFields() != null) {
+            for (String field : mapping.getIdFields()) {
+                Integer idx = originalFieldsIndex.get(field);
+                if (idx != null) {
+                    result.put(field, idx);
+                }
+            }
+        }
+
+        // For edges, include source/target idFields and sortKeys
+        if (sinkConfig.getSchemaConfig() == null && mapping.getType() == LabelType.EDGE) {
+            includeEdgeIdFields(mapping.getSourceConfig(), originalFieldsIndex, result);
+            includeEdgeIdFields(mapping.getTargetConfig(), originalFieldsIndex, result);
+
+            for (String field : mapping.getSortKeys()) {
+                Integer idx = originalFieldsIndex.get(field);
+                if (idx != null) {
+                    result.put(field, idx);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private void includeEdgeIdFields(
+            MappingConfig.SourceTargetConfig stConfig,
+            Map<String, Integer> originalFieldsIndex,
+            Map<String, Integer> result) {
+        if (stConfig != null && stConfig.getIdFields() != null) {
+            for (String field : stConfig.getIdFields()) {
+                Integer idx = originalFieldsIndex.get(field);
+                if (idx != null) {
+                    result.put(field, idx);
+                }
+            }
         }
     }
 
@@ -109,15 +203,15 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public void write(SeaTunnelRow row) throws IOException {
         switch (row.getRowKind()) {
             case INSERT:
+                handleUpsert(row, false);
+                break;
             case UPDATE_AFTER:
-                handleUpsert(row);
+                handleUpsert(row, true);
                 break;
             case DELETE:
                 handleDelete(row);
                 break;
             case UPDATE_BEFORE:
-                // The huge-client natively supports upsert operations for property updates, so
-                // there is no need to handle this data manually.
                 break;
             default:
                 LOG.warn("Unsupported row kind: {}", row.getRowKind());
@@ -125,45 +219,76 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
-    private void handleUpsert(SeaTunnelRow row) throws IOException {
-        try {
-            GraphElement element = mapper.map(row);
-            if (element == null) {
-                LOG.warn("Cannot create graph element: required ID fields missing for row {}", row);
-                return;
+    private void handleUpsert(SeaTunnelRow row, boolean update) throws IOException {
+        for (MappingEntry entry : mappingEntries) {
+            try {
+                if (update
+                        && entry.config.getType() == LabelType.VERTEX
+                        && entry.config.getIdStrategy()
+                                == org.apache.hugegraph.structure.constant.IdStrategy.AUTOMATIC) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Mapping[VERTEX/%s]: UPDATE_AFTER is not supported with AUTOMATIC IDs because the existing vertex cannot be identified",
+                                    entry.config.getLabel()));
+                }
+                GraphElement element = entry.mapper.map(row);
+                if (element == null) {
+                    continue;
+                }
+                GraphElementEnvelope envelope =
+                        new GraphElementEnvelope(
+                                entry.config.getLabel(), entry.config.getType(), row, element);
+                buffer.add(envelope);
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to map input row to graph element",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
             }
-            buffer.add(element);
-        } catch (Exception e) {
-            if (e instanceof IOException) {
-                throw (IOException) e;
-            }
-            throw new IOException(e);
         }
     }
 
     private void handleDelete(SeaTunnelRow row) {
         try {
             buffer.flush();
-            if (sinkConfig.getSchemaConfig().getType() == LabelType.VERTEX) {
-                Object vertexId = mapper.extractId(row);
-                if (vertexId == null) {
-                    LOG.warn("Cannot delete vertex: ID extraction failed for row {}", row);
-                    return;
-                }
-                client.deleteVertexWithEdges(vertexId);
-            } else {
-                String edgeId = (String) mapper.extractId(row);
-                if (edgeId == null) {
-                    LOG.warn("Cannot delete edge: ID extraction failed for row {}", row);
-                    return;
-                }
-                client.deleteEdge(edgeId);
-            }
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                    "Non-retryable error executing graph operation",
+                    "Failed to flush buffer before DELETE operation",
                     e);
+        }
+
+        for (MappingEntry entry : mappingEntries) {
+            try {
+                Object id = entry.mapper.extractId(row);
+                if (id == null) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Mapping[%s/%s]: Cannot delete because a required ID field is null or matches nullValues",
+                                    entry.config.getType(), entry.config.getLabel()));
+                }
+
+                if (entry.config.getType() == LabelType.VERTEX) {
+                    if (sinkConfig.isDeleteVertexWithEdges()) {
+                        client.deleteVertexWithEdges(id);
+                    } else {
+                        client.deleteVertex(id);
+                    }
+                } else {
+                    client.deleteEdge((String) id);
+                }
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to delete graph element",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
+            }
         }
     }
 
@@ -180,12 +305,44 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() throws IOException {
-        if (buffer != null) {
-            buffer.close();
+        Exception failure = null;
+        try {
+            if (buffer != null) {
+                buffer.close();
+            }
+        } catch (Exception e) {
+            failure = e;
+        } finally {
+            try {
+                if (client != null) {
+                    client.close();
+                }
+            } catch (Exception closeFailure) {
+                if (failure == null) {
+                    failure = closeFailure;
+                } else {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
         }
+        if (failure instanceof IOException) {
+            throw (IOException) failure;
+        }
+        if (failure instanceof RuntimeException) {
+            throw (RuntimeException) failure;
+        }
+        if (failure != null) {
+            throw new IOException("Failed to close HugeGraph sink writer", failure);
+        }
+    }
 
-        if (client != null) {
-            client.close();
+    private static class MappingEntry {
+        final MappingConfig config;
+        final GraphDataMapper mapper;
+
+        MappingEntry(MappingConfig config, GraphDataMapper mapper) {
+            this.config = config;
+            this.mapper = mapper;
         }
     }
 }

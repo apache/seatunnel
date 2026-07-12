@@ -93,6 +93,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: HugeGraph Connector — `graph_space` is now rejected**
+  - **Affected component**: `seatunnel-connectors-v2/connector-hugegraph`
+  - **Description**: The HugeGraph connector previously accepted the `graph_space` option but did not pass it to the HugeGraph client. This made the option silently ineffective. The connector now fails fast when `graph_space` is configured because the current HugeGraph client dependency used by this connector does not expose graph-space-aware client APIs.
+  - **Impact**: Jobs that include `graph_space` in HugeGraph Source or Sink configuration will fail during configuration parsing.
+  - **Migration Guide**: Remove `graph_space` from HugeGraph connector configurations when using the current connector dependency. If your HugeGraph deployment requires graph spaces, wait for a future connector version that upgrades the HugeGraph client dependency and explicitly supports graph-space-aware APIs.
+
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source

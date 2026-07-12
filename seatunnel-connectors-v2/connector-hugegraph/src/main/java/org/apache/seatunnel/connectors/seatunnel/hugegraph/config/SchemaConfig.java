@@ -26,8 +26,14 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Legacy schema configuration object for backward compatibility. New configurations should use
+ * {@code mappings[]} with {@link MappingConfig} instead.
+ */
 @Data
 public class SchemaConfig implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     // General config
     private LabelType type;
@@ -52,8 +58,8 @@ public class SchemaConfig implements Serializable {
     private SourceTargetConfig targetConfig;
     private Frequency frequency;
 
-    // Mapping Config
-    private MappingConfig mapping;
+    // Mapping Config (legacy nested object)
+    private LegacyMappingConfig mapping;
 
     public enum LabelType {
         VERTEX,
@@ -62,7 +68,20 @@ public class SchemaConfig implements Serializable {
 
     @Data
     public static class SourceTargetConfig implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String label;
         private List<String> idFields;
+    }
+
+    @Data
+    public static class LegacyMappingConfig implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private Map<String, String> fieldMapping;
+        private Map<Object, Object> valueMapping;
+        private List<String> nullableKeys;
+        private List<String> nullValues;
+        private List<String> sortKeys;
+        private String dateFormat;
+        private String timeZone;
     }
 }

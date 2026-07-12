@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
+package org.apache.seatunnel.connectors.seatunnel.hugegraph.config;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+/**
+ * Controls schema management behavior during Sink initialization. Aligns with SeaTunnel standard
+ * {@code SchemaSaveMode} naming but implemented locally within the connector.
+ */
+public enum HugeGraphSchemaSaveMode {
 
-import org.apache.hugegraph.structure.GraphElement;
+    /** Auto-create missing PropertyKey/VertexLabel/EdgeLabel; never modify existing schema. */
+    CREATE_SCHEMA_WHEN_NOT_EXIST,
 
-import java.io.Serializable;
-
-public interface GraphDataMapper extends Serializable {
-
-    /**
-     * Maps a SeaTunnelRow to a HugeGraph GraphElement (Vertex or Edge). Returns null if the element
-     * should be skipped (e.g. null ID fields matched by nullValues).
-     */
-    GraphElement map(SeaTunnelRow row);
-
-    /**
-     * Extracts the graph element ID from a SeaTunnelRow. The ID format must match the server-side
-     * format to ensure DELETE operations target the correct element. Returns null if the ID cannot
-     * be built (e.g. null ID fields).
-     */
-    Object extractId(SeaTunnelRow row);
+    /** Do not create any schema; fail immediately if schema is missing or mismatched. */
+    ERROR_WHEN_SCHEMA_NOT_EXIST
 }

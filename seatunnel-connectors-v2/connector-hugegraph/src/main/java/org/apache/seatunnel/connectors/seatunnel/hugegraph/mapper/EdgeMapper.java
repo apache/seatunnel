@@ -20,18 +20,17 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
-import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.SchemaConfig;
-import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.SchemaConfig.SourceTargetConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.SourceTargetConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
 
+import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,98 +41,137 @@ import java.util.stream.Collectors;
 
 public class EdgeMapper implements GraphDataMapper {
 
-    private final SchemaConfig schemaConfig;
     private final MappingConfig mappingConfig;
     private final Map<String, Integer> fieldsIndex;
     private final HugeGraphClient client;
     private final String labelId;
     private final Map<String, PropertyKey> propertyKeyCache;
+    private final Set<String> propertySourceFields;
+    private final Set<String> edgeIdSourceFields;
+
+    // Cached at construction time to avoid per-row schema queries
+    private final String sourceVertexLabelId;
+    private final IdStrategy sourceIdStrategy;
+    private final String targetVertexLabelId;
+    private final IdStrategy targetIdStrategy;
 
     public EdgeMapper(
-            SchemaConfig schemaConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
-        this.schemaConfig = schemaConfig;
-        this.mappingConfig = getMappingConfig();
+            MappingConfig mappingConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
+        this.mappingConfig = mappingConfig;
         this.client = client;
-        this.labelId = client.getEdgeLabelId(schemaConfig.getLabel());
+        this.labelId = client.getEdgeLabelId(mappingConfig.getLabel());
         this.fieldsIndex = fieldsIndex;
-        this.propertyKeyCache = getPropertyKeyCache();
+        this.edgeIdSourceFields = resolveEdgeIdSourceFields();
+        this.propertySourceFields = resolvePropertySourceFields();
+        this.propertyKeyCache = buildPropertyKeyCache();
+
+        // Cache source/target vertex metadata to avoid per-row schema queries
+        this.sourceVertexLabelId =
+                client.getVertexLabelId(mappingConfig.getSourceConfig().getLabel());
+        this.sourceIdStrategy = client.getIdStrategy(mappingConfig.getSourceConfig().getLabel());
+        this.targetVertexLabelId =
+                client.getVertexLabelId(mappingConfig.getTargetConfig().getLabel());
+        this.targetIdStrategy = client.getIdStrategy(mappingConfig.getTargetConfig().getLabel());
     }
 
-    private MappingConfig getMappingConfig() {
-        MappingConfig mapping =
-                schemaConfig.getMapping() == null ? new MappingConfig() : schemaConfig.getMapping();
-        if (mapping.getFieldMapping() == null) {
-            mapping.setFieldMapping(Collections.emptyMap());
+    private Set<String> resolveEdgeIdSourceFields() {
+        Set<String> fields = new HashSet<>();
+        if (mappingConfig.getSourceConfig() != null
+                && mappingConfig.getSourceConfig().getIdFields() != null) {
+            fields.addAll(mappingConfig.getSourceConfig().getIdFields());
         }
-        if (mapping.getValueMapping() == null) {
-            mapping.setValueMapping(Collections.emptyMap());
+        if (mappingConfig.getTargetConfig() != null
+                && mappingConfig.getTargetConfig().getIdFields() != null) {
+            fields.addAll(mappingConfig.getTargetConfig().getIdFields());
         }
-        schemaConfig.setMapping(mapping);
-        return mapping;
+        return fields;
     }
 
-    private HashMap<String, PropertyKey> getPropertyKeyCache() {
+    private Set<String> resolvePropertySourceFields() {
+        Set<String> fields = new HashSet<>();
+        if (mappingConfig.getProperties().isEmpty()) {
+            fields.addAll(fieldsIndex.keySet());
+        } else {
+            fields.addAll(mappingConfig.getProperties());
+        }
+        // Endpoint ID fields are never edge properties — they only locate the source/target
+        // vertices. Sort keys, however, ARE edge properties and must be retained.
+        fields.removeAll(edgeIdSourceFields);
+        fields.addAll(mappingConfig.getSortKeys());
+        return fields;
+    }
+
+    private HashMap<String, PropertyKey> buildPropertyKeyCache() {
         HashMap<String, PropertyKey> cache = new HashMap<>();
-        Map<String, String> fieldMapping = mappingConfig.getFieldMapping();
-        for (String fieldName : fieldsIndex.keySet()) {
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            cache.put(propertyName, client.getPropertyKey(propertyName));
+        Map<String, String> fm = mappingConfig.getFieldMapping();
+
+        // Cache for property fields
+        for (String sourceField : propertySourceFields) {
+            String propName = fm.getOrDefault(sourceField, sourceField);
+            if (!cache.containsKey(propName)) {
+                cache.put(propName, client.getPropertyKey(propName));
+            }
         }
+
+        // Cache for id fields (needed for type conversion during ID construction)
+        for (String idField : edgeIdSourceFields) {
+            String propName = fm.getOrDefault(idField, idField);
+            if (!cache.containsKey(propName)) {
+                PropertyKey pk = client.getPropertyKeyOrNull(propName);
+                if (pk != null) {
+                    cache.put(propName, pk);
+                }
+            }
+        }
+
         return cache;
     }
 
     @Override
     public Edge map(SeaTunnelRow row) {
-        // 1. Build source and target vertex IDs
-        Object sourceId = buildVertexId(row, schemaConfig.getSourceConfig());
-        Object targetId = buildVertexId(row, schemaConfig.getTargetConfig());
+        Object sourceId = buildVertexId(row, mappingConfig.getSourceConfig());
+        Object targetId = buildVertexId(row, mappingConfig.getTargetConfig());
 
-        // If source or target ID can't be built, we can't create the edge
         if (sourceId == null || targetId == null) {
             return null;
         }
 
-        // 2. Create edge and set identifiers
-        Edge edge = new Edge(schemaConfig.getLabel());
+        Edge edge = new Edge(mappingConfig.getLabel());
         edge.sourceId(sourceId);
         edge.targetId(targetId);
-        edge.sourceLabel(schemaConfig.getSourceConfig().getLabel());
-        edge.targetLabel(schemaConfig.getTargetConfig().getLabel());
+        edge.sourceLabel(mappingConfig.getSourceConfig().getLabel());
+        edge.targetLabel(mappingConfig.getTargetConfig().getLabel());
 
-        // 3. Set properties
-        Set<String> idFields = new HashSet<>();
-        idFields.addAll(schemaConfig.getSourceConfig().getIdFields());
-        idFields.addAll(schemaConfig.getTargetConfig().getIdFields());
-
-        Map<String, String> fieldMapping = new HashMap<>(mappingConfig.getFieldMapping());
-
-        for (Map.Entry<String, Integer> fieldEntry : fieldsIndex.entrySet()) {
-            String fieldName = fieldEntry.getKey();
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            Object rawValue = row.getField(fieldEntry.getValue());
-            PropertyKey propertyKey = propertyKeyCache.get(propertyName);
-
-            // Skip fields used for source/target vertex IDs
-            if (idFields.contains(fieldName) || isConsideredNull(rawValue)) {
+        Map<String, String> fm = mappingConfig.getFieldMapping();
+        for (String sourceField : propertySourceFields) {
+            Integer index = fieldsIndex.get(sourceField);
+            if (index == null) {
                 continue;
             }
 
-            Object fieldValue =
+            String propName = fm.getOrDefault(sourceField, sourceField);
+            Object rawValue = row.getField(index);
+            PropertyKey propertyKey = propertyKeyCache.get(propName);
+
+            if (isConsideredNull(rawValue)) {
+                continue;
+            }
+
+            Object converted =
                     DataTypeUtil.convert(
                             rawValue,
                             propertyKey,
                             mappingConfig.getDateFormat(),
                             mappingConfig.getTimeZone());
-
-            edge.property(propertyName, getMappedValue(fieldValue));
+            edge.property(propName, getMappedValue(converted));
         }
         return edge;
     }
 
     private Object buildVertexId(SeaTunnelRow row, SourceTargetConfig config) {
-
-        String vertexLabelId = client.getVertexLabelId(config.getLabel());
-        IdStrategy strategy = client.getIdStrategy(config.getLabel());
+        boolean isSource = config == mappingConfig.getSourceConfig();
+        String vertexLabelId = isSource ? sourceVertexLabelId : targetVertexLabelId;
+        IdStrategy strategy = isSource ? sourceIdStrategy : targetIdStrategy;
         if (strategy == null || strategy == IdStrategy.AUTOMATIC) {
             return null;
         }
@@ -187,16 +225,16 @@ public class EdgeMapper implements GraphDataMapper {
 
     private List<Object> getFieldValues(SeaTunnelRow row, List<String> fields) {
         List<Object> values = new ArrayList<>(fields.size());
-        Map<String, String> fieldMapping = mappingConfig.getFieldMapping();
+        Map<String, String> fm = mappingConfig.getFieldMapping();
         for (String fieldName : fields) {
-
             Integer index = fieldsIndex.get(fieldName);
             if (index == null) {
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                         String.format(
-                                "Field '%s' specified in id_fields not found in row schema. Available fields: %s",
-                                fieldName, fieldsIndex.keySet()));
+                                "Mapping[EDGE/%s]: Field '%s' specified in idFields not found in row schema. "
+                                        + "Available fields: %s",
+                                mappingConfig.getLabel(), fieldName, fieldsIndex.keySet()));
             }
 
             Object rawValue = row.getField(index);
@@ -204,19 +242,70 @@ public class EdgeMapper implements GraphDataMapper {
                 continue;
             }
 
-            String propertyName = fieldMapping.getOrDefault(fieldName, fieldName);
-            PropertyKey propertyKey = propertyKeyCache.get(propertyName);
+            String propName = fm.getOrDefault(fieldName, fieldName);
+            PropertyKey propertyKey = propertyKeyCache.get(propName);
 
-            Object fieldValue =
-                    DataTypeUtil.convert(
-                            rawValue,
-                            propertyKey,
-                            mappingConfig.getDateFormat(),
-                            mappingConfig.getTimeZone());
-
-            values.add(getMappedValue(fieldValue));
+            if (propertyKey != null) {
+                Object converted =
+                        DataTypeUtil.convert(
+                                rawValue,
+                                propertyKey,
+                                mappingConfig.getDateFormat(),
+                                mappingConfig.getTimeZone());
+                values.add(getMappedValue(converted));
+            } else {
+                values.add(getMappedValue(rawValue));
+            }
         }
         return values;
+    }
+
+    /**
+     * Extracts the Edge ID matching the HugeGraph server-side 5-part EdgeId format:
+     * {ownerVertexId}>{edgeLabelId}>{subEdgeLabelId}>{sortValues}>{otherVertexId}
+     *
+     * <p>For general (non-hierarchical) edge labels the sub-label ID equals the edge label ID, so
+     * the label ID appears twice. SINGLE frequency edges have an empty sortValues segment; MULTIPLE
+     * frequency uses the sortKeys values. Vertex IDs are prefixed with 'S' for String IDs and 'L'
+     * for Number IDs.
+     */
+    @Override
+    public Object extractId(SeaTunnelRow row) {
+        Object sourceId = buildVertexId(row, mappingConfig.getSourceConfig());
+        Object targetId = buildVertexId(row, mappingConfig.getTargetConfig());
+
+        if (sourceId == null || targetId == null) {
+            return null;
+        }
+
+        return spliceEdgeId(sourceId, targetId, labelId, getSortKeyValues(row));
+    }
+
+    /**
+     * Splices the HugeGraph server-side 5-part EdgeId. Package-private and static so the
+     * format-sensitive layout (S/L prefix, doubled label id for the sub-label segment, sortValues
+     * segment) is unit-testable without a live server — this is the DELETE-correctness path.
+     */
+    static String spliceEdgeId(
+            Object sourceId, Object targetId, String labelId, String sortValues) {
+        String sourcePrefix = (sourceId instanceof Number) ? "L" : "S";
+        String targetPrefix = (targetId instanceof Number) ? "L" : "S";
+        return String.format(
+                "%s%s>%s>%s>%s>%s%s",
+                sourcePrefix, sourceId, labelId, labelId, sortValues, targetPrefix, targetId);
+    }
+
+    private String getSortKeyValues(SeaTunnelRow row) {
+        Frequency frequency = mappingConfig.getFrequency();
+        if (frequency == null || frequency == Frequency.SINGLE) {
+            return "";
+        }
+        List<String> sortKeys = mappingConfig.getSortKeys();
+        if (sortKeys.isEmpty()) {
+            return "";
+        }
+        List<Object> skValues = getFieldValues(row, sortKeys);
+        return skValues.stream().map(Object::toString).collect(Collectors.joining("!"));
     }
 
     private boolean isConsideredNull(Object value) {
@@ -224,40 +313,20 @@ public class EdgeMapper implements GraphDataMapper {
             return true;
         }
         List<String> nullValues = mappingConfig.getNullValues();
-        if (nullValues == null || nullValues.isEmpty()) {
-            return false;
-        }
-        return nullValues.contains(String.valueOf(value));
+        return !nullValues.isEmpty() && nullValues.contains(String.valueOf(value));
     }
 
     private Object getMappedValue(Object originalValue) {
-        Map<Object, Object> valueMapping = mappingConfig.getValueMapping();
-        if (valueMapping.isEmpty()) {
+        Map<Object, Object> vm = mappingConfig.getValueMapping();
+        if (vm.isEmpty()) {
             return originalValue;
         }
-        return valueMapping.getOrDefault(originalValue, originalValue);
+        return vm.getOrDefault(originalValue, originalValue);
     }
 
     private String spliceVertexId(String vertexLabelId, List<Object> primaryValues) {
         String joinedValues =
                 primaryValues.stream().map(Object::toString).collect(Collectors.joining("!"));
         return String.format("%s:%s", vertexLabelId, joinedValues);
-    }
-
-    private String getSortedKeyValues(SeaTunnelRow row) {
-        List<String> sortedKeys = mappingConfig.getSortKeys();
-        if (sortedKeys == null || sortedKeys.isEmpty()) {
-            return String.valueOf(labelId);
-        }
-        List<Object> skValues = getFieldValues(row, sortedKeys);
-        return skValues.stream().map(Object::toString).collect(Collectors.joining(","));
-    }
-
-    @Override
-    public Object extractId(SeaTunnelRow row) {
-        Object sourceId = buildVertexId(row, schemaConfig.getSourceConfig());
-        Object targetId = buildVertexId(row, schemaConfig.getTargetConfig());
-        String sortedKeyValues = getSortedKeyValues(row);
-        return String.format("S%s>%s>%s>>S%s", sourceId, labelId, sortedKeyValues, targetId);
     }
 }

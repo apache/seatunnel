@@ -18,10 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.buffer;
 
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
-import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
 
@@ -37,11 +37,17 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+/**
+ * Dual-bucket batch buffer that independently accumulates and flushes vertices and edges. Each
+ * bucket triggers flush when reaching batch_size; both buckets are flushed on timer, prepareCommit,
+ * or close.
+ */
 public class BatchBuffer implements AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(BatchBuffer.class);
 
-    private final List<GraphElement> buffer = new ArrayList<>();
+    private final List<GraphElementEnvelope> vertexBuffer = new ArrayList<>();
+    private final List<GraphElementEnvelope> edgeBuffer = new ArrayList<>();
     private final int batchSize;
     private final ScheduledExecutorService scheduler;
     private final ScheduledFuture<?> scheduledFuture;
@@ -51,7 +57,6 @@ public class BatchBuffer implements AutoCloseable {
     private final HugeGraphClient client;
 
     public BatchBuffer(HugeGraphClient client, int batchSize, long batchIntervalMs) {
-
         this.batchSize = batchSize;
         this.client = client;
 
@@ -81,7 +86,7 @@ public class BatchBuffer implements AutoCloseable {
         }
     }
 
-    public synchronized void add(GraphElement element) throws IOException {
+    public synchronized void add(GraphElementEnvelope envelope) throws IOException {
         checkFlushException();
         if (closed) {
             throw new HugeGraphConnectorException(
@@ -90,9 +95,16 @@ public class BatchBuffer implements AutoCloseable {
         }
 
         try {
-            buffer.add(element);
-            if (buffer.size() >= batchSize) {
-                doFlush();
+            if (envelope.getElementType() == LabelType.VERTEX) {
+                vertexBuffer.add(envelope);
+                if (vertexBuffer.size() >= batchSize) {
+                    doFlushVertices();
+                }
+            } else {
+                edgeBuffer.add(envelope);
+                if (edgeBuffer.size() >= batchSize) {
+                    doFlushEdges();
+                }
             }
         } catch (Exception e) {
             throw new HugeGraphConnectorException(
@@ -102,36 +114,72 @@ public class BatchBuffer implements AutoCloseable {
 
     public synchronized void flush() throws IOException {
         checkFlushException();
-        if (closed && buffer.isEmpty()) {
+        if (closed && vertexBuffer.isEmpty() && edgeBuffer.isEmpty()) {
             return;
         }
-        doFlush();
+        doFlushVertices();
+        doFlushEdges();
     }
 
-    private void doFlush() {
-        if (buffer.isEmpty()) {
+    private void doFlushVertices() {
+        if (vertexBuffer.isEmpty()) {
             return;
         }
+        List<GraphElementEnvelope> batch = new ArrayList<>(vertexBuffer);
+        vertexBuffer.clear();
         try {
-            GraphElement firstElement = buffer.get(0);
-            if (firstElement instanceof Vertex) {
-                List<Vertex> vertices =
-                        buffer.stream()
-                                .map(element -> (Vertex) element)
-                                .collect(Collectors.toList());
-                client.batchWriteVertices(vertices);
-            } else {
-                List<Edge> edges =
-                        buffer.stream().map(element -> (Edge) element).collect(Collectors.toList());
-                client.batchWriteEdges(edges);
-            }
-
-            buffer.clear();
+            List<Vertex> vertices =
+                    batch.stream()
+                            .map(env -> (Vertex) env.getElement())
+                            .collect(Collectors.toList());
+            client.batchWriteVertices(vertices);
         } catch (Exception e) {
-            LOG.error("Failed to write batch data to HugeGraph", e);
+            logBatchFailure(batch, e);
             throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED, e.getMessage(), e);
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    "Failed to write vertex batch",
+                    e);
         }
+    }
+
+    private void doFlushEdges() {
+        if (edgeBuffer.isEmpty()) {
+            return;
+        }
+        List<GraphElementEnvelope> batch = new ArrayList<>(edgeBuffer);
+        edgeBuffer.clear();
+        try {
+            List<Edge> edges =
+                    batch.stream().map(env -> (Edge) env.getElement()).collect(Collectors.toList());
+            client.batchWriteEdges(edges);
+        } catch (Exception e) {
+            logBatchFailure(batch, e);
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    "Failed to write edge batch",
+                    e);
+        }
+    }
+
+    private void logBatchFailure(List<GraphElementEnvelope> batch, Exception e) {
+        LOG.error(
+                "Batch write failure — {} element(s), failureType={}, serverError={}",
+                batch.size(),
+                e.getClass().getName(),
+                e.getMessage());
+        for (GraphElementEnvelope envelope : batch) {
+            LOG.error("Graph element write failure — {}", formatFailureDiagnostic(envelope, e));
+        }
+    }
+
+    static String formatFailureDiagnostic(GraphElementEnvelope envelope, Exception failure) {
+        return String.format(
+                "mapping=%s, elementType=%s, sourceRow=%s, failureType=%s, serverError=%s",
+                envelope.getMappingLabel(),
+                envelope.getElementType(),
+                envelope.getSourceRow(),
+                failure.getClass().getName(),
+                failure.getMessage());
     }
 
     @Override

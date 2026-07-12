@@ -22,7 +22,7 @@ The connector writes rows as either vertices or edges. It supports insert, updat
 
 :::caution
 
-The HugeGraph schema must already exist before the job writes data. Create the required property keys, vertex labels, and edge labels in HugeGraph first, then use `schema_config` to map SeaTunnel fields to that existing graph schema.
+New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_NOT_EXIST` and create missing HugeGraph PropertyKey/VertexLabel/EdgeLabel definitions before writing. Legacy `schema_config` jobs retain the previous `ERROR_WHEN_SCHEMA_NOT_EXIST` behavior unless this option is explicitly set.
 
 :::
 
@@ -32,28 +32,58 @@ The HugeGraph schema must already exist before the job writes data. Create the r
 | ------------------- | ------- | -------- | ------------- |--------------------------------------------------------------------------------|
 | `host`              | String  | Yes      | -             | The host of the HugeGraph server.                                              |
 | `port`              | Integer | Yes      | -             | The port of the HugeGraph server.                                              |
+| `protocol`          | String  | No       | `http`        | Server protocol: `http` or `https`. HTTPS uses the JVM trust store.            |
 | `graph_name`        | String  | Yes      | -             | The name of the graph to write to.                                             |
-| `graph_space`       | String  | No       | -             | The graph space of the graph to be operated on.                                |
+| `graph_space`       | String  | No       | -             | Not supported by the current HugeGraph client dependency. The connector fails fast if this option is set. |
 | `username`          | String  | No       | -             | The username for HugeGraph authentication.                                     |
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
 | `batch_interval_ms` | Integer | No       | 5000          | The maximum time in milliseconds to wait before flushing a batch.              |
-| `max_retries`       | Integer | No       | 3             | The maximum number of times to retry a failed write operation.                 |
+| `max_retries`       | Integer | No       | 3             | Retries after the initial attempt. Set to `0` to disable retries.               |
 | `retry_backoff_ms`  | Integer | No       | 5000          | The backoff time between retries in milliseconds.                              |
 
 ## Sink Options
 
-| Name               | Type   | Required | Default Value | Description                                                                                         |
-| ------------------ | ------ | -------- | ------------- |-----------------------------------------------------------------------------------------------------|
-| `schema_config`    | Object | Yes      | -             | The configuration for mapping the input data to HugeGraph's schema (vertices or edges).             |
-| `selected_fields`  | List   | No       | -             | A list of fields to be selected from the input data. If not specified, all fields will be used.     |
-| `ignored_fields`   | List   | No       | -             | A list of fields to be ignored from the input data. Mutually exclusive with `selected_fields`.      |
+| Name                       | Type    | Required | Default Value | Description |
+|----------------------------|---------|----------|---------------|-------------|
+| `mappings`                 | List    | Yes      | -             | Recommended mapping configuration. Each entry maps input rows to one HugeGraph vertex or edge label. |
+| `schema_save_mode`         | Enum    | No       | `CREATE_SCHEMA_WHEN_NOT_EXIST` for `mappings`; `ERROR_WHEN_SCHEMA_NOT_EXIST` for legacy `schema_config` | Schema management mode. |
+| `delete_vertex_with_edges` | Boolean | No       | `false` for `mappings`; `true` for legacy `schema_config` | When true, DELETE rows for vertices also delete associated edges. |
+| `schema_config`            | Object  | No       | -             | Deprecated legacy mapping object. Use `mappings` instead. Either `mappings` or `schema_config` must be specified. |
+| `selected_fields`          | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
+| `ignored_fields`           | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
 
-`selected_fields` and `ignored_fields` are applied before the row is mapped to HugeGraph. Keep every field used by `idFields`, `sourceConfig.idFields`, `targetConfig.idFields`, `mapping.fieldMapping`, or `mapping.sortKeys`; otherwise the connector cannot build the vertex or edge ID.
+If both `mappings` and `schema_config` are configured, `mappings` wins and `schema_config` is ignored with a warning.
 
-### Schema Configuration (`schema_config`)
+### Mapping Configuration (`mappings`)
 
-`schema_config` defines how one input stream is mapped to a specific vertex or edge label in HugeGraph.
+Each `mappings` entry defines how input rows are mapped to one HugeGraph vertex or edge label.
+
+| Name               | Type               | Required   | Default Value | Description                                                                                              |
+| ------------------ |--------------------| ---------- | ------------- |----------------------------------------------------------------------------------------------------------|
+| `type`             | String             | Yes        | -             | The type of graph element to map to. Must be `VERTEX` or `EDGE`.                                         |
+| `label`            | String             | Yes        | -             | The label of the vertex or edge in HugeGraph.                                                            |
+| `properties`       | `List<String>`       | No         | -             | Source field names written as HugeGraph properties. If empty, all input fields are considered.           |
+| `ttl`              | Long               | No         | -             | The time-to-live for the vertex or edge in seconds.                                                      |
+| `ttlStartTime`     | String             | No         | -             | The start time for the TTL.                                                                              |
+| `enableLabelIndex` | String             | No         | -             | Reserved label-index setting passed through the mapping config.                                          |
+| `userdata`         | `Map<String, Object>` | No         | -             | User-defined data associated with the label.                                                             |
+| `idStrategy`       | String             | For Vertex | -             | The ID generation strategy for vertices, such as `PRIMARY_KEY`, `CUSTOMIZE_STRING`, `CUSTOMIZE_NUMBER`, `CUSTOMIZE_UUID`, or `AUTOMATIC`. |
+| `idFields`         | `List<string>`       | For Vertex | -             | A list of source field names used to generate the vertex ID. Required when `idStrategy` is not `AUTOMATIC`. |
+| `sourceConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's source vertex. See `Source/Target Config` below.           |
+| `targetConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's target vertex. See `Source/Target Config` below.           |
+| `frequency`        | String             | For Edge   | -             | The frequency of the edge, e.g., `SINGLE`, `MULTIPLE`.                                                   |
+| `sortKeys`         | `List<String>`       | For Edge   | -             | A list of property keys to sort edges with the same source and target vertices. Required when `frequency = MULTIPLE`. |
+| `fieldMapping`     | `Map<String, String>` | No       | -             | A map where the key is the source field name and the value is the target property name in HugeGraph.      |
+| `valueMapping`     | `Map<Object, Object>` | No       | -             | A map to transform specific field values.                                                                |
+| `nullableKeys`     | `List<String>`        | No       | -             | A list of property keys that can have null values.                                                        |
+| `nullValues`       | `List<String>`        | No       | -             | A list of string values that should be treated as `null`.                                                |
+| `dateFormat`       | String              | No         | `yyyy-MM-dd`  | The date format for parsing date strings.                                                                |
+| `timeZone`         | String              | No         | `GMT+8`       | The time zone for date parsing.                                                                          |
+
+### Legacy Schema Configuration (`schema_config`)
+
+`schema_config` defines how one input stream is mapped to a specific vertex or edge label in HugeGraph. It is deprecated; new jobs should use `mappings`.
 
 | Name               | Type               | Required   | Default Value | Description                                                                                              |
 | ------------------ |--------------------| ---------- | ------------- |----------------------------------------------------------------------------------------------------------|
@@ -124,11 +154,14 @@ The connector validates the SeaTunnel row schema against the existing HugeGraph 
 - For vertices, `idStrategy` controls how the vertex ID is built. `PRIMARY_KEY` joins all `idFields` with HugeGraph's primary-key format, `CUSTOMIZE_STRING` joins them with `:`, `CUSTOMIZE_NUMBER` expects one numeric field, and `CUSTOMIZE_UUID` expects one UUID field.
 - For edges, the connector reads the ID strategy from the existing source and target vertex labels in HugeGraph. `sourceConfig.idFields` and `targetConfig.idFields` must provide enough fields to rebuild those vertex IDs.
 - `INSERT` writes a new vertex or edge, `UPDATE_AFTER` updates the existing graph element, and `DELETE` deletes it. Delete rows only need the fields required to build the element ID.
-- `mapping.nullValues` treats matching string values as null and skips those properties during writes.
+- `AUTOMATIC` vertex IDs support INSERT only. UPDATE and DELETE require a reconstructable ID strategy.
+- The sink is at-least-once. Replayed INSERT records with `AUTOMATIC` IDs can create duplicates after retries or checkpoint recovery.
+- Edge batches use HugeGraph `check_vertex=false`, so vertices and edges may be written out of order. This is intentional; the graph reaches its final consistent state after all batches complete.
+- `nullValues` treats matching string values as null and skips those properties during writes.
 
 ## Usage Examples
 
-The examples below assume the corresponding HugeGraph schema has already been created.
+The examples below use the default `schema_save_mode = CREATE_SCHEMA_WHEN_NOT_EXIST`. If you set `schema_save_mode = ERROR_WHEN_SCHEMA_NOT_EXIST`, create the corresponding HugeGraph schema before running the job.
 
 ### 1. Writing Vertices
 
@@ -156,15 +189,15 @@ sink {
     host = "localhost"
     port = 8080
     graph_name = "hugegraph"
-    graph_space = "default"
-    selected_fields = ["name", "age"]
-    schema_config = {
-      type = "VERTEX"
-      label = "person"
-      idStrategy = "PRIMARY_KEY"
-      idFields = ["name"]
-      properties = ["name", "age"]
-    }
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+        properties = ["name", "age"]
+      }
+    ]
   }
 }
 ```
@@ -196,26 +229,25 @@ sink {
     host = "localhost"
     port = 8080
     graph_name = "hugegraph"
-    graph_space = "default"
-    schema_config = {
-      type = "EDGE"
-      label = "knows"
-      sourceConfig = {
-        label = "person"
-        idFields = ["person1_name"]
-      }
-      targetConfig = {
-        label = "person"
-        idFields = ["person2_name"]
-      }
-      properties = ["since"]
-      mapping = {
+    mappings = [
+      {
+        type = "EDGE"
+        label = "knows"
+        sourceConfig = {
+          label = "person"
+          idFields = ["person1_name"]
+        }
+        targetConfig = {
+          label = "person"
+          idFields = ["person2_name"]
+        }
+        properties = ["since"]
         fieldMapping = {
           person1_name = "name"
           person2_name = "name"
         }
       }
-    }
+    ]
   }
 }
 ```

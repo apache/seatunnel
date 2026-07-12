@@ -15,26 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
+package org.apache.seatunnel.connectors.seatunnel.hugegraph.client;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import lombok.Data;
 
-import org.apache.hugegraph.structure.GraphElement;
+import java.util.List;
 
-import java.io.Serializable;
+@Data
+public class PageResult<T> {
 
-public interface GraphDataMapper extends Serializable {
-
-    /**
-     * Maps a SeaTunnelRow to a HugeGraph GraphElement (Vertex or Edge). Returns null if the element
-     * should be skipped (e.g. null ID fields matched by nullValues).
-     */
-    GraphElement map(SeaTunnelRow row);
-
-    /**
-     * Extracts the graph element ID from a SeaTunnelRow. The ID format must match the server-side
-     * format to ensure DELETE operations target the correct element. Returns null if the ID cannot
-     * be built (e.g. null ID fields).
-     */
-    Object extractId(SeaTunnelRow row);
+    private final List<T> records;
+    private final String nextPage;
 }

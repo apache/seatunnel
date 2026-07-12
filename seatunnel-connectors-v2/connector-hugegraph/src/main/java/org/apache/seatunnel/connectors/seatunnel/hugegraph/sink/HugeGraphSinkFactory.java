@@ -48,17 +48,21 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                 // connection config
                 .required(HugeGraphOptions.HOST, HugeGraphOptions.PORT, HugeGraphOptions.GRAPH_NAME)
                 .optional(
-                        HugeGraphOptions.GRAPH_SPACE,
+                        HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
                         HugeGraphOptions.PASSWORD)
-                // mapping config
-                .exclusive(
-                        HugeGraphSinkOptions.SELECTED_FIELDS, HugeGraphSinkOptions.IGNORED_FIELDS)
-                .required(HugeGraphSinkOptions.SCHEMA_CONFIG)
+                // mapping config: mappings (new) or schema_config (legacy)
+                .optional(HugeGraphSinkOptions.MAPPINGS, HugeGraphSinkOptions.SCHEMA_CONFIG)
+                // schema management
+                .optional(
+                        HugeGraphSinkOptions.SCHEMA_SAVE_MODE,
+                        HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES)
                 // batch config
                 .optional(HugeGraphOptions.BATCH_SIZE, HugeGraphOptions.BATCH_INTERVAL_MS)
-                // error operation
+                // retry config
                 .optional(HugeGraphOptions.MAX_RETRIES, HugeGraphOptions.RETRY_BACKOFF_MS)
+                // deprecated field selection
+                .optional(HugeGraphSinkOptions.SELECTED_FIELDS, HugeGraphSinkOptions.IGNORED_FIELDS)
                 .build();
     }
 }

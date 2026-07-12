@@ -22,7 +22,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 :::caution
 
-运行任务前，需要先在 HugeGraph 中创建好对应的属性键、顶点标签和边标签。`schema_config` 只负责把 SeaTunnel 字段映射到已有图结构，不会自动创建 HugeGraph Schema。
+新的 `mappings` 配置默认使用 `schema_save_mode = CREATE_SCHEMA_WHEN_NOT_EXIST`，写入前会创建缺失的 HugeGraph PropertyKey/VertexLabel/EdgeLabel。Legacy `schema_config` 任务在未显式设置该选项时保留原有的 `ERROR_WHEN_SCHEMA_NOT_EXIST` 行为。
 
 :::
 
@@ -32,28 +32,58 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | ------------------- | ------- | -------- | ------ | ---------------------------------------------------------------------- |
 | `host`              | String  | 是       | -      | HugeGraph服务器的主机。                                                |
 | `port`              | Integer | 是       | -      | HugeGraph服务器的端口。                                                |
+| `protocol`          | String  | 否       | `http` | 服务协议，支持 `http`、`https`。HTTPS 使用 JVM trust store。             |
 | `graph_name`        | String  | 是       | -      | 要写入的图的名称。                                                     |
-| `graph_space`       | String  | 否       | -      | 要操作的图的图空间。                                                   |
+| `graph_space`       | String  | 否       | -      | 当前 HugeGraph client 依赖不支持该参数。设置该参数时 connector 会 fail-fast。 |
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
 | `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
-| `max_retries`       | Integer | 否       | 3      | 重试失败写入操作的最大次数。                                           |
+| `max_retries`       | Integer | 否       | 3      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。                       |
 | `retry_backoff_ms`  | Integer | 否       | 5000   | 重试之间的退避时间（毫秒）。                                           |
 
 ## Sink选项
 
-| 名称               | 类型   | 是否必须 | 默认值 | 描述                                                                 |
-| ------------------ | ------ | -------- | ------ | -------------------------------------------------------------------- |
-| `schema_config`    | Object | 是       | -      | 将输入数据映射到HugeGraph的Schema（顶点或边）的配置。                |
-| `selected_fields`  | List   | 否       | -      | 要从输入数据中选择的字段列表。如果未指定，将使用所有字段。           |
-| `ignored_fields`   | List   | 否       | -      | 要从输入数据中忽略的字段列表。与`selected_fields`互斥。              |
+| 名称                       | 类型    | 是否必须 | 默认值 | 描述 |
+|----------------------------|---------|----------|--------|------|
+| `mappings`                 | List    | 是       | -      | 推荐的映射配置。每个条目将输入行映射到一个 HugeGraph 顶点或边标签。 |
+| `schema_save_mode`         | Enum    | 否       | `mappings` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST`；legacy 为 `ERROR_WHEN_SCHEMA_NOT_EXIST` | Schema 管理模式。 |
+| `delete_vertex_with_edges` | Boolean | 否       | `mappings` 为 `false`；legacy 为 `true` | 为 true 时，顶点 DELETE 行会同时删除关联边。 |
+| `schema_config`            | Object  | 否       | -      | 已废弃的 legacy 映射对象。请使用 `mappings`。必须配置 `mappings` 或 `schema_config` 之一。 |
+| `selected_fields`          | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
+| `ignored_fields`           | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
 
-`selected_fields` 和 `ignored_fields` 会在字段映射到 HugeGraph 之前生效。请保留 `idFields`、`sourceConfig.idFields`、`targetConfig.idFields`、`mapping.fieldMapping` 或 `mapping.sortKeys` 会用到的字段，否则连接器无法生成顶点或边的 ID。
+如果同时配置 `mappings` 和 `schema_config`，connector 会使用 `mappings`，并输出警告说明 `schema_config` 被忽略。
 
-### Schema配置 (`schema_config`)
+### 映射配置 (`mappings`)
 
-`schema_config` 定义一个输入流如何映射到 HugeGraph 中的某个顶点标签或边标签。
+每个 `mappings` 条目定义输入行如何映射到一个 HugeGraph 顶点标签或边标签。
+
+| 名称               | 类型                | 是否必须 | 默认值  | 描述 |
+|--------------------|---------------------|----------|---------|------|
+| `type`             | String              | 是       | -       | 要映射到的图元素类型。必须是 `VERTEX` 或 `EDGE`。 |
+| `label`            | String              | 是       | -       | HugeGraph 中顶点或边的标签。 |
+| `properties`       | `List<String>`        | 否       | -       | 要写入 HugeGraph 属性的源字段名。为空时会考虑所有输入字段。 |
+| `ttl`              | Long                | 否       | -       | 顶点或边的生存时间，单位秒。 |
+| `ttlStartTime`     | String              | 否       | -       | TTL 的开始时间。 |
+| `enableLabelIndex` | String              | 否       | -       | 随 mapping 配置传入的预留标签索引配置。 |
+| `userdata`         | `Map<String, Object>` | 否       | -       | 与标签关联的用户自定义数据。 |
+| `idStrategy`       | String              | 对于顶点 | -       | 顶点 ID 生成策略，例如 `PRIMARY_KEY`、`CUSTOMIZE_STRING`、`CUSTOMIZE_NUMBER`、`CUSTOMIZE_UUID` 或 `AUTOMATIC`。 |
+| `idFields`         | `List<String>`        | 对于顶点 | -       | 用于生成顶点 ID 的源字段名。当 `idStrategy` 不是 `AUTOMATIC` 时必填。 |
+| `sourceConfig`     | Object              | 对于边   | -       | 定义边的源顶点映射。请参阅下面的 `Source/Target Config`。 |
+| `targetConfig`     | Object              | 对于边   | -       | 定义边的目标顶点映射。请参阅下面的 `Source/Target Config`。 |
+| `frequency`        | String              | 对于边   | -       | 边频率，例如 `SINGLE`、`MULTIPLE`。 |
+| `sortKeys`         | `List<String>`        | 对于边   | -       | 对相同源点和目标点之间的多条边排序的属性键。当 `frequency = MULTIPLE` 时必填。 |
+| `fieldMapping`     | `Map<String, String>` | 否       | -       | 字段映射，key 为源字段名，value 为 HugeGraph 目标属性名。 |
+| `valueMapping`     | `Map<Object, Object>` | 否       | -       | 用于转换特定字段值的映射。 |
+| `nullableKeys`     | `List<String>`        | 否       | -       | 可以具有 null 值的属性键列表。 |
+| `nullValues`       | `List<String>`        | 否       | -       | 应被视为 `null` 的字符串值列表。 |
+| `dateFormat`       | String              | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。 |
+| `timeZone`         | String              | 否       | `GMT+8` | 用于日期解析的时区。 |
+
+### Legacy Schema配置 (`schema_config`)
+
+`schema_config` 定义一个输入流如何映射到 HugeGraph 中的某个顶点标签或边标签。该配置已废弃，新任务应使用 `mappings`。
 
 | 名称               | 类型                | 是否必须 | 默认值  | 描述                                                         |
 | ------------------ | ------------------- | -------- | ------- |------------------------------------------------------------|
@@ -124,11 +154,14 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 - 写入顶点时，`idStrategy` 决定如何生成顶点 ID。`PRIMARY_KEY` 会按 HugeGraph 主键格式拼接所有 `idFields`，`CUSTOMIZE_STRING` 会用 `:` 拼接字段，`CUSTOMIZE_NUMBER` 需要一个数字字段，`CUSTOMIZE_UUID` 需要一个 UUID 字段。
 - 写入边时，连接器会从 HugeGraph 中已有的源顶点标签和目标顶点标签读取 ID 策略。`sourceConfig.idFields` 和 `targetConfig.idFields` 必须能还原对应顶点 ID。
 - `INSERT` 会写入新的顶点或边，`UPDATE_AFTER` 会更新已有图元素，`DELETE` 会删除图元素。删除行只需要包含能生成图元素 ID 的字段。
-- `mapping.nullValues` 中列出的字符串会被当作空值处理，写入时会跳过这些属性。
+- `AUTOMATIC` 顶点 ID 仅支持 INSERT；UPDATE 和 DELETE 必须使用可还原 ID 的策略。
+- Sink 提供 at-least-once 语义。使用 `AUTOMATIC` ID 时，重试或 checkpoint 恢复后的 INSERT 重放可能产生重复顶点。
+- 边批次使用 HugeGraph `check_vertex=false`，因此顶点与边可能乱序写入。这是刻意设计；所有批次完成后图达到最终一致状态。
+- `nullValues` 中列出的字符串会被当作空值处理，写入时会跳过这些属性。
 
 ## 使用示例
 
-下面示例默认 HugeGraph 中已经提前创建好对应 Schema。
+下面示例使用默认的 `schema_save_mode = CREATE_SCHEMA_WHEN_NOT_EXIST`。如果设置 `schema_save_mode = ERROR_WHEN_SCHEMA_NOT_EXIST`，请在运行任务前先创建好对应 HugeGraph Schema。
 
 ### 1. 写入顶点
 
@@ -156,15 +189,15 @@ sink {
     host = "localhost"
     port = 8080
     graph_name = "hugegraph"
-    graph_space = "default"
-    selected_fields = ["name", "age"]
-    schema_config = {
-      type = "VERTEX"
-      label = "person"
-      idStrategy = "PRIMARY_KEY"
-      idFields = ["name"]
-      properties = ["name", "age"]
-    }
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+        properties = ["name", "age"]
+      }
+    ]
   }
 }
 ```
@@ -196,26 +229,25 @@ sink {
     host = "localhost"
     port = 8080
     graph_name = "hugegraph"
-    graph_space = "default"
-    schema_config = {
-      type = "EDGE"
-      label = "knows"
-      sourceConfig = {
-        label = "person"
-        idFields = ["person1_name"]
-      }
-      targetConfig = {
-        label = "person"
-        idFields = ["person2_name"]
-      }
-      properties = ["since"]
-      mapping = {
+    mappings = [
+      {
+        type = "EDGE"
+        label = "knows"
+        sourceConfig = {
+          label = "person"
+          idFields = ["person1_name"]
+        }
+        targetConfig = {
+          label = "person"
+          idFields = ["person2_name"]
+        }
+        properties = ["since"]
         fieldMapping = {
           person1_name = "name"
           person2_name = "name"
         }
       }
-    }
+    ]
   }
 }
 ```

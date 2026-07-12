@@ -33,6 +33,12 @@ public class HugeGraphOptions {
     public static final Option<Integer> PORT =
             Options.key("port").intType().noDefaultValue().withDescription("HugeGraph server port");
 
+    public static final Option<String> PROTOCOL =
+            Options.key("protocol")
+                    .stringType()
+                    .defaultValue("http")
+                    .withDescription("HugeGraph server protocol. Supported values: http, https");
+
     public static final Option<String> GRAPH_NAME =
             Options.key("graph_name")
                     .stringType()
