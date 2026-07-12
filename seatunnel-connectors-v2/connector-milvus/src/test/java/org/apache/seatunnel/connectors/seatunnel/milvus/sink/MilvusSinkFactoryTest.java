@@ -105,6 +105,7 @@ public class MilvusSinkFactoryTest {
         assertTrue(declaredOptions.contains(MilvusSinkOptions.LOAD_COLLECTION));
         assertTrue(declaredOptions.contains(MilvusSinkOptions.CREATE_INDEX));
         assertTrue(declaredOptions.contains(MilvusSinkOptions.RATE_LIMIT));
+        assertTrue(declaredOptions.contains(MilvusSinkOptions.ENABLE_NULLABLE_FIELD));
     }
 
     private SeaTunnelSink<?, ?, ?, ?> createSeaTunnelSink(Map<String, Object> options) {
