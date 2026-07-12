@@ -33,16 +33,22 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
     private final Counter totalIntermediateQueueSize;
     private final Counter intermediateQueueSize;
     private final Counter putBlockedNs;
+    private final Counter flushSignalQueueSuccessTotal;
+    private final Counter flushSignalQueueFailureTotal;
 
     public IntermediateDisruptor(
             Disruptor<RecordEvent> queue,
             Counter totalIntermediateQueueSize,
             Counter intermediateQueueSize,
-            Counter putBlockedNs) {
+            Counter putBlockedNs,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal) {
         super(queue);
         this.totalIntermediateQueueSize = totalIntermediateQueueSize;
         this.intermediateQueueSize = intermediateQueueSize;
         this.putBlockedNs = putBlockedNs;
+        this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+        this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
     }
 
     private volatile boolean isExecuted;
@@ -55,7 +61,9 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
                 getIntermediateQueueFlowLifeCycle(),
                 putBlockedNs,
                 totalIntermediateQueueSize,
-                intermediateQueueSize);
+                intermediateQueueSize,
+                flushSignalQueueSuccessTotal,
+                flushSignalQueueFailureTotal);
     }
 
     @Override

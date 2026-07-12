@@ -79,7 +79,7 @@ libfb303-xxx.jar
 | iceberg.table.upsert-mode-enabled      | boolean | no   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
 | schema_save_mode                       | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
-| custom_sql                             | string  | no   | -                            | 自定义 `delete` 数据的 SQL 语句，用于数据写入方式。例如： `delete from ... where ...`                                                                                                                                                  |
+| custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
 | multi_table_sink_replica               | int     | no   | -                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
@@ -99,6 +99,10 @@ libfb303-xxx.jar
 ### iceberg.table.commit-branch [string]
 
 将提交写入指定的 Iceberg 分支。不配置时写入表的默认分支。
+
+### custom_sql [string]
+
+当 `data_save_mode = CUSTOM_PROCESSING` 时，配置在 Sink 写入前删除目标数据的 `delete` SQL。该模式下必须配置此选项。
 
 ### krb5_path [string]
 
