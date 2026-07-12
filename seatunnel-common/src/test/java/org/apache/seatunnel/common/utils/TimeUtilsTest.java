@@ -32,5 +32,7 @@ public class TimeUtilsTest {
         Assertions.assertEquals(
                 "12:12:12.123",
                 TimeUtils.parse(timeStr, TimeUtils.matchTimeFormatter(timeStr)).toString());
+
+        Assertions.assertNull(TimeUtils.matchTimeFormatter("12:12:12x123"));
     }
 }

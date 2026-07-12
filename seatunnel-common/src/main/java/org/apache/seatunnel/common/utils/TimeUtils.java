@@ -45,7 +45,7 @@ public class TimeUtils {
     public static final Pattern[] PATTERN_ARRAY =
             new Pattern[] {
                 Pattern.compile("\\d{2}:\\d{2}:\\d{2}"),
-                Pattern.compile("\\d{2}:\\d{2}:\\d{2}.\\d{3}"),
+                Pattern.compile("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}"),
             };
 
     public static Formatter matchTimeFormatter(String dateTime) {
