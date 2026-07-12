@@ -787,13 +787,13 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         String containerPath = ftpHomeDir + ftpPath;
         String command =
-                "mkdir -p $(dirname '"
+                "parent=$(dirname '"
                         + containerPath
-                        + "') && printf '"
+                        + "') && mkdir -p \"$parent\" && printf '"
                         + content
                         + "' > '"
                         + containerPath
-                        + "' && chmod 666 '"
+                        + "' && chmod -R 777 \"$parent\" && chmod 666 '"
                         + containerPath
                         + "'";
         Container.ExecResult putResult = ftpContainer.execInContainer("sh", "-c", command);
