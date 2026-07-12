@@ -45,8 +45,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | client_default_operation_timeout_ms       | Long   | 否       | 30000                                          | Kudu正常运行超时。                                                                                                             |
 | client_default_admin_operation_timeout_ms | Long   | 否       | 30000                                          | Kudu管理员操作超时。                                                                                                              |
 | enable_kerberos                           | Bool   | 否       | false                                          | 启用Kerberos主体。                                                                                                                  |
-| kerberos_principal                        | String | 否       | -                                              | Kerberos主体。请注意，所有zeta节点都需要此文件。                                                                        |
-| kerberos_keytab                           | String | 否       | -                                              | Kerberos密钥表。请注意，所有zeta节点都需要此文件。                                                                           |
+| kerberos_principal                        | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos principal。keytab 文件必须在每个 worker 节点都可访问。                                                                        |
+| kerberos_keytab                           | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos keytab 路径，文件必须在每个 worker 节点都可访问。                                                                           |
 | kerberos_krb5conf                         | String | 否       | -                                              | Kerberos krb5 conf.请注意，所有zeta节点都需要此文件。                                                                        |
 | save_mode                                 | String | 否       | APPEND                                         | 存储模式。支持 `append` 和 `overwrite`。在 `overwrite` 模式下，插入记录会按 Kudu upsert 写入。                                                                                             |
 | session_flush_mode                        | String | 否       | AUTO_FLUSH_SYNC                                | Kudu 刷新模式。支持 `AUTO_FLUSH_SYNC`、`AUTO_FLUSH_BACKGROUND` 和 `MANUAL_FLUSH`。                                                                                                   |
@@ -54,6 +54,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | 否       | 10000                                          | 仅当 `session_flush_mode = AUTO_FLUSH_BACKGROUND` 时生效，表示异步写入的刷新间隔，单位毫秒。                                                             |
 | ignore_not_found                          | Bool   | 否       | false                                          | 如果为true，则忽略所有未找到的行。                                                                                                         |
 | ignore_not_duplicate                      | Bool   | 否       | false                                          | 如果为 true，则忽略所有重复行。                                                                                                          |
+| multi_table_sink_replica                  | Int    | 否       | 1                                              | 多表写入时每张表对应的 Sink Writer 副本数。                                                                          |
 | common-options                            |        | 否       | -                                              | Sink插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md)。                           |
 
 ## 参数说明
@@ -61,6 +62,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - `table_name` 是可选参数。不配置时，Sink 会写入上游数据行携带的表名。
 - 多表写入时，可以在 `table_name` 中使用占位符，把不同来源表的数据写入不同 Kudu 表。
 - 支持 CDC 数据：插入记录会追加写入，更新记录会按 upsert 写入，删除记录会按主键删除。
+- `batch_size` 只在 `AUTO_FLUSH_BACKGROUND` 或 `MANUAL_FLUSH` 模式下需要配置；`buffer_flush_interval`
+  只在 `AUTO_FLUSH_BACKGROUND` 模式下需要配置。
+- 当 `enable_kerberos = true` 时，必须同时配置 `kerberos_principal` 和 `kerberos_keytab`。
 
 ## 任务示例
 

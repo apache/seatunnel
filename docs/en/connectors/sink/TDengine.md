@@ -17,11 +17,16 @@ the target sub table name, the middle fields are normal columns, and the last
 fields are TAGS values. The connector reads the number of TAGS fields from the
 target super table metadata.
 
+For example, if the target super table has two TAGS fields, the last two input
+fields are treated as TAGS values, and the first input field is treated as the
+sub table name.
+
 ## Key features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

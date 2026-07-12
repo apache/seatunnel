@@ -237,6 +237,7 @@ int_type_narrowing = false
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
+| YashanDB  |          |          |
 
 ## 并行读取器
 
@@ -274,6 +275,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 | kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
 | oceanbase         | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | hive              | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
 ## 示例
 

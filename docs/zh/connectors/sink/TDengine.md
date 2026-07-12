@@ -12,11 +12,14 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 输入数据需要符合 TDengine 超级表写入结构：第一列是目标子表名，中间是普通列，最后几列是 TAGS 值。连接器会读取目标超级表元数据来判断末尾有几列 TAGS。
 
+例如，目标超级表有 2 个 TAGS 字段时，输入数据最后 2 列会作为 TAGS 值，第一列会作为子表名。
+
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

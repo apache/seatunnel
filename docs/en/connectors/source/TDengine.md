@@ -92,6 +92,11 @@ When reading from a super table, put TAGS columns at the end of the list. Do not
 include `subtable_name`; the connector adds it automatically as the first output
 field.
 
+The order of `read_columns` decides the output field order after
+`subtable_name`. If the result is written to a TDengine sink, keep normal columns
+before TAGS columns so the sink can split column values and TAGS values
+correctly.
+
 ## Examples
 
 ### Read all sub tables in a time range

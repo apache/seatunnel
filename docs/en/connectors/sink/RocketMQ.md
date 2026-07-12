@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -34,7 +35,7 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 | secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
 | producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
 | tag | String | no | - | RocketMQ message tag written with each message. |
-| partition.key.fields | List | no | - | Field names used to choose the target RocketMQ queue. Every listed field must exist in the upstream schema. |
+| partition.key.fields | List | no | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
 | format | String | no | json | Message format. Supported values are `json` and `text`. |
 | field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
 | producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
@@ -47,9 +48,13 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 
 ### partition.key.fields
 
-`partition.key.fields` controls which RocketMQ queue receives each message. SeaTunnel hashes the configured field values and uses the hash to choose a queue. If this option is not set, RocketMQ chooses the queue.
+`partition.key.fields` controls the RocketMQ message key. SeaTunnel serializes
+the configured field values as JSON and writes that value to `Message.keys`. For
+non-transactional sends, the same key is also used by RocketMQ's hash queue
+selector, so rows with the same key are sent to the same queue. If this option is
+not set, RocketMQ chooses the queue.
 
-For example, if the input schema contains `c_int`, this configuration uses `c_int` as the queue key:
+For example, if the input schema contains `c_int`, this configuration uses `c_int` to build the message key:
 
 ```hocon
 partition.key.fields = ["c_int"]
@@ -60,6 +65,12 @@ partition.key.fields = ["c_int"]
 The sink supports exactly-once writes through RocketMQ transactional messages. This behavior is disabled by default. Set `exactly.once = true` when the RocketMQ cluster and the job checkpoint settings are ready for transactional writes.
 
 When `format = text`, SeaTunnel serializes fields in the upstream schema order and joins them with `field.delimiter`. When `format = json`, each row is written as a JSON object.
+
+### producer.send.sync
+
+`producer.send.sync = true` makes the producer wait for RocketMQ to acknowledge
+each send request. With the default value `false`, messages are sent
+asynchronously.
 
 ## Task Examples
 

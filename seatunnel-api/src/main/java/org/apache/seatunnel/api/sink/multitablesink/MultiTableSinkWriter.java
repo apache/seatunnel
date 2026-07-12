@@ -87,8 +87,8 @@ public class MultiTableSinkWriter
     private final ExecutorService executorService;
     private final Set<String> closedTableIds = ConcurrentHashMap.newKeySet();
     /**
-     * Tables that have received all close-table events and must reject new rows immediately, but
-     * whose writers can only be closed after their final checkpoint state has been captured.
+     * Tables that have received all close-table events and whose writers will be closed after their
+     * final checkpoint state has been captured. Rows already in flight remain valid until then.
      */
     private final Set<String> pendingCloseTableIds = ConcurrentHashMap.newKeySet();
     /** Tracks which upstream subtasks have already acknowledged a table as finished. */
@@ -458,12 +458,10 @@ public class MultiTableSinkWriter
             }
         }
 
-        if (element.getTableId() != null
-                && (closedTableIds.contains(element.getTableId())
-                        || pendingCloseTableIds.contains(element.getTableId()))) {
+        if (element.getTableId() != null && closedTableIds.contains(element.getTableId())) {
             throw new IOException(
                     String.format(
-                            "Received row for table %s after close table event was handled",
+                            "Received row for table %s after its sink writers were closed",
                             element.getTableId()));
         }
 
@@ -873,6 +871,28 @@ public class MultiTableSinkWriter
                         firstE[0]);
             }
             throw new RuntimeException(firstE[0]);
+        }
+    }
+
+    /**
+     * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
+     * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
+     * to prevent concurrent writes.
+     *
+     * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
+     */
+    void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
+        checkQueueRemain();
+        subSinkErrorCheck();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            synchronized (runnable.get(i)) {
+                for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
+                    SinkContextProxy proxy = proxyContexts.get(id);
+                    if (proxy != null && proxy.getFlushAction() != null) {
+                        proxy.getFlushAction().run();
+                    }
+                }
+            }
         }
     }
 

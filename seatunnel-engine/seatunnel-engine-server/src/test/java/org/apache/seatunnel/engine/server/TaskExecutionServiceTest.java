@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
@@ -55,6 +56,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -476,5 +478,65 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             taskQueue.add(new StopTimeTestTask(callTime, stopList, stopMart));
         }
         return taskQueue;
+    }
+
+    @Test
+    public void testRegisterTimerFlushRejectsNonPositiveInterval() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 200L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 0L));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, -1L));
+    }
+
+    @Test
+    public void testRegisterAndCloseTimerFlushTask() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 201L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        ScheduledFuture<?> future =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+        Assertions.assertNotNull(future);
+        Assertions.assertFalse(future.isCancelled());
+
+        taskExecutionService.closeTimerFlushTask(taskLocation);
+        Assertions.assertTrue(future.isCancelled());
+
+        // closing again is idempotent
+        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(taskLocation));
+    }
+
+    @Test
+    public void testReRegisterTimerFlushCancelsPreviousFuture() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 202L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        ScheduledFuture<?> first =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+        ScheduledFuture<?> second =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
+
+        Assertions.assertNotSame(first, second);
+        Assertions.assertTrue(
+                first.isCancelled(), "previous future must be cancelled on re-register");
+        Assertions.assertFalse(second.isCancelled(), "new future must remain active");
+
+        taskExecutionService.closeTimerFlushTask(taskLocation);
+    }
+
+    @Test
+    public void testCloseTimerFlushOnUnknownLocationIsNoop() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 203L);
+        TaskLocation unknown = new TaskLocation(groupLocation, 1L, 99);
+
+        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(unknown));
     }
 }

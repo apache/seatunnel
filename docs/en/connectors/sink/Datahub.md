@@ -9,13 +9,21 @@ import ChangeLog from '../changelog/connector-datahub.md';
 The DataHub sink writes SeaTunnel rows to Alibaba Cloud DataHub.
 
 The connector supports single-table writes and multi-table writes. In multi-table
-jobs, use placeholders such as `${table_name}` in `topic` to route records from
+jobs, use placeholders such as `${table}` in `topic` to route records from
 different input tables to different DataHub topics.
 
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Before You Start
+
+Create the DataHub project and topic before running the SeaTunnel job. The
+DataHub topic schema must contain fields with the same names as the upstream
+SeaTunnel schema fields, because the sink writes values by field name.
 
 ## Options
 
@@ -49,10 +57,11 @@ The DataHub project name.
 ### topic [string]
 
 The DataHub topic name. For multi-table writes, this value can contain
-placeholders, for example `${table_name}`.
+placeholders, for example `${table}`. `${table_name}` is only kept as a
+deprecated compatibility alias; use `${table}` for new jobs.
 
-The SeaTunnel field names must match the DataHub topic fields, because the sink writes fields by
-name according to the topic schema.
+The SeaTunnel field names must match the DataHub topic fields, because the sink
+writes fields by name according to the topic schema.
 
 ### timeout [int]
 
@@ -147,7 +156,7 @@ sink {
     accessId = "your-access-id"
     accessKey = "your-access-key"
     project = "demo_project"
-    topic = "${table_name}"
+    topic = "${table}"
     timeout = 3000
     retryTimes = 3
   }

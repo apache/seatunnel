@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server.serializable;
 
+import org.apache.seatunnel.api.signal.FlushSignal;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -52,6 +55,9 @@ public class RecordSerializer implements StreamSerializer<Record> {
     private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
     private static final int MAX_TRACE_PAYLOAD_LENGTH = 8 * 1024;
 
+    private static final byte TYPE_SEATUNNEL_FLUSH_SIGNAL_V1 = 4;
+    private static final byte TYPE_CLOSE_TABLE_EVENT_V1 = 5;
+
     /**
      * Writes checkpoints or rows while filtering oversized stain trace payloads from row options.
      */
@@ -80,6 +86,24 @@ public class RecordSerializer implements StreamSerializer<Record> {
             if (opts != null) {
                 out.writeObject(opts);
             }
+        } else if (data instanceof FlushSignal) {
+            FlushSignal flushSignal = (FlushSignal) data;
+            out.writeByte(TYPE_SEATUNNEL_FLUSH_SIGNAL_V1);
+            out.writeLong(flushSignal.getJobId());
+            out.writeLong(flushSignal.getTaskId());
+            out.writeLong(flushSignal.getCreatedTime());
+        } else if (data instanceof CloseTableEvent) {
+            CloseTableEvent closeTableEvent = (CloseTableEvent) data;
+            out.writeByte(TYPE_CLOSE_TABLE_EVENT_V1);
+            TablePath tablePath = closeTableEvent.getTablePath();
+            out.writeBoolean(tablePath != null);
+            if (tablePath != null) {
+                out.writeString(tablePath.getDatabaseName());
+                out.writeString(tablePath.getSchemaName());
+                out.writeString(tablePath.getTableName());
+            }
+            writeNullableInteger(out, closeTableEvent.getSourceSubtaskId());
+            writeNullableInteger(out, closeTableEvent.getExpectedSourceEventCount());
         } else {
             throw new UnsupportedEncodingException(
                     "Unsupported serialize class: " + data.getClass());
@@ -128,6 +152,14 @@ public class RecordSerializer implements StreamSerializer<Record> {
                 row.setOptions(opts);
             }
             data = row;
+        } else if (dataType == TYPE_SEATUNNEL_FLUSH_SIGNAL_V1) {
+            data = new FlushSignal(in.readLong(), in.readLong(), in.readLong());
+        } else if (dataType == TYPE_CLOSE_TABLE_EVENT_V1) {
+            TablePath tablePath = null;
+            if (in.readBoolean()) {
+                tablePath = TablePath.of(in.readString(), in.readString(), in.readString());
+            }
+            data = new CloseTableEvent(tablePath, readNullableInteger(in), readNullableInteger(in));
         } else {
             throw new UnsupportedEncodingException(
                     "Unsupported deserialize data type: " + dataType);
@@ -183,5 +215,16 @@ public class RecordSerializer implements StreamSerializer<Record> {
         }
         in.readInt();
         return in.readInt();
+    }
+
+    private void writeNullableInteger(ObjectDataOutput out, Integer value) throws IOException {
+        out.writeBoolean(value != null);
+        if (value != null) {
+            out.writeInt(value);
+        }
+    }
+
+    private Integer readNullableInteger(ObjectDataInput in) throws IOException {
+        return in.readBoolean() ? in.readInt() : null;
     }
 }

@@ -22,7 +22,9 @@ Common use cases:
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -51,14 +53,15 @@ Common use cases:
 | url        | String | Yes      | -       | The URL to connect to Milvus or Zilliz Cloud, for example `http://127.0.0.1:19530`.                                                                                              |
 | token      | String | Yes      | -       | Milvus authentication token. For a local Milvus server this is usually `username:password`.                                                                                      |
 | database   | String | No       | default | Source database.                                                                                                                                                                 |
-| collection | String | No       | -       | Source collection. If it is set, only this collection is read. If it is not set, all collections under `database` are read. The deprecated `collection_name` key is accepted as an alias. |
-| batch_size | Int    | No       | 1000    | Number of records fetched in one source read batch.                                                                                                                             |
-| rate_limit | Int    | No       | 1000000 | Maximum source read rate limit.                                                                                                                                                  |
+| collection | String | No       | -       | Source collection. If it is set, only this collection is read. If it is not set, all collections under `database` are read. |
 
 ## Notes
 
 - `database` defaults to `default`, so simple local Milvus jobs do not need to set it.
 - `collection` is optional. Set it when the job should read exactly one collection.
+- The source currently exposes only `url`, `token`, `database`, and `collection` as user-facing options. Read batching and retry behavior use connector defaults.
+- When `collection` is not set, the source discovers all collections in `database` and exposes each collection as a separate SeaTunnel table.
+- The source splits work by Milvus partition. Collections with a partition key are read with one split; collections without a partition key are split by partition name and assigned across readers.
 - When the source reads a collection with partitions, downstream Milvus sink can use that metadata to create the same partition names on the target collection.
 - When the source reads vector indexes, downstream Milvus sink can use that metadata with `create_index = true` to create matching vector indexes.
 

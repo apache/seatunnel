@@ -52,8 +52,8 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | client_default_operation_timeout_ms       | Long   | 否  | 30000                                          | Kudu 普通操作超时时间。                                                                                                                                                                                   |
 | client_default_admin_operation_timeout_ms | Long   | 否  | 30000                                          | Kudu 管理操作超时时间。                                                                                                                                                                                   |
 | enable_kerberos                           | Bool   | 否  | false                                          | Kerberos principal 启用。                                                                                                                                                                           |
-| kerberos_principal                        | String | 否  | -                                              | Kerberos principal。注意所有 zeta 节点都需要有此文件。                                                                                                                                                          |
-| kerberos_keytab                           | String | 否  | -                                              | Kerberos keytab。注意所有 zeta 节点都需要有此文件。                                                                                                                                                             |
+| kerberos_principal                        | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos principal。keytab 文件必须在每个 worker 节点都可访问。                                                                                                                                                          |
+| kerberos_keytab                           | String | 当 `enable_kerberos = true` 时必填 | -                                              | Kudu 客户端使用的 Kerberos keytab 路径，文件必须在每个 worker 节点都可访问。                                                                                                                                                             |
 | kerberos_krb5conf                         | String | 否  | -                                              | Kerberos krb5 conf。注意所有 zeta 节点都需要有此文件。                                                                                                                                                          |
 | scan_token_query_timeout                  | Long   | 否  | 30000                                          | 连接扫描令牌的超时时间。如果未设置，将与 operationTimeout 相同。                                                                                                                                                        |
 | scan_token_batch_size_bytes               | Int    | 否  | 1024 * 1024                                    | Kudu 扫描字节数。一次读取的最大字节数，默认为 1MB。                                                                                                                                                                   |
@@ -68,6 +68,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - `table_name` 和 `table_list` 只能配置其中一个。
 - `filter` 会下推到 Kudu 扫描中，可以使用类似 `id >= 1 AND id <= 2` 的 Kudu 过滤表达式。
 - `use_regex = true` 会把 `table_name` 当作 Java 正则表达式处理，可以配置在顶层，也可以配置在 `table_list` 的每个条目中。
+- 当 `enable_kerberos = true` 时，必须同时配置 `kerberos_principal` 和 `kerberos_keytab`。
 
 ## 任务示例
 

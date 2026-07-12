@@ -77,7 +77,7 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testCloseTableEventRejectsNewRowsImmediately() throws IOException {
+    public void testCloseTableEventAllowsInFlightRowsUntilFinalSnapshot() throws IOException {
         String table1 = TablePath.of("db", "schema", "table1").getFullName();
         TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
 
@@ -90,11 +90,19 @@ public class MultiTableSinkWriterTest {
                 new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
 
         multiTableSinkWriter.handleCloseTableEvent(
-                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 1));
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
 
         Assertions.assertEquals(0, table1Writer0.closeCount.get());
         SeaTunnelRow lateRow = new SeaTunnelRow(new Object[] {1});
         lateRow.setTableId(table1);
+        multiTableSinkWriter.write(lateRow);
+
+        multiTableSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, table1Writer0.writeCount.get());
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
         IOException exception =
                 Assertions.assertThrows(
                         IOException.class, () -> multiTableSinkWriter.write(lateRow));
@@ -719,11 +727,17 @@ public class MultiTableSinkWriterTest {
     }
 
     static class TrackingSinkWriter extends TestSinkWriter {
+        private final AtomicInteger writeCount = new AtomicInteger();
         private final AtomicInteger closeCount = new AtomicInteger();
         private final String stateValue;
 
         TrackingSinkWriter(String stateValue) {
             this.stateValue = stateValue;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) {
+            writeCount.incrementAndGet();
         }
 
         @Override
