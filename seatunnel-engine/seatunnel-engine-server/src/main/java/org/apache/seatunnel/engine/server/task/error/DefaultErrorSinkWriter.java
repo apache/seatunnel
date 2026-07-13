@@ -43,6 +43,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 
@@ -93,6 +94,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     private transient volatile boolean classLoaderReleased;
     private transient AtomicInteger pendingRows;
     private transient Object writerLock;
+    private transient SimpleWriterContext writerContext;
 
     public DefaultErrorSinkWriter(
             StageErrorConfig stageConfig,
@@ -170,6 +172,10 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         synchronized (writerLock) {
             throwWorkerFailureIfAny();
             try {
+                RunnableWithException flushAction = writerContext.getFlushAction();
+                if (flushAction != null) {
+                    flushAction.run();
+                }
                 sinkWriter.prepareCommit();
             } catch (Throwable e) {
                 workerFailure = e;
@@ -317,8 +323,9 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
 
             this.errorSink = sink;
             validateSupportedErrorSinkLifecycle(sinkConfig.getPluginName(), sink);
-            SinkWriter.Context writerContext =
+            SimpleWriterContext writerContext =
                     new SimpleWriterContext(new NoopMetricsContext(), event -> {}, subtaskIndex);
+            this.writerContext = writerContext;
             @SuppressWarnings("unchecked")
             SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
                     (SinkWriter<SeaTunnelRow, ?, ?>) sink.createWriter(writerContext);
@@ -725,6 +732,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         private final MetricsContext metricsContext;
         private final EventListener eventListener;
         private final int subtaskIndex;
+        private transient volatile RunnableWithException flushAction;
 
         private SimpleWriterContext(
                 MetricsContext metricsContext, EventListener eventListener, int subtaskIndex) {
@@ -746,6 +754,16 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         @Override
         public EventListener getEventListener() {
             return eventListener;
+        }
+
+        @Override
+        public void registerFlushAction(RunnableWithException action) {
+            this.flushAction = java.util.Objects.requireNonNull(action, "flushAction");
+        }
+
+        @Override
+        public RunnableWithException getFlushAction() {
+            return flushAction;
         }
     }
 

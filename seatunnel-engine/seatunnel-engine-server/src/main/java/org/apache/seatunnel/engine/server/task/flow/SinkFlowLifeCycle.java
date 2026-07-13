@@ -91,6 +91,8 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ABORT_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMIT_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_DROPPED;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_ROUTED;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_PREPARE_COMMIT_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_RECORDS_IN;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_NANOS;
@@ -135,6 +137,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final Counter sinkWriteNs;
     private final Counter sinkRecordsIn;
+    private final Counter sinkErrorRecordsRouted;
+    private final Counter sinkErrorRecordsDropped;
     private final Counter sinkPrepareCommitNs;
     private final Counter sinkCommitNs;
     private final Counter sinkAbortNs;
@@ -172,6 +176,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         long sinkId = sinkAction.getId();
         this.sinkWriteNs = metricsContext.counter(SINK_WRITE_NANOS + "#" + sinkId);
         this.sinkRecordsIn = metricsContext.counter(SINK_RECORDS_IN + "#" + sinkId);
+        this.sinkErrorRecordsRouted =
+                metricsContext.counter(SINK_ERROR_RECORDS_ROUTED + "#" + sinkId);
+        this.sinkErrorRecordsDropped =
+                metricsContext.counter(SINK_ERROR_RECORDS_DROPPED + "#" + sinkId);
         this.sinkPrepareCommitNs = metricsContext.counter(SINK_PREPARE_COMMIT_NANOS + "#" + sinkId);
         this.sinkCommitNs = metricsContext.counter(SINK_COMMIT_NANOS + "#" + sinkId);
         this.sinkAbortNs = metricsContext.counter(SINK_ABORT_NANOS + "#" + sinkId);
@@ -409,7 +417,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     new EngineMultiTableRowErrorHandler(rowHandler, rowClassifier, pluginName));
         }
 
-        this.writer = new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
+        ErrorHandlingSinkWriter<T, CommitInfoT, StateT> errorHandlingWriter =
+                new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
+        errorHandlingWriter.registerFlushAction(writerContext);
+        this.writer = errorHandlingWriter;
     }
 
     private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {
@@ -441,10 +452,23 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         String tableId;
         long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
-        writer.write((T) record.getData());
+        ErrorHandlingSinkWriter.WriteOutcome writeOutcome;
+        if (writer instanceof ErrorHandlingSinkWriter) {
+            writeOutcome =
+                    ((ErrorHandlingSinkWriter<T, CommitInfoT, StateT>) writer)
+                            .writeWithOutcome((T) record.getData());
+        } else {
+            writer.write((T) record.getData());
+            writeOutcome = ErrorHandlingSinkWriter.WriteOutcome.WRITTEN;
+        }
         if (metricsEnabled) {
             sinkWriteNs.inc(System.nanoTime() - writeStartNs);
             sinkRecordsIn.inc();
+        }
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK) {
+            sinkErrorRecordsRouted.inc();
+        } else if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.DROPPED) {
+            sinkErrorRecordsDropped.inc();
         }
         if (record.getData() instanceof SeaTunnelRow) {
             SeaTunnelRow row = (SeaTunnelRow) record.getData();
@@ -469,13 +493,28 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 .orElseGet(TablePath.DEFAULT::getFullName);
             }
 
-            connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
+            if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+                connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
+            }
 
             if (StainTraceUtils.hasPayload(row)) {
                 long nowMs = System.currentTimeMillis();
+                StainTraceStage traceStage;
+                switch (writeOutcome) {
+                    case ROUTED_TO_ERROR_SINK:
+                        traceStage = StainTraceStage.SINK_ERROR_ROUTED;
+                        break;
+                    case DROPPED:
+                        traceStage = StainTraceStage.SINK_ERROR_DROPPED;
+                        break;
+                    case WRITTEN:
+                    default:
+                        traceStage = StainTraceStage.SINK_WRITE_DONE;
+                        break;
+                }
                 StainTraceUtils.appendIfPresent(
                         row,
-                        StainTraceStage.SINK_WRITE_DONE,
+                        traceStage,
                         runningTask.getTaskID(),
                         nowMs,
                         getStainTraceMaxEntriesPerTrace(),

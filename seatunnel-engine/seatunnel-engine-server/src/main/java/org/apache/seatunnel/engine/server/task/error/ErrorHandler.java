@@ -48,6 +48,10 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         totalRecords.incrementAndGet();
     }
 
+    public ErrorHandlerMode getMode() {
+        return config.getMode();
+    }
+
     public void onError(RowErrorContext ctx, T row, Throwable t) {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return;

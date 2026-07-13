@@ -1,0 +1,221 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.task.flow;
+
+import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.RowErrorContext;
+import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
+import org.apache.seatunnel.engine.server.trace.StainTracePayload;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.Optional;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_DROPPED;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_ROUTED;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_RECORDS_IN;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+
+class SinkFlowLifeCycleErrorOutcomeTest {
+
+    private static final TaskLocation TASK_LOCATION =
+            new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 2L, 0);
+
+    @Test
+    void routedErrorDoesNotReportMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        SinkWriter<SeaTunnelRow, String, String> failingWriter = new TestSinkWriter(true);
+        ErrorHandlingSinkWriter<SeaTunnelRow, String, String> writer =
+                new ErrorHandlingSinkWriter<>(
+                        failingWriter, handler, (error, row, ctx) -> true, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, writer, handler);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_DROPPED + "#7").getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
+    }
+
+    @Test
+    void droppedErrorDoesNotReportMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(StageErrorConfig.builder().mode(ErrorHandlerMode.LOG).build());
+        ErrorHandlingSinkWriter<SeaTunnelRow, String, String> writer =
+                new ErrorHandlingSinkWriter<>(
+                        new TestSinkWriter(true), handler, (error, row, ctx) -> true, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, writer, handler);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_DROPPED + "#7").getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
+    }
+
+    @Test
+    void successfulWriteStillReportsMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(StageErrorConfig.builder().mode(ErrorHandlerMode.LOG).build());
+        ErrorHandlingSinkWriter<SeaTunnelRow, String, String> writer =
+                new ErrorHandlingSinkWriter<>(
+                        new TestSinkWriter(false), handler, (error, row, ctx) -> true, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, writer, handler);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_DROPPED + "#7").getCount());
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createFlow(
+            SeaTunnelMetricsContext metrics,
+            SinkWriter<SeaTunnelRow, String, String> writer,
+            ErrorHandler<SeaTunnelRow> handler)
+            throws Exception {
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                Mockito.mock(SeaTunnelSink.class);
+        Mockito.when(sink.getWriteCatalogTable()).thenReturn(Optional.empty());
+        SinkAction<SeaTunnelRow, String, String, String> action =
+                new SinkAction<>(7L, "sink", sink, Collections.emptySet(), Collections.emptySet());
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        Mockito.when(task.getTaskID()).thenReturn(2L);
+        Mockito.when(task.isObservabilityEnabled()).thenReturn(true);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                new SinkFlowLifeCycle<>(
+                        action,
+                        TASK_LOCATION,
+                        0,
+                        task,
+                        null,
+                        false,
+                        new CompletableFuture<>(),
+                        metrics);
+        setField(flow, "writer", writer);
+        setField(flow, "stageErrorHandler", handler);
+        setField(flow, "stainTraceMaxEntriesPerTrace", 32);
+        setField(flow, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("truncated"));
+        return flow;
+    }
+
+    private static SeaTunnelRow tracedRow() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.getOptions()
+                .put(
+                        StainTraceConstants.TRACE_PAYLOAD_OPTION_KEY,
+                        StainTracePayload.init(11L, 22L));
+        return row;
+    }
+
+    private static boolean hasStage(SeaTunnelRow row, StainTraceStage stage) {
+        byte[] payload =
+                (byte[]) row.getOptionsOrNull().get(StainTraceConstants.TRACE_PAYLOAD_OPTION_KEY);
+        return StainTracePayload.readEntries(payload).stream()
+                .anyMatch(entry -> entry.stageCode == (stage.getCode() & 0xFF));
+    }
+
+    private static void setField(Object target, String name, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
+    private static final class TestSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
+        private final boolean fail;
+
+        private TestSinkWriter(boolean fail) {
+            this.fail = fail;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) throws IOException {
+            if (fail) {
+                throw new IOException("row error");
+            }
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class NoopErrorSinkWriter implements ErrorSinkRowWriter<SeaTunnelRow> {
+        @Override
+        public void write(RowErrorContext context, SeaTunnelRow row, Throwable error) {}
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
+    }
+}

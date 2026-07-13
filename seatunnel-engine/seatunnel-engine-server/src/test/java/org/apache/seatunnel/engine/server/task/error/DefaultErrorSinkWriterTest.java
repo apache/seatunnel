@@ -23,13 +23,17 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -70,6 +74,27 @@ public class DefaultErrorSinkWriterTest {
         assertTrue(ex.getMessage().contains("committer"));
         assertTrue(ex.getMessage().contains("aggregated commit info serializer"));
         assertTrue(ex.getMessage().contains("aggregated committer"));
+    }
+
+    @Test
+    public void testErrorSinkWriterContextRetainsRegisteredFlushAction() throws Exception {
+        Class<?> contextClass =
+                Class.forName(DefaultErrorSinkWriter.class.getName() + "$SimpleWriterContext");
+        Constructor<?> constructor =
+                Arrays.stream(contextClass.getDeclaredConstructors())
+                        .filter(candidate -> candidate.getParameterCount() == 3)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("SimpleWriterContext constructor"));
+        constructor.setAccessible(true);
+        SinkWriter.Context context = (SinkWriter.Context) constructor.newInstance(null, null, 0);
+        AtomicInteger flushes = new AtomicInteger();
+        RunnableWithException flushAction = flushes::incrementAndGet;
+
+        context.registerFlushAction(flushAction);
+
+        assertTrue(context.getFlushAction() == flushAction);
+        context.getFlushAction().run();
+        assertTrue(flushes.get() == 1);
     }
 
     private static class TestSink implements SeaTunnelSink<SeaTunnelRow, String, String, String> {

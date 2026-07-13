@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +33,12 @@ import java.util.Optional;
 /** SinkWriter wrapper that adds row-level error handling. */
 @Slf4j
 public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, CommT, StateT> {
+
+    public enum WriteOutcome {
+        WRITTEN,
+        ROUTED_TO_ERROR_SINK,
+        DROPPED
+    }
 
     private final SinkWriter<T, CommT, StateT> delegate;
     private final ErrorHandler<T> errorHandler;
@@ -49,13 +56,30 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
         this.pluginName = pluginName;
     }
 
+    /** Adds ErrorData flushing to the sink timer while preserving the connector's flush action. */
+    public void registerFlushAction(SinkWriter.Context context) {
+        RunnableWithException delegateFlushAction = context.getFlushAction();
+        context.registerFlushAction(
+                () -> {
+                    if (delegateFlushAction != null) {
+                        delegateFlushAction.run();
+                    }
+                    flushErrorHandler();
+                });
+    }
+
     @Override
     public void write(T element) throws IOException {
+        writeWithOutcome(element);
+    }
+
+    public WriteOutcome writeWithOutcome(T element) throws IOException {
         if (errorHandler != null) {
             errorHandler.incrementTotalRecords();
         }
         try {
             delegate.write(element);
+            return WriteOutcome.WRITTEN;
         } catch (Throwable ex) {
             if (ex instanceof Error) {
                 throw (Error) ex;
@@ -73,6 +97,9 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
             RowErrorContext ctx =
                     new RowErrorContext("SINK", "SINK", pluginName, resolveTableId(element));
             errorHandler.onError(ctx, element, ex);
+            return errorHandler.getMode() == ErrorHandlerMode.ROUTE
+                    ? WriteOutcome.ROUTED_TO_ERROR_SINK
+                    : WriteOutcome.DROPPED;
         }
     }
 
