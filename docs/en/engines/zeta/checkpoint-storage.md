@@ -159,8 +159,30 @@ seatunnel:
           storage.type: s3
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
+
+If you run SeaTunnel in container environments (Kubernetes/ECS/EKS) and want to avoid hardcoding long-lived access keys in config, you can use the AWS SDK v1 default credential chain and let the runtime provide short-lived credentials (task role, IRSA, etc.):
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+```
+
+If you hit errors such as `Factory initialize failed` / `ClassNotFoundException`, verify the credential provider class is available on the runtime classpath and the required Hadoop/AWS jars are loaded.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 

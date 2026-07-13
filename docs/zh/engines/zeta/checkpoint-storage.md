@@ -157,8 +157,30 @@ seatunnel:
           storage.type: s3
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
+
+如果您在容器环境（Kubernetes/ECS/EKS）中运行 SeaTunnel，并希望避免在配置中硬编码长期 AK/SK，可以使用 AWS SDK v1 的默认凭据链，从运行环境获取短期凭据（task role、IRSA 等）：
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+```
+
+如果遇到 `Factory initialize failed` / `ClassNotFoundException` 等错误，请检查凭据 provider 类是否在运行时 classpath 中可用，以及 Hadoop/AWS 相关 jar 是否已正确加载。
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 

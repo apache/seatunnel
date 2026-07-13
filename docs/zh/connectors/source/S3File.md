@@ -195,7 +195,7 @@ schema {
 | file_format_type                | string  | 是    | -                                                     | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                   |
 | bucket                          | string  | 是    | -                                                     | s3文件系统的bucket地址，例如：`s3n://seatunnel-test`，如果您使用`s3a`协议，此参数应为`s3a://seatunnel-test`。                                                                                                                                                                                                                                   |
 | fs.s3a.endpoint                 | string  | 是    | -                                                     | fs s3a端点                                                                                                                                                                                                                                                                                                              |
-| fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | s3a的认证方式。我们目前只支持`org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`和`com.amazonaws.auth.InstanceProfileCredentialsProvider`。有关凭据提供程序的更多信息，您可以查看[Hadoop AWS文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
+| fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | S3A 凭据提供器（Hadoop `fs.s3a.aws.credentials.provider`）。SeaTunnel 当前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`。 |
 | read_columns                    | list    | 否    | -                                                     | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。                                                                                                                                                                         |
 | access_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
 | secret_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
@@ -214,8 +214,6 @@ schema {
 | xml_use_attr_format             | boolean | 否    | -                                                     | 指定是否使用标签属性格式处理数据，仅对XML文件有效。                                                                                                                                                                                                                                                                                           |
 | compress_codec                  | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
 | archive_compress_codec          | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
-| enable_file_split               | boolean | 否    | false                                                 | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
-| file_split_size                 | long    | 否    | 134217728                                             | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | encoding                        | string  | 否    | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                       |
 | null_format                     | string  | 否    | -                                                     | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                                                                                                                                                                                      |
 | binary_chunk_size               | int     | 否    | 1024                                                  | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                                                                                                  |
@@ -225,9 +223,41 @@ schema {
 | common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
 | quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                                                                                               |
 | escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                                                                                      |
-| metalake_type                   | string  | 否    | gravitino                                            | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                                                                                                 |
-| recursive_file_scan             | boolean | 否    | true                                                  | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                                                                                                                                                                                          |
-| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+
+### fs.s3a.aws.credentials.provider [string]
+
+SeaTunnel 将 S3 认证委托给 Hadoop S3A，该参数会以 `fs.s3a.aws.credentials.provider` 的形式透传给 Hadoop。
+
+支持的取值：
+
+```hocon
+fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+```
+
+```hocon
+fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+```
+
+容器凭据相关的 provider（例如 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`、`com.amazonaws.auth.ContainerCredentialsProvider`）当前不受该 connector 参数支持。
+
+如果使用 SeaTunnel Zeta，请确保运行时 classpath 中已包含 Hadoop/AWS 相关 jar（可参考本文档的 Dependency 章节）。如果使用 Spark/Flink，请确保集群 classpath 中也包含对应 jar。
+
+#### 容器环境（Kubernetes/ECS/EKS）
+
+如需在容器环境运行，建议使用 `SimpleAWSCredentialsProvider`，并通过 secret manager 或环境变量注入 `access_key`/`secret_key`，避免在配置中明文硬编码。
+
+```hocon
+fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+```
+
+#### 传递更多 S3A 参数
+
+需要透传其它 `fs.s3a.*` 参数时，可通过 `hadoop_s3_properties` 配置。
+
+#### 常见排障
+
+- `Factory initialize failed` / `ClassNotFoundException`：请检查 Hadoop/AWS 相关 jar 是否加载，以及 provider 类名是否正确。
+- `403 AccessDenied`：检查 IAM role/policy 是否对 bucket/prefix 具备权限。
 
 ### delimiter/field_delimiter [string]
 
@@ -249,23 +279,11 @@ schema {
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
-### recursive_file_scan [boolean]
-
-是否递归扫描子目录。
-如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
-
-### sort_files_by_modification_time [boolean]
-
-是否按修改时间降序排序文件。默认值为 `false`。
-启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
-- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
-- 需要按时间顺序处理文件
-
 ### file_filter_pattern [string]
 
 文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
-该模式遵循标准正则表达式。详情请参考 [正则表达式](https://en.wikipedia.org/wiki/Regular_expression)。
+该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
 以下是一些示例。
 
 若`path`为`/data/seatunnel`,且文件结构示例：
@@ -313,31 +331,6 @@ abc.*
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
-
-### enable_file_split [boolean]
-
-开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
-
-- `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
-- `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。
-
-**使用建议**
-- 适合：读取少量大文件，并希望通过更高并行度提升吞吐。
-- 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
-
-**限制说明**
-- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分，并打印 WARN 日志提示。
-- 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
-- 对于 `json`，仅支持 JSON Lines（每行一个 JSON 对象）的切分读取。
-- 启用切分后，数据全局顺序不保证（split 可能并行处理导致输出顺序交错）。如需严格有序，请设置 `parallelism=1` 或关闭切分。
-
-### file_split_size [long]
-
-`enable_file_split=true` 时生效，单位字节。默认 128MB（134217728）。
-
-**调优建议**
-- 建议从默认值（128MB）开始：如果并行度未充分利用可适当调小；如果 split 数量过多可适当调大。
-- 经验公式：`file_split_size ≈ file_size / 期望并行度`。
 
 ### compress_codec [string]
 
@@ -398,32 +391,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
-- `source_uri`：源文件路径或 URI
-- `document_id`：由 `source_uri` 派生的稳定文档标识符
-- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
-- `chunk_index`：解析后文档中的一基 chunk 顺序
-- `content_hash`：已输出 `text` 值的 SHA-256 哈希
-
-该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
-
 注意：Markdown 格式仅支持读取，不支持写入。
-
-### schema [config]
-
-仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
-
-上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
-
-#### metadata_table_id [string]
-
-元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
-
-当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
-
-> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
-
-更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
 ## 示例
 
@@ -452,7 +420,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transforms
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -514,7 +482,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transforms
+    # 请访问 https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
