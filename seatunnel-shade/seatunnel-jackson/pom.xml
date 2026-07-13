@@ -87,6 +87,10 @@
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.com.fasterxml.jackson</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>org.yaml.snakeyaml</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.yaml.snakeyaml</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
