@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -83,6 +84,30 @@ public class TextChunkTransformFactory implements TableTransformFactory {
                         context.getCatalogTables(), context.getOptions());
     }
 
+    static void validate(TextChunkTransformConfig config) {
+        if (config.getTextField() == null || config.getTextField().trim().isEmpty()) {
+            throw new OptionValidationException("text_field is required, but was not configured");
+        }
+        if (config.getChunkSize() <= 0) {
+            throw new OptionValidationException(
+                    "chunk_size must be > 0, but was " + config.getChunkSize());
+        }
+        if (config.getOverlapSize() < 0 || config.getOverlapSize() >= config.getChunkSize()) {
+            throw new OptionValidationException(
+                    "overlap_size must satisfy 0 <= overlap_size < chunk_size, but was "
+                            + config.getOverlapSize()
+                            + " (chunk_size="
+                            + config.getChunkSize()
+                            + ")");
+        }
+        if (config.getOutputField().equals(config.getChunkIndexField())) {
+            throw new OptionValidationException(
+                    "output_field and chunk_index_field must be different, but both are '"
+                            + config.getOutputField()
+                            + "'");
+        }
+    }
+
     static class OutputFieldNamesValidator implements ConditionExtension<String> {
 
         @Override
@@ -112,8 +137,7 @@ public class TextChunkTransformFactory implements TableTransformFactory {
                 return true;
             }
             for (Map<String, Object> table : tables) {
-                TextChunkTransformConfig.validate(
-                        TextChunkTransformConfig.of(ReadonlyConfig.fromMap(table)));
+                validate(TextChunkTransformConfig.of(ReadonlyConfig.fromMap(table)));
             }
             return true;
         }

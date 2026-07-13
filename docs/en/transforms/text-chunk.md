@@ -68,7 +68,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 - A `null` or empty text value produces **no** output rows for that input row.
 - Each produced chunk is at most `chunk_size` characters long (the carried overlap counts toward the budget).
 - Separators are retained: each separator stays attached to the end of the piece it follows, so merging pieces to fill a chunk keeps the spaces/newlines between them (words split on `" "` are re-joined as `a b`, not `ab`) and runs of consecutive separators (e.g. blank lines) are preserved. With `overlap_size = 0` the chunks concatenate back to the original text.
-- All source fields are copied to every chunk row, so the N chunks of one document share the same source primary key value. If a downstream sink enforces that key (auto-create DDL constraint or upsert mode), use an append / auto-id sink for the chunk output.
+- The rows produced from one input row all carry the same source key (e.g. the same `id`). To keep it unique, the transform appends `chunk_index_field` to the primary key and to every unique key.
 
 ## Example
 

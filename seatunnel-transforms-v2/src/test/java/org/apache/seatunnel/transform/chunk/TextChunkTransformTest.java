@@ -34,10 +34,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 class TextChunkTransformTest {
 
@@ -137,7 +139,7 @@ class TextChunkTransformTest {
     }
 
     @Test
-    void producedSchemaPreservesPrimaryKeyAndConstraintKeys() {
+    void producedSchemaExtendsPrimaryKeyAndUniqueKeyWithChunkIndex() {
         CatalogTable withKeys =
                 CatalogTable.of(
                         TableIdentifier.of("default", "default", "default", "docs"),
@@ -155,13 +157,27 @@ class TextChunkTransformTest {
                                                 ""))
                                 .primaryKey(PrimaryKey.of("pk_id", Collections.singletonList("id")))
                                 .constraintKey(
-                                        ConstraintKey.of(
-                                                ConstraintKey.ConstraintType.UNIQUE_KEY,
-                                                "uk_content",
-                                                Collections.singletonList(
-                                                        ConstraintKey.ConstraintKeyColumn.of(
-                                                                "content",
-                                                                ConstraintKey.ColumnSortType.ASC))))
+                                        Arrays.asList(
+                                                ConstraintKey.of(
+                                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                                        "uk_content",
+                                                        Collections.singletonList(
+                                                                ConstraintKey.ConstraintKeyColumn
+                                                                        .of(
+                                                                                "content",
+                                                                                ConstraintKey
+                                                                                        .ColumnSortType
+                                                                                        .ASC))),
+                                                ConstraintKey.of(
+                                                        ConstraintKey.ConstraintType.INDEX_KEY,
+                                                        "idx_content",
+                                                        Collections.singletonList(
+                                                                ConstraintKey.ConstraintKeyColumn
+                                                                        .of(
+                                                                                "content",
+                                                                                ConstraintKey
+                                                                                        .ColumnSortType
+                                                                                        .ASC)))))
                                 .build(),
                         new HashMap<>(),
                         Collections.emptyList(),
@@ -174,15 +190,73 @@ class TextChunkTransformTest {
                         TextChunkTransformConfig.of(ReadonlyConfig.fromMap(configMap)), withKeys);
 
         TableSchema schema = transform.getProducedCatalogTable().getTableSchema();
-        // the source primary key survives (all its columns are still present)
+
+        // the chunk index column joins the keys below, so it must be non-nullable
+        Assertions.assertFalse(schema.getColumn("chunk_index").isNullable());
+
+        // the primary key is extended
         Assertions.assertNotNull(schema.getPrimaryKey());
-        Assertions.assertEquals("pk_id", schema.getPrimaryKey().getPrimaryKey());
+        Assertions.assertEquals(
+                Arrays.asList("id", "chunk_index"), schema.getPrimaryKey().getColumnNames());
+
+        Map<String, ConstraintKey> keysByName =
+                schema.getConstraintKeys().stream()
+                        .collect(Collectors.toMap(ConstraintKey::getConstraintName, k -> k));
+        Assertions.assertEquals(2, keysByName.size());
+
+        // the unique key is extended
+        List<String> ukColumns =
+                keysByName.get("uk_content").getColumnNames().stream()
+                        .map(ConstraintKey.ConstraintKeyColumn::getColumnName)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(Arrays.asList("content", "chunk_index"), ukColumns);
+
+        // the non-unique index is copied unchanged
+        List<String> idxColumns =
+                keysByName.get("idx_content").getColumnNames().stream()
+                        .map(ConstraintKey.ConstraintKeyColumn::getColumnName)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(Collections.singletonList("content"), idxColumns);
+    }
+
+    @Test
+    void autoIdPrimaryKeyIsNotExtended() {
+        // A sink-auto-generated primary key (enableAutoId) already yields a fresh unique value
+        // per output row, so it must be kept as-is rather than extended with chunk_index.
+        CatalogTable withAutoId =
+                CatalogTable.of(
+                        TableIdentifier.of("default", "default", "default", "docs"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.LONG_TYPE, 0L, false, "", ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "content",
+                                                BasicType.STRING_TYPE,
+                                                1000L,
+                                                true,
+                                                "",
+                                                ""))
+                                .primaryKey(
+                                        PrimaryKey.of(
+                                                "pk_id", Collections.singletonList("id"), true))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(TextChunkTransformConfig.TEXT_FIELD.key(), "content");
+        TextChunkTransform transform =
+                new TextChunkTransform(
+                        TextChunkTransformConfig.of(ReadonlyConfig.fromMap(configMap)), withAutoId);
+
+        TableSchema schema = transform.getProducedCatalogTable().getTableSchema();
+        Assertions.assertNotNull(schema.getPrimaryKey());
         Assertions.assertEquals(
                 Collections.singletonList("id"), schema.getPrimaryKey().getColumnNames());
-        // and the constraint key survives too
-        Assertions.assertEquals(1, schema.getConstraintKeys().size());
-        Assertions.assertEquals(
-                "uk_content", schema.getConstraintKeys().get(0).getConstraintName());
+        Assertions.assertEquals(Boolean.TRUE, schema.getPrimaryKey().getEnableAutoId());
     }
 
     @Test

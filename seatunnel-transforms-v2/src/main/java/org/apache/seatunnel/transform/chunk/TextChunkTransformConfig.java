@@ -20,7 +20,6 @@ package org.apache.seatunnel.transform.chunk;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -91,29 +90,5 @@ public class TextChunkTransformConfig implements Serializable {
         c.setOverlapSize(config.get(OVERLAP_SIZE));
         c.setSeparators(config.get(SEPARATORS));
         return c;
-    }
-
-    public static void validate(TextChunkTransformConfig config) {
-        if (config.getTextField() == null || config.getTextField().trim().isEmpty()) {
-            throw new OptionValidationException("text_field is required, but was not configured");
-        }
-        if (config.getChunkSize() <= 0) {
-            throw new OptionValidationException(
-                    "chunk_size must be > 0, but was " + config.getChunkSize());
-        }
-        if (config.getOverlapSize() < 0 || config.getOverlapSize() >= config.getChunkSize()) {
-            throw new OptionValidationException(
-                    "overlap_size must satisfy 0 <= overlap_size < chunk_size, but was "
-                            + config.getOverlapSize()
-                            + " (chunk_size="
-                            + config.getChunkSize()
-                            + ")");
-        }
-        if (config.getOutputField().equals(config.getChunkIndexField())) {
-            throw new OptionValidationException(
-                    "output_field and chunk_index_field must be different, but both are '"
-                            + config.getOutputField()
-                            + "'");
-        }
     }
 }

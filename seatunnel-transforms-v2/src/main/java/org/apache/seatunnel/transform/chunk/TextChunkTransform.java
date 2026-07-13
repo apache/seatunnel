@@ -104,25 +104,56 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
                         .collect(Collectors.toList());
 
         this.chunkFieldIndex =
-                addOrReplace(columns, config.getOutputField(), BasicType.STRING_TYPE);
+                addOrReplace(columns, config.getOutputField(), BasicType.STRING_TYPE, true);
         this.chunkIndexFieldIndex =
-                addOrReplace(columns, config.getChunkIndexField(), BasicType.INT_TYPE);
+                addOrReplace(columns, config.getChunkIndexField(), BasicType.INT_TYPE, false);
         this.outputFieldCount = columns.size();
-
-        List<ConstraintKey> outputConstraintKeys =
-                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
-                        .map(ConstraintKey::copy)
-                        .collect(Collectors.toList());
 
         TableSchema.Builder builder = TableSchema.builder().columns(columns);
 
         PrimaryKey primaryKey = inputCatalogTable.getTableSchema().getPrimaryKey();
         if (primaryKey != null) {
-            builder.primaryKey(primaryKey.copy());
+            builder.primaryKey(extendPrimaryKeyWithChunkIndex(primaryKey));
         }
+
+        List<ConstraintKey> outputConstraintKeys =
+                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
+                        .map(
+                                key ->
+                                        key.getConstraintType()
+                                                        == ConstraintKey.ConstraintType.UNIQUE_KEY
+                                                ? extendUniqueConstraintKeyWithChunkIndex(key)
+                                                : key.copy())
+                        .collect(Collectors.toList());
         builder.constraintKey(outputConstraintKeys);
 
         return builder.build();
+    }
+
+    private PrimaryKey extendPrimaryKeyWithChunkIndex(PrimaryKey primaryKey) {
+        List<String> columnNames = new ArrayList<>(primaryKey.getColumnNames());
+        if (!Boolean.TRUE.equals(primaryKey.getEnableAutoId())
+                && !columnNames.contains(config.getChunkIndexField())) {
+            columnNames.add(config.getChunkIndexField());
+        }
+        return PrimaryKey.of(primaryKey.getPrimaryKey(), columnNames, primaryKey.getEnableAutoId());
+    }
+
+    private ConstraintKey extendUniqueConstraintKeyWithChunkIndex(ConstraintKey uniqueKey) {
+        List<ConstraintKey.ConstraintKeyColumn> keyColumns =
+                uniqueKey.getColumnNames().stream()
+                        .map(ConstraintKey.ConstraintKeyColumn::copy)
+                        .collect(Collectors.toList());
+        boolean present =
+                keyColumns.stream()
+                        .anyMatch(c -> c.getColumnName().equals(config.getChunkIndexField()));
+        if (!present) {
+            keyColumns.add(
+                    ConstraintKey.ConstraintKeyColumn.of(
+                            config.getChunkIndexField(), ConstraintKey.ColumnSortType.ASC));
+        }
+        return ConstraintKey.of(
+                uniqueKey.getConstraintType(), uniqueKey.getConstraintName(), keyColumns);
     }
 
     @Override
@@ -130,14 +161,15 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
         return inputCatalogTable.getTableId().copy();
     }
 
-    private static int addOrReplace(List<Column> columns, String name, SeaTunnelDataType<?> type) {
+    private static int addOrReplace(
+            List<Column> columns, String name, SeaTunnelDataType<?> type, boolean nullable) {
         for (int i = 0; i < columns.size(); i++) {
             if (columns.get(i).getName().equals(name)) {
                 columns.set(i, columns.get(i).copy(type));
                 return i;
             }
         }
-        columns.add(PhysicalColumn.of(name, type, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of(name, type, (Long) null, nullable, null, ""));
         return columns.size() - 1;
     }
 }
