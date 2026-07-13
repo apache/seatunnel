@@ -194,6 +194,35 @@ public class DamengCreateTableSqlBuilderTest {
     }
 
     @Test
+    public void testBuildCreateTableSqlWithTableOptions() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .build();
+
+        HashMap<String, String> options = new HashMap<>();
+        options.put(DamengCatalog.TABLE_OPTION_TABLESPACE, "MAIN");
+        options.put(DamengCatalog.TABLE_OPTION_FILLFACTOR, "80");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        options,
+                        new ArrayList<>(),
+                        "Table with storage options");
+
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        Assertions.assertEquals(1, sqls.size());
+        String createTable = sqls.get(0);
+        Assertions.assertTrue(
+                createTable.contains("STORAGE (FILLFACTOR 80, ON \"MAIN\")"),
+                "CREATE TABLE should contain Dameng STORAGE clause: " + createTable);
+    }
+
+    @Test
     public void testColumnSinkType() {
         DamengCreateTableSqlBuilder sqlBuilder = mock(DamengCreateTableSqlBuilder.class);
 
