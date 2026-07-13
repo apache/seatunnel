@@ -1088,6 +1088,8 @@ class TestCheckpointManager extends CheckpointManager {
         super(
                 jobId,
                 false,
+                RestoreMode.NONE,
+                null,
                 nodeEngine,
                 null,
                 checkpointPlanMap,

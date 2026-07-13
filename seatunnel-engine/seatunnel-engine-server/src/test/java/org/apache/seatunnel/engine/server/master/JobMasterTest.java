@@ -305,7 +305,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         jobMaster.init(System.currentTimeMillis(), false);
 
         CheckpointConfig jobCheckpointConfig =
-                (CheckpointConfig) ReflectionUtils.getField(jobMaster, "jobCheckpointConfig");
+                ReflectionUtils.getField(jobMaster, "jobCheckpointConfig")
+                        .map(CheckpointConfig.class::cast)
+                        .orElse(null);
         Assertions.assertNotNull(jobCheckpointConfig);
         Assertions.assertTrue(
                 jobCheckpointConfig.isRetainAfterJobCancelled(),
