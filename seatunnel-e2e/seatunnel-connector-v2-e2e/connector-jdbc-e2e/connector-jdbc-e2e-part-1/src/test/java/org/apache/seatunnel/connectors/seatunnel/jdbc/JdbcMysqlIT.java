@@ -616,7 +616,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager1 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink1
-                                .createWriter(getDefaultSinkWriterContext())
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
                                 .initMultiTableResourceManager(1, 1);
         Properties connectionProperties1 = getMultiSinkProperties(multiTableResourceManager1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
@@ -635,7 +635,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager2 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink2
-                                .createWriter(getDefaultSinkWriterContext())
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
                                 .initMultiTableResourceManager(1, 1);
         Properties connectionProperties2 = getMultiSinkProperties(multiTableResourceManager2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
@@ -657,7 +657,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager3 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink3
-                                .createWriter(getDefaultSinkWriterContext())
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
                                 .initMultiTableResourceManager(1, 1);
         Properties connectionProperties3 = getMultiSinkProperties(multiTableResourceManager3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
@@ -680,7 +680,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         JdbcMultiTableResourceManager multiTableResourceManager4 =
                 (JdbcMultiTableResourceManager)
                         jdbcSink4
-                                .createWriter(getDefaultSinkWriterContext())
+                                .createWriter(new DefaultSinkWriterContext(0, 1))
                                 .initMultiTableResourceManager(1, 1);
         Properties connectionProperties4 = getMultiSinkProperties(multiTableResourceManager4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");
@@ -790,16 +790,12 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private Properties getSinkProperties(JdbcSink jdbcSink)
             throws SQLException, ClassNotFoundException {
         JdbcSinkWriter jdbcSinkWriter =
-                (JdbcSinkWriter) jdbcSink.createWriter(getDefaultSinkWriterContext());
+                (JdbcSinkWriter) jdbcSink.createWriter(new DefaultSinkWriterContext(0, 1));
         JdbcConnectionProvider connectionProvider =
                 (JdbcConnectionProvider)
                         ReflectionUtils.getField(jdbcSinkWriter, "connectionProvider").get();
         ConnectionImpl connection = (ConnectionImpl) connectionProvider.getOrEstablishConnection();
         return connection.getProperties();
-    }
-
-    private static DefaultSinkWriterContext getDefaultSinkWriterContext() {
-        return new DefaultSinkWriterContext(0, 1);
     }
 
     private Properties getSourceProperties(JdbcSource jdbcSource) throws Exception {

@@ -207,6 +207,12 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
+    /**
+     * Flushes buffered records when the engine delivers a timer-driven flush signal.
+     *
+     * <p>This action is registered only for the non-XA writer. Flush and commit failures are
+     * propagated to fail the sink task instead of being deferred to the next checkpoint.
+     */
     public void timerFlush() throws IOException {
         tryOpen();
         outputFormat.checkFlushException();

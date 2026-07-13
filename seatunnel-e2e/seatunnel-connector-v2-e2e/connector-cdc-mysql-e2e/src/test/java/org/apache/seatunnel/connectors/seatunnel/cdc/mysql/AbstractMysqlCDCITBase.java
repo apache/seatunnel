@@ -1315,8 +1315,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // wait for the restored job to fully start
-        Thread.sleep(10000);
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
 
         // phase 2: insert 100 rows after restore, verify every 10 rows
         int phase2StartId = phase1StartId + totalRows + 100;
