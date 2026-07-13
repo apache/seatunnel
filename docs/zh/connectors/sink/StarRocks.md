@@ -53,6 +53,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | http_socket_timeout_ms      | int     | no   | 180000                       | http socket超时时间，默认为3分钟                                                                                              |
 | schema_save_mode            | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | 在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法                                                                                     |
 | data_save_mode              | Enum    | no   | APPEND_DATA                  | 在同步任务打开之前，针对目标端已存在的数据选择不同的处理方法                                                                                      |
+| table_options               | Map     | no   | -                            | SaveMode 自动建表时合并进 CREATE TABLE PROPERTIES 的表级属性，详见下文                                                                               |
 | custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 
 ### save_mode_create_template
@@ -133,6 +134,35 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 ### custom_sql [String]
 
 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行。
+
+### table_options [Map]
+
+Sink 在 SaveMode 自动建表（DDL）时附加的表级属性。仅在 `schema_save_mode` 触发建表时生效，例如 `CREATE_SCHEMA_WHEN_NOT_EXIST`、`RECREATE_SCHEMA`；**不影响** Stream Load 写入，也**不会**对已存在表执行 `ALTER TABLE`。
+
+在默认 `save_mode_create_template`（未配置或与内置默认值相同）下，`table_options` 会合并进模板 `PROPERTIES` 子句；**同名 key 以 `table_options` 为准**。属性名请参考 [StarRocks CREATE TABLE 文档](https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket/partition/CREATE_TABLE/#properties)；SeaTunnel 不做白名单，非法属性由 StarRocks 执行 DDL 时报错。
+
+若配置了**与内置默认值不同**的 `save_mode_create_template`，则不能与 `table_options` 同时使用（任务提交时校验失败）；此时请将属性直接写入模板。
+
+非法组合会在 `StarRocksSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在 StarRocks 执行 CREATE TABLE 时失败。
+
+示例：
+
+```hocon
+sink {
+  StarRocks {
+    base-url = "jdbc:mysql://127.0.0.1:9030"
+    nodeUrls = ["127.0.0.1:8030"]
+    username = "root"
+    password = ""
+    database = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      replication_num = "3"
+      storage_format = "V2"
+    }
+  }
+}
+```
 
 ## 数据类型映射
 
