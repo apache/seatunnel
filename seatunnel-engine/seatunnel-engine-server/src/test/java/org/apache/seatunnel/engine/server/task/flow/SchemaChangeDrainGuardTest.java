@@ -100,6 +100,24 @@ class SchemaChangeDrainGuardTest {
     }
 
     /**
+     * Verifies that a typed completion notification cannot be undone when the same barrier is
+     * recorded later in the sink lifecycle.
+     *
+     * <p>This protects the sink path from callback ordering around local ACK and checkpoint-finish
+     * notification delivery.
+     */
+    @Test
+    void shouldKeepDrainReadyWhenSameBeforeBarrierIsRecordedAfterTypedCompletion() {
+        SchemaChangeDrainGuard guard = new SchemaChangeDrainGuard();
+
+        guard.checkpointCompleted(1L, CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE);
+        guard.checkpointBarrierHandled(schemaChangeBeforeBarrier(1L));
+
+        Assertions.assertTrue(guard.isSchemaChangeDrainReady());
+        Assertions.assertDoesNotThrow(() -> guard.checkSchemaChangeCanApply(schemaChangeEvent()));
+    }
+
+    /**
      * Verifies that the schema-change-after checkpoint closes the DDL application window after the
      * schema change phase has finished.
      */

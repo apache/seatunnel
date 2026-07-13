@@ -74,8 +74,11 @@ class SchemaChangeDrainGuard {
         CheckpointBarrier checkpointBarrier = (CheckpointBarrier) barrier;
         CheckpointType checkpointType = checkpointBarrier.getCheckpointType();
         if (checkpointType.isSchemaChangeBeforeCheckpoint()) {
+            boolean alreadyCompleted =
+                    schemaChangeDrainReady
+                            && checkpointBarrier.getId() == schemaChangeBeforeCheckpointId;
             schemaChangeBeforeCheckpointId = checkpointBarrier.getId();
-            schemaChangeDrainReady = false;
+            schemaChangeDrainReady = alreadyCompleted;
         } else if (checkpointType.isSchemaChangeAfterCheckpoint()) {
             schemaChangeAfterCheckpointId = checkpointBarrier.getId();
         }
@@ -101,8 +104,10 @@ class SchemaChangeDrainGuard {
      */
     synchronized void checkpointCompleted(long checkpointId, CheckpointType checkpointType) {
         if (isSchemaChangeBeforeCheckpoint(checkpointId, checkpointType)) {
+            schemaChangeBeforeCheckpointId = checkpointId;
             schemaChangeDrainReady = true;
         } else if (isSchemaChangeAfterCheckpoint(checkpointId, checkpointType)) {
+            schemaChangeAfterCheckpointId = checkpointId;
             reset();
         }
     }
