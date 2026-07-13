@@ -39,6 +39,8 @@ public class OracleCreateTableSqlBuilder {
     private String comment;
     protected String sourceCatalogName;
     private String fieldIde;
+    private String tablespace;
+    private String pctfree;
     private boolean createIndex;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
@@ -47,6 +49,8 @@ public class OracleCreateTableSqlBuilder {
         this.comment = catalogTable.getComment();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.tablespace = catalogTable.getOptions().get(OracleCatalog.TABLE_OPTION_TABLESPACE);
+        this.pctfree = catalogTable.getOptions().get(OracleCatalog.TABLE_OPTION_PCTFREE);
         this.createIndex = createIndex;
     }
 
@@ -73,6 +77,14 @@ public class OracleCreateTableSqlBuilder {
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
+        if (StringUtils.isNotBlank(pctfree)) {
+            createTableSql.append("\nPCTFREE ").append(pctfree);
+        }
+        if (StringUtils.isNotBlank(tablespace)) {
+            createTableSql
+                    .append("\nTABLESPACE ")
+                    .append(CatalogUtils.quoteIdentifier(tablespace, fieldIde, "\""));
+        }
         sqls.add(createTableSql.toString());
         if (comment != null) {
             String commentSql =

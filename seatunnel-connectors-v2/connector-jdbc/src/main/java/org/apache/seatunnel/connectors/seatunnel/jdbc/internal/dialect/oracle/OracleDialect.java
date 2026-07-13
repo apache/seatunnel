@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -27,7 +28,9 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -45,14 +48,26 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
+
+    private static final Set<String> SUPPORTED_TABLE_OPTIONS =
+            Collections.unmodifiableSet(
+                    new LinkedHashSet<>(
+                            Arrays.asList(
+                                    OracleCatalog.TABLE_OPTION_TABLESPACE,
+                                    OracleCatalog.TABLE_OPTION_PCTFREE)));
+
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
     private final boolean handleBlobAsString;
 
@@ -511,6 +526,25 @@ public class OracleDialect implements JdbcDialect {
             return sql.toString();
         } else {
             return "char_val";
+        }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+
+        Set<String> unsupportedOptions = new LinkedHashSet<>(tableOptions.keySet());
+        unsupportedOptions.removeAll(SUPPORTED_TABLE_OPTIONS);
+        if (!unsupportedOptions.isEmpty()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
+                            dialectName(),
+                            String.join(", ", unsupportedOptions),
+                            String.join(", ", SUPPORTED_TABLE_OPTIONS)));
         }
     }
 }

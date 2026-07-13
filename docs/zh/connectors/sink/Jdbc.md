@@ -373,6 +373,8 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 | TiDB | 是 | `engine`、`charset`、`collate`（通过 MySQL JDBC 协议与 `jdbc:mysql://` 连接） |
 | OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
 | PostgreSQL | 是 | `tablespace`、`fillfactor` |
+| Oracle | 是 | `tablespace`、`pctfree` |
+| OceanBase（Oracle 模式） | 是 | `tablespace`、`pctfree`（`compatible_mode=oracle` 时走 Oracle 方言 / DDL 路径） |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
 
 非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
@@ -381,10 +383,11 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 
 - **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
 - **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
-- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。
 - **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。
+- **Oracle / OceanBase（Oracle 模式）**：`pctfree` 会生成 `PCTFREE <n>`，取值须为 `[0, 99]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持嵌套 `STORAGE (...)`、LOB/分区子句）。目标库中 tablespace 须事先存在。
 
-SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径），还会校验空白值与 `fillfactor` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
+SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径），还会校验空白值与 `fillfactor` 数值区间。对 Oracle / OceanBase（Oracle 模式），还会校验空白值与 `pctfree` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
 
 示例（MySQL 自动建表时指定存储引擎与字符集）：
 
@@ -428,6 +431,28 @@ sink {
     table_options = {
       "tablespace" = "pg_default"
       "fillfactor" = "70"
+    }
+  }
+}
+```
+
+示例（Oracle 自动建表时指定 tablespace 与 pctfree）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@localhost:1521/ORCLPDB1"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "scott"
+    password = "tiger"
+    database = "SCOTT"
+    table = "ORDERS"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "USERS"
+      "pctfree" = "10"
     }
   }
 }
