@@ -35,7 +35,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.mockito.Mockito.mock;
@@ -86,6 +88,28 @@ class PostgresCreateTableSqlBuilderTest {
                                     Lists.newArrayList(),
                                     postgresCreateTableSqlBuilderSkipIndex.getCreateIndexSqls());
                         });
+    }
+
+    @Test
+    void testBuildCreateTableSqlWithTableOptions() {
+        CatalogTable catalogTable = catalogTable(false);
+        Map<String, String> options = new HashMap<>(catalogTable.getOptions());
+        options.put(PostgresCatalog.TABLE_OPTION_TABLESPACE, "pg_default");
+        options.put(PostgresCatalog.TABLE_OPTION_FILLFACTOR, "70");
+        CatalogTable tableWithOptions =
+                CatalogTable.of(
+                        catalogTable.getTableId(),
+                        catalogTable.getTableSchema(),
+                        options,
+                        catalogTable.getPartitionKeys(),
+                        catalogTable.getComment());
+
+        String createTableSql =
+                new PostgresCreateTableSqlBuilder(tableWithOptions, false)
+                        .build(tableWithOptions.getTableId().toTablePath());
+
+        Assertions.assertTrue(createTableSql.contains("WITH (fillfactor=70)"));
+        Assertions.assertTrue(createTableSql.contains("TABLESPACE \"pg_default\""));
     }
 
     private CatalogTable catalogTable(boolean otherDB) {

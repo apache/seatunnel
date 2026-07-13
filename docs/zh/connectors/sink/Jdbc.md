@@ -258,6 +258,7 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 | MySQL | 是 | `engine`、`charset`、`collate` |
 | TiDB | 是 | `engine`、`charset`、`collate`（通过 MySQL JDBC 协议与 `jdbc:mysql://` 连接） |
 | OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
+| PostgreSQL | 是 | `tablespace`、`fillfactor` |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
 
 非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
@@ -267,6 +268,7 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 - **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
 - **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
 - **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=...)`；`tablespace` 会生成 `TABLESPACE "..."`。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。
 
 SeaTunnel 在提交时仅校验 **key 白名单**，不校验具体取值是否被目标库支持（与 MySQL 首批实现一致）。
 
@@ -294,6 +296,28 @@ sink {
 ```
 
 生成的 DDL 会追加 `ENGINE`、`DEFAULT CHARSET`、`COLLATE` 子句。未在白名单内的 key（如 `bucket_num`）会在作业提交阶段报错。
+
+示例（PostgreSQL 自动建表时指定 tablespace 与 fillfactor）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/mydb"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    database = "mydb"
+    table = "public.orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
 
 ### custom_sql [String]
 

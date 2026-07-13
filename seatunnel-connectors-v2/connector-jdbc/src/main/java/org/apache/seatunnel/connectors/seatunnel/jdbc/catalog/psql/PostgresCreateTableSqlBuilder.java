@@ -44,6 +44,8 @@ public class PostgresCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
+    private String tablespace;
+    private String fillfactor;
     private List<ConstraintKey> constraintKeys;
     public Boolean isHaveConstraintKey = false;
 
@@ -55,6 +57,8 @@ public class PostgresCreateTableSqlBuilder {
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.tablespace = catalogTable.getOptions().get(PostgresCatalog.TABLE_OPTION_TABLESPACE);
+        this.fillfactor = catalogTable.getOptions().get(PostgresCatalog.TABLE_OPTION_FILLFACTOR);
         this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
         this.createIndex = createIndex;
     }
@@ -106,7 +110,16 @@ public class PostgresCreateTableSqlBuilder {
         }
 
         createTableSql.append(String.join(",\n", columnSqls));
-        createTableSql.append("\n);");
+        createTableSql.append("\n)");
+        if (StringUtils.isNotBlank(fillfactor)) {
+            createTableSql.append("\nWITH (fillfactor=").append(fillfactor).append(")");
+        }
+        if (StringUtils.isNotBlank(tablespace)) {
+            createTableSql
+                    .append("\nTABLESPACE ")
+                    .append(CatalogUtils.quoteIdentifier(tablespace, fieldIde, "\""));
+        }
+        createTableSql.append(";");
 
         List<String> commentSqls =
                 columns.stream()

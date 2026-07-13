@@ -39,6 +39,9 @@ import java.sql.SQLException;
 @Slf4j
 public class PostgresCatalog extends AbstractJdbcCatalog {
 
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+    public static final String TABLE_OPTION_FILLFACTOR = "fillfactor";
+
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT \n"
                     + "    a.attname AS column_name, \n"
