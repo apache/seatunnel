@@ -49,6 +49,18 @@ public class OrcWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/orc/batch/test";
     private static final int ORC_WRITE_NUMBER = 2000;
 
+    @Test
+    public void testOrcStructSchemaPreservesFieldCase() {
+        SeaTunnelRowType structType =
+                new SeaTunnelRowType(
+                        new String[] {"MD5"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        org.apache.orc.TypeDescription structSchema =
+                OrcWriteStrategy.buildFieldWithRowType(structType);
+
+        Assertions.assertEquals("MD5", structSchema.getFieldNames().get(0));
+    }
+
     @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testOrcWriteWithBatch() throws Exception {
