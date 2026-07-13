@@ -36,7 +36,7 @@ public class RequestSlotOperationExports extends AbstractCollector {
 
     @Override
     public List<MetricFamilySamples> collect() {
-        List<MetricFamilySamples> mfs = new ArrayList();
+        List<MetricFamilySamples> mfs = new ArrayList<>();
         if (!isMaster() || !isCoordinatorReady()) {
             return mfs;
         }
