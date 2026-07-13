@@ -176,8 +176,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
 
         List<SlotProfile> slotProfiles =
                 resourceManager
-                        .applyResources(
-                                1L, Collections.singletonList(new ResourceProfile()), null)
+                        .applyResources(1L, Collections.singletonList(new ResourceProfile()), null)
                         .get();
 
         Assertions.assertEquals(1, slotProfiles.size());
