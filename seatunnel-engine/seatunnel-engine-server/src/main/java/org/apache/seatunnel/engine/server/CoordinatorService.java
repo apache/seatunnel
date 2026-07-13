@@ -1745,7 +1745,8 @@ public class CoordinatorService {
         }
         Map<String, Object> jobEnv = jobImmutableInformation.getJobConfig().getEnvOptions();
         if (jobEnv != null
-                && jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+                && jobEnv.containsKey(
+                        EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
             return Boolean.parseBoolean(
                     jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
                             .toString());

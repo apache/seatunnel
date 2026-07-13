@@ -280,8 +280,7 @@ public class CheckpointManager {
         if (checkpointConfig.isCheckpointEnable()
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
-            if (jobStatus == JobStatus.CANCELED
-                    && checkpointConfig.isRetainAfterJobCancelled()) {
+            if (jobStatus == JobStatus.CANCELED && checkpointConfig.isRetainAfterJobCancelled()) {
                 log.info(
                         "Job {} has retain-after-job-cancelled enabled, retaining checkpoint data",
                         jobId);

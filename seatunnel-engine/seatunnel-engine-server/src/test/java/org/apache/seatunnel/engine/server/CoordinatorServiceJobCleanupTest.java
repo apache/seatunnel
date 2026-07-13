@@ -489,7 +489,8 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    void testTerminalZombieCanceledJobRetainsCheckpointWhenJobEnvOverrideEnabled() throws Exception {
+    void testTerminalZombieCanceledJobRetainsCheckpointWhenJobEnvOverrideEnabled()
+            throws Exception {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
         PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
@@ -534,9 +535,9 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertTrue(
                 server.getCheckpointService()
-                        .getCheckpointStorage()
-                        .getAllCheckpoints(String.valueOf(jobId))
-                        .size()
+                                .getCheckpointStorage()
+                                .getAllCheckpoints(String.valueOf(jobId))
+                                .size()
                         > 0,
                 "job-level env override should retain checkpoint data even when cluster default is false");
     }

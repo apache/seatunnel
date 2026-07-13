@@ -384,8 +384,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED
                     .key()
                     .equals(name)) {
-                checkpointConfig.setRetainAfterJobCancelled(
-                        getBooleanValue(getTextContent(node)));
+                checkpointConfig.setRetainAfterJobCancelled(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
