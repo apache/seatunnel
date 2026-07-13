@@ -78,11 +78,38 @@ libfb303-xxx.jar
 | paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
 | paimon.table.partition-keys  | String  | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
 | paimon.table.write-props     | Map     | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
+| table_options                | Map     | No       | -                            | Sink-specific table options merged into write-props for SaveMode auto-create. See below.                                                                         |
 | paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
 | branch                       | String  | No       | -                            | The branch name of Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
 
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode auto-creates the target table. They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** alter an existing table.
+
+`table_options` are merged into the effective `paimon.table.write-props` used by schema creation. **On key conflict, `paimon.table.write-props` wins**, so existing jobs that only set write-props keep their current behavior. Use CoreOptions keys from the [Paimon CoreOptions documentation](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions); SeaTunnel does not maintain an allowlist—invalid keys fail when Paimon creates the table. Blank keys and null values are rejected at job submission.
+
+Example:
+
+```hocon
+sink {
+  Paimon {
+    warehouse = "file:///tmp/paimon"
+    database = "seatunnel"
+    table = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      bucket = "4"
+      file.format = "parquet"
+    }
+    # Wins over table_options when the same key is set
+    paimon.table.write-props = {
+      bucket = "8"
+    }
+  }
+}
+```
 
 ## Checkpoint in batch mode
 
@@ -90,7 +117,7 @@ When you set `checkpoint.interval` to a value greater than 0 in batch mode, the 
 However, if you do not set `checkpoint.interval` in batch mode, the paimon sink connector will commit the data after all records are written. The written data in paimon that is not visible until the batch task completes.
 
 ## Changelog
-You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props`.
+You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props` or `table_options`.
 
 The changelog producer mode of the paimon table has [four mode](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/) which is `none`、`input`、`lookup` and `full-compaction`.
 

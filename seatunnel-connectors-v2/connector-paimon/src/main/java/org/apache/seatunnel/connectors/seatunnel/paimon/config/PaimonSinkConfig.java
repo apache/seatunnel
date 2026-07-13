@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
@@ -28,6 +29,8 @@ import org.apache.paimon.CoreOptions;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -64,7 +67,15 @@ public class PaimonSinkConfig extends PaimonConfig {
         }
         this.partitionKeys =
                 stringToList(readonlyConfig.get(PaimonSinkOptions.PARTITION_KEYS), ",");
-        this.writeProps = readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS);
+        // Merge sink table_options into write-props for SaveMode auto-create. write-props wins
+        // on key conflict so existing jobs keep current behavior.
+        Map<String, String> mergedWriteProps = new HashMap<>();
+        mergedWriteProps.putAll(
+                readonlyConfig
+                        .getOptional(SinkConnectorCommonOptions.TABLE_OPTIONS)
+                        .orElse(Collections.emptyMap()));
+        mergedWriteProps.putAll(readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS));
+        this.writeProps = mergedWriteProps;
         this.changelogProducer =
                 Stream.of(CoreOptions.ChangelogProducer.values())
                         .filter(

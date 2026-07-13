@@ -78,10 +78,38 @@ libfb303-xxx.jar
 | paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
 | paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
 | paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
+| table_options                | Map  | 否    | -                            | Sink 侧表属性，在 SaveMode 自动建表时合并进 write-props。详见下文。                                                    |
 | paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
 | paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
 | paimon.table.non-primary-key | Boolean | 否    | false                        | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
 | branch                       | 字符串  | 否    | -                            | 要写入数据的 Paimon 表分支名称。不配置时写入 main 分支。非 main 分支要求 main 表和目标分支已存在，且不支持 `schema_save_mode=RECREATE_SCHEMA` 或 `data_save_mode=DROP_DATA`。 |
+
+### table_options [Map]
+
+Sink 侧表属性，仅在 SaveMode 自动建表时生效（例如 `schema_save_mode` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 或 `RECREATE_SCHEMA`）。**不会**对已存在表执行 ALTER。
+
+`table_options` 会合并进建表使用的有效 `paimon.table.write-props`。**键冲突时以 `paimon.table.write-props` 为准**，保证仅配置 write-props 的存量作业行为不变。键名使用 [Paimon CoreOptions](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)；SeaTunnel 不维护白名单，非法键在 Paimon 建表时失败。空白键与 null 值会在作业提交阶段被拒绝。
+
+示例：
+
+```hocon
+sink {
+  Paimon {
+    warehouse = "file:///tmp/paimon"
+    database = "seatunnel"
+    table = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      bucket = "4"
+      file.format = "parquet"
+    }
+    # 同名键时覆盖 table_options
+    paimon.table.write-props = {
+      bucket = "8"
+    }
+  }
+}
+```
 
 ## 批模式下的checkpoint
 
@@ -89,7 +117,7 @@ libfb303-xxx.jar
 但是，如果您没有在批处理模式下设置`checkpoint.interval`，则在写入所有记录之后，paimon sink连接器将提交数据。到批任务完成之前，写入的数据都是不可见的。
 
 ## 更新日志
-你必须配置`changelog-producer=input`来启用paimon表的changelog产生模式。如果你使用了paimon sink的自动建表功能，你可以在`paimon.table.write-props`中指定这个属性。
+你必须配置`changelog-producer=input`来启用paimon表的changelog产生模式。如果你使用了paimon sink的自动建表功能，你可以在`paimon.table.write-props`或`table_options`中指定这个属性。
 
 Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/)，分别是`none`、`input`、`lookup` 和 `full-compaction`。
 
