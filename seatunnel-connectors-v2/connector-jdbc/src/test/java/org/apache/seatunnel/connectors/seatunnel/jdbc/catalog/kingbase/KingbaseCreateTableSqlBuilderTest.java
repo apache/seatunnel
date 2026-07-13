@@ -79,6 +79,38 @@ class KingbaseCreateTableSqlBuilderTest {
         Assertions.assertEquals(expectedSqlSkipIndex, createTableSqlSkipIndex);
     }
 
+    @Test
+    void testBuildWithTableOptions() {
+        TablePath tablePath = TablePath.of("test", "public", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .primaryKey(PrimaryKey.of("pk_id", Lists.newArrayList("id")))
+                        .build();
+
+        HashMap<String, String> options = new HashMap<>();
+        options.put(KingbaseCatalog.TABLE_OPTION_TABLESPACE, "pg_default");
+        options.put(KingbaseCatalog.TABLE_OPTION_FILLFACTOR, "70");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(DatabaseIdentifier.KINGBASE, tablePath),
+                        tableSchema,
+                        options,
+                        Collections.emptyList(),
+                        "table with options");
+
+        String createTableSql =
+                new KingbaseCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        Assertions.assertTrue(
+                createTableSql.contains("WITH (fillfactor=70)"),
+                "CREATE TABLE should contain fillfactor: " + createTableSql);
+        Assertions.assertTrue(
+                createTableSql.contains("TABLESPACE \"pg_default\""),
+                "CREATE TABLE should contain tablespace: " + createTableSql);
+    }
+
     private CatalogTable kingbaseCatalogTable(TablePath tablePath) {
         List<Column> columns =
                 Lists.newArrayList(
