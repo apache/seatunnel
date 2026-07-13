@@ -598,7 +598,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 }
             }
         } catch (IOException e) {
-            return null;
+            throw new RuntimeException(e);
         }
         return null;
     }
