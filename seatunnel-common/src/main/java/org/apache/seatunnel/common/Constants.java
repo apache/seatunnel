@@ -52,8 +52,6 @@ public final class Constants {
                     + "/\\__/ /|  __/| (_| |  | |  | |_| || | | || | | ||  __/| |\n"
                     + "\\____/  \\___| \\__,_|  \\_/   \\__,_||_| |_||_| |_| \\___||_|\n"
                     + "                                                         \n";
-    public static final String ST_EDGE_AGENT_LOGO =
-            ST_LOGO + "                       Edge Agent                        \n";
     public static final String COPYRIGHT_LINE =
             "Copyright © 2021-2024 The Apache Software Foundation. Apache SeaTunnel, SeaTunnel, and its feather logo are trademarks of The Apache Software Foundation.";
 

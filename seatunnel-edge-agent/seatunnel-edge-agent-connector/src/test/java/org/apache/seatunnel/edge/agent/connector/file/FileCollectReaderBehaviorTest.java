@@ -42,7 +42,7 @@ import static org.awaitility.Awaitility.await;
 
 public class FileCollectReaderBehaviorTest {
 
-    private static final long CLOSE_INACTIVE_MS = 50L;
+    private static final long CLOSE_INACTIVE_MS = 500L;
     private static final long GLOB_SCAN_INTERVAL_MS = 20L;
 
     @TempDir Path tempDir;
