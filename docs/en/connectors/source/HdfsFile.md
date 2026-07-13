@@ -52,6 +52,7 @@ Read data from hdfs file system.
 | Name                       | Type    | Required | Default                     | Description                                                                                                                                                                                                                                                                                                                                   |
 |----------------------------|---------|----------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | yes      | -                           | The source file path.                                                                                                                                                                                                                                                                                                                         |
+| tables_configs             | list    | no       | -                           | Configure multiple HDFS source tables in one source block. Each item has the same options as a single-table `HdfsFile` source, and can set its downstream table name through `schema.table`.                                                                                                                                                 |
 | file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
 | fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
@@ -95,6 +96,8 @@ Read data from hdfs file system.
 | file_split_size            | long    | no       | 134217728                   | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | quote_char                 | string  | no       | "                           | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                        |
 | escape_char                | string  | no       | -                           | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                   |
+| metalake_type              | string  | no       | gravitino                  | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                |
+| recursive_file_scan        | boolean | no       | true                        | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                       |
 | sort_files_by_modification_time | boolean | no   | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_format_type [string]
@@ -125,6 +128,12 @@ When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the fol
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+### tables_configs [list]
+
+Use `tables_configs` when one HDFS source needs to read multiple tables or directories. Each item can define its own
+`path`, `file_format_type`, `schema`, and HDFS options. Set `schema.table` when the downstream sink needs table-aware
+routing.
 
 ### delimiter/field_delimiter [string]
 
@@ -321,6 +330,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
 ### sort_files_by_modification_time [boolean]
 
 Whether to sort files by modification time in descending order. Default is `false`.
@@ -476,6 +490,10 @@ sink {
 ```
 
 ### Multiple Table
+
+Each item in `tables_configs` is read as a separate table. This is useful when different HDFS directories should keep
+their own table name downstream.
+
 ```hocon
 env {
   parallelism = 1

@@ -42,8 +42,12 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
+| tablePrefix                               | String  | No       | -                            |
+| tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
+| connect_timeout_ms                        | Int     | No       | 86400000                     |
+| socket_timeout_ms                         | Int     | No       | 86400000                     |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
 | batch_interval_ms                         | Long    | No       | 0                            |
@@ -60,9 +64,16 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
+| is_primary_key_updated                    | Boolean | No       | true                         |
+| support_upsert_by_insert_only             | Boolean | No       | false                        |
+| table_options                             | Map     | No       | -                            |
 | use_copy_statement                        | Boolean | No       | false                        |
 | oracle_insert_mode                        | Enum    | No       | CONVENTIONAL                 |
 | create_index                              | Boolean | No       | true                         |
+| use_kerberos                              | Boolean | No       | false                        |
+| kerberos_principal                        | String  | No       | -                            |
+| kerberos_keytab_path                      | String  | No       | -                            |
+| krb5_path                                 | String  | No       | /etc/krb5.conf               |
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
@@ -116,6 +127,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
 | DSQL      |              |          |
+| YashanDB  |              |          |
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -128,7 +140,7 @@ Use `database` and this `table-name` auto-generate sql and receive upstream inpu
 
 This option is mutually exclusive with `query` and has a higher priority.
 
-The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+The table parameter can fill in the target table name, which will eventually be used as the created or written table name, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the table name passed to the target side.
 
 mysql sink for example:
 
@@ -144,6 +156,14 @@ pgsql (Oracle Sqlserver ...) Sink for example:
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
 
+### tablePrefix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
+### tableSuffix [string]
+
+Deprecated. Use `table` with table placeholders instead. For example, use `table = "prefix_${table_name}_suffix"` instead of configuring `tablePrefix` and `tableSuffix`.
+
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
@@ -151,6 +171,14 @@ This option is used to support operations such as `insert`, `delete`, and `updat
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
+
+### connect_timeout_ms [int]
+
+Connection timeout in milliseconds when establishing the JDBC connection. The default is 24 hours. Set it to `0` to disable the timeout.
+
+### socket_timeout_ms [int]
+
+Socket read timeout in milliseconds after the JDBC connection is established. The default is 24 hours. Set it to `0` to disable the timeout.
 
 ### max_retries [int]
 
@@ -230,9 +258,65 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
 
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect INSERT/UPSERT at runtime and do **not** run `ALTER TABLE` on existing tables.
+
+Current support:
+
+| Dialect | Supported | Allowed keys |
+|---------|-----------|--------------|
+| MySQL | Yes | `engine`, `charset`, `collate` |
+| TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
+| OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
+| Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
+
+Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
+
+**Dialect notes:**
+
+- **MySQL**: `engine`, `charset`, and `collate` are appended to `CREATE TABLE` and take effect.
+- **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
+- **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission. OceanBase **Oracle-compatible mode** does not support `table_options`; a non-empty map fails at job submission.
+
+SeaTunnel validates the **key whitelist** at submission time only; it does not verify whether each value is supported by the target database (same as the initial MySQL delivery).
+
+Example (MySQL auto-create with engine and charset):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3307/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "password"
+    database = "mydb"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "engine" = "InnoDB"
+      "charset" = "utf8mb4"
+      "collate" = "utf8mb4_general_ci"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `ENGINE`, `DEFAULT CHARSET`, and `COLLATE` clauses. Keys outside the dialect whitelist (for example `bucket_num`) fail during job submission.
+
 ### enable_upsert [boolean]
 
 Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
+
+### is_primary_key_updated [boolean]
+
+Whether primary key fields are included when generating update statements. Keep the default unless your target database requires primary key columns to be skipped during updates.
+
+### support_upsert_by_insert_only [boolean]
+
+Whether to support upsert behavior through insert-only statements for compatible dialects. This is an advanced compatibility option and is disabled by default.
 
 ### use_copy_statement [boolean]
 
@@ -257,6 +341,10 @@ This option is only supported for Oracle JDBC sink insert-only writes. It requir
 Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
 
 Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
+
+### use_kerberos [boolean]
+
+Whether to enable Kerberos authentication for JDBC connections. When enabled, also configure `kerberos_principal`, `kerberos_keytab_path`, and `krb5_path` as required by your environment.
 
 ### access_key_id [String]
 The access_key_id in AWS authentication. Only valid for dialect="dsql"
@@ -304,6 +392,7 @@ there are some reference value for params above.
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
+| YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
 ## Example
 
@@ -569,7 +658,9 @@ Not all databases support XA transactions. Verify that your database and JDBC dr
 
 ### How do I configure upsert (INSERT or UPDATE) behavior?
 
-Specify `primary_keys` to enable upsert behavior. SeaTunnel generates an INSERT ... ON DUPLICATE KEY UPDATE (or equivalent) statement based on the target database dialect:
+SeaTunnel only enters the upsert / update path after it has a final key set. That key can come from explicit `primary_keys`, or, when `primary_keys` is omitted, from upstream catalog metadata. If no primary key is available, SeaTunnel also tries to inherit the first unique key.
+
+When a final key set exists and `enable_upsert = true`, SeaTunnel prefers the database-native upsert statement provided by the target dialect. For example, PostgreSQL generates `INSERT ... ON CONFLICT (...) DO UPDATE` (or `DO NOTHING` when every column is part of the key and there is nothing left to update):
 
 ```hocon
 sink {
@@ -582,7 +673,29 @@ sink {
 }
 ```
 
-Without `primary_keys`, JDBC Sink performs plain INSERTs and does not handle duplicate key conflicts.
+When a final key set exists but `enable_upsert = false`, SeaTunnel stops using native database upsert SQL and falls back to the row-kind-driven insert/update path:
+
+- `INSERT` rows are written as plain INSERTs
+- CDC `UPDATE_AFTER` rows are written as UPDATEs
+- CDC `DELETE` rows are written as DELETEs
+
+As a result, `enable_upsert = false` is not appropriate for ordinary batch imports that rely on duplicate-key overwrite behavior.
+
+### What happens if I do not configure `primary_keys`?
+
+If `primary_keys` is not configured, SeaTunnel first tries to inherit the primary key from upstream catalog metadata. If there is no primary key, it then tries the first unique key.
+
+JDBC Sink falls back to plain INSERT only when there is no explicit key and nothing usable can be inherited from upstream metadata. In that keyless mode, no database-native upsert SQL is generated, and the sink no longer uses row-kind-aware UPDATE / DELETE executors. For CDC inputs, the write path therefore effectively degrades to plain INSERT batching, and duplicate-key behavior depends entirely on the target table constraints.
+
+### When should I enable `use_copy_statement`?
+
+`use_copy_statement = true` makes JDBC Sink prefer the `COPY <table> (...) FROM STDIN WITH CSV` path instead of regular INSERT / UPSERT SQL. This happens before the normal primary-key-based write path, so COPY is still chosen even if `primary_keys` is configured.
+
+This option is mainly for high-volume PostgreSQL imports, and it has three important constraints:
+
+- the JDBC driver connection must expose `getCopyAPI()`, otherwise the job fails and tells you to switch `use_copy_statement` back to `false`
+- it is not a replacement for `ON CONFLICT`, so it does not provide duplicate-key overwrite semantics
+- `MAP`, `ARRAY`, and `ROW` types are not supported
 
 ### How do I write to multiple tables in a single job?
 

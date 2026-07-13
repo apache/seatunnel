@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [x] file format type
   - [x] text
   - [x] csv
@@ -52,9 +53,11 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | user                        | string  | yes      | -                           |
 | password                    | string  | yes      | -                           |
 | path                        | string  | yes      | -                           |
+| tables_configs              | list    | no       | -                           |
 | file_format_type            | string  | yes      | -                           |
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
+| control_encoding            | string  | no       | UTF-8                       |
 | delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
@@ -89,8 +92,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_filter_modified_end    | string  | no       | -                           | 
 | quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
-| sort_files_by_modification_time | boolean | no       | false                       |
 | metalake_type               | string  | no       | gravitino                   |
+| recursive_file_scan         | boolean | no       | true                        |
+| sort_files_by_modification_time | boolean | no       | false                       |
 
 ### host [string]
 
@@ -111,6 +115,12 @@ The target ftp password is required
 ### path [string]
 
 The source file path.
+
+### tables_configs [list]
+
+Configure multiple FTP source tables in one source block. Each item in `tables_configs` has the same options as a
+single-table `FtpFile` source, such as `host`, `port`, `user`, `password`, `path`, `file_format_type`, and `schema`.
+Use `schema.table` to set the table name sent downstream.
 
 ### remote_verification_enabled [boolean]
 
@@ -539,6 +549,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
 ### sort_files_by_modification_time [boolean]
 
 Whether to sort files by modification time in descending order. Default is `false`.
@@ -572,6 +587,9 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 ```
 
 ### Multiple Table
+
+Each entry in `tables_configs` is read as an independent table. Keep connection and format options inside every entry
+unless all tables use the same values through an outer shared configuration.
 
 ```hocon
 

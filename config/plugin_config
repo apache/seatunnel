@@ -30,6 +30,7 @@ connector-cdc-sqlserver
 connector-cdc-postgres
 connector-cdc-oracle
 connector-cdc-tidb
+connector-cdc-vitess
 connector-clickhouse
 connector-datahub
 connector-databend
@@ -47,6 +48,7 @@ connector-file-sftp
 connector-file-obs
 connector-google-sheets
 connector-google-firestore
+connector-google-bigtable
 connector-graphql
 connector-hive
 connector-http-base

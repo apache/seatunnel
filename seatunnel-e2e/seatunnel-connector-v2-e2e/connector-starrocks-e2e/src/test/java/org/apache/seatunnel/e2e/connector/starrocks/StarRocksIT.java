@@ -78,6 +78,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
+    private static final String TABLE_OPTIONS_SINK_TABLE = "sink_table_options";
+    private static final String TABLE_OPTIONS_CONFIG_FILE =
+            "/fake-to-starrocks-with-table-options.conf";
     private static final String SR_DRIVER_JAR =
             "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
@@ -342,6 +345,19 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @TestTemplate
+    public void testTableOptionsSink(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        try {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+            Container.ExecResult execResult = container.executeJob(TABLE_OPTIONS_CONFIG_FILE);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            assertTableOptionsSink();
+        } finally {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+        }
+    }
+
     private void initializeJdbcConnection()
             throws SQLException, ClassNotFoundException, MalformedURLException,
                     InstantiationException, IllegalAccessException {
@@ -406,6 +422,35 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    private void assertTableOptionsSink() throws SQLException {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            ResultSet createTableResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SHOW CREATE TABLE %s.%s", DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(createTableResult.next());
+            String createTableSql = createTableResult.getString(2).toLowerCase();
+            Assertions.assertTrue(
+                    createTableSql.contains("\"storage_format\" = \"v2\""), createTableSql);
+
+            ResultSet countResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT COUNT(*) FROM %s.%s",
+                                    DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(countResult.next());
+            Assertions.assertEquals(100, countResult.getInt(1));
+        }
+    }
+
+    private void dropTableIfExists(String table) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop table " + table, e);
         }
     }
 

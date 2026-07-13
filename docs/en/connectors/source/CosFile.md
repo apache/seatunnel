@@ -38,7 +38,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## Description
 
-Read data from aliyun Cos file system.
+Read data from Tencent Cloud COS file system.
 
 :::tip
 
@@ -60,7 +60,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | secret_id                  | string  | yes      | -                           |
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
-| read_columns               | list    | yes      | -                           |
+| read_columns               | list    | no       | -                           |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
@@ -85,6 +85,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | file_filter_modified_end   | string  | no       | -                           | 
 | quote_char                 | string  | no       | "                           |
 | escape_char                | string  | no       | -                           |
+| recursive_file_scan        | boolean | no       | true                        |
 | sort_files_by_modification_time | boolean | no       | false                       |
 
 ### path [string]
@@ -209,7 +210,7 @@ Note: Markdown format only supports reading, not writing.
 
 ### bucket [string]
 
-The bucket address of Cos file system, for example: `Cos://tyrantlucifer-image-bed`
+The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
@@ -437,6 +438,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
 ### sort_files_by_modification_time [boolean]
 
 Whether to sort files by modification time in descending order. Default is `false`.
@@ -548,4 +554,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-
