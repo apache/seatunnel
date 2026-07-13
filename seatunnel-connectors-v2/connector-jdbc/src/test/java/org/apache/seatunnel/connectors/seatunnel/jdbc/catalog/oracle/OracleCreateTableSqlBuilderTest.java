@@ -115,14 +115,17 @@ public class OracleCreateTableSqlBuilderTest {
         List<String> sqls = oracleCreateTableSqlBuilder.build(tablePath);
         String createTableSql = sqls.get(0);
         // create table sql is change; The old unit tests are no longer applicable
+        // After the NTZ/LTZ fix (#10685), LOCAL_DATE_TIME_TYPE (NTZ) maps to TIMESTAMP
+        // (without timezone), while OFFSET_DATE_TIME_TYPE (LTZ) maps to TIMESTAMP WITH LOCAL
+        // TIME ZONE.
         String expect =
                 "CREATE TABLE \"test_table\" (\n"
                         + "\"id\" INTEGER NOT NULL,\n"
                         + "\"name\" VARCHAR2(128) NOT NULL,\n"
                         + "\"age\" INTEGER,\n"
                         + "\"blob_v\" BLOB,\n"
-                        + "\"createTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
-                        + "\"lastUpdateTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
+                        + "\"createTime\" TIMESTAMP,\n"
+                        + "\"lastUpdateTime\" TIMESTAMP,\n"
                         + "CONSTRAINT id_9a8b PRIMARY KEY (\"id\")\n"
                         + ")";
 
@@ -146,8 +149,8 @@ public class OracleCreateTableSqlBuilderTest {
                         + "\"name\" VARCHAR2(128) NOT NULL,\n"
                         + "\"age\" INTEGER,\n"
                         + "\"blob_v\" BLOB,\n"
-                        + "\"createTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
-                        + "\"lastUpdateTime\" TIMESTAMP WITH LOCAL TIME ZONE\n"
+                        + "\"createTime\" TIMESTAMP,\n"
+                        + "\"lastUpdateTime\" TIMESTAMP\n"
                         + ")";
         CONSOLE.println(expectSkipIndex);
         Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);

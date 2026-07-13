@@ -96,6 +96,8 @@ public class ZetaSQLFunction {
     public static final String CONCAT_WS = "CONCAT_WS";
     public static final String HEXTORAW = "HEXTORAW";
     public static final String RAWTOHEX = "RAWTOHEX";
+    public static final String TO_BASE64 = "TO_BASE64";
+    public static final String FROM_BASE64 = "FROM_BASE64";
     public static final String INSERT = "INSERT";
     public static final String LOWER = "LOWER";
     public static final String LCASE = "LCASE";
@@ -475,6 +477,10 @@ public class ZetaSQLFunction {
                 return StringFunction.hextoraw(args);
             case RAWTOHEX:
                 return StringFunction.rawtohex(args);
+            case TO_BASE64:
+                return StringFunction.toBase64(args);
+            case FROM_BASE64:
+                return StringFunction.fromBase64(args);
             case INSERT:
                 return StringFunction.insert(args);
             case LOWER:

@@ -210,6 +210,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setTimerFlushPoolSize(
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT
                     .key()
                     .equals(name)) {

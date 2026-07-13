@@ -226,6 +226,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
 | quote_char                      | string  | no       | "                                                     | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                                                     |
 | escape_char                     | string  | no       | -                                                     | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                                                |
+| metalake_type                   | string  | no       | gravitino                                            | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                              |
+| recursive_file_scan             | boolean | no       | true                                                  | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                                                    |
 | sort_files_by_modification_time | boolean | no       | false                                                 | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                                                                                               |
 
 ### file_format_type [string]
@@ -418,6 +420,11 @@ When specified, the connector will fetch table schema from the external metadata
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
 For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
 
 ## Example
 

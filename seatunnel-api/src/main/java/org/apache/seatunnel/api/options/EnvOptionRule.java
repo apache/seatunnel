@@ -49,7 +49,8 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
                         MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
                         EnvCommonOptions.CUSTOM_PARAMETERS,
-                        EnvCommonOptions.NODE_TAG_FILTER)
+                        EnvCommonOptions.NODE_TAG_FILTER,
+                        EnvCommonOptions.SINK_FLUSH_INTERVAL)
                 .build();
     }
 }

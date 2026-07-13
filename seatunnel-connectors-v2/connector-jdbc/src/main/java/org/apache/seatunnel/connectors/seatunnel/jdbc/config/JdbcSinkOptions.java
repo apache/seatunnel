@@ -141,19 +141,31 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
+    /**
+     * @deprecated Use {@link #TABLE} with table placeholder instead, for example {@code table =
+     *     "prefix_${table_name}_suffix"}.
+     */
+    @Deprecated
     public static final Option<String> TABLE_PREFIX =
             Options.key("tablePrefix")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The table prefix name added when the table is automatically created");
+                            "Deprecated. Use `table` with table placeholder instead, for example "
+                                    + "`table = \"prefix_${table_name}_suffix\"`.");
 
+    /**
+     * @deprecated Use {@link #TABLE} with table placeholder instead, for example {@code table =
+     *     "prefix_${table_name}_suffix"}.
+     */
+    @Deprecated
     public static final Option<String> TABLE_SUFFIX =
             Options.key("tableSuffix")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The table suffix name added when the table is automatically created");
+                            "Deprecated. Use `table` with table placeholder instead, for example "
+                                    + "`table = \"prefix_${table_name}_suffix\"`.");
 
     public static final Option<Boolean> CREATE_INDEX =
             Options.key("create_index")

@@ -39,6 +39,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -128,7 +129,7 @@ The separator between columns in a row of data. Only needed by `text` and `csv` 
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text`, `json` and `json` file format.
+The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.
 
 ### have_partition [boolean]
 

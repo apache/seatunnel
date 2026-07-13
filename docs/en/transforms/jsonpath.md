@@ -28,13 +28,13 @@ This option is used to specify the processing method when an error occurs in the
 
 #### option
 
-| name                    | type   | required | default value |
-|-------------------------|--------|----------|---------------|
-| src_field               | String | Yes      |               |
-| dest_field              | String | Yes      |               |
-| path                    | String | Yes      |               |
-| dest_type               | String | No       | String        |
-| column_error_handle_way | Enum   | No       |               |
+| name                    | type            | required | default value |
+|-------------------------|-----------------|----------|---------------|
+| src_field               | String          | Yes      |               |
+| dest_field              | String or Array | Yes      |               |
+| path                    | String or Array | Yes      |               |
+| dest_type               | String or Array | No       | String        |
+| column_error_handle_way | Enum            | No       |               |
 
 #### src_field
 
@@ -52,13 +52,19 @@ Support SeatunnelDateType
 
 > after use jsonpath output field
 
+This can be a single field name or an array of field names when extracting multiple values from the same source field.
+
 #### dest_type
 
 > the type of dest field
 
+This can be a single type or an array of types. If omitted for a single output field, the default type is `string`.
+
 #### path
 
 > Jsonpath
+
+This can be a single JSONPath expression or an array of JSONPath expressions.
 
 #### column_error_handle_way [Enum]
 
@@ -91,7 +97,7 @@ The data read from source is a table like this json:
 
 Assuming we want to use JsonPath to extract properties.
 
-```json
+```hocon
 transform {
   JsonPath {
     plugin_input = "fake"
@@ -180,7 +186,7 @@ transform {
 }
 ```
 
-**Important:** When using batch field extraction (multiple paths, dest_fields, and dest_types), the `dest_type` parameter is **required** and cannot be omitted. Each extracted field must have a corresponding type specified. The array format provides better readability and is less error-prone than string-based configurations.
+**Important:** When using batch field extraction, `path`, `dest_field`, and `dest_type` must have the same number of items. If you omit `dest_type`, the transform uses the single default type `string`, so multiple output fields should provide a `dest_type` array explicitly.
 
 Then the data result table `fake1` will like this
 
@@ -325,4 +331,3 @@ transform {
 ## Changelog
 
 * Add JsonPath Transform
-

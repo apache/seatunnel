@@ -16,10 +16,11 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## 描述
 
-Apache Iceberg 目标连接器支持cdc模式、自动建表及表结构变更.
+Apache Iceberg 目标连接器支持 CDC 写入、自动建表、表结构变更以及多表写入。
 
 ## 主要特性
 
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
@@ -78,13 +79,30 @@ libfb303-xxx.jar
 | iceberg.table.upsert-mode-enabled      | boolean | no   | false                        | 设置为 `true` 以启用 upsert 模式，默认值为 `false`                                                                                                                                                                             |
 | schema_save_mode                       | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema 变更方式, 请参考下面的 `schema_save_mode`                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
-| custom_sql                             | string  | no   | -                            | 自定义 `delete` 数据的 SQL 语句，用于数据写入方式。例如： `delete from ... where ...`                                                                                                                                                  |
+| custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
+| multi_table_sink_replica               | int     | no   | -                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
 | kerberos_keytab_path                   | string  | no       | -                            | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                                                                                         |
 
 ## Sink 选项说明
+
+### iceberg.table.upsert-mode-enabled [boolean]
+
+当该选项为 `true` 时，必须显式配置 `iceberg.table.primary-keys`。Sink 不会再自动继承 Source 表的主键。
+
+### iceberg.table.partition-keys [string]
+
+使用英文逗号分隔多个分区字段，例如 `dt,region`，也可以使用 Iceberg transform，例如 `days(ts)`。多表写入场景可以使用 `${partition_keys}` 占位符，从上游表元信息中取分区字段。
+
+### iceberg.table.commit-branch [string]
+
+将提交写入指定的 Iceberg 分支。不配置时写入表的默认分支。
+
+### custom_sql [string]
+
+当 `data_save_mode = CUSTOM_PROCESSING` 时，配置在 Sink 写入前删除目标数据的 `delete` SQL。该模式下必须配置此选项。
 
 ### krb5_path [string]
 
@@ -195,6 +213,23 @@ sink {
   }
 }
 
+```
+
+### 提交到 Iceberg 分支
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.commit-branch = "audit_branch"
+  }
+}
 ```
 
 ### AWS S3 Tables REST Catalog

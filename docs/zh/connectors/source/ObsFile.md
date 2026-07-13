@@ -14,9 +14,9 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## 关键特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读写任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
@@ -25,8 +25,8 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   在一次 pollNext 调用中读取分割中的所有数据。读取哪些分割将保存在快照中。
 
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -70,7 +70,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_key                | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
-| read_columns              | list    | 是  | -                   | 数据源的读取列列表                               |
+| read_columns              | list    | 否  | -                   | 数据源的读取列列表                               |
 | delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |
@@ -80,6 +80,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
 | quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
 | escape_char               | string  | 否  | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
+| recursive_file_scan       | boolean | 否  | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。 | 
 | sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### file_format_type [string]
@@ -112,6 +113,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 注意：Markdown 格式仅支持读取，不支持写入。
 
 ### sort_files_by_modification_time [boolean]
+
 是否按修改时间降序排序文件。默认值为 `false`。
 
 启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
@@ -121,4 +123,3 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 ## 变更日志
 
 <ChangeLog />
-
