@@ -52,6 +52,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCanalDecorator;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
+import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -271,6 +272,8 @@ public class PulsarSource
                         CanalJsonDeserializationSchema.builder(catalogTable)
                                 .setIgnoreParseErrors(true)
                                 .build());
+            case "AVRO":
+                return new AvroDeserializationSchema(catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

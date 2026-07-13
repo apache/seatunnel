@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -74,7 +75,14 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 >
-  ## Task Example
+## Notes
+
+- Use `query` when you want to fully control the INSERT statement and parameter order.
+- Use `database`, `table`, and `primary_keys` when SeaTunnel should generate sink SQL for insert, update, and delete events.
+- Snowflake sink uses normal JDBC batch writes. The connector does not provide exactly-once guarantees for Snowflake.
+- Keep Snowflake credentials out of shared examples, logs, and screenshots.
+
+## Task Example
 
 ### simple
 

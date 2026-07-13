@@ -6,7 +6,14 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ## 描述
 
-从 Apache Cassandra 读取数据.
+以批处理方式从 Apache Cassandra 读取数据。
+
+Cassandra source 支持两种读取方式：
+
+- 使用 `cql` 读取单张表。
+- 使用 `tables_configs` 读取多张表，每个条目里配置一个 `cql`。
+
+连接器会根据 CQL 返回结果里的列名和数据类型生成下游数据结构，所以 CQL 应该返回下游真正需要的列。
 
 ## 关键特性
 
@@ -17,18 +24,43 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
+## 数据类型映射
+
+| Cassandra 数据类型 | SeaTunnel 数据类型 |
+|-------------------|--------------------|
+| ascii             | STRING             |
+| varchar/text      | STRING             |
+| varint            | STRING             |
+| uuid/timeuuid     | STRING             |
+| inet              | STRING             |
+| tinyint           | BYTE               |
+| smallint          | SHORT              |
+| int               | INT                |
+| bigint/counter    | LONG               |
+| float             | FLOAT              |
+| double/decimal    | DOUBLE             |
+| boolean           | BOOLEAN            |
+| time              | TIME               |
+| date              | DATE               |
+| timestamp         | TIMESTAMP          |
+| blob              | ARRAY\<BYTE\>      |
+| list              | ARRAY              |
+| set               | ARRAY              |
+| map               | MAP                |
+
 ## 选项
 
-|       名称           |     类型      | 必需   | 默认值        |
-|-------------------|-------------|------|---------------|
-| host              | String      | 是    | -             |
-| keyspace          | String      | 是    | -             |
-| cql               | String      | 否 *  | -             |
-| tables_configs    | List\<Map\> | 否 *  | -             |
-| username          | String      | 否    | -             |
-| password          | String      | 否    | -             |
-| datacenter        | String      | 否    | datacenter1   |
-| consistency_level | String      | 否    | LOCAL_ONE     |
+| 名称              | 类型       | 是否必填 | 默认值      | 描述 |
+|-------------------|------------|----------|-------------|------|
+| host              | String     | 是       | -           | Cassandra 集群地址，格式是 `host:port`，多个地址用逗号分隔。 |
+| keyspace          | String     | 是       | -           | Cassandra 会话使用的 keyspace。 |
+| cql               | String     | 否 *     | -           | 读取单张表时使用的 CQL。 |
+| tables_configs    | List\<Map\> | 否 *     | -           | 多表读取配置，每个条目必须包含一个 `cql`。 |
+| username          | String     | 否       | -           | Cassandra 用户名，需要和 `password` 一起配置。 |
+| password          | String     | 否       | -           | Cassandra 密码，需要和 `username` 一起配置。 |
+| datacenter        | String     | 否       | datacenter1 | Cassandra Java Driver 使用的本地数据中心名称。 |
+| consistency_level | String     | 否       | LOCAL_ONE   | 读取一致性级别，例如 `LOCAL_ONE`、`ONE`、`QUORUM`、`LOCAL_QUORUM`。 |
+| common-options    |            | 否       | -           | Source 插件通用参数，例如 `plugin_output`。 |
 
 > \* `cql` 与 `tables_configs` 二选一，必须提供其中之一。
 
@@ -43,11 +75,16 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ### cql [String]
 
-查询 CQL，用于通过 Cassandra 会话读取单张表的数据。与 `tables_configs` 互斥。
+查询 CQL，用于读取单张表的数据。它和 `tables_configs` 互斥。
+
+连接器会使用 CQL 返回结果里的元数据来生成输出结构。通常建议写成能返回真实表字段的查询，例如
+`select * from source_table` 或 `select id, name from source_table`。
 
 ### tables_configs [List\<Map\>]
 
-多表读取配置，每个条目必须包含 `cql` 字段。与 `cql` 互斥。
+多表读取配置，每个条目必须包含 `cql` 字段。它和根层级的 `cql` 互斥。
+
+不要在 `tables_configs` 中重复配置同一张源表，连接器启动时会检查重复表名。
 
 示例条目：
 
@@ -73,11 +110,30 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 `Cassandra` 的读取一致性级别, 默认为 `LOCAL_ONE`.
 
+### common-options
+
+Source 插件通用参数，详情请参考 [Source 常用选项](../common-options/source-common-options.md)。
+
+## 注意事项
+
+- `username` 和 `password` 是一组配置。集群开启认证时两个都要配；未开启认证时两个都可以不配。
+- `datacenter` 必须和 Cassandra 集群的本地数据中心名称一致。默认值是 `datacenter1`，这也是常见
+  Testcontainers 环境里的默认值。
+- `cql` 和 `tables_configs` 互斥。读取一个结果表时用 `cql`，需要让一个 source 读取多张 Cassandra 表时用
+  `tables_configs`。
+- 这是批处理 source。它读取当前查询结果后就会结束。
+- 一个 CQL 查询会作为一个 source split 读取。调大任务并行度不会自动把单张 Cassandra 表拆成多个扫描任务。
+
 ## 示例
 
-### 单表模式
+### 单表读取
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Cassandra {
     host = "localhost:9042"
@@ -89,11 +145,20 @@ source {
     plugin_output = "source_table"
   }
 }
+
+sink {
+  Console {}
+}
 ```
 
-### 多表模式
+### 多表读取
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Cassandra {
     host = "localhost:9042"
@@ -103,12 +168,23 @@ source {
     keyspace = "test"
     tables_configs = [
       {
-        cql = "SELECT id, name FROM test.table1"
+        cql = "select id, c_int from mt_source_a"
       },
       {
-        cql = "SELECT id, value FROM test.table2"
+        cql = "select id, c_int from mt_source_b"
       }
     ]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "localhost:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    table = "mt_sink_table"
   }
 }
 ```

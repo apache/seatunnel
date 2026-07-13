@@ -600,7 +600,8 @@ public class DmdbTypeConverterTest {
                         .build();
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // DATETIME WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
 
@@ -613,7 +614,8 @@ public class DmdbTypeConverterTest {
                         .build();
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // DATETIME WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }

@@ -27,9 +27,16 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
@@ -148,9 +155,10 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                             3, standbyMaster.getCluster().getMembers().size()));
             assertJobStatusWithTimeout(pendingJobAfterFailover, JobStatus.RUNNING, 180);
             assertPendingQueueNotContainsJob(standbyMaster, pendingJobId);
+            assertRunningJobGraphWithTimeout(standbyMaster, pendingJobId, 120);
 
             pendingJobAfterFailover.cancelJob();
-            assertJobStatusWithTimeout(pendingJobAfterFailover, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(pendingJobAfterFailover);
             engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
         } finally {
             if (engineClient != null) {
@@ -225,13 +233,13 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             assertPendingQueueState(activeMaster, pendingJobId, 1);
 
             holderJob.cancelJob();
-            assertJobStatusWithTimeout(holderJob, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(holderJob);
 
             assertJobStatusWithTimeout(pendingJob, JobStatus.RUNNING, 180);
             assertPendingQueueNotContainsJob(activeMaster, pendingJobId);
 
             pendingJob.cancelJob();
-            assertJobStatusWithTimeout(pendingJob, JobStatus.CANCELED, 120);
+            assertEventuallyCanceled(pendingJob);
         } finally {
             if (engineClient != null) {
                 engineClient.close();
@@ -287,6 +295,82 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                         () ->
                                 Assertions.assertEquals(
                                         expectedStatus, clientJobProxy.getJobStatus()));
+    }
+
+    /**
+     * Failover and cancellation can leave the client-observed status at CANCELING after the cancel
+     * request has already completed, so wait for the terminal job result before asserting the final
+     * visible state.
+     */
+    private static void assertEventuallyCanceled(ClientJobProxy clientJobProxy) {
+        JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+        Assertions.assertEquals(JobStatus.CANCELED, jobResult.getStatus());
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, clientJobProxy.getJobStatus()));
+    }
+
+    /**
+     * Waits until failover restore has rebuilt the running graph on the active master.
+     *
+     * <p>The top-level job status can turn RUNNING before every restored pipeline and task vertex
+     * has reacquired slots and reported RUNNING. Cancelling earlier makes this test depend on a
+     * restore/cancel race instead of pending-job scheduling.
+     */
+    private static void assertRunningJobGraphWithTimeout(
+            HazelcastInstanceImpl activeMaster, long jobId, long timeoutSeconds) {
+        Awaitility.await()
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobMaster jobMaster = getJobMaster(activeMaster, jobId);
+                            Assertions.assertNotNull(
+                                    jobMaster,
+                                    "Job master should exist before checking restored task states");
+                            PhysicalPlan physicalPlan = jobMaster.getPhysicalPlan();
+                            Assertions.assertEquals(JobStatus.RUNNING, physicalPlan.getJobStatus());
+                            physicalPlan
+                                    .getPipelineList()
+                                    .forEach(
+                                            SplitClusterPendingJobLifecycleFailoverIT
+                                                    ::assertRunningSubPlan);
+                        });
+    }
+
+    /**
+     * Asserts that one restored pipeline and all of its task vertices are fully running.
+     *
+     * <p>This keeps the following cancel assertion focused on the lifecycle transition instead of
+     * racing against delayed task deployment after master failover.
+     */
+    private static void assertRunningSubPlan(SubPlan subPlan) {
+        Assertions.assertEquals(PipelineStatus.RUNNING, subPlan.getPipelineState());
+        subPlan.getCoordinatorVertexList()
+                .forEach(SplitClusterPendingJobLifecycleFailoverIT::assertRunningVertex);
+        subPlan.getPhysicalVertexList()
+                .forEach(SplitClusterPendingJobLifecycleFailoverIT::assertRunningVertex);
+    }
+
+    /**
+     * Asserts that one task vertex has completed deployment and reported RUNNING.
+     *
+     * <p>A restored vertex can lag behind the top-level job status while resources are assigned, so
+     * the test must observe the vertex state directly before cancelling.
+     */
+    private static void assertRunningVertex(PhysicalVertex physicalVertex) {
+        Assertions.assertEquals(ExecutionState.RUNNING, physicalVertex.getExecutionState());
+    }
+
+    /**
+     * Reads the current job master from the active SeaTunnel server embedded in the test cluster.
+     */
+    private static JobMaster getJobMaster(HazelcastInstanceImpl activeMaster, long jobId) {
+        SeaTunnelServer server =
+                activeMaster.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        return server.getCoordinatorService().getJobMaster(jobId);
     }
 
     private static HazelcastInstanceImpl waitAndFindActiveMaster(
