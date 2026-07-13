@@ -463,10 +463,10 @@ public class JobInfoService extends BaseService {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
         RestoreMode restoreMode =
                 restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
-        if (restoreMode == RestoreMode.CHECKPOINT
+        if (restoreMode.isRestore()
                 && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
             throw new IllegalArgumentException(
-                    "restoreSourceJobId is required when restoreMode=CHECKPOINT");
+                    "restoreSourceJobId is required when restoreMode=" + restoreMode);
         }
     }
 }
