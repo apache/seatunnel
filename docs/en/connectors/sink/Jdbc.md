@@ -268,9 +268,19 @@ Current support:
 | Dialect | Supported | Allowed keys |
 |---------|-----------|--------------|
 | MySQL | Yes | `engine`, `charset`, `collate` |
+| TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
+| OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
 | Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
 
 Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
+
+**Dialect notes:**
+
+- **MySQL**: `engine`, `charset`, and `collate` are appended to `CREATE TABLE` and take effect.
+- **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
+- **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission. OceanBase **Oracle-compatible mode** does not support `table_options`; a non-empty map fails at job submission.
+
+SeaTunnel validates the **key whitelist** at submission time only; it does not verify whether each value is supported by the target database (same as the initial MySQL delivery).
 
 Example (MySQL auto-create with engine and charset):
 
