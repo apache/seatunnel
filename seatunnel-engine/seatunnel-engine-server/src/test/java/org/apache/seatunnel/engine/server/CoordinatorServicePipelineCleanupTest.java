@@ -36,6 +36,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -237,6 +239,56 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
                 "Stale failed cleanup record must not delete savepoint-end metrics");
         Assertions.assertFalse(hasMetricsForPipeline(otherPipelineLocation));
         Assertions.assertFalse(pendingCleanupIMap.containsKey(otherPipelineLocation));
+    }
+
+    @Test
+    void testRestoreInvalidationPreventsCapturedCleanupFromDeletingNewRoundMetrics()
+            throws Exception {
+        CoordinatorService coordinatorService = awaitActiveCoordinatorService();
+
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineCleanupRecord staleRecord =
+                newPipelineCleanupRecord(pipelineLocation, PipelineStatus.FAILED, false);
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateIMap.put(pipelineLocation, PipelineStatus.FAILED);
+
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        pendingCleanupIMap.put(pipelineLocation, staleRecord);
+        upsertMetricsForPipeline(pipelineLocation);
+
+        CountDownLatch cleanupStarted = new CountDownLatch(1);
+        pendingCleanupIMap.lock(pipelineLocation);
+        CompletableFuture<Void> capturedCleanup;
+        try {
+            capturedCleanup =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                cleanupStarted.countDown();
+                                coordinatorService.processPendingPipelineCleanup(
+                                        pipelineLocation, staleRecord);
+                            });
+            Assertions.assertTrue(cleanupStarted.await(10, TimeUnit.SECONDS));
+            Assertions.assertFalse(capturedCleanup.isDone());
+
+            coordinatorService.cleanupPendingPipelineCleanupForRestore(jobId);
+            Assertions.assertFalse(pendingCleanupIMap.containsKey(pipelineLocation));
+
+            // Simulate metrics published by the restored execution before the captured cleanup
+            // gets CPU time again.
+            upsertMetricsForPipeline(pipelineLocation);
+            runningJobStateIMap.put(pipelineLocation, PipelineStatus.FINISHED);
+        } finally {
+            pendingCleanupIMap.unlock(pipelineLocation);
+        }
+
+        capturedCleanup.get(10, TimeUnit.SECONDS);
+        Assertions.assertTrue(
+                hasMetricsForPipeline(pipelineLocation),
+                "Captured cleanup from the old round must not delete restored-round metrics");
     }
 
     @Test

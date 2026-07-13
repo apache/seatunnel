@@ -602,71 +602,94 @@ public class CoordinatorService {
         }
     }
 
-    private void processPendingPipelineCleanup(
+    @VisibleForTesting
+    void processPendingPipelineCleanup(
             PipelineLocation pipelineLocation, PipelineCleanupRecord record) {
         if (pipelineLocation == null || record == null) {
             return;
         }
-        if (!shouldCleanup(record)) {
-            removePendingCleanupRecord(pipelineLocation, record);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                pendingPipelineCleanupIMap;
+        if (pendingCleanupIMap == null) {
             return;
         }
 
-        PipelineStatus currentStatus = getPipelineStatusFromIMap(pipelineLocation);
-        if (currentStatus != null && !currentStatus.isEndState()) {
-            return;
-        }
+        boolean locked = false;
+        try {
+            pendingCleanupIMap.lock(pipelineLocation);
+            locked = true;
 
-        long now = System.currentTimeMillis();
-        PipelineCleanupRecord updated = copy(record);
-        updated.setLastAttemptTimeMillis(now);
-        updated.setAttemptCount(record.getAttemptCount() + 1);
+            // entrySet() is a snapshot. Revalidate it while holding the same key lock used by
+            // restore invalidation so an old execution round cannot clean a newer round.
+            PipelineCleanupRecord currentRecord = pendingCleanupIMap.get(pipelineLocation);
+            if (!record.equals(currentRecord)) {
+                return;
+            }
+            if (!shouldCleanup(record)) {
+                removePendingCleanupRecord(pipelineLocation, record);
+                return;
+            }
 
-        if (!updated.isMetricsImapCleaned() && cleanupPipelineMetrics(pipelineLocation)) {
-            updated.setMetricsImapCleaned(true);
-        }
+            PipelineStatus currentStatus = getPipelineStatusFromIMap(pipelineLocation);
+            if (currentStatus != null && !currentStatus.isEndState()) {
+                return;
+            }
 
-        Map<TaskGroupLocation, Address> taskGroups = updated.getTaskGroups();
-        if (taskGroups != null && !taskGroups.isEmpty()) {
-            for (Map.Entry<TaskGroupLocation, Address> taskGroup : taskGroups.entrySet()) {
-                TaskGroupLocation taskGroupLocation = taskGroup.getKey();
-                if (updated.getCleanedTaskGroups() != null
-                        && updated.getCleanedTaskGroups().contains(taskGroupLocation)) {
-                    continue;
-                }
-                Address workerAddress = taskGroup.getValue();
-                if (workerAddress == null
-                        || nodeEngine.getClusterService().getMember(workerAddress) == null) {
-                    continue;
-                }
-                try {
-                    NodeEngineUtil.sendOperationToMemberNode(
-                                    nodeEngine,
-                                    new CleanTaskGroupContextOperation(taskGroupLocation),
-                                    workerAddress)
-                            .get();
-                    updated.getCleanedTaskGroups().add(taskGroupLocation);
-                } catch (HazelcastInstanceNotActiveException e) {
-                    logger.warning(
-                            String.format(
-                                    "%s clean TaskGroupContext failed: %s",
-                                    taskGroupLocation, ExceptionUtils.getMessage(e)));
-                } catch (Exception e) {
-                    logger.warning(
-                            String.format(
-                                    "%s clean TaskGroupContext failed: %s",
-                                    taskGroupLocation, ExceptionUtils.getMessage(e)),
-                            e);
+            long now = System.currentTimeMillis();
+            PipelineCleanupRecord updated = copy(record);
+            updated.setLastAttemptTimeMillis(now);
+            updated.setAttemptCount(record.getAttemptCount() + 1);
+
+            if (!updated.isMetricsImapCleaned() && cleanupPipelineMetrics(pipelineLocation)) {
+                updated.setMetricsImapCleaned(true);
+            }
+
+            Map<TaskGroupLocation, Address> taskGroups = updated.getTaskGroups();
+            if (taskGroups != null && !taskGroups.isEmpty()) {
+                for (Map.Entry<TaskGroupLocation, Address> taskGroup : taskGroups.entrySet()) {
+                    TaskGroupLocation taskGroupLocation = taskGroup.getKey();
+                    if (updated.getCleanedTaskGroups() != null
+                            && updated.getCleanedTaskGroups().contains(taskGroupLocation)) {
+                        continue;
+                    }
+                    Address workerAddress = taskGroup.getValue();
+                    if (workerAddress == null
+                            || nodeEngine.getClusterService().getMember(workerAddress) == null) {
+                        continue;
+                    }
+                    try {
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                        nodeEngine,
+                                        new CleanTaskGroupContextOperation(taskGroupLocation),
+                                        workerAddress)
+                                .get();
+                        updated.getCleanedTaskGroups().add(taskGroupLocation);
+                    } catch (HazelcastInstanceNotActiveException e) {
+                        logger.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext failed: %s",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        logger.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext failed: %s",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)),
+                                e);
+                    }
                 }
             }
-        }
 
-        boolean replaced = pendingPipelineCleanupIMap.replace(pipelineLocation, record, updated);
-        if (!replaced) {
-            return;
-        }
-        if (updated.isCleaned()) {
-            pendingPipelineCleanupIMap.remove(pipelineLocation, updated);
+            boolean replaced = pendingCleanupIMap.replace(pipelineLocation, record, updated);
+            if (!replaced) {
+                return;
+            }
+            if (updated.isCleaned()) {
+                pendingCleanupIMap.remove(pipelineLocation, updated);
+            }
+        } finally {
+            if (locked) {
+                pendingCleanupIMap.unlock(pipelineLocation);
+            }
         }
     }
 
@@ -1075,19 +1098,26 @@ public class CoordinatorService {
         for (Map.Entry<PipelineLocation, PipelineCleanupRecord> entry :
                 pendingCleanupIMap.entrySet()) {
             PipelineLocation pipelineLocation = entry.getKey();
-            PipelineCleanupRecord record = entry.getValue();
-            boolean sameJob =
-                    (pipelineLocation != null && pipelineLocation.getJobId() == jobId)
-                            || (record != null
-                                    && record.getPipelineLocation() != null
-                                    && record.getPipelineLocation().getJobId() == jobId);
-            if (!sameJob) {
+            if (pipelineLocation == null) {
                 continue;
             }
-            if (record == null) {
-                pendingCleanupIMap.remove(pipelineLocation);
-            } else {
-                pendingCleanupIMap.remove(pipelineLocation, record);
+            boolean locked = false;
+            try {
+                pendingCleanupIMap.lock(pipelineLocation);
+                locked = true;
+                PipelineCleanupRecord currentRecord = pendingCleanupIMap.get(pipelineLocation);
+                boolean sameJob =
+                        pipelineLocation.getJobId() == jobId
+                                || (currentRecord != null
+                                        && currentRecord.getPipelineLocation() != null
+                                        && currentRecord.getPipelineLocation().getJobId() == jobId);
+                if (sameJob) {
+                    pendingCleanupIMap.remove(pipelineLocation);
+                }
+            } finally {
+                if (locked) {
+                    pendingCleanupIMap.unlock(pipelineLocation);
+                }
             }
         }
     }
