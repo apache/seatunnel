@@ -100,6 +100,7 @@ Python 脚本返回的输出字段名。
 
 ## 注意事项
 
+- Python 脚本不会在沙箱中运行，并会继承 SeaTunnel Worker 进程的操作系统权限。请只运行可信脚本，不要在 `source_code` 或 `script_config` 中放置密钥等敏感信息。
 - 运行节点必须安装 Python。
 - `source_code_path` 指向的文件必须存在于每个实际执行该 Transform 的运行节点上。
 - 用户脚本中的普通 `print(...)` 会被重定向到 stderr，避免破坏 Worker 的 stdout 通讯协议。

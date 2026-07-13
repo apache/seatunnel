@@ -46,6 +46,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /** Covers the main runtime contracts of the Python transform implementation. */
@@ -167,6 +171,189 @@ class PythonTransformTest {
         Assertions.assertFalse(
                 stderrCollectorThread.isAlive(),
                 "stderr collector thread should stop after the transform is closed");
+    }
+
+    /** Verifies normal shutdown gives the Python script a chance to run its close hook. */
+    @Test
+    void testCloseInvokesPythonCloseHook() throws Exception {
+        assumePythonAvailable();
+
+        Path markerPath = tempDir.resolve("python-close-hook-called");
+        String escapedMarkerPath = markerPath.toString().replace("\\", "\\\\").replace("'", "\\'");
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "import pathlib\n"
+                        + "def process(row, context):\n"
+                        + "    return [row['name'], row['age']]\n"
+                        + "def close():\n"
+                        + "    pathlib.Path('"
+                        + escapedMarkerPath
+                        + "').touch()\n");
+
+        PythonTransform transform = createOpenedTransform(config);
+        transform.close();
+
+        Assertions.assertTrue(Files.exists(markerPath), "Python close hook should run before exit");
+    }
+
+    /** Verifies task-thread interruption can terminate a Python function that never responds. */
+    @Test
+    void testCloseInterruptsBlockedPythonFunction() throws Exception {
+        assumePythonAvailable();
+
+        Path markerPath = tempDir.resolve("blocked-python-function-started");
+        String escapedMarkerPath = markerPath.toString().replace("\\", "\\\\").replace("'", "\\'");
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "import time\n"
+                        + "def process(row, context):\n"
+                        + "    open('"
+                        + escapedMarkerPath
+                        + "', 'w').close()\n"
+                        + "    while True:\n"
+                        + "        time.sleep(1)\n");
+
+        PythonTransform transform = createOpenedTransform(config);
+        ExecutorService executor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "python-transform-close-test");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        CountDownLatch taskStopped = new CountDownLatch(1);
+        try {
+            Future<SeaTunnelRow> rowFuture =
+                    executor.submit(
+                            () -> {
+                                try {
+                                    return transform.map(
+                                            new SeaTunnelRow(new Object[] {1, "Alice", 20}));
+                                } finally {
+                                    taskStopped.countDown();
+                                }
+                            });
+            long markerDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!Files.exists(markerPath) && System.nanoTime() < markerDeadlineNanos) {
+                Thread.sleep(50L);
+            }
+            Assertions.assertTrue(
+                    Files.exists(markerPath), "Python function should start before cancellation");
+
+            Object processWorker = readFieldValue(transform, "processWorker");
+            Process process = (Process) readFieldValue(processWorker, "process");
+            Thread stdoutCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stdoutCollectorThread");
+            Thread stderrCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stderrCollectorThread");
+            Path workerScriptPath = (Path) readFieldValue(processWorker, "workerScriptPath");
+            Path inlineSourceCodePath =
+                    (Path) readFieldValue(processWorker, "inlineSourceCodePath");
+            Assertions.assertTrue(rowFuture.cancel(true), "running row should accept cancellation");
+            Assertions.assertTrue(
+                    taskStopped.await(10, TimeUnit.SECONDS),
+                    "interrupted task should leave the Python response wait");
+            Assertions.assertFalse(process.isAlive(), "Python process should stop after close");
+            waitForThreadToStop(stdoutCollectorThread);
+            waitForThreadToStop(stderrCollectorThread);
+            Assertions.assertFalse(
+                    stdoutCollectorThread.isAlive(), "stdout collector should stop after cancel");
+            Assertions.assertFalse(
+                    stderrCollectorThread.isAlive(), "stderr collector should stop after cancel");
+            Assertions.assertFalse(
+                    Files.exists(workerScriptPath), "worker script should be deleted after cancel");
+            Assertions.assertFalse(
+                    Files.exists(inlineSourceCodePath),
+                    "inline source script should be deleted after cancel");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /** Verifies task-thread interruption can terminate a Python open hook that never returns. */
+    @Test
+    void testCloseInterruptsBlockedPythonOpenHook() throws Exception {
+        assumePythonAvailable();
+
+        Path markerPath = tempDir.resolve("blocked-python-open-started");
+        String escapedMarkerPath = markerPath.toString().replace("\\", "\\\\").replace("'", "\\'");
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "import pathlib\n"
+                        + "import time\n"
+                        + "def open(context):\n"
+                        + "    pathlib.Path('"
+                        + escapedMarkerPath
+                        + "').touch()\n"
+                        + "    while True:\n"
+                        + "        time.sleep(1)\n"
+                        + "def process(row, context):\n"
+                        + "    return [row['name'], row['age']]\n");
+
+        PythonTransform transform =
+                new PythonTransform(
+                        createCatalogTable(),
+                        PythonTransformConfig.of(ReadonlyConfig.fromMap(config)));
+        transform.getProducedCatalogTable();
+        openedTransforms.add(transform);
+        ExecutorService executor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(runnable, "python-transform-open-close-test");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        CountDownLatch taskStopped = new CountDownLatch(1);
+        try {
+            Future<?> openFuture =
+                    executor.submit(
+                            () -> {
+                                try {
+                                    transform.open();
+                                } finally {
+                                    taskStopped.countDown();
+                                }
+                            });
+            long markerDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!Files.exists(markerPath) && System.nanoTime() < markerDeadlineNanos) {
+                Thread.sleep(50L);
+            }
+            Assertions.assertTrue(
+                    Files.exists(markerPath), "Python open hook should start before cancellation");
+
+            Object processWorker = readFieldValue(transform, "processWorker");
+            Process process = (Process) readFieldValue(processWorker, "process");
+            Path workerScriptPath = (Path) readFieldValue(processWorker, "workerScriptPath");
+            Path inlineSourceCodePath =
+                    (Path) readFieldValue(processWorker, "inlineSourceCodePath");
+            Thread stdoutCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stdoutCollectorThread");
+            Thread stderrCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stderrCollectorThread");
+            Assertions.assertTrue(
+                    openFuture.cancel(true), "running open should accept cancellation");
+            Assertions.assertTrue(
+                    taskStopped.await(10, TimeUnit.SECONDS),
+                    "interrupted task should leave the Python initialization wait");
+            Assertions.assertFalse(process.isAlive(), "Python process should stop after close");
+            waitForThreadToStop(stdoutCollectorThread);
+            waitForThreadToStop(stderrCollectorThread);
+            Assertions.assertFalse(
+                    stdoutCollectorThread.isAlive(), "stdout collector should stop after cancel");
+            Assertions.assertFalse(
+                    stderrCollectorThread.isAlive(), "stderr collector should stop after cancel");
+            Assertions.assertFalse(
+                    Files.exists(workerScriptPath), "worker script should be deleted after close");
+            Assertions.assertFalse(
+                    Files.exists(inlineSourceCodePath),
+                    "inline source script should be deleted after close");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     /** Verifies the factory-returned wrapper rebuilds the Python worker after schema changes. */
@@ -412,6 +599,14 @@ class PythonTransformTest {
             }
         }
         throw new NoSuchFieldException(fieldName);
+    }
+
+    /** Waits briefly for one daemon collector to observe process termination. */
+    private void waitForThreadToStop(Thread thread) throws InterruptedException {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (thread.isAlive() && System.nanoTime() < deadlineNanos) {
+            thread.join(100L);
+        }
     }
 
     /**

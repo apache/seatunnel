@@ -100,6 +100,7 @@ If the return shape does not match the declared `columns`, SeaTunnel will fail t
 
 ## Notes
 
+- Python scripts run without a sandbox and inherit the operating-system permissions of the SeaTunnel worker process. Only run trusted scripts and do not place secrets in `source_code` or `script_config`.
 - The runtime host must have Python installed.
 - `source_code_path` must exist on every runtime node that executes the transform.
 - Regular `print(...)` output from the user script is redirected to stderr so it does not break the row protocol.
