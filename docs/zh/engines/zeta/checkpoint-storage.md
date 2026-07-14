@@ -162,6 +162,29 @@ seatunnel:
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
+##### 容器环境下的凭证提供方
+
+与 S3File 连接器不同，检查点存储**不会**将 `fs.s3a.aws.credentials.provider` 限制为固定的取值范围。所有 `fs.s3a.*` 选项都会原样透传给底层的 Hadoop `Configuration`。这意味着你可以使用 classpath 上的**任意** S3A 凭证提供方，包括容器凭证提供方，例如 `com.amazonaws.auth.ContainerCredentialsProvider`（ECS/EKS）——只要对应的类位于 `${SEATUNNEL_HOME}/lib` 中即可。
+
+例如，在 ECS/EKS 部署中使用容器凭证、无需嵌入 access key：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
 #### HDFS
 
 如果您使用HDFS，您可以这样配置:

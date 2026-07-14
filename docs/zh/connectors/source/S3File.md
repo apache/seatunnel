@@ -195,7 +195,7 @@ schema {
 | file_format_type                | string  | 是    | -                                                     | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                   |
 | bucket                          | string  | 是    | -                                                     | s3文件系统的bucket地址，例如：`s3n://seatunnel-test`，如果您使用`s3a`协议，此参数应为`s3a://seatunnel-test`。                                                                                                                                                                                                                                   |
 | fs.s3a.endpoint                 | string  | 是    | -                                                     | fs s3a端点                                                                                                                                                                                                                                                                                                              |
-| fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | s3a的认证方式。我们目前只支持`org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`和`com.amazonaws.auth.InstanceProfileCredentialsProvider`。有关凭据提供程序的更多信息，您可以查看[Hadoop AWS文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
+| fs.s3a.aws.credentials.provider | enum    | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | s3a 的认证方式。这是一个**受限枚举**，目前只支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider` 两个值。容器环境下的配置方式请参见下方[容器环境下的凭证提供方](#容器环境下的凭证提供方)。有关凭据提供程序的更多信息，您可以查看[Hadoop AWS文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | 否    | -                                                     | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。                                                                                                                                                                         |
 | access_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
 | secret_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
@@ -424,6 +424,47 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+### 容器环境下的凭证提供方
+
+在 Kubernetes、ECS、EKS 等容器环境中运行 SeaTunnel 时，用户经常会问：如何在不把长期有效的访问密钥写死在作业配置里的前提下配置 S3 凭证。
+
+#### 支持的凭证提供方
+
+S3File 连接器的 `fs.s3a.aws.credentials.provider` 选项是一个**受限枚举**。目前它只接受以下两个值：
+
+| 值                                                        | 说明                                                             |
+|-----------------------------------------------------------|------------------------------------------------------------------|
+| `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`   | 使用静态的 `access_key` / `secret_key` 进行身份验证。            |
+| `com.amazonaws.auth.InstanceProfileCredentialsProvider`   | 使用运行时环境提供的实例/角色凭证进行身份验证（默认值）。         |
+
+任何其他值（例如 `com.amazonaws.auth.ContainerCredentialsProvider` 或自定义的 provider 类）都**不受支持**，并会在作业启动时抛出 `IllegalArgumentException` 导致失败。通过 `hadoop_s3_properties` 传入这类 provider 也**无效**：连接器总是用枚举值覆盖 `fs.s3a.aws.credentials.provider` 这个 key，因此 `hadoop_s3_properties` 中的值会被忽略。
+
+#### 容器环境支持（Kubernetes / ECS / EKS）
+
+这两个受支持的 provider 只覆盖了部分常见的容器凭证场景。请仔细阅读——最常见的 EKS/ECS 凭证机制目前**并不**受支持。
+
+- **EC2 实例角色（包括 EKS 工作节点的实例角色）：支持。** 使用 `InstanceProfileCredentialsProvider`。它从 EC2 实例元数据服务（IMDS）读取凭证，因此 Pod/Task 继承的是节点的 EC2 角色，配置中无需任何访问密钥：
+
+```hocon
+S3File {
+  path = "/seatunnel/json"
+  bucket = "s3a://seatunnel-test"
+  fs.s3a.endpoint = "s3.us-east-1.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+  file_format_type = "json"
+}
+```
+
+- **EKS IRSA（IAM Roles for Service Accounts）和 ECS Task 角色：目前不受支持。** IRSA 需要 `WebIdentityTokenCredentialsProvider`（STS `AssumeRoleWithWebIdentity`），ECS Task 角色需要 `ContainerCredentialsProvider`；这两个类都不在枚举中，因此都无法选用。`InstanceProfileCredentialsProvider` **无法**覆盖这些场景——它只读取 EC2 节点元数据，返回的是节点角色，而不是细粒度的 service account 角色或 task 角色。
+
+  在连接器支持这些 provider 之前，请使用以下变通方案之一：
+    - 通过 `InstanceProfileCredentialsProvider` 回退到 EC2 节点实例角色（权限粒度比 IRSA / task 角色更粗）。
+    - 或者使用 `SimpleAWSCredentialsProvider`，并通过 Kubernetes Secret（例如借助环境变量替换）注入 `access_key` / `secret_key`。优先使用短期有效的凭证，避免把长期密钥硬编码在文件里。
+
+#### 排查
+
+如果作业在 source 初始化阶段失败，并出现类似 `Could not parse value for enum` 或引用了 `fs.s3a.aws.credentials.provider` 的 `Factory initialize failed` 报错，说明所配置的值不在受支持的枚举范围内。请将其设置为上面两个受支持的值之一。
 
 ## 示例
 

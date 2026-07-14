@@ -110,7 +110,7 @@ If write to `csv`, `text` file type, All column will be string.
 | tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                                |
 | bucket                                | string  | yes      | -                                                     |                                                                                                                                                                                 |
 | fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                                 |
-| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.           |
+| fs.s3a.aws.credentials.provider       | enum    | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. Only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` are supported. See [Credential Provider in Container Environments](#credential-provider-in-container-environments). |
 | access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | secret_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                            |
@@ -332,6 +332,47 @@ The encoding of the file to write. This param will be parsed by `Charset.forName
 
 Only used when file_format_type is canal_json,debezium_json or maxwell_json. 
 When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data
+
+### Credential Provider in Container Environments
+
+When running SeaTunnel in container environments such as Kubernetes, ECS, or EKS, users often ask how to configure S3 credentials without embedding long-lived access keys in the job config.
+
+#### Supported credential providers
+
+The `fs.s3a.aws.credentials.provider` option of the S3File connector is a **restricted enum**. Today it accepts only the following two values:
+
+| Value                                                     | Description                                                                                          |
+|-----------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`   | Authenticate with a static `access_key` / `secret_key` pair.                                         |
+| `com.amazonaws.auth.InstanceProfileCredentialsProvider`   | Authenticate with instance/role credentials fetched from the runtime environment (the default value).|
+
+Any other value (for example `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider class) is **not supported** and will fail the job at startup with an `IllegalArgumentException`. Passing such a provider through `hadoop_s3_properties` does **not** work either: the connector always overwrites the `fs.s3a.aws.credentials.provider` key with the enum value, so the value in `hadoop_s3_properties` is ignored.
+
+#### Container environment support (Kubernetes / ECS / EKS)
+
+The two supported providers only cover part of the common container credential scenarios. Read this carefully — the most common EKS/ECS credential mechanisms are **not** supported today.
+
+- **EC2 instance role (including an EKS worker-node instance role): supported.** Use `InstanceProfileCredentialsProvider`. It reads credentials from the EC2 Instance Metadata Service, so the pod/task inherits the node's EC2 role and no access key is needed in the config:
+
+```hocon
+S3File {
+  bucket = "s3a://seatunnel-test"
+  path = "/seatunnel/text"
+  fs.s3a.endpoint = "s3.us-east-1.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+  file_format_type = "text"
+}
+```
+
+- **EKS IRSA (IAM Roles for Service Accounts) and ECS task role: NOT supported today.** IRSA requires `WebIdentityTokenCredentialsProvider` (STS `AssumeRoleWithWebIdentity`) and an ECS task role requires `ContainerCredentialsProvider`; neither class is part of the enum, so neither can be selected. `InstanceProfileCredentialsProvider` does **not** cover these cases — it only reads EC2 node metadata, which returns the node's role, not the fine-grained service-account or task role.
+
+  Until the connector supports these providers, use one of these workarounds:
+    - Fall back to the EC2 node instance role via `InstanceProfileCredentialsProvider` (coarser-grained permissions than IRSA / task role).
+    - Or use `SimpleAWSCredentialsProvider` with `access_key` / `secret_key` injected from a Kubernetes Secret (for example via environment-variable substitution). Prefer short-lived credentials and avoid hardcoding long-lived keys in the file.
+
+#### Troubleshooting
+
+If the job fails during sink initialization with an error such as `Could not parse value for enum` or a `Factory initialize failed` message referencing `fs.s3a.aws.credentials.provider`, the configured value is outside the supported enum. Set it to one of the two supported values above.
 
 ## Example
 

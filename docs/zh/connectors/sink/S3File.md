@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
 | bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
 | fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 认证 s3a 的方式。目前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`。 |
+| fs.s3a.aws.credentials.provider       | enum    | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 认证 s3a 的方式。这是一个受限枚举，仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider` 两个值。容器环境（K8s/ECS/EKS）配置及限制说明请参考[容器环境下的凭证提供方](#容器环境下的凭证提供方)。 |
 | access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
@@ -327,6 +327,47 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
 设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
 设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
+
+### 容器环境下的凭证提供方
+
+在 Kubernetes、ECS、EKS 等容器环境中运行 SeaTunnel 时，用户常问如何在不把长期 access key 写进作业配置的情况下配置 S3 凭证。
+
+#### 支持的凭证提供方
+
+S3File 连接器的 `fs.s3a.aws.credentials.provider` 选项是一个**受限枚举**，目前仅接受以下两个值：
+
+| 值                                                        | 说明                                                                    |
+|-----------------------------------------------------------|-------------------------------------------------------------------------|
+| `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`   | 使用静态的 `access_key` / `secret_key` 进行认证。                       |
+| `com.amazonaws.auth.InstanceProfileCredentialsProvider`   | 使用从运行时环境获取的实例/角色凭证进行认证（默认值）。                  |
+
+任何其它值（例如 `com.amazonaws.auth.ContainerCredentialsProvider` 或自定义 provider 类）**都不受支持**，作业启动时会抛出 `IllegalArgumentException`。通过 `hadoop_s3_properties` 传入这类 provider 同样**无效**：连接器始终会用枚举值覆盖 `fs.s3a.aws.credentials.provider` 这个 key，因此 `hadoop_s3_properties` 中的对应值会被忽略。
+
+#### 容器环境支持（Kubernetes / ECS / EKS）
+
+目前支持的两个 provider 只覆盖了部分常见的容器凭证场景。请仔细阅读——最常见的 EKS/ECS 凭证机制目前**并不受支持**。
+
+- **EC2 实例角色（包括 EKS 工作节点的实例角色）：支持。** 使用 `InstanceProfileCredentialsProvider`。它从 EC2 实例元数据服务读取凭证，因此 Pod/任务会继承节点的 EC2 角色，配置中无需任何 access key：
+
+```hocon
+S3File {
+  bucket = "s3a://seatunnel-test"
+  path = "/seatunnel/text"
+  fs.s3a.endpoint = "s3.us-east-1.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+  file_format_type = "text"
+}
+```
+
+- **EKS IRSA（IAM Roles for Service Accounts）和 ECS 任务角色：目前不受支持。** IRSA 需要 `WebIdentityTokenCredentialsProvider`（STS `AssumeRoleWithWebIdentity`），ECS 任务角色需要 `ContainerCredentialsProvider`；这两个类都不在枚举中，因此都无法选用。`InstanceProfileCredentialsProvider` **无法**覆盖这两种场景——它只读取 EC2 节点元数据，返回的是节点角色，而不是细粒度的 service account 角色或任务角色。
+
+  在连接器支持这些 provider 之前，请使用以下变通方案之一：
+    - 通过 `InstanceProfileCredentialsProvider` 退回到使用 EC2 节点实例角色（权限粒度比 IRSA / 任务角色更粗）。
+    - 或使用 `SimpleAWSCredentialsProvider`，并通过 Kubernetes Secret（例如借助环境变量替换）注入 `access_key` / `secret_key`。请优先使用短期有效的临时凭证，避免把长期密钥硬编码在文件里。
+
+#### 排查
+
+如果作业在 Sink 初始化阶段失败，并出现类似 `Could not parse value for enum` 或引用 `fs.s3a.aws.credentials.provider` 的 `Factory initialize failed` 错误，说明配置的值不在受支持的枚举范围内。请将其设置为上面两个受支持的值之一。
 
 ## 示例
 

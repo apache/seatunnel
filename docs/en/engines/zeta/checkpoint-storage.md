@@ -187,6 +187,29 @@ seatunnel:
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
+##### Credential providers in container environments
+
+Unlike the S3File connector, checkpoint storage does **not** restrict `fs.s3a.aws.credentials.provider` to a fixed set of values. Every `fs.s3a.*` option is passed through to the underlying Hadoop `Configuration` unchanged. This means you can use **any** S3A credential provider on the classpath, including container credential providers such as `com.amazonaws.auth.ContainerCredentialsProvider` (ECS/EKS) — as long as the corresponding class is available in `${SEATUNNEL_HOME}/lib`.
+
+For example, to use container credentials in an ECS/EKS deployment without embedding access keys:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
 #### HDFS
 
 if you use HDFS, you can config like this:
