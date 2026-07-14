@@ -93,6 +93,23 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testVertexCheckpointedMultiPageScan(TestContainer container)
+            throws IOException, InterruptedException {
+        clearGraph();
+        // 250 vertices with page_size=100 => 3 pages, so the opaque page token is snapshotted at
+        // checkpoints mid-scan (on Zeta). Assert verifies the full scan is read exactly once.
+        for (int i = 0; i < 250; i++) {
+            addVertex("ckpt-person-" + i, 29);
+        }
+        awaitTotalVertexCount(250);
+
+        Container.ExecResult execResult =
+                container.executeJob("/hugegraph/hugegraph_vertex_checkpoint_to_assert.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode(), buildFailureMessage(execResult));
+    }
+
+    @TestTemplate
     public void testVertexSinkJob(TestContainer container)
             throws IOException, InterruptedException {
         clearGraph();

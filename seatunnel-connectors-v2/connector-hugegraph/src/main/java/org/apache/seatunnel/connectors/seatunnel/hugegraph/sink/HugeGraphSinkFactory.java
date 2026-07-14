@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -62,6 +63,9 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                         HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES)
                 // batch config
                 .optional(HugeGraphOptions.BATCH_SIZE, HugeGraphOptions.BATCH_INTERVAL_MS)
+                // required by the multi-table sink SPI (HugeGraphSink implements
+                // SupportMultiTableSink): lets the framework size per-table write replicas
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 // retry config
                 .optional(HugeGraphOptions.MAX_RETRIES, HugeGraphOptions.RETRY_BACKOFF_MS)
                 // deprecated field selection
