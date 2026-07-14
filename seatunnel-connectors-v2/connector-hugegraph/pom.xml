@@ -29,10 +29,6 @@
     <artifactId>connector-hugegraph</artifactId>
     <name>SeaTunnel : Connectors V2 : HugeGraph</name>
 
-    <properties>
-        <hugegraph.client.version>1.7.0</hugegraph.client.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
