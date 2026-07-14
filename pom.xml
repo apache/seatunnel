@@ -71,7 +71,7 @@
         <seatunnel.shade.jackson.version>2.15.4</seatunnel.shade.jackson.version>
         <seatunnel.shade.janino.version>3.1.12</seatunnel.shade.janino.version>
         <seatunnel.shade.jetty.version>9.4.56.v20240826</seatunnel.shade.jetty.version>
-        <seatunnel.shade.scala-compiler.version>2.12.15</seatunnel.shade.scala-compiler.version>
+        <seatunnel.shade.scala-compiler.version>2.12</seatunnel.shade.scala-compiler.version>
         <seatunnel.shade.thrift-service.version>1.0.0</seatunnel.shade.thrift-service.version>
         <seatunnel.shade.commons-lang3.version>3.18.0</seatunnel.shade.commons-lang3.version>
         <seatunnel.shade.calcite.version>1.38.0</seatunnel.shade.calcite.version>
