@@ -113,6 +113,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        if (context != null) {
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     @Override
@@ -354,6 +357,39 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     e);
         } finally {
             outputFormat.close();
+        }
+    }
+
+    /** Flushes buffered records when the engine delivers a timer-driven flush signal. */
+    public void timerFlush() throws IOException {
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                outputFormat.checkFlushException();
+                List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                try {
+                    outputFormat.flush();
+                    commitIfNeeded();
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                }
+            }
+            return;
+        }
+
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+        try {
+            commitIfNeeded();
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "timer flush commit failed: " + e.getMessage(),
+                    e);
         }
     }
 
