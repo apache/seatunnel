@@ -68,6 +68,11 @@ const sidebars = {
                     "label": "Kubernetes",
                     "items": [
                         "getting-started/kubernetes/kubernetes",
+                        "getting-started/kubernetes/local-mode",
+                        "getting-started/kubernetes/hybrid-cluster-mode",
+                        "getting-started/kubernetes/separated-cluster-mode",
+                        "getting-started/kubernetes/configuration",
+                        "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
                 }
@@ -182,6 +187,7 @@ const sidebars = {
                         "transforms/common-options/common-options"
                     ]
                 },
+                "transforms/recipes",
                 "transforms/calcite",
                 "transforms/calcite-udf",
                 "transforms/copy",
