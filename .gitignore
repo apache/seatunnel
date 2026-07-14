@@ -70,3 +70,4 @@ seatunnel-engine/seatunnel-engine-server/**/ui/*
 
 seatunnel-edge-agent/**/edge-agent.id
 seatunnel-edge-agent/**/tmp/
+edge-agent.id*
