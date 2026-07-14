@@ -113,6 +113,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        if (context != null) {
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     @Override
@@ -414,5 +417,43 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             throw (RuntimeException) e;
         }
         throw new IOException(e);
+    }
+
+    /**
+     * Flushes buffered records when the engine delivers a timer-driven flush signal.
+     *
+     * <p>This action is registered only for the non-XA writer. Flush and commit failures are
+     * propagated to fail the sink task instead of being deferred to the next checkpoint.
+     */
+    public void timerFlush() throws IOException {
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                outputFormat.checkFlushException();
+                List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                try {
+                    outputFormat.flush();
+                    commitIfNeeded();
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                }
+            }
+            return;
+        }
+
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+        try {
+            commitIfNeeded();
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "timer flush commit failed: " + e.getMessage(),
+                    e);
+        }
     }
 }
