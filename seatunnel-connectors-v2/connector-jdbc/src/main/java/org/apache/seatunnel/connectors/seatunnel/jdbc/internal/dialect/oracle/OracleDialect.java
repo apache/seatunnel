@@ -61,6 +61,11 @@ public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
 
+    /** Oracle PCTFREE legal range (inclusive). */
+    private static final int PCTFREE_MIN = 0;
+
+    private static final int PCTFREE_MAX = 99;
+
     private static final Set<String> SUPPORTED_TABLE_OPTIONS =
             Collections.unmodifiableSet(
                     new LinkedHashSet<>(
@@ -545,6 +550,66 @@ public class OracleDialect implements JdbcDialect {
                             dialectName(),
                             String.join(", ", unsupportedOptions),
                             String.join(", ", SUPPORTED_TABLE_OPTIONS)));
+        }
+
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (StringUtils.isBlank(value)) {
+                throw new JdbcConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "Invalid JDBC table_options for dialect '%s': key '%s' must not be blank",
+                                dialectName(), key));
+            }
+            String trimmed = value.trim();
+            if (OracleCatalog.TABLE_OPTION_PCTFREE.equals(key)) {
+                validatePctfree(trimmed);
+            } else if (OracleCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
+                validateTablespace(trimmed);
+            }
+        }
+    }
+
+    private void validatePctfree(String value) {
+        int pctfree;
+        try {
+            pctfree = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            OracleCatalog.TABLE_OPTION_PCTFREE,
+                            PCTFREE_MIN,
+                            PCTFREE_MAX,
+                            value));
+        }
+        if (pctfree < PCTFREE_MIN || pctfree > PCTFREE_MAX) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            OracleCatalog.TABLE_OPTION_PCTFREE,
+                            PCTFREE_MIN,
+                            PCTFREE_MAX,
+                            value));
+        }
+    }
+
+    private void validateTablespace(String value) {
+        // Always emitted as "TABLESPACE \"...\"", so reject quote / control chars that break DDL.
+        if (value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0
+                || value.indexOf(';') >= 0) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                            dialectName(), OracleCatalog.TABLE_OPTION_TABLESPACE, value));
         }
     }
 }

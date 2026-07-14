@@ -39,6 +39,15 @@ public class OracleDialectTableOptionsTest {
     }
 
     @Test
+    public void testValidateTableOptionsPctfreeBoundary() {
+        OracleDialect dialect = new OracleDialect();
+        Assertions.assertDoesNotThrow(
+                () -> dialect.validateTableOptions(Collections.singletonMap("pctfree", "0")));
+        Assertions.assertDoesNotThrow(
+                () -> dialect.validateTableOptions(Collections.singletonMap("pctfree", "99")));
+    }
+
+    @Test
     public void testValidateTableOptionsWithUnknownKey() {
         OracleDialect dialect = new OracleDialect();
 
@@ -50,5 +59,60 @@ public class OracleDialectTableOptionsTest {
                                         Collections.singletonMap("engine", "InnoDB")));
         Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
         Assertions.assertTrue(exception.getMessage().contains("Oracle"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectBlankValues() {
+        OracleDialect dialect = new OracleDialect();
+
+        JdbcConnectorException blankTablespace =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("tablespace", " ")));
+        Assertions.assertTrue(blankTablespace.getMessage().contains("must not be blank"));
+
+        JdbcConnectorException blankPctfree =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("pctfree", " ")));
+        Assertions.assertTrue(blankPctfree.getMessage().contains("must not be blank"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectInvalidPctfree() {
+        OracleDialect dialect = new OracleDialect();
+
+        JdbcConnectorException nonNumeric =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("pctfree", "abc")));
+        Assertions.assertTrue(nonNumeric.getMessage().contains("must be an integer between"));
+
+        JdbcConnectorException outOfRange =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("pctfree", "100")));
+        Assertions.assertTrue(outOfRange.getMessage().contains("must be an integer between"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectIllegalTablespace() {
+        OracleDialect dialect = new OracleDialect();
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("tablespace", "USER\"S")));
+        Assertions.assertTrue(exception.getMessage().contains("illegal characters"));
     }
 }

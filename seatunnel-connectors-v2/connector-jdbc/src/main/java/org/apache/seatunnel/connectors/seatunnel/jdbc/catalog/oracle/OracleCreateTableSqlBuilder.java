@@ -78,12 +78,13 @@ public class OracleCreateTableSqlBuilder {
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
         if (StringUtils.isNotBlank(pctfree)) {
-            createTableSql.append("\nPCTFREE ").append(pctfree);
+            // Value is validated as 0-99 by OracleDialect.validateTableOptions.
+            createTableSql.append("\nPCTFREE ").append(pctfree.trim());
         }
         if (StringUtils.isNotBlank(tablespace)) {
-            createTableSql
-                    .append("\nTABLESPACE ")
-                    .append(CatalogUtils.quoteIdentifier(tablespace, fieldIde, "\""));
+            // Tablespace is a storage object name: quote literally, do NOT apply fieldIde
+            // case rewriting (that policy is only for table/column identifiers).
+            createTableSql.append("\nTABLESPACE \"").append(tablespace.trim()).append("\"");
         }
         sqls.add(createTableSql.toString());
         if (comment != null) {
