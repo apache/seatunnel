@@ -15,11 +15,22 @@ query and an optional parallel scan mode that splits one query by an integer col
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-
-supports query SQL and can achieve projection effect.
-
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+
+## Data Type Mapping
+
+| SeaTunnel Data Type | Notes |
+|---------------------|-------|
+| BOOLEAN             | Parsed from the returned InfluxDB value. |
+| SMALLINT            | Parsed from the returned InfluxDB value. |
+| INT                 | Parsed from the returned InfluxDB value. |
+| BIGINT              | Parsed from the returned InfluxDB value. |
+| FLOAT               | InfluxDB returns numbers as double values; the connector converts them to FLOAT. |
+| DOUBLE              | Uses the returned numeric value. |
+| STRING              | Uses the returned value as a string. |
+
+Other SeaTunnel types are not supported by the current InfluxDB source converter.
 
 ## Options
 
@@ -95,6 +106,7 @@ The column used to split one query into multiple range queries.
 > - Currently, `split_column` only supports integer data segmentation, and does not support `float`, `string`, `date` and other types.
 > - `split_column`, `lower_bound`, `upper_bound`, and `partition_num` must be configured together.
 > - If the split query contains a filter, use lowercase `where` in `sql`, for example `select * from test where age > 0`. The current split parser is case-sensitive.
+> - `where` is an option in the validation rule, but the current split logic reads the filter from `sql`. Put the filter in `sql` instead of configuring a separate `where` value.
 
 ### upper_bound [int]
 
