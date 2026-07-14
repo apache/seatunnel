@@ -241,7 +241,10 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Maximum age for SeaTunnel backup files in backup_path before cleanup. "
-                                    + "Only valid when post_sync_action=backup.");
+                                    + "Only valid when post_sync_action=backup. "
+                                    + "Duration suffixes are case-insensitive: MS (milliseconds), S (seconds), M (minutes), H (hours), D (days). "
+                                    + "M always means minutes, never months. ISO-8601 durations like PT1H30M are also supported. "
+                                    + "Invalid values (e.g., PT7D, P1M) fail config validation with an error.");
 
     public static final Option<Duration> RETENTION_CHECK_INTERVAL =
             Options.key("retention_check_interval")
@@ -249,7 +252,9 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .defaultValue(Duration.ofHours(1))
                     .withDescription(
                             "Retention scan interval for backup cleanup. "
-                                    + "Only effective when post_sync_action=backup and retention_max_age is configured.");
+                                    + "Only effective when post_sync_action=backup and retention_max_age is configured. "
+                                    + "Duration suffixes are case-insensitive: MS, S, M, H, D. "
+                                    + "M always means minutes, never months. Invalid values fail config validation.");
 
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")

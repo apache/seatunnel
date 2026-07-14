@@ -545,7 +545,11 @@ Only used when `discovery_mode=continuous`. Supported values: `none` (default), 
 - `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 - `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 
-Before `delete` or `backup`, SeaTunnel rechecks the source file length and modification time captured when the split was read. If the current file version differs, the post-sync operation is skipped so the changed file can be discovered again.
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: FTP MDTM resolution is typically 1 second (sometimes 1 minute). The act-then-verify approach narrows but cannot fully eliminate the race window if a same-second, same-length modification occurs. For maximum safety, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
+
+**Security note**: When using `post_sync_action=delete` or `backup` with FTP, use a dedicated least-privilege account that only has DELETE/RENAME permission on the watched directory. FTP credentials are transmitted in cleartext, and this feature requires write/delete permissions that increase the blast radius of a credential compromise.
 
 ### backup_path [string]
 

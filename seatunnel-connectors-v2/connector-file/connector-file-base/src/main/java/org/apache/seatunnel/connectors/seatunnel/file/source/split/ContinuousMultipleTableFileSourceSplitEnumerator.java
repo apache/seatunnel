@@ -616,7 +616,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             List<FileSourceOperationState> remaining = new ArrayList<>();
             for (FileSourceOperationState op : entry.getValue()) {
                 attempted++;
-                OpCommitResult result = commitSingleOperation(op);
+                OpCommitResult result = commitSingleOperation(op, entry.getKey());
                 if (result == OpCommitResult.SUCCESS) {
                     succeeded++;
                     incCounter(postSyncSucceededCounter);
@@ -655,7 +655,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 remainingByCheckpoint.size());
     }
 
-    private OpCommitResult commitSingleOperation(FileSourceOperationState op) {
+    private OpCommitResult commitSingleOperation(FileSourceOperationState op, long checkpointId) {
         Optional<TableScanContext> tableContextOpt = findTableScanContext(op.getTableId());
         if (!tableContextOpt.isPresent()) {
             log.warn(
@@ -667,10 +667,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
 
         try {
             if (op.getAction() == FilePostSyncAction.DELETE) {
-                return commitDeleteOperation(tableContextOpt.get(), op);
+                return commitDeleteOperation(tableContextOpt.get(), op, checkpointId);
             }
             if (op.getAction() == FilePostSyncAction.BACKUP) {
-                return commitBackupOperation(tableContextOpt.get(), op);
+                return commitBackupOperation(tableContextOpt.get(), op, checkpointId);
             }
             return OpCommitResult.SUCCESS;
         } catch (Exception e) {
@@ -685,26 +685,98 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
     }
 
-    private OpCommitResult commitDeleteOperation(TableScanContext ctx, FileSourceOperationState op)
+    private OpCommitResult commitDeleteOperation(
+            TableScanContext ctx, FileSourceOperationState op, long checkpointId)
             throws IOException {
-        FileStatus sourceStatus;
-        try {
-            sourceStatus = ctx.sourceFs.getFileStatus(op.getSourcePath());
-        } catch (java.io.FileNotFoundException e) {
+        String trashPath = op.getSourcePath() + ".st_trash." + checkpointId + "." + op.getSplitId();
+        FileStatus trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
+        if (trashedStatus != null) {
+            return completeStagedDelete(ctx, op, checkpointId, trashPath, trashedStatus);
+        }
+
+        if (getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath()) == null) {
+            log.info(
+                    "Post-sync delete dropped: source and staged file are absent, source={}, "
+                            + "trash={}, checkpointId={}",
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(trashPath),
+                    checkpointId);
             return OpCommitResult.SUCCESS;
         }
-        if (!isVersionMatched(sourceStatus, op)) {
+
+        // Stage first and then validate the staged inode. This closes the gap between the version
+        // check and deletion for filesystem updates that are visible through rename.
+        try {
+            ctx.sourceFs.renameFile(op.getSourcePath(), trashPath, false);
+        } catch (Exception e) {
             log.warn(
-                    "Post-sync delete skipped due to stale version: splitId={}, source={}",
+                    "Post-sync delete: rename-to-trash failed, will retry: source={}",
+                    maskUriUserInfo(op.getSourcePath()),
+                    e);
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+
+        trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
+        if (trashedStatus == null) {
+            // Another actor removed the staged file after rename. There is no source-side data
+            // left for this operation to protect.
+            log.info(
+                    "Post-sync delete completed externally after staging: source={}, trash={}, "
+                            + "checkpointId={}",
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(trashPath),
+                    checkpointId);
+            return OpCommitResult.SUCCESS;
+        }
+        return completeStagedDelete(ctx, op, checkpointId, trashPath, trashedStatus);
+    }
+
+    private OpCommitResult completeStagedDelete(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            long checkpointId,
+            String trashPath,
+            FileStatus trashedStatus)
+            throws IOException {
+        if (!isVersionMatched(trashedStatus, op)) {
+            // A late write landed before the source was staged. Restore without replacing an
+            // independently recreated source file, so the next scan can re-discover it.
+            try {
+                ctx.sourceFs.renameFile(trashPath, op.getSourcePath(), false);
+            } catch (Exception restoreEx) {
+                log.error(
+                        "Post-sync delete: failed to restore staged file after version mismatch; "
+                                + "operation will be retried: source={}, trash={}, checkpointId={}",
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(trashPath),
+                        checkpointId,
+                        restoreEx);
+                return OpCommitResult.FAILED_RETRYABLE;
+            }
+            log.warn(
+                    "Post-sync delete skipped due to stale version after staging: splitId={}, "
+                            + "source={}, trash={}, checkpointId={}",
                     op.getSplitId(),
-                    maskUriUserInfo(op.getSourcePath()));
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(trashPath),
+                    checkpointId);
             return OpCommitResult.STALE_SKIPPED;
         }
-        ctx.sourceFs.deleteFile(op.getSourcePath());
+
+        ctx.sourceFs.deleteFile(trashPath);
+        log.info(
+                "Post-sync delete completed: source={}, trash={}, checkpointId={}, capturedLen={}, "
+                        + "capturedMtime={}",
+                maskUriUserInfo(op.getSourcePath()),
+                maskUriUserInfo(trashPath),
+                checkpointId,
+                op.getSourceLength(),
+                op.getSourceModificationTime());
         return OpCommitResult.SUCCESS;
     }
 
-    private OpCommitResult commitBackupOperation(TableScanContext ctx, FileSourceOperationState op)
+    private OpCommitResult commitBackupOperation(
+            TableScanContext ctx, FileSourceOperationState op, long checkpointId)
             throws IOException {
         if (StringUtils.isBlank(op.getBackupTargetPath())) {
             log.warn(
@@ -714,38 +786,116 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.FAILED_RETRYABLE;
         }
 
-        boolean targetExists = ctx.sourceFs.fileExist(op.getBackupTargetPath());
-        FileStatus sourceStatus = null;
-        boolean sourceExists = true;
-        try {
-            sourceStatus = ctx.sourceFs.getFileStatus(op.getSourcePath());
-        } catch (java.io.FileNotFoundException e) {
-            sourceExists = false;
-        }
+        FileStatus sourceStatus = getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath());
+        FileStatus targetStatus = getFileStatusIfPresent(ctx.sourceFs, op.getBackupTargetPath());
 
-        if (!sourceExists) {
-            if (targetExists) {
-                return OpCommitResult.SUCCESS;
+        // Crash recovery: the rename can complete before a checkpoint persists removal of this
+        // operation. A rename need not preserve mtime on every supported filesystem, so the
+        // version-suffixed target name plus its captured length identifies completed work here.
+        // An inconsistent target stays pending rather than being silently treated as a completed
+        // backup.
+        if (sourceStatus == null) {
+            if (targetStatus != null) {
+                if (targetStatus.getLen() == op.getSourceLength()) {
+                    log.info(
+                            "Post-sync backup completed during a previous attempt: source={}, target={}, "
+                                    + "checkpointId={}, capturedLen={}, capturedMtime={}",
+                            maskUriUserInfo(op.getSourcePath()),
+                            maskUriUserInfo(op.getBackupTargetPath()),
+                            checkpointId,
+                            op.getSourceLength(),
+                            op.getSourceModificationTime());
+                    return OpCommitResult.SUCCESS;
+                }
+                log.error(
+                        "Post-sync backup recovery found an inconsistent target; operation will be "
+                                + "retried without deleting data: splitId={}, source={}, target={}, "
+                                + "capturedLen={}, capturedMtime={}, actualLen={}, actualMtime={}",
+                        op.getSplitId(),
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(op.getBackupTargetPath()),
+                        op.getSourceLength(),
+                        op.getSourceModificationTime(),
+                        targetStatus.getLen(),
+                        targetStatus.getModificationTime());
+                return OpCommitResult.FAILED_RETRYABLE;
             }
+            log.info(
+                    "Post-sync backup dropped: source absent and no backup target, "
+                            + "likely deleted externally: splitId={}",
+                    op.getSplitId());
             return OpCommitResult.SUCCESS;
         }
 
-        if (!isVersionMatched(sourceStatus, op)) {
+        if (targetStatus != null) {
+            // Never use an existing target as proof that this source can be deleted: it may belong
+            // to a previous attempt while a writer has recreated the source path.
             log.warn(
-                    "Post-sync backup skipped due to stale version: splitId={}, source={}",
+                    "Post-sync backup skipped because target already exists; source is retained: "
+                            + "splitId={}, source={}, target={}, checkpointId={}",
+                    op.getSplitId(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(op.getBackupTargetPath()),
+                    checkpointId);
+            return OpCommitResult.STALE_SKIPPED;
+        }
+
+        // Phase 1: rename source to backup target (act-then-verify)
+        ctx.sourceFs.renameFile(op.getSourcePath(), op.getBackupTargetPath(), false);
+
+        // Phase 2: re-stat the backup target and verify version
+        targetStatus = getFileStatusIfPresent(ctx.sourceFs, op.getBackupTargetPath());
+        if (targetStatus == null) {
+            // rename succeeded but target gone — someone else cleaned up
+            log.info(
+                    "Post-sync backup completed externally after rename: source={}, target={}, "
+                            + "checkpointId={}",
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(op.getBackupTargetPath()),
+                    checkpointId);
+            return OpCommitResult.SUCCESS;
+        }
+
+        if (!isVersionMatched(targetStatus, op)) {
+            // A late write was captured — rename back without replacing a source that another
+            // writer recreated while the file was staged under the backup path.
+            try {
+                ctx.sourceFs.renameFile(op.getBackupTargetPath(), op.getSourcePath(), false);
+            } catch (Exception rollbackEx) {
+                log.error(
+                        "Post-sync backup: failed to rollback after version mismatch; operation will "
+                                + "be retried: source={}, target={}, checkpointId={}",
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(op.getBackupTargetPath()),
+                        checkpointId,
+                        rollbackEx);
+                return OpCommitResult.FAILED_RETRYABLE;
+            }
+            log.warn(
+                    "Post-sync backup skipped due to stale version after rename: splitId={}, source={}",
                     op.getSplitId(),
                     maskUriUserInfo(op.getSourcePath()));
             return OpCommitResult.STALE_SKIPPED;
         }
 
-        if (targetExists) {
-            // Target already exists for this version suffix, delete source to finish idempotently.
-            ctx.sourceFs.deleteFile(op.getSourcePath());
-            return OpCommitResult.SUCCESS;
-        }
-
-        ctx.sourceFs.renameFile(op.getSourcePath(), op.getBackupTargetPath(), false);
+        log.info(
+                "Post-sync backup completed: source={}, target={}, checkpointId={}, "
+                        + "capturedLen={}, capturedMtime={}",
+                maskUriUserInfo(op.getSourcePath()),
+                maskUriUserInfo(op.getBackupTargetPath()),
+                checkpointId,
+                op.getSourceLength(),
+                op.getSourceModificationTime());
         return OpCommitResult.SUCCESS;
+    }
+
+    private FileStatus getFileStatusIfPresent(HadoopFileSystemProxy sourceFs, String path)
+            throws IOException {
+        try {
+            return sourceFs.getFileStatus(path);
+        } catch (java.io.FileNotFoundException e) {
+            return null;
+        }
     }
 
     private boolean isVersionMatched(FileStatus status, FileSourceOperationState op) {
@@ -973,6 +1123,11 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         Duration retentionCheckInterval =
                 config.get(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL);
 
+        if (action != FilePostSyncAction.NONE) {
+            validatePostSyncPathSafety(
+                    config.get(FileBaseSourceOptions.FILE_PATH),
+                    baseFileSourceConfig.getHadoopConfig());
+        }
         if (action == FilePostSyncAction.BACKUP && StringUtils.isBlank(backupPath.orElse(null))) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -1021,17 +1176,126 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         String sourceFsIdentity = resolveFsIdentity(sourcePath, defaultFsIdentity);
         String backupFsIdentity = resolveFsIdentity(backupPath, defaultFsIdentity);
         if (Objects.equals(sourceFsIdentity, backupFsIdentity)) {
-            if (isPathOverlapped(sourcePath, backupPath)) {
+            try {
+                HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf);
+                String qualifiedSource = fs.makeQualifiedPath(sourcePath);
+                String qualifiedBackup = fs.makeQualifiedPath(backupPath);
+                if (isPathOverlappedQualified(qualifiedSource, qualifiedBackup)) {
+                    throw new FileConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            "backup_path must not overlap with path. Please configure backup_path outside the scanned path tree.");
+                }
+                return;
+            } catch (FileConnectorException e) {
+                throw e;
+            } catch (Exception e) {
                 throw new FileConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        "backup_path must not overlap with path. Please configure backup_path outside the scanned path tree.");
+                        "Cannot validate backup_path against path using canonical filesystem paths. "
+                                + "Refusing to enable post_sync_action=backup until the path relationship "
+                                + "can be verified.",
+                        e);
             }
-            return;
         }
         throw new FileConnectorException(
                 SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 "post_sync_action=backup currently only supports same-filesystem backup in phase-1. "
                         + "Please configure backup_path with the same scheme and authority as path.");
+    }
+
+    /**
+     * Compares two fully-qualified path URIs for overlap. Local filesystem paths are resolved with
+     * {@link java.nio.file.Path#toRealPath(java.nio.file.LinkOption...)} so symlink aliases cannot
+     * bypass the backup/source tree boundary.
+     */
+    private static boolean isPathOverlappedQualified(String qualifiedSource, String qualifiedBackup)
+            throws IOException {
+        Path sourcePath = new Path(qualifiedSource);
+        Path backupPath = new Path(qualifiedBackup);
+
+        String sourceScheme = sourcePath.toUri().getScheme();
+        String sourcePathStr;
+        String backupPathStr;
+        if (sourceScheme != null && "file".equalsIgnoreCase(sourceScheme)) {
+            sourcePathStr = resolveLocalPathForOverlap(sourcePath);
+            backupPathStr = resolveLocalPathForOverlap(backupPath);
+        } else {
+            sourcePathStr = trimTrailingPathSeparator(sourcePath.toUri().getPath());
+            backupPathStr = trimTrailingPathSeparator(backupPath.toUri().getPath());
+        }
+
+        if (StringUtils.isBlank(sourcePathStr) || StringUtils.isBlank(backupPathStr)) {
+            return false;
+        }
+        return Objects.equals(sourcePathStr, backupPathStr)
+                || isParentPathQualified(sourcePathStr, backupPathStr)
+                || isParentPathQualified(backupPathStr, sourcePathStr);
+    }
+
+    /**
+     * Resolves the existing prefix through real paths, then appends non-existing descendants. This
+     * supports a new backup directory while still detecting symlink aliases in its parent path.
+     */
+    private static String resolveLocalPathForOverlap(Path path) throws IOException {
+        java.nio.file.Path requestedPath =
+                java.nio.file.Paths.get(path.toUri()).toAbsolutePath().normalize();
+        Deque<java.nio.file.Path> missingSegments = new ArrayDeque<>();
+        java.nio.file.Path existingAncestor = requestedPath;
+        while (!java.nio.file.Files.exists(existingAncestor)) {
+            java.nio.file.Path fileName = existingAncestor.getFileName();
+            if (fileName == null || existingAncestor.getParent() == null) {
+                throw new IOException(
+                        "No existing ancestor found while resolving local path " + requestedPath);
+            }
+            missingSegments.push(fileName);
+            existingAncestor = existingAncestor.getParent();
+        }
+
+        java.nio.file.Path resolvedPath = existingAncestor.toRealPath();
+        while (!missingSegments.isEmpty()) {
+            resolvedPath = resolvedPath.resolve(missingSegments.pop());
+        }
+        return trimTrailingPathSeparator(resolvedPath.normalize().toString());
+    }
+
+    private static boolean isParentPathQualified(String parentPath, String childPath) {
+        return childPath.startsWith(parentPath + "/");
+    }
+
+    /**
+     * Rejects post_sync_action=delete|backup when the normalized path resolves to the filesystem
+     * root, to prevent mass deletion of source data.
+     */
+    private static void validatePostSyncPathSafety(String path, HadoopConf hadoopConf) {
+        if (StringUtils.isBlank(path)) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "post_sync_action=delete|backup requires a non-empty path.");
+        }
+        try {
+            HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf);
+            String qualified = fs.makeQualifiedPath(path);
+            String pathComponent = new Path(qualified).toUri().getPath();
+            if ("/".equals(pathComponent) || pathComponent.isEmpty()) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "post_sync_action=delete|backup requires path to be a non-root directory. "
+                                + "Refusing to operate on filesystem root to prevent mass deletion.");
+            }
+        } catch (FileConnectorException e) {
+            throw e;
+        } catch (Exception e) {
+            // Best-effort: if filesystem not initialized, check raw path
+            String pathPart = new Path(path).toUri().getPath();
+            if (pathPart == null || "/".equals(pathPart) || pathPart.isEmpty()) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "post_sync_action=delete|backup requires path to be a non-root directory. "
+                                + "Refusing to operate on filesystem root to prevent mass deletion.");
+            }
+            log.warn(
+                    "Cannot qualify path for safety check, using raw path validation: {}", path, e);
+        }
     }
 
     private static String resolveFsIdentity(String path, String defaultFsIdentity) {
@@ -1071,34 +1335,6 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         return uri.getScheme().toLowerCase(Locale.ROOT)
                 + "://"
                 + StringUtils.defaultString(authority).toLowerCase(Locale.ROOT);
-    }
-
-    private static boolean isPathOverlapped(String sourcePath, String backupPath) {
-        String normalizedSourcePath = normalizePathForOverlap(sourcePath);
-        String normalizedBackupPath = normalizePathForOverlap(backupPath);
-        if (StringUtils.isBlank(normalizedSourcePath)
-                || StringUtils.isBlank(normalizedBackupPath)) {
-            return false;
-        }
-        return Objects.equals(normalizedSourcePath, normalizedBackupPath)
-                || isParentPath(normalizedSourcePath, normalizedBackupPath)
-                || isParentPath(normalizedBackupPath, normalizedSourcePath);
-    }
-
-    private static boolean isParentPath(String parentPath, String childPath) {
-        String parentPrefix = parentPath.endsWith("/") ? parentPath : parentPath + "/";
-        return childPath.startsWith(parentPrefix);
-    }
-
-    private static String normalizePathForOverlap(String rawPath) {
-        if (StringUtils.isBlank(rawPath)) {
-            return rawPath;
-        }
-        try {
-            return trimTrailingPathSeparator(new Path(rawPath).toUri().normalize().getPath());
-        } catch (Exception e) {
-            return trimTrailingPathSeparator(rawPath);
-        }
     }
 
     private static String trimTrailingPathSeparator(String path) {

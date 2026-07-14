@@ -463,6 +463,46 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testContinuousDiscoveryBackupActionRejectsSymlinkedOverlappingBackupPath()
+            throws Exception {
+        Path rootDir = Files.createDirectories(tempDir.resolve("symlink_overlap_root"));
+        Path srcDir = Files.createDirectories(rootDir.resolve("src"));
+        Path dstDir = Files.createDirectories(rootDir.resolve("dst"));
+        Path rootAlias = tempDir.resolve("symlink_overlap_alias");
+        Files.createSymbolicLink(rootAlias, rootDir);
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        config.put(
+                FileBaseSourceOptions.BACKUP_PATH.key(),
+                rootAlias.resolve("src").resolve("backup").toString());
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("must not overlap with path"),
+                "a symlink alias under the source path must be rejected");
+    }
+
+    @Test
+    void testContinuousDiscoveryPostSyncActionRejectsFilesystemRoot() throws Exception {
+        Path dstDir = Files.createDirectories(tempDir.resolve("root_path_dst"));
+
+        Map<String, Object> config = baseContinuousConfig(java.nio.file.Paths.get("/"), dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("non-root directory"),
+                "post-sync actions must reject the filesystem root");
+    }
+
+    @Test
     void testContinuousDiscoveryDeleteActionRejectsBackupPath() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src10"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst10"));
@@ -709,6 +749,157 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 backupFileCount = stream.filter(Files::isRegularFile).count();
             }
             Assertions.assertEquals(0, backupFileCount, "stale backup operation should be skipped");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncDeleteCompletesStagedOperationAfterRestore() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_staged_delete"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_staged_delete"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path trashPath =
+                    java.nio.file.Paths.get(
+                            operation.getSourcePath() + ".st_trash.1." + operation.getSplitId());
+            Files.move(srcFile, trashPath, StandardCopyOption.ATOMIC_MOVE);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertFalse(
+                    Files.exists(trashPath),
+                    "a restored operation must delete its already-staged source file");
+            Assertions.assertFalse(
+                    Files.exists(srcFile), "source should remain absent after cleanup");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupLeavesRecreatedSourceWhenTargetAlreadyExists() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_existing_backup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_existing_backup"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_existing_backup"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+            Files.createDirectories(backupTarget.getParent());
+            Files.write(backupTarget, "abc".getBytes());
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile),
+                    "an existing backup target must never cause direct deletion of a recreated source");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupRecognizesCompletedRenameAfterRestore() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_restore_backup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_restore_backup"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_restore_backup"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+            Files.createDirectories(backupTarget.getParent());
+            Files.move(srcFile, backupTarget, StandardCopyOption.ATOMIC_MOVE);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(2L);
+            Assertions.assertFalse(
+                    state.getPendingOpsByCheckpoint().containsKey(1L),
+                    "a matching destination after restore must complete the pending backup operation");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupRetainsInconsistentRestoreForRetry() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_inconsistent_restore_backup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_inconsistent_restore_backup"));
+        Path backupDir =
+                Files.createDirectories(tempDir.resolve("backup14_inconsistent_restore_backup"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+            Files.createDirectories(backupTarget.getParent());
+            Files.move(srcFile, backupTarget, StandardCopyOption.ATOMIC_MOVE);
+            Files.write(backupTarget, "unexpected-content".getBytes());
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(2L);
+            Assertions.assertTrue(
+                    state.getPendingOpsByCheckpoint().containsKey(1L),
+                    "an inconsistent restored backup must remain pending instead of being accepted");
         } finally {
             enumeratorWithContext.enumerator.close();
         }
@@ -1044,6 +1235,28 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 .map(FileSourceSplit::getFilePath)
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    private static FileSourceOperationState stageSinglePostSyncOperation(
+            EnumeratorWithContext enumeratorWithContext, long checkpointId) throws IOException {
+        enumeratorWithContext.enumerator.scanOnceForTest();
+        enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                ArgumentCaptor.forClass((Class) List.class);
+        Mockito.verify(enumeratorWithContext.context)
+                .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+        FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+        enumeratorWithContext.enumerator.handleSourceEvent(
+                0, new FileSplitFinishedEvent(assigned.splitId()));
+
+        return enumeratorWithContext
+                .enumerator
+                .snapshotState(checkpointId)
+                .getPendingOpsByCheckpoint()
+                .get(checkpointId)
+                .get(0);
     }
 
     private static final class EnumeratorWithContext {

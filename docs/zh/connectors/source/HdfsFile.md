@@ -311,7 +311,9 @@ abc.*
 - `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
 - `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
 
-执行 `delete` 或 `backup` 前，SeaTunnel 会重新检查读取 split 时记录的源文件长度和修改时间；如果当前文件版本不一致，会跳过该后置动作，让变更后的文件在后续扫描中再次被发现。
+执行 `delete` 或 `backup` 前，SeaTunnel 会先将源文件重命名到 staging/trash 路径，然后重新检查文件长度和修改时间。如果重命名后版本不一致，文件会被恢复到原路径，以便后续扫描重新发现变更后的文件。
+
+**mtime 粒度限制**：act-then-verify 方式缩小了但不能完全消除粗粒度 mtime 文件系统上的竞态窗口（如 FTP MDTM ~1秒，某些平台的本地 FS）。如果发生同秒同长度的修改，版本检查可能无法检测到。在 FTP/SFTP 上为了最大安全性，请确保 post-sync 处理期间没有并发写入，或使用 `backup` 而非 `delete` 以便文件可恢复。
 
 ### backup_path [string]
 
@@ -322,6 +324,9 @@ abc.*
 ### retention_max_age [string]
 
 `backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
+仅在 `post_sync_action=backup` 时有效。
+
+时长后缀不区分大小写：`MS`（毫秒）、`S`（秒）、`M`（分钟）、`H`（小时）、`D`（天）。`M` 始终表示分钟，不是月份。也支持 ISO-8601 格式如 `PT1H30M`。非法值（如 `PT7D`、`P1M`）会导致配置校验失败并报错。
 仅在 `post_sync_action=backup` 时有效。
 
 支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。

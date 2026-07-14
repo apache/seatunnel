@@ -384,7 +384,11 @@ compare_mode = "len_mtime"
 - `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
 - `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
 
-执行 `delete` 或 `backup` 前，SeaTunnel 会重新检查读取 split 时记录的源文件长度和修改时间；如果当前文件版本不一致，会跳过该后置动作，让变更后的文件在后续扫描中再次被发现。
+执行 `delete` 或 `backup` 前，SeaTunnel 会先将源文件重命名到 staging/trash 路径，然后重新检查文件长度和修改时间。如果重命名后版本不一致，文件会被恢复到原路径，以便后续扫描重新发现变更后的文件。
+
+**mtime 粒度限制**：SFTP mtime 分辨率通常为 1 秒。act-then-verify 方式缩小了但不能完全消除同秒同长度修改的竞态窗口。为了最大安全性，请确保 post-sync 处理期间没有并发写入，或使用 `backup` 而非 `delete` 以便文件可恢复。
+
+**安全提示**：在 SFTP 上使用 `post_sync_action=delete` 或 `backup` 时，建议使用专用最小权限账户，仅对监控目录有 DELETE/RENAME 权限。此功能需要写/删权限，会增加凭证泄露后的影响范围。
 
 ### backup_path [string]
 

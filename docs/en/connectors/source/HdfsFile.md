@@ -311,7 +311,9 @@ Only used when `discovery_mode=continuous`. Supported values: `none` (default), 
 - `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 - `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
 
-Before `delete` or `backup`, SeaTunnel rechecks the source file length and modification time captured when the split was read. If the current file version differs, the post-sync operation is skipped so the changed file can be discovered again.
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: The act-then-verify approach narrows but cannot fully eliminate the race window on filesystems with coarse mtime granularity (e.g., FTP MDTM ~1s, local FS on some platforms). If a same-second, same-length modification occurs, the version check may not detect it. For maximum safety on FTP/SFTP, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
 
 ### backup_path [string]
 
@@ -324,13 +326,15 @@ Only used when `post_sync_action=backup`. Processed files are moved to this base
 Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
 Only valid when `post_sync_action=backup`.
 
+Duration suffixes are case-insensitive: `MS` (milliseconds), `S` (seconds), `M` (minutes), `H` (hours), `D` (days). `M` always means minutes, never months. ISO-8601 durations like `PT1H30M` are also supported. Invalid values (e.g., `PT7D`, `P1M`) fail config validation with an error.
+
 Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
 
 ### retention_check_interval [string]
 
 Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
 
-Supported duration formats are the same as `retention_max_age`, for example `1H` or `PT30M`.
+Duration suffixes are case-insensitive: `MS`, `S`, `M`, `H`, `D`. `M` always means minutes, never months. Invalid values fail config validation with an error.
 
 ### enable_file_split [boolean]
 
