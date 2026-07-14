@@ -77,13 +77,22 @@ public final class HugeGraphClient implements HugeGraphOperations {
         this.retryBackoffMs = Math.max(0, config.getRetryBackoffMs());
     }
 
+    /** Default graph space per HugeGraphOptions.GRAPH_SPACE.defaultValue(). */
+    private static final String DEFAULT_GRAPH_SPACE = "DEFAULT";
+
     private HugeClient createClient(HugeGraphConnectionConfig config) {
         try {
             String url = buildServerUrl(config);
-            LOG.debug("Creating new HugeClient for url: {}, graph: {}", url, config.getGraphName());
+            String graphSpace =
+                    config.getGraphSpace() != null ? config.getGraphSpace() : DEFAULT_GRAPH_SPACE;
+            LOG.debug(
+                    "Creating new HugeClient for url: {}, graphSpace: {}, graph: {}",
+                    url,
+                    graphSpace,
+                    config.getGraphName());
 
             HugeClient client =
-                    HugeClient.builder(url, config.getGraphSpace(), config.getGraphName())
+                    HugeClient.builder(url, graphSpace, config.getGraphName())
                             .configUser(config.getUsername(), config.getPassword())
                             .configIdleTime(60)
                             .build();
@@ -152,15 +161,16 @@ public final class HugeGraphClient implements HugeGraphOperations {
 
     private void createPageApis(HugeGraphConnectionConfig config) {
         String url = buildServerUrl(config);
+        String graphSpace =
+                config.getGraphSpace() != null ? config.getGraphSpace() : DEFAULT_GRAPH_SPACE;
         RestClientConfig restClientConfig =
                 RestClientConfig.builder()
                         .user(config.getUsername() == null ? "" : config.getUsername())
                         .password(config.getPassword() == null ? "" : config.getPassword())
                         .build();
         this.restClient = new RestClient(url, restClientConfig);
-        this.vertexAPI =
-                new VertexAPI(this.restClient, config.getGraphSpace(), config.getGraphName());
-        this.edgeAPI = new EdgeAPI(this.restClient, config.getGraphSpace(), config.getGraphName());
+        this.vertexAPI = new VertexAPI(this.restClient, graphSpace, config.getGraphName());
+        this.edgeAPI = new EdgeAPI(this.restClient, graphSpace, config.getGraphName());
     }
 
     static String buildServerUrl(HugeGraphConnectionConfig config) {
