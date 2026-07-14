@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import io.debezium.connector.postgresql.PostgresConnector;
@@ -109,6 +110,9 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 
         if (dbzProperties != null) {
             props.putAll(dbzProperties);
+        }
+        if (startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+            props.setProperty("snapshot.mode", "initial_only");
         }
 
         PostgresSourceConfig config =

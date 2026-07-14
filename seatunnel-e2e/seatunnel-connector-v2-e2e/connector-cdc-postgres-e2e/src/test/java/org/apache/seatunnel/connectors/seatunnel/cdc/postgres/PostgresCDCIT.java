@@ -86,6 +86,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -435,11 +436,13 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason =
                     "This case validates bounded completion and manually cancels a streaming job, which is currently only supported by the zeta engine.")
     public void testPostgresCdcSnapshotOnlyAndCommittedOffsetStartupModes(TestContainer container)
-            throws IOException, InterruptedException {
-        String snapshotSlotVariable = toSlotVariable(createSlotName());
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
+        String snapshotSlotName = createSlotName();
+        String snapshotSlotVariable = toSlotVariable(snapshotSlotName);
         String committedSlotName = createSlotName();
         String committedSlotVariable = toSlotVariable(committedSlotName);
         Long committedOffsetJobId = JobIdGenerator.newJobId();
+        CompletableFuture<Void> committedOffsetJob = null;
 
         try {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
@@ -460,45 +463,84 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertIterableEquals(
                     snapshotOnlySinkRows,
                     query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1));
+            Assertions.assertFalse(
+                    replicationSlotExists(snapshotSlotName),
+                    "Snapshot-only startup must not create or retain a replication slot");
 
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
             createLogicalReplicationSlot(committedSlotName);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
 
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.executeJob(
-                                    "/postgrescdc_to_postgres_committed_offset.conf",
-                                    String.valueOf(committedOffsetJobId),
-                                    committedSlotVariable);
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
+            committedOffsetJob =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.executeJob(
+                                            "/postgrescdc_to_postgres_committed_offset.conf",
+                                            String.valueOf(committedOffsetJobId),
+                                            committedSlotVariable);
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
-            waitForReplicationSlotActive(committedSlotName);
-
-            await().atMost(10000, TimeUnit.MILLISECONDS)
+            assertJobHasNoAsyncFailure(committedOffsetJob);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertTrue(
+                                    Assertions.assertEquals(
+                                            1,
                                             query(
                                                             "select * from "
                                                                     + POSTGRESQL_SCHEMA
                                                                     + "."
                                                                     + SINK_TABLE_1
-                                                                    + " where id in (10, 11)")
-                                                    .isEmpty()));
+                                                                    + " where id = 12")
+                                                    .size()));
+
+            waitForReplicationSlotActive(committedSlotName);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13);
+            updateSourceTableBigField(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13, 10000);
+            deleteSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
+
+            CompletableFuture<Void> finalCommittedOffsetJob = committedOffsetJob;
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobHasNoAsyncFailure(finalCommittedOffsetJob);
+                                Assertions.assertTrue(
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id in (10, 11, 12)")
+                                                .isEmpty());
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList(10000L)),
+                                        query(
+                                                "select f_big from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " where id = 13"));
+                            });
         } finally {
             try {
-                container.cancelJob(String.valueOf(committedOffsetJobId));
-            } catch (Exception e) {
-                log.warn("Failed to cancel committed-offset test job", e);
+                try {
+                    container.cancelJob(String.valueOf(committedOffsetJobId));
+                } catch (Exception e) {
+                    log.warn("Failed to cancel committed-offset test job", e);
+                }
+                if (committedOffsetJob != null) {
+                    committedOffsetJob.get(30, TimeUnit.SECONDS);
+                }
+            } finally {
+                clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+                clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
             }
-            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
-            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
         }
     }
 
@@ -1141,6 +1183,26 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             return resultSet.next() && resultSet.getBoolean("active");
         } catch (SQLException e) {
             throw new RuntimeException("Failed to query replication slot activity: " + slotName, e);
+        }
+    }
+
+    private boolean replicationSlotExists(String slotName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT 1 FROM pg_replication_slots WHERE slot_name = '"
+                                        + slotName
+                                        + "'")) {
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query replication slot: " + slotName, e);
+        }
+    }
+
+    private void assertJobHasNoAsyncFailure(CompletableFuture<Void> future) {
+        if (future.isDone()) {
+            future.join();
         }
     }
 
