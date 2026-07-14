@@ -33,6 +33,7 @@ scala-reflect-2.12.15.jar
 scala-xml_2.12-1.0.6.jar
 seatunnel-scala-compiler-3.0.0-SNAPSHOT-optional.jar
 seatunnel-jackson-3.0.0-SNAPSHOT-optional.jar
+seatunnel-jackson-yaml-3.0.0-SNAPSHOT-optional.jar
 seatunnel-guava-3.0.0-SNAPSHOT-optional.jar
 seatunnel-hazelcast-shade-3.0.0-SNAPSHOT-optional.jar
 seatunnel-commons-lang3-3.0.0-SNAPSHOT-optional.jar
