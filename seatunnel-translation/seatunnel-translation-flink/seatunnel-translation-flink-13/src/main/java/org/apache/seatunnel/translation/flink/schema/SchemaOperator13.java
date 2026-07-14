@@ -37,7 +37,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li><b>No dead flag path</b>: the timer callback fires on the Flink <em>task thread</em> via
  *       {@code ProcessingTimeService.registerTimer}, so {@link #handleFallbackTimerOnTaskThread()}
  *       is always reachable even when no more source data arrives and {@code processElement} is
- *       never called again. This is the exact scenario this workaround targets on Flink 1.13.
+ *       never called again. The callback either releases at-least-once work or fails an
+ *       exactly-once task without bypassing its checkpoint fence.
  * </ol>
  *
  * <p>The base {@link SchemaOperator} carries none of this timer infrastructure; Flink 1.15 and
@@ -54,6 +55,14 @@ public class SchemaOperator13 extends SchemaOperator {
 
     public SchemaOperator13(String jobId, SupportSchemaEvolution source, Config pluginConfig) {
         super(jobId, source, pluginConfig);
+    }
+
+    public SchemaOperator13(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode) {
+        super(jobId, source, pluginConfig, exactlyOnceMode);
     }
 
     /**
