@@ -74,8 +74,9 @@ public class HugeGraphSourceCheckpointRestoreIT extends TestSuiteBase implements
 
     // Distinctive name prefix so emitted rows can be isolated in the shared cluster log.
     private static final String NAME_PREFIX = "cp-person-";
-    // Must exceed one page (page_size=5 in the conf) so the scan spans several pages/checkpoints.
-    private static final int VERTEX_COUNT = 40;
+    // Must exceed the conf's page_size (100) so the scan spans multiple pages, forcing the opaque
+    // page token to be checkpointed at page boundaries. 250 vertices => 3 pages (100/100/50).
+    private static final int VERTEX_COUNT = 250;
 
     private GenericContainer<?> hugeGraphContainer;
     private HugeClient hugeClient;
