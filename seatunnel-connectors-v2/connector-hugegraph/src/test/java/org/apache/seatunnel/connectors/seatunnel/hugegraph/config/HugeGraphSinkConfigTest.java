@@ -35,6 +35,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,7 +73,9 @@ class HugeGraphSinkConfigTest {
                 sinkConfig.getSchemaSaveMode());
         assertFalse(sinkConfig.isDeleteVertexWithEdges());
         assertEquals("yyyy-MM-dd", sinkConfig.getMappings().get(0).getDateFormat());
-        assertEquals("GMT+8", sinkConfig.getMappings().get(0).getTimeZone());
+        // time_zone is intentionally left unset when unconfigured so DataTypeUtil falls back to
+        // ZoneId.systemDefault(), matching the Source reader's default (no hardcoded GMT+8).
+        assertNull(sinkConfig.getMappings().get(0).getTimeZone());
     }
 
     @Test

@@ -65,6 +65,30 @@ public class HugeGraphConnectionConfig implements Serializable {
     }
 
     private static void validate(HugeGraphConnectionConfig config) {
+        if (config.getHost() == null || config.getHost().trim().isEmpty()) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "Option 'host' must not be empty");
+        }
+        if (config.getGraphName() == null || config.getGraphName().trim().isEmpty()) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "Option 'graph_name' must not be empty");
+        }
+        if (config.getPort() < 1 || config.getPort() > 65535) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Option 'port' must be in range [1, 65535], but got %s",
+                            config.getPort()));
+        }
+        boolean hasUsername = config.getUsername() != null && !config.getUsername().isEmpty();
+        boolean hasPassword = config.getPassword() != null && !config.getPassword().isEmpty();
+        if (hasUsername != hasPassword) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "Options 'username' and 'password' must be provided together");
+        }
         if (!"http".equalsIgnoreCase(config.getProtocol())
                 && !"https".equalsIgnoreCase(config.getProtocol())) {
             throw new HugeGraphConnectorException(

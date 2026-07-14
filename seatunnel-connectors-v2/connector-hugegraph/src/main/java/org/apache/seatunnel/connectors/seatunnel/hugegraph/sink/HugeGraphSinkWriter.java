@@ -233,6 +233,18 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     private void handleUpsert(SeaTunnelRow row, boolean update) throws IOException {
+        UpsertPlan plan = buildUpsertPlan(row, update);
+        applyUpsertPlan(plan);
+    }
+
+    /**
+     * Maps an input row to its graph-element envelopes across all mappings without touching the
+     * buffer or the remote graph. Building the full plan up front lets a key-changing UPDATE
+     * validate the after-image (null id / type-conversion failure) BEFORE any destructive delete
+     * runs, so a mapping failure can no longer leave the old element deleted and the new one never
+     * written.
+     */
+    private UpsertPlan buildUpsertPlan(SeaTunnelRow row, boolean update) {
         List<GraphElementEnvelope> vertexEnvelopes = new ArrayList<>();
         List<GraphElementEnvelope> edgeEnvelopes = new ArrayList<>();
 
@@ -269,11 +281,14 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         e);
             }
         }
+        return new UpsertPlan(vertexEnvelopes, edgeEnvelopes);
+    }
 
-        for (GraphElementEnvelope envelope : vertexEnvelopes) {
+    private void applyUpsertPlan(UpsertPlan plan) throws IOException {
+        for (GraphElementEnvelope envelope : plan.vertexEnvelopes) {
             buffer.add(envelope);
         }
-        for (GraphElementEnvelope envelope : edgeEnvelopes) {
+        for (GraphElementEnvelope envelope : plan.edgeEnvelopes) {
             buffer.add(envelope);
         }
     }
@@ -286,10 +301,15 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
      * element in place and a vertex's adjacent edges are preserved.
      */
     private void handleUpdate(SeaTunnelRow before, SeaTunnelRow after) throws IOException {
+        // Build and validate the after-image replacement plan first. If mapping the after-image
+        // fails (null id, type-conversion error, unsupported AUTOMATIC id update, ...) this throws
+        // before deleteSupersededElements runs, so a failed update never leaves the old element
+        // deleted and the new one unwritten.
+        UpsertPlan plan = buildUpsertPlan(after, true);
         if (before != null) {
             deleteSupersededElements(before, after);
         }
-        handleUpsert(after, true);
+        applyUpsertPlan(plan);
     }
 
     private void deleteSupersededElements(SeaTunnelRow before, SeaTunnelRow after) {
@@ -488,6 +508,19 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         MappingEntry(MappingConfig config, GraphDataMapper mapper) {
             this.config = config;
             this.mapper = mapper;
+        }
+    }
+
+    /** Fully-mapped, validated graph elements ready to be buffered, split by element type. */
+    private static class UpsertPlan {
+        final List<GraphElementEnvelope> vertexEnvelopes;
+        final List<GraphElementEnvelope> edgeEnvelopes;
+
+        UpsertPlan(
+                List<GraphElementEnvelope> vertexEnvelopes,
+                List<GraphElementEnvelope> edgeEnvelopes) {
+            this.vertexEnvelopes = vertexEnvelopes;
+            this.edgeEnvelopes = edgeEnvelopes;
         }
     }
 }

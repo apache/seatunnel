@@ -60,7 +60,11 @@ public class VertexMapper implements GraphDataMapper {
     private Set<String> resolvePropertySourceFields() {
         Set<String> fields = new HashSet<>();
         if (mappingConfig.getProperties().isEmpty()) {
+            // Implicit all-fields mode: HugeGraph Source prepends reserved ~-prefixed metadata
+            // columns (~id/~label/...) which are not valid HugeGraph PropertyKeys, so exclude them
+            // to keep the natural Source -> Sink round-trip working without hand-listing fields.
             fields.addAll(fieldsIndex.keySet());
+            fields.removeIf(VertexMapper::isReservedField);
         } else {
             fields.addAll(mappingConfig.getProperties());
         }
@@ -70,6 +74,11 @@ public class VertexMapper implements GraphDataMapper {
             fields.addAll(mappingConfig.getIdFields());
         }
         return fields;
+    }
+
+    /** HugeGraph reserved Source columns (~id/~label/...) are not valid properties. */
+    private static boolean isReservedField(String field) {
+        return field != null && field.startsWith("~");
     }
 
     private HashMap<String, PropertyKey> buildPropertyKeyCache() {

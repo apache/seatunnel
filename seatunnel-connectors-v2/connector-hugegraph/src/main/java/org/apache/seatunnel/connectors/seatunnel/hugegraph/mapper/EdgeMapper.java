@@ -92,15 +92,27 @@ public class EdgeMapper implements GraphDataMapper {
     private Set<String> resolvePropertySourceFields() {
         Set<String> fields = new HashSet<>();
         if (mappingConfig.getProperties().isEmpty()) {
+            // Implicit all-fields mode: endpoint ID fields only locate the source/target vertices
+            // and are not meant to become edge properties, so exclude them. (Reserved ~-prefixed
+            // Source metadata columns are excluded separately, see below.)
             fields.addAll(fieldsIndex.keySet());
+            fields.removeAll(edgeIdSourceFields);
+            fields.removeIf(EdgeMapper::isReservedField);
         } else {
+            // Explicit mode: honor exactly what the user listed. If they deliberately put an
+            // endpoint field in `properties`, it must be written as an edge property too —
+            // SchemaManager already creates the matching PropertyKey for it, so dropping it here
+            // would build the property but never populate it.
             fields.addAll(mappingConfig.getProperties());
         }
-        // Endpoint ID fields are never edge properties — they only locate the source/target
-        // vertices. Sort keys, however, ARE edge properties and must be retained.
-        fields.removeAll(edgeIdSourceFields);
+        // Sort keys ARE edge properties and must always be retained.
         fields.addAll(mappingConfig.getSortKeys());
         return fields;
+    }
+
+    /** HugeGraph reserved Source columns (~id/~label/~source_id/...) are not valid properties. */
+    private static boolean isReservedField(String field) {
+        return field != null && field.startsWith("~");
     }
 
     private HashMap<String, PropertyKey> buildPropertyKeyCache() {

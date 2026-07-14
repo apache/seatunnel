@@ -169,7 +169,12 @@ public final class SchemaManager {
         Set<String> sourceFields = new HashSet<>();
         if (mapping.getProperties().isEmpty()) {
             for (String fieldName : rowType.getFieldNames()) {
-                sourceFields.add(fieldName);
+                // Reserved ~-prefixed Source metadata columns (~id/~label/...) are not valid
+                // HugeGraph PropertyKeys; excluding them here keeps auto-schema creation from
+                // attempting an illegal PropertyKey on a HugeGraph Source -> Sink round-trip.
+                if (!isReservedField(fieldName)) {
+                    sourceFields.add(fieldName);
+                }
             }
             if (mapping.getType() == LabelType.EDGE) {
                 removeIdFields(sourceFields, mapping.getSourceConfig());
@@ -206,6 +211,11 @@ public final class SchemaManager {
         if (sourceTargetConfig != null && sourceTargetConfig.getIdFields() != null) {
             fields.removeAll(sourceTargetConfig.getIdFields());
         }
+    }
+
+    /** HugeGraph reserved Source columns (~id/~label/...) are not valid PropertyKeys. */
+    private static boolean isReservedField(String field) {
+        return field != null && field.startsWith("~");
     }
 
     private void createMissingPropertyKeys(MappingConfig mapping, Set<String> targetPropertyNames) {
