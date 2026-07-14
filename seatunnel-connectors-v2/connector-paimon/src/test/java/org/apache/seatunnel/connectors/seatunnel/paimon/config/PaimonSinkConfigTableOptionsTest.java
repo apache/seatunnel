@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 
+import org.apache.paimon.CoreOptions;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +31,7 @@ import java.util.Map;
 class PaimonSinkConfigTableOptionsTest {
 
     @Test
-    void testTableOptionsMergedIntoWriteProps() {
+    void testTableOptionsStoredSeparatelyFromWriteProps() {
         Map<String, Object> config = baseConfig();
         Map<String, String> tableOptions = new HashMap<>();
         tableOptions.put("file.format", "parquet");
@@ -38,12 +40,13 @@ class PaimonSinkConfigTableOptionsTest {
 
         PaimonSinkConfig sinkConfig = new PaimonSinkConfig(ReadonlyConfig.fromMap(config));
 
-        Assertions.assertEquals("parquet", sinkConfig.getWriteProps().get("file.format"));
-        Assertions.assertEquals("4", sinkConfig.getWriteProps().get("bucket"));
+        Assertions.assertTrue(sinkConfig.getWriteProps().isEmpty());
+        Assertions.assertEquals("parquet", sinkConfig.getTableOptions().get("file.format"));
+        Assertions.assertEquals("4", sinkConfig.getTableOptions().get("bucket"));
     }
 
     @Test
-    void testWritePropsWinsOnKeyConflict() {
+    void testWritePropsWinsOnSchemaCreationMerge() {
         Map<String, Object> config = baseConfig();
         Map<String, String> tableOptions = new HashMap<>();
         tableOptions.put("bucket", "4");
@@ -57,7 +60,14 @@ class PaimonSinkConfigTableOptionsTest {
         PaimonSinkConfig sinkConfig = new PaimonSinkConfig(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals("8", sinkConfig.getWriteProps().get("bucket"));
-        Assertions.assertEquals("orc", sinkConfig.getWriteProps().get("file.format"));
+        Assertions.assertNull(sinkConfig.getWriteProps().get("file.format"));
+        Assertions.assertEquals("4", sinkConfig.getTableOptions().get("bucket"));
+
+        Map<String, String> schemaOptions =
+                PaimonSinkConfig.mergeSchemaCreationOptions(
+                        sinkConfig.getTableOptions(), sinkConfig.getWriteProps());
+        Assertions.assertEquals("8", schemaOptions.get("bucket"));
+        Assertions.assertEquals("orc", schemaOptions.get("file.format"));
     }
 
     @Test
@@ -71,6 +81,31 @@ class PaimonSinkConfigTableOptionsTest {
 
         Assertions.assertEquals(1, sinkConfig.getWriteProps().size());
         Assertions.assertEquals("2", sinkConfig.getWriteProps().get("bucket"));
+        Assertions.assertTrue(sinkConfig.getTableOptions().isEmpty());
+    }
+
+    @Test
+    void testTableOptionsChangelogDoesNotAffectRuntimeWriterConfig() {
+        Map<String, Object> config = baseConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put(CoreOptions.CHANGELOG_PRODUCER.key(), "lookup");
+        tableOptions.put(PaimonSinkOptions.CHANGELOG_TMP_PATH, "/tmp/from-table-options");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        PaimonSinkConfig sinkConfig = new PaimonSinkConfig(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertNull(
+                sinkConfig.getChangelogProducer(),
+                "table_options changelog-producer must not affect runtime writer config");
+        Assertions.assertEquals(
+                System.getProperty("java.io.tmpdir"),
+                sinkConfig.getChangelogTmpPath(),
+                "table_options changelog-tmp-path must not affect runtime writer config");
+
+        Map<String, String> schemaOptions =
+                PaimonSinkConfig.mergeSchemaCreationOptions(
+                        sinkConfig.getTableOptions(), sinkConfig.getWriteProps());
+        Assertions.assertEquals("lookup", schemaOptions.get(CoreOptions.CHANGELOG_PRODUCER.key()));
     }
 
     private static Map<String, Object> baseConfig() {

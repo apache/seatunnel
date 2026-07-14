@@ -78,7 +78,7 @@ libfb303-xxx.jar
 | paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
 | paimon.table.partition-keys  | String  | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
 | paimon.table.write-props     | Map     | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
-| table_options                | Map     | No       | -                            | Sink-specific table options merged into write-props for SaveMode auto-create. See below.                                                                         |
+| table_options                | Map     | No       | -                            | Sink-specific table options for SaveMode auto-create only (not runtime write-props). See below.                                                                  |
 | paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
@@ -86,9 +86,9 @@ libfb303-xxx.jar
 
 ### table_options [Map]
 
-Sink-specific table options applied when SaveMode auto-creates the target table. They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** alter an existing table.
+Sink-specific table options applied when SaveMode auto-creates the target table. They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** alter an existing table and do **not** change runtime writer settings such as `changelog-producer` / `changelog-tmp-path` derived from `paimon.table.write-props`.
 
-`table_options` are merged into the effective `paimon.table.write-props` used by schema creation. **On key conflict, `paimon.table.write-props` wins**, so existing jobs that only set write-props keep their current behavior. Use CoreOptions keys from the [Paimon CoreOptions documentation](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions); SeaTunnel does not maintain an allowlist—invalid keys fail when Paimon creates the table. Blank keys and null values are rejected at job submission.
+`table_options` are merged into the schema options used by auto-create. **On key conflict, `paimon.table.write-props` wins**, so existing jobs that only set write-props keep their current behavior. `paimon.table.write-props` remains the runtime writer config. Use CoreOptions keys from the [Paimon CoreOptions documentation](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions); SeaTunnel does not maintain an allowlist—invalid keys fail when Paimon creates the table. Blank keys and null values are rejected at job submission.
 
 Example:
 

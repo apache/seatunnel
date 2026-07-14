@@ -78,7 +78,7 @@ libfb303-xxx.jar
 | paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
 | paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
 | paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
-| table_options                | Map  | 否    | -                            | Sink 侧表属性，在 SaveMode 自动建表时合并进 write-props。详见下文。                                                    |
+| table_options                | Map  | 否    | -                            | Sink 侧表属性，仅用于 SaveMode 自动建表（不进入运行时 write-props）。详见下文。                                          |
 | paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
 | paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
 | paimon.table.non-primary-key | Boolean | 否    | false                        | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
@@ -86,9 +86,9 @@ libfb303-xxx.jar
 
 ### table_options [Map]
 
-Sink 侧表属性，仅在 SaveMode 自动建表时生效（例如 `schema_save_mode` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 或 `RECREATE_SCHEMA`）。**不会**对已存在表执行 ALTER。
+Sink 侧表属性，仅在 SaveMode 自动建表时生效（例如 `schema_save_mode` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 或 `RECREATE_SCHEMA`）。**不会**对已存在表执行 ALTER，也**不会**改变由 `paimon.table.write-props` 派生的运行时 writer 设置（例如 `changelog-producer` / `changelog-tmp-path`）。
 
-`table_options` 会合并进建表使用的有效 `paimon.table.write-props`。**键冲突时以 `paimon.table.write-props` 为准**，保证仅配置 write-props 的存量作业行为不变。键名使用 [Paimon CoreOptions](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)；SeaTunnel 不维护白名单，非法键在 Paimon 建表时失败。空白键与 null 值会在作业提交阶段被拒绝。
+`table_options` 会合并进自动建表使用的 schema options。**键冲突时以 `paimon.table.write-props` 为准**，保证仅配置 write-props 的存量作业行为不变。`paimon.table.write-props` 仍作为运行时 writer 配置。键名使用 [Paimon CoreOptions](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)；SeaTunnel 不维护白名单，非法键在 Paimon 建表时失败。空白键与 null 值会在作业提交阶段被拒绝。
 
 示例：
 

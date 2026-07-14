@@ -47,7 +47,13 @@ public class PaimonSinkConfig extends PaimonConfig {
     private final Boolean nonPrimaryKey;
     private final List<String> primaryKeys;
     private final List<String> partitionKeys;
+    /** Runtime writer properties from {@code paimon.table.write-props} only. */
     private final Map<String, String> writeProps;
+    /**
+     * SaveMode auto-create options from {@code table_options}. Applied only when building the
+     * Paimon schema for table creation; not merged into runtime {@link #writeProps}.
+     */
+    private final Map<String, String> tableOptions;
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
@@ -67,15 +73,13 @@ public class PaimonSinkConfig extends PaimonConfig {
         }
         this.partitionKeys =
                 stringToList(readonlyConfig.get(PaimonSinkOptions.PARTITION_KEYS), ",");
-        // Merge sink table_options into write-props for SaveMode auto-create. write-props wins
-        // on key conflict so existing jobs keep current behavior.
-        Map<String, String> mergedWriteProps = new HashMap<>();
-        mergedWriteProps.putAll(
-                readonlyConfig
-                        .getOptional(SinkConnectorCommonOptions.TABLE_OPTIONS)
-                        .orElse(Collections.emptyMap()));
-        mergedWriteProps.putAll(readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS));
-        this.writeProps = mergedWriteProps;
+        this.tableOptions =
+                new HashMap<>(
+                        readonlyConfig
+                                .getOptional(SinkConnectorCommonOptions.TABLE_OPTIONS)
+                                .orElse(Collections.emptyMap()));
+        // Keep write-props as the runtime writer config only; do not merge table_options here.
+        this.writeProps = new HashMap<>(readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS));
         this.changelogProducer =
                 Stream.of(CoreOptions.ChangelogProducer.values())
                         .filter(
@@ -92,5 +96,24 @@ public class PaimonSinkConfig extends PaimonConfig {
                 writeProps.getOrDefault(
                         PaimonSinkOptions.CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
         this.branch = readonlyConfig.get(PaimonSinkOptions.BRANCH);
+    }
+
+    /**
+     * Merge options for SaveMode schema/table creation. {@code writeProps} wins on key conflict.
+     *
+     * @param tableOptions sink {@code table_options}
+     * @param writeProps sink {@code paimon.table.write-props}
+     * @return a new mutable map suitable for {@code Schema.Builder#options}
+     */
+    public static Map<String, String> mergeSchemaCreationOptions(
+            Map<String, String> tableOptions, Map<String, String> writeProps) {
+        Map<String, String> merged = new HashMap<>();
+        if (tableOptions != null && !tableOptions.isEmpty()) {
+            merged.putAll(tableOptions);
+        }
+        if (writeProps != null && !writeProps.isEmpty()) {
+            merged.putAll(writeProps);
+        }
+        return merged;
     }
 }
