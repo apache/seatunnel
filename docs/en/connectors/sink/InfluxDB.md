@@ -15,6 +15,21 @@ fields.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
+## Data Type Mapping
+
+| SeaTunnel Data Type | InfluxDB Usage |
+|---------------------|----------------|
+| BOOLEAN             | Written as an InfluxDB field. |
+| SMALLINT            | Written as an InfluxDB field. |
+| INT                 | Written as an InfluxDB field. |
+| BIGINT              | Written as an InfluxDB field, or as the timestamp when configured by `key_time`. |
+| FLOAT               | Written as an InfluxDB field. |
+| DOUBLE              | Written as an InfluxDB field. |
+| STRING              | Written as an InfluxDB field, a tag value, or a timestamp string when configured by `key_time`. |
+| TIMESTAMP           | Can be used by `key_time`; converted with UTC zone to epoch milliseconds. |
+
+Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
+
 ## Options
 
 | name                        | type   | required | default value         | description                                                                                   |
@@ -81,6 +96,8 @@ For batch writing, when the number of buffers reaches the number of `batch_size`
 
 The number of retries to flush failed
 
+If this option is not configured, the sink tries the write once and fails immediately if that write fails.
+
 ### retry_backoff_multiplier_ms [int]
 
 Using as a multiplier for generating the next delay for backoff
@@ -88,6 +105,9 @@ Using as a multiplier for generating the next delay for backoff
 ### max_retry_backoff_ms [int]
 
 The amount of time to wait before attempting to retry a request to `influxDB`
+
+When retry options are used, configure both `retry_backoff_multiplier_ms` and
+`max_retry_backoff_ms`; otherwise the retry sleep interval remains `0`.
 
 ### write_timeout [int]
 

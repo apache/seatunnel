@@ -42,6 +42,7 @@ Apache Pulsar 的源连接器。
 | cursor.stop.timestamp    | Long    | 否    | -      | 当 `cursor.stop.mode=TIMESTAMP` 时的停止时间戳(毫秒)                                                |
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
 | format                   | String  | 否    | json   | 数据格式。默认为 json。支持 json、canal_json 和 avro 格式。**多表模式仅支持 JSON、CANAL_JSON 和 AVRO**                                               |
+| field_delimiter          | String  | 否    | ,      | `text` 格式使用的字段分隔符。                                                                             |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -156,6 +157,10 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 ### format [String]
 
 数据格式。默认值为 `json`。支持 json、canal_json 和 avro 格式。使用 avro 格式时需要配置 `schema`。更多格式说明参考 [formats](../formats)。
+
+### field_delimiter [String]
+
+`text` 格式使用的字段分隔符。默认值为 `,`。
 
 ### 通用参数
 
