@@ -42,6 +42,7 @@ import org.apache.seatunnel.translation.flink.source.FlinkSource;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -174,7 +175,16 @@ public abstract class AbstractSourceExecuteProcessor
      */
     protected SchemaOperator createSchemaOperator(
             String jobId, SupportSchemaEvolution source, Config pluginConfig) {
-        return new SchemaOperator(jobId, source, pluginConfig);
+        return new SchemaOperator(jobId, source, pluginConfig, isExactlyOnceCheckpointMode());
+    }
+
+    /** Returns the effective checkpoint mode configured on the Flink execution environment. */
+    protected boolean isExactlyOnceCheckpointMode() {
+        return flinkRuntimeEnvironment
+                        .getStreamExecutionEnvironment()
+                        .getCheckpointConfig()
+                        .getCheckpointingMode()
+                == CheckpointingMode.EXACTLY_ONCE;
     }
 
     /**

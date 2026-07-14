@@ -22,9 +22,14 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -53,6 +58,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -380,5 +387,73 @@ class JdbcSinkWriterTest {
         Field field = JdbcSinkWriter.class.getDeclaredField("lastSuccessfulBatchSavepoint");
         field.setAccessible(true);
         return (Savepoint) field.get(writer);
+    }
+
+    @Test
+    void testConcurrentSchemaChangeFailureConvergesOnRetry() throws Exception {
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection firstConnection = mock(Connection.class);
+        Connection retryConnection = mock(Connection.class);
+        TablePath tablePath = TablePath.DEFAULT;
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+
+        when(connectionProvider.getOrEstablishConnection())
+                .thenReturn(firstConnection, retryConnection);
+        doThrow(new RuntimeException("concurrent DDL already won"))
+                .doNothing()
+                .when(dialect)
+                .applySchemaChange(
+                        any(Connection.class), eq(tablePath), same((SchemaChangeEvent) event));
+
+        AbstractJdbcSinkWriter.applyPhysicalSchemaChangeWithRetry(
+                dialect, connectionProvider, tablePath, event);
+
+        verify(connectionProvider, times(2)).getOrEstablishConnection();
+        verify(dialect, times(2))
+                .applySchemaChange(
+                        any(Connection.class), eq(tablePath), same((SchemaChangeEvent) event));
+        verify(firstConnection).close();
+        verify(retryConnection).close();
+    }
+
+    @Test
+    void testRecoverySchemaSnapshotReplacesStaleWriterSchema() {
+        TableSchema staleSchema = mock(TableSchema.class);
+        TableSchema restoredSchema = mock(TableSchema.class);
+        SchemaChangeEvent event = mock(SchemaChangeEvent.class);
+        CatalogTable changeAfter = mock(CatalogTable.class);
+        TableSchemaChangeEventDispatcher schemaChanger =
+                mock(TableSchemaChangeEventDispatcher.class);
+        when(event.getChangeAfter()).thenReturn(changeAfter);
+        when(changeAfter.getTableSchema()).thenReturn(restoredSchema);
+
+        TableSchema result =
+                AbstractJdbcSinkWriter.resolveTableSchemaAfterChange(
+                        staleSchema, event, schemaChanger);
+
+        Assertions.assertSame(restoredSchema, result);
+        verify(schemaChanger, never()).reset(any(TableSchema.class));
+    }
+
+    @Test
+    void testSchemaChangeWithoutSnapshotKeepsIncrementalCompatibility() {
+        TableSchema currentSchema = mock(TableSchema.class);
+        TableSchema changedSchema = mock(TableSchema.class);
+        SchemaChangeEvent event = mock(SchemaChangeEvent.class);
+        TableSchemaChangeEventDispatcher schemaChanger =
+                mock(TableSchemaChangeEventDispatcher.class);
+        when(schemaChanger.reset(currentSchema)).thenReturn(schemaChanger);
+        when(schemaChanger.apply(event)).thenReturn(changedSchema);
+
+        TableSchema result =
+                AbstractJdbcSinkWriter.resolveTableSchemaAfterChange(
+                        currentSchema, event, schemaChanger);
+
+        Assertions.assertSame(changedSchema, result);
     }
 }

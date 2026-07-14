@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionControlMessage;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -110,8 +111,7 @@ class FlinkSinkWriterTest {
         event.setJobId("job-under-test");
         SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("schema_change_event", event);
-        options.put("schema_subtask_id", 0L);
+        options.put(SchemaEvolutionControlMessage.SCHEMA_CHANGE_EVENT, event);
         schemaEvent.setOptions(options);
         flinkSinkWriter.write(schemaEvent, null);
 

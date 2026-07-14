@@ -74,6 +74,17 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
     }
 
+    static TableSchema resolveTableSchemaAfterChange(
+            TableSchema currentSchema,
+            SchemaChangeEvent event,
+            TableSchemaChangeEventDispatcher schemaChanger) {
+        CatalogTable changeAfter = event.getChangeAfter();
+        if (changeAfter != null) {
+            return changeAfter.getTableSchema();
+        }
+        return schemaChanger.reset(currentSchema).apply(event);
+    }
+
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
         JdbcConnectionProvider refreshTableSchemaConnectionProvider =
