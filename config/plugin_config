@@ -31,6 +31,7 @@ connector-cdc-sqlserver
 connector-cdc-postgres
 connector-cdc-oracle
 connector-cdc-tidb
+connector-cdc-vitess
 connector-clickhouse
 connector-datahub
 connector-databend

@@ -34,6 +34,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -341,6 +343,41 @@ public class SystemFunctionTest {
         args.add("TIME");
         Object time = SystemFunction.castAs(args);
         Assertions.assertEquals(now.toLocalTime(), time);
+    }
+
+    @Test
+    public void testCastAsFromOffsetDateTime() {
+        OffsetDateTime odt = OffsetDateTime.of(2024, 3, 15, 10, 30, 0, 0, ZoneOffset.ofHours(9));
+
+        // CAST(odt AS TIMESTAMP) → wall-clock LocalDateTime
+        List<Object> args = new ArrayList<>();
+        args.add(odt);
+        args.add("TIMESTAMP");
+        Object ts = SystemFunction.castAs(args);
+        Assertions.assertTrue(ts instanceof LocalDateTime);
+        Assertions.assertEquals(odt.toLocalDateTime(), ts);
+
+        // CAST(odt AS DATE) → wall-clock LocalDate
+        args.clear();
+        args.add(odt);
+        args.add("DATE");
+        Object date = SystemFunction.castAs(args);
+        Assertions.assertEquals(odt.toLocalDate(), date);
+
+        // CAST(odt AS TIME) → wall-clock LocalTime
+        args.clear();
+        args.add(odt);
+        args.add("TIME");
+        Object time = SystemFunction.castAs(args);
+        Assertions.assertEquals(odt.toLocalTime(), time);
+
+        // CAST(odt AS BIGINT) → epoch millis (UTC)
+        args.clear();
+        args.add(odt);
+        args.add("BIGINT");
+        Object epochMillis = SystemFunction.castAs(args);
+        Assertions.assertTrue(epochMillis instanceof Long);
+        Assertions.assertEquals(odt.toInstant().toEpochMilli(), epochMillis);
     }
 
     @Test
