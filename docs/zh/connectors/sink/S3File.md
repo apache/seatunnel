@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
 | bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
 | fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | S3A 凭据提供器（Hadoop `fs.s3a.aws.credentials.provider`）。SeaTunnel 当前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`。 |
+| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | Hadoop S3A 凭据提供器。S3File 连接器当前仅接受 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，其他 provider 类名会在选项解析阶段被拒绝。 |
 | access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
@@ -161,31 +161,33 @@ hadoop_s3_properties {
 
 ### fs.s3a.aws.credentials.provider [string]
 
-SeaTunnel 将 S3 认证委托给 Hadoop S3A，该参数会以 `fs.s3a.aws.credentials.provider` 的形式透传给 Hadoop。
+SeaTunnel 会将该参数传递给 Hadoop S3A，但 S3File source 和 sink 会在初始化 Hadoop 前校验参数。当前支持的值只有：
 
-支持的取值：
+- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
+- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
 
-```
-fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-```
+当前 S3File 连接器不接受其它 provider 类名，包括 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 和 `com.amazonaws.auth.ContainerCredentialsProvider`。
+
+#### 容器环境（Kubernetes/ECS/EKS）
+
+如果 SeaTunnel 容器运行在基于 EC2 的主机上（包括 EKS 节点），可使用 EC2 instance profile provider，避免在作业配置中填写 AK/SK：
 
 ```
 fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
 ```
 
-容器凭据相关的 provider（例如 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`、`com.amazonaws.auth.ContainerCredentialsProvider`）当前不受该 connector 参数支持。
+请仅向节点 instance profile 授予所需 bucket/prefix 的最小权限，并注意同一节点上能够使用该节点角色的工作负载可能共享这些权限。
 
-#### 容器环境（Kubernetes/ECS/EKS）
+ECS task role 和 EKS IAM Roles for Service Accounts（IRSA）需要 container 或 web-identity provider，而当前 S3File source/sink 尚不直接支持这些 provider。如果 instance profile 不适用，当前的兼容退路是 `SimpleAWSCredentialsProvider`：通过 SeaTunnel [配置变量替换](../../introduction/concepts/config.md#配置变量替换)和平台的 secret manager 在部署时注入 basic AK/SK。这只是受限的静态凭据方案，不等同于 workload identity；它不支持 STS session 凭据，并且凭据最终仍会进入渲染后的配置或进程环境。生产环境应优先为连接器增加对应平台 provider 的支持；如果确实无法避免静态 AK/SK，请按最小权限授权、定期轮换，并且不要把渲染后的凭据提交到版本库。
 
-如需在容器环境运行，建议使用 `SimpleAWSCredentialsProvider`，并通过 secret manager 或环境变量注入 `access_key`/`secret_key`，避免在配置中明文硬编码。
+#### 传递更多 S3A 参数
 
-```
-fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-```
+需要透传其它 `fs.s3a.*` 参数时，可通过 `hadoop_s3_properties` 配置。但不能用它选择未支持的凭据 provider：顶层 `fs.s3a.aws.credentials.provider` 会在该 map 之后应用，并覆盖同名键。
 
 #### 常见排障
 
-- `Factory initialize failed` / `ClassNotFoundException`：说明凭据 provider 类在运行时找不到，请检查 Hadoop/AWS 相关 jar 是否加载，以及 provider 类名是否正确。
+- `Factory initialize failed` 或选项转换错误：确认 provider 值与上面两个受支持类名之一完全一致；`DefaultAWSCredentialsProviderChain` 和 `ContainerCredentialsProvider` 不是有效的 S3File 配置值。
+- `ClassNotFoundException`：确认本文依赖章节列出的 Hadoop/AWS jar 已加载到每个运行节点。
 - `403 AccessDenied`：检查 IAM role/policy 是否对 bucket/prefix 具备权限。
 
 ### custom_filename [boolean]

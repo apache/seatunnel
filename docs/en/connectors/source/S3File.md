@@ -195,7 +195,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                                                                    |
 | bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
-| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A (`fs.s3a.aws.credentials.provider`). SeaTunnel currently supports `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`. |
+| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`. Other provider class names are rejected during option parsing. |
 | read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                        |
 | access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | secret_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
@@ -227,29 +227,33 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 ### fs.s3a.aws.credentials.provider [string]
 
-SeaTunnel delegates S3 authentication to Hadoop S3A. This option is passed to Hadoop as `fs.s3a.aws.credentials.provider`.
+SeaTunnel passes this option to Hadoop S3A, but the S3File source and sink validate it before Hadoop is initialized. The currently supported values are:
 
-Supported values:
+- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
+- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
 
-```hocon
-fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-```
+Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are not accepted by the current S3File connector.
+
+#### Container environments (Kubernetes/ECS/EKS)
+
+For SeaTunnel containers running on EC2-backed hosts, including EKS nodes, use the EC2 instance profile provider to avoid putting access keys in the job configuration:
 
 ```hocon
 fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
 ```
 
-Container credential providers (for example `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`, `com.amazonaws.auth.ContainerCredentialsProvider`) are not supported by this connector option currently.
+Grant the node instance profile only the required bucket and prefix permissions. Be aware that every workload able to use that node role may receive the same permissions.
 
-If you use SeaTunnel Zeta, make sure the required Hadoop/AWS jars are present on the runtime classpath (see the Dependency section in this document). If you use Spark/Flink, make sure the cluster classpath includes the same jars.
+ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity credential providers. Those providers are not directly supported by the S3File source and sink today. If an instance profile is not suitable, the current compatibility fallback is `SimpleAWSCredentialsProvider`: inject basic access and secret keys at deployment time through SeaTunnel [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a limited static-credential path, not workload identity; it does not support STS session credentials, and the values still enter the rendered configuration or process environment. Prefer adding connector support for the platform provider before production use. If static keys are unavoidable, grant least privilege, rotate them regularly, and never commit rendered credentials to source control.
 
 #### Passing extra S3A options
 
-Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options when needed.
+Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options when needed. It cannot be used to select an unsupported credential provider: the top-level `fs.s3a.aws.credentials.provider` option is applied after this map and overrides the same key.
 
 #### Troubleshooting
 
-- `Factory initialize failed` / `ClassNotFoundException`: verify Hadoop/AWS jars are loaded and the provider class name is correct.
+- `Factory initialize failed` or an option-conversion error: verify that the provider value is exactly one of the two supported class names above. `DefaultAWSCredentialsProviderChain` and `ContainerCredentialsProvider` are not valid S3File values.
+- `ClassNotFoundException`: verify the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
 - `403 AccessDenied`: verify the IAM role/policy has permissions to the bucket and prefix.
 
 ### file_format_type [string]

@@ -133,7 +133,7 @@ seatunnel:
                 plugin-config:
                   namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   storage.type: s3
-                  s3.bucket: your-bucket
+                  s3.bucket: s3a://your-bucket
                   fs.s3a.access.key: your-access-key
                   fs.s3a.secret.key: your-secret-key
                   fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -157,12 +157,12 @@ seatunnel:
         plugin-config:
           namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
 
-If you run SeaTunnel in container environments (Kubernetes/ECS/EKS) and want to avoid hardcoding long-lived access keys in config, you can use the AWS SDK v1 default credential chain and let the runtime provide short-lived credentials (task role, IRSA, etc.):
+Checkpoint storage differs from the S3File source and sink: the values under `plugin-config` are passed to Hadoop configuration without the S3File provider enum restriction. With the AWS SDK v1 classes bundled by the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance-profile credentials. For ECS task roles, you can also select the container provider explicitly:
 
 ```yaml
 
@@ -177,12 +177,16 @@ seatunnel:
         plugin-config:
           namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
 ```
 
-If you hit errors such as `Factory initialize failed` / `ClassNotFoundException`, verify the credential provider class is available on the runtime classpath and the required Hadoop/AWS jars are loaded.
+For EC2-backed Kubernetes or EKS nodes, use `com.amazonaws.auth.InstanceProfileCredentialsProvider` as shown above and grant the node role only the required bucket and prefix permissions.
+
+The bundled AWS SDK v1 version does not include `WebIdentityTokenCredentialsProvider`, so EKS IRSA is not supported by the current checkpoint-storage dependency set. Do not configure an IRSA provider unless the runtime dependencies have been upgraded and verified together.
+
+If you hit errors such as `Factory initialize failed` / `ClassNotFoundException`, verify the provider class name and confirm that the required Hadoop/AWS jars are loaded on every master and worker that accesses checkpoint storage.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 
