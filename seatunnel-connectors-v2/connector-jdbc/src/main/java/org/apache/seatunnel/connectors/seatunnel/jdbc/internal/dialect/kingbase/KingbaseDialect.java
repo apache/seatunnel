@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.kingbase.KingbaseCatalog;
@@ -36,6 +38,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KingbaseDialect implements JdbcDialect {
+
+    /** Kingbase (PostgreSQL-compatible) FILLFACTOR legal range (inclusive): 10-100. */
+    private static final int FILLFACTOR_MIN = 10;
+
+    private static final int FILLFACTOR_MAX = 100;
 
     private static final Set<String> SUPPORTED_TABLE_OPTIONS =
             Collections.unmodifiableSet(
@@ -138,6 +145,66 @@ public class KingbaseDialect implements JdbcDialect {
                             dialectName(),
                             String.join(", ", unsupportedOptions),
                             String.join(", ", SUPPORTED_TABLE_OPTIONS)));
+        }
+
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (StringUtils.isBlank(value)) {
+                throw new JdbcConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "Invalid JDBC table_options for dialect '%s': key '%s' must not be blank",
+                                dialectName(), key));
+            }
+            String trimmed = value.trim();
+            if (KingbaseCatalog.TABLE_OPTION_FILLFACTOR.equals(key)) {
+                validateFillfactor(trimmed);
+            } else if (KingbaseCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
+                validateTablespace(trimmed);
+            }
+        }
+    }
+
+    private void validateFillfactor(String value) {
+        int fillfactor;
+        try {
+            fillfactor = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            KingbaseCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+        if (fillfactor < FILLFACTOR_MIN || fillfactor > FILLFACTOR_MAX) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            KingbaseCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+    }
+
+    private void validateTablespace(String value) {
+        // Always emitted as TABLESPACE "...", so reject quote / control chars that break DDL.
+        if (value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0
+                || value.indexOf(';') >= 0) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                            dialectName(), KingbaseCatalog.TABLE_OPTION_TABLESPACE, value));
         }
     }
 }
