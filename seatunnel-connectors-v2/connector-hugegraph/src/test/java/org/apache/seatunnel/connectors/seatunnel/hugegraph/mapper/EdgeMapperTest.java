@@ -19,11 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Locks the HugeGraph server-side 5-part EdgeId format used on DELETE. Regressions here silently
- * target the wrong edge (or none), so the exact layout is pinned by these assertions.
+ * target the wrong edge (or none), so the exact layout is pinned by these assertions. Expected
+ * strings were captured from HugeGraph's own {@code SplicingIdGenerator} (client 1.5.0).
  */
 class EdgeMapperTest {
 
@@ -31,23 +36,56 @@ class EdgeMapperTest {
     void testSingleFrequencyStringEndpoints() {
         // {S}{owner}>{labelId}>{subLabelId}>{sortValues=empty}>{S}{other}
         assertEquals(
-                "S1:marko>1>1>>S1:david", EdgeMapper.spliceEdgeId("1:marko", "1:david", "1", ""));
+                "S1:marko>1>1>>S1:david",
+                EdgeMapper.spliceEdgeId("1:marko", "1:david", "1", Collections.emptyList()));
     }
 
     @Test
     void testMultipleFrequencyPopulatesSortValuesSegment() {
         assertEquals(
                 "S1:bob>2>2>2024-01-01>S3:proj",
-                EdgeMapper.spliceEdgeId("1:bob", "3:proj", "2", "2024-01-01"));
+                EdgeMapper.spliceEdgeId(
+                        "1:bob", "3:proj", "2", Collections.singletonList("2024-01-01")));
     }
 
     @Test
     void testNumberEndpointsUseLPrefix() {
-        assertEquals("L123>5>5>>L456", EdgeMapper.spliceEdgeId(123L, 456L, "5", ""));
+        assertEquals(
+                "L123>5>5>>L456",
+                EdgeMapper.spliceEdgeId(123L, 456L, "5", Collections.emptyList()));
+    }
+
+    @Test
+    void testUuidEndpointsUseUPrefix() {
+        UUID src = UUID.fromString("12345678-1234-1234-1234-123456789abc");
+        UUID tgt = UUID.fromString("87654321-4321-4321-4321-cba987654321");
+        assertEquals(
+                "U12345678-1234-1234-1234-123456789abc>9>9>>U87654321-4321-4321-4321-cba987654321",
+                EdgeMapper.spliceEdgeId(src, tgt, "9", Collections.emptyList()));
     }
 
     @Test
     void testCompositeSortValuesJoinedByBang() {
-        assertEquals("S1:a>7>7>x!y>S1:b", EdgeMapper.spliceEdgeId("1:a", "1:b", "7", "x!y"));
+        assertEquals(
+                "S1:a>7>7>x!y>S1:b",
+                EdgeMapper.spliceEdgeId("1:a", "1:b", "7", Arrays.asList("x", "y")));
+    }
+
+    @Test
+    void testSortValueContainingSeparatorIsEscaped() {
+        // A single sort value that literally contains '!' must be backtick-escaped so it is not
+        // read back as two values.
+        assertEquals(
+                "S1:a>7>7>x`!y>S1:b",
+                EdgeMapper.spliceEdgeId("1:a", "1:b", "7", Collections.singletonList("x!y")));
+    }
+
+    @Test
+    void testVertexIdContainingSeparatorIsEscaped() {
+        // A vertex id that contains the segment separator '>' must be backtick-escaped so the id
+        // still parses into the correct 5 segments.
+        assertEquals(
+                "S1:a`>b>7>7>>S1:c",
+                EdgeMapper.spliceEdgeId("1:a>b", "1:c", "7", Collections.emptyList()));
     }
 }

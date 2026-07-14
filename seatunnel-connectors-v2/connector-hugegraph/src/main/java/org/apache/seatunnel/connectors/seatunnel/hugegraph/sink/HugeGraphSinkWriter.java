@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -48,7 +49,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HugeGraphSinkWriter.class);
 
@@ -241,7 +243,7 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 }
                 GraphElementEnvelope envelope =
                         new GraphElementEnvelope(
-                                entry.config.getLabel(), entry.config.getType(), row, element);
+                                entry.config.getLabel(), entry.config.getType(), element);
                 if (entry.config.getType() == LabelType.VERTEX) {
                     vertexEnvelopes.add(envelope);
                 } else {

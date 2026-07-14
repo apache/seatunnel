@@ -64,6 +64,10 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
                         HugeGraphOptions.PASSWORD,
+                        // Accepted only so the shared connection config can emit the actionable
+                        // migration error; leaving it out makes ConfigValidator reject it as an
+                        // unknown option first, hiding that message.
+                        HugeGraphOptions.GRAPH_SPACE,
                         HugeGraphOptions.MAX_RETRIES,
                         HugeGraphOptions.RETRY_BACKOFF_MS)
                 .build();

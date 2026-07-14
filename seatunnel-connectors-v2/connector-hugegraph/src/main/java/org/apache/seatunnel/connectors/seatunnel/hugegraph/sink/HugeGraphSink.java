@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -32,7 +33,8 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.SchemaValidator
 import java.io.IOException;
 import java.util.Optional;
 
-public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private final HugeGraphSinkConfig config;
     private final CatalogTable catalogTable;

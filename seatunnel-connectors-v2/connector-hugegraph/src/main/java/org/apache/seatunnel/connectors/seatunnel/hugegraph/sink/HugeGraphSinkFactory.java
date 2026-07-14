@@ -50,7 +50,10 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                 .optional(
                         HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
-                        HugeGraphOptions.PASSWORD)
+                        HugeGraphOptions.PASSWORD,
+                        // Accepted only so the shared connection config can emit the actionable
+                        // migration error rather than a generic unknown-option rejection.
+                        HugeGraphOptions.GRAPH_SPACE)
                 // mapping config: mappings (new) or schema_config (legacy)
                 .optional(HugeGraphSinkOptions.MAPPINGS, HugeGraphSinkOptions.SCHEMA_CONFIG)
                 // schema management

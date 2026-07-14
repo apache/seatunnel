@@ -25,12 +25,14 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
 
+import org.apache.hugegraph.serializer.direct.util.SplicingIdGenerator;
 import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -266,8 +268,8 @@ public class EdgeMapper implements GraphDataMapper {
      *
      * <p>For general (non-hierarchical) edge labels the sub-label ID equals the edge label ID, so
      * the label ID appears twice. SINGLE frequency edges have an empty sortValues segment; MULTIPLE
-     * frequency uses the sortKeys values. Vertex IDs are prefixed with 'S' for String IDs and 'L'
-     * for Number IDs.
+     * frequency uses the sortKeys values. Vertex IDs are prefixed with 'S' for String IDs, 'L' for
+     * Number IDs, and 'U' for UUID IDs.
      */
     @Override
     public Object extractId(SeaTunnelRow row) {
@@ -283,29 +285,49 @@ public class EdgeMapper implements GraphDataMapper {
 
     /**
      * Splices the HugeGraph server-side 5-part EdgeId. Package-private and static so the
-     * format-sensitive layout (S/L prefix, doubled label id for the sub-label segment, sortValues
-     * segment) is unit-testable without a live server — this is the DELETE-correctness path.
+     * format-sensitive layout (vertex-id prefix, doubled label id for the sub-label segment,
+     * sortValues segment) is unit-testable without a live server — this is the DELETE-correctness
+     * path.
+     *
+     * <p>Uses HugeGraph's own {@link SplicingIdGenerator} so the encoding matches the server:
+     * {@code concat} joins the five segments with {@code '>'} and backtick-escapes any {@code '>'}
+     * inside a segment; {@code concatValues} joins the sort-key values with {@code '!'} and
+     * backtick-escapes any {@code '!'}. Vertex ids carry the type prefix HugeGraph expects: {@code
+     * 'L'} for numbers, {@code 'U'} for UUIDs, {@code 'S'} for strings.
      */
     static String spliceEdgeId(
-            Object sourceId, Object targetId, String labelId, String sortValues) {
-        String sourcePrefix = (sourceId instanceof Number) ? "L" : "S";
-        String targetPrefix = (targetId instanceof Number) ? "L" : "S";
-        return String.format(
-                "%s%s>%s>%s>%s>%s%s",
-                sourcePrefix, sourceId, labelId, labelId, sortValues, targetPrefix, targetId);
+            Object sourceId, Object targetId, String labelId, List<Object> sortValues) {
+        String sort =
+                (sortValues == null || sortValues.isEmpty())
+                        ? ""
+                        : SplicingIdGenerator.concatValues(sortValues);
+        return SplicingIdGenerator.concat(
+                vertexIdString(sourceId), labelId, labelId, sort, vertexIdString(targetId));
     }
 
-    private String getSortKeyValues(SeaTunnelRow row) {
+    /** Prepends the HugeGraph vertex-id type prefix: 'L' number, 'U' UUID, 'S' string. */
+    private static String vertexIdString(Object id) {
+        String prefix;
+        if (id instanceof Number) {
+            prefix = "L";
+        } else if (id instanceof UUID) {
+            prefix = "U";
+        } else {
+            prefix = "S";
+        }
+        return prefix + id;
+    }
+
+    private List<Object> getSortKeyValues(SeaTunnelRow row) {
         Frequency frequency = mappingConfig.getFrequency();
         if (frequency == null || frequency == Frequency.SINGLE) {
-            return "";
+            return Collections.emptyList();
         }
         List<String> sortKeys = mappingConfig.getSortKeys();
         if (sortKeys.isEmpty()) {
-            return "";
+            return Collections.emptyList();
         }
-        List<Object> skValues = getFieldValues(row, sortKeys);
-        return skValues.stream().map(Object::toString).collect(Collectors.joining("!"));
+        return getFieldValues(row, sortKeys);
     }
 
     private boolean isConsideredNull(Object value) {
@@ -325,8 +347,9 @@ public class EdgeMapper implements GraphDataMapper {
     }
 
     private String spliceVertexId(String vertexLabelId, List<Object> primaryValues) {
-        String joinedValues =
-                primaryValues.stream().map(Object::toString).collect(Collectors.joining("!"));
-        return String.format("%s:%s", vertexLabelId, joinedValues);
+        // HugeGraph primary-key vertex id = {vertexLabelId}:{concatValues(pk)}; concatValues joins
+        // with '!' and backtick-escapes any '!' so pk values containing the separator still match.
+        return String.format(
+                "%s:%s", vertexLabelId, SplicingIdGenerator.concatValues(primaryValues));
     }
 }

@@ -176,11 +176,16 @@ public class BatchBuffer implements AutoCloseable {
     }
 
     static String formatFailureDiagnostic(GraphElementEnvelope envelope, Exception failure) {
+        // Log only the mapped graph element's id/label — bounded and non-sensitive. The raw source
+        // row is intentionally not retained (see GraphElementEnvelope) to avoid unbounded memory
+        // and
+        // leaking excluded field content into logs.
         return String.format(
-                "mapping=%s, elementType=%s, sourceRow=%s, failureType=%s, serverError=%s",
+                "mapping=%s, elementType=%s, elementId=%s, elementLabel=%s, failureType=%s, serverError=%s",
                 envelope.getMappingLabel(),
                 envelope.getElementType(),
-                envelope.getSourceRow(),
+                envelope.getElement() == null ? null : envelope.getElement().id(),
+                envelope.getElement() == null ? null : envelope.getElement().label(),
                 failure.getClass().getName(),
                 failure.getMessage());
     }

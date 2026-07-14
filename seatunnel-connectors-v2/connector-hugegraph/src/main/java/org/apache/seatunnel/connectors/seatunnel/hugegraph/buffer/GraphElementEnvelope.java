@@ -17,27 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.buffer;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 
 import org.apache.hugegraph.structure.GraphElement;
 
-/** Wraps a graph element with non-sensitive mapping context for failure diagnostics. */
+/**
+ * Wraps a graph element with non-sensitive mapping context for failure diagnostics.
+ *
+ * <p>Deliberately does NOT retain the source {@link
+ * org.apache.seatunnel.api.table.type.SeaTunnelRow}: only the mapped {@link GraphElement} is ever
+ * sent, and envelopes stay alive until the batch is flushed (by size/timer/checkpoint/close).
+ * Keeping the raw row would pin fields that were excluded by {@code mapping.properties} (e.g. large
+ * BYTES payloads) in memory for the whole batch and leak their content into failure logs.
+ */
 public class GraphElementEnvelope {
 
     private final String mappingLabel;
     private final LabelType elementType;
-    private final SeaTunnelRow sourceRow;
     private final GraphElement element;
 
-    public GraphElementEnvelope(
-            String mappingLabel,
-            LabelType elementType,
-            SeaTunnelRow sourceRow,
-            GraphElement element) {
+    public GraphElementEnvelope(String mappingLabel, LabelType elementType, GraphElement element) {
         this.mappingLabel = mappingLabel;
         this.elementType = elementType;
-        this.sourceRow = sourceRow;
         this.element = element;
     }
 
@@ -47,10 +48,6 @@ public class GraphElementEnvelope {
 
     public LabelType getElementType() {
         return elementType;
-    }
-
-    public SeaTunnelRow getSourceRow() {
-        return sourceRow;
     }
 
     public GraphElement getElement() {
