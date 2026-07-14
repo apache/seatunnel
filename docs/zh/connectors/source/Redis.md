@@ -154,10 +154,9 @@ keys 模式
 
 默认值为 `false`，也就是只读取 value。
 
-如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，需要同时配置：
+如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，必须配置 `single_field_name`，指定 Redis value 写入哪一列。`key_field_name` 是可选项，默认字段名为 `key`。
 
-- `key_field_name`：Redis key 写入哪一列。
-- `single_field_name`：Redis value 写入哪一列。
+配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
 
 示例：
 

@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -63,9 +65,12 @@ import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.VectorType.VECTOR_FLOAT_TYPE;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
 
@@ -575,6 +580,36 @@ public class JsonRowDataSerDeSchemaTest {
         JsonNode keyMapNode = JsonUtils.stringToJsonNode(payload);
         Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode, fieldName);
         assertEquals(expect, keyMap.keySet().iterator().next());
+    }
+
+    @Test
+    public void testFloatVectorConverter() throws JsonProcessingException {
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+        JsonToRowConverters.JsonToObjectConverter converter =
+                converters.createConverter(VECTOR_FLOAT_TYPE);
+
+        ByteBuffer result =
+                (ByteBuffer)
+                        converter.convert(
+                                JsonUtils.stringToJsonNode("[0.1, 0.2, 0.3, 0.4]"), "vector");
+
+        assertArrayEquals(new Float[] {0.1f, 0.2f, 0.3f, 0.4f}, VectorUtils.toFloatArray(result));
+    }
+
+    @Test
+    public void testFloatVectorConverterRejectsInvalidElement() throws JsonProcessingException {
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+        JsonToRowConverters.JsonToObjectConverter converter =
+                converters.createConverter(VECTOR_FLOAT_TYPE);
+
+        SeaTunnelJsonFormatException exception =
+                assertThrows(
+                        SeaTunnelJsonFormatException.class,
+                        () ->
+                                converter.convert(
+                                        JsonUtils.stringToJsonNode("[0.1, null]"), "vector"));
+
+        assertTrue(exception.getMessage().contains("element at index 1"));
     }
 
     @Test
