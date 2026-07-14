@@ -67,6 +67,11 @@ public class PostgresDialect implements JdbcDialect {
     private static final long serialVersionUID = -5834746193472465218L;
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
 
+    /** PostgreSQL FILLFACTOR legal range (inclusive): 10-100. */
+    private static final int FILLFACTOR_MIN = 10;
+
+    private static final int FILLFACTOR_MAX = 100;
+
     private static final Set<String> SUPPORTED_TABLE_OPTIONS =
             Collections.unmodifiableSet(
                     new LinkedHashSet<>(
@@ -491,6 +496,66 @@ public class PostgresDialect implements JdbcDialect {
                             dialectName(),
                             String.join(", ", unsupportedOptions),
                             String.join(", ", SUPPORTED_TABLE_OPTIONS)));
+        }
+
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (StringUtils.isBlank(value)) {
+                throw new JdbcConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "Invalid JDBC table_options for dialect '%s': key '%s' must not be blank",
+                                dialectName(), key));
+            }
+            String trimmed = value.trim();
+            if (PostgresCatalog.TABLE_OPTION_FILLFACTOR.equals(key)) {
+                validateFillfactor(trimmed);
+            } else if (PostgresCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
+                validateTablespace(trimmed);
+            }
+        }
+    }
+
+    private void validateFillfactor(String value) {
+        int fillfactor;
+        try {
+            fillfactor = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            PostgresCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+        if (fillfactor < FILLFACTOR_MIN || fillfactor > FILLFACTOR_MAX) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            dialectName(),
+                            PostgresCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+    }
+
+    private void validateTablespace(String value) {
+        // Always emitted as TABLESPACE "...", so reject quote / control chars that break DDL.
+        if (value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0
+                || value.indexOf(';') >= 0) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                            dialectName(), PostgresCatalog.TABLE_OPTION_TABLESPACE, value));
         }
     }
 }

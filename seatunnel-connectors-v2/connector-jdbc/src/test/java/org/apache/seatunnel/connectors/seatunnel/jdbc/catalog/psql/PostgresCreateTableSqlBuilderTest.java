@@ -112,6 +112,32 @@ class PostgresCreateTableSqlBuilderTest {
         Assertions.assertTrue(createTableSql.contains("TABLESPACE \"pg_default\""));
     }
 
+    @Test
+    void testBuildCreateTableSqlWithTableOptionsIgnoresFieldIde() {
+        CatalogTable catalogTable = catalogTable(false);
+        Map<String, String> options = new HashMap<>(catalogTable.getOptions());
+        options.put("fieldIde", "UPPERCASE");
+        options.put(PostgresCatalog.TABLE_OPTION_TABLESPACE, "pg_default");
+        options.put(PostgresCatalog.TABLE_OPTION_FILLFACTOR, "70");
+        CatalogTable tableWithOptions =
+                CatalogTable.of(
+                        catalogTable.getTableId(),
+                        catalogTable.getTableSchema(),
+                        options,
+                        catalogTable.getPartitionKeys(),
+                        catalogTable.getComment());
+
+        String createTableSql =
+                new PostgresCreateTableSqlBuilder(tableWithOptions, false)
+                        .build(tableWithOptions.getTableId().toTablePath());
+
+        Assertions.assertTrue(createTableSql.contains("WITH (fillfactor=70)"));
+        Assertions.assertTrue(
+                createTableSql.contains("TABLESPACE \"pg_default\""),
+                "tablespace must not be rewritten by fieldIde; got: " + createTableSql);
+        Assertions.assertFalse(createTableSql.contains("TABLESPACE \"PG_DEFAULT\""));
+    }
+
     private CatalogTable catalogTable(boolean otherDB) {
         TableIdentifier tableIdentifier =
                 TableIdentifier.of(

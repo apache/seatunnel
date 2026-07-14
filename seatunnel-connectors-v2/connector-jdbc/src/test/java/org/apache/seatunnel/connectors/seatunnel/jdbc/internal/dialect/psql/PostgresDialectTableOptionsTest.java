@@ -39,6 +39,15 @@ public class PostgresDialectTableOptionsTest {
     }
 
     @Test
+    public void testValidateTableOptionsFillfactorBoundary() {
+        PostgresDialect dialect = new PostgresDialect();
+        Assertions.assertDoesNotThrow(
+                () -> dialect.validateTableOptions(Collections.singletonMap("fillfactor", "10")));
+        Assertions.assertDoesNotThrow(
+                () -> dialect.validateTableOptions(Collections.singletonMap("fillfactor", "100")));
+    }
+
+    @Test
     public void testValidateTableOptionsWithUnknownKey() {
         PostgresDialect dialect = new PostgresDialect();
 
@@ -50,5 +59,68 @@ public class PostgresDialectTableOptionsTest {
                                         Collections.singletonMap("engine", "InnoDB")));
         Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
         Assertions.assertTrue(exception.getMessage().contains("Postgres"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectBlankValues() {
+        PostgresDialect dialect = new PostgresDialect();
+
+        JdbcConnectorException blankTablespace =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("tablespace", " ")));
+        Assertions.assertTrue(blankTablespace.getMessage().contains("must not be blank"));
+
+        JdbcConnectorException blankFillfactor =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("fillfactor", " ")));
+        Assertions.assertTrue(blankFillfactor.getMessage().contains("must not be blank"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectInvalidFillfactor() {
+        PostgresDialect dialect = new PostgresDialect();
+
+        JdbcConnectorException nonNumeric =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("fillfactor", "abc")));
+        Assertions.assertTrue(nonNumeric.getMessage().contains("must be an integer between"));
+
+        JdbcConnectorException tooLow =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("fillfactor", "9")));
+        Assertions.assertTrue(tooLow.getMessage().contains("must be an integer between"));
+
+        JdbcConnectorException tooHigh =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("fillfactor", "101")));
+        Assertions.assertTrue(tooHigh.getMessage().contains("must be an integer between"));
+    }
+
+    @Test
+    public void testValidateTableOptionsRejectIllegalTablespace() {
+        PostgresDialect dialect = new PostgresDialect();
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                dialect.validateTableOptions(
+                                        Collections.singletonMap("tablespace", "pg_\"default\"")));
+        Assertions.assertTrue(exception.getMessage().contains("illegal characters"));
     }
 }

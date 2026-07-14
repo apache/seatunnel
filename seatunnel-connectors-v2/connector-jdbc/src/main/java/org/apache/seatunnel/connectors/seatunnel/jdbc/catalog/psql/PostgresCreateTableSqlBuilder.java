@@ -112,12 +112,13 @@ public class PostgresCreateTableSqlBuilder {
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
         if (StringUtils.isNotBlank(fillfactor)) {
-            createTableSql.append("\nWITH (fillfactor=").append(fillfactor).append(")");
+            // Value is validated as 10-100 by PostgresDialect.validateTableOptions.
+            createTableSql.append("\nWITH (fillfactor=").append(fillfactor.trim()).append(")");
         }
         if (StringUtils.isNotBlank(tablespace)) {
-            createTableSql
-                    .append("\nTABLESPACE ")
-                    .append(CatalogUtils.quoteIdentifier(tablespace, fieldIde, "\""));
+            // Tablespace is a storage object name: quote literally, do NOT apply fieldIde
+            // case rewriting (that policy is only for table/column identifiers).
+            createTableSql.append("\nTABLESPACE \"").append(tablespace.trim()).append("\"");
         }
         createTableSql.append(";");
 
