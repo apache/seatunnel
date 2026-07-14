@@ -99,10 +99,13 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         createTableSql.append("\n)");
         List<String> storageItems = new ArrayList<>();
         if (StringUtils.isNotBlank(fillfactor)) {
-            storageItems.add("FILLFACTOR " + fillfactor);
+            // Value is validated as 0-100 by DmdbDialect.validateTableOptions.
+            storageItems.add("FILLFACTOR " + fillfactor.trim());
         }
         if (StringUtils.isNotBlank(tablespace)) {
-            storageItems.add("ON " + CatalogUtils.quoteIdentifier(tablespace, fieldIde, "\""));
+            // Tablespace is a storage object name: quote literally, do NOT apply fieldIde
+            // case rewriting (that policy is only for table/column identifiers).
+            storageItems.add("ON \"" + tablespace.trim() + "\"");
         }
         if (!storageItems.isEmpty()) {
             createTableSql
