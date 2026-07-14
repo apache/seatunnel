@@ -29,7 +29,12 @@ import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
@@ -310,6 +315,48 @@ public class SeaTunnelConfValidateCommandTest {
                 "Actual: " + exception.getMessage());
     }
 
+    @Test
+    public void testConnectDryRunSourceConnectionFailureSanitizesSensitiveJdbcUrl()
+            throws Exception {
+        Path configFile =
+                Files.createTempFile("seatunnel-sensitive-dryrun-connect-failure", ".conf");
+        Files.write(
+                configFile,
+                ("source {\n"
+                                + "  DryRunTestSource { sensitive_connection_failure = true }\n"
+                                + "}\n"
+                                + "sink {\n"
+                                + "  InMemory {}\n"
+                                + "}")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        ClientCommandArgs args = buildConnectArgsFromPath(configFile.toString());
+        SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+
+        ConfigCheckException exception =
+                Assertions.assertThrows(ConfigCheckException.class, command::execute);
+        String message = exception.getMessage();
+        Assertions.assertTrue(
+                message.contains("source[0](DryRunTestSource)"),
+                "Error must carry the plugin location. Actual: " + message);
+        Assertions.assertTrue(
+                message.contains("the configured JDBC URL"),
+                "Error should keep a useful sanitized JDBC failure hint. Actual: " + message);
+        Assertions.assertFalse(message.contains("alice:secret-password@"), "Actual: " + message);
+        Assertions.assertFalse(message.contains("secret-password"), "Actual: " + message);
+        Assertions.assertFalse(message.contains("secret-token"), "Actual: " + message);
+        Assertions.assertFalse(message.contains("token=secret-token"), "Actual: " + message);
+
+        StringWriter stackTrace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(stackTrace));
+        Assertions.assertFalse(stackTrace.toString().contains("jdbc:"), stackTrace.toString());
+        Assertions.assertFalse(
+                stackTrace.toString().contains("secret-password"), stackTrace.toString());
+        Assertions.assertFalse(
+                stackTrace.toString().contains("secret-token"), stackTrace.toString());
+    }
+
     private List<DryRunConnectValidator.PluginResult> runConnectValidator(String configFile) {
         Config config = ConfigBuilder.of(Paths.get(resolveConfigPath(configFile)));
         return runConnectValidator(config);
@@ -455,7 +502,11 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     private ClientCommandArgs buildConnectArgs(String configFile) {
-        String[] args = {"-c", resolveConfigPath(configFile), "--dry-run", "connect"};
+        return buildConnectArgsFromPath(resolveConfigPath(configFile));
+    }
+
+    private ClientCommandArgs buildConnectArgsFromPath(String configPath) {
+        String[] args = {"-c", configPath, "--dry-run", "connect"};
         return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 

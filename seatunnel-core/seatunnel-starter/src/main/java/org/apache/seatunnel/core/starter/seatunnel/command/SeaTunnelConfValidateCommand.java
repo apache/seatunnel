@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
@@ -177,7 +178,12 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                     clientCommandArgs.getDryRun() == DryRun.CONNECT
                             ? "Connectivity check"
                             : "Static analysis";
-            throw new ConfigCheckException(validationMode + " failed: " + e.getMessage(), e);
+            String message = e.getMessage();
+            if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
+                message = DryRunConnectFailureMessageSanitizer.sanitize(message);
+                throw new ConfigCheckException(validationMode + " failed: " + message);
+            }
+            throw new ConfigCheckException(validationMode + " failed: " + message, e);
         }
     }
 

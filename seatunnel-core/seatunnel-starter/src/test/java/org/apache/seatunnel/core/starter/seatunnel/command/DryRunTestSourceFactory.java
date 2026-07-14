@@ -44,6 +44,8 @@ public class DryRunTestSourceFactory implements TableSourceFactory, SupportSourc
             Options.key("empty_schema").booleanType().defaultValue(false);
     static final Option<Boolean> FAIL_CONNECTION =
             Options.key("fail_connection").booleanType().defaultValue(false);
+    static final Option<Boolean> SENSITIVE_CONNECTION_FAILURE =
+            Options.key("sensitive_connection_failure").booleanType().defaultValue(false);
 
     @Override
     public String factoryIdentifier() {
@@ -52,7 +54,9 @@ public class DryRunTestSourceFactory implements TableSourceFactory, SupportSourc
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().optional(EMPTY_SCHEMA, FAIL_CONNECTION).build();
+        return OptionRule.builder()
+                .optional(EMPTY_SCHEMA, FAIL_CONNECTION, SENSITIVE_CONNECTION_FAILURE)
+                .build();
     }
 
     @Override
@@ -77,6 +81,12 @@ public class DryRunTestSourceFactory implements TableSourceFactory, SupportSourc
             TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
         if (context.getOptions().get(FAIL_CONNECTION)) {
             throw new IllegalStateException("simulated connection failure: invalid credentials");
+        }
+        if (context.getOptions().get(SENSITIVE_CONNECTION_FAILURE)) {
+            throw new IllegalStateException(
+                    "No suitable driver found for "
+                            + "jdbc:mysql://alice:secret-password@db.example.com:3306/orders?"
+                            + "token=secret-token");
         }
     }
 }

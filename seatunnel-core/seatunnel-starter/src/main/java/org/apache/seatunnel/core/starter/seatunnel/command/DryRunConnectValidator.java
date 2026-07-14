@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.engine.core.parse.ConfigParserUtil;
 
@@ -463,13 +464,14 @@ class DryRunConnectValidator {
 
     private ConfigCheckException wrap(
             PluginType pluginType, int configIndex, String factoryId, Exception e) {
+        String location = location(pluginType, configIndex, factoryId);
+        String sanitizedMessage = DryRunConnectFailureMessageSanitizer.sanitize(e.getMessage());
         if (e instanceof ConfigCheckException
-                && e.getMessage() != null
-                && e.getMessage().contains(location(pluginType, configIndex, factoryId))) {
-            return (ConfigCheckException) e;
+                && sanitizedMessage != null
+                && sanitizedMessage.contains(location)) {
+            return new ConfigCheckException(sanitizedMessage);
         }
-        return new ConfigCheckException(
-                location(pluginType, configIndex, factoryId) + " failed: " + e.getMessage(), e);
+        return new ConfigCheckException(location + " failed: " + sanitizedMessage);
     }
 
     private static String location(PluginType pluginType, int configIndex, String factoryId) {
