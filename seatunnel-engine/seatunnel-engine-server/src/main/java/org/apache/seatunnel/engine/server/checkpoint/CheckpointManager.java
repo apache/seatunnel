@@ -167,16 +167,28 @@ public class CheckpointManager {
             return checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
                     sourceJobId, pipelineId);
         }
-        CheckpointType targetType =
-                restoreMode == RestoreMode.CHECKPOINT
-                        ? CheckpointType.COMPLETED_POINT_TYPE
-                        : CheckpointType.SAVEPOINT_TYPE;
         List<PipelineState> pipelineStates =
                 checkpointStorage.getCheckpointsByJobIdAndPipelineId(sourceJobId, pipelineId);
         return pipelineStates.stream()
-                .filter(state -> deserializeCheckpoint(state).getCheckpointType() == targetType)
+                .filter(
+                        state ->
+                                matchesRestoreCheckpointType(
+                                        deserializeCheckpoint(state).getCheckpointType(),
+                                        restoreMode))
                 .max(Comparator.comparingLong(PipelineState::getCheckpointId))
                 .orElse(null);
+    }
+
+    private boolean matchesRestoreCheckpointType(
+            CheckpointType checkpointType, RestoreMode restoreMode) {
+        if (restoreMode == RestoreMode.CHECKPOINT) {
+            return checkpointType == CheckpointType.CHECKPOINT_TYPE
+                    || checkpointType == CheckpointType.COMPLETED_POINT_TYPE;
+        }
+        if (restoreMode == RestoreMode.SAVEPOINT) {
+            return checkpointType == CheckpointType.SAVEPOINT_TYPE;
+        }
+        return false;
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
