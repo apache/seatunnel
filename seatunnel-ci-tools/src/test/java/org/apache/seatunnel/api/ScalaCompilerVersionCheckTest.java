@@ -47,11 +47,17 @@ public class ScalaCompilerVersionCheckTest {
         Assertions.assertNotNull(
                 shadeScalaCompilerVersion,
                 "seatunnel.shade.scala-compiler.version property not found in root pom.xml");
+        String scalaBinaryVersion = scalaVersion.substring(0, scalaVersion.lastIndexOf('.'));
         Assertions.assertEquals(
-                scalaVersion,
+                scalaBinaryVersion,
                 shadeScalaCompilerVersion,
-                "seatunnel.shade.scala-compiler.version must equal scala.version. "
-                        + "If you bumped scala.version, update seatunnel.shade.scala-compiler.version to match.");
+                "seatunnel.shade.scala-compiler.version must match the binary version (major.minor) of scala.version. "
+                        + "scala.version is '"
+                        + scalaVersion
+                        + "', so seatunnel.shade.scala-compiler.version should be '"
+                        + scalaBinaryVersion
+                        + "'. "
+                        + "Update seatunnel.shade.scala-compiler.version when bumping scala.version.");
     }
 
     private Document parsePom(File pomFile) throws Exception {
