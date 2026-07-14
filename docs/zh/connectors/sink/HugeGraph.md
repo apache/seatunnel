@@ -34,7 +34,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `port`              | Integer | 是       | -      | HugeGraph服务器的端口。                                                |
 | `protocol`          | String  | 否       | `http` | 服务协议，支持 `http`、`https`。HTTPS 使用 JVM trust store。             |
 | `graph_name`        | String  | 是       | -      | 要写入的图的名称。                                                     |
-| `graph_space`       | String  | 否       | -      | 当前 HugeGraph client 依赖不支持该参数。设置该参数时 connector 会 fail-fast。 |
+| `graph_space`       | String  | 否       | `DEFAULT` | 图所属的图空间（graph space）。 |
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
@@ -73,7 +73,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `sourceConfig`     | Object              | 对于边   | -       | 定义边的源顶点映射。请参阅下面的 `Source/Target Config`。 |
 | `targetConfig`     | Object              | 对于边   | -       | 定义边的目标顶点映射。请参阅下面的 `Source/Target Config`。 |
 | `frequency`        | String              | 对于边   | -       | 边频率，例如 `SINGLE`、`MULTIPLE`。 |
-| `sortKeys`         | `List<String>`        | 对于边   | -       | 对相同源点和目标点之间的多条边排序的属性键。当 `frequency = MULTIPLE` 时必填。 |
+| `sortKeys`         | `List<String>`        | 对于边   | -       | **输入行中的源字段名**（映射前、即 `fieldMapping` 应用之前的名字），用于区分相同源点和目标点之间的多条边。当 `frequency = MULTIPLE` 时必填。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `sortKeys = [event_time]`，而不是 `[created_at]`。 |
 | `fieldMapping`     | `Map<String, String>` | 否       | -       | 字段映射，key 为源字段名，value 为 HugeGraph 目标属性名。 |
 | `valueMapping`     | `Map<Object, Object>` | 否       | -       | 用于转换特定字段值的映射。 |
 | `nullableKeys`     | `List<String>`        | 否       | -       | 可以具有 null 值的属性键列表。 |
@@ -123,7 +123,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `nullValues`      | `List<String>`       | 否       | -            | 应被视为`null`的字符串值列表。任何包含这些值的字段都不会被写入。                                                                                                          |
 | `dateFormat`      | String             | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。                                                                                                                                            |
 | `timeZone`        | String             | 否       | `GMT+8`      | 用于日期解析的时区。                                                                                                                                                      |
-| `sortKeys`         | `List<String>`       | 对于边   | -            | 用于对具有相同源和目标顶点的边进行排序的属性键列表。                                                                                                                      |
+| `sortKeys`         | `List<String>`       | 对于边   | -            | **输入行中的源字段名**（`fieldMapping` 应用之前），用于区分相同源点和目标点之间的多条边。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `[event_time]`，而不是 `[created_at]`。                                                                                                                      |
 
 ## 支持的数据类型
 

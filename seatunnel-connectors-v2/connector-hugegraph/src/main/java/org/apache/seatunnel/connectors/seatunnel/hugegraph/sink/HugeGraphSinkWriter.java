@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,11 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final List<MappingEntry> mappingEntries;
     private final HugeGraphClient client;
     private final BatchBuffer buffer;
+
+    // Holds the UPDATE_BEFORE row until its paired UPDATE_AFTER arrives (changelog delivers them
+    // consecutively). Not checkpointed: on restart the source replays both rows, so at-least-once
+    // is preserved.
+    private SeaTunnelRow pendingUpdateBefore;
 
     public HugeGraphSinkWriter(HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType) {
         this(sinkConfig, rowType, new HugeGraphClient(sinkConfig.getConnectionConfig()));
@@ -208,12 +214,17 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 handleUpsert(row, false);
                 break;
             case UPDATE_AFTER:
-                handleUpsert(row, true);
+                handleUpdate(pendingUpdateBefore, row);
+                pendingUpdateBefore = null;
                 break;
             case DELETE:
                 handleDelete(row);
                 break;
             case UPDATE_BEFORE:
+                // Correlated with the immediately following UPDATE_AFTER (changelog contract) and
+                // handled together in handleUpdate, so a key-changing update deletes the
+                // pre-update element instead of leaving it orphaned.
+                pendingUpdateBefore = row;
                 break;
             default:
                 LOG.warn("Unsupported row kind: {}", row.getRowKind());
@@ -264,6 +275,98 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
         for (GraphElementEnvelope envelope : edgeEnvelopes) {
             buffer.add(envelope);
+        }
+    }
+
+    /**
+     * Applies a changelog update. The new element is always upserted; additionally, for any mapping
+     * whose element ID changed (vertex primary key, edge endpoint, or MULTIPLE-edge sort key), the
+     * pre-update element is deleted so a key-changing update does not leave the old vertex/edge
+     * orphaned. When the ID is unchanged no delete is issued, so the upsert alone updates the
+     * element in place and a vertex's adjacent edges are preserved.
+     */
+    private void handleUpdate(SeaTunnelRow before, SeaTunnelRow after) throws IOException {
+        if (before != null) {
+            deleteSupersededElements(before, after);
+        }
+        handleUpsert(after, true);
+    }
+
+    private void deleteSupersededElements(SeaTunnelRow before, SeaTunnelRow after) {
+        // Collect only the mappings whose ID actually changed; unchanged IDs need no delete (and
+        // must not be deleted, or a vertex's edges would be lost on an ordinary property update).
+        List<MappingEntry> changedEdges = new ArrayList<>();
+        List<MappingEntry> changedVertices = new ArrayList<>();
+        Map<MappingEntry, Object> supersededIds = new IdentityHashMap<>();
+
+        for (MappingEntry entry : mappingEntries) {
+            Object oldId;
+            Object newId;
+            try {
+                oldId = entry.mapper.extractId(before);
+                newId = entry.mapper.extractId(after);
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to compute graph element ID for update",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
+            }
+            if (oldId == null || oldId.equals(newId)) {
+                continue;
+            }
+            supersededIds.put(entry, oldId);
+            if (entry.config.getType() == LabelType.VERTEX) {
+                changedVertices.add(entry);
+            } else {
+                changedEdges.add(entry);
+            }
+        }
+
+        if (supersededIds.isEmpty()) {
+            return;
+        }
+
+        // Persist buffered upserts before issuing deletes (mirror handleDelete ordering).
+        try {
+            buffer.flush();
+        } catch (IOException e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    "Failed to flush buffer before UPDATE cleanup",
+                    e);
+        }
+
+        // Delete edges before vertices for topology safety (mirror handleDelete).
+        for (MappingEntry entry : changedEdges) {
+            try {
+                client.deleteEdge((String) supersededIds.get(entry));
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to delete superseded edge on update",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
+            }
+        }
+        for (MappingEntry entry : changedVertices) {
+            try {
+                Object oldId = supersededIds.get(entry);
+                if (sinkConfig.isDeleteVertexWithEdges()) {
+                    client.deleteVertexWithEdges(oldId);
+                } else {
+                    client.deleteVertex(oldId);
+                }
+            } catch (Exception e) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        String.format(
+                                "Mapping[%s/%s]: Failed to delete superseded vertex on update",
+                                entry.config.getType(), entry.config.getLabel()),
+                        e);
+            }
         }
     }
 

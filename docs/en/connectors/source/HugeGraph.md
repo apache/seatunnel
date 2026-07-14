@@ -29,7 +29,7 @@ V1 supports bounded full-label scans with a single reader. It reads either one v
 | `label_type`       | Enum    | No       | `VERTEX` | Label type. Supported values: `VERTEX`, `EDGE`. |
 | `page_size`        | Integer | No       | `1000`   | Number of records per HugeGraph page. Must be in range `[100, 10000]`. |
 | `time_zone`        | String  | No       | Worker JVM default | ZoneId used to convert HugeGraph DATE epoch values, for example `UTC` or `Asia/Shanghai`. Set it explicitly when workers may use different JVM time zones. |
-| `graph_space`      | String  | No       | -        | Not supported by the current HugeGraph client dependency. The connector fails fast if this option is set. |
+| `graph_space`      | String  | No       | `DEFAULT` | The graph space the graph belongs to. |
 | `username`         | String  | No       | -        | HugeGraph username. |
 | `password`         | String  | No       | -        | HugeGraph password. |
 | `max_retries`      | Integer | No       | `3`      | Retries after the initial attempt. Set to `0` to disable retries. |

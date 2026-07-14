@@ -29,7 +29,7 @@ V1 支持有界的全量标签扫描，使用单 Reader 读取一个顶点标签
 | `label_type`       | Enum    | 否       | `VERTEX` | 标签类型，支持 `VERTEX`、`EDGE`。 |
 | `page_size`        | Integer | 否       | `1000`   | 每页读取记录数，取值范围为 `[100, 10000]`。 |
 | `time_zone`        | String  | 否       | Worker JVM 默认时区 | HugeGraph DATE epoch 值转换使用的 ZoneId，例如 `UTC` 或 `Asia/Shanghai`。Worker JVM 时区可能不一致时应显式设置。 |
-| `graph_space`      | String  | 否       | -        | 当前 HugeGraph client 依赖不支持该参数。设置该参数时 connector 会 fail-fast。 |
+| `graph_space`      | String  | 否       | `DEFAULT` | 图所属的图空间（graph space）。 |
 | `username`         | String  | 否       | -        | HugeGraph 用户名。 |
 | `password`         | String  | 否       | -        | HugeGraph 密码。 |
 | `max_retries`      | Integer | 否       | `3`      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。 |

@@ -45,7 +45,9 @@ import java.util.stream.Stream;
 
 public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
 
-    private static final String HUGE_GRAPH_IMAGE = "hugegraph/hugegraph:1.5.0";
+    // Pinned to 1.7.0 to match the graph-space-aware client (REST paths are
+    // /graphspaces/{graphspace}/graphs/{graph}/...); a <1.7.0 server would 404 those paths.
+    private static final String HUGE_GRAPH_IMAGE = "hugegraph/hugegraph:1.7.0";
     private static final String HUGE_GRAPH_HOST = "hugegraph-host";
     private static final int HUGE_GRAPH_PORT = 8080;
     private static final String GRAPH_NAME = "hugegraph";
@@ -64,7 +66,9 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(HUGE_GRAPH_HOST)
                         .withExposedPorts(HUGE_GRAPH_PORT)
                         .waitingFor(
-                                Wait.forHttp("/graphs").forPort(HUGE_GRAPH_PORT).forStatusCode(200))
+                                Wait.forHttp("/graphspaces")
+                                        .forPort(HUGE_GRAPH_PORT)
+                                        .forStatusCode(200))
                         .withStartupTimeout(Duration.ofMinutes(3));
         Startables.deepStart(Stream.of(hugeGraphContainer)).join();
 

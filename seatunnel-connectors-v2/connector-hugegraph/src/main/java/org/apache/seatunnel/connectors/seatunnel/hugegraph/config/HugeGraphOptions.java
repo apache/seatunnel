@@ -48,8 +48,9 @@ public class HugeGraphOptions {
     public static final Option<String> GRAPH_SPACE =
             Options.key("graph_space")
                     .stringType()
-                    .noDefaultValue()
-                    .withDescription("The graph space of the graph to be operated on");
+                    .defaultValue("DEFAULT")
+                    .withDescription(
+                            "The graph space the graph belongs to. Defaults to 'DEFAULT'.");
 
     public static final Option<String> USERNAME =
             Options.key("username")

@@ -83,7 +83,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
             LOG.debug("Creating new HugeClient for url: {}, graph: {}", url, config.getGraphName());
 
             HugeClient client =
-                    HugeClient.builder(url, config.getGraphName())
+                    HugeClient.builder(url, config.getGraphSpace(), config.getGraphName())
                             .configUser(config.getUsername(), config.getPassword())
                             .configIdleTime(60)
                             .build();
@@ -158,8 +158,9 @@ public final class HugeGraphClient implements HugeGraphOperations {
                         .password(config.getPassword() == null ? "" : config.getPassword())
                         .build();
         this.restClient = new RestClient(url, restClientConfig);
-        this.vertexAPI = new VertexAPI(this.restClient, config.getGraphName());
-        this.edgeAPI = new EdgeAPI(this.restClient, config.getGraphName());
+        this.vertexAPI =
+                new VertexAPI(this.restClient, config.getGraphSpace(), config.getGraphName());
+        this.edgeAPI = new EdgeAPI(this.restClient, config.getGraphSpace(), config.getGraphName());
     }
 
     static String buildServerUrl(HugeGraphConnectionConfig config) {

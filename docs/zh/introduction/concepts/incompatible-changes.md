@@ -92,12 +92,6 @@
 
 ### 连接器变更
 
-- **破坏性变更：HugeGraph Connector — `graph_space` 现在会被拒绝**
-  - **影响范围**：`seatunnel-connectors-v2/connector-hugegraph`
-  - **变更说明**：HugeGraph connector 以前会接受 `graph_space` 参数，但不会把该参数传给 HugeGraph client，导致该配置静默无效。由于当前 connector 使用的 HugeGraph client 依赖不暴露支持 graph space 的客户端 API，现在配置 `graph_space` 时会快速失败。
-  - **影响**：HugeGraph Source 或 Sink 配置中包含 `graph_space` 的任务，会在配置解析阶段失败。
-  - **迁移指南**：在当前 connector 依赖下，请从 HugeGraph connector 配置中移除 `graph_space`。如果你的 HugeGraph 部署必须使用 graph space，请等待后续升级 HugeGraph client 依赖并显式支持 graph space API 的 connector 版本。
-
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
   - **变更说明**：当未显式配置 `iceberg.table.primary-keys` 时，`SchemaUtils.toIcebergSchema()`

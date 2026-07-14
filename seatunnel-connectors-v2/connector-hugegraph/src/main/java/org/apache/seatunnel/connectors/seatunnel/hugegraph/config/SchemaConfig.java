@@ -58,8 +58,10 @@ public class SchemaConfig implements Serializable {
     private SourceTargetConfig targetConfig;
     private Frequency frequency;
 
-    // Mapping Config (legacy nested object)
-    private LegacyMappingConfig mapping;
+    // Mapping Config (legacy nested object). Kept as MappingConfig to preserve the public
+    // getMapping()/setMapping() accessor descriptors of the previously released connector;
+    // MappingConfig already carries all the legacy nested fields.
+    private MappingConfig mapping;
 
     public enum LabelType {
         VERTEX,
@@ -71,17 +73,5 @@ public class SchemaConfig implements Serializable {
         private static final long serialVersionUID = 1L;
         private String label;
         private List<String> idFields;
-    }
-
-    @Data
-    public static class LegacyMappingConfig implements Serializable {
-        private static final long serialVersionUID = 1L;
-        private Map<String, String> fieldMapping;
-        private Map<Object, Object> valueMapping;
-        private List<String> nullableKeys;
-        private List<String> nullValues;
-        private List<String> sortKeys;
-        private String dateFormat;
-        private String timeZone;
     }
 }

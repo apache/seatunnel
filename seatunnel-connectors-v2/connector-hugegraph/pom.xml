@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : HugeGraph</name>
 
     <properties>
-        <hugegraph.client.version>1.5.0</hugegraph.client.version>
+        <hugegraph.client.version>1.7.0</hugegraph.client.version>
     </properties>
 
     <dependencies>
@@ -54,6 +54,25 @@
                 <exclusion>
                     <groupId>org.hamcrest</groupId>
                     <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+                <!-- The connector only uses the HTTP REST client (HugeClient.builder), not the
+                     distributed PD/HStore path, so drop the heavy PD + gRPC transitives that the
+                     1.7.0 client pulls in (~18MB of shaded jar). -->
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-grpc</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

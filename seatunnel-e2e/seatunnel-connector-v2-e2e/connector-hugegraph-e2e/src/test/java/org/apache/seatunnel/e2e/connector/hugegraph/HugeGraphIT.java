@@ -58,7 +58,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Testcontainers
 public class HugeGraphIT {
 
-    private static final String HUGE_GRAPH_IMAGE = "hugegraph/hugegraph:1.5.0";
+    // Pinned to 1.7.0 to match the graph-space-aware client (REST paths are
+    // /graphspaces/{graphspace}/graphs/{graph}/...); a <1.7.0 server would 404 those paths.
+    private static final String HUGE_GRAPH_IMAGE = "hugegraph/hugegraph:1.7.0";
     private static final String GRAPH_NAME = "hugegraph";
     private static final String VERTEX_LABEL = "person";
     private static final SeaTunnelRowType VERTEX_ROW_TYPE =
@@ -71,7 +73,7 @@ public class HugeGraphIT {
     private static final GenericContainer<?> HUGE_GRAPH_CONTAINER =
             new GenericContainer<>(DockerImageName.parse(HUGE_GRAPH_IMAGE))
                     .withExposedPorts(8080)
-                    .waitingFor(Wait.forHttp("/graphs").forPort(8080).forStatusCode(200))
+                    .waitingFor(Wait.forHttp("/graphspaces").forPort(8080).forStatusCode(200))
                     .withStartupTimeout(Duration.ofMinutes(3));
 
     @BeforeAll
@@ -222,6 +224,80 @@ public class HugeGraphIT {
         properties.put("name", "josh");
         List<Vertex> vertices = hugeClient.graph().listVertices(VERTEX_LABEL, properties, 10);
         Assertions.assertTrue(vertices.isEmpty(), "Vertex should have been deleted");
+    }
+
+    @Test
+    public void testUpdateChangingVertexKeyDeletesOldVertex() throws IOException {
+        hugeClient
+                .graph()
+                .addVertex(new Vertex(VERTEX_LABEL).property("name", "alice").property("age", 20));
+
+        MappingConfig mapping = new MappingConfig();
+        mapping.setType(LabelType.VERTEX);
+        mapping.setLabel(VERTEX_LABEL);
+        mapping.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        mapping.setIdFields(Collections.singletonList("name"));
+        mapping.setProperties(Arrays.asList("name", "age"));
+
+        HugeGraphSinkWriter writer = createSinkWriter(mapping, VERTEX_ROW_TYPE);
+        SeaTunnelRow before = new SeaTunnelRow(new Object[] {"alice", 20});
+        before.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow after = new SeaTunnelRow(new Object[] {"alice2", 21});
+        after.setRowKind(RowKind.UPDATE_AFTER);
+        writer.write(before);
+        writer.write(after);
+        writer.close();
+
+        Map<String, Object> oldProps = new HashMap<>();
+        oldProps.put("name", "alice");
+        Assertions.assertTrue(
+                hugeClient.graph().listVertices(VERTEX_LABEL, oldProps, 10).isEmpty(),
+                "The pre-update vertex must be deleted when the primary key changes");
+
+        Map<String, Object> newProps = new HashMap<>();
+        newProps.put("name", "alice2");
+        List<Vertex> renamed = hugeClient.graph().listVertices(VERTEX_LABEL, newProps, 10);
+        assertEquals(1, renamed.size());
+        assertEquals(21, renamed.get(0).property("age"));
+    }
+
+    @Test
+    public void testUpdateUnchangedVertexKeyPreservesEdges() throws IOException {
+        Vertex marko = new Vertex(VERTEX_LABEL).property("name", "marko").property("age", 29);
+        Vertex david = new Vertex(VERTEX_LABEL).property("name", "david").property("age", 30);
+        marko = hugeClient.graph().addVertex(marko);
+        david = hugeClient.graph().addVertex(david);
+        hugeClient
+                .graph()
+                .addEdge(new Edge("knows").source(marko).target(david).property("weight", 1.0));
+        assertEquals(1, hugeClient.graph().listEdges("knows").size());
+
+        MappingConfig mapping = new MappingConfig();
+        mapping.setType(LabelType.VERTEX);
+        mapping.setLabel(VERTEX_LABEL);
+        mapping.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        mapping.setIdFields(Collections.singletonList("name"));
+        mapping.setProperties(Arrays.asList("name", "age"));
+
+        HugeGraphSinkWriter writer = createSinkWriter(mapping, VERTEX_ROW_TYPE);
+        SeaTunnelRow before = new SeaTunnelRow(new Object[] {"marko", 29});
+        before.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow after = new SeaTunnelRow(new Object[] {"marko", 40});
+        after.setRowKind(RowKind.UPDATE_AFTER);
+        writer.write(before);
+        writer.write(after);
+        writer.close();
+
+        // Primary key unchanged => no delete-recreate => the vertex's adjacent edge survives.
+        assertEquals(
+                1,
+                hugeClient.graph().listEdges("knows").size(),
+                "A key-unchanged update must update in place and not drop the vertex's edges");
+        Map<String, Object> props = new HashMap<>();
+        props.put("name", "marko");
+        List<Vertex> vertices = hugeClient.graph().listVertices(VERTEX_LABEL, props, 10);
+        assertEquals(1, vertices.size());
+        assertEquals(40, vertices.get(0).property("age"));
     }
 
     @Test

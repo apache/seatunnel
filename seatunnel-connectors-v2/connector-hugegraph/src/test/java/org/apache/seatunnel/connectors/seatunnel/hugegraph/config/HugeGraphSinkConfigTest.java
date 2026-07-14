@@ -267,12 +267,12 @@ class HugeGraphSinkConfigTest {
     }
 
     @Test
-    void testGraphSpaceFailsFast() {
+    void testGraphSpaceIsHonored() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("host", "localhost");
         configMap.put("port", 8080);
         configMap.put("graph_name", "graph");
-        configMap.put("graph_space", "DEFAULT");
+        configMap.put("graph_space", "my_space");
 
         List<Map<String, Object>> mappings = new ArrayList<>();
         Map<String, Object> mapping = new HashMap<>();
@@ -281,8 +281,26 @@ class HugeGraphSinkConfigTest {
         mappings.add(mapping);
         configMap.put("mappings", mappings);
 
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        assertThrows(HugeGraphConnectorException.class, () -> HugeGraphSinkConfig.of(config));
+        HugeGraphSinkConfig config = HugeGraphSinkConfig.of(ReadonlyConfig.fromMap(configMap));
+        assertEquals("my_space", config.getConnectionConfig().getGraphSpace());
+    }
+
+    @Test
+    void testGraphSpaceDefaultsToDefault() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "localhost");
+        configMap.put("port", 8080);
+        configMap.put("graph_name", "graph");
+
+        List<Map<String, Object>> mappings = new ArrayList<>();
+        Map<String, Object> mapping = new HashMap<>();
+        mapping.put("type", "VERTEX");
+        mapping.put("label", "v");
+        mappings.add(mapping);
+        configMap.put("mappings", mappings);
+
+        HugeGraphSinkConfig config = HugeGraphSinkConfig.of(ReadonlyConfig.fromMap(configMap));
+        assertEquals("DEFAULT", config.getConnectionConfig().getGraphSpace());
     }
 
     @Test

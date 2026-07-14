@@ -87,13 +87,20 @@ class HugeGraphSourceConfigTest {
     }
 
     @Test
-    void testGraphSpaceFailsFast() {
+    void testGraphSpaceIsHonored() {
         Map<String, Object> configMap = baseConfig();
-        configMap.put("graph_space", "DEFAULT");
+        configMap.put("graph_space", "my_space");
 
-        assertThrows(
-                HugeGraphConnectorException.class,
-                () -> HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(configMap), schema()));
+        HugeGraphSourceConfig config =
+                HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(configMap), schema());
+        assertEquals("my_space", config.getConnectionConfig().getGraphSpace());
+    }
+
+    @Test
+    void testGraphSpaceDefaultsToDefault() {
+        HugeGraphSourceConfig config =
+                HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(baseConfig()), schema());
+        assertEquals("DEFAULT", config.getConnectionConfig().getGraphSpace());
     }
 
     private Map<String, Object> baseConfig() {

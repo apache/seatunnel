@@ -142,7 +142,7 @@ public class MappingConfig implements Serializable {
 
         // Flatten the nested mapping config
         if (schema.getMapping() != null) {
-            SchemaConfig.LegacyMappingConfig legacy = schema.getMapping();
+            MappingConfig legacy = schema.getMapping();
             config.setFieldMapping(legacy.getFieldMapping());
             config.setValueMapping(legacy.getValueMapping());
             config.setNullableKeys(legacy.getNullableKeys());

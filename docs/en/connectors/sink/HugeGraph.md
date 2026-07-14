@@ -34,7 +34,7 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `port`              | Integer | Yes      | -             | The port of the HugeGraph server.                                              |
 | `protocol`          | String  | No       | `http`        | Server protocol: `http` or `https`. HTTPS uses the JVM trust store.            |
 | `graph_name`        | String  | Yes      | -             | The name of the graph to write to.                                             |
-| `graph_space`       | String  | No       | -             | Not supported by the current HugeGraph client dependency. The connector fails fast if this option is set. |
+| `graph_space`       | String  | No       | `DEFAULT`     | The graph space the graph belongs to. |
 | `username`          | String  | No       | -             | The username for HugeGraph authentication.                                     |
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
@@ -73,7 +73,7 @@ Each `mappings` entry defines how input rows are mapped to one HugeGraph vertex 
 | `sourceConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's source vertex. See `Source/Target Config` below.           |
 | `targetConfig`     | Object             | For Edge   | -             | An object defining the mapping for the edge's target vertex. See `Source/Target Config` below.           |
 | `frequency`        | String             | For Edge   | -             | The frequency of the edge, e.g., `SINGLE`, `MULTIPLE`.                                                   |
-| `sortKeys`         | `List<String>`       | For Edge   | -             | A list of property keys to sort edges with the same source and target vertices. Required when `frequency = MULTIPLE`. |
+| `sortKeys`         | `List<String>`       | For Edge   | -             | **Source field names** (as they appear in the input row, *before* `fieldMapping` is applied) whose values distinguish edges sharing the same source and target vertices. Required when `frequency = MULTIPLE`. Example: with `fieldMapping = {event_time: created_at}`, use `sortKeys = [event_time]`, not `[created_at]`. |
 | `fieldMapping`     | `Map<String, String>` | No       | -             | A map where the key is the source field name and the value is the target property name in HugeGraph.      |
 | `valueMapping`     | `Map<Object, Object>` | No       | -             | A map to transform specific field values.                                                                |
 | `nullableKeys`     | `List<String>`        | No       | -             | A list of property keys that can have null values.                                                        |
@@ -123,7 +123,7 @@ This object provides advanced control over how fields and values are mapped to p
 | `nullValues`      | `List<String>`        | No       | -             | A list of string values that should be treated as `null`. Any field containing one of these values will not be written.                                                           |
 | `dateFormat`      | String              | No       | `yyyy-MM-dd`  | The date format for parsing date strings.                                                                                                                                         |
 | `timeZone`        | String              | No       | `GMT+8`       | The time zone for date parsing.                                                                                                                                                   |
-| `sortKeys`         | `List<String>`        | For Edge   | -             | A list of property keys  to sort edges with the same source and target vertices.                                                                                                  |
+| `sortKeys`         | `List<String>`        | For Edge   | -             | **Source field names** (before `fieldMapping` is applied) whose values distinguish edges sharing the same source and target vertices. Example: with `fieldMapping = {event_time: created_at}`, use `[event_time]`, not `[created_at]`.                                                                                                  |
 
 ## Supported Types
 

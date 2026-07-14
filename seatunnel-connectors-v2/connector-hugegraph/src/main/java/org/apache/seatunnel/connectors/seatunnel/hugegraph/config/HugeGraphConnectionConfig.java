@@ -34,6 +34,7 @@ public class HugeGraphConnectionConfig implements Serializable {
     private int port;
     private String protocol;
     private String graphName;
+    private String graphSpace;
     private String username;
     private String password;
     private int maxRetries;
@@ -47,17 +48,10 @@ public class HugeGraphConnectionConfig implements Serializable {
                 config.getOptional(HugeGraphOptions.PROTOCOL)
                         .orElse(HugeGraphOptions.PROTOCOL.defaultValue()));
         connectionConfig.setGraphName(config.get(HugeGraphOptions.GRAPH_NAME));
-        config.getOptional(HugeGraphOptions.GRAPH_SPACE)
-                .filter(graphSpace -> !graphSpace.isEmpty())
-                .ifPresent(
-                        graphSpace -> {
-                            throw new HugeGraphConnectorException(
-                                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                                    "Option 'graph_space' is not supported by the current "
-                                            + "HugeGraph client dependency. Remove this option or "
-                                            + "upgrade the connector's HugeGraph client dependency "
-                                            + "before using graph spaces.");
-                        });
+        connectionConfig.setGraphSpace(
+                config.getOptional(HugeGraphOptions.GRAPH_SPACE)
+                        .filter(graphSpace -> !graphSpace.isEmpty())
+                        .orElse(HugeGraphOptions.GRAPH_SPACE.defaultValue()));
         config.getOptional(HugeGraphOptions.USERNAME).ifPresent(connectionConfig::setUsername);
         config.getOptional(HugeGraphOptions.PASSWORD).ifPresent(connectionConfig::setPassword);
         connectionConfig.setMaxRetries(
