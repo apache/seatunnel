@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionControlMessage;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.api.common.functions.AbstractRichFunction;
@@ -218,6 +219,22 @@ public class TransformExecuteProcessor
         }
     }
 
+    static SeaTunnelRow mapRow(SeaTunnelTransform transform, SeaTunnelRow row) {
+        if (SchemaEvolutionControlMessage.isSchemaBroadcast(row)) {
+            if (SchemaEvolutionControlMessage.isFilteredSchemaChange(row)) {
+                return row;
+            }
+            return SchemaEvolutionControlMessage.transformedSchemaChangeRow(
+                    row,
+                    transform.mapSchemaChangeEvent(
+                            SchemaEvolutionControlMessage.schemaChangeEvent(row)));
+        }
+
+        SeaTunnelRow mappedRow = ((SeaTunnelMapTransform<SeaTunnelRow>) transform).map(row);
+        SchemaEvolutionControlMessage.copyRequiredSchemaChange(row, mappedRow);
+        return mappedRow;
+    }
+
     /** Lifecycle-aware adapter for map transforms. */
     static class TransformMapFunction extends LifecycleAwareTransformFunction
             implements MapFunction<SeaTunnelRow, SeaTunnelRow> {
@@ -228,7 +245,7 @@ public class TransformExecuteProcessor
 
         @Override
         public SeaTunnelRow map(SeaTunnelRow row) {
-            return ((SeaTunnelMapTransform<SeaTunnelRow>) transform).map(row);
+            return mapRow(transform, row);
         }
     }
 
@@ -242,10 +259,24 @@ public class TransformExecuteProcessor
 
         @Override
         public void flatMap(SeaTunnelRow row, Collector<SeaTunnelRow> collector) {
+            if (SchemaEvolutionControlMessage.isSchemaBroadcast(row)) {
+                if (SchemaEvolutionControlMessage.isFilteredSchemaChange(row)) {
+                    collector.collect(row);
+                } else {
+                    collector.collect(
+                            SchemaEvolutionControlMessage.transformedSchemaChangeRow(
+                                    row,
+                                    transform.mapSchemaChangeEvent(
+                                            SchemaEvolutionControlMessage.schemaChangeEvent(row))));
+                }
+                return;
+            }
+
             List<SeaTunnelRow> rows =
                     ((SeaTunnelFlatMapTransform<SeaTunnelRow>) transform).flatMap(row);
             if (CollectionUtils.isNotEmpty(rows)) {
                 for (SeaTunnelRow rowResult : rows) {
+                    SchemaEvolutionControlMessage.copyRequiredSchemaChange(row, rowResult);
                     collector.collect(rowResult);
                 }
             }

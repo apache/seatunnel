@@ -56,7 +56,7 @@ public class SourceExecuteProcessor extends AbstractSourceExecuteProcessor {
     @Override
     protected SchemaOperator createSchemaOperator(
             String jobId, SupportSchemaEvolution source, Config pluginConfig) {
-        return new SchemaOperator13(jobId, source, pluginConfig);
+        return new SchemaOperator13(jobId, source, pluginConfig, isExactlyOnceCheckpointMode());
     }
 
     /**
