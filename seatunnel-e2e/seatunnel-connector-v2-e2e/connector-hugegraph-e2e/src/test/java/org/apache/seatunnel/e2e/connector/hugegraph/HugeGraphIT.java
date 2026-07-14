@@ -73,7 +73,7 @@ public class HugeGraphIT {
     private static final GenericContainer<?> HUGE_GRAPH_CONTAINER =
             new GenericContainer<>(DockerImageName.parse(HUGE_GRAPH_IMAGE))
                     .withExposedPorts(8080)
-                    .waitingFor(Wait.forHttp("/graphspaces").forPort(8080).forStatusCode(200))
+                    .waitingFor(Wait.forHttp("/graphs").forPort(8080).forStatusCode(200))
                     .withStartupTimeout(Duration.ofMinutes(3));
 
     @BeforeAll

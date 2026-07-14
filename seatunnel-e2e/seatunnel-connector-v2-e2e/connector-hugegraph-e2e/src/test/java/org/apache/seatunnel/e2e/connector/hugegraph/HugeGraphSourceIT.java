@@ -66,9 +66,7 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
                         .withNetworkAliases(HUGE_GRAPH_HOST)
                         .withExposedPorts(HUGE_GRAPH_PORT)
                         .waitingFor(
-                                Wait.forHttp("/graphspaces")
-                                        .forPort(HUGE_GRAPH_PORT)
-                                        .forStatusCode(200))
+                                Wait.forHttp("/graphs").forPort(HUGE_GRAPH_PORT).forStatusCode(200))
                         .withStartupTimeout(Duration.ofMinutes(3));
         Startables.deepStart(Stream.of(hugeGraphContainer)).join();
 
