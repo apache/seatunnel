@@ -36,6 +36,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -159,6 +160,42 @@ public class EdgeSocketMysql8_4IT extends AbstractEdgeSocketIT {
             List<String> expectedMessages = buildExpectedTransformedMessages(sourceMessages);
 
             sendRecordsThroughCollector(sourceMessages);
+            awaitSinkContainsExpectedMessages(expectedMessages);
+        } finally {
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            Container.ExecResult jobResult = waitForJobResult(jobFuture);
+            Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+        }
+    }
+
+    @TestTemplate
+    public void testEdgeSocketCommitWatermarkAdvances(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/edge_socket_source_to_mysql84.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertJobRunningOrSubmissionFailed(container, jobId, jobFuture));
+            ensureEdgeSocketForwarder();
+
+            List<String> sourceMessages = buildPlainTextMessages(3, "watermark-value");
+            List<String> expectedMessages = buildExpectedTransformedMessages(sourceMessages);
+            List<Long> watermarks = sendRecordsThroughCollectorAndCollectWatermarks(sourceMessages);
+
+            Assertions.assertEquals(Arrays.asList(1L, 2L, 3L), watermarks);
             awaitSinkContainsExpectedMessages(expectedMessages);
         } finally {
             Container.ExecResult cancelResult = container.cancelJob(jobId);
