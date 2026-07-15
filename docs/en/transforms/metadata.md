@@ -41,16 +41,16 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 
 | Metadata Key | Canonical Physical Field | Output Type | Description |
 |:---:|:---:|:---:|:---|
-| DocumentId | `document_id` | string | Stable document identity. |
+| DocumentId | `document_id` | string | Non-null stable document identity for every document lifecycle event. |
 | DocumentHash | `document_hash` | string | Stable document version or content hash. |
-| SourceUri | `source_uri` | string | Original source URI or path. |
+| SourceUri | `source_uri` | string | Credential-free stable source URI or path. |
 | SourceVersion | `source_version` | string | Source-side version, etag, revision, or similar marker. |
 | SourceModifiedAt | `source_modified_at` | long | Source modified time in epoch milliseconds. |
 | MimeType | `mime_type` | string | Source MIME type. |
-| Deleted | `deleted` | boolean | Whether the document is a deletion marker. |
-| ChunkId | `chunk_id` | string | Stable chunk identity. |
-| ChunkHash | `chunk_hash` | string | Stable chunk content hash. |
-| ChunkIndex | `chunk_index` | int | Zero-based chunk index in the document. |
+| Deleted | `deleted` | boolean | Non-null lifecycle marker: `false` for normal rows and `true` for document tombstones. |
+| ChunkId | `chunk_id` | string | Stable chunk identity. Required for normal chunk rows and nullable for document tombstones. |
+| ChunkHash | `chunk_hash` | string | Stable chunk content hash. Required for normal chunk rows and nullable for document tombstones. |
+| ChunkIndex | `chunk_index` | int | Zero-based chunk index. Required for normal chunk rows and nullable for document tombstones. |
 
 ### Important Notes
 
@@ -60,6 +60,8 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
 5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
 6. **Markdown RAG compatibility**: Existing Markdown RAG output currently exposes physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`. This transform does not migrate those physical fields into logical Knowledge Sync metadata, and this change does not rename them.
+7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. Non-sensitive query parameters that are part of the stable resource identity may be retained.
+8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
 
 ## Options
 

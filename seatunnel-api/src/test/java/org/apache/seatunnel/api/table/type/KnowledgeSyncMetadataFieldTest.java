@@ -39,6 +39,17 @@ public class KnowledgeSyncMetadataFieldTest {
     }
 
     @Test
+    void shouldRecognizeKnowledgeSyncMetadataFieldNames() {
+        for (KnowledgeSyncMetadataField field : KnowledgeSyncMetadataField.values()) {
+            Assertions.assertTrue(
+                    KnowledgeSyncMetadataField.isKnowledgeSyncMetadataField(field.getName()));
+        }
+        Assertions.assertFalse(
+                KnowledgeSyncMetadataField.isKnowledgeSyncMetadataField("UnknownMetadata"));
+        Assertions.assertFalse(KnowledgeSyncMetadataField.isKnowledgeSyncMetadataField(null));
+    }
+
+    @Test
     void shouldExposeCanonicalPhysicalNamesAndTypes() {
         Assertions.assertEquals(
                 "document_id", KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName());
@@ -88,6 +99,19 @@ public class KnowledgeSyncMetadataFieldTest {
 
         Assertions.assertEquals("DocumentId", column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertFalse(column.isNullable());
         Assertions.assertFalse(column.isPhysical());
+    }
+
+    @Test
+    void shouldDefineLifecycleNullability() {
+        Assertions.assertFalse(
+                KnowledgeSyncMetadataField.DOCUMENT_ID.toMetadataColumn().isNullable());
+        Assertions.assertFalse(KnowledgeSyncMetadataField.DELETED.toMetadataColumn().isNullable());
+        Assertions.assertTrue(KnowledgeSyncMetadataField.CHUNK_ID.toMetadataColumn().isNullable());
+        Assertions.assertTrue(
+                KnowledgeSyncMetadataField.CHUNK_HASH.toMetadataColumn().isNullable());
+        Assertions.assertTrue(
+                KnowledgeSyncMetadataField.CHUNK_INDEX.toMetadataColumn().isNullable());
     }
 }

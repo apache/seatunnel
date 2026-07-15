@@ -218,6 +218,8 @@ public class MetadataTransformTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, columns[1].getDataType());
         Assertions.assertInstanceOf(PhysicalColumn.class, columns[0]);
         Assertions.assertInstanceOf(PhysicalColumn.class, columns[1]);
+        Assertions.assertFalse(columns[0].isNullable());
+        Assertions.assertTrue(columns[1].isNullable());
 
         SeaTunnelRow input = new SeaTunnelRow(new Object[] {"chunk text"});
         input.getOptions().put(KnowledgeSyncMetadataField.DOCUMENT_ID.getName(), "doc_faq");

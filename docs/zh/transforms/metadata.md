@@ -41,16 +41,16 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 
 | 元数据 Key | 标准物理字段名 | 输出类型 | 说明 |
 |:---:|:---:|:---:|:---|
-| DocumentId | `document_id` | string | 稳定的文档标识。 |
+| DocumentId | `document_id` | string | 每个文档生命周期事件都必须包含的非空稳定文档标识。 |
 | DocumentHash | `document_hash` | string | 稳定的文档版本或内容哈希。 |
-| SourceUri | `source_uri` | string | 原始来源 URI 或路径。 |
+| SourceUri | `source_uri` | string | 不包含凭证的稳定来源 URI 或路径。 |
 | SourceVersion | `source_version` | string | 来源侧版本、etag、revision 等版本标记。 |
 | SourceModifiedAt | `source_modified_at` | long | 来源修改时间，epoch 毫秒。 |
 | MimeType | `mime_type` | string | 来源 MIME 类型。 |
-| Deleted | `deleted` | boolean | 是否为文档删除标记。 |
-| ChunkId | `chunk_id` | string | 稳定的 chunk 标识。 |
-| ChunkHash | `chunk_hash` | string | 稳定的 chunk 内容哈希。 |
-| ChunkIndex | `chunk_index` | int | 文档内从 0 开始的 chunk 序号。 |
+| Deleted | `deleted` | boolean | 非空生命周期标记：普通行为 `false`，文档 tombstone 为 `true`。 |
+| ChunkId | `chunk_id` | string | 稳定的 chunk 标识。普通 chunk 行必填，文档 tombstone 可为 `null`。 |
+| ChunkHash | `chunk_hash` | string | 稳定的 chunk 内容哈希。普通 chunk 行必填，文档 tombstone 可为 `null`。 |
+| ChunkIndex | `chunk_index` | int | 文档内从 0 开始的 chunk 序号。普通 chunk 行必填，文档 tombstone 可为 `null`。 |
 
 ### 重要说明
 
@@ -60,6 +60,8 @@ Knowledge Sync 流程可以使用下面的逻辑元数据 Key 携带文档和 ch
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
 5. **Knowledge Sync 投影需要显式配置**：Knowledge Sync 元数据字段只有在 `metadata_fields` 中配置、输入表 metadata schema 中声明了对应 Key，并且行 options 中存在对应值时才会被投影。该转换读取的是逻辑行元数据，不会读取同名的已有物理列。
 6. **兼容 Markdown RAG 物理字段**：现有 Markdown RAG 输出当前以物理字段暴露 `source_uri`、`document_id`、`chunk_id`、`chunk_index` 和 `content_hash`。该转换不会把这些物理字段迁移为逻辑 Knowledge Sync 元数据，本次变更也不会重命名这些字段。
+7. **来源 URI 安全**：producer 在将 `SourceUri` 写入行 options 前，必须移除 URI userinfo、访问令牌、签名以及其他临时鉴权信息。属于稳定资源标识且不敏感的查询参数可以保留。
+8. **Knowledge Sync 可空语义**：`DocumentId` 用于标识每个文档生命周期事件。声明 `Deleted` 后，producer 必须为普通行写入 `false`，为文档 tombstone 写入 `true`，不能使用 `null`。普通 chunk 行必须包含 `ChunkId`、`ChunkHash` 和 `ChunkIndex`；紧凑的文档 tombstone 可以将这些 chunk 字段留为 `null`。
 
 ## 配置选项
 

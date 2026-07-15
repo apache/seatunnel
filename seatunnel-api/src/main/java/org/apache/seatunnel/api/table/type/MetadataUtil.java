@@ -119,6 +119,15 @@ public class MetadataUtil {
         return (String[]) row.getOptions().get(PARTITION.getName());
     }
 
+    /**
+     * Returns whether the logical metadata key is supported for explicit metadata projection.
+     *
+     * <p>This method does not inspect or classify physical table columns that happen to use the
+     * same name.
+     *
+     * @param fieldName logical metadata key
+     * @return whether the key is supported for metadata projection
+     */
     public static boolean isMetadataField(String fieldName) {
         return METADATA_FIELDS.contains(fieldName);
     }
