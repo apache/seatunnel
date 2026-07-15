@@ -182,6 +182,9 @@ public class JobMaster {
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
+    /** Whether this JobMaster was recreated after an active-master switch. */
+    private boolean masterFailoverRestore;
+
     private CheckpointConfig jobCheckpointConfig;
 
     @Getter private Long jobId;
@@ -226,6 +229,7 @@ public class JobMaster {
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
         this.initializationTimestamp = initializationTimestamp;
+        this.masterFailoverRestore = restart;
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
@@ -519,13 +523,14 @@ public class JobMaster {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
+        List<SlotProfile> reusedSlotProfiles = new ArrayList<>();
 
         boolean isSubPlan = Objects.nonNull(subPlan);
 
         if (isSubPlan) {
-            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures);
+            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         } else {
-            preApplyResourcesForAll(preApplyResourceFutures);
+            preApplyResourcesForAll(preApplyResourceFutures, reusedSlotProfiles);
         }
 
         AtomicLong successCount = new AtomicLong(0);
@@ -579,6 +584,7 @@ public class JobMaster {
             } else {
                 // Adequate resources, pass on resources to the plan
                 physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
+                masterFailoverRestore = false;
             }
         } else {
             // Release the resource that has been applied
@@ -610,6 +616,10 @@ public class JobMaster {
                                                                 }
                                                             })
                                                     .map(CompletableFuture::join)
+                                                    .filter(
+                                                            slotProfile ->
+                                                                    !reusedSlotProfiles.contains(
+                                                                            slotProfile))
                                                     .collect(Collectors.toList()))
                                     .join();
                             return null;
@@ -630,38 +640,73 @@ public class JobMaster {
     }
 
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourcesForAll(
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
+            List<SlotProfile> reusedSlotProfiles) {
         for (SubPlan subPlan : physicalPlan.getPipelineList()) {
-            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures);
+            preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         }
         return preApplyResourceFutures;
     }
 
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
-            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+            Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
+            List<SlotProfile> reusedSlotProfiles) {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures = new HashMap<>();
         subPlan.getCoordinatorVertexList()
                 .forEach(
-                        coordinator ->
-                                coordinatorFutures.put(
-                                        coordinator.getTaskGroupLocation(),
-                                        ResourceUtils.applyResourceForTask(
-                                                resourceManager, coordinator, subPlan.getTags())));
+                        coordinator -> {
+                            SlotProfile reusableSlot =
+                                    getReusableSlot(coordinator.getTaskGroupLocation());
+                            coordinatorFutures.put(
+                                    coordinator.getTaskGroupLocation(),
+                                    reusableSlot == null
+                                            ? ResourceUtils.applyResourceForTask(
+                                                    resourceManager, coordinator, subPlan.getTags())
+                                            : CompletableFuture.completedFuture(reusableSlot));
+                            if (reusableSlot != null) {
+                                reusedSlotProfiles.add(reusableSlot);
+                            }
+                        });
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> taskFutures = new HashMap<>();
         subPlan.getPhysicalVertexList()
                 .forEach(
-                        task ->
-                                taskFutures.put(
-                                        task.getTaskGroupLocation(),
-                                        ResourceUtils.applyResourceForTask(
-                                                resourceManager, task, subPlan.getTags())));
+                        task -> {
+                            SlotProfile reusableSlot = getReusableSlot(task.getTaskGroupLocation());
+                            taskFutures.put(
+                                    task.getTaskGroupLocation(),
+                                    reusableSlot == null
+                                            ? ResourceUtils.applyResourceForTask(
+                                                    resourceManager, task, subPlan.getTags())
+                                            : CompletableFuture.completedFuture(reusableSlot));
+                            if (reusableSlot != null) {
+                                reusedSlotProfiles.add(reusableSlot);
+                            }
+                        });
 
         preApplyResourceFutures.putAll(coordinatorFutures);
         preApplyResourceFutures.putAll(taskFutures);
         LOGGER.fine("preApplyResourceFutures size: " + preApplyResourceFutures.size());
+    }
+
+    /**
+     * Reuses an active slot retained by a Worker while the active master was unavailable.
+     *
+     * <p>The slot-to-task mapping is stored in Hazelcast before task deployment. After a master
+     * failover, requesting those slots again cannot succeed with fixed slots because Workers still
+     * own them for this job. A slot is reused only after the current ResourceManager confirms that
+     * the Worker still has the matching slot sequence.
+     */
+    private SlotProfile getReusableSlot(TaskGroupLocation taskGroupLocation) {
+        if (!masterFailoverRestore) {
+            return null;
+        }
+        SlotProfile slotProfile = getOwnedSlotProfiles(taskGroupLocation);
+        return slotProfile != null && resourceManager.slotActiveCheck(slotProfile)
+                ? slotProfile
+                : null;
     }
 
     public void run() {
