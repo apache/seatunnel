@@ -6,99 +6,98 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 ## Description
 
-Read data from Alicloud Tablestore，support full and CDC.
-
+Read full and incremental data from Alibaba Cloud Tablestore. The source uses Tablestore Tunnel in `BaseAndStream` mode, so it can read existing data first and then consume later changes.
 
 ## Key features
 
-- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
-- [X] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-| name                  | type   | required | default value |
-|-----------------------|--------|----------|---------------|
-| end_point             | string | yes      | -             |
-| instance_name         | string | yes      | -             |
-| access_key_id         | string | yes      | -             |
-| access_key_secret     | string | yes      | -             |
-| table                 | string | yes      | -             |
-| primary_keys          | array  | yes      | -             |
-| schema                | config | yes      | -             |
+| name              | type   | required | default value | description                                                                 |
+|-------------------|--------|----------|---------------|-----------------------------------------------------------------------------|
+| end_point         | string | yes      | -             | Tablestore endpoint, for example `https://<instance>.<region>.ots.aliyuncs.com`. |
+| instance_name     | string | yes      | -             | Tablestore instance name.                                                    |
+| access_key_id     | string | yes      | -             | AccessKey ID used to access Tablestore.                                      |
+| access_key_secret | string | yes      | -             | AccessKey secret used to access Tablestore.                                  |
+| table             | string | yes      | -             | Tablestore table name. Multiple tables can be separated by commas.           |
+| primary_keys      | array  | yes      | -             | Primary key names. For multiple source tables, configure one primary key name for each table in the same order as `table`. |
+| schema            | config | yes      | -             | Output schema. For details, see [Schema Feature](../../introduction/concepts/schema-feature.md). |
 
+## Usage notes
 
-### end_point [string]
-
-The endpoint of Tablestore.
-
-### instance_name [string]
-
-The intance name of Tablestore.
-
-### access_key_id [string]
-
-The access id of Tablestore.
-
-### access_key_secret [string]
-
-The access secret of Tablestore.
-
-### table [string]
-
-The table name of Tablestore.
-
-### primary_keys [array]
-
-The primarky key of table,just add a unique primary key.
-
-### schema [Config]
-The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
-
+- `job.mode = "BATCH"` reads bounded data. `job.mode = "STREAMING"` keeps consuming incremental records after the existing data is read.
+- When `table` contains multiple table names, `primary_keys` must contain the same number of entries. For example, `table = "orders,users"` can use `primary_keys = ["id", "id"]` when both tables use `id` as the primary key field.
+- Multi-table reads use one `schema` block for the source, so the listed tables should have compatible output fields.
+- The source emits `INSERT`, `UPDATE_AFTER`, and `DELETE` row kinds according to Tablestore stream records.
+- Keep `access_key_id` and `access_key_secret` out of committed job files. Prefer runtime variable substitution or a secret manager supported by your deployment environment.
 
 ## Example
 
-```bash
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   Tablestore {
-    end_point = "https://****.cn-zhangjiakou.tablestore.aliyuncs.com"
-    instance_name = "****"
-    access_key_id="***************2Ag5"
-    access_key_secret="***********2Dok"
-    table="test"
-    primary_keys=["id"]
-    schema={
-        fields {
-            id = string
-            name = string
-        }
+    end_point = "https://<instance>.<region>.ots.aliyuncs.com"
+    instance_name = "<instance-name>"
+    access_key_id = "${ACCESS_KEY_ID}"
+    access_key_secret = "${ACCESS_KEY_SECRET}"
+    table = "orders"
+    primary_keys = ["order_id"]
+    schema = {
+      fields {
+        order_id = string
+        user_id = string
+        amount = double
+        updated_at = string
+      }
     }
   }
 }
 
-
 sink {
-  MongoDB{
-    uri = "mongodb://localhost:27017"
-    database = "test"
-    collection = "test"
-    primary-key = ["id"]
+  Console {}
+}
+```
+
+### Multiple table example
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+}
+
+source {
+  Tablestore {
+    end_point = "https://<instance>.<region>.ots.aliyuncs.com"
+    instance_name = "<instance-name>"
+    access_key_id = "${ACCESS_KEY_ID}"
+    access_key_secret = "${ACCESS_KEY_SECRET}"
+    table = "orders,users"
+    primary_keys = ["id", "id"]
     schema = {
       fields {
         id = string
-        name = string
+        value = string
+        updated_at = string
       }
     }
   }
+}
+
+sink {
+  Console {}
 }
 ```
 
