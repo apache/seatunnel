@@ -154,8 +154,7 @@ class VertexMapperTest {
         valueMapping.put("status", Collections.singletonMap("M", "married"));
         mapping.setValueMapping(valueMapping);
 
-        VertexMapper mapper =
-                new VertexMapper(mapping, fields("id", "gender", "status"), client);
+        VertexMapper mapper = new VertexMapper(mapping, fields("id", "gender", "status"), client);
         Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {"u1", "M", "M"}));
 
         assertEquals("male", vertex.properties().get("gender"));
