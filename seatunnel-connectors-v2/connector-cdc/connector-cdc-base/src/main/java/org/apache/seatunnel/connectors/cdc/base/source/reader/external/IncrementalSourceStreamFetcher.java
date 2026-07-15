@@ -65,6 +65,14 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
     private volatile boolean taskStarted = false;
+    // Set by the background thread itself right before it calls streamFetchTask.execute(), and
+    // cleared right after execute() returns/throws. isFinished() must not rely on polling
+    // streamFetchTask.isRunning() alone: that flag is flipped to true by the fetch task's own
+    // execute() method, which runs slightly after taskStarted is set here. If isFinished() is
+    // polled inside that gap it observes taskStarted=true and isRunning()=false and incorrectly
+    // reports the split as finished before the fetch task ever ran, silently truncating the
+    // whole incremental/bounded read (see bug-002).
+    private volatile boolean executing = false;
 
     private FetchTask<SourceSplitBase> streamFetchTask;
 
@@ -106,6 +114,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                                 "Start incremental read task for incremental split: {} exactly-once: {}",
                                 currentIncrementalSplit,
                                 taskContext.isExactlyOnce());
+                        // Mark as executing right before entering the fetch task. This closes the
+                        // race where isFinished() could observe taskStarted=true but
+                        // streamFetchTask.isRunning()=false because the fetch task's own
+                        // execute() hasn't run its first statement yet.
+                        executing = true;
                         streamFetchTask.execute(taskContext);
                     } catch (Throwable e) {
                         log.error(
@@ -114,13 +127,20 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                                         currentIncrementalSplit),
                                 e);
                         readException = e;
+                    } finally {
+                        executing = false;
                     }
                 });
     }
 
     @Override
     public boolean isFinished() {
-        return taskStarted && (currentIncrementalSplit == null || !streamFetchTask.isRunning());
+        // Never report finished while the background thread is still inside
+        // streamFetchTask.execute() -- streamFetchTask.isRunning() is owned by the fetch task
+        // and may not have flipped to true yet even though we are already executing it.
+        return taskStarted
+                && !executing
+                && (currentIncrementalSplit == null || !streamFetchTask.isRunning());
     }
 
     @Override
