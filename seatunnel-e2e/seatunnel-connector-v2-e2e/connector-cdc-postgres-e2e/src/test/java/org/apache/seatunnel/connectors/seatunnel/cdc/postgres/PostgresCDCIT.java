@@ -61,6 +61,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -441,7 +442,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         String snapshotSlotVariable = toSlotVariable(snapshotSlotName);
         String committedSlotName = createSlotName();
         String committedSlotVariable = toSlotVariable(committedSlotName);
+        Long seedJobId = JobIdGenerator.newJobId();
         Long committedOffsetJobId = JobIdGenerator.newJobId();
+        CompletableFuture<Void> seedJob = null;
         CompletableFuture<Void> committedOffsetJob = null;
 
         try {
@@ -469,7 +472,60 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
             createLogicalReplicationSlot(committedSlotName);
+
+            seedJob =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.executeJob(
+                                            "/postgrescdc_to_postgres_committed_offset.conf",
+                                            String.valueOf(seedJobId),
+                                            committedSlotVariable);
+                                } catch (Exception e) {
+                                    log.error("Seed task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            CompletableFuture<Void> runningSeedJob = seedJob;
+            waitForReplicationSlotActive(committedSlotName);
             insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
+            await().pollInterval(1, TimeUnit.SECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobHasNoAsyncFailure(runningSeedJob);
+                                List<List<Object>> seedRows =
+                                        query(
+                                                "select * from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " where id = 12");
+                                if (seedRows.isEmpty()) {
+                                    updateSourceTableBigField(
+                                            POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12, 2147483646);
+                                }
+                                Assertions.assertEquals(1, seedRows.size());
+                            });
+            String postSeedLsn = getCurrentWalLsn();
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isLsnGreaterThanOrEqual(
+                                                    getReplicationSlotCommittedLsn(
+                                                            committedSlotName),
+                                                    postSeedLsn)));
+            container.cancelJob(String.valueOf(seedJobId));
+            seedJob.get(30, TimeUnit.SECONDS);
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isReplicationSlotActive(committedSlotName)));
+
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13);
 
             committedOffsetJob =
                     CompletableFuture.runAsync(
@@ -485,37 +541,65 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                             });
 
-            assertJobHasNoAsyncFailure(committedOffsetJob);
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertEquals(
-                                            1,
-                                            query(
-                                                            "select * from "
-                                                                    + POSTGRESQL_SCHEMA
-                                                                    + "."
-                                                                    + SINK_TABLE_1
-                                                                    + " where id = 12")
-                                                    .size()));
-
-            waitForReplicationSlotActive(committedSlotName);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13);
-            updateSourceTableBigField(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13, 10000);
-            deleteSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 12);
-
-            CompletableFuture<Void> finalCommittedOffsetJob = committedOffsetJob;
+            CompletableFuture<Void> runningCommittedOffsetJob = committedOffsetJob;
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                assertJobHasNoAsyncFailure(finalCommittedOffsetJob);
+                                assertJobHasNoAsyncFailure(runningCommittedOffsetJob);
+                                Assertions.assertEquals(
+                                        1,
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id = 13")
+                                                .size());
                                 Assertions.assertTrue(
                                         query(
                                                         "select * from "
                                                                 + POSTGRESQL_SCHEMA
                                                                 + "."
                                                                 + SINK_TABLE_1
-                                                                + " where id in (10, 11, 12)")
+                                                                + " where id = 12")
+                                                .isEmpty());
+                            });
+
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 14);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobHasNoAsyncFailure(runningCommittedOffsetJob);
+                                List<List<Object>> insertedRows =
+                                        query(
+                                                "select f_big from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " where id = 14");
+                                if (!Collections.singletonList(Collections.singletonList(10000L))
+                                        .equals(insertedRows)) {
+                                    updateSourceTableBigField(
+                                            POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 14, 10000);
+                                }
+                                Assertions.assertEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList(10000L)),
+                                        insertedRows);
+                            });
+            deleteSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 13);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobHasNoAsyncFailure(runningCommittedOffsetJob);
+                                Assertions.assertTrue(
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id in (10, 11, 12, 13)")
                                                 .isEmpty());
                                 Assertions.assertEquals(
                                         Collections.singletonList(
@@ -525,14 +609,22 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                         + POSTGRESQL_SCHEMA
                                                         + "."
                                                         + SINK_TABLE_1
-                                                        + " where id = 13"));
+                                                        + " where id = 14"));
                             });
         } finally {
             try {
                 try {
+                    container.cancelJob(String.valueOf(seedJobId));
+                } catch (Exception e) {
+                    log.warn("Failed to cancel committed-offset seed job", e);
+                }
+                try {
                     container.cancelJob(String.valueOf(committedOffsetJobId));
                 } catch (Exception e) {
                     log.warn("Failed to cancel committed-offset test job", e);
+                }
+                if (seedJob != null && !seedJob.isDone()) {
+                    seedJob.get(30, TimeUnit.SECONDS);
                 }
                 if (committedOffsetJob != null) {
                     committedOffsetJob.get(30, TimeUnit.SECONDS);
@@ -1216,6 +1308,41 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to create replication slot: " + slotName, e);
         }
+    }
+
+    private String getReplicationSlotCommittedLsn(String slotName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT confirmed_flush_lsn::text FROM pg_replication_slots WHERE slot_name = '"
+                                        + slotName
+                                        + "'")) {
+            if (!resultSet.next()) {
+                throw new IllegalStateException("Replication slot does not exist: " + slotName);
+            }
+            return resultSet.getString(1);
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to query committed LSN for replication slot: " + slotName, e);
+        }
+    }
+
+    private String getCurrentWalLsn() {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT pg_current_wal_lsn()::text")) {
+            if (!resultSet.next()) {
+                throw new IllegalStateException("Failed to query current WAL LSN");
+            }
+            return resultSet.getString(1);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query current WAL LSN", e);
+        }
+    }
+
+    private boolean isLsnGreaterThanOrEqual(String actualLsn, String expectedLsn) {
+        return Lsn.valueOf(actualLsn).compareTo(Lsn.valueOf(expectedLsn)) >= 0;
     }
 
     private void dropReplicationSlot(String slotName) {

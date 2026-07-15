@@ -111,8 +111,11 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         if (dbzProperties != null) {
             props.putAll(dbzProperties);
         }
-        if (startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+        if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             props.setProperty("snapshot.mode", "initial_only");
+        } else if (startupConfig != null
+                && startupConfig.getStartupMode() == StartupMode.COMMITTED_OFFSET) {
+            props.setProperty("snapshot.mode", "never");
         }
 
         PostgresSourceConfig config =

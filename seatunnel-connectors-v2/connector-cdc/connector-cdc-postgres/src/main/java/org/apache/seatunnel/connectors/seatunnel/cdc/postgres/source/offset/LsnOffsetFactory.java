@@ -98,9 +98,9 @@ public class LsnOffsetFactory extends OffsetFactory {
         }
     }
 
-    private LsnOffset toLsnOffset(String committedLsn) {
-        String lsn = String.valueOf(Lsn.valueOf(committedLsn).asLong());
+    static LsnOffset toLsnOffset(String committedLsn) {
         Map<String, String> offsetMap = new HashMap<>();
+        String lsn = String.valueOf(Lsn.valueOf(committedLsn).asLong());
         offsetMap.put(SourceInfo.LSN_KEY, lsn);
         offsetMap.put(PostgresOffsetContext.LAST_COMPLETELY_PROCESSED_LSN_KEY, lsn);
         offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, lsn);
