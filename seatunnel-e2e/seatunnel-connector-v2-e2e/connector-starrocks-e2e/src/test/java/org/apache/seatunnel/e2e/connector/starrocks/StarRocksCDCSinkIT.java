@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -120,7 +119,7 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                             .getLocation()
                             .toURI());
         } catch (Exception e) {
-            throw new SeaTunnelException(
+            throw new RuntimeException(
                     "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
         }
     }
