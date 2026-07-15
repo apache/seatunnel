@@ -28,6 +28,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -355,7 +356,6 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
 
-
 ## tips
 
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
@@ -427,6 +427,37 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+Timer flush
+
+Enable timer-based flush by configuring `sink.flush.interval` in the `env` block. The JDBC sink automatically supports timer flush — when `sink.flush.interval` is set, the engine periodically injects a `FlushSignal` into the record stream, and the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
+
+:::tip
+
+Timer flush is not supported when `is_exactly_once = true`. In exactly-once mode the sink uses XA transactions whose boundaries are managed by checkpoints; a timer-triggered flush would break transactional guarantees.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
 }
 ```
 
