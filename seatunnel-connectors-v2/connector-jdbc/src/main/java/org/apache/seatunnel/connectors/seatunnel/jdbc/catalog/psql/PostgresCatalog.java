@@ -78,6 +78,9 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    n.nspname = '%s'\n"
                     + "    AND c.relname = '%s'\n"
                     + "    AND a.attnum > 0\n"
+                    // PostgreSQL-compatible catalogs retain placeholder attributes after DROP
+                    // COLUMN.
+                    + "    AND NOT a.attisdropped\n"
                     + "ORDER BY \n"
                     + "    a.attnum;";
 
