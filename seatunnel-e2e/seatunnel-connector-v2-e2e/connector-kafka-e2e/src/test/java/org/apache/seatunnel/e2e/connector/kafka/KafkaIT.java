@@ -1746,8 +1746,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
@@ -1780,8 +1779,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(10, MINUTES)
                 .untilAsserted(
@@ -1831,8 +1829,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollDelay(120, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
