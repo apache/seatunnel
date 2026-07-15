@@ -41,7 +41,7 @@ public class RequestSlotOperationExports extends AbstractCollector {
             return mfs;
         }
 
-        ResourceManager resourceManager = getCoordinatorService().getResourceManager();
+        ResourceManager resourceManager = getCoordinatorService().getInitializedResourceManager();
         if (resourceManager == null) {
             return mfs;
         }

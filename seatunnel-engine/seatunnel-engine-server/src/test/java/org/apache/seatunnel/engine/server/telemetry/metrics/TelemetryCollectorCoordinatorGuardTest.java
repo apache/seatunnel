@@ -284,11 +284,27 @@ public class TelemetryCollectorCoordinatorGuardTest {
     }
 
     @Test
+    void testRequestSlotOperationExportsDoesNotInitializeResourceManager() {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
+
+        RequestSlotOperationExports exports = new RequestSlotOperationExports(mockNode);
+        List<Collector.MetricFamilySamples> result = exports.collect();
+
+        Assertions.assertTrue(
+                result.isEmpty(),
+                "collect() must return empty when resource manager has not been initialized");
+        Mockito.verify(mockCoordinatorService).getInitializedResourceManager();
+        Mockito.verify(mockCoordinatorService, Mockito.never()).getResourceManager();
+    }
+
+    @Test
     void testRequestSlotOperationExportsReturnsMetricsWhenCoordinatorReady() {
         Mockito.when(mockNode.isMaster()).thenReturn(true);
         Mockito.when(mockServer.isCoordinatorActive()).thenReturn(true);
         ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
-        Mockito.when(mockCoordinatorService.getResourceManager()).thenReturn(resourceManager);
+        Mockito.when(mockCoordinatorService.getInitializedResourceManager())
+                .thenReturn(resourceManager);
         Mockito.when(resourceManager.getRequestSlotOperationStats())
                 .thenReturn(new RequestSlotOperationStats(4L, 2L, 1L, 18L, 44L));
 
