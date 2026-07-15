@@ -30,6 +30,8 @@ import org.apache.hugegraph.structure.schema.PropertyKey;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -130,6 +132,34 @@ class VertexMapperTest {
 
         Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {"456"}));
         assertEquals(456L, vertex.id());
+    }
+
+    @Test
+    void testValueMappingIsScopedPerField() {
+        // gender maps M->male; status maps M->married. A flat value_mapping would let one column's
+        // rule bleed into the other (both M cells become "male"). Per-field scoping must keep them
+        // independent.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        PropertyKey gender = propertyKey("gender", DataType.TEXT);
+        PropertyKey status = propertyKey("status", DataType.TEXT);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKey("gender")).thenReturn(gender);
+        when(client.getPropertyKey("status")).thenReturn(status);
+        when(client.getPropertyKeyOrNull("id")).thenReturn(null);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.CUSTOMIZE_STRING, "id");
+        mapping.setProperties(Arrays.asList("gender", "status"));
+        Map<String, Map<Object, Object>> valueMapping = new HashMap<>();
+        valueMapping.put("gender", Collections.singletonMap("M", "male"));
+        valueMapping.put("status", Collections.singletonMap("M", "married"));
+        mapping.setValueMapping(valueMapping);
+
+        VertexMapper mapper =
+                new VertexMapper(mapping, fields("id", "gender", "status"), client);
+        Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {"u1", "M", "M"}));
+
+        assertEquals("male", vertex.properties().get("gender"));
+        assertEquals("married", vertex.properties().get("status"));
     }
 
     private static MappingConfig vertexMapping(IdStrategy idStrategy, String idField) {

@@ -136,7 +136,7 @@ public class VertexMapper implements GraphDataMapper {
                             propertyKey,
                             mappingConfig.getDateFormat(),
                             mappingConfig.getTimeZone());
-            vertex.property(propName, getMappedValue(converted));
+            vertex.property(propName, getMappedValue(sourceField, converted));
         }
 
         return vertex;
@@ -261,7 +261,7 @@ public class VertexMapper implements GraphDataMapper {
                                 mappingConfig.getDateFormat(),
                                 mappingConfig.getTimeZone());
             }
-            values.add(getMappedValue(converted));
+            values.add(getMappedValue(fieldName, converted));
         }
         return values;
     }
@@ -274,12 +274,16 @@ public class VertexMapper implements GraphDataMapper {
         return !nullValues.isEmpty() && nullValues.contains(String.valueOf(value));
     }
 
-    private Object getMappedValue(Object originalValue) {
-        Map<Object, Object> vm = mappingConfig.getValueMapping();
+    private Object getMappedValue(String sourceField, Object originalValue) {
+        Map<String, Map<Object, Object>> vm = mappingConfig.getValueMapping();
         if (vm.isEmpty()) {
             return originalValue;
         }
-        return vm.getOrDefault(originalValue, originalValue);
+        Map<Object, Object> perField = vm.get(sourceField);
+        if (perField == null || perField.isEmpty()) {
+            return originalValue;
+        }
+        return perField.getOrDefault(originalValue, originalValue);
     }
 
     private String spliceVertexId(List<Object> primaryValues) {

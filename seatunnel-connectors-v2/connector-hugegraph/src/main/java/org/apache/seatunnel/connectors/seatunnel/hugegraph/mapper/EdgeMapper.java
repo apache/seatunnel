@@ -186,7 +186,7 @@ public class EdgeMapper implements GraphDataMapper {
                             propertyKey,
                             mappingConfig.getDateFormat(),
                             mappingConfig.getTimeZone());
-            edge.property(propName, getMappedValue(converted));
+            edge.property(propName, getMappedValue(sourceField, converted));
         }
         return edge;
     }
@@ -289,9 +289,9 @@ public class EdgeMapper implements GraphDataMapper {
                                 propertyKey,
                                 mappingConfig.getDateFormat(),
                                 mappingConfig.getTimeZone());
-                values.add(getMappedValue(converted));
+                values.add(getMappedValue(fieldName, converted));
             } else {
-                values.add(getMappedValue(rawValue));
+                values.add(getMappedValue(fieldName, rawValue));
             }
         }
         return values;
@@ -390,12 +390,16 @@ public class EdgeMapper implements GraphDataMapper {
         return !nullValues.isEmpty() && nullValues.contains(String.valueOf(value));
     }
 
-    private Object getMappedValue(Object originalValue) {
-        Map<Object, Object> vm = mappingConfig.getValueMapping();
+    private Object getMappedValue(String sourceField, Object originalValue) {
+        Map<String, Map<Object, Object>> vm = mappingConfig.getValueMapping();
         if (vm.isEmpty()) {
             return originalValue;
         }
-        return vm.getOrDefault(originalValue, originalValue);
+        Map<Object, Object> perField = vm.get(sourceField);
+        if (perField == null || perField.isEmpty()) {
+            return originalValue;
+        }
+        return perField.getOrDefault(originalValue, originalValue);
     }
 
     private String spliceVertexId(String vertexLabelId, List<Object> primaryValues) {

@@ -51,7 +51,10 @@ public class MappingConfig implements Serializable {
 
     // Field mapping (source field name → target property name)
     private Map<String, String> fieldMapping;
-    private Map<Object, Object> valueMapping;
+    // Per-field value mapping: outer key = source field name, inner map = rawValue -> mappedValue.
+    // Scoping by field prevents one column's rule from bleeding into another (e.g. gender M->male
+    // must not also rewrite status M).
+    private Map<String, Map<Object, Object>> valueMapping;
     private List<String> nullableKeys;
     private List<String> notNullableKeys;
     private List<String> nullValues;
@@ -83,7 +86,7 @@ public class MappingConfig implements Serializable {
         return fieldMapping == null ? Collections.emptyMap() : fieldMapping;
     }
 
-    public Map<Object, Object> getValueMapping() {
+    public Map<String, Map<Object, Object>> getValueMapping() {
         return valueMapping == null ? Collections.emptyMap() : valueMapping;
     }
 

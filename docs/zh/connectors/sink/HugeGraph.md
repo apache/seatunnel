@@ -75,7 +75,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `frequency`        | String              | 对于边   | -       | 边频率，例如 `SINGLE`、`MULTIPLE`。 |
 | `sortKeys`         | `List<String>`        | 对于边   | -       | **输入行中的源字段名**（映射前、即 `fieldMapping` 应用之前的名字），用于区分相同源点和目标点之间的多条边。当 `frequency = MULTIPLE` 时必填。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `sortKeys = [event_time]`，而不是 `[created_at]`。 |
 | `fieldMapping`     | `Map<String, String>` | 否       | -       | 字段映射，key 为源字段名，value 为 HugeGraph 目标属性名。 |
-| `valueMapping`     | `Map<Object, Object>` | 否       | -       | 用于转换特定字段值的映射。 |
+| `valueMapping`     | `Map<String, Map<Object, Object>>` | 否       | -       | 按字段的值转换映射。外层键为源字段名，内层为 `原始值 -> 新值`。按字段隔离可避免一个列的规则影响其他列（如 `gender` 的 M->male 不会改写 `status` 的 M）。 |
 | `nullableKeys`     | `List<String>`        | 否       | -       | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖下述默认行为（仅这些键可空）。主键、`MULTIPLE` 边的 sortKeys 等 key 属性始终排除。与 `notNullableKeys` 互斥。 |
 | `notNullableKeys`  | `List<String>`        | 否       | -       | 与默认可空行为配合使用的反向 opt-out 列表。默认情况下（既未配 `nullableKeys` 也未配 `notNullableKeys`），自动建 label 的所有非 key 属性均可空；在此列出必须为非空的属性。与 `nullableKeys` 互斥。仅影响新建 label。 |
 | `nullValues`       | `List<String>`        | 否       | -       | 应被视为 `null` 的字符串值列表。 |
@@ -126,7 +126,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | 名称              | 类型                | 是否必须 | 默认值       | 描述                                                                                                                                                                      |
 | ----------------- | ------------------ | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fieldMapping`    | `Map<String, String>` | 否       | -            | 一个映射，其中键是源字段名，值是HugeGraph中的目标属性名。如果未指定，则使用源字段名作为目标属性名。                                                                         |
-| `valueMapping`    | `Map<Object, Object>` | 否       | -            | 用于转换特定字段值的映射。键是源的原始值，值是要写入的新值。                                                                                                               |
+| `valueMapping`    | `Map<String, Map<Object, Object>>` | 否       | -            | 按字段的值转换映射。外层键为源字段名，内层为 `原始值 -> 新值`。按字段隔离，一个列的替换规则不会影响其他列。                                                                                                               |
 | `nullableKeys`    | `List<String>`       | 否       | -            | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖默认可空行为。与 `notNullableKeys` 互斥。                                                                              |
 | `notNullableKeys` | `List<String>`       | 否       | -            | 与默认可空行为配合的反向 opt-out 列表，在此列出必须为非空的属性。与 `nullableKeys` 互斥。                                                                                    |
 | `nullValues`      | `List<String>`       | 否       | -            | 应被视为`null`的字符串值列表。任何包含这些值的字段都不会被写入。                                                                                                          |
