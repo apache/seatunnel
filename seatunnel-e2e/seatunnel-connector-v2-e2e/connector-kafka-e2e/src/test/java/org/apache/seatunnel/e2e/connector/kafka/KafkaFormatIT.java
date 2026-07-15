@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -295,7 +294,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             return Paths.get(
                     Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         } catch (Exception e) {
-            throw new SeaTunnelException(
+            throw new RuntimeException(
                     "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
         }
     }
