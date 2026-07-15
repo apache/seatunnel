@@ -16,6 +16,7 @@
 | chunk_size        | int    | no   | 1000 |
 | overlap_size      | int    | no   | 0   |
 | separators        | array  | no   | ["\n\n", "\n", "。", "！", "？", ". ", " "] |
+| skip_empty_text   | boolean| no   | true |
 
 ### text_field [string]
 
@@ -31,11 +32,12 @@
 
 ### chunk_size [int]
 
-每个块的最大长度，以字符计。必须大于 `0`。默认值为 `1000`。
+每个块的最大长度，以 **UTF-16 code unit**（Java `char`）计，而非字符数——一个字符（如 emoji）
+可能占用多个 UTF-16 code unit。必须大于 `0`。默认值为 `1000`。
 
 ### overlap_size [int]
 
-相邻块之间的重叠长度，以字符计。把前一个块末尾的少量上下文带入下一个块开头，有助于在块边界处保留语义。重叠由
+相邻块之间的重叠长度，以 **UTF-16 code unit** 计。把前一个块末尾的少量上下文带入下一个块开头，有助于在块边界处保留语义。重叠由
 **若干个完整的片段**（完整的词/句）组成，因此绝不会从单词中间开始；`overlap_size` 是一个上界——实际重叠会向下取整到完整片段，
 当连最后一个片段都超过该预算时，则不携带任何重叠。（当 `separators` 留空、回退为固定长度切分时不存在"片段"，此时重叠为
 `overlap_size` 个字符的定长窗口，不会向词边界取整。）必须满足 `0 <= overlap_size < chunk_size`。默认值为 `0`。
@@ -50,14 +52,19 @@
 下一个分隔符继续切分，依此类推。若该列表留空，则回退为固定长度切分。默认值为
 `["\n\n", "\n", "。", "！", "？", ". ", " "]`。
 
+### skip_empty_text [boolean]
+
+控制 `text_field` 为 `null` 或空字符串时的行处理逻辑。为 `true` 时该行被丢弃，为 `false` 时该行透传
+（`output_field` 置为 `null`、`chunk_index_field` 置为 `0`），默认值为 `true`。
+
 ### common options [string]
 
 转换插件的常见参数, 请参考 [Transform Plugin](common-options/common-options.md) 了解详情。
 
 ## 行为说明
 
-- 文本值为 `null` 或空字符串时，该输入行**不产生**任何输出行。
-- 每个产生的块长度不超过 `chunk_size` 个字符（携带的 overlap 也计入该上限）。
+- 当 `skip_empty_text = true`（默认）时，文本值为 `null` 或空字符串的输入行**不产生**任何输出行；设为 `skip_empty_text = false` 则该行会被透传（`chunk = null`、`chunk_index = 0`）。
+- 每个产生的块长度不超过 `chunk_size` 个 UTF-16 code unit（携带的 overlap 也计入该上限）；为避免劈开代理对，某个块可能短最多 1 个 code unit。
 - 分隔符会被保留：每个分隔符附着在它前面那一片的末尾，因此合并多片以填满一个块时，片与片之间的空格/换行会被保留（按 `" "` 切分的单词会重新拼成 `a b` 而不是 `ab`），连续的分隔符（例如空行）也会被保留。当 `overlap_size = 0` 时，各块拼接后可还原为原始文本。
 - 同一输入行产生的多行都带有相同的源键（例如相同的 `id`）。为让它仍然唯一，转换会把 `chunk_index_field` 追加到主键和每个唯一键上。
 

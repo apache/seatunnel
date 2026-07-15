@@ -139,6 +139,41 @@ class TextChunkTransformTest {
     }
 
     @Test
+    void skipEmptyTextFalsePassesRowThroughInsteadOfDropping() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(TextChunkTransformConfig.TEXT_FIELD.key(), "content");
+        configMap.put(TextChunkTransformConfig.CHUNK_SIZE.key(), 4);
+        configMap.put(TextChunkTransformConfig.OVERLAP_SIZE.key(), 0);
+        configMap.put(TextChunkTransformConfig.SEPARATORS.key(), Collections.emptyList());
+        configMap.put(TextChunkTransformConfig.SKIP_EMPTY_TEXT.key(), false);
+        TextChunkTransform transform =
+                new TextChunkTransform(
+                        TextChunkTransformConfig.of(ReadonlyConfig.fromMap(configMap)),
+                        catalogTable);
+
+        SeaTunnelRowType outputType =
+                transform.getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
+        int chunkIdx = outputType.indexOf("chunk");
+        int chunkSeqIdx = outputType.indexOf("chunk_index");
+
+        for (Object emptyValue : new Object[] {null, ""}) {
+            SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, emptyValue});
+            input.setTableId("docs");
+            input.setRowKind(RowKind.INSERT);
+
+            List<SeaTunnelRow> out = transform.flatMap(input);
+
+            // one passthrough row: source fields kept, chunk = null, chunk_index = 0
+            Assertions.assertEquals(1, out.size());
+            SeaTunnelRow row = out.get(0);
+            Assertions.assertEquals(1, row.getField(0));
+            Assertions.assertNull(row.getField(chunkIdx));
+            Assertions.assertEquals(0, row.getField(chunkSeqIdx));
+            Assertions.assertEquals("docs", row.getTableId());
+        }
+    }
+
+    @Test
     void producedSchemaExtendsPrimaryKeyAndUniqueKeyWithChunkIndex() {
         CatalogTable withKeys =
                 CatalogTable.of(

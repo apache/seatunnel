@@ -58,7 +58,8 @@ public class TextChunkTransformFactory implements TableTransformFactory {
                 .optional(
                         TextChunkTransformConfig.OUTPUT_FIELD,
                         TextChunkTransformConfig.CHUNK_INDEX_FIELD,
-                        TextChunkTransformConfig.SEPARATORS)
+                        TextChunkTransformConfig.SEPARATORS,
+                        TextChunkTransformConfig.SKIP_EMPTY_TEXT)
                 .optional(
                         TextChunkTransformConfig.CHUNK_SIZE,
                         Conditions.greaterThan(TextChunkTransformConfig.CHUNK_SIZE, 0))

@@ -18,6 +18,7 @@ chunk text and its 0-based sequence index within the source document.
 | chunk_size        | int    | no       | 1000          |
 | overlap_size      | int    | no       | 0             |
 | separators        | array  | no       | ["\n\n", "\n", "。", "！", "？", ". ", " "] |
+| skip_empty_text   | boolean| no       | true          |
 
 ### text_field [string]
 
@@ -35,11 +36,13 @@ The name of the output column holding the chunk sequence index within a document
 
 ### chunk_size [int]
 
-Maximum length of each chunk, measured in characters. Must be greater than `0`. Defaults to `1000`.
+Maximum length of each chunk, counted in **UTF-16 code units** (Java `char`), not characters — a
+character such as an emoji may take multiple code units. Must be greater than `0`. Defaults to `1000`.
 
 ### overlap_size [int]
 
-Overlap length between adjacent chunks, measured in characters. Carrying a little context from the end
+Overlap length between adjacent chunks, counted in **UTF-16 code units**.
+Carrying a little context from the end
 of one chunk into the start of the next helps preserve meaning across chunk boundaries. The overlap is
 made up of **whole trailing pieces** (complete words/sentences), so it never begins in the middle of a
 word; `overlap_size` is therefore an upper bound — the actual overlap rounds down to whole pieces, and
@@ -59,14 +62,20 @@ separator, and any piece still longer than `chunk_size` is further split by the 
 on. If the list is left empty, the transform falls back to fixed-size splitting. Defaults to
 `["\n\n", "\n", "。", "！", "？", ". ", " "]`.
 
+### skip_empty_text [boolean]
+
+Controls how a row whose `text_field` is `null` or empty is handled. When `true` the row is dropped;
+when `false` the row is passed through (`output_field` set to `null`, `chunk_index_field` set to `0`).
+Defaults to `true`.
+
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details.
 
 ## Behavior
 
-- A `null` or empty text value produces **no** output rows for that input row.
-- Each produced chunk is at most `chunk_size` characters long (the carried overlap counts toward the budget).
+- A `null` or empty text value produces **no** output rows for that input row when `skip_empty_text = true` (the default); set `skip_empty_text = false` to pass such a row through instead (`chunk = null`, `chunk_index = 0`).
+- Each produced chunk is at most `chunk_size` UTF-16 code units long (the carried overlap counts toward the budget); a chunk may be up to 1 unit shorter to avoid splitting a surrogate pair.
 - Separators are retained: each separator stays attached to the end of the piece it follows, so merging pieces to fill a chunk keeps the spaces/newlines between them (words split on `" "` are re-joined as `a b`, not `ab`) and runs of consecutive separators (e.g. blank lines) are preserved. With `overlap_size = 0` the chunks concatenate back to the original text.
 - The rows produced from one input row all carry the same source key (e.g. the same `id`). To keep it unique, the transform appends `chunk_index_field` to the primary key and to every unique key.
 

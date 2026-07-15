@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Pure text-chunking algorithm, measured in characters.
+ * Pure text-chunking algorithm.
  *
  * <ul>
  *   <li>null/empty text produces no chunks;
@@ -38,7 +38,7 @@ import java.util.List;
  *   <li>in the separator path, overlap is composed of whole trailing pieces, so it never starts
  *       mid-word; {@code overlapSize} is an upper bound and rounds down to whole pieces. In the
  *       empty-separators fixed-size fallback there are no pieces, so overlap is a plain character
- *       window ({@code overlapSize} characters, code-point aligned) and is not rounded;
+ *       window ({@code overlapSize} code units, code-point aligned) and is not rounded;
  *   <li>separators are retained on the piece they follow, so with {@code overlapSize == 0} the
  *       chunks concatenate back to the original text;
  *   <li>boundaries align to whole Unicode code points, so a surrogate pair (e.g. an emoji) is never

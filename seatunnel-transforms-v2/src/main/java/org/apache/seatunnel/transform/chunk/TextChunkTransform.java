@@ -32,6 +32,7 @@ import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransf
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,9 +40,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
 
     public static final String PLUGIN_NAME = "TextChunk";
+
+    private static final double OVERLAP_WARN_RATIO = 0.5;
 
     private final TextChunkTransformConfig config;
     private final int textFieldIndex;
@@ -61,6 +65,14 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
             throw TransformCommonError.cannotFindInputFieldError(
                     getPluginName(), config.getTextField());
         }
+        if (config.getOverlapSize() >= config.getChunkSize() * OVERLAP_WARN_RATIO) {
+            log.warn(
+                    "Configured overlap_size={} exceeds {}% of chunk_size={}, which may cause "
+                            + "row-count and memory amplification. Consider a smaller overlap_size.",
+                    config.getOverlapSize(),
+                    (int) (OVERLAP_WARN_RATIO * 100),
+                    config.getChunkSize());
+        }
         this.outputCatalogTable = getProducedCatalogTable();
     }
 
@@ -73,7 +85,13 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
     protected List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
         Object value = inputRow.getField(textFieldIndex);
         if (value == null || value.toString().isEmpty()) {
-            return Collections.emptyList();
+            if (config.isSkipEmptyText()) {
+                log.debug(
+                        "Dropping row because text_field '{}' is null or empty (skip_empty_text=true)",
+                        config.getTextField());
+                return Collections.emptyList();
+            }
+            return Collections.singletonList(buildOutputRow(inputRow, null, 0));
         }
         List<String> chunks =
                 TextChunker.split(
@@ -84,16 +102,20 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
 
         List<SeaTunnelRow> outputRows = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
-            Object[] fields = Arrays.copyOf(inputRow.getFields(), outputFieldCount);
-            fields[chunkFieldIndex] = chunks.get(i);
-            fields[chunkIndexFieldIndex] = i;
-            SeaTunnelRow outputRow = new SeaTunnelRow(fields);
-            outputRow.setTableId(inputRow.getTableId());
-            outputRow.setRowKind(inputRow.getRowKind());
-            outputRow.setOptions(inputRow.getOptions());
-            outputRows.add(outputRow);
+            outputRows.add(buildOutputRow(inputRow, chunks.get(i), i));
         }
         return outputRows;
+    }
+
+    private SeaTunnelRow buildOutputRow(SeaTunnelRow inputRow, String chunk, int chunkIndex) {
+        Object[] fields = Arrays.copyOf(inputRow.getFields(), outputFieldCount);
+        fields[chunkFieldIndex] = chunk;
+        fields[chunkIndexFieldIndex] = chunkIndex;
+        SeaTunnelRow outputRow = new SeaTunnelRow(fields);
+        outputRow.setTableId(inputRow.getTableId());
+        outputRow.setRowKind(inputRow.getRowKind());
+        outputRow.setOptions(inputRow.getOptions());
+        return outputRow;
     }
 
     @Override

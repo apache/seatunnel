@@ -56,15 +56,17 @@ public class TextChunkTransformConfig implements Serializable {
             Options.key("chunk_size")
                     .intType()
                     .defaultValue(1000)
-                    .withDescription("Maximum length of each chunk, measured in characters");
+                    .withDescription(
+                            "Maximum length of each chunk, counted in UTF-16 code units "
+                                    + "(Java char)");
 
     public static final Option<Integer> OVERLAP_SIZE =
             Options.key("overlap_size")
                     .intType()
                     .defaultValue(0)
                     .withDescription(
-                            "Overlap length between adjacent chunks, measured in characters. "
-                                    + "Must be less than chunk_size");
+                            "Overlap length between adjacent chunks, counted in UTF-16 code units "
+                                    + "(Java char). Must be less than chunk_size");
 
     public static final Option<List<String>> SEPARATORS =
             Options.key("separators")
@@ -74,12 +76,23 @@ public class TextChunkTransformConfig implements Serializable {
                             "Separators tried in priority order to avoid cutting mid-sentence. "
                                     + "If left empty, falls back to fixed-size splitting");
 
+    public static final Option<Boolean> SKIP_EMPTY_TEXT =
+            Options.key("skip_empty_text")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "When true (default), a row whose text_field is null or empty "
+                                    + "produces no output rows (the row is dropped). When false, "
+                                    + "such a row is passed through unchanged with output_field set "
+                                    + "to null and chunk_index_field set to 0.");
+
     private String textField;
     private String outputField;
     private String chunkIndexField;
     private int chunkSize;
     private int overlapSize;
     private List<String> separators;
+    private boolean skipEmptyText;
 
     public static TextChunkTransformConfig of(ReadonlyConfig config) {
         TextChunkTransformConfig c = new TextChunkTransformConfig();
@@ -89,6 +102,7 @@ public class TextChunkTransformConfig implements Serializable {
         c.setChunkSize(config.get(CHUNK_SIZE));
         c.setOverlapSize(config.get(OVERLAP_SIZE));
         c.setSeparators(config.get(SEPARATORS));
+        c.setSkipEmptyText(config.get(SKIP_EMPTY_TEXT));
         return c;
     }
 }
