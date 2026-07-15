@@ -51,6 +51,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -688,7 +691,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private OpCommitResult commitDeleteOperation(
             TableScanContext ctx, FileSourceOperationState op, long checkpointId)
             throws IOException {
-        String trashPath = op.getSourcePath() + ".st_trash." + checkpointId + "." + op.getSplitId();
+        String trashPath = buildDeleteStagingPath(op, checkpointId);
         FileStatus trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
         if (trashedStatus != null) {
             return completeStagedDelete(ctx, op, checkpointId, trashPath, trashedStatus);
@@ -773,6 +776,32 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 op.getSourceLength(),
                 op.getSourceModificationTime());
         return OpCommitResult.SUCCESS;
+    }
+
+    static String buildDeleteStagingPath(FileSourceOperationState op, long checkpointId) {
+        Path sourcePath = new Path(op.getSourcePath());
+        // Split IDs can contain qualified URIs, so keep the staging file name path-safe.
+        String trashFileName = ".st_trash." + checkpointId + "." + sha256Hex(op.getSplitId());
+        Path parent = sourcePath.getParent();
+        return parent == null ? trashFileName : new Path(parent, trashFileName).toString();
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            byte[] hash =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(value.getBytes(StandardCharsets.UTF_8));
+            char[] encoded = new char[hash.length * 2];
+            char[] digits = "0123456789abcdef".toCharArray();
+            for (int i = 0; i < hash.length; i++) {
+                int current = hash[i] & 0xff;
+                encoded[i * 2] = digits[current >>> 4];
+                encoded[i * 2 + 1] = digits[current & 0x0f];
+            }
+            return new String(encoded);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not supported by this JVM", e);
+        }
     }
 
     private OpCommitResult commitBackupOperation(

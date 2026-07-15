@@ -604,6 +604,12 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             Assertions.assertFalse(
                     Files.exists(srcFile),
                     "source file should be deleted after checkpoint complete");
+            try (java.util.stream.Stream<Path> remainingPaths = Files.list(srcDir)) {
+                Assertions.assertEquals(
+                        0L,
+                        remainingPaths.count(),
+                        "post-sync delete should not leave staging directories");
+            }
         } finally {
             enumeratorWithContext.enumerator.close();
         }
@@ -776,9 +782,8 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             Path trashPath =
                     java.nio.file.Paths.get(
                             new org.apache.hadoop.fs.Path(
-                                            operation.getSourcePath()
-                                                    + ".st_trash.1."
-                                                    + operation.getSplitId())
+                                            ContinuousMultipleTableFileSourceSplitEnumerator
+                                                    .buildDeleteStagingPath(operation, 1L))
                                     .toUri());
             Files.createDirectories(trashPath.getParent());
             Files.move(srcFile, trashPath, StandardCopyOption.ATOMIC_MOVE);
