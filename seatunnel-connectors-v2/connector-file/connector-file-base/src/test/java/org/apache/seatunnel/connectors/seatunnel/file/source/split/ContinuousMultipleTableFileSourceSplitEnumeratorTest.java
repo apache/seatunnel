@@ -775,7 +775,11 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                     stageSinglePostSyncOperation(enumeratorWithContext, 1L);
             Path trashPath =
                     java.nio.file.Paths.get(
-                            operation.getSourcePath() + ".st_trash.1." + operation.getSplitId());
+                            new org.apache.hadoop.fs.Path(
+                                            operation.getSourcePath()
+                                                    + ".st_trash.1."
+                                                    + operation.getSplitId())
+                                    .toUri());
             Files.move(srcFile, trashPath, StandardCopyOption.ATOMIC_MOVE);
 
             enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
