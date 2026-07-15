@@ -59,6 +59,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -68,6 +69,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -148,6 +150,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     // when testing postgres 13, only 13-alpine supports both amd64 and arm64
     protected static final DockerImageName PG_IMAGE =
             DockerImageName.parse("debezium/postgres:11").asCompatibleSubstituteFor("postgres");
+    private static final String POSTGRES_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Postgres-CDC/lib";
 
     public static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
             new PostgreSQLContainer<>(PG_IMAGE)
@@ -175,21 +178,36 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Postgres-CDC/lib && cd /tmp/seatunnel/plugins/Postgres-CDC/lib && wget "
-                                        + driverUrl());
+                                "bash", "-c", "mkdir -p " + POSTGRES_CDC_PLUGIN_LIB);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+
+                Path driverJarPath = postgresDriverJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        POSTGRES_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
             };
+
+    private Path postgresDriverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            org.postgresql.Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
