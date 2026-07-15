@@ -65,6 +65,7 @@ seatunnel:
 - Checkpoint **不**受 `history-job-expire-minutes` 管理，必须手动清理或配置独立保留策略。
 - 每条流水线只保留最新 N 个 Checkpoint 的 Hazelcast 内存引用；作业异常终止时，旧目录可能残留在磁盘上。
 - 默认情况下，被取消的作业仍会清理 Checkpoint 数据。如果希望取消后的作业还能从最新成功完成的 Checkpoint 恢复，需要在历史作业取消前将
+  作业 `env` 中的 `checkpoint.retain-after-job-cancelled` 或 `seatunnel.yaml` 中的
   `seatunnel.engine.checkpoint.retain-after-job-cancelled` 设置为 `true`。
 - **安全清理规则**：只有在作业已取消且确认不会从该 Checkpoint 恢复时，才可删除对应 job-id 目录。
 

@@ -70,7 +70,8 @@ seatunnel:
   references). Old checkpoint directories may remain on disk if the job was killed unexpectedly.
 - By default, canceled jobs still clean up existing checkpoint data. If you want to retain the
   checkpoints generated during job execution for later recovery, set
-  `retain-after-job-cancelled: true` either in the job `env` or in `seatunnel.yaml`.
+  `checkpoint.retain-after-job-cancelled: true` in the job `env`, or set
+  `seatunnel.engine.checkpoint.retain-after-job-cancelled: true` in `seatunnel.yaml`.
 - **Safe cleanup rule**: A checkpoint directory for a job ID can be deleted only after the job has
   been cancelled and you have confirmed that you do not intend to restore it.
 
