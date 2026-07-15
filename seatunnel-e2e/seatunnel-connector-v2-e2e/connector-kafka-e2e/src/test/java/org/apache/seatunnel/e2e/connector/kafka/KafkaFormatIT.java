@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -52,6 +53,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.postgresql.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -62,12 +64,16 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -282,21 +288,33 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // --------------------------- Postgres Container-------------------------------------
     private static final String PG_IMAGE = "postgres:alpine3.16";
 
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
     private static PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
+
+    private Path postgresqlDriverJarPath() {
+        try {
+            return Paths.get(
+                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = postgresqlDriverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "PostgreSQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/Jdbc/lib/" + driverJarPath.getFileName());
             };
 
     private void createKafkaContainer() {
