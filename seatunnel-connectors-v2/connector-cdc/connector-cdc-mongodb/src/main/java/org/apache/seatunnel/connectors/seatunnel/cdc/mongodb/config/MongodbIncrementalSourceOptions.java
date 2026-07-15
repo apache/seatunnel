@@ -39,7 +39,9 @@ public class MongodbIncrementalSourceOptions extends SourceOptions implements Ta
                     .noDefaultValue()
                     .withDescription(
                             "The comma-separated list of hostname and port pairs of the MongoDB servers. "
-                                    + "eg. localhost:27017,localhost:27018");
+                                    + "A standard MongoDB connection URI with mongodb:// or mongodb+srv:// "
+                                    + "scheme is also supported. "
+                                    + "eg. localhost:27017,localhost:27018 or mongodb+srv://cluster.example.net");
 
     public static final Option<String> USERNAME =
             Options.key("username")

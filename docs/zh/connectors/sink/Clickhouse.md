@@ -15,8 +15,9 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
+> 当目标表引擎支持去重时，例如 `AggregatingMergeTree` 或 `ReplacingMergeTree`，Clickhouse Sink 可以通过幂等写入减少重复数据影响。这里未标记为精准一次，因为实际保证取决于目标表设计。
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述
@@ -50,23 +51,23 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 |                  名称                   |   类型    | 是否必须 |  默认值  |                                                                                        描述                                                                                        |
 |---------------------------------------|---------|------|-------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| host                                  | String  | Yes  | -     | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"`.                                                                                                 |
-| database                              | String  | Yes  | -     | `ClickHouse` 数据库名称.                                                                                                                                                              |
-| table                                 | String  | Yes  | -     | 表名称.                                                                                                                                                                             |
-| username                              | String  | Yes  | -     | `ClickHouse` 用户账号.                                                                                                                                                               |
-| password                              | String  | Yes  | -     | `ClickHouse` 用户密码.                                                                                                                                                               |
-| clickhouse.config                     | Map     | No   |       | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| bulk_size                             | String  | No   | 20000 | 每次通过[Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数，即默认是20000.                                                                                            |
-| split_mode                            | String  | No   | false | 此模式仅支持引擎为`Distributed`的 `clickhouse` 表。选项 `internal_replication` 应该是 `true` 。他们将在 seatunnel 中拆分分布式表数据，并直接对每个分片进行写入。分片权重定义为 `clickhouse` 将计算在内。                                   |
-| sharding_key                          | String  | No   | -     | 使用 `split_mode` 时，将数据发送到哪个节点是个问题，默认为随机选择，但可以使用`sharding_key`参数来指定分片算法的字段。此选项仅在`split_mode`为 `true` 时有效.                                                                          |
-| primary_key                           | String  | No   | -     | 标记`clickhouse`表中的主键列，并根据主键执行INSERT/UPDATE/DELETE到`clickhouse`表.                                                                                                                  |
-| support_upsert                        | Boolean | No   | false | 支持按查询主键更新插入行.                                                                                                                                                                    |
-| allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
-| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
-| data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
-| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
-| save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
-| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../common-options/sink-common-options.md).                                                                                                                              |
+| host                                  | String  | 是   | -     | `ClickHouse` 集群地址，格式为 `host:port`，支持配置多个 host，例如 `"host1:8123,host2:8123"`。 |
+| database                              | String  | 是   | -     | `ClickHouse` 数据库名称。 |
+| table                                 | String  | 是   | -     | 表名称。 |
+| username                              | String  | 是   | -     | `ClickHouse` 用户账号。 |
+| password                              | String  | 是   | -     | `ClickHouse` 用户密码。 |
+| clickhouse.config                     | Map     | 否   | -     | 除了上述必填参数外，还可以指定 `clickhouse-jdbc` 支持的其他[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration)。 |
+| bulk_size                             | int     | 否   | 20000 | 每次通过 [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) 写入的行数。 |
+| split_mode                            | Boolean | 否   | false | 仅当目标 ClickHouse 表使用 `Distributed` 引擎且 `internal_replication` 为 `true` 时生效。SeaTunnel 会拆分分布式表写入，并直接写入各个分片。 |
+| sharding_key                          | String  | 否   | -     | `split_mode=true` 时用于分片算法的字段。不配置时会随机选择目标分片。 |
+| primary_key                           | String  | 否   | -     | 用于处理 INSERT/UPDATE/DELETE 变更数据的主键列。多列用英文逗号分隔，例如 `id,name`。 |
+| support_upsert                        | Boolean | 否   | false | 是否按 `primary_key` 查询后再写入，从而实现类似 upsert 的写入效果。 |
+| allow_experimental_lightweight_delete | Boolean | 否   | false | 允许 DELETE 变更数据在 `*MergeTree` 表引擎上使用 ClickHouse lightweight delete。 |
+| schema_save_mode                      | Enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | 表结构保存模式，请参考下面的 `schema_save_mode`。 |
+| data_save_mode                        | Enum    | 否   | APPEND_DATA | 数据保存模式，请参考下面的 `data_save_mode`。 |
+| custom_sql                            | String  | 否   | -     | 当 `data_save_mode = CUSTOM_PROCESSING` 时必填。该 SQL 会在同步任务开始前执行。 |
+| save_mode_create_template             | String  | 否   | 见下文 | 当表结构保存模式需要创建表时使用的建表模板。 |
+| common-options                        |         | 否   | -     | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### schema_save_mode [Enum]
 
@@ -215,6 +216,8 @@ sink {
 
 ### CDC(Change data capture) Sink
 
+处理变更数据时，需要配置 `primary_key`，这样连接器才能把 `UPDATE` 和 `DELETE` 数据对应到目标行。需要写入前按主键查询时，再配置 `support_upsert=true`。
+
 ```hocon
 sink {
   Clickhouse {
@@ -232,6 +235,8 @@ sink {
 ```
 
 ### CDC(Change data capture) for *MergeTree engine
+
+处理 CDC 更新/删除数据时，需要配置 `primary_key`。只有目标 `*MergeTree` 表可以使用 ClickHouse lightweight delete 时，才设置 `allow_experimental_lightweight_delete=true`。
 
 ```hocon
 sink {

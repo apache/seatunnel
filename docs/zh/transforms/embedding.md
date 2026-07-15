@@ -26,6 +26,10 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 | custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
 | custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                 |
 | custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+| model_retry_max_attempts       | int    | 否    | 1      | 单个远程模型请求的最大尝试次数。默认值 `1` 表示保持原有不自动重试行为。                         |
+| model_retry_backoff_ms         | long   | 否    | 1000   | 远程模型请求重试前的初始退避时间，单位毫秒。                                          |
+| model_retry_max_backoff_ms     | long   | 否    | 10000  | 远程模型请求重试前的最大退避时间，单位毫秒。                                          |
+| model_request_timeout_ms       | int    | 否    | 20000  | 远程模型调用的请求超时时间，单位毫秒。                                             |
 
 ## 精度支持
 
@@ -49,7 +53,39 @@ Embedding 转换插件利用 embedding 模型将文本和多模态数据转换�
 
 ### single_vectorized_input_number
 
-指定单次请求向量化的输入数量。默认值为1。根据处理能力和模型提供商的API限制进行调整。
+指定一个远程向量化请求中包含的模型输入数量。默认值为1。根据处理能力和模型提供商的API限制进行调整。
+
+这是 request-level 的批处理语义，只作用于一行数据中的多个待向量化输入。它不是 row-level transform micro-batching，
+也不表示 Transform 会先收集多行 SeaTunnel row 再调用模型提供商。
+
+### 模型调用可靠性
+
+Embedding provider 通过通用模型调用运行时执行远程调用。Provider 仍然负责 provider-specific 的请求体、请求头、认证、
+响应解析以及 provider 错误转换；通用运行时负责超时传递、重试、错误分类、响应数量校验、安全日志、指标 hook 和缓存边界。
+
+默认重试行为与已有任务兼容：`model_retry_max_attempts = 1` 表示每个请求只尝试一次。配置为大于 1 后，限流、超时、
+临时远端服务错误等可重试失败可以按退避策略重试。认证失败、配置错误、响应解析失败和返回 vector 数量不匹配不会重试。
+
+每个 request batch 都必须为每个输入返回且仅返回一个 vector。如果 provider 返回的 vector 数量少于或多于输入数量，
+该请求会失败，Transform 不会输出可能错位的向量。
+
+重试会对同一个远程请求 payload 再次尝试。Transform 只有在拿到成功响应后才输出向量，但 provider 仍可能按每次尝试计费或产生
+provider 侧副作用。该配置不会改变下游 Sink 的幂等语义。
+
+运行时会记录 provider、model、batch size、attempt number、error category、retryable flag、elapsed time 等安全诊断上下文。
+日志不会记录 API key、secret key、完整源文本 chunk、二进制 payload 或完整 provider response body。
+
+Bedrock 现在也走统一的 common runtime 路径，因此 retry、timeout、响应解析和返回数量校验在各个 provider 之间保持一致。
+
+运行时也提供了一个 cache 边界。当接入 cache 实现时，key 由 provider、model、输出配置、modality、format、规范化后的 metadata，
+以及规范化输入内容的 SHA-256 摘要组成。默认的生产 wiring 仍然使用 `ModelInvocationCache.NOOP`，因此在接入层显式启用缓存之前，
+现有任务的行为保持不变。现有的 binary multimodal cache 行为不变，仍然只用于向量化前的文件分片重组。
+
+兼容性说明：
+
+- `model_retry_max_attempts`、`model_retry_backoff_ms` 和 `model_request_timeout_ms` 的默认值保持不变。
+- 本次更新没有重命名或删除任何用户可见的配置项。
+- cache 集成是增量能力，不会改变默认执行路径。
 
 ### vectorization_fields
 
@@ -98,6 +134,58 @@ vectorization_fields {
 }
 ```
 
+**多字段混合多模态向量化：**  
+> 注意: 目前，仅 `DOUBAO` 提供商支持多模态数据处理
+```hocon
+vectorization_fields {
+    # 多字段文本
+    multi_field_text_vector = [product_name, description]
+
+    # 多字段图片
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # 多字段视频
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # 多字段混合多模态
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **字段规范格式：**
 
 **支持的模态类型：**
@@ -111,7 +199,7 @@ vectorization_fields {
 - `binary` - 二进制数据格式
 
 **自动模态检测：**
-当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+当未显式指定 `modality` 且 `format` 是 `url` 时，系统会根据字段值的文件后缀自动检测模态类型：
 
 > **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 

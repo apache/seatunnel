@@ -10,18 +10,18 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 >
-  ## 关键特性
+## 关键特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
 
 > 支持查询 SQL 并可以实现投影效果。
 >
-  ## 描述
+## 描述
 
 通过 JDBC 读取外部数据源数据。
 
@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > 请下载对应 'Maven' 的支持列表，并将其复制到 '$SEATUNNEL_HOME/plugins/jdbc/lib/' 工作目录<br/>
 > 例如 Snowflake 数据源：cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 >
-  ## 数据类型映射
+## 数据类型映射
 
 | Snowflake 数据类型 | SeaTunnel 数据类型 |
 |------------------|------------------|
@@ -79,6 +79,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > 如果未设置 partition_column，它将以单并发运行，如果设置了 partition_column，它将根据任务的并发度并行执行。
 >
 > JDBC 驱动程序连接参数在 JDBC 连接字符串中受支持。例如，您可以添加 `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'` 来指定地理空间数据类型。有关可配置参数和地理空间数据类型的更多信息，请访问 Snowflake 官方[文档](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)
+
+## 注意事项
+
+- Snowflake 作业使用 `Jdbc` 插件名，并配置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
+- 运行任务前，需要把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
+- 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound`、`partition_num` 应该描述同一个数值列范围。
+- Snowflake 地理空间字段会按 Snowflake JDBC 参数返回为字节或字符串，例如 `GEOGRAPHY_OUTPUT_FORMAT`。
 
 ## 任务示例
 
@@ -156,4 +163,3 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ## 变更日志
 
 <ChangeLog />
-

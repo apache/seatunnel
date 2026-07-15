@@ -23,6 +23,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationContext;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.ProviderAdapter;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import org.apache.http.HttpHeaders;
@@ -57,7 +62,24 @@ public class ZhipuModel extends AbstractModel {
             Integer dimension,
             Integer vectorizedNumber)
             throws IOException {
-        super(vectorizedNumber);
+        this(
+                apiKey,
+                model,
+                apiPath,
+                dimension,
+                vectorizedNumber,
+                ModelInvocationOptions.defaults());
+    }
+
+    public ZhipuModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer dimension,
+            Integer vectorizedNumber,
+            ModelInvocationOptions invocationOptions)
+            throws IOException {
+        super(vectorizedNumber, invocationOptions);
         this.model = model;
         this.apiKey = apiKey;
         this.apiPath = apiPath;
@@ -67,7 +89,35 @@ public class ZhipuModel extends AbstractModel {
 
     @Override
     public List<List<Float>> vector(Object[] fields) throws IOException {
-        return vectorGeneration(fields);
+        return invocationRuntime.invoke(
+                fields,
+                new ProviderAdapter<List<List<Float>>>() {
+                    @Override
+                    public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                            throws IOException {
+                        return vectorGeneration(inputs, context.getRequestTimeoutMs());
+                    }
+
+                    @Override
+                    public int getOutputCount(List<List<Float>> output) {
+                        return output == null ? 0 : output.size();
+                    }
+
+                    @Override
+                    public String getProvider() {
+                        return "ZHIPU";
+                    }
+
+                    @Override
+                    public String getModel() {
+                        return model;
+                    }
+
+                    @Override
+                    public Integer getDimension() {
+                        return dimension;
+                    }
+                });
     }
 
     @Override
@@ -75,41 +125,61 @@ public class ZhipuModel extends AbstractModel {
         return dimension;
     }
 
-    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Float>> vectorGeneration(Object[] fields, int requestTimeoutMs)
+            throws IOException {
 
         if (fields == null || fields.length > MAX_INPUT_SIZE) {
-            throw new IOException(
-                    "Zhipu input text for vectorization, with a maximum limit of 64 entries.");
+            throw ModelInvocationException.nonRetryable(
+                    ModelInvocationErrorType.CONFIGURATION_ERROR,
+                    "ZHIPU",
+                    model,
+                    "Zhipu input text for vectorization has a maximum limit of 64 entries.",
+                    null);
         }
         HttpPost post = new HttpPost(apiPath);
         post.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
         post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         post.setConfig(
-                RequestConfig.custom().setConnectTimeout(20000).setSocketTimeout(20000).build());
+                RequestConfig.custom()
+                        .setConnectTimeout(requestTimeoutMs)
+                        .setSocketTimeout(requestTimeoutMs)
+                        .build());
 
         post.setEntity(
                 new StringEntity(
                         OBJECT_MAPPER.writeValueAsString(createJsonNodeFromData(fields)),
                         StandardCharsets.UTF_8.name()));
 
-        CloseableHttpResponse response = client.execute(post);
-        String responseStr = EntityUtils.toString(response.getEntity());
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from zhipu, response: " + responseStr);
-        }
-        JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Float>> embeddings = new ArrayList<>();
+        try (CloseableHttpResponse response = client.execute(post)) {
+            String responseStr = EntityUtils.toString(response.getEntity());
+            if (response.getStatusLine().getStatusCode() != 200) {
+                throw ModelInvocationException.fromHttpStatus(
+                        "ZHIPU", model, response.getStatusLine().getStatusCode(), responseStr);
+            }
+            try {
+                JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
+                List<List<Float>> embeddings = new ArrayList<>();
 
-        if (data.isArray()) {
-            for (JsonNode node : data) {
-                JsonNode embeddingNode = node.get("embedding");
-                List<Float> embedding =
-                        OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
-                embeddings.add(embedding);
+                if (data.isArray()) {
+                    for (JsonNode node : data) {
+                        JsonNode embeddingNode = node.get("embedding");
+                        List<Float> embedding =
+                                OBJECT_MAPPER.readValue(
+                                        embeddingNode.traverse(),
+                                        new TypeReference<List<Float>>() {});
+                        embeddings.add(embedding);
+                    }
+                }
+                return embeddings;
+            } catch (IOException | RuntimeException e) {
+                throw ModelInvocationException.nonRetryable(
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        "ZHIPU",
+                        model,
+                        "Failed to parse Zhipu embedding response",
+                        e);
             }
         }
-        return embeddings;
     }
 
     @VisibleForTesting

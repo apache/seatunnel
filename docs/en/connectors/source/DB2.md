@@ -39,7 +39,7 @@ Read external data source data through JDBC.
 
 | Datasource |                    Supported versions                    |             Driver             |                Url                |                                 Maven                                 |
 |------------|----------------------------------------------------------|--------------------------------|-----------------------------------|-----------------------------------------------------------------------|
-| DB2        | Different dependency version has different driver class. | com.ibm.db2.jdbc.app.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [Download](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
+| DB2        | Different dependency version has different driver class. | com.ibm.db2.jcc.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [Download](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
 
 ## Database Dependency
 
@@ -69,7 +69,7 @@ Read external data source data through JDBC.
 |             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
-| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use db2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                                                 |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use db2 the value is `com.ibm.db2.jcc.DB2Driver`.                                                                                                                                 |
 | username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
@@ -101,7 +101,7 @@ env {
 source{
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"
@@ -127,7 +127,7 @@ sink {
 source {
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"
@@ -149,7 +149,7 @@ source {
 source {
     Jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jdbc.app.DB2Driver"
+        driver = "com.ibm.db2.jcc.DB2Driver"
         connection_check_timeout_sec = 100
         username = "root"
         password = "123456"
@@ -168,4 +168,3 @@ source {
 ## Changelog
 
 <ChangeLog />
-

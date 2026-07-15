@@ -267,11 +267,16 @@ public class PulsarSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (pulsarAdmin != null) {
-            pulsarAdmin.close();
-        }
         if (executor != null) {
-            executor.shutdown();
+            // Stop periodic discovery before closing the shared admin client it uses.
+            executor.shutdownNow();
+        }
+        if (pulsarAdmin != null) {
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarAdmin::close);
+            } catch (Exception e) {
+                throw new IOException("Failed to close Pulsar admin.", e);
+            }
         }
     }
 
