@@ -114,7 +114,6 @@ public class DorisSchemaChangeIT extends AbstractDorisIT {
                         throw new RuntimeException(e);
                     }
                 });
-        TimeUnit.SECONDS.sleep(20);
         // waiting for case1 completed
         assertSchemaEvolutionForAddColumns(
                 DATABASE, SOURCE_TABLE, SINK_TABLE, mysqlConnection, jdbcConnection);
@@ -173,7 +172,8 @@ public class DorisSchemaChangeIT extends AbstractDorisIT {
             String sinkTable,
             Connection sourceConnection,
             Connection sinkConnection) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().ignoreExceptions()
+                .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
