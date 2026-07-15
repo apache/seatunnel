@@ -187,6 +187,7 @@ const sidebars = {
                         "transforms/common-options/common-options"
                     ]
                 },
+                "transforms/recipes",
                 "transforms/calcite",
                 "transforms/calcite-udf",
                 "transforms/copy",
