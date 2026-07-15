@@ -780,6 +780,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                                                     + ".st_trash.1."
                                                     + operation.getSplitId())
                                     .toUri());
+            Files.createDirectories(trashPath.getParent());
             Files.move(srcFile, trashPath, StandardCopyOption.ATOMIC_MOVE);
 
             enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
