@@ -1816,15 +1816,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
+        String readinessData = sourceData + "-readiness-" + resourceSuffix;
         String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-
-        for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
-        }
 
         // async execute
         CompletableFuture.supplyAsync(
@@ -1839,9 +1833,36 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
+
+        // Use a committed sink record as the readiness signal. The SeaTunnel Kafka source uses
+        // explicit partition assignment, so consumer-group membership is not observable.
+        given().pollInterval(5, SECONDS)
+                .await()
+                .atMost(5, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            ProducerRecord<byte[], byte[]> readinessRecord =
+                                    new ProducerRecord<>(
+                                            producerTopic,
+                                            null,
+                                            readinessData.getBytes(StandardCharsets.UTF_8));
+                            producer.send(readinessRecord);
+                            producer.flush();
+                            Assertions.assertTrue(
+                                    getKafkaConsumerListData(consumerTopic, sinkStartOffset)
+                                            .contains(readinessData));
+                        });
+
+        for (int i = 0; i < 10; i++) {
+            ProducerRecord<byte[], byte[]> record =
+                    new ProducerRecord<>(
+                            producerTopic, null, sourceData.getBytes(StandardCharsets.UTF_8));
+            producer.send(record);
+        }
+        producer.flush();
+
         // wait for data written to kafka
-        given().pollDelay(120, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
@@ -1861,7 +1882,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                             sinkStartOffset,
                                             10,
                                             sourceData,
-                                            Collections.singletonList(keepAliveData)));
+                                            Arrays.asList(readinessData, keepAliveData)));
                         });
     }
 
