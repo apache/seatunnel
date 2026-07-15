@@ -99,11 +99,6 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
     }
 
     @Override
-    public boolean useCommitCoordinator() {
-        return true;
-    }
-
-    @Override
     public void commit(WriterCommitMessage[] messages) {
         if (aggregatedCommitter != null) {
             try {

@@ -24,34 +24,40 @@ import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
-/**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark
- * master, and after method will close the Spark master. You can use {@link
- * Spark3Container#executeJob} to submit a seatunnel conf and a seatunnel spark job.
- */
 @NoArgsConstructor
 @AutoService(TestContainer.class)
-public class Spark3Container extends AbstractTestSparkContainer {
+public class Spark35Container extends AbstractTestSparkContainer {
 
     @Override
     public TestContainerId identifier() {
-        return TestContainerId.SPARK_3_3;
+        return TestContainerId.SPARK_3_5;
     }
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-spark-starter" + File.separator + "seatunnel-spark-3-starter";
+        return "seatunnel-spark-starter" + File.separator + "seatunnel-spark-3.5-starter";
     }
 
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/spark:3.3.0";
+        return "apache/spark:3.5.8";
+    }
+
+    @Override
+    protected List<String> getDockerCommand() {
+        return Arrays.asList(
+                "/opt/spark/bin/spark-class",
+                "org.apache.spark.deploy.master.Master",
+                "--host",
+                "0.0.0.0");
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-spark-3-connector-v2.sh";
+        return "start-seatunnel-spark-3.5-connector-v2.sh";
     }
 
     @Override

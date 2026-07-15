@@ -19,41 +19,20 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.spark.sql.Encoder;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SparkRowEncoderTest {
+public class Spark35RowEncoderTest {
 
     @Test
-    public void createWithRuntimeRowEncoder() {
-        Encoder<Row> encoder = SparkRowEncoder.create(testSchema());
+    public void createRowEncoder() {
+        StructType schema = new StructType().add("id", DataTypes.IntegerType, false);
+
+        Encoder<Row> encoder = SparkRowEncoder.create(schema);
 
         Assertions.assertNotNull(encoder);
-    }
-
-    @Test
-    public void createWithRowEncoderFallback() {
-        Encoder<Row> encoder =
-                SparkRowEncoder.create(
-                        testSchema(), OldSparkEncoders.class, TestRowEncoder.class.getName());
-
-        Assertions.assertNotNull(encoder);
-    }
-
-    private static StructType testSchema() {
-        return new StructType().add("id", DataTypes.IntegerType, false);
-    }
-
-    public static class OldSparkEncoders {}
-
-    public static class TestRowEncoder {
-
-        public static Encoder<Row> apply(StructType schema) {
-            return RowEncoder.apply(schema);
-        }
     }
 }
