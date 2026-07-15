@@ -21,20 +21,28 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvOptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -52,6 +60,7 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -106,7 +115,11 @@ public final class ConfigValidationUtils {
             throw new ConfigCheckException(checkResult.getMsg());
         }
 
+        ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader validationClassLoader = prepareClassLoader(config, parentClassLoader);
+        Thread.currentThread().setContextClassLoader(validationClassLoader);
         try {
+            validateEnvironmentConfig(config);
             JobContext jobContext = new JobContext();
             jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
             jobContext.setEnableCheckpoint(RuntimeEnvironment.getEnableCheckpoint(config));
@@ -139,6 +152,74 @@ public final class ConfigValidationUtils {
             String message = rootException.getMessage();
             throw new ConfigCheckException(
                     message == null || message.isEmpty() ? e.getMessage() : message, e);
+        } finally {
+            Thread.currentThread().setContextClassLoader(parentClassLoader);
+        }
+    }
+
+    private static ClassLoader prepareClassLoader(Config config, ClassLoader parentClassLoader) {
+        List<URL> additionalJars = new ArrayList<>();
+        if (config.hasPath(Constants.ENV)) {
+            Config envConfig = config.getConfig(Constants.ENV);
+            if (envConfig.hasPath(EnvCommonOptions.JARS.key())) {
+                additionalJars.addAll(
+                        Common.getThirdPartyJars(envConfig.getString(EnvCommonOptions.JARS.key()))
+                                .stream()
+                                .map(Path::toUri)
+                                .map(ConfigValidationUtils::toUrl)
+                                .collect(Collectors.toList()));
+            }
+        }
+        additionalJars.addAll(
+                Common.getPluginsJarDependenciesWithoutConnectorDependency().stream()
+                        .map(Path::toUri)
+                        .map(ConfigValidationUtils::toUrl)
+                        .collect(Collectors.toList()));
+        additionalJars.addAll(
+                Common.getLibJars().stream()
+                        .map(Path::toUri)
+                        .map(ConfigValidationUtils::toUrl)
+                        .collect(Collectors.toList()));
+        additionalJars = additionalJars.stream().distinct().collect(Collectors.toList());
+        if (additionalJars.isEmpty()) {
+            return parentClassLoader;
+        }
+
+        try {
+            ADD_URL_TO_CLASSLOADER.accept(parentClassLoader, additionalJars);
+            return parentClassLoader;
+        } catch (RuntimeException e) {
+            return new URLClassLoader(additionalJars.toArray(new URL[0]), parentClassLoader);
+        }
+    }
+
+    private static URL toUrl(java.net.URI uri) {
+        try {
+            return uri.toURL();
+        } catch (Exception e) {
+            throw new ConfigCheckException("Invalid plugin dependency path: " + uri, e);
+        }
+    }
+
+    private static void validateEnvironmentConfig(Config config) {
+        if (!config.hasPath(Constants.ENV)) {
+            return;
+        }
+        ReadonlyConfig envConfig = ReadonlyConfig.fromConfig(config.getConfig(Constants.ENV));
+        OptionRule optionRule = new EnvOptionRule().optionRule();
+        validateOptionTypes(envConfig, optionRule);
+        org.apache.seatunnel.api.configuration.util.ConfigValidator.of(envConfig)
+                .validate(optionRule);
+    }
+
+    private static void validateOptionTypes(ReadonlyConfig config, OptionRule rule) {
+        for (Option<?> option : rule.getOptionalOptions()) {
+            config.getOptional(option);
+        }
+        for (RequiredOption requiredOption : rule.getRequiredOptions()) {
+            for (Option<?> option : requiredOption.getOptions()) {
+                config.getOptional(option);
+            }
         }
     }
 
@@ -158,16 +239,26 @@ public final class ConfigValidationUtils {
         for (Config sourceConfig : sourceConfigs) {
             PluginIdentifier pluginIdentifier =
                     getPluginIdentifier(sourceConfig, PluginType.SOURCE);
+            TableSourceFactory sourceFactory =
+                    (TableSourceFactory)
+                            factoryDiscovery
+                                    .createOptionalPluginInstance(pluginIdentifier)
+                                    .orElse(null);
+            if (sourceFactory != null) {
+                org.apache.seatunnel.api.configuration.util.ConfigValidator.validateUnknownKeys(
+                        ReadonlyConfig.fromConfig(sourceConfig),
+                        sourceFactory.optionRule(),
+                        pluginIdentifier.getPluginName());
+            }
+            ClassLoader sourceClassLoader = getFactoryClassLoader(sourceFactory, classLoader);
             Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> source =
                     FactoryUtil.createAndPrepareSource(
                             ReadonlyConfig.fromConfig(sourceConfig),
-                            classLoader,
+                            sourceClassLoader,
                             pluginIdentifier.getPluginName(),
                             fallbackCreateSource,
-                            (org.apache.seatunnel.api.table.factory.TableSourceFactory)
-                                    factoryDiscovery
-                                            .createOptionalPluginInstance(pluginIdentifier)
-                                            .orElse(null));
+                            sourceFactory,
+                            null);
 
             source._1().setJobContext(jobContext);
             ensureJobModeMatch(jobContext, source._1());
@@ -213,11 +304,16 @@ public final class ConfigValidationUtils {
 
             TableTransformFactory factory =
                     (TableTransformFactory) factoryDiscovery.createPluginInstance(pluginIdentifier);
+            org.apache.seatunnel.api.configuration.util.ConfigValidator.validateUnknownKeys(
+                    ReadonlyConfig.fromConfig(transformConfig),
+                    factory.optionRule(),
+                    pluginIdentifier.getPluginName());
+            ClassLoader transformClassLoader = getFactoryClassLoader(factory, classLoader);
             TableTransformFactoryContext context =
                     new TableTransformFactoryContext(
                             inputTable.getCatalogTables(),
                             ReadonlyConfig.fromConfig(transformConfig),
-                            classLoader);
+                            transformClassLoader);
             org.apache.seatunnel.api.configuration.util.ConfigValidator.of(context.getOptions())
                     .validate(factory.optionRule());
             SeaTunnelTransform<?> transform = factory.createTransform(context).createTransform();
@@ -251,6 +347,18 @@ public final class ConfigValidationUtils {
         TableInfo defaultInput = upstreamTables.get(upstreamTables.size() - 1);
         for (Config sinkConfig : sinkConfigs) {
             PluginIdentifier pluginIdentifier = getPluginIdentifier(sinkConfig, PluginType.SINK);
+            TableSinkFactory sinkFactory =
+                    (TableSinkFactory)
+                            factoryDiscovery
+                                    .createOptionalPluginInstance(pluginIdentifier)
+                                    .orElse(null);
+            if (sinkFactory != null) {
+                org.apache.seatunnel.api.configuration.util.ConfigValidator.validateUnknownKeys(
+                        ReadonlyConfig.fromConfig(sinkConfig),
+                        sinkFactory.optionRule(),
+                        pluginIdentifier.getPluginName());
+            }
+            ClassLoader sinkClassLoader = getFactoryClassLoader(sinkFactory, classLoader);
             TableInfo inputTable =
                     resolveInputTable(
                                     sinkConfig,
@@ -264,13 +372,10 @@ public final class ConfigValidationUtils {
                         FactoryUtil.createAndPrepareSink(
                                 catalogTable,
                                 ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader,
+                                sinkClassLoader,
                                 pluginIdentifier.getPluginName(),
                                 fallbackCreateSink,
-                                (TableSinkFactory)
-                                        factoryDiscovery
-                                                .createOptionalPluginInstance(pluginIdentifier)
-                                                .orElse(null));
+                                sinkFactory);
                 sink.setJobContext(jobContext);
                 sinks.put(catalogTable.getTableId().toTablePath(), sink);
             }
@@ -278,9 +383,13 @@ public final class ConfigValidationUtils {
             if (!sinks.isEmpty()
                     && sinks.values().stream().allMatch(SupportMultiTableSink.class::isInstance)) {
                 FactoryUtil.createMultiTableSink(
-                        sinks, ReadonlyConfig.fromConfig(sinkConfig), classLoader);
+                        sinks, ReadonlyConfig.fromConfig(sinkConfig), sinkClassLoader);
             }
         }
+    }
+
+    static ClassLoader getFactoryClassLoader(Factory factory, ClassLoader fallbackClassLoader) {
+        return factory == null ? fallbackClassLoader : factory.getClass().getClassLoader();
     }
 
     private static Optional<TableInfo> resolveInputTable(
@@ -292,7 +401,7 @@ public final class ConfigValidationUtils {
 
         List<String> pluginInputIdentifiers = readonlyConfig.get(PLUGIN_INPUT);
         if (pluginInputIdentifiers.isEmpty()) {
-            return Optional.empty();
+            throw new ConfigCheckException("plugin_input must not be empty when configured");
         }
         if (pluginInputIdentifiers.size() > 1) {
             throw new ConfigCheckException(multiInputMessage);
