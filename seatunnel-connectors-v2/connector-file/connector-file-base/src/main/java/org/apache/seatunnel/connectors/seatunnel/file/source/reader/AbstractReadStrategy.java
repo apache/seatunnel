@@ -201,16 +201,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         new UpdateFileMetadataLoader.Request(
                                 i, buildTargetFilePath(targetPath, relativePath)));
             }
-            String targetScheme = targetHadoopFileSystemProxy.getScheme();
-            boolean alwaysBulk =
-                    "ftp".equalsIgnoreCase(targetScheme) || "sftp".equalsIgnoreCase(targetScheme);
             updateResult =
                     UpdateFileMetadataLoader.load(
                             requests,
                             targetHadoopFileSystemProxy,
                             updateCompareParallelism,
-                            updateCompareBulkThreshold,
-                            alwaysBulk);
+                            updateCompareBulkThreshold);
             for (int i = 0; i < candidates.size(); i++) {
                 FileStatus source = candidates.get(i);
                 FileStatus target = updateResult.getStatuses().get(i);

@@ -296,11 +296,11 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 
 ### update_compare_parallelism [int]
 
-Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`. The maximum number of submitted-but-incomplete lookups is eight times this value.
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`; values outside this range are rejected during configuration validation. The maximum number of submitted-but-incomplete lookups is eight times this value.
 
 ### update_compare_bulk_threshold [int]
 
-For non-FTP/SFTP targets, a positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. FTP and SFTP targets always use directory listing. Source filters are applied while entries are listed to reduce peak metadata memory.
+A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory.
 
 ### enable_file_split [boolean]
 

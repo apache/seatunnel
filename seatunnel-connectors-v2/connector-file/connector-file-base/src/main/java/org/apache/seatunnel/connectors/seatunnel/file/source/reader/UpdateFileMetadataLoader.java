@@ -57,8 +57,7 @@ final class UpdateFileMetadataLoader {
             List<Request> requests,
             HadoopFileSystemProxy target,
             int parallelism,
-            int bulkThreshold,
-            boolean alwaysBulk)
+            int bulkThreshold)
             throws IOException {
         FileStatus[] ordered = new FileStatus[requests.size()];
         Map<Path, List<Request>> groups = new LinkedHashMap<>();
@@ -74,7 +73,7 @@ final class UpdateFileMetadataLoader {
 
         List<Map.Entry<Path, List<Request>>> bulkGroups = new ArrayList<>();
         for (Map.Entry<Path, List<Request>> group : groups.entrySet()) {
-            if (!alwaysBulk && (bulkThreshold == 0 || group.getValue().size() < bulkThreshold)) {
+            if (bulkThreshold == 0 || group.getValue().size() < bulkThreshold) {
                 pointRequests.addAll(group.getValue());
             } else {
                 bulkGroups.add(group);

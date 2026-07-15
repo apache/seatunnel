@@ -66,7 +66,7 @@ class UpdateFileMetadataLoaderTest {
         }
 
         UpdateFileMetadataLoader.Result result =
-                UpdateFileMetadataLoader.load(requests, proxy, 8, 64, false);
+                UpdateFileMetadataLoader.load(requests, proxy, 8, 64);
 
         Assertions.assertEquals(1, listCount.get());
         Assertions.assertEquals(1, result.getBulkListedDirectories());
@@ -99,7 +99,7 @@ class UpdateFileMetadataLoaderTest {
         }
 
         UpdateFileMetadataLoader.Result result =
-                UpdateFileMetadataLoader.load(requests, proxy, 4, 64, false);
+                UpdateFileMetadataLoader.load(requests, proxy, 4, 64);
 
         Assertions.assertEquals(100, result.getPointLookups());
         Assertions.assertTrue(peak.get() <= 4);
@@ -113,20 +113,23 @@ class UpdateFileMetadataLoaderTest {
     }
 
     @Test
-    void shouldAlwaysBulkListFtpAndSftpTargets() throws Exception {
+    void shouldHonorDisabledBulkComparisonForFtpAndSftpTargets() throws Exception {
         HadoopFileSystemProxy proxy = Mockito.mock(HadoopFileSystemProxy.class);
         FileStatusListingSession session = Mockito.mock(FileStatusListingSession.class);
         Mockito.when(proxy.openFileStatusListingSession()).thenReturn(session);
+        Mockito.when(proxy.getFileStatus(Mockito.anyString()))
+                .thenAnswer(invocation -> file(invocation.getArgument(0)));
         List<UpdateFileMetadataLoader.Request> requests =
                 Collections.singletonList(
                         new UpdateFileMetadataLoader.Request(0, "sftp://host/path/file.bin"));
 
         UpdateFileMetadataLoader.Result result =
-                UpdateFileMetadataLoader.load(requests, proxy, 8, 64, true);
+                UpdateFileMetadataLoader.load(requests, proxy, 8, 0);
 
-        Assertions.assertEquals(1, result.getBulkListedDirectories());
-        Assertions.assertEquals(0, result.getPointLookups());
-        Mockito.verify(session).list(Mockito.eq(new Path("sftp://host/path")), Mockito.any());
+        Assertions.assertEquals(0, result.getBulkListedDirectories());
+        Assertions.assertEquals(1, result.getPointLookups());
+        Mockito.verify(proxy).getFileStatus("sftp://host/path/file.bin");
+        Mockito.verify(session, Mockito.never()).list(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -140,7 +143,7 @@ class UpdateFileMetadataLoaderTest {
         }
 
         UpdateFileMetadataLoader.Result result =
-                UpdateFileMetadataLoader.load(requests, proxy, 4, 0, false);
+                UpdateFileMetadataLoader.load(requests, proxy, 4, 0);
 
         Assertions.assertEquals(0, result.getBulkListedDirectories());
         Assertions.assertEquals(100, result.getPointLookups());
@@ -163,8 +166,7 @@ class UpdateFileMetadataLoaderTest {
                         new UpdateFileMetadataLoader.Request(0, "s3a://bucket/day/file")),
                 proxy,
                 1,
-                0,
-                false);
+                0);
 
         Assertions.assertNotNull(lookupThread.get());
         Assertions.assertTrue(lookupThread.get().isDaemon());
@@ -183,8 +185,7 @@ class UpdateFileMetadataLoaderTest {
                                 new UpdateFileMetadataLoader.Request(0, "file.bin")),
                         proxy,
                         1,
-                        1,
-                        true);
+                        1);
 
         Assertions.assertEquals(1, result.getPointLookups());
         Assertions.assertEquals(0, result.getBulkListedDirectories());
@@ -219,7 +220,7 @@ class UpdateFileMetadataLoaderTest {
 
         Assertions.assertThrows(
                 java.io.IOException.class,
-                () -> UpdateFileMetadataLoader.load(requests, proxy, 4, 64, false));
+                () -> UpdateFileMetadataLoader.load(requests, proxy, 4, 64));
         Assertions.assertEquals(0, active.get());
     }
 
