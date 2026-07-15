@@ -26,6 +26,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 。你可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -75,7 +76,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
-
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -419,6 +419,37 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+定时刷新 (Timer flush)
+
+在 `env` 块中配置 `sink.flush.interval` 即可启用定时刷新。JDBC sink 自动支持定时刷新——当设置了 `sink.flush.interval` 时，引擎会定期向记录流中注入 `FlushSignal` 信号，sink 收到该信号后，无论 `batch_size` 是否已满，都会立即将缓冲中的所有数据刷入数据库。
+
+:::tip
+
+当 `is_exactly_once = true` 时不支持定时刷新。精确一次模式下 sink 使用 XA 事务，其事务边界由 checkpoint 管理；定时触发的 flush 会破坏事务一致性保证。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
 }
 ```
 
