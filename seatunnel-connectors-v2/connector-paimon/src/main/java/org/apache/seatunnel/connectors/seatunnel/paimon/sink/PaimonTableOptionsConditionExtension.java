@@ -26,7 +26,8 @@ import java.util.Map;
 
 /**
  * Early validation for Paimon sink {@code table_options}. Delegates to {@link
- * PaimonTableOptionsValidator}.
+ * PaimonTableOptionsValidator}. Options apply only on SaveMode schema auto-create and are not
+ * merged into runtime {@code paimon.table.write-props}.
  */
 public class PaimonTableOptionsConditionExtension
         implements ConditionExtension<Map<String, String>> {
@@ -38,8 +39,9 @@ public class PaimonTableOptionsConditionExtension
 
     @Override
     public String description() {
-        return "must use non-blank keys and non-null values; keys are merged into"
-                + " paimon.table.write-props for SaveMode auto-create (see Paimon connector docs)";
+        return "must use non-blank keys and non-null values; applied only to SaveMode auto-create"
+                + " schema options (not merged into runtime paimon.table.write-props; see Paimon"
+                + " connector docs)";
     }
 
     @Override
