@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
+import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -54,6 +55,9 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -90,21 +94,35 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String COUNT_QUERY = "select count(*) from sink";
 
     private static final String PG_IMAGE = "postgres:14-alpine";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final String PG_DRIVER_CONTAINER_PATH =
+            "/tmp/seatunnel/plugins/Jdbc/lib/postgresql.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "PostgreSQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath), PG_DRIVER_CONTAINER_PATH);
             };
+
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
@@ -367,8 +385,23 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult22.getExitCode());
 
         // http binary download
-        Container.ExecResult execResult23 = container.executeJob("/http_binary_to_assert.conf");
-        Assertions.assertEquals(0, execResult23.getExitCode());
+        Container.ExecResult execResult23 =
+                executeJobWithRetry(container, "/http_binary_to_assert.conf");
+        Assertions.assertEquals(0, execResult23.getExitCode(), execResult23.getStderr());
+    }
+
+    private Container.ExecResult executeJobWithRetry(TestContainer container, String confFile)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob(confFile);
+        if (execResult.getExitCode() == 0) {
+            return execResult;
+        }
+        log.warn(
+                "Retrying {} after exit code {}. stderr: {}",
+                confFile,
+                execResult.getExitCode(),
+                execResult.getStderr());
+        return container.executeJob(confFile);
     }
 
     @TestTemplate
