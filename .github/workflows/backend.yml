@@ -254,15 +254,6 @@ jobs:
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
-      - name: Check Edge Agent E2E Update
-        id: edge-agent-e2e-modules
-        if: ${{ steps.filter.outputs.edge-agent-e2e == 'true' }}
-        run: |
-          update_files='${{ steps.filter.outputs.edge-agent-e2e_files }}'
-          modules=`python tools/update_modules_check/update_modules_check.py edge-agent-e2e "$update_files"`
-          echo $modules
-          echo "modules=$modules" >> $GITHUB_OUTPUT
-
       - name: Check Deleted Modules
         id: deleted-modules
         if: ${{ steps.filter.outputs.deleted-poms == 'true' }}
@@ -749,7 +740,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run seatunnel edge agent integration test
         run: |
-          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
+          ./mvnw -T 1 -B verify -DskipUT=false -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-edge-agent-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 

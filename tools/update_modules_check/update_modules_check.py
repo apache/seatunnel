@@ -35,10 +35,6 @@ def get_engine_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-engine-e2e")
 
 
-def get_edge_agent_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-edge-agent-e2e")
-
-
 def get_modules(files, index, start_pre, root_module):
     update_files = json.loads(files)
     modules_name_set = set([])
@@ -227,8 +223,6 @@ def main(argv):
         get_engine_modules(argv[2])
     elif argv[1] == "engine-e2e":
         get_engine_e2e_modules(argv[2])
-    elif argv[1] == "edge-agent-e2e":
-        get_edge_agent_e2e_modules(argv[2])
     elif argv[1] == "tree":
         get_dependency_tree_includes(argv[2])
     elif argv[1] == "final_it":
