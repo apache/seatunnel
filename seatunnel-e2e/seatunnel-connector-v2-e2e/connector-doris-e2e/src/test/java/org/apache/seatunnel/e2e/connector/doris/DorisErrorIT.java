@@ -47,15 +47,7 @@ public class DorisErrorIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container -> copyMySQLDriverToContainer(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     @DisabledOnContainer(
