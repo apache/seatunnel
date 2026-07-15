@@ -63,16 +63,7 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
 
     @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Oracle-CDC/lib && cd /tmp/seatunnel/plugins/Oracle-CDC/lib && wget "
-                                        + oracleDriverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+    protected final ContainerExtendedFactory extendedFactory = this::copyOracleDriverToContainer;
 
     @BeforeAll
     @Override
