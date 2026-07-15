@@ -45,4 +45,44 @@ public class S3HadoopConfTest {
         conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertFalse(conf.getExtraOptions().containsKey("fs.s3n.awsAccessKeyId"));
     }
+
+    @Test
+    void testDefaultCredentialsProvider() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER,
+                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+    }
+
+    @Test
+    void testCustomCredentialsProviderIsPassedThrough() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
+                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+    }
+
+    @Test
+    void testUnknownCredentialsProviderClassFails() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                "com.example.NonExistentCredentialsProvider");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("com.example.NonExistentCredentialsProvider"));
+    }
 }

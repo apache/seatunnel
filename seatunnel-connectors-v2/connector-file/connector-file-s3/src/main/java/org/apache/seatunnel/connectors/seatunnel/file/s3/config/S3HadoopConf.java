@@ -62,9 +62,9 @@ public class S3HadoopConf extends HadoopConf {
                     .forEach((key, value) -> s3Options.put(key, String.valueOf(value)));
         }
 
-        s3Options.put(
-                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
-                config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER).getProvider());
+        String credentialsProvider = config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER);
+        checkCredentialsProviderOnClasspath(credentialsProvider);
+        s3Options.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), credentialsProvider);
         s3Options.put(
                 S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                 config.get(S3FileBaseOptions.FS_S3A_ENDPOINT));
@@ -96,5 +96,42 @@ public class S3HadoopConf extends HadoopConf {
         // default s3n
         s3Options.put("fs.s3n.awsAccessKeyId", accessKey);
         s3Options.put("fs.s3n.awsSecretAccessKey", secretKey);
+    }
+
+    /**
+     * Verifies that the configured S3A credentials provider class is present on the classpath. Any
+     * fully-qualified provider class is accepted, but a missing class is reported eagerly with an
+     * actionable message instead of surfacing later as an obscure Hadoop initialization failure.
+     *
+     * <p>The lookup tries the thread context classloader first, then falls back to the classloader
+     * that loaded this connector. Under the Zeta plugin classloader the context classloader may be
+     * {@code null} or unrelated to the connector, so the fallback ensures a provider bundled with
+     * the connector (including the default {@link
+     * S3FileBaseOptions#INSTANCE_PROFILE_CREDENTIALS_PROVIDER}) is not rejected by mistake.
+     *
+     * @param credentialsProvider the fully-qualified credentials provider class name
+     */
+    private static void checkCredentialsProviderOnClasspath(String credentialsProvider) {
+        ClassLoader[] classLoaders = {
+            Thread.currentThread().getContextClassLoader(), S3HadoopConf.class.getClassLoader()
+        };
+        for (ClassLoader classLoader : classLoaders) {
+            if (classLoader == null) {
+                continue;
+            }
+            try {
+                Class.forName(credentialsProvider, false, classLoader);
+                return;
+            } catch (ClassNotFoundException ignored) {
+                // Try the next classloader before failing.
+            }
+        }
+        throw new IllegalArgumentException(
+                String.format(
+                        "The S3A credentials provider class '%s' is not found on the classpath. "
+                                + "Please check the value of '%s' and make sure the provider class "
+                                + "is available in the runtime classpath (for example under "
+                                + "${SEATUNNEL_HOME}/lib).",
+                        credentialsProvider, S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
     }
 }

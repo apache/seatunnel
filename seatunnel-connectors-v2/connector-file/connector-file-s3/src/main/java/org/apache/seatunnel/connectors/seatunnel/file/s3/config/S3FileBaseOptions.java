@@ -42,11 +42,37 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .noDefaultValue()
                     .withDescription("fs s3a endpoint");
 
-    public static final Option<S3aAwsCredentialsProvider> S3A_AWS_CREDENTIALS_PROVIDER =
+    /**
+     * The class name of the {@code SimpleAWSCredentialsProvider}, which authenticates with a static
+     * {@code access_key} / {@code secret_key} pair.
+     */
+    public static final String SIMPLE_AWS_CREDENTIALS_PROVIDER =
+            "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider";
+
+    /**
+     * The class name of the {@code InstanceProfileCredentialsProvider}, which resolves credentials
+     * from the runtime environment (for example an EC2 instance profile).
+     */
+    public static final String INSTANCE_PROFILE_CREDENTIALS_PROVIDER =
+            "com.amazonaws.auth.InstanceProfileCredentialsProvider";
+
+    /**
+     * The S3A credentials provider class name passed through to Hadoop. Any fully-qualified S3A
+     * credentials provider class available on the classpath is accepted, so container-oriented
+     * providers (for example {@code com.amazonaws.auth.ContainerCredentialsProvider}) and custom
+     * providers can be used in addition to the two well-known values {@link
+     * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. The
+     * value is validated for classpath presence when the Hadoop configuration is built.
+     */
+    public static final Option<String> S3A_AWS_CREDENTIALS_PROVIDER =
             Options.key("fs.s3a.aws.credentials.provider")
-                    .enumType(S3aAwsCredentialsProvider.class)
-                    .defaultValue(S3aAwsCredentialsProvider.InstanceProfileCredentialsProvider)
-                    .withDescription("s3a aws credentials provider");
+                    .stringType()
+                    .defaultValue(INSTANCE_PROFILE_CREDENTIALS_PROVIDER)
+                    .withDescription(
+                            "The fully-qualified class name of the S3A credentials provider. "
+                                    + "Defaults to "
+                                    + INSTANCE_PROFILE_CREDENTIALS_PROVIDER
+                                    + ". The class must be present on the classpath.");
 
     /**
      * The current key for that config option. if you need to add a new option, you can add it here
@@ -61,25 +87,4 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("S3 properties");
-
-    public enum S3aAwsCredentialsProvider {
-        SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
-
-        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
-
-        private String provider;
-
-        S3aAwsCredentialsProvider(String provider) {
-            this.provider = provider;
-        }
-
-        public String getProvider() {
-            return provider;
-        }
-
-        @Override
-        public String toString() {
-            return provider;
-        }
-    }
 }

@@ -51,7 +51,7 @@ public class S3RedshiftSinkFactory implements TableSinkFactory {
                         S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
                         S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3FileBaseOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
                         S3FileBaseOptions.S3_ACCESS_KEY,
                         S3FileBaseOptions.S3_SECRET_KEY)
                 .optional(S3FileBaseOptions.S3_PROPERTIES)

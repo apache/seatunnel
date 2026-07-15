@@ -46,9 +46,8 @@ public class S3StorageTest {
                                             put(
                                                     S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    S3FileBaseOptions
+                                                            .INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
                                             put(
                                                     S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                                                     "http://s3.ap-northeast-1.amazonaws.com");
@@ -71,9 +70,8 @@ public class S3StorageTest {
                                             put(
                                                     S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    S3FileBaseOptions
+                                                            .INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
                                             put(S3FileBaseOptions.FS_S3A_ENDPOINT.key(), "test");
                                         }
                                     });

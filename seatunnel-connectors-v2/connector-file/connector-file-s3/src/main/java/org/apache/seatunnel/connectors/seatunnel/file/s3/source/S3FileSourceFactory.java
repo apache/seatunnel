@@ -60,7 +60,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
                         S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3FileSourceOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileSourceOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
                         S3FileSourceOptions.S3_ACCESS_KEY,
                         S3FileSourceOptions.S3_SECRET_KEY)
                 .optional(S3FileSourceOptions.S3_PROPERTIES)
