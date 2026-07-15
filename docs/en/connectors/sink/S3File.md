@@ -110,7 +110,7 @@ If write to `csv`, `text` file type, All column will be string.
 | tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                                |
 | bucket                                | string  | yes      | -                                                     |                                                                                                                                                                                 |
 | fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                                 |
-| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`. Other provider class names are rejected during option parsing. |
+| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`; other provider class names are rejected during option parsing. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details. |
 | access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | secret_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                            |
@@ -146,6 +146,7 @@ If write to `csv`, `text` file type, All column will be string.
 | enable_header_write                   | boolean | no       | false                                                 | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
 | encoding                              | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                                 | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### path [string]
 
@@ -164,34 +165,34 @@ hadoop_s3_properties {
 
 ### fs.s3a.aws.credentials.provider [string]
 
-SeaTunnel passes this option to Hadoop S3A, but the S3File source and sink validate it before Hadoop is initialized. The currently supported values are:
+SeaTunnel passes this option to Hadoop S3A, but the S3File sink validates it before Hadoop is initialized. The supported values are:
 
 - `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
 - `com.amazonaws.auth.InstanceProfileCredentialsProvider`
 
-Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are not accepted by the current S3File connector.
+Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are rejected. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details.
 
 #### Container environments (Kubernetes/ECS/EKS)
 
 For SeaTunnel containers running on EC2-backed hosts, including EKS nodes, use the EC2 instance profile provider to avoid putting access keys in the job configuration:
 
-```
+```hocon
 fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
 ```
 
-Grant the node instance profile only the required bucket and prefix permissions. Be aware that every workload able to use that node role may receive the same permissions.
+Grant the node instance profile only the required bucket and prefix permissions. Workloads able to use that node role may share those permissions.
 
-ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity credential providers. Those providers are not directly supported by the S3File source and sink today. If an instance profile is not suitable, the current compatibility fallback is `SimpleAWSCredentialsProvider`: inject basic access and secret keys at deployment time through SeaTunnel [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a limited static-credential path, not workload identity; it does not support STS session credentials, and the values still enter the rendered configuration or process environment. Prefer adding connector support for the platform provider before production use. If static keys are unavoidable, grant least privilege, rotate them regularly, and never commit rendered credentials to source control.
+ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity providers, which S3File does not currently support. If an instance profile is not suitable, the compatibility fallback is `SimpleAWSCredentialsProvider`: inject access and secret keys at deployment time through [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a static-credential path, not workload identity; it does not support STS session credentials. Rendered values can be exposed through Zeta REST job-configuration/info endpoints and verbose logs, so restrict REST API access and keep connector logging at INFO or above. Grant least privilege, rotate keys regularly, and never commit rendered credentials to source control.
 
 #### Passing extra S3A options
 
-Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options when needed. It cannot be used to select an unsupported credential provider: the top-level `fs.s3a.aws.credentials.provider` option is applied after this map and overrides the same key.
+Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options. It cannot select an unsupported credential provider: the connector applies the top-level `fs.s3a.aws.credentials.provider` after this map and overrides the same key.
 
 #### Troubleshooting
 
-- `Factory initialize failed` or an option-conversion error: verify that the provider value is exactly one of the two supported class names above. `DefaultAWSCredentialsProviderChain` and `ContainerCredentialsProvider` are not valid S3File values.
-- `ClassNotFoundException`: verify the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
-- `403 AccessDenied`: verify the IAM role/policy has permissions to the bucket and prefix.
+- `Factory initialize failed` or `Could not parse value for enum ... S3aAwsCredentialsProvider`: verify that the provider value is exactly one of the two supported class names above. The conversion error lists `SimpleAWSCredentialsProvider` and `InstanceProfileCredentialsProvider` as the expected values.
+- `ClassNotFoundException`: verify that the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
+- `403 AccessDenied`: verify that the IAM role or policy has permissions to the bucket and prefix.
 
 ### custom_filename [boolean]
 
@@ -404,12 +405,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -437,7 +438,7 @@ sink {
       }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -559,6 +560,35 @@ sink {
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## Changelog
 

@@ -195,7 +195,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                                                                    |
 | bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
-| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`. Other provider class names are rejected during option parsing. |
+| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`; other provider class names are rejected during option parsing. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details. |
 | read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                        |
 | access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | secret_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
@@ -215,6 +215,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                                                        |
 | compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| enable_file_split               | boolean | no       | false                                                 | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
+| file_split_size                 | long    | no       | 134217728                                             | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | null_format                     | string  | no       | -                                                     | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                                                         |
 | binary_chunk_size               | int     | no       | 1024                                                  | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                                           |
@@ -224,37 +226,9 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
 | quote_char                      | string  | no       | "                                                     | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                                                     |
 | escape_char                     | string  | no       | -                                                     | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                                                |
-
-### fs.s3a.aws.credentials.provider [string]
-
-SeaTunnel passes this option to Hadoop S3A, but the S3File source and sink validate it before Hadoop is initialized. The currently supported values are:
-
-- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
-- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
-
-Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are not accepted by the current S3File connector.
-
-#### Container environments (Kubernetes/ECS/EKS)
-
-For SeaTunnel containers running on EC2-backed hosts, including EKS nodes, use the EC2 instance profile provider to avoid putting access keys in the job configuration:
-
-```hocon
-fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
-```
-
-Grant the node instance profile only the required bucket and prefix permissions. Be aware that every workload able to use that node role may receive the same permissions.
-
-ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity credential providers. Those providers are not directly supported by the S3File source and sink today. If an instance profile is not suitable, the current compatibility fallback is `SimpleAWSCredentialsProvider`: inject basic access and secret keys at deployment time through SeaTunnel [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a limited static-credential path, not workload identity; it does not support STS session credentials, and the values still enter the rendered configuration or process environment. Prefer adding connector support for the platform provider before production use. If static keys are unavoidable, grant least privilege, rotate them regularly, and never commit rendered credentials to source control.
-
-#### Passing extra S3A options
-
-Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options when needed. It cannot be used to select an unsupported credential provider: the top-level `fs.s3a.aws.credentials.provider` option is applied after this map and overrides the same key.
-
-#### Troubleshooting
-
-- `Factory initialize failed` or an option-conversion error: verify that the provider value is exactly one of the two supported class names above. `DefaultAWSCredentialsProviderChain` and `ContainerCredentialsProvider` are not valid S3File values.
-- `ClassNotFoundException`: verify the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
-- `403 AccessDenied`: verify the IAM role/policy has permissions to the bucket and prefix.
+| metalake_type                   | string  | no       | gravitino                                            | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                              |
+| recursive_file_scan             | boolean | no       | true                                                  | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                                                    |
+| sort_files_by_modification_time | boolean | no       | false                                                 | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                                                                                               |
 
 ### file_format_type [string]
 
@@ -274,7 +248,47 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
+When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+- `source_uri`: Source file path or URI
+- `document_id`: Stable document identifier derived from `source_uri`
+- `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
+- `chunk_index`: One-based chunk order in the parsed document
+- `content_hash`: SHA-256 hash of the emitted `text` value
+
+The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
 Note: Markdown format only supports reading, not writing.
+
+### fs.s3a.aws.credentials.provider [string]
+
+SeaTunnel passes this option to Hadoop S3A, but the S3File source validates it before Hadoop is initialized. The supported values are:
+
+- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
+- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
+
+Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are rejected. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details.
+
+#### Container environments (Kubernetes/ECS/EKS)
+
+For SeaTunnel containers running on EC2-backed hosts, including EKS nodes, use the EC2 instance profile provider to avoid putting access keys in the job configuration:
+
+```hocon
+fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+```
+
+Grant the node instance profile only the required bucket and prefix permissions. Workloads able to use that node role may share those permissions.
+
+ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity providers, which S3File does not currently support. If an instance profile is not suitable, the compatibility fallback is `SimpleAWSCredentialsProvider`: inject access and secret keys at deployment time through [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a static-credential path, not workload identity; it does not support STS session credentials. Rendered values can be exposed through Zeta REST job-configuration/info endpoints and verbose logs, so restrict REST API access and keep connector logging at INFO or above. Grant least privilege, rotate keys regularly, and never commit rendered credentials to source control.
+
+#### Passing extra S3A options
+
+Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options. It cannot select an unsupported credential provider: the connector applies the top-level `fs.s3a.aws.credentials.provider` after this map and overrides the same key.
+
+#### Troubleshooting
+
+- `Factory initialize failed` or `Could not parse value for enum ... S3aAwsCredentialsProvider`: verify that the provider value is exactly one of the two supported class names above. The conversion error lists `SimpleAWSCredentialsProvider` and `InstanceProfileCredentialsProvider` as the expected values.
+- `ClassNotFoundException`: verify that the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
+- `403 AccessDenied`: verify that the IAM role or policy has permissions to the bucket and prefix.
 
 ### delimiter/field_delimiter [string]
 
@@ -341,6 +355,30 @@ The result of this example matching is:
 /data/seatunnel/20241005/old_data.csv
 ```
 
+### enable_file_split [boolean]
+
+Turn on the file splitting function, the default is false. It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+- `text`/`csv`/`json`: split by `file_split_size` and align to the next `row_delimiter` to avoid breaking records.
+- `parquet`: split by RowGroup (logical split), never breaks a RowGroup.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting and emit a warning log.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+- For `json`, splitting is only supported for JSON Lines (one JSON object per line).
+- When splitting is enabled, global record order is not guaranteed because splits can be processed in parallel. Set `parallelism=1` if strict ordering is required.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -390,6 +428,35 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
+
+### schema [config]
+
+#### fields [Config]
+
+The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### metadata_table_id [string]
+
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
 ## Example
 
 1. In this example, We read data from s3 path `s3a://seatunnel-test/seatunnel/text` and the file type is orc in this path.
@@ -417,7 +484,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -479,7 +546,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {

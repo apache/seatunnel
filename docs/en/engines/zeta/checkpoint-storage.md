@@ -162,10 +162,9 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
 
-Checkpoint storage differs from the S3File source and sink: the values under `plugin-config` are passed to Hadoop configuration without the S3File provider enum restriction. With the AWS SDK v1 classes bundled by the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance-profile credentials. For ECS task roles, you can also select the container provider explicitly:
+Checkpoint storage differs from the S3File source and sink: values under `plugin-config` are passed directly to Hadoop configuration and are not limited by the S3File provider enum. With the AWS SDK v1 bundled in the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance profile credentials. For an ECS task role, you can also select the container provider explicitly:
 
 ```yaml
-
 seatunnel:
   engine:
     checkpoint:
@@ -182,11 +181,11 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
 ```
 
-For EC2-backed Kubernetes or EKS nodes, use `com.amazonaws.auth.InstanceProfileCredentialsProvider` as shown above and grant the node role only the required bucket and prefix permissions.
+For Kubernetes or EKS nodes backed by EC2, use `com.amazonaws.auth.InstanceProfileCredentialsProvider` as shown above and grant the node role only the required bucket and prefix permissions.
 
-The bundled AWS SDK v1 version does not include `WebIdentityTokenCredentialsProvider`, so EKS IRSA is not supported by the current checkpoint-storage dependency set. Do not configure an IRSA provider unless the runtime dependencies have been upgraded and verified together.
+The AWS SDK v1 bundled with the current checkpoint-storage dependencies does not contain `WebIdentityTokenCredentialsProvider`, so EKS IRSA is not supported. Do not configure an IRSA provider unless the runtime dependencies have been upgraded and validated together.
 
-If you hit errors such as `Factory initialize failed` / `ClassNotFoundException`, verify the provider class name and confirm that the required Hadoop/AWS jars are loaded on every master and worker that accesses checkpoint storage.
+If `Factory initialize failed` or `ClassNotFoundException` appears, verify the provider class name and confirm that every master and worker accessing checkpoint storage has the required Hadoop/AWS jars.
 
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 

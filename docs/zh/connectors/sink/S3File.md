@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
 | bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
 | fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | Hadoop S3A 凭据提供器。S3File 连接器当前仅接受 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，其他 provider 类名会在选项解析阶段被拒绝。 |
+| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | Hadoop S3A 的凭据 provider。S3File 连接器目前只接受 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，其它 provider 类名会在选项解析时被拒绝。详情请参阅 [Hadoop AWS 文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
 | access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
@@ -143,6 +143,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | enable_header_write                   | boolean | 否    | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                  |
 | encoding                              | string  | 否    | "UTF-8"                                               | 仅当 file_format_type 为 json,text,csv,xml 时使用。                                                                                        |
 | merge_update_event                    | boolean | 否    | false                                                 | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                           |
+| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### path [string]
 
@@ -161,33 +162,33 @@ hadoop_s3_properties {
 
 ### fs.s3a.aws.credentials.provider [string]
 
-SeaTunnel 会将该参数传递给 Hadoop S3A，但 S3File source 和 sink 会在初始化 Hadoop 前校验参数。当前支持的值只有：
+SeaTunnel 会将该参数传递给 Hadoop S3A，但 S3File sink 会在 Hadoop 初始化前校验它。当前支持的值只有：
 
 - `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
 - `com.amazonaws.auth.InstanceProfileCredentialsProvider`
 
-当前 S3File 连接器不接受其它 provider 类名，包括 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 和 `com.amazonaws.auth.ContainerCredentialsProvider`。
+其它 provider 类名（包括 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 和 `com.amazonaws.auth.ContainerCredentialsProvider`）会被拒绝。详情请参阅 [Hadoop AWS 文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。
 
 #### 容器环境（Kubernetes/ECS/EKS）
 
 如果 SeaTunnel 容器运行在基于 EC2 的主机上（包括 EKS 节点），可使用 EC2 instance profile provider，避免在作业配置中填写 AK/SK：
 
-```
+```hocon
 fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
 ```
 
 请仅向节点 instance profile 授予所需 bucket/prefix 的最小权限，并注意同一节点上能够使用该节点角色的工作负载可能共享这些权限。
 
-ECS task role 和 EKS IAM Roles for Service Accounts（IRSA）需要 container 或 web-identity provider，而当前 S3File source/sink 尚不直接支持这些 provider。如果 instance profile 不适用，当前的兼容退路是 `SimpleAWSCredentialsProvider`：通过 SeaTunnel [配置变量替换](../../introduction/concepts/config.md#配置变量替换)和平台的 secret manager 在部署时注入 basic AK/SK。这只是受限的静态凭据方案，不等同于 workload identity；它不支持 STS session 凭据，并且凭据最终仍会进入渲染后的配置或进程环境。生产环境应优先为连接器增加对应平台 provider 的支持；如果确实无法避免静态 AK/SK，请按最小权限授权、定期轮换，并且不要把渲染后的凭据提交到版本库。
+ECS task role 和 EKS IAM Roles for Service Accounts（IRSA）需要 container 或 web-identity provider，而当前 S3File 尚不支持这些 provider。如果 instance profile 不适用，兼容退路是 `SimpleAWSCredentialsProvider`：通过 [配置变量替换](../../introduction/concepts/config.md#配置变量替换)和平台 secret manager 在部署时注入 AK/SK。这是静态凭据方案，不等同于 workload identity，也不支持 STS session 凭据。渲染后的凭据可能通过 Zeta REST 作业配置/info 接口或详细日志暴露，因此应限制 REST API 访问，并将连接器日志级别保持在 INFO 或更高。请按最小权限授权、定期轮换，并且不要把渲染后的凭据提交到版本库。
 
 #### 传递更多 S3A 参数
 
-需要透传其它 `fs.s3a.*` 参数时，可通过 `hadoop_s3_properties` 配置。但不能用它选择未支持的凭据 provider：顶层 `fs.s3a.aws.credentials.provider` 会在该 map 之后应用，并覆盖同名键。
+可通过 `hadoop_s3_properties` 传递其它 `fs.s3a.*` 参数，但不能用它选择未支持的凭据 provider：连接器会在该 map 之后应用顶层 `fs.s3a.aws.credentials.provider`，并覆盖同名键。
 
 #### 常见排障
 
-- `Factory initialize failed` 或选项转换错误：确认 provider 值与上面两个受支持类名之一完全一致；`DefaultAWSCredentialsProviderChain` 和 `ContainerCredentialsProvider` 不是有效的 S3File 配置值。
-- `ClassNotFoundException`：确认本文依赖章节列出的 Hadoop/AWS jar 已加载到每个运行节点。
+- `Factory initialize failed` 或 `Could not parse value for enum ... S3aAwsCredentialsProvider`：确认 provider 值与上面两个受支持的类名完全一致；转换错误会列出 `SimpleAWSCredentialsProvider` 和 `InstanceProfileCredentialsProvider`。
+- `ClassNotFoundException`：确认依赖章节列出的 Hadoop/AWS jar 已加载到每个运行节点。
 - `403 AccessDenied`：检查 IAM role/policy 是否对 bucket/prefix 具备权限。
 
 ### custom_filename [boolean]
@@ -399,13 +400,13 @@ source {
     }
   }
 # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的源插件列表，
-# 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+# 请访问 https://seatunnel.apache.org/docs/connectors/source
 source {
 }
 
 transform {
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transform-v2
+  # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -433,7 +434,7 @@ sink {
       }
   }
   # 如果您想了解更多关于如何配置SeaTunnel以及查看完整的接收插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -547,6 +548,35 @@ sink {
 
 ### enable_header_write [boolean]
 仅在 file_format_type 为 text 或 csv 时使用。false：不写入表头，true：写入表头。
+
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## 变更日志
 
