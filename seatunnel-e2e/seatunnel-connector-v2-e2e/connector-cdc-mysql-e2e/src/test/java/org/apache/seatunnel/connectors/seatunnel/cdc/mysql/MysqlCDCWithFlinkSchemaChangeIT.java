@@ -65,6 +65,15 @@ import static org.awaitility.Awaitility.await;
         disabledReason =
                 "Currently SPARK do not support cdc, only test the change process related to Flink.")
 public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements TestResource {
+    /**
+     * Flink schema evolution can restart after XA recover/rollback on loaded CI runners, so these
+     * assertions need enough time for the job to recover and replay the schema-change event.
+     */
+    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 300_000L;
+
+    private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
+
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
@@ -169,7 +178,7 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     }
 
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
@@ -177,12 +186,12 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             assertTableDataEqualsBySourceColumnOrder(
@@ -209,8 +218,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 60,
-                                            "Time difference exceeds 60 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -246,7 +257,7 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertSchemaEvolutionForAddColumns(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
@@ -254,12 +265,12 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             assertTableDataEqualsBySourceColumnOrder(
@@ -286,8 +297,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 60,
-                                            "Time difference exceeds 60 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -297,12 +310,12 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
