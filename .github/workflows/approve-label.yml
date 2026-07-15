@@ -20,7 +20,7 @@ name: "Label when approved workflow run"
 on:
   workflow_run:
     workflows: [Label-when-reviewed]
-    types: [requested]
+    types: [completed]
 permissions:
   # All other permissions are set to none
   checks: write
@@ -42,10 +42,12 @@ jobs:
       - name: "Get information about the original trigger of the run"
         uses: ./.github/actions/get-workflow-origin
         id: source-run-info
+        continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           sourceRunId: ${{ github.event.workflow_run.id }}
       - name: Label when approved by commiters
+        if: steps.source-run-info.outcome == 'success' && steps.source-run-info.outputs.pullRequestNumber != ''
         uses: ./.github/actions/label-when-approved-action
         id: label-when-approved-by-commiters
         with:
@@ -55,6 +57,7 @@ jobs:
           remove_label_when_approval_missing: 'true'
           pullRequestNumber: ${{ steps.source-run-info.outputs.pullRequestNumber }}
       - name: Label when approved by anyone
+        if: steps.source-run-info.outcome == 'success' && steps.source-run-info.outputs.pullRequestNumber != ''
         uses: ./.github/actions/label-when-approved-action
         id: label-when-approved-by-anyone
         with:
