@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.starrocks;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -141,7 +140,7 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
                             .getLocation()
                             .toURI());
         } catch (Exception e) {
-            throw new SeaTunnelException(
+            throw new RuntimeException(
                     "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
         }
     }

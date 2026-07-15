@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -252,7 +251,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                             .getLocation()
                             .toURI());
         } catch (Exception e) {
-            throw new SeaTunnelException(
+            throw new RuntimeException(
                     "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
         }
     }
