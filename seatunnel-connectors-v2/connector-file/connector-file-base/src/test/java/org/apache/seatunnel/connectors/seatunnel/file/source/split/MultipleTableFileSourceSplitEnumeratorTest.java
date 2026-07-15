@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -128,11 +129,26 @@ class MultipleTableFileSourceSplitEnumeratorTest {
         Assertions.assertTrue(sourceConfig.isFileDiscoveryDeferred());
         Assertions.assertTrue(sourceConfig.getFilePaths().isEmpty());
         Assertions.assertEquals(0, CountingFileSystem.listStatusCount);
+        Assertions.assertEquals(0, CountingFileSystem.closeCount);
 
         List<String> filePaths = sourceConfig.getFilePathsForSplitEnumerator();
 
         Assertions.assertEquals(2, filePaths.size());
         Assertions.assertEquals(1, CountingFileSystem.listStatusCount);
+        Assertions.assertEquals(1, CountingFileSystem.closeCount);
+    }
+
+    @Test
+    void deferredFileDiscoveryClosesResourcesWhenDiscoveryFails() {
+        CountingFileSystem.reset();
+        CountingFileSystem.failOnListStatus = true;
+        BaseFileSourceConfig sourceConfig =
+                new DeferredFileSourceConfig(
+                        createBinaryConfig(), CatalogTableUtil.buildSimpleTextTable());
+
+        Assertions.assertThrows(
+                FileConnectorException.class, sourceConfig::getFilePathsForSplitEnumerator);
+        Assertions.assertEquals(1, CountingFileSystem.closeCount);
     }
 
     @Test
@@ -167,10 +183,12 @@ class MultipleTableFileSourceSplitEnumeratorTest {
                         context, multipleTableConfig, new DefaultFileSplitStrategy());
 
         Assertions.assertEquals(0, CountingFileSystem.listStatusCount);
+        Assertions.assertEquals(0, CountingFileSystem.closeCount);
 
         enumerator.open();
 
         Assertions.assertEquals(1, CountingFileSystem.listStatusCount);
+        Assertions.assertEquals(1, CountingFileSystem.closeCount);
         Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
     }
 
@@ -266,12 +284,16 @@ class MultipleTableFileSourceSplitEnumeratorTest {
     public static class CountingFileSystem extends FileSystem {
 
         private static int listStatusCount;
+        private static int closeCount;
+        private static boolean failOnListStatus;
 
         private URI uri;
         private Path workingDirectory;
 
         private static void reset() {
             listStatusCount = 0;
+            closeCount = 0;
+            failOnListStatus = false;
         }
 
         @Override
@@ -319,8 +341,11 @@ class MultipleTableFileSourceSplitEnumeratorTest {
         }
 
         @Override
-        public FileStatus[] listStatus(Path path) {
+        public FileStatus[] listStatus(Path path) throws IOException {
             listStatusCount++;
+            if (failOnListStatus) {
+                throw new IOException("File discovery failed");
+            }
             return new FileStatus[] {fileStatus(path, "first.bin"), fileStatus(path, "second.bin")};
         }
 
@@ -342,6 +367,12 @@ class MultipleTableFileSourceSplitEnumeratorTest {
         @Override
         public FileStatus getFileStatus(Path path) {
             return new FileStatus(0, true, 1, 0, 0, path.makeQualified(uri, workingDirectory));
+        }
+
+        @Override
+        public void close() throws IOException {
+            closeCount++;
+            super.close();
         }
 
         private FileStatus fileStatus(Path parent, String fileName) {

@@ -35,6 +35,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -87,9 +88,21 @@ public abstract class BaseFileSourceConfig implements Serializable {
 
     public List<String> getFilePathsForSplitEnumerator() {
         if (fileDiscoveryDeferred) {
-            return discoverFilePaths();
+            try {
+                return discoverFilePaths();
+            } finally {
+                closeDiscoveryReadStrategy();
+            }
         }
         return filePaths;
+    }
+
+    private void closeDiscoveryReadStrategy() {
+        try {
+            readStrategy.close();
+        } catch (IOException e) {
+            log.warn("Failed to close file discovery resources for plugin {}", getPluginName(), e);
+        }
     }
 
     private List<String> discoverFilePaths() {
