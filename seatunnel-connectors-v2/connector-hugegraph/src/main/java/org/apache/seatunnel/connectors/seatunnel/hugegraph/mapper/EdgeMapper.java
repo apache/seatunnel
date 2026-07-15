@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.SourceTargetConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ReservedColumns;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
@@ -92,27 +93,35 @@ public class EdgeMapper implements GraphDataMapper {
     private Set<String> resolvePropertySourceFields() {
         Set<String> fields = new HashSet<>();
         if (mappingConfig.getProperties().isEmpty()) {
-            // Implicit all-fields mode: endpoint ID fields only locate the source/target vertices
-            // and are not meant to become edge properties, so exclude them. (Reserved ~-prefixed
-            // Source metadata columns are excluded separately, see below.)
+            // Implicit mode ("write every row field as a property") — endpoint id fields locate
+            // vertices and would otherwise be duplicated onto the edge; drop them here.
             fields.addAll(fieldsIndex.keySet());
             fields.removeAll(edgeIdSourceFields);
-            fields.removeIf(EdgeMapper::isReservedField);
+            fields.removeAll(reservedSourceFields(fieldsIndex.keySet()));
         } else {
-            // Explicit mode: honor exactly what the user listed. If they deliberately put an
-            // endpoint field in `properties`, it must be written as an edge property too —
-            // SchemaManager already creates the matching PropertyKey for it, so dropping it here
-            // would build the property but never populate it.
+            // Explicit mode — respect the user's list verbatim. If they list an endpoint field it
+            // is genuinely meant to appear as an edge property, matching what SchemaManager
+            // creates on the server.
             fields.addAll(mappingConfig.getProperties());
         }
-        // Sort keys ARE edge properties and must always be retained.
+        // Sort keys are always edge properties (server-side EdgeId requires them).
         fields.addAll(mappingConfig.getSortKeys());
         return fields;
     }
 
-    /** HugeGraph reserved Source columns (~id/~label/~source_id/...) are not valid properties. */
-    private static boolean isReservedField(String field) {
-        return field != null && field.startsWith("~");
+    /**
+     * Reserved fields emitted by the HugeGraph Source (e.g. {@code ~id}, {@code ~label}). They are
+     * not valid HugeGraph property key names — including them would fail at server-side property
+     * key creation — so drop them from an implicit round-trip.
+     */
+    private static Set<String> reservedSourceFields(Set<String> allFields) {
+        Set<String> reserved = new HashSet<>();
+        for (String field : allFields) {
+            if (field != null && field.startsWith("~")) {
+                reserved.add(field);
+            }
+        }
+        return reserved;
     }
 
     private HashMap<String, PropertyKey> buildPropertyKeyCache() {
@@ -186,11 +195,25 @@ public class EdgeMapper implements GraphDataMapper {
         boolean isSource = config == mappingConfig.getSourceConfig();
         String vertexLabelId = isSource ? sourceVertexLabelId : targetVertexLabelId;
         IdStrategy strategy = isSource ? sourceIdStrategy : targetIdStrategy;
+        List<String> idFields = config.getIdFields();
+
+        // Raw-id passthrough: the endpoint id is already assembled in a reserved Source column
+        // (~source_id / ~target_id). Use it directly so an edge can be cloned without re-deriving
+        // the endpoint vertex ids from primary-key columns. Works for any endpoint id strategy
+        // (including AUTOMATIC) because we only reuse the id string, never rebuild the vertex.
+        if (ReservedColumns.isRawIdPassthrough(idFields)) {
+            Integer idx = fieldsIndex.get(idFields.get(0));
+            Object raw = idx == null ? null : row.getField(idx);
+            if (isConsideredNull(raw)) {
+                return null;
+            }
+            return coerceRawVertexId(String.valueOf(raw), strategy);
+        }
+
         if (strategy == null || strategy == IdStrategy.AUTOMATIC) {
             return null;
         }
 
-        List<String> idFields = config.getIdFields();
         switch (strategy) {
             case PRIMARY_KEY:
                 List<Object> pkValues = getFieldValues(row, idFields);
@@ -315,6 +338,23 @@ public class EdgeMapper implements GraphDataMapper {
                         : SplicingIdGenerator.concatValues(sortValues);
         return SplicingIdGenerator.concat(
                 vertexIdString(sourceId), labelId, labelId, sort, vertexIdString(targetId));
+    }
+
+    /**
+     * Converts a reserved-column id string ({@code ~source_id}/{@code ~target_id}) back into the
+     * Java id type the endpoint vertex uses, so {@link #vertexIdString} re-applies the correct
+     * {@code L}/{@code U}/{@code S} prefix. PRIMARY_KEY / CUSTOMIZE_STRING ids stay strings (e.g.
+     * {@code "1:marko"} → {@code "S1:marko"}); CUSTOMIZE_NUMBER / AUTOMATIC parse to a long;
+     * CUSTOMIZE_UUID parses to a UUID.
+     */
+    private static Object coerceRawVertexId(String raw, IdStrategy strategy) {
+        if (strategy == IdStrategy.CUSTOMIZE_NUMBER || strategy == IdStrategy.AUTOMATIC) {
+            return Long.parseLong(raw);
+        }
+        if (strategy == IdStrategy.CUSTOMIZE_UUID) {
+            return UUID.fromString(raw);
+        }
+        return raw;
     }
 
     /** Prepends the HugeGraph vertex-id type prefix: 'L' number, 'U' UUID, 'S' string. */

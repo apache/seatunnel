@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ReservedColumns;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
@@ -59,6 +60,19 @@ public final class SchemaValidator {
         }
     }
 
+    /**
+     * Runs only the config-level checks that do not touch the server, so a job with a malformed
+     * mapping fails before any schema is persisted to HugeGraph. HugeGraph label DDL is
+     * non-transactional and its primary keys / sort keys / frequency are effectively immutable, so
+     * persisting a property key or vertex label and then failing config validation would leave a
+     * schema fragment the user cannot fix in place.
+     */
+    public void validateConfigOnly(List<MappingConfig> mappings) {
+        for (MappingConfig mapping : mappings) {
+            validateMappingConfig(mapping);
+        }
+    }
+
     private void validateMapping(MappingConfig mapping) {
         validateMappingConfig(mapping);
         if (mapping.getType() == LabelType.VERTEX) {
@@ -72,6 +86,18 @@ public final class SchemaValidator {
         E.checkNotNull(mapping.getType(), "type", "mapping");
         E.checkNotNull(mapping.getLabel(), "label", "mapping");
 
+        // nullableKeys and notNullableKeys are two opposite ways to steer nullability of an
+        // auto-created label. Setting both is ambiguous — notNullableKeys is silently ignored once
+        // an explicit nullableKeys allow-list is present — so reject it up front instead.
+        if (!mapping.getNullableKeys().isEmpty() && !mapping.getNotNullableKeys().isEmpty()) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Mapping[%s/%s]: 'nullableKeys' and 'notNullableKeys' are mutually "
+                                    + "exclusive — set at most one.",
+                            mapping.getType(), mapping.getLabel()));
+        }
+
         if (mapping.getType() == LabelType.VERTEX) {
             E.checkNotNull(
                     mapping.getIdStrategy(),
@@ -83,6 +109,22 @@ public final class SchemaValidator {
                         "idFields",
                         String.format("mapping[VERTEX/%s]", mapping.getLabel()));
                 validateSourceFields(mapping, mapping.getIdFields(), "idFields");
+                // A vertex that reuses the reserved ~id column supplies the id externally, which
+                // only CUSTOMIZE_* strategies accept. PRIMARY_KEY derives its id from property
+                // values (use those columns instead) and AUTOMATIC is server-assigned.
+                if (ReservedColumns.isRawIdPassthrough(mapping.getIdFields())
+                        && mapping.getIdStrategy() != IdStrategy.CUSTOMIZE_STRING
+                        && mapping.getIdStrategy() != IdStrategy.CUSTOMIZE_NUMBER
+                        && mapping.getIdStrategy() != IdStrategy.CUSTOMIZE_UUID) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Mapping[VERTEX/%s]: idFields '%s' (raw-id passthrough) requires a "
+                                            + "CUSTOMIZE_STRING/NUMBER/UUID id strategy, but got '%s'.",
+                                    mapping.getLabel(),
+                                    mapping.getIdFields().get(0),
+                                    mapping.getIdStrategy()));
+                }
             }
         } else {
             E.checkNotNull(
@@ -341,6 +383,12 @@ public final class SchemaValidator {
     private void validateEndpointIdentity(
             MappingConfig mapping, MappingConfig.SourceTargetConfig endpoint, String endpointName) {
         VertexLabel vertexLabel = client.getVertexLabel(endpoint.getLabel());
+        // Raw-id passthrough reuses the pre-assembled ~source_id/~target_id string and never
+        // rebuilds the endpoint vertex, so there is nothing to match against the label's primary
+        // keys. Requiring the label to exist (getVertexLabel above) is enough.
+        if (ReservedColumns.isRawIdPassthrough(endpoint.getIdFields())) {
+            return;
+        }
         IdStrategy idStrategy = vertexLabel.idStrategy();
         List<String> idFields = endpoint.getIdFields();
         if (idStrategy == IdStrategy.AUTOMATIC) {

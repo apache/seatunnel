@@ -50,14 +50,22 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     /**
-     * Schema management and validation runs once at driver-side Sink initialization. Under
-     * CREATE_SCHEMA_WHEN_NOT_EXIST, missing PropertyKey/VertexLabel/EdgeLabel are auto-created
-     * first, then validated. Under ERROR_WHEN_SCHEMA_NOT_EXIST, only validation runs.
+     * Schema management and validation runs once at driver-side Sink initialization. Config-level
+     * checks (labels, idFields, MULTIPLE→sortKeys, source-field presence in the input row) run
+     * before any server write so a malformed mapping cannot leave a partial schema behind — the
+     * HugeGraph server is non-transactional for DDL and its primary keys / sort keys / frequency
+     * are effectively immutable, so a partially persisted schema fragment would not be fixable in
+     * place. Under CREATE_SCHEMA_WHEN_NOT_EXIST, missing PropertyKey / VertexLabel / EdgeLabel are
+     * then auto-created and finally re-validated against the server. Under
+     * ERROR_WHEN_SCHEMA_NOT_EXIST, only validation runs.
      */
     private void initializeSchema() {
         HugeGraphClient client = new HugeGraphClient(config.getConnectionConfig());
         RuntimeException failure = null;
         try {
+            SchemaValidator validator = new SchemaValidator(client, rowType);
+            validator.validateConfigOnly(config.getMappings());
+
             if (config.getSchemaSaveMode()
                     == HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
                 SchemaManager schemaManager =
@@ -65,7 +73,6 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 schemaManager.ensureSchema(config.getMappings());
             }
 
-            SchemaValidator validator = new SchemaValidator(client, rowType);
             validator.validate(config.getMappings());
         } catch (RuntimeException e) {
             failure = e;

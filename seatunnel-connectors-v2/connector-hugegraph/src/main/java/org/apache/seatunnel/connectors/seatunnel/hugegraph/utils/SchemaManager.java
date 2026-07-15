@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSchem
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.LabelOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ReservedColumns;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
@@ -110,23 +111,25 @@ public final class SchemaManager {
 
     private Set<String> resolveEndpointPropertyNames(MappingConfig mapping) {
         Set<String> propertyNames = new HashSet<>();
-        if (mapping.getSourceConfig() != null) {
-            List<String> sourceProperties =
-                    mapToTargetNames(
-                            mapping.getSourceConfig().getIdFields(), mapping.getFieldMapping());
-            if (sourceProperties != null) {
-                propertyNames.addAll(sourceProperties);
-            }
-        }
-        if (mapping.getTargetConfig() != null) {
-            List<String> targetProperties =
-                    mapToTargetNames(
-                            mapping.getTargetConfig().getIdFields(), mapping.getFieldMapping());
-            if (targetProperties != null) {
-                propertyNames.addAll(targetProperties);
-            }
-        }
+        addEndpointPropertyNames(mapping.getSourceConfig(), mapping, propertyNames);
+        addEndpointPropertyNames(mapping.getTargetConfig(), mapping, propertyNames);
         return propertyNames;
+    }
+
+    private void addEndpointPropertyNames(
+            MappingConfig.SourceTargetConfig endpoint,
+            MappingConfig mapping,
+            Set<String> propertyNames) {
+        if (endpoint == null || ReservedColumns.isRawIdPassthrough(endpoint.getIdFields())) {
+            // Raw-id passthrough reuses a reserved column (~source_id/~target_id) that is not a
+            // HugeGraph property — never create a PropertyKey for it.
+            return;
+        }
+        List<String> properties =
+                mapToTargetNames(endpoint.getIdFields(), mapping.getFieldMapping());
+        if (properties != null) {
+            propertyNames.addAll(properties);
+        }
     }
 
     private void createEndpointVertexLabelIfMissing(
@@ -137,6 +140,12 @@ public final class SchemaManager {
             return;
         }
         if (endpoint.getIdFields() == null || endpoint.getIdFields().isEmpty()) {
+            return;
+        }
+        // Raw-id passthrough carries a pre-assembled endpoint id, not primary-key columns, so we
+        // cannot synthesize a PRIMARY_KEY vertex label from it. Such a clone assumes the endpoint
+        // vertex label already exists; leave creation to the user.
+        if (ReservedColumns.isRawIdPassthrough(endpoint.getIdFields())) {
             return;
         }
         if (client.getVertexLabelOrNull(endpoint.getLabel()) != null) {
@@ -169,10 +178,11 @@ public final class SchemaManager {
         Set<String> sourceFields = new HashSet<>();
         if (mapping.getProperties().isEmpty()) {
             for (String fieldName : rowType.getFieldNames()) {
-                // Reserved ~-prefixed Source metadata columns (~id/~label/...) are not valid
-                // HugeGraph PropertyKeys; excluding them here keeps auto-schema creation from
-                // attempting an illegal PropertyKey on a HugeGraph Source -> Sink round-trip.
-                if (!isReservedField(fieldName)) {
+                // Reserved columns emitted by HugeGraph Source (~id, ~label, ...) are not valid
+                // HugeGraph property key names — HugeGraph rejects PropertyKey names starting
+                // with '~'. An implicit Source→Sink round-trip would otherwise attempt to create
+                // them and fail at label creation time.
+                if (fieldName != null && !fieldName.startsWith("~")) {
                     sourceFields.add(fieldName);
                 }
             }
@@ -211,11 +221,6 @@ public final class SchemaManager {
         if (sourceTargetConfig != null && sourceTargetConfig.getIdFields() != null) {
             fields.removeAll(sourceTargetConfig.getIdFields());
         }
-    }
-
-    /** HugeGraph reserved Source columns (~id/~label/...) are not valid PropertyKeys. */
-    private static boolean isReservedField(String field) {
-        return field != null && field.startsWith("~");
     }
 
     private void createMissingPropertyKeys(MappingConfig mapping, Set<String> targetPropertyNames) {
@@ -479,18 +484,69 @@ public final class SchemaManager {
         return sb.append("]").toString();
     }
 
-    private List<String> computeNullableKeys(MappingConfig mapping, Set<String> propertyNames) {
-        List<String> nullableKeys = mapping.getNullableKeys();
-        if (nullableKeys.isEmpty()) {
-            return new ArrayList<>();
+    /**
+     * Decides which target properties are declared nullable on a newly created label.
+     *
+     * <p>Default (when the mapping declares neither {@code nullableKeys} nor {@code
+     * notNullableKeys}): every non-key property is nullable. HugeGraph server rejects any insert
+     * whose row omits a non-nullable property, so the previous "everything non-null" default meant
+     * a single null cell from JDBC/CSV/Kafka failed an entire batch. Loader and spark-connector
+     * both default to nullable non-key properties; this matches them.
+     *
+     * <p>Key properties — primary keys (PRIMARY_KEY vertices) and MULTIPLE-edge sort keys — are
+     * always excluded because HugeGraph server disallows them being nullable.
+     *
+     * <p>Explicit {@code nullableKeys} wins verbatim (subject to key-exclusion + presence
+     * filtering). If it is empty, {@code notNullableKeys} carves out required-property opt-outs
+     * from the default.
+     */
+    static List<String> computeNullableKeys(MappingConfig mapping, Set<String> propertyNames) {
+        Map<String, String> fm = mapping.getFieldMapping();
+        Set<String> keyProps = computeKeyProperties(mapping);
+
+        List<String> explicit = mapping.getNullableKeys();
+        if (!explicit.isEmpty()) {
+            List<String> result = new ArrayList<>();
+            for (String nk : explicit) {
+                String targetName = fm.getOrDefault(nk, nk);
+                if (propertyNames.contains(targetName) && !keyProps.contains(targetName)) {
+                    result.add(targetName);
+                }
+            }
+            return result;
         }
+
+        Set<String> notNullableTargets = new HashSet<>();
+        for (String nk : mapping.getNotNullableKeys()) {
+            notNullableTargets.add(fm.getOrDefault(nk, nk));
+        }
+
         List<String> result = new ArrayList<>();
-        for (String nk : nullableKeys) {
-            String targetName = mapping.getFieldMapping().getOrDefault(nk, nk);
-            if (propertyNames.contains(targetName)) {
-                result.add(targetName);
+        for (String propName : propertyNames) {
+            if (!keyProps.contains(propName) && !notNullableTargets.contains(propName)) {
+                result.add(propName);
             }
         }
         return result;
+    }
+
+    private static Set<String> computeKeyProperties(MappingConfig mapping) {
+        Set<String> keys = new HashSet<>();
+        Map<String, String> fm = mapping.getFieldMapping();
+        if (mapping.getType() == LabelType.VERTEX
+                && mapping.getIdStrategy() == IdStrategy.PRIMARY_KEY
+                && mapping.getIdFields() != null) {
+            for (String field : mapping.getIdFields()) {
+                keys.add(fm.getOrDefault(field, field));
+            }
+        }
+        if (mapping.getType() == LabelType.EDGE
+                && mapping.getFrequency() == Frequency.MULTIPLE
+                && mapping.getSortKeys() != null) {
+            for (String field : mapping.getSortKeys()) {
+                keys.add(fm.getOrDefault(field, field));
+            }
+        }
+        return keys;
     }
 }

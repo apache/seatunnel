@@ -67,6 +67,16 @@ Columns prefixed with `~` are reserved columns added by the connector. HugeGraph
 | `UUID`         | `STRING`       |
 | `BLOB`         | `BYTES`        |
 
+### Multi-valued (LIST / SET) properties
+
+A HugeGraph property whose cardinality is `LIST` or `SET` is read as a SeaTunnel `ARRAY`. Declare it in `schema.fields` as `array<T>`, where `T` is the SeaTunnel type of the element (from the table above). For example, a `LIST<TEXT>` property named `tags` is declared as `tags = "array<string>"`.
+
+Notes:
+
+- `SET` elements have no guaranteed order on the server; use `LIST` when order matters.
+- If a property has cardinality `LIST`/`SET` on the server but is declared as a scalar (or vice versa), the job fails at startup with a message telling you the correct declaration.
+- `BLOB` elements inside a `LIST`/`SET` are not supported.
+
 ## Example
 
 ```hocon

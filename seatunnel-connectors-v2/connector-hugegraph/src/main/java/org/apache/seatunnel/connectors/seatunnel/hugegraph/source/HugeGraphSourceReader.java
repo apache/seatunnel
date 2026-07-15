@@ -18,12 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
@@ -47,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +57,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -303,32 +307,66 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     private void validatePropertyType(String propertyName, SeaTunnelDataType<?> seaTunnelType) {
-        // Multi-cardinality (SET/LIST) properties are returned by the server as a Collection, which
-        // the scalar row builder cannot convert. Fail fast at open() with a clear message instead
-        // of throwing a ClassCastException mid-scan; single-value reads are unaffected.
         Cardinality cardinality = client.getPropertyCardinality(propertyName);
-        if (cardinality != null && cardinality != Cardinality.SINGLE) {
+        DataType propertyDataType = client.getPropertyDataType(propertyName);
+        boolean serverIsMulti = cardinality != null && cardinality != Cardinality.SINGLE;
+        boolean declaredArray = seaTunnelType.getSqlType() == SqlType.ARRAY;
+
+        if (serverIsMulti && !declaredArray) {
+            // Guides the user to the fix; without this hint, the server's Collection value would
+            // ClassCastException mid-scan against the scalar row builder.
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                     String.format(
-                            "Property '%s' has cardinality %s, which the HugeGraph source does not "
-                                    + "support yet (only SINGLE-valued properties can be read). "
-                                    + "Remove it from schema.fields.",
-                            propertyName, cardinality));
+                            "Property '%s' has cardinality %s on the server but schema.fields "
+                                    + "declares it as '%s'. Declare it as 'array<%s>' to read the "
+                                    + "collection, or remove it from schema.fields.",
+                            propertyName,
+                            cardinality,
+                            seaTunnelType,
+                            toSeaTunnelType(propertyDataType, Cardinality.SINGLE)));
         }
-        DataType propertyDataType = client.getPropertyDataType(propertyName);
-        SeaTunnelDataType<?> expectedType = toSeaTunnelType(propertyDataType);
+        if (declaredArray && !serverIsMulti) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Property '%s' is declared as ARRAY in schema.fields but has "
+                                    + "cardinality SINGLE on the server (type %s).",
+                            propertyName, propertyDataType));
+        }
+        SeaTunnelDataType<?> expectedType = toSeaTunnelType(propertyDataType, cardinality);
         if (!expectedType.equals(seaTunnelType)) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                     String.format(
                             "Type mismatch for property '%s': schema.fields declares '%s', "
-                                    + "but HugeGraph type '%s' maps to '%s'",
-                            propertyName, seaTunnelType, propertyDataType, expectedType));
+                                    + "but HugeGraph type '%s' (cardinality=%s) maps to '%s'",
+                            propertyName,
+                            seaTunnelType,
+                            propertyDataType,
+                            cardinality,
+                            expectedType));
         }
     }
 
-    private SeaTunnelDataType<?> toSeaTunnelType(DataType dataType) {
+    private SeaTunnelDataType<?> toSeaTunnelType(DataType dataType, Cardinality cardinality) {
+        SeaTunnelDataType<?> scalar = toSeaTunnelScalarType(dataType);
+        if (cardinality == null || cardinality == Cardinality.SINGLE) {
+            return scalar;
+        }
+        // BLOB elements would produce byte[][], which downstream SeaTunnel operators do not
+        // uniformly handle — reject with a clear message rather than a mysterious CCE later.
+        if (dataType == DataType.BLOB) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Property type BLOB with cardinality %s is not supported for reads.",
+                            cardinality));
+        }
+        return ArrayType.of(scalar);
+    }
+
+    private SeaTunnelDataType<?> toSeaTunnelScalarType(DataType dataType) {
         switch (dataType) {
             case TEXT:
                 return BasicType.STRING_TYPE;
@@ -418,6 +456,8 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             return null;
         }
         switch (targetType.getSqlType()) {
+            case ARRAY:
+                return convertArrayValue(value, (ArrayType<?, ?>) targetType);
             case INT:
                 return ((Number) value).intValue();
             case BIGINT:
@@ -450,6 +490,30 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             default:
                 return value;
         }
+    }
+
+    /**
+     * Converts a HugeGraph LIST/SET property value (returned as a Collection by the client) into a
+     * typed SeaTunnel array. HugeGraph 1.5.0 returns LIST as {@code ArrayList} and SET as {@code
+     * HashSet}; both flow through {@link Collection} here. SET's original insertion order is not
+     * guaranteed by the server, so callers relying on stable ordering must use LIST.
+     */
+    private Object convertArrayValue(Object value, ArrayType<?, ?> targetType) {
+        if (!(value instanceof Collection)) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    String.format(
+                            "Expected a Collection for ARRAY property, got %s",
+                            value.getClass().getName()));
+        }
+        Collection<?> collection = (Collection<?>) value;
+        SeaTunnelDataType<?> elementType = targetType.getElementType();
+        Object array = Array.newInstance(elementType.getTypeClass(), collection.size());
+        int i = 0;
+        for (Object element : collection) {
+            Array.set(array, i++, convertPropertyValue(element, elementType));
+        }
+        return array;
     }
 
     private ZoneId getSourceZoneId() {

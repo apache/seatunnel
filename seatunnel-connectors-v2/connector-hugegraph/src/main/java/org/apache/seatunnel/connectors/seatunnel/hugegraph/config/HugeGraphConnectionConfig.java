@@ -65,29 +65,28 @@ public class HugeGraphConnectionConfig implements Serializable {
     }
 
     private static void validate(HugeGraphConnectionConfig config) {
-        if (config.getHost() == null || config.getHost().trim().isEmpty()) {
+        // Fail fast at config-load with the offending option name, so the job stops before opening
+        // a client that would otherwise surface a generic connection error much later.
+        if (isBlank(config.getHost())) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     "Option 'host' must not be empty");
         }
-        if (config.getGraphName() == null || config.getGraphName().trim().isEmpty()) {
+        if (isBlank(config.getGraphName())) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     "Option 'graph_name' must not be empty");
         }
+        // graph_space is not validated for emptiness: it carries a non-empty default ("DEFAULT"),
+        // HugeGraphConnectionConfig.of() coalesces blank values to that default, and
+        // HugeGraphClient additionally falls back to "DEFAULT" for any null — so it can never be
+        // empty here.
         if (config.getPort() < 1 || config.getPort() > 65535) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     String.format(
                             "Option 'port' must be in range [1, 65535], but got %s",
                             config.getPort()));
-        }
-        boolean hasUsername = config.getUsername() != null && !config.getUsername().isEmpty();
-        boolean hasPassword = config.getPassword() != null && !config.getPassword().isEmpty();
-        if (hasUsername != hasPassword) {
-            throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                    "Options 'username' and 'password' must be provided together");
         }
         if (!"http".equalsIgnoreCase(config.getProtocol())
                 && !"https".equalsIgnoreCase(config.getProtocol())) {
@@ -96,6 +95,15 @@ public class HugeGraphConnectionConfig implements Serializable {
                     String.format(
                             "Option 'protocol' must be 'http' or 'https', but got '%s'",
                             config.getProtocol()));
+        }
+        // Credentials must be paired — a lone username or lone password almost always indicates a
+        // config typo and produces a confusing 401 downstream.
+        boolean userSet = !isBlank(config.getUsername());
+        boolean passwordSet = !isBlank(config.getPassword());
+        if (userSet != passwordSet) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "Options 'username' and 'password' must be set together");
         }
         if (config.getMaxRetries() < 0) {
             throw new HugeGraphConnectorException(
@@ -107,5 +115,9 @@ public class HugeGraphConnectionConfig implements Serializable {
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     "Option 'retry_backoff_ms' must be greater than or equal to 0");
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

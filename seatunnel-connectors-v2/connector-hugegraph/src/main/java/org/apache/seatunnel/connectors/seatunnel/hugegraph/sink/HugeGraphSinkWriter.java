@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -211,7 +212,7 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public void write(SeaTunnelRow row) throws IOException {
         switch (row.getRowKind()) {
             case INSERT:
-                handleUpsert(row, false);
+                handleUpsert(row);
                 break;
             case UPDATE_AFTER:
                 handleUpdate(pendingUpdateBefore, row);
@@ -232,123 +233,136 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
-    private void handleUpsert(SeaTunnelRow row, boolean update) throws IOException {
-        UpsertPlan plan = buildUpsertPlan(row, update);
-        applyUpsertPlan(plan);
-    }
-
-    /**
-     * Maps an input row to its graph-element envelopes across all mappings without touching the
-     * buffer or the remote graph. Building the full plan up front lets a key-changing UPDATE
-     * validate the after-image (null id / type-conversion failure) BEFORE any destructive delete
-     * runs, so a mapping failure can no longer leave the old element deleted and the new one never
-     * written.
-     */
-    private UpsertPlan buildUpsertPlan(SeaTunnelRow row, boolean update) {
+    private void handleUpsert(SeaTunnelRow row) throws IOException {
         List<GraphElementEnvelope> vertexEnvelopes = new ArrayList<>();
         List<GraphElementEnvelope> edgeEnvelopes = new ArrayList<>();
 
         for (MappingEntry entry : mappingEntries) {
-            try {
-                if (update
-                        && entry.config.getType() == LabelType.VERTEX
-                        && entry.config.getIdStrategy()
-                                == org.apache.hugegraph.structure.constant.IdStrategy.AUTOMATIC) {
-                    throw new HugeGraphConnectorException(
-                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                            String.format(
-                                    "Mapping[VERTEX/%s]: UPDATE_AFTER is not supported with AUTOMATIC IDs because the existing vertex cannot be identified",
-                                    entry.config.getLabel()));
-                }
-                GraphElement element = entry.mapper.map(row);
-                if (element == null) {
-                    continue;
-                }
-                GraphElementEnvelope envelope =
-                        new GraphElementEnvelope(
-                                entry.config.getLabel(), entry.config.getType(), element);
-                if (entry.config.getType() == LabelType.VERTEX) {
-                    vertexEnvelopes.add(envelope);
-                } else {
-                    edgeEnvelopes.add(envelope);
-                }
-            } catch (Exception e) {
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                        String.format(
-                                "Mapping[%s/%s]: Failed to map input row to graph element",
-                                entry.config.getType(), entry.config.getLabel()),
-                        e);
+            GraphElementEnvelope envelope = mapToEnvelope(entry, row, false);
+            if (envelope == null) {
+                continue;
+            }
+            if (entry.config.getType() == LabelType.VERTEX) {
+                vertexEnvelopes.add(envelope);
+            } else {
+                edgeEnvelopes.add(envelope);
             }
         }
-        return new UpsertPlan(vertexEnvelopes, edgeEnvelopes);
-    }
 
-    private void applyUpsertPlan(UpsertPlan plan) throws IOException {
-        for (GraphElementEnvelope envelope : plan.vertexEnvelopes) {
+        for (GraphElementEnvelope envelope : vertexEnvelopes) {
             buffer.add(envelope);
         }
-        for (GraphElementEnvelope envelope : plan.edgeEnvelopes) {
+        for (GraphElementEnvelope envelope : edgeEnvelopes) {
             buffer.add(envelope);
         }
     }
 
     /**
-     * Applies a changelog update. The new element is always upserted; additionally, for any mapping
-     * whose element ID changed (vertex primary key, edge endpoint, or MULTIPLE-edge sort key), the
-     * pre-update element is deleted so a key-changing update does not leave the old vertex/edge
-     * orphaned. When the ID is unchanged no delete is issued, so the upsert alone updates the
-     * element in place and a vertex's adjacent edges are preserved.
+     * Applies a changelog update transactionally with respect to the after-image validity.
+     *
+     * <p>The previous implementation issued the pre-update delete first and then upserted the
+     * after-image; if the after-image mapping failed (null ID, unsupported type conversion, or an
+     * AUTOMATIC-vertex mapping on update) the old vertex/edge had already been deleted, so the row
+     * was lost. This implementation builds a full replacement plan — envelopes for every mapping's
+     * after-image plus the set of superseded IDs — BEFORE touching the server. Any failure during
+     * plan-building raises without any remote side effect, so the pre-update elements stay intact
+     * and the source can replay the row after the config is fixed.
+     *
+     * <p>A superseded (old) element is deleted only when its mapping also produced a replacement
+     * after-image. If the after-image is absent — the after row cannot be mapped for that mapping,
+     * e.g. a null id field made {@code map()} return null — the old element is left untouched
+     * rather than deleted-with-nothing-written; a real removal must arrive as a DELETE event.
+     *
+     * <p>Note: HugeGraph server DDL is non-transactional across a flush+delete pair, so a crash
+     * between the two still leaves partial state; that is an inherent limitation of the REST API
+     * and is handled by at-least-once replay from the upstream source.
      */
     private void handleUpdate(SeaTunnelRow before, SeaTunnelRow after) throws IOException {
-        // Build and validate the after-image replacement plan first. If mapping the after-image
-        // fails (null id, type-conversion error, unsupported AUTOMATIC id update, ...) this throws
-        // before deleteSupersededElements runs, so a failed update never leaves the old element
-        // deleted and the new one unwritten.
-        UpsertPlan plan = buildUpsertPlan(after, true);
-        if (before != null) {
-            deleteSupersededElements(before, after);
-        }
-        applyUpsertPlan(plan);
+        UpdatePlan plan = buildUpdatePlan(mappingEntries, before, after);
+        executeUpdatePlan(plan);
     }
 
-    private void deleteSupersededElements(SeaTunnelRow before, SeaTunnelRow after) {
-        // Collect only the mappings whose ID actually changed; unchanged IDs need no delete (and
-        // must not be deleted, or a vertex's edges would be lost on an ordinary property update).
-        List<MappingEntry> changedEdges = new ArrayList<>();
-        List<MappingEntry> changedVertices = new ArrayList<>();
-        Map<MappingEntry, Object> supersededIds = new IdentityHashMap<>();
+    /**
+     * Package-private + static so the "no side effect on mapping failure" invariant can be pinned
+     * by a unit test without constructing a real writer/client.
+     */
+    static UpdatePlan buildUpdatePlan(
+            List<MappingEntry> mappingEntries, SeaTunnelRow before, SeaTunnelRow after) {
+        List<GraphElementEnvelope> newVertices = new ArrayList<>();
+        List<GraphElementEnvelope> newEdges = new ArrayList<>();
+        List<Superseded> supersededVertices = new ArrayList<>();
+        List<Superseded> supersededEdges = new ArrayList<>();
 
+        Set<MappingEntry> producedAfterImage = Collections.newSetFromMap(new IdentityHashMap<>());
         for (MappingEntry entry : mappingEntries) {
-            Object oldId;
-            Object newId;
-            try {
-                oldId = entry.mapper.extractId(before);
-                newId = entry.mapper.extractId(after);
-            } catch (Exception e) {
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                        String.format(
-                                "Mapping[%s/%s]: Failed to compute graph element ID for update",
-                                entry.config.getType(), entry.config.getLabel()),
-                        e);
-            }
-            if (oldId == null || oldId.equals(newId)) {
+            GraphElementEnvelope envelope = mapToEnvelope(entry, after, true);
+            if (envelope == null) {
                 continue;
             }
-            supersededIds.put(entry, oldId);
+            producedAfterImage.add(entry);
             if (entry.config.getType() == LabelType.VERTEX) {
-                changedVertices.add(entry);
+                newVertices.add(envelope);
             } else {
-                changedEdges.add(entry);
+                newEdges.add(envelope);
             }
         }
 
-        if (supersededIds.isEmpty()) {
+        if (before != null) {
+            for (MappingEntry entry : mappingEntries) {
+                // Only delete the pre-update element when this mapping produced a replacement
+                // after-image. If the after-image is absent (e.g. the after row has a null id
+                // field so map() returned null), deleting the old element would drop it with
+                // nothing written back — a silent data loss. Keeping the old element is the safe
+                // choice; a genuine removal should arrive as a DELETE changelog event.
+                if (!producedAfterImage.contains(entry)) {
+                    continue;
+                }
+                Object oldId;
+                Object newId;
+                try {
+                    oldId = entry.mapper.extractId(before);
+                    newId = entry.mapper.extractId(after);
+                } catch (Exception e) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                            String.format(
+                                    "Mapping[%s/%s]: Failed to compute graph element ID for update",
+                                    entry.config.getType(), entry.config.getLabel()),
+                            e);
+                }
+                if (oldId == null || oldId.equals(newId)) {
+                    continue;
+                }
+                Superseded s = new Superseded(entry, oldId);
+                if (entry.config.getType() == LabelType.VERTEX) {
+                    supersededVertices.add(s);
+                } else {
+                    supersededEdges.add(s);
+                }
+            }
+        }
+
+        return new UpdatePlan(newVertices, newEdges, supersededVertices, supersededEdges);
+    }
+
+    private void executeUpdatePlan(UpdatePlan plan) throws IOException {
+        // Buffer new envelopes first — mirrors handleUpsert ordering for INSERT and ensures the
+        // new elements are staged before any destructive operation.
+        for (GraphElementEnvelope envelope : plan.newVertices) {
+            buffer.add(envelope);
+        }
+        for (GraphElementEnvelope envelope : plan.newEdges) {
+            buffer.add(envelope);
+        }
+
+        if (plan.supersededVertices.isEmpty() && plan.supersededEdges.isEmpty()) {
+            // ID unchanged — the upsert alone updates the element in place and a vertex's
+            // adjacent edges are preserved.
             return;
         }
 
-        // Persist buffered upserts before issuing deletes (mirror handleDelete ordering).
+        // Persist the new elements before issuing deletes. If flush fails, no delete happens, so
+        // pre-update elements stay intact and the source will replay the row.
         try {
             buffer.flush();
         } catch (IOException e) {
@@ -359,34 +373,95 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
 
         // Delete edges before vertices for topology safety (mirror handleDelete).
-        for (MappingEntry entry : changedEdges) {
+        for (Superseded s : plan.supersededEdges) {
             try {
-                client.deleteEdge((String) supersededIds.get(entry));
+                client.deleteEdge((String) s.oldId);
             } catch (Exception e) {
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
                         String.format(
                                 "Mapping[%s/%s]: Failed to delete superseded edge on update",
-                                entry.config.getType(), entry.config.getLabel()),
+                                s.entry.config.getType(), s.entry.config.getLabel()),
                         e);
             }
         }
-        for (MappingEntry entry : changedVertices) {
+        for (Superseded s : plan.supersededVertices) {
             try {
-                Object oldId = supersededIds.get(entry);
                 if (sinkConfig.isDeleteVertexWithEdges()) {
-                    client.deleteVertexWithEdges(oldId);
+                    client.deleteVertexWithEdges(s.oldId);
                 } else {
-                    client.deleteVertex(oldId);
+                    client.deleteVertex(s.oldId);
                 }
             } catch (Exception e) {
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
                         String.format(
                                 "Mapping[%s/%s]: Failed to delete superseded vertex on update",
-                                entry.config.getType(), entry.config.getLabel()),
+                                s.entry.config.getType(), s.entry.config.getLabel()),
                         e);
             }
+        }
+    }
+
+    /**
+     * Maps a row into an envelope for one mapping, or returns {@code null} if the mapper does not
+     * produce an element for this row (e.g. a null ID field). Reject AUTOMATIC-vertex mappings on
+     * update because the existing vertex cannot be identified.
+     */
+    static GraphElementEnvelope mapToEnvelope(
+            MappingEntry entry, SeaTunnelRow row, boolean update) {
+        if (update
+                && entry.config.getType() == LabelType.VERTEX
+                && entry.config.getIdStrategy()
+                        == org.apache.hugegraph.structure.constant.IdStrategy.AUTOMATIC) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Mapping[VERTEX/%s]: UPDATE_AFTER is not supported with AUTOMATIC IDs because the existing vertex cannot be identified",
+                            entry.config.getLabel()));
+        }
+        GraphElement element;
+        try {
+            element = entry.mapper.map(row);
+        } catch (Exception e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    String.format(
+                            "Mapping[%s/%s]: Failed to map input row to graph element",
+                            entry.config.getType(), entry.config.getLabel()),
+                    e);
+        }
+        if (element == null) {
+            return null;
+        }
+        return new GraphElementEnvelope(entry.config.getLabel(), entry.config.getType(), element);
+    }
+
+    static final class UpdatePlan {
+        final List<GraphElementEnvelope> newVertices;
+        final List<GraphElementEnvelope> newEdges;
+        final List<Superseded> supersededVertices;
+        final List<Superseded> supersededEdges;
+
+        UpdatePlan(
+                List<GraphElementEnvelope> newVertices,
+                List<GraphElementEnvelope> newEdges,
+                List<Superseded> supersededVertices,
+                List<Superseded> supersededEdges) {
+            this.newVertices = newVertices;
+            this.newEdges = newEdges;
+            this.supersededVertices = supersededVertices;
+            this.supersededEdges = supersededEdges;
+        }
+    }
+
+    static final class Superseded {
+        final MappingEntry entry;
+        final Object oldId;
+
+        Superseded(MappingEntry entry, Object oldId) {
+            this.entry = entry;
+            this.oldId = oldId;
         }
     }
 
@@ -501,26 +576,13 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
-    private static class MappingEntry {
+    static class MappingEntry {
         final MappingConfig config;
         final GraphDataMapper mapper;
 
         MappingEntry(MappingConfig config, GraphDataMapper mapper) {
             this.config = config;
             this.mapper = mapper;
-        }
-    }
-
-    /** Fully-mapped, validated graph elements ready to be buffered, split by element type. */
-    private static class UpsertPlan {
-        final List<GraphElementEnvelope> vertexEnvelopes;
-        final List<GraphElementEnvelope> edgeEnvelopes;
-
-        UpsertPlan(
-                List<GraphElementEnvelope> vertexEnvelopes,
-                List<GraphElementEnvelope> edgeEnvelopes) {
-            this.vertexEnvelopes = vertexEnvelopes;
-            this.edgeEnvelopes = edgeEnvelopes;
         }
     }
 }

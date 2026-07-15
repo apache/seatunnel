@@ -90,6 +90,48 @@ class VertexMapperTest {
         assertNull(mapper.map(new SeaTunnelRow(new Object[] {"NULL"})));
     }
 
+    @Test
+    void testRawIdPassthroughCustomizeString() {
+        // idFields = ["~id"] reuses the pre-assembled Source id verbatim so a CUSTOMIZE_STRING
+        // vertex can be cloned without knowing its original key columns.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKeyOrNull("~id")).thenReturn(null);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.CUSTOMIZE_STRING, "~id");
+        VertexMapper mapper = new VertexMapper(mapping, fields("~id"), client);
+
+        Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {"user-42"}));
+        assertEquals("user-42", vertex.id());
+    }
+
+    @Test
+    void testRawIdPassthroughCustomizeNumber() {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKeyOrNull("~id")).thenReturn(null);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.CUSTOMIZE_NUMBER, "~id");
+        VertexMapper mapper = new VertexMapper(mapping, fields("~id"), client);
+
+        Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {123L}));
+        assertEquals(123L, vertex.id());
+    }
+
+    @Test
+    void testRawIdPassthroughCustomizeNumberFromString() {
+        // The Source serializes ~id as a String; a CUSTOMIZE_NUMBER target must parse it back.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKeyOrNull("~id")).thenReturn(null);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.CUSTOMIZE_NUMBER, "~id");
+        VertexMapper mapper = new VertexMapper(mapping, fields("~id"), client);
+
+        Vertex vertex = mapper.map(new SeaTunnelRow(new Object[] {"456"}));
+        assertEquals(456L, vertex.id());
+    }
+
     private static MappingConfig vertexMapping(IdStrategy idStrategy, String idField) {
         MappingConfig mapping = new MappingConfig();
         mapping.setType(MappingConfig.LabelType.VERTEX);

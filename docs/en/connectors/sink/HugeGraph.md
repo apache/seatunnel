@@ -76,10 +76,11 @@ Each `mappings` entry defines how input rows are mapped to one HugeGraph vertex 
 | `sortKeys`         | `List<String>`       | For Edge   | -             | **Source field names** (as they appear in the input row, *before* `fieldMapping` is applied) whose values distinguish edges sharing the same source and target vertices. Required when `frequency = MULTIPLE`. Example: with `fieldMapping = {event_time: created_at}`, use `sortKeys = [event_time]`, not `[created_at]`. |
 | `fieldMapping`     | `Map<String, String>` | No       | -             | A map where the key is the source field name and the value is the target property name in HugeGraph.      |
 | `valueMapping`     | `Map<Object, Object>` | No       | -             | A map to transform specific field values.                                                                |
-| `nullableKeys`     | `List<String>`        | No       | -             | A list of property keys that can have null values.                                                        |
+| `nullableKeys`     | `List<String>`        | No       | -             | Explicit allow-list of property keys that may be null on an auto-created label. When set, it overrides the default below (only these keys are nullable). Key properties (primary keys, `MULTIPLE`-edge sort keys) are always excluded. Mutually exclusive with `notNullableKeys`. |
+| `notNullableKeys`  | `List<String>`        | No       | -             | Opt-out list used with the default nullability. By default, when neither `nullableKeys` nor `notNullableKeys` is set, all non-key properties of an auto-created label are nullable; list here the properties that must instead be required. Mutually exclusive with `nullableKeys`. Only affects newly auto-created labels. |
 | `nullValues`       | `List<String>`        | No       | -             | A list of string values that should be treated as `null`.                                                |
 | `dateFormat`       | String              | No         | `yyyy-MM-dd`  | The date format for parsing date strings.                                                                |
-| `timeZone`         | String              | No         | `GMT+8`       | The time zone for date parsing.                                                                          |
+| `timeZone`         | String              | No         | Worker JVM default | The time zone for date parsing. When omitted, the worker JVM default time zone is used, matching the HugeGraph Source so a Source→Sink round-trip preserves absolute times. |
 
 ### Legacy Schema Configuration (`schema_config`)
 
@@ -109,7 +110,14 @@ This object is used within an `EDGE` schema to define how to identify the source
 | Name       | Type         | Required | Default Value | Description                                                                                                                                                  |
 | ---------- | ------------ | -------- | ------------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `label`    | String       | Yes      | -             | The label of the source or target vertex.                                                                                                                    |
-| `idFields` | `List<String>` | Yes      | -             | A list of source field names from the input row used to construct the ID of the source/target vertex. The values will be concatenated to form the vertex ID. |
+| `idFields` | `List<String>` | Yes      | -             | A list of source field names from the input row used to construct the ID of the source/target vertex. The values will be concatenated to form the vertex ID. For a HugeGraph → HugeGraph clone, set this to the single reserved column that already carries the assembled endpoint id — `["~source_id"]` for `sourceConfig`, `["~target_id"]` for `targetConfig` — and the connector reuses that id directly (see *Cloning from a HugeGraph Source* below). |
+
+### Cloning from a HugeGraph Source (reserved-id passthrough)
+
+When the input is the HugeGraph Source, each row carries reserved columns holding the already-assembled element ids (`~id` for a vertex; `~source_id`/`~target_id` for an edge's endpoints). To clone losslessly:
+
+- **Vertex** with a `CUSTOMIZE_STRING`/`CUSTOMIZE_NUMBER`/`CUSTOMIZE_UUID` id: set `idStrategy` to the matching `CUSTOMIZE_*` and `idFields = ["~id"]`; the original id is written verbatim. `PRIMARY_KEY` vertices instead reuse their key property columns (which the Source already emits), and `AUTOMATIC` ids cannot be preserved (the target server assigns new ones).
+- **Edge**: set `sourceConfig.idFields = ["~source_id"]` and `targetConfig.idFields = ["~target_id"]`. The endpoint ids are reused directly, so edges clone regardless of the endpoint vertices' id strategies. The target endpoint vertex labels must already exist (the connector will not auto-create a vertex label from a reserved id).
 
 ### Mapping Config (`mapping`)
 
@@ -119,10 +127,11 @@ This object provides advanced control over how fields and values are mapped to p
 | ----------------- |---------------------|----------| ------------- |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `fieldMapping`    | `Map<String, String>` | No       | -             | A map where the key is the source field name and the value is the target property name in HugeGraph. If not specified, the source field name is used as the target property name. |
 | `valueMapping`    | `Map<Object, Object>` | No       | -             | A map to transform specific field values. The key is the original value from the source, and the value is the new value to be written.                                            |
-| `nullableKeys`    | `List<String>`        | No       | -             | A list of property keys that can have null values.                                                                                                                                |
+| `nullableKeys`    | `List<String>`        | No       | -             | Explicit allow-list of property keys that may be null on an auto-created label. Overrides the nullable-by-default behavior. Mutually exclusive with `notNullableKeys`.             |
+| `notNullableKeys` | `List<String>`        | No       | -             | Opt-out list of properties that must be required, used together with the nullable-by-default behavior. Mutually exclusive with `nullableKeys`.                                    |
 | `nullValues`      | `List<String>`        | No       | -             | A list of string values that should be treated as `null`. Any field containing one of these values will not be written.                                                           |
 | `dateFormat`      | String              | No       | `yyyy-MM-dd`  | The date format for parsing date strings.                                                                                                                                         |
-| `timeZone`        | String              | No       | `GMT+8`       | The time zone for date parsing.                                                                                                                                                   |
+| `timeZone`        | String              | No       | Worker JVM default | The time zone for date parsing. When omitted, the worker JVM default time zone is used.                                                                                     |
 | `sortKeys`         | `List<String>`        | For Edge   | -             | **Source field names** (before `fieldMapping` is applied) whose values distinguish edges sharing the same source and target vertices. Example: with `fieldMapping = {event_time: created_at}`, use `[event_time]`, not `[created_at]`.                                                                                                  |
 
 ## Supported Types

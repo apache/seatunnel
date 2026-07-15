@@ -73,8 +73,9 @@ class HugeGraphSinkConfigTest {
                 sinkConfig.getSchemaSaveMode());
         assertFalse(sinkConfig.isDeleteVertexWithEdges());
         assertEquals("yyyy-MM-dd", sinkConfig.getMappings().get(0).getDateFormat());
-        // time_zone is intentionally left unset when unconfigured so DataTypeUtil falls back to
-        // ZoneId.systemDefault(), matching the Source reader's default (no hardcoded GMT+8).
+        // timeZone is intentionally left unset when the user does not configure one; DataTypeUtil
+        // then defaults to ZoneId.systemDefault(), matching the HugeGraph Source. Previously it
+        // was hard-coded to GMT+8, silently shifting absolute times on non-China deployments.
         assertNull(sinkConfig.getMappings().get(0).getTimeZone());
     }
 

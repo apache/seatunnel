@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ReservedColumns;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
@@ -60,11 +61,11 @@ public class VertexMapper implements GraphDataMapper {
     private Set<String> resolvePropertySourceFields() {
         Set<String> fields = new HashSet<>();
         if (mappingConfig.getProperties().isEmpty()) {
-            // Implicit all-fields mode: HugeGraph Source prepends reserved ~-prefixed metadata
-            // columns (~id/~label/...) which are not valid HugeGraph PropertyKeys, so exclude them
-            // to keep the natural Source -> Sink round-trip working without hand-listing fields.
             fields.addAll(fieldsIndex.keySet());
-            fields.removeIf(VertexMapper::isReservedField);
+            // Drop reserved columns emitted by HugeGraph Source (~id, ~label, ...) — they are not
+            // valid HugeGraph property key names, so an implicit Source→Sink round-trip would
+            // otherwise attempt to create them on the server.
+            fields.removeIf(f -> f != null && f.startsWith("~"));
         } else {
             fields.addAll(mappingConfig.getProperties());
         }
@@ -74,11 +75,6 @@ public class VertexMapper implements GraphDataMapper {
             fields.addAll(mappingConfig.getIdFields());
         }
         return fields;
-    }
-
-    /** HugeGraph reserved Source columns (~id/~label/...) are not valid properties. */
-    private static boolean isReservedField(String field) {
-        return field != null && field.startsWith("~");
     }
 
     private HashMap<String, PropertyKey> buildPropertyKeyCache() {
@@ -158,6 +154,35 @@ public class VertexMapper implements GraphDataMapper {
                 idFields != null && !idFields.isEmpty(),
                 "The 'idFields' must be specified for ID strategy '%s'.",
                 strategy);
+
+        // Raw-id passthrough: the vertex id is already assembled in the reserved ~id Source column.
+        // Only meaningful for CUSTOMIZE_* strategies (the ones that accept an externally supplied
+        // id); PRIMARY_KEY derives its id from property values and AUTOMATIC is server-assigned, so
+        // both are rejected at config time in SchemaValidator.
+        if (ReservedColumns.isRawIdPassthrough(idFields)) {
+            Integer idx = fieldsIndex.get(idFields.get(0));
+            Object raw = idx == null ? null : row.getField(idx);
+            if (isConsideredNull(raw)) {
+                return null;
+            }
+            switch (strategy) {
+                case CUSTOMIZE_STRING:
+                    return String.valueOf(raw);
+                case CUSTOMIZE_NUMBER:
+                    return raw instanceof Number
+                            ? ((Number) raw).longValue()
+                            : Long.parseLong(String.valueOf(raw));
+                case CUSTOMIZE_UUID:
+                    return UUID.fromString(String.valueOf(raw));
+                default:
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Mapping[VERTEX/%s]: idFields '%s' (raw-id passthrough) requires a "
+                                            + "CUSTOMIZE_STRING/NUMBER/UUID id strategy, but got '%s'.",
+                                    mappingConfig.getLabel(), idFields.get(0), strategy));
+            }
+        }
 
         switch (strategy) {
             case PRIMARY_KEY:

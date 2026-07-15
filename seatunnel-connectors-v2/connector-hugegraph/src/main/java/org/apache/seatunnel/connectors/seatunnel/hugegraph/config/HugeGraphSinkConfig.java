@@ -173,10 +173,10 @@ public class HugeGraphSinkConfig implements Serializable {
             if (m.getDateFormat() == null || m.getDateFormat().isEmpty()) {
                 m.setDateFormat("yyyy-MM-dd");
             }
-            // Leave time_zone unset when unconfigured so DataTypeUtil falls back to
-            // ZoneId.systemDefault(), matching the Source reader's default. Hardcoding a fixed
-            // zone here (previously GMT+8) silently shifted DATE values on HugeGraph -> HugeGraph
-            // round-trips and on failover to a worker in a different zone.
+            // Leave timeZone unset when the user did not configure one; DataTypeUtil then falls
+            // back to ZoneId.systemDefault(), matching the HugeGraph Source. Hard-coding GMT+8
+            // here previously silently shifted absolute times by up to 8 hours when the Source
+            // ran on a JVM whose default zone was not Asia/Shanghai.
         }
     }
 }

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -44,6 +45,7 @@ import org.apache.hugegraph.structure.graph.Vertex;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -96,9 +98,9 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testOpenFailsFastOnMultiCardinalityProperty() {
-        // A SET/LIST property would return a Collection at scan time and CCE the scalar row
-        // builder; open() must reject it upfront with a clear error, not fail mid-scan.
+    void testOpenFailsWhenServerListPropertyDeclaredAsScalar() {
+        // Server has LIST but user declared scalar — error must guide the user to array<...>
+        // rather than throwing a mid-scan CCE against the scalar row builder.
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         client.vertexProperties = new HashSet<>();
         client.vertexProperties.add("name");
@@ -115,7 +117,103 @@ class HugeGraphSourceReaderTest {
                                 propertyRowType, MappingConfig.LabelType.VERTEX),
                         client);
 
+        HugeGraphConnectorException ex =
+                assertThrows(HugeGraphConnectorException.class, reader::open);
+        assertTrue(ex.getMessage().contains("array<"));
+    }
+
+    @Test
+    void testOpenFailsWhenServerScalarButUserDeclaredArray() {
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        client.vertexProperties = new HashSet<>();
+        client.vertexProperties.add("tags");
+        client.propertyTypes.put("tags", DataType.TEXT);
+        // cardinality not set → SINGLE (default)
+        SeaTunnelRowType propertyRowType =
+                new SeaTunnelRowType(
+                        new String[] {"tags"},
+                        new SeaTunnelDataType<?>[] {ArrayType.STRING_ARRAY_TYPE});
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(
+                        new SingleSplitReaderContext(new CountingContext()),
+                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
+                        HugeGraphSourceFactory.prependReservedFields(
+                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        client);
+
         assertThrows(HugeGraphConnectorException.class, reader::open);
+    }
+
+    @Test
+    void testListPropertyIsReadAsArray() {
+        SeaTunnelRowType propertyRowType =
+                new SeaTunnelRowType(
+                        new String[] {"tags"},
+                        new SeaTunnelDataType<?>[] {ArrayType.STRING_ARRAY_TYPE});
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        client.vertexProperties = new HashSet<>();
+        client.vertexProperties.add("tags");
+        client.propertyTypes.put("tags", DataType.TEXT);
+        client.propertyCardinalities.put("tags", Cardinality.LIST);
+
+        Vertex vertex = new Vertex("person");
+        vertex.id("v1");
+        vertex.property("tags", Arrays.asList("a", "b", "c"));
+        client.vertexPages.add(new PageResult<>(Collections.singletonList(vertex), null));
+        ListCollector collector = new ListCollector();
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(
+                        new SingleSplitReaderContext(new CountingContext()),
+                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
+                        HugeGraphSourceFactory.prependReservedFields(
+                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        client);
+
+        reader.open();
+        reader.internalPollNext(collector);
+
+        assertEquals(1, collector.rows.size());
+        Object cell = collector.rows.get(0).getField(2);
+        assertInstanceOf(String[].class, cell);
+        assertArrayEquals(new String[] {"a", "b", "c"}, (String[]) cell);
+    }
+
+    @Test
+    void testSetPropertyIsReadAsArray() {
+        // SET cardinality is accepted; element order is not guaranteed by the server, but the
+        // reader must not fail and must produce a typed array of the server's element type.
+        SeaTunnelRowType propertyRowType =
+                new SeaTunnelRowType(
+                        new String[] {"tags"},
+                        new SeaTunnelDataType<?>[] {ArrayType.INT_ARRAY_TYPE});
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        client.vertexProperties = new HashSet<>();
+        client.vertexProperties.add("tags");
+        client.propertyTypes.put("tags", DataType.INT);
+        client.propertyCardinalities.put("tags", Cardinality.SET);
+
+        Vertex vertex = new Vertex("person");
+        vertex.id("v1");
+        java.util.LinkedHashSet<Integer> serverValue = new java.util.LinkedHashSet<>();
+        serverValue.add(10);
+        serverValue.add(20);
+        vertex.property("tags", serverValue);
+        client.vertexPages.add(new PageResult<>(Collections.singletonList(vertex), null));
+        ListCollector collector = new ListCollector();
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(
+                        new SingleSplitReaderContext(new CountingContext()),
+                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
+                        HugeGraphSourceFactory.prependReservedFields(
+                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        client);
+
+        reader.open();
+        reader.internalPollNext(collector);
+
+        Object cell = collector.rows.get(0).getField(2);
+        assertInstanceOf(Integer[].class, cell);
+        assertEquals(2, ((Integer[]) cell).length);
     }
 
     @Test

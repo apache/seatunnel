@@ -67,6 +67,16 @@ V1 支持有界的全量标签扫描，使用单 Reader 读取一个顶点标签
 | `UUID`         | `STRING`       |
 | `BLOB`         | `BYTES`        |
 
+### 多值（LIST / SET）属性
+
+cardinality 为 `LIST` 或 `SET` 的 HugeGraph 属性会被读为 SeaTunnel 的 `ARRAY`。在 `schema.fields` 中声明为 `array<T>`，其中 `T` 是元素的 SeaTunnel 类型（见上表）。例如名为 `tags` 的 `LIST<TEXT>` 属性声明为 `tags = "array<string>"`。
+
+注意：
+
+- `SET` 元素在服务端无固定顺序；需要顺序时请使用 `LIST`。
+- 若服务端某属性 cardinality 为 `LIST`/`SET` 却被声明为标量（或反之），作业会在启动时失败并提示正确的声明方式。
+- 不支持 `LIST`/`SET` 中嵌套 `BLOB` 元素。
+
 ## 示例
 
 ```hocon

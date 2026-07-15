@@ -53,6 +53,7 @@ public class MappingConfig implements Serializable {
     private Map<String, String> fieldMapping;
     private Map<Object, Object> valueMapping;
     private List<String> nullableKeys;
+    private List<String> notNullableKeys;
     private List<String> nullValues;
 
     // Time config
@@ -92,6 +93,10 @@ public class MappingConfig implements Serializable {
 
     public List<String> getNullableKeys() {
         return nullableKeys == null ? Collections.emptyList() : nullableKeys;
+    }
+
+    public List<String> getNotNullableKeys() {
+        return notNullableKeys == null ? Collections.emptyList() : notNullableKeys;
     }
 
     public List<String> getSortKeys() {

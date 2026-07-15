@@ -76,10 +76,11 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `sortKeys`         | `List<String>`        | 对于边   | -       | **输入行中的源字段名**（映射前、即 `fieldMapping` 应用之前的名字），用于区分相同源点和目标点之间的多条边。当 `frequency = MULTIPLE` 时必填。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `sortKeys = [event_time]`，而不是 `[created_at]`。 |
 | `fieldMapping`     | `Map<String, String>` | 否       | -       | 字段映射，key 为源字段名，value 为 HugeGraph 目标属性名。 |
 | `valueMapping`     | `Map<Object, Object>` | 否       | -       | 用于转换特定字段值的映射。 |
-| `nullableKeys`     | `List<String>`        | 否       | -       | 可以具有 null 值的属性键列表。 |
+| `nullableKeys`     | `List<String>`        | 否       | -       | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖下述默认行为（仅这些键可空）。主键、`MULTIPLE` 边的 sortKeys 等 key 属性始终排除。与 `notNullableKeys` 互斥。 |
+| `notNullableKeys`  | `List<String>`        | 否       | -       | 与默认可空行为配合使用的反向 opt-out 列表。默认情况下（既未配 `nullableKeys` 也未配 `notNullableKeys`），自动建 label 的所有非 key 属性均可空；在此列出必须为非空的属性。与 `nullableKeys` 互斥。仅影响新建 label。 |
 | `nullValues`       | `List<String>`        | 否       | -       | 应被视为 `null` 的字符串值列表。 |
 | `dateFormat`       | String              | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。 |
-| `timeZone`         | String              | 否       | `GMT+8` | 用于日期解析的时区。 |
+| `timeZone`         | String              | 否       | Worker JVM 默认 | 用于日期解析的时区。省略时使用 Worker JVM 默认时区，与 HugeGraph Source 一致，从而保证 Source→Sink 往返时绝对时间不变。 |
 
 ### Legacy Schema配置 (`schema_config`)
 
@@ -109,7 +110,14 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | 名称       | 类型         | 是否必须 | 默认值 | 描述                                                                                                                                         |
 | ---------- | ------------ | -------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `label`    | String       | 是       | -      | 源或目标顶点的标签。                                                                                                                         |
-| `idFields` | `List<String>` | 是       | -      | 用于构造源/目标顶点ID的输入行中的源字段名称列表。这些值将被连接起来形成顶点ID。                                                              |
+| `idFields` | `List<String>` | 是       | -      | 用于构造源/目标顶点ID的输入行中的源字段名称列表。这些值将被连接起来形成顶点ID。对于 HugeGraph → HugeGraph 克隆，可将其设为已携带完整端点 id 的保留列——`sourceConfig` 用 `["~source_id"]`，`targetConfig` 用 `["~target_id"]`——连接器会直接复用该 id（见下方 *从 HugeGraph Source 克隆*）。 |
+
+### 从 HugeGraph Source 克隆（保留列 id 直连）
+
+当输入来自 HugeGraph Source 时，每行都带有保留列，携带已拼好的元素 id（顶点为 `~id`；边的端点为 `~source_id`/`~target_id`）。全保真克隆方式：
+
+- **顶点**（`CUSTOMIZE_STRING`/`CUSTOMIZE_NUMBER`/`CUSTOMIZE_UUID` id）：将 `idStrategy` 设为对应的 `CUSTOMIZE_*`，`idFields = ["~id"]`，原始 id 原样写入。`PRIMARY_KEY` 顶点改用其主键属性列（Source 已输出）；`AUTOMATIC` id 无法保留（目标服务端会重新分配）。
+- **边**：设 `sourceConfig.idFields = ["~source_id"]`、`targetConfig.idFields = ["~target_id"]`。端点 id 被直接复用，因此无论端点顶点的 id 策略为何都能克隆。目标端点的顶点 label 必须已存在（连接器不会用保留 id 自动建顶点 label）。
 
 ### Mapping配置 (`mapping`)
 
@@ -119,10 +127,11 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | ----------------- | ------------------ | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fieldMapping`    | `Map<String, String>` | 否       | -            | 一个映射，其中键是源字段名，值是HugeGraph中的目标属性名。如果未指定，则使用源字段名作为目标属性名。                                                                         |
 | `valueMapping`    | `Map<Object, Object>` | 否       | -            | 用于转换特定字段值的映射。键是源的原始值，值是要写入的新值。                                                                                                               |
-| `nullableKeys`    | `List<String>`       | 否       | -            | 可以具有null值的属性键列表。                                                                                                                                              |
+| `nullableKeys`    | `List<String>`       | 否       | -            | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖默认可空行为。与 `notNullableKeys` 互斥。                                                                              |
+| `notNullableKeys` | `List<String>`       | 否       | -            | 与默认可空行为配合的反向 opt-out 列表，在此列出必须为非空的属性。与 `nullableKeys` 互斥。                                                                                    |
 | `nullValues`      | `List<String>`       | 否       | -            | 应被视为`null`的字符串值列表。任何包含这些值的字段都不会被写入。                                                                                                          |
 | `dateFormat`      | String             | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。                                                                                                                                            |
-| `timeZone`        | String             | 否       | `GMT+8`      | 用于日期解析的时区。                                                                                                                                                      |
+| `timeZone`        | String             | 否       | Worker JVM 默认 | 用于日期解析的时区。省略时使用 Worker JVM 默认时区。                                                                                                                    |
 | `sortKeys`         | `List<String>`       | 对于边   | -            | **输入行中的源字段名**（`fieldMapping` 应用之前），用于区分相同源点和目标点之间的多条边。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `[event_time]`，而不是 `[created_at]`。                                                                                                                      |
 
 ## 支持的数据类型
