@@ -39,6 +39,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
 | `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
+| `batch_failure_fallback` | Boolean | 否   | true   | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
 | `max_retries`       | Integer | 否       | 3      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。                       |
 | `retry_backoff_ms`  | Integer | 否       | 5000   | 重试之间的退避时间（毫秒）。                                           |
 

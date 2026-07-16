@@ -48,6 +48,7 @@ public class HugeGraphSinkConfig implements Serializable {
     // Batch config
     private int batchSize;
     private int batchIntervalMs;
+    private boolean batchFailureFallback;
     private int maxRetries;
     private int retryBackoffMs;
 
@@ -74,6 +75,9 @@ public class HugeGraphSinkConfig implements Serializable {
         sinkConfig.setBatchIntervalMs(
                 config.getOptional(HugeGraphOptions.BATCH_INTERVAL_MS)
                         .orElse(HugeGraphOptions.BATCH_INTERVAL_MS.defaultValue()));
+        sinkConfig.setBatchFailureFallback(
+                config.getOptional(HugeGraphOptions.BATCH_FAILURE_FALLBACK)
+                        .orElse(HugeGraphOptions.BATCH_FAILURE_FALLBACK.defaultValue()));
         sinkConfig.setMaxRetries(sinkConfig.getConnectionConfig().getMaxRetries());
         sinkConfig.setRetryBackoffMs(sinkConfig.getConnectionConfig().getRetryBackoffMs());
 

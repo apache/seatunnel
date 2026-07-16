@@ -39,6 +39,7 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
 | `batch_interval_ms` | Integer | No       | 5000          | The maximum time in milliseconds to wait before flushing a batch.              |
+| `batch_failure_fallback` | Boolean | No  | true          | When a batch insert fails, fall back to inserting the batch record by record so a single bad ("poison") record no longer fails the whole batch. Failed records are logged and skipped; the rest succeed. If every record fails (systemic error), it is surfaced. Set to `false` to fail the whole batch instead. |
 | `max_retries`       | Integer | No       | 3             | Retries after the initial attempt. Set to `0` to disable retries.               |
 | `retry_backoff_ms`  | Integer | No       | 5000          | The backoff time between retries in milliseconds.                              |
 

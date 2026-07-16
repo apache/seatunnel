@@ -89,7 +89,10 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
         this.buffer =
                 new BatchBuffer(
-                        this.client, sinkConfig.getBatchSize(), sinkConfig.getBatchIntervalMs());
+                        this.client,
+                        sinkConfig.getBatchSize(),
+                        sinkConfig.getBatchIntervalMs(),
+                        sinkConfig.isBatchFailureFallback());
     }
 
     private List<MappingEntry> buildMappingEntries(SeaTunnelRowType rowType) {

@@ -55,10 +55,16 @@ public class BatchBuffer implements AutoCloseable {
     private volatile boolean closed = false;
     private volatile Exception flushException;
     private final HugeGraphClient client;
+    private final boolean batchFailureFallback;
 
-    public BatchBuffer(HugeGraphClient client, int batchSize, long batchIntervalMs) {
+    public BatchBuffer(
+            HugeGraphClient client,
+            int batchSize,
+            long batchIntervalMs,
+            boolean batchFailureFallback) {
         this.batchSize = batchSize;
         this.client = client;
+        this.batchFailureFallback = batchFailureFallback;
 
         if (batchIntervalMs > 0) {
             this.scheduler =
@@ -137,11 +143,14 @@ public class BatchBuffer implements AutoCloseable {
                             .collect(Collectors.toList());
             client.batchWriteVertices(vertices);
         } catch (Exception e) {
-            logBatchFailure(batch, e);
-            throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                    "Failed to write vertex batch",
-                    e);
+            if (!batchFailureFallback) {
+                logBatchFailure(batch, e);
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        "Failed to write vertex batch",
+                        e);
+            }
+            fallbackInsertSingly(batch, e);
         }
     }
 
@@ -156,11 +165,58 @@ public class BatchBuffer implements AutoCloseable {
                     batch.stream().map(env -> (Edge) env.getElement()).collect(Collectors.toList());
             client.batchWriteEdges(edges);
         } catch (Exception e) {
-            logBatchFailure(batch, e);
+            if (!batchFailureFallback) {
+                logBatchFailure(batch, e);
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                        "Failed to write edge batch",
+                        e);
+            }
+            fallbackInsertSingly(batch, e);
+        }
+    }
+
+    /**
+     * A batch insert failed; retry each element on its own so a single poison record no longer
+     * fails the whole batch. Failed records are logged and skipped; the rest succeed. If
+     * <em>every</em> record fails, the failure is systemic (bad connection / schema), not a poison
+     * record, so it is rethrown instead of silently dropping the whole batch.
+     */
+    private void fallbackInsertSingly(List<GraphElementEnvelope> batch, Exception batchFailure) {
+        LOG.warn(
+                "Batch write failed ({} element(s)); falling back to single-record insert. cause={}",
+                batch.size(),
+                batchFailure.getMessage());
+        int failed = 0;
+        Exception lastFailure = null;
+        for (GraphElementEnvelope envelope : batch) {
+            try {
+                if (envelope.getElementType() == LabelType.VERTEX) {
+                    client.writeVertex((Vertex) envelope.getElement());
+                } else {
+                    client.writeEdge((Edge) envelope.getElement());
+                }
+            } catch (Exception single) {
+                failed++;
+                lastFailure = single;
+                LOG.error(
+                        "Single-record write failure — {}",
+                        formatFailureDiagnostic(envelope, single));
+            }
+        }
+        if (failed == batch.size()) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                    "Failed to write edge batch",
-                    e);
+                    String.format(
+                            "All %d record(s) in the batch failed single-insert fallback",
+                            batch.size()),
+                    lastFailure);
+        }
+        if (failed > 0) {
+            LOG.warn(
+                    "Single-record fallback completed: {} succeeded, {} failed and were skipped",
+                    batch.size() - failed,
+                    failed);
         }
     }
 

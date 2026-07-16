@@ -73,6 +73,16 @@ public class HugeGraphOptions {
                     .defaultValue(5000)
                     .withDescription("The batch flash period");
 
+    public static final Option<Boolean> BATCH_FAILURE_FALLBACK =
+            Options.key("batch_failure_fallback")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "When a batch insert fails, fall back to inserting the batch record by "
+                                    + "record so a single bad ('poison') record no longer fails the "
+                                    + "whole batch. Failed records are logged and skipped; the rest "
+                                    + "succeed. Disable to fail the whole batch instead.");
+
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries").intType().defaultValue(3).withDescription("The retry times");
 
