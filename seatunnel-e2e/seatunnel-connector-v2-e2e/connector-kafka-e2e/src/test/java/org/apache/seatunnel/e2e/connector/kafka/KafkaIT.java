@@ -1891,7 +1891,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollInterval(5, SECONDS)
+        given().pollDelay(120, SECONDS)
+                .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
