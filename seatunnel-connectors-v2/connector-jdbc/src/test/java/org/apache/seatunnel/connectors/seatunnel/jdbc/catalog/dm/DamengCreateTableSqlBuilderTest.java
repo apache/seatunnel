@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -251,6 +252,89 @@ public class DamengCreateTableSqlBuilderTest {
                 createTable.contains("STORAGE (FILLFACTOR 80, ON \"MAIN\")"),
                 "tablespace must not be rewritten by fieldIde; got: " + createTable);
         Assertions.assertFalse(createTable.contains("ON \"main\""));
+    }
+
+    @Test
+    public void testBuildCreateTableSqlNormalizesFillfactorInDdl() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .build();
+
+        HashMap<String, String> options = new HashMap<>();
+        options.put(DamengCatalog.TABLE_OPTION_FILLFACTOR, "+80");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        options,
+                        new ArrayList<>(),
+                        "Table with normalized fillfactor");
+
+        List<String> sqls = new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+
+        Assertions.assertEquals(1, sqls.size());
+        Assertions.assertTrue(
+                sqls.get(0).contains("STORAGE (FILLFACTOR 80)"),
+                "fillfactor should be normalized in DDL: " + sqls.get(0));
+    }
+
+    @Test
+    public void testBuildCreateTableSqlRejectsInvalidFillfactorWithoutSubmissionValidation() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .build();
+
+        HashMap<String, String> options = new HashMap<>();
+        options.put(DamengCatalog.TABLE_OPTION_FILLFACTOR, "abc");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        options,
+                        new ArrayList<>(),
+                        "Table with invalid fillfactor");
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                new DamengCreateTableSqlBuilder(catalogTable, false)
+                                        .build(tablePath));
+        Assertions.assertTrue(exception.getMessage().contains("must be an integer between"));
+    }
+
+    @Test
+    public void testBuildCreateTableSqlRejectsIllegalTablespaceWithoutSubmissionValidation() {
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .build();
+
+        HashMap<String, String> options = new HashMap<>();
+        options.put(DamengCatalog.TABLE_OPTION_TABLESPACE, "MAIN\"TS");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", tablePath),
+                        tableSchema,
+                        options,
+                        new ArrayList<>(),
+                        "Table with illegal tablespace");
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                new DamengCreateTableSqlBuilder(catalogTable, false)
+                                        .build(tablePath));
+        Assertions.assertTrue(exception.getMessage().contains("illegal characters"));
     }
 
     @Test

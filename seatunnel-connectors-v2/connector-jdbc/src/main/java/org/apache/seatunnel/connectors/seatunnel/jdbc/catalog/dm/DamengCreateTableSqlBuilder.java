@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -99,13 +100,10 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         createTableSql.append("\n)");
         List<String> storageItems = new ArrayList<>();
         if (StringUtils.isNotBlank(fillfactor)) {
-            // Value is validated as 0-100 by DmdbDialect.validateTableOptions.
-            storageItems.add("FILLFACTOR " + fillfactor.trim());
+            storageItems.add("FILLFACTOR " + DmdbDialect.normalizeFillfactorForDdl(fillfactor));
         }
         if (StringUtils.isNotBlank(tablespace)) {
-            // Tablespace is a storage object name: quote literally, do NOT apply fieldIde
-            // case rewriting (that policy is only for table/column identifiers).
-            storageItems.add("ON \"" + tablespace.trim() + "\"");
+            storageItems.add("ON \"" + DmdbDialect.normalizeTablespaceForDdl(tablespace) + "\"");
         }
         if (!storageItems.isEmpty()) {
             createTableSql

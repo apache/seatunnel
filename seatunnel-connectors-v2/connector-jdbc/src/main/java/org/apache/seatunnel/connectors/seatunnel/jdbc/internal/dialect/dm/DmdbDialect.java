@@ -436,14 +436,37 @@ public class DmdbDialect implements JdbcDialect {
             }
             String trimmed = value.trim();
             if (DamengCatalog.TABLE_OPTION_FILLFACTOR.equals(key)) {
-                validateFillfactor(trimmed);
+                normalizeFillfactorForDdl(trimmed);
             } else if (DamengCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
-                validateTablespace(trimmed);
+                normalizeTablespaceForDdl(trimmed);
             }
         }
     }
 
-    private void validateFillfactor(String value) {
+    /**
+     * Normalizes a Dameng {@code fillfactor} option for DDL emission.
+     *
+     * <p>Shared by submission-time validation and {@link
+     * org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCreateTableSqlBuilder} so
+     * catalog-driven auto-create cannot bypass the value contract.
+     */
+    public static String normalizeFillfactorForDdl(String value) {
+        return Integer.toString(parseFillfactorInRange(value));
+    }
+
+    /**
+     * Normalizes a Dameng {@code tablespace} option for DDL emission.
+     *
+     * <p>Shared by submission-time validation and {@link
+     * org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCreateTableSqlBuilder}.
+     */
+    public static String normalizeTablespaceForDdl(String value) {
+        String trimmed = value.trim();
+        validateTablespaceCharacters(trimmed);
+        return trimmed;
+    }
+
+    private static int parseFillfactorInRange(String value) {
         int fillfactor;
         try {
             fillfactor = Integer.parseInt(value);
@@ -452,7 +475,7 @@ public class DmdbDialect implements JdbcDialect {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
-                            dialectName(),
+                            DatabaseIdentifier.DAMENG,
                             DamengCatalog.TABLE_OPTION_FILLFACTOR,
                             FILLFACTOR_MIN,
                             FILLFACTOR_MAX,
@@ -463,26 +486,31 @@ public class DmdbDialect implements JdbcDialect {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
-                            dialectName(),
+                            DatabaseIdentifier.DAMENG,
                             DamengCatalog.TABLE_OPTION_FILLFACTOR,
                             FILLFACTOR_MIN,
                             FILLFACTOR_MAX,
                             value));
         }
+        return fillfactor;
     }
 
-    private void validateTablespace(String value) {
-        // Always emitted as ON "..." inside STORAGE, so reject quote / control chars that break
-        // DDL.
-        if (value.indexOf('"') >= 0
-                || value.indexOf('\n') >= 0
-                || value.indexOf('\r') >= 0
-                || value.indexOf(';') >= 0) {
-            throw new JdbcConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
-                            dialectName(), DamengCatalog.TABLE_OPTION_TABLESPACE, value));
+    private static void validateTablespaceCharacters(String value) {
+        if (value.indexOf('"') >= 0 || value.indexOf(';') >= 0) {
+            throw illegalTablespaceException(value);
         }
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isISOControl(value.charAt(i))) {
+                throw illegalTablespaceException(value);
+            }
+        }
+    }
+
+    private static JdbcConnectorException illegalTablespaceException(String value) {
+        return new JdbcConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                        DatabaseIdentifier.DAMENG, DamengCatalog.TABLE_OPTION_TABLESPACE, value));
     }
 }

@@ -135,4 +135,28 @@ public class DmdbDialectTest {
                                         Collections.singletonMap("tablespace", "MAIN\"TS")));
         Assertions.assertTrue(exception.getMessage().contains("illegal characters"));
     }
+
+    @Test
+    void testNormalizeFillfactorAcceptsPlusSignAndLeadingZeros() {
+        Assertions.assertEquals("80", DmdbDialect.normalizeFillfactorForDdl("+80"));
+        Assertions.assertEquals("80", DmdbDialect.normalizeFillfactorForDdl("080"));
+    }
+
+    @Test
+    void testNormalizeFillfactorRejectsOutOfRange() {
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> DmdbDialect.normalizeFillfactorForDdl("101"));
+        Assertions.assertTrue(exception.getMessage().contains("must be an integer between"));
+    }
+
+    @Test
+    void testNormalizeTablespaceRejectsControlCharacters() {
+        JdbcConnectorException tabCharacter =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> DmdbDialect.normalizeTablespaceForDdl("MAIN\tTS"));
+        Assertions.assertTrue(tabCharacter.getMessage().contains("illegal characters"));
+    }
 }
