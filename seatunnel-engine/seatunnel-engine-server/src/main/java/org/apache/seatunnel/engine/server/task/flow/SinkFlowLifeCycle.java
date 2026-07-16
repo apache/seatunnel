@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
@@ -146,8 +147,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private transient StageErrorConfig stageErrorConfig;
     private transient ErrorHandler<T> stageErrorHandler;
     private transient RowErrorClassifier<T> stageRowErrorClassifier;
-    private transient org.apache.seatunnel.api.common.error.RowErrorCollector
-            stageRowErrorCollector;
+    private transient RowErrorCollector stageRowErrorCollector;
 
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
