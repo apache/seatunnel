@@ -17,14 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HugeGraphSourceFactoryTest {
 
@@ -55,6 +64,31 @@ class HugeGraphSourceFactoryTest {
                     "age"
                 },
                 rowType.getFieldNames());
+    }
+
+    @Test
+    void rejectsParallelismGreaterThanOne() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("parallelism", 2);
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSourceFactory.checkParallelism(
+                                        ReadonlyConfig.fromMap(options)));
+        assertTrue(ex.getMessage().contains("parallelism = 1"));
+    }
+
+    @Test
+    void allowsParallelismOneOrUnset() {
+        Map<String, Object> one = new HashMap<>();
+        one.put("parallelism", 1);
+        assertDoesNotThrow(
+                () -> HugeGraphSourceFactory.checkParallelism(ReadonlyConfig.fromMap(one)));
+        assertDoesNotThrow(
+                () ->
+                        HugeGraphSourceFactory.checkParallelism(
+                                ReadonlyConfig.fromMap(Collections.emptyMap())));
     }
 
     private SeaTunnelRowType propertyRowType() {
