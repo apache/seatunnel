@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+
+import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
@@ -51,12 +54,21 @@ public class MetricsApiTest {
 
     @Test
     public void metricsApiTest() {
-        given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
-                .then()
-                .statusCode(200)
-                .body(containsString("process_start_time_seconds"))
-                .body(containsString("engine_state_store_local_owned_entries"))
-                .body(containsString("engine_state_store_checkpoint_monitor_jobs"));
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
+                                        .then()
+                                        .statusCode(200)
+                                        .body(containsString("process_start_time_seconds"))
+                                        .body(
+                                                containsString(
+                                                        "engine_state_store_local_owned_entries"))
+                                        .body(
+                                                containsString(
+                                                        "engine_state_store_checkpoint_monitor_jobs")));
     }
 
     @AfterAll
