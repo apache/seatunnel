@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +33,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -49,6 +53,7 @@ public class HugeGraphSinkConfig implements Serializable {
     private int batchSize;
     private int batchIntervalMs;
     private boolean batchFailureFallback;
+    private boolean checkVertex;
     private int maxRetries;
     private int retryBackoffMs;
 
@@ -56,6 +61,8 @@ public class HugeGraphSinkConfig implements Serializable {
     private List<MappingConfig> mappings;
     private HugeGraphSchemaSaveMode schemaSaveMode;
     private boolean deleteVertexWithEdges;
+    // Per-property update-merge strategies merged across all mappings (keyed by target property).
+    private Map<String, UpdateStrategy> updateStrategies;
 
     // Legacy (deprecated, kept for backward compat parsing only)
     private SchemaConfig schemaConfig;
@@ -78,12 +85,16 @@ public class HugeGraphSinkConfig implements Serializable {
         sinkConfig.setBatchFailureFallback(
                 config.getOptional(HugeGraphOptions.BATCH_FAILURE_FALLBACK)
                         .orElse(HugeGraphOptions.BATCH_FAILURE_FALLBACK.defaultValue()));
+        sinkConfig.setCheckVertex(
+                config.getOptional(HugeGraphOptions.CHECK_VERTEX)
+                        .orElse(HugeGraphOptions.CHECK_VERTEX.defaultValue()));
         sinkConfig.setMaxRetries(sinkConfig.getConnectionConfig().getMaxRetries());
         sinkConfig.setRetryBackoffMs(sinkConfig.getConnectionConfig().getRetryBackoffMs());
 
         // Resolve mappings with backward compatibility
         sinkConfig.setMappings(resolveMappings(config, sinkConfig));
         applyMappingDefaults(sinkConfig.getMappings());
+        sinkConfig.setUpdateStrategies(mergeUpdateStrategies(sinkConfig.getMappings()));
 
         boolean legacyConfig = sinkConfig.getSchemaConfig() != null;
         sinkConfig.setSchemaSaveMode(
@@ -167,6 +178,35 @@ public class HugeGraphSinkConfig implements Serializable {
                 HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                 "Either 'mappings' or 'schema_config' must be specified. "
                         + "'mappings' is the recommended option.");
+    }
+
+    /**
+     * Merges every mapping's per-property update strategies into one map applied to all writes.
+     * HugeGraph applies a strategy per property name on each element, so a merged map is correct as
+     * long as no two mappings assign different strategies to the same property name — that conflict
+     * is rejected here.
+     */
+    static Map<String, UpdateStrategy> mergeUpdateStrategies(List<MappingConfig> mappings) {
+        Map<String, UpdateStrategy> merged = new HashMap<>();
+        if (mappings == null) {
+            return merged;
+        }
+        for (MappingConfig mapping : mappings) {
+            for (Map.Entry<String, UpdateStrategy> entry :
+                    mapping.getUpdateStrategies().entrySet()) {
+                UpdateStrategy existing = merged.putIfAbsent(entry.getKey(), entry.getValue());
+                if (existing != null && existing != entry.getValue()) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                            String.format(
+                                    "Conflicting update strategies for property '%s': '%s' vs '%s'. "
+                                            + "Different mappings must not assign different update "
+                                            + "strategies to the same property name.",
+                                    entry.getKey(), existing, entry.getValue()));
+                }
+            }
+        }
+        return merged;
     }
 
     private static void applyMappingDefaults(List<MappingConfig> mappings) {

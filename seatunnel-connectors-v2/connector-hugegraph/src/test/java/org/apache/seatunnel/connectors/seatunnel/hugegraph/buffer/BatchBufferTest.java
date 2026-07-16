@@ -21,13 +21,19 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClien
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -56,7 +62,8 @@ class BatchBufferTest {
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
         doThrow(new RuntimeException("poison")).when(client).writeVertex(poison);
 
-        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true)) {
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, true, false, java.util.Collections.emptyMap())) {
             buffer.add(envelope(good1));
             buffer.add(envelope(poison));
             buffer.add(envelope(good2));
@@ -69,11 +76,43 @@ class BatchBufferTest {
     }
 
     @Test
+    void checkVertexIsForwardedToBatchWriteEdges() throws Exception {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        Edge edge = new Edge("knows");
+        edge.sourceId("1:a");
+        edge.targetId("1:b");
+
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, true, true, java.util.Collections.emptyMap())) {
+            buffer.add(new GraphElementEnvelope("knows", LabelType.EDGE, edge));
+            buffer.flush();
+        }
+
+        verify(client).batchWriteEdges(anyList(), eq(true));
+    }
+
+    @Test
+    void updateStrategiesRouteVerticesThroughBatchUpdate() throws Exception {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        Map<String, UpdateStrategy> strategies =
+                Collections.singletonMap("count", UpdateStrategy.SUM);
+
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false, strategies)) {
+            buffer.add(envelope(vertex("a")));
+            buffer.flush();
+        }
+
+        verify(client).batchUpdateVertices(anyList(), eq(strategies));
+        verify(client, never()).batchWriteVertices(anyList());
+    }
+
+    @Test
     void wholeBatchFailsWhenFallbackDisabled() throws Exception {
         HugeGraphClient client = mock(HugeGraphClient.class);
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
 
-        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, false)) {
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, false, false, java.util.Collections.emptyMap())) {
             buffer.add(envelope(vertex("g1")));
             assertThrows(HugeGraphConnectorException.class, buffer::flush);
         }
@@ -87,7 +126,8 @@ class BatchBufferTest {
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
         doThrow(new RuntimeException("down")).when(client).writeVertex(any(Vertex.class));
 
-        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true)) {
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, true, false, java.util.Collections.emptyMap())) {
             buffer.add(envelope(vertex("g1")));
             buffer.add(envelope(vertex("g2")));
             // Every record fails the fallback too -> not a poison record, surface a hard error.

@@ -178,6 +178,18 @@ public final class SchemaValidator {
                             mapping.getType(), mapping.getLabel()));
         }
 
+        // `properties` (selected whitelist) and `ignored` (blacklist) are opposite ways to choose
+        // the property set; setting both is ambiguous.
+        if (!mapping.getProperties().isEmpty() && !mapping.getIgnored().isEmpty()) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Mapping[%s/%s]: 'properties' (selected) and 'ignored' are mutually "
+                                    + "exclusive — set at most one.",
+                            mapping.getType(), mapping.getLabel()));
+        }
+        validateSourceFields(mapping, mapping.getIgnored(), "ignored");
+
         if (mapping.getType() == LabelType.VERTEX) {
             E.checkNotNull(
                     mapping.getIdStrategy(),
@@ -205,6 +217,13 @@ public final class SchemaValidator {
                                     mapping.getIdFields().get(0),
                                     mapping.getIdStrategy()));
                 }
+            }
+            if (mapping.isUnfold()) {
+                validateUnfoldable(
+                        mapping,
+                        mapping.getIdStrategy(),
+                        mapping.getIdFields(),
+                        String.format("mapping[VERTEX/%s]", mapping.getLabel()));
             }
         } else {
             E.checkNotNull(
@@ -244,8 +263,60 @@ public final class SchemaValidator {
                                 "mapping[EDGE/%s] with frequency=MULTIPLE", mapping.getLabel()));
                 validateSourceFields(mapping, mapping.getSortKeys(), "sortKeys");
             }
+            // Endpoint id strategy lives on the server vertex label (unknown at config time), so
+            // here we only enforce the config-derivable rules; the CUSTOMIZE-endpoint requirement
+            // is
+            // enforced at runtime when building ids.
+            if (mapping.isUnfoldSource()) {
+                validateUnfoldable(
+                        mapping,
+                        null,
+                        mapping.getSourceConfig().getIdFields(),
+                        String.format("mapping[EDGE/%s] sourceConfig", mapping.getLabel()));
+            }
+            if (mapping.isUnfoldTarget()) {
+                validateUnfoldable(
+                        mapping,
+                        null,
+                        mapping.getTargetConfig().getIdFields(),
+                        String.format("mapping[EDGE/%s] targetConfig", mapping.getLabel()));
+            }
         }
         validateSourceFields(mapping, mapping.getProperties(), "properties");
+    }
+
+    /**
+     * unfold expands a single list-valued id cell into multiple elements, so it requires exactly
+     * one id field and cannot be combined with raw-id passthrough. When {@code strategy} is known
+     * (vertex), it must be a CUSTOMIZE_* strategy; for edge endpoints the strategy is server-side
+     * and checked when ids are built.
+     */
+    private static void validateUnfoldable(
+            MappingConfig mapping, IdStrategy strategy, List<String> idFields, String context) {
+        if (idFields == null || idFields.size() != 1) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "%s: unfold requires exactly one id field, but got %s.",
+                            context, idFields));
+        }
+        if (ReservedColumns.isRawIdPassthrough(idFields)) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "%s: unfold cannot be combined with raw-id passthrough (%s).",
+                            context, idFields.get(0)));
+        }
+        if (strategy != null
+                && strategy != IdStrategy.CUSTOMIZE_STRING
+                && strategy != IdStrategy.CUSTOMIZE_NUMBER
+                && strategy != IdStrategy.CUSTOMIZE_UUID) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "%s: unfold requires a CUSTOMIZE_STRING/NUMBER/UUID id strategy, but got '%s'.",
+                            context, strategy));
+        }
     }
 
     private void validateVertexMapping(MappingConfig mapping) {
@@ -354,6 +425,7 @@ public final class SchemaValidator {
                 removeIdFields(sourceFields, mapping.getSourceConfig());
                 removeIdFields(sourceFields, mapping.getTargetConfig());
             }
+            sourceFields.removeAll(mapping.getIgnored());
         } else {
             sourceFields.addAll(mapping.getProperties());
         }

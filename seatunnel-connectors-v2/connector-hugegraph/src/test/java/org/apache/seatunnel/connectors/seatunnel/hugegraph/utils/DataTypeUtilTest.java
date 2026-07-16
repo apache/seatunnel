@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.utils;
 
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ListFormat;
+
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.schema.PropertyKey;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +61,48 @@ class DataTypeUtilTest {
         Object converted = DataTypeUtil.convert("2026-07-11", propertyKey, "yyyy-MM-dd", "GMT+8");
 
         assertEquals(Date.from(java.time.Instant.parse("2026-07-10T16:00:00Z")), converted);
+    }
+
+    @Test
+    void testExtraDateFormatsAreTriedInOrder() {
+        PropertyKey propertyKey = propertyKey("created_at", DataType.DATE, Cardinality.SINGLE);
+
+        // The primary format does not match "2026/07/11"; the extra "yyyy/MM/dd" does.
+        Object converted =
+                DataTypeUtil.convert(
+                        "2026/07/11",
+                        propertyKey,
+                        "yyyy-MM-dd",
+                        "GMT+8",
+                        Arrays.asList("yyyy/MM/dd"),
+                        new ListFormat());
+
+        assertEquals(Date.from(java.time.Instant.parse("2026-07-10T16:00:00Z")), converted);
+    }
+
+    @Test
+    void testCustomListFormatDelimiterAndNoBrackets() {
+        PropertyKey propertyKey = propertyKey("tags", DataType.TEXT, Cardinality.LIST);
+        ListFormat listFormat = new ListFormat();
+        listFormat.setStartSymbol("");
+        listFormat.setEndSymbol("");
+        listFormat.setElemDelimiter("|");
+
+        Object converted = DataTypeUtil.convert("a|b|c", propertyKey, null, null, listFormat);
+
+        assertEquals(Arrays.asList("a", "b", "c"), converted);
+    }
+
+    @Test
+    void testListFormatIgnoredElems() {
+        PropertyKey propertyKey = propertyKey("tags", DataType.TEXT, Cardinality.LIST);
+        ListFormat listFormat = new ListFormat();
+        listFormat.setIgnoredElems(Collections.singletonList("NULL"));
+
+        // Default start/end "[" "]" are stripped; the "NULL" element is dropped.
+        Object converted = DataTypeUtil.convert("[a,NULL,b]", propertyKey, null, null, listFormat);
+
+        assertEquals(Arrays.asList("a", "b"), converted);
     }
 
     private static PropertyKey propertyKey(

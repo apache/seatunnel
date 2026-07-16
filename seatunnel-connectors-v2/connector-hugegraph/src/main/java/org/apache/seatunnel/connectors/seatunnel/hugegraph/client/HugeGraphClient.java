@@ -34,8 +34,11 @@ import org.apache.hugegraph.rest.RestClientConfig;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
+import org.apache.hugegraph.structure.graph.BatchEdgeRequest;
+import org.apache.hugegraph.structure.graph.BatchVertexRequest;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Edges;
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 import org.apache.hugegraph.structure.graph.Vertices;
 import org.apache.hugegraph.structure.schema.EdgeLabel;
@@ -582,8 +585,61 @@ public final class HugeGraphClient implements HugeGraphOperations {
         executeGraphOperation(graph -> graph.addVertex(vertex));
     }
 
-    public void writeEdge(Edge edge) {
-        executeGraphOperation(graph -> graph.addEdge(edge));
+    public void writeEdge(Edge edge, boolean checkVertex) {
+        // Route through addEdges so the single-insert path honors checkVertex the same way the
+        // batch path does (GraphManager.addEdge has no checkVertex overload).
+        executeGraphOperation(
+                graph -> graph.addEdges(Collections.singletonList(edge), checkVertex));
+    }
+
+    /** Single-vertex property-merge upsert; see {@link #batchUpdateVertices}. */
+    public void updateVertex(Vertex vertex, Map<String, UpdateStrategy> updateStrategies) {
+        batchUpdateVertices(Collections.singletonList(vertex), updateStrategies);
+    }
+
+    /** Single-edge property-merge upsert; see {@link #batchUpdateEdges}. */
+    public void updateEdge(
+            Edge edge, Map<String, UpdateStrategy> updateStrategies, boolean checkVertex) {
+        batchUpdateEdges(Collections.singletonList(edge), updateStrategies, checkVertex);
+    }
+
+    /**
+     * Upserts vertices with per-property merge strategies (OVERRIDE / APPEND / SUM / UNION / ...)
+     * instead of overwriting. Existing vertices are merged; missing ones are created
+     * (createIfNotExist). Chunked like {@link #batchWriteVertices}.
+     */
+    public void batchUpdateVertices(
+            List<Vertex> buffer, Map<String, UpdateStrategy> updateStrategies) {
+        for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
+            List<Vertex> chunk =
+                    buffer.subList(
+                            start, Math.min(start + MAX_RECORDS_PER_BATCH_REQUEST, buffer.size()));
+            BatchVertexRequest request =
+                    new BatchVertexRequest.Builder()
+                            .vertices(chunk)
+                            .updatingStrategies(updateStrategies)
+                            .createIfNotExist(true)
+                            .build();
+            executeGraphOperation(graph -> graph.updateVertices(request));
+        }
+    }
+
+    /** Upserts edges with per-property merge strategies. See {@link #batchUpdateVertices}. */
+    public void batchUpdateEdges(
+            List<Edge> buffer, Map<String, UpdateStrategy> updateStrategies, boolean checkVertex) {
+        for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
+            List<Edge> chunk =
+                    buffer.subList(
+                            start, Math.min(start + MAX_RECORDS_PER_BATCH_REQUEST, buffer.size()));
+            BatchEdgeRequest request =
+                    new BatchEdgeRequest.Builder()
+                            .edges(chunk)
+                            .updatingStrategies(updateStrategies)
+                            .checkVertex(checkVertex)
+                            .createIfNotExist(true)
+                            .build();
+            executeGraphOperation(graph -> graph.updateEdges(request));
+        }
     }
 
     /**
@@ -601,13 +657,17 @@ public final class HugeGraphClient implements HugeGraphOperations {
         }
     }
 
-    /** Writes edges in server-cap-sized chunks. See {@link #batchWriteVertices}. */
-    public void batchWriteEdges(List<Edge> buffer) {
+    /**
+     * Writes edges in server-cap-sized chunks. See {@link #batchWriteVertices}. When {@code
+     * checkVertex} is true the server verifies that each edge's source/target vertices exist,
+     * rejecting orphan edges instead of silently writing them or auto-creating phantom vertices.
+     */
+    public void batchWriteEdges(List<Edge> buffer, boolean checkVertex) {
         for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
             List<Edge> chunk =
                     buffer.subList(
                             start, Math.min(start + MAX_RECORDS_PER_BATCH_REQUEST, buffer.size()));
-            executeGraphOperation(graph -> graph.addEdges(chunk, false));
+            executeGraphOperation(graph -> graph.addEdges(chunk, checkVertex));
         }
     }
 

@@ -92,7 +92,9 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         this.client,
                         sinkConfig.getBatchSize(),
                         sinkConfig.getBatchIntervalMs(),
-                        sinkConfig.isBatchFailureFallback());
+                        sinkConfig.isBatchFailureFallback(),
+                        sinkConfig.isCheckVertex(),
+                        sinkConfig.getUpdateStrategies());
     }
 
     private List<MappingEntry> buildMappingEntries(SeaTunnelRowType rowType) {
@@ -241,14 +243,13 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         List<GraphElementEnvelope> edgeEnvelopes = new ArrayList<>();
 
         for (MappingEntry entry : mappingEntries) {
-            GraphElementEnvelope envelope = mapToEnvelope(entry, row, false);
-            if (envelope == null) {
-                continue;
-            }
-            if (entry.config.getType() == LabelType.VERTEX) {
-                vertexEnvelopes.add(envelope);
-            } else {
-                edgeEnvelopes.add(envelope);
+            // mapToEnvelopes returns 1 element normally, or N when unfold expands a list cell.
+            for (GraphElementEnvelope envelope : mapToEnvelopes(entry, row)) {
+                if (entry.config.getType() == LabelType.VERTEX) {
+                    vertexEnvelopes.add(envelope);
+                } else {
+                    edgeEnvelopes.add(envelope);
+                }
             }
         }
 
@@ -257,6 +258,25 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
         for (GraphElementEnvelope envelope : edgeEnvelopes) {
             buffer.add(envelope);
+        }
+    }
+
+    /**
+     * unfold (one row → many elements) is only defined for the append/INSERT path. UPDATE/DELETE
+     * would require diffing N old ids against N new ids per mapping, which is out of scope and
+     * dangerous to get wrong, so reject a changelog row when any mapping enables unfold.
+     */
+    private void rejectUnfoldForChangelog(String rowKind) {
+        for (MappingEntry entry : mappingEntries) {
+            if (entry.mapper.isUnfoldEnabled()) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        String.format(
+                                "Mapping[%s/%s]: unfold is only supported for INSERT/append-only "
+                                        + "jobs, but received a %s row. Disable unfold or run this "
+                                        + "as an append-only job.",
+                                entry.config.getType(), entry.config.getLabel(), rowKind));
+            }
         }
     }
 
@@ -281,6 +301,7 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
      * and is handled by at-least-once replay from the upstream source.
      */
     private void handleUpdate(SeaTunnelRow before, SeaTunnelRow after) throws IOException {
+        rejectUnfoldForChangelog("UPDATE");
         UpdatePlan plan = buildUpdatePlan(mappingEntries, before, after);
         executeUpdatePlan(plan);
     }
@@ -440,6 +461,37 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         return new GraphElementEnvelope(entry.config.getLabel(), entry.config.getType(), element);
     }
 
+    /**
+     * INSERT/append-path mapping that supports unfold: returns one envelope normally, or N when a
+     * mapping expands a list-valued id cell into multiple elements.
+     */
+    static List<GraphElementEnvelope> mapToEnvelopes(MappingEntry entry, SeaTunnelRow row) {
+        List<GraphElement> elements;
+        try {
+            elements = entry.mapper.mapAll(row);
+        } catch (Exception e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    String.format(
+                            "Mapping[%s/%s]: Failed to map input row to graph element(s)",
+                            entry.config.getType(), entry.config.getLabel()),
+                    e);
+        }
+        if (elements == null || elements.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<GraphElementEnvelope> envelopes = new ArrayList<>(elements.size());
+        for (GraphElement element : elements) {
+            if (element == null) {
+                continue;
+            }
+            envelopes.add(
+                    new GraphElementEnvelope(
+                            entry.config.getLabel(), entry.config.getType(), element));
+        }
+        return envelopes;
+    }
+
     static final class UpdatePlan {
         final List<GraphElementEnvelope> newVertices;
         final List<GraphElementEnvelope> newEdges;
@@ -469,6 +521,7 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     private void handleDelete(SeaTunnelRow row) {
+        rejectUnfoldForChangelog("DELETE");
         try {
             buffer.flush();
         } catch (IOException e) {

@@ -73,6 +73,17 @@ public class HugeGraphOptions {
                     .defaultValue(5000)
                     .withDescription("The batch flash period");
 
+    public static final Option<Boolean> CHECK_VERTEX =
+            Options.key("check_vertex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether the server verifies that an edge's source/target vertices "
+                                    + "exist when writing edges. When false (default), edges whose "
+                                    + "endpoints were never loaded are written as orphan edges (or "
+                                    + "trigger server-side phantom vertex auto-creation). Enable to "
+                                    + "reject such edges.");
+
     public static final Option<Boolean> BATCH_FAILURE_FALLBACK =
             Options.key("batch_failure_fallback")
                     .booleanType()

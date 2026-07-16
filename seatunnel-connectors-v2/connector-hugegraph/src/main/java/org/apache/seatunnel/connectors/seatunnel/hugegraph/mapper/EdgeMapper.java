@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
 
 import org.apache.hugegraph.serializer.direct.util.SplicingIdGenerator;
+import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
@@ -57,6 +58,8 @@ public class EdgeMapper implements GraphDataMapper {
     private final IdStrategy sourceIdStrategy;
     private final String targetVertexLabelId;
     private final IdStrategy targetIdStrategy;
+    private final boolean unfoldSource;
+    private final boolean unfoldTarget;
 
     public EdgeMapper(
             MappingConfig mappingConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
@@ -67,6 +70,8 @@ public class EdgeMapper implements GraphDataMapper {
         this.edgeIdSourceFields = resolveEdgeIdSourceFields();
         this.propertySourceFields = resolvePropertySourceFields();
         this.propertyKeyCache = buildPropertyKeyCache();
+        this.unfoldSource = mappingConfig.isUnfoldSource();
+        this.unfoldTarget = mappingConfig.isUnfoldTarget();
 
         // Cache source/target vertex metadata to avoid per-row schema queries
         this.sourceVertexLabelId =
@@ -75,6 +80,11 @@ public class EdgeMapper implements GraphDataMapper {
         this.targetVertexLabelId =
                 client.getVertexLabelId(mappingConfig.getTargetConfig().getLabel());
         this.targetIdStrategy = client.getIdStrategy(mappingConfig.getTargetConfig().getLabel());
+    }
+
+    @Override
+    public boolean isUnfoldEnabled() {
+        return unfoldSource || unfoldTarget;
     }
 
     private Set<String> resolveEdgeIdSourceFields() {
@@ -98,6 +108,8 @@ public class EdgeMapper implements GraphDataMapper {
             fields.addAll(fieldsIndex.keySet());
             fields.removeAll(edgeIdSourceFields);
             fields.removeAll(reservedSourceFields(fieldsIndex.keySet()));
+            // `ignored` blacklist only applies in implicit mode.
+            fields.removeAll(mappingConfig.getIgnored());
         } else {
             // Explicit mode — respect the user's list verbatim. If they list an endpoint field it
             // is genuinely meant to appear as an edge property, matching what SchemaManager
@@ -158,7 +170,83 @@ public class EdgeMapper implements GraphDataMapper {
         if (sourceId == null || targetId == null) {
             return null;
         }
+        return buildEdge(row, sourceId, targetId);
+    }
 
+    /**
+     * INSERT/append-path expansion: when {@code unfold_source} / {@code unfold_target} is set, a
+     * list-valued endpoint id cell expands into multiple endpoint ids and edges are produced for
+     * the cartesian product. Only CUSTOMIZE endpoints are supported (validated in SchemaValidator).
+     */
+    @Override
+    public List<GraphElement> mapAll(SeaTunnelRow row) {
+        if (!unfoldSource && !unfoldTarget) {
+            Edge edge = map(row);
+            return edge == null ? Collections.emptyList() : Collections.singletonList(edge);
+        }
+        List<Object> sourceIds =
+                buildVertexIdList(row, mappingConfig.getSourceConfig(), unfoldSource);
+        List<Object> targetIds =
+                buildVertexIdList(row, mappingConfig.getTargetConfig(), unfoldTarget);
+        if (sourceIds.isEmpty() || targetIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<GraphElement> result = new ArrayList<>(sourceIds.size() * targetIds.size());
+        for (Object sourceId : sourceIds) {
+            for (Object targetId : targetIds) {
+                result.add(buildEdge(row, sourceId, targetId));
+            }
+        }
+        return result;
+    }
+
+    private List<Object> buildVertexIdList(
+            SeaTunnelRow row, SourceTargetConfig config, boolean unfoldEndpoint) {
+        if (!unfoldEndpoint) {
+            Object id = buildVertexId(row, config);
+            return id == null ? Collections.emptyList() : Collections.singletonList(id);
+        }
+        boolean isSource = config == mappingConfig.getSourceConfig();
+        IdStrategy strategy = isSource ? sourceIdStrategy : targetIdStrategy;
+        String idField = config.getIdFields().get(0);
+        Integer idx = fieldsIndex.get(idField);
+        if (idx == null) {
+            return Collections.emptyList();
+        }
+        Object raw = row.getField(idx);
+        if (isConsideredNull(raw)) {
+            return Collections.emptyList();
+        }
+        List<Object> elements = DataTypeUtil.splitField(idField, raw);
+        List<Object> ids = new ArrayList<>(elements.size());
+        for (Object elem : elements) {
+            if (isConsideredNull(elem)) {
+                continue;
+            }
+            ids.add(coerceCustomizeId(strategy, elem));
+        }
+        return ids;
+    }
+
+    private static Object coerceCustomizeId(IdStrategy strategy, Object elem) {
+        switch (strategy) {
+            case CUSTOMIZE_STRING:
+                return VertexMapper.checkVertexIdLength(String.valueOf(elem));
+            case CUSTOMIZE_NUMBER:
+                return elem instanceof Number
+                        ? ((Number) elem).longValue()
+                        : Long.parseLong(String.valueOf(elem));
+            case CUSTOMIZE_UUID:
+                return elem instanceof UUID ? elem : UUID.fromString(String.valueOf(elem));
+            default:
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        "unfold requires a CUSTOMIZE_STRING/NUMBER/UUID endpoint id strategy, but got "
+                                + strategy);
+        }
+    }
+
+    private Edge buildEdge(SeaTunnelRow row, Object sourceId, Object targetId) {
         Edge edge = new Edge(mappingConfig.getLabel());
         edge.sourceId(sourceId);
         edge.targetId(targetId);
@@ -185,7 +273,9 @@ public class EdgeMapper implements GraphDataMapper {
                             rawValue,
                             propertyKey,
                             mappingConfig.getDateFormat(),
-                            mappingConfig.getTimeZone());
+                            mappingConfig.getTimeZone(),
+                            mappingConfig.getExtraDateFormats(),
+                            mappingConfig.getListFormat());
             edge.property(propName, getMappedValue(sourceField, converted));
         }
         return edge;
@@ -228,7 +318,10 @@ public class EdgeMapper implements GraphDataMapper {
                         || stringValues.stream().anyMatch(this::isConsideredNull)) {
                     return null;
                 }
-                return stringValues.stream().map(String::valueOf).collect(Collectors.joining(":"));
+                return VertexMapper.checkVertexIdLength(
+                        stringValues.stream()
+                                .map(String::valueOf)
+                                .collect(Collectors.joining(":")));
             case CUSTOMIZE_NUMBER:
                 List<Object> numberValues = getFieldValues(row, idFields);
                 if (numberValues.size() != 1) {
@@ -288,7 +381,9 @@ public class EdgeMapper implements GraphDataMapper {
                                 rawValue,
                                 propertyKey,
                                 mappingConfig.getDateFormat(),
-                                mappingConfig.getTimeZone());
+                                mappingConfig.getTimeZone(),
+                                mappingConfig.getExtraDateFormats(),
+                                mappingConfig.getListFormat());
                 values.add(getMappedValue(fieldName, converted));
             } else {
                 values.add(getMappedValue(fieldName, rawValue));
@@ -405,7 +500,8 @@ public class EdgeMapper implements GraphDataMapper {
     private String spliceVertexId(String vertexLabelId, List<Object> primaryValues) {
         // HugeGraph primary-key vertex id = {vertexLabelId}:{concatValues(pk)}; concatValues joins
         // with '!' and backtick-escapes any '!' so pk values containing the separator still match.
-        return String.format(
-                "%s:%s", vertexLabelId, SplicingIdGenerator.concatValues(primaryValues));
+        return VertexMapper.checkVertexIdLength(
+                String.format(
+                        "%s:%s", vertexLabelId, SplicingIdGenerator.concatValues(primaryValues)));
     }
 }

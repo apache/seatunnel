@@ -26,11 +26,14 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.E;
 
+import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +50,7 @@ public class VertexMapper implements GraphDataMapper {
     private final HugeGraphClient client;
     private final Map<String, PropertyKey> propertyKeyCache;
     private final Set<String> propertySourceFields;
+    private final boolean unfold;
 
     public VertexMapper(
             MappingConfig mappingConfig, Map<String, Integer> fieldsIndex, HugeGraphClient client) {
@@ -56,6 +60,12 @@ public class VertexMapper implements GraphDataMapper {
         this.fieldsIndex = fieldsIndex;
         this.propertySourceFields = resolvePropertySourceFields();
         this.propertyKeyCache = buildPropertyKeyCache();
+        this.unfold = mappingConfig.isUnfold();
+    }
+
+    @Override
+    public boolean isUnfoldEnabled() {
+        return unfold;
     }
 
     private Set<String> resolvePropertySourceFields() {
@@ -66,6 +76,9 @@ public class VertexMapper implements GraphDataMapper {
             // valid HugeGraph property key names, so an implicit Source→Sink round-trip would
             // otherwise attempt to create them on the server.
             fields.removeIf(f -> f != null && f.startsWith("~"));
+            // `ignored` blacklist only applies in implicit mode (an explicit `properties`
+            // whitelist already lists exactly what to keep).
+            fields.removeAll(mappingConfig.getIgnored());
         } else {
             fields.addAll(mappingConfig.getProperties());
         }
@@ -115,8 +128,70 @@ public class VertexMapper implements GraphDataMapper {
             vertex.id(id);
         }
 
+        applyProperties(vertex, row, null);
+        return vertex;
+    }
+
+    /**
+     * INSERT/append-path expansion: when {@code unfold} is set, a list-valued CUSTOMIZE id cell
+     * produces one vertex per element (all sharing the same non-id properties). Without unfold this
+     * is just {@link #map} wrapped in a list.
+     */
+    @Override
+    public List<GraphElement> mapAll(SeaTunnelRow row) {
+        if (!unfold) {
+            Vertex vertex = map(row);
+            return vertex == null ? Collections.emptyList() : Collections.singletonList(vertex);
+        }
+        IdStrategy strategy = mappingConfig.getIdStrategy();
+        String idField = mappingConfig.getIdFields().get(0);
+        Integer idx = fieldsIndex.get(idField);
+        if (idx == null) {
+            return Collections.emptyList();
+        }
+        Object raw = row.getField(idx);
+        if (isConsideredNull(raw)) {
+            return Collections.emptyList();
+        }
+        List<Object> elements = DataTypeUtil.splitField(idField, raw);
+        List<GraphElement> result = new ArrayList<>(elements.size());
+        for (Object elem : elements) {
+            if (isConsideredNull(elem)) {
+                continue;
+            }
+            Vertex vertex = new Vertex(mappingConfig.getLabel());
+            vertex.id(coerceCustomizeId(strategy, elem));
+            // The id field is the unfolded source, not a property — skip it.
+            applyProperties(vertex, row, idField);
+            result.add(vertex);
+        }
+        return result;
+    }
+
+    private static Object coerceCustomizeId(IdStrategy strategy, Object elem) {
+        switch (strategy) {
+            case CUSTOMIZE_STRING:
+                return checkVertexIdLength(String.valueOf(elem));
+            case CUSTOMIZE_NUMBER:
+                return elem instanceof Number
+                        ? ((Number) elem).longValue()
+                        : Long.parseLong(String.valueOf(elem));
+            case CUSTOMIZE_UUID:
+                return elem instanceof UUID ? elem : UUID.fromString(String.valueOf(elem));
+            default:
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        "unfold requires a CUSTOMIZE_STRING/NUMBER/UUID id strategy, but got "
+                                + strategy);
+        }
+    }
+
+    private void applyProperties(Vertex vertex, SeaTunnelRow row, String skipField) {
         Map<String, String> fm = mappingConfig.getFieldMapping();
         for (String sourceField : propertySourceFields) {
+            if (sourceField.equals(skipField)) {
+                continue;
+            }
             Integer index = fieldsIndex.get(sourceField);
             if (index == null) {
                 continue;
@@ -135,11 +210,11 @@ public class VertexMapper implements GraphDataMapper {
                             rawValue,
                             propertyKey,
                             mappingConfig.getDateFormat(),
-                            mappingConfig.getTimeZone());
+                            mappingConfig.getTimeZone(),
+                            mappingConfig.getExtraDateFormats(),
+                            mappingConfig.getListFormat());
             vertex.property(propName, getMappedValue(sourceField, converted));
         }
-
-        return vertex;
     }
 
     @Override
@@ -167,7 +242,7 @@ public class VertexMapper implements GraphDataMapper {
             }
             switch (strategy) {
                 case CUSTOMIZE_STRING:
-                    return String.valueOf(raw);
+                    return checkVertexIdLength(String.valueOf(raw));
                 case CUSTOMIZE_NUMBER:
                     return raw instanceof Number
                             ? ((Number) raw).longValue()
@@ -198,7 +273,10 @@ public class VertexMapper implements GraphDataMapper {
                         || stringValues.stream().anyMatch(this::isConsideredNull)) {
                     return null;
                 }
-                return stringValues.stream().map(String::valueOf).collect(Collectors.joining(":"));
+                return checkVertexIdLength(
+                        stringValues.stream()
+                                .map(String::valueOf)
+                                .collect(Collectors.joining(":")));
             case CUSTOMIZE_NUMBER:
                 List<Object> numberValues = getFieldValues(row, idFields);
                 if (numberValues.size() != 1) {
@@ -259,7 +337,9 @@ public class VertexMapper implements GraphDataMapper {
                                 rawValue,
                                 propertyKey,
                                 mappingConfig.getDateFormat(),
-                                mappingConfig.getTimeZone());
+                                mappingConfig.getTimeZone(),
+                                mappingConfig.getExtraDateFormats(),
+                                mappingConfig.getListFormat());
             }
             values.add(getMappedValue(fieldName, converted));
         }
@@ -289,6 +369,26 @@ public class VertexMapper implements GraphDataMapper {
     private String spliceVertexId(List<Object> primaryValues) {
         String joinedValues =
                 primaryValues.stream().map(Object::toString).collect(Collectors.joining("!"));
-        return String.format("%s:%s", labelId, joinedValues);
+        return checkVertexIdLength(String.format("%s:%s", labelId, joinedValues));
+    }
+
+    /** HugeGraph server per-vertex id cap (see loader Constants.VERTEX_ID_LIMIT). */
+    static final int VERTEX_ID_LIMIT = 128;
+
+    /**
+     * Rejects a string vertex id whose UTF-8 length exceeds the server limit, so the user gets a
+     * clear client-side error instead of an opaque server rejection. Number/UUID ids are always
+     * within the limit and are not checked.
+     */
+    static String checkVertexIdLength(String id) {
+        int length = id.getBytes(StandardCharsets.UTF_8).length;
+        if (length > VERTEX_ID_LIMIT) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "The vertex id length (%d bytes) exceeds the limit of %d: '%s'",
+                            length, VERTEX_ID_LIMIT, id));
+        }
+        return id;
     }
 }

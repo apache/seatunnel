@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.constant.IdStrategy;
@@ -33,10 +35,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -159,6 +164,42 @@ class VertexMapperTest {
 
         assertEquals("male", vertex.properties().get("gender"));
         assertEquals("married", vertex.properties().get("status"));
+    }
+
+    @Test
+    void testUnfoldExpandsListIdIntoMultipleVertices() {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        PropertyKey age = propertyKey("age", DataType.INT);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKey("age")).thenReturn(age);
+        when(client.getPropertyKeyOrNull("id")).thenReturn(null);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.CUSTOMIZE_STRING, "id");
+        mapping.setProperties(Arrays.asList("age"));
+        mapping.setUnfold(true);
+        VertexMapper mapper = new VertexMapper(mapping, fields("id", "age"), client);
+
+        List<GraphElement> elements =
+                mapper.mapAll(new SeaTunnelRow(new Object[] {new String[] {"a", "b", "c"}, 30}));
+
+        assertEquals(3, elements.size());
+        assertEquals(
+                Arrays.asList("a", "b", "c"),
+                elements.stream().map(GraphElement::id).collect(Collectors.toList()));
+        for (GraphElement element : elements) {
+            // The unfolded id column is not written as a property; only shared props are.
+            assertEquals(30, ((Vertex) element).properties().get("age"));
+        }
+    }
+
+    @Test
+    void testVertexIdLengthLimitEnforced() {
+        String maxLen = String.join("", Collections.nCopies(128, "a")); // exactly 128 bytes
+        assertEquals(maxLen, VertexMapper.checkVertexIdLength(maxLen));
+
+        String tooLong = String.join("", Collections.nCopies(129, "a")); // 129 bytes
+        assertThrows(
+                HugeGraphConnectorException.class, () -> VertexMapper.checkVertexIdLength(tooLong));
     }
 
     private static MappingConfig vertexMapping(IdStrategy idStrategy, String idField) {

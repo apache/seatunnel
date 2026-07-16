@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.config;
 
 import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
 
 import lombok.Data;
 
@@ -39,15 +40,25 @@ public class MappingConfig implements Serializable {
     // Vertex-specific
     private IdStrategy idStrategy;
     private List<String> idFields;
+    // Expand a list-valued id cell into one vertex per element (INSERT/append only, CUSTOMIZE ids).
+    private boolean unfold;
 
     // Edge-specific
     private SourceTargetConfig sourceConfig;
     private SourceTargetConfig targetConfig;
     private Frequency frequency;
     private List<String> sortKeys;
+    // Expand a list-valued source/target id cell into multiple edges (cartesian; INSERT/append
+    // only,
+    // CUSTOMIZE endpoint ids).
+    private boolean unfoldSource;
+    private boolean unfoldTarget;
 
-    // Property config
+    // Property config. `properties` is the selected whitelist (only these source fields become
+    // properties); when empty, all input fields are used. `ignored` is the opposite blacklist
+    // (all fields except these). The two are mutually exclusive.
     private List<String> properties;
+    private List<String> ignored;
 
     // Field mapping (source field name → target property name)
     private Map<String, String> fieldMapping;
@@ -59,9 +70,17 @@ public class MappingConfig implements Serializable {
     private List<String> notNullableKeys;
     private List<String> nullValues;
 
+    // Per-property update-merge strategies (OVERRIDE / APPEND / SUM / UNION / ...), keyed by target
+    // property name. When set, existing elements are merged instead of overwritten.
+    private Map<String, UpdateStrategy> updateStrategies;
+
     // Time config
     private String dateFormat;
+    private List<String> extraDateFormats;
     private String timeZone;
+
+    // How raw string cells are parsed into SET/LIST elements.
+    private ListFormat listFormat;
 
     // Label metadata (for schema creation)
     private Long ttl;
@@ -108,6 +127,22 @@ public class MappingConfig implements Serializable {
 
     public List<String> getProperties() {
         return properties == null ? Collections.emptyList() : properties;
+    }
+
+    public List<String> getIgnored() {
+        return ignored == null ? Collections.emptyList() : ignored;
+    }
+
+    public ListFormat getListFormat() {
+        return listFormat == null ? new ListFormat() : listFormat;
+    }
+
+    public List<String> getExtraDateFormats() {
+        return extraDateFormats == null ? Collections.emptyList() : extraDateFormats;
+    }
+
+    public Map<String, UpdateStrategy> getUpdateStrategies() {
+        return updateStrategies == null ? Collections.emptyMap() : updateStrategies;
     }
 
     /** Converts a legacy SchemaConfig to the new unified MappingConfig. */

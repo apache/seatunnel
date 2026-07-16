@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -56,15 +58,21 @@ public class BatchBuffer implements AutoCloseable {
     private volatile Exception flushException;
     private final HugeGraphClient client;
     private final boolean batchFailureFallback;
+    private final boolean checkVertex;
+    private final Map<String, UpdateStrategy> updateStrategies;
 
     public BatchBuffer(
             HugeGraphClient client,
             int batchSize,
             long batchIntervalMs,
-            boolean batchFailureFallback) {
+            boolean batchFailureFallback,
+            boolean checkVertex,
+            Map<String, UpdateStrategy> updateStrategies) {
         this.batchSize = batchSize;
         this.client = client;
         this.batchFailureFallback = batchFailureFallback;
+        this.checkVertex = checkVertex;
+        this.updateStrategies = updateStrategies;
 
         if (batchIntervalMs > 0) {
             this.scheduler =
@@ -141,7 +149,11 @@ public class BatchBuffer implements AutoCloseable {
                     batch.stream()
                             .map(env -> (Vertex) env.getElement())
                             .collect(Collectors.toList());
-            client.batchWriteVertices(vertices);
+            if (updateStrategies.isEmpty()) {
+                client.batchWriteVertices(vertices);
+            } else {
+                client.batchUpdateVertices(vertices, updateStrategies);
+            }
         } catch (Exception e) {
             if (!batchFailureFallback) {
                 logBatchFailure(batch, e);
@@ -163,7 +175,11 @@ public class BatchBuffer implements AutoCloseable {
         try {
             List<Edge> edges =
                     batch.stream().map(env -> (Edge) env.getElement()).collect(Collectors.toList());
-            client.batchWriteEdges(edges);
+            if (updateStrategies.isEmpty()) {
+                client.batchWriteEdges(edges, checkVertex);
+            } else {
+                client.batchUpdateEdges(edges, updateStrategies, checkVertex);
+            }
         } catch (Exception e) {
             if (!batchFailureFallback) {
                 logBatchFailure(batch, e);
@@ -192,9 +208,18 @@ public class BatchBuffer implements AutoCloseable {
         for (GraphElementEnvelope envelope : batch) {
             try {
                 if (envelope.getElementType() == LabelType.VERTEX) {
-                    client.writeVertex((Vertex) envelope.getElement());
+                    if (updateStrategies.isEmpty()) {
+                        client.writeVertex((Vertex) envelope.getElement());
+                    } else {
+                        client.updateVertex((Vertex) envelope.getElement(), updateStrategies);
+                    }
                 } else {
-                    client.writeEdge((Edge) envelope.getElement());
+                    if (updateStrategies.isEmpty()) {
+                        client.writeEdge((Edge) envelope.getElement(), checkVertex);
+                    } else {
+                        client.updateEdge(
+                                (Edge) envelope.getElement(), updateStrategies, checkVertex);
+                    }
                 }
             } catch (Exception single) {
                 failed++;

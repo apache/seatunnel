@@ -270,6 +270,46 @@ class SchemaValidatorTest {
                 () -> serverValidator.validateExistingLabels(Collections.singletonList(m)));
     }
 
+    @Test
+    void rejectsUnfoldWithPrimaryKeyStrategy() {
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel("person");
+        m.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        m.setIdFields(Collections.singletonList("id"));
+        m.setUnfold(true);
+
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () -> validator.validateConfigOnly(Collections.singletonList(m)));
+        assertTrue(ex.getMessage().contains("CUSTOMIZE"));
+    }
+
+    @Test
+    void rejectsUnfoldWithMultipleIdFields() {
+        SchemaValidator v =
+                new SchemaValidator(
+                        null,
+                        new SeaTunnelRowType(
+                                new String[] {"a", "b"},
+                                new SeaTunnelDataType<?>[] {
+                                    BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                                }));
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel("person");
+        m.setIdStrategy(IdStrategy.CUSTOMIZE_STRING);
+        m.setIdFields(Arrays.asList("a", "b"));
+        m.setUnfold(true);
+
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () -> v.validateConfigOnly(Collections.singletonList(m)));
+        assertTrue(ex.getMessage().contains("exactly one id field"));
+    }
+
     private static MappingConfig.SourceTargetConfig sourceTarget(String label, String idField) {
         MappingConfig.SourceTargetConfig st = new MappingConfig.SourceTargetConfig();
         st.setLabel(label);

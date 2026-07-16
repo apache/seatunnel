@@ -190,6 +190,9 @@ public final class SchemaManager {
                 removeIdFields(sourceFields, mapping.getSourceConfig());
                 removeIdFields(sourceFields, mapping.getTargetConfig());
             }
+            // `ignored` blacklist only applies in implicit mode; must match the mappers so schema
+            // creation and writes agree on the property set.
+            sourceFields.removeAll(mapping.getIgnored());
         } else {
             sourceFields.addAll(mapping.getProperties());
         }

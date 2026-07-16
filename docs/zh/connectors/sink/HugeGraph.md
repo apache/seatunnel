@@ -40,6 +40,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
 | `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
 | `batch_failure_fallback` | Boolean | 否   | true   | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
+| `check_vertex`      | Boolean | 否       | false  | 写入边时服务端是否校验边的源/目标顶点是否存在。为 `false` 时，端点从未写入的边会被写成孤儿边（或触发服务端幻影顶点自动创建）。开启后此类边会被拒绝。 |
 | `max_retries`       | Integer | 否       | 3      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。                       |
 | `retry_backoff_ms`  | Integer | 否       | 5000   | 重试之间的退避时间（毫秒）。                                           |
 
@@ -77,10 +78,17 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `sortKeys`         | `List<String>`        | 对于边   | -       | **输入行中的源字段名**（映射前、即 `fieldMapping` 应用之前的名字），用于区分相同源点和目标点之间的多条边。当 `frequency = MULTIPLE` 时必填。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `sortKeys = [event_time]`，而不是 `[created_at]`。 |
 | `fieldMapping`     | `Map<String, String>` | 否       | -       | 字段映射，key 为源字段名，value 为 HugeGraph 目标属性名。 |
 | `valueMapping`     | `Map<String, Map<Object, Object>>` | 否       | -       | 按字段的值转换映射。外层键为源字段名，内层为 `原始值 -> 新值`。按字段隔离可避免一个列的规则影响其他列（如 `gender` 的 M->male 不会改写 `status` 的 M）。 |
+| `ignored`          | `List<String>`      | 否       | -       | 从属性中排除的源字段黑名单（仅隐式模式生效）。与 `properties`（充当 selected 白名单）互斥。 |
+| `updateStrategies` | `Map<String, String>` | 否       | -       | 写入时按目标属性名指定的属性级合并策略：`OVERRIDE`、`APPEND`、`SUM`、`UNION`、`BIGGER`、`SMALLER` 等。设置后对已存在元素做合并而非覆盖。 |
 | `nullableKeys`     | `List<String>`        | 否       | -       | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖下述默认行为（仅这些键可空）。主键、`MULTIPLE` 边的 sortKeys 等 key 属性始终排除。与 `notNullableKeys` 互斥。 |
 | `notNullableKeys`  | `List<String>`        | 否       | -       | 与默认可空行为配合使用的反向 opt-out 列表。默认情况下（既未配 `nullableKeys` 也未配 `notNullableKeys`），自动建 label 的所有非 key 属性均可空；在此列出必须为非空的属性。与 `nullableKeys` 互斥。仅影响新建 label。 |
 | `nullValues`       | `List<String>`        | 否       | -       | 应被视为 `null` 的字符串值列表。 |
 | `dateFormat`       | String              | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。 |
+| `extraDateFormats` | `List<String>`      | 否       | -       | 解析日期字符串时，在 `dateFormat` 之后按顺序尝试的额外日期格式——用于多源汇入、日期格式不一致的场景。 |
+| `listFormat`       | Object              | 否       | -       | 原始字符串如何解析为 SET/LIST 属性元素：`startSymbol`（默认 `[`）、`endSymbol`（默认 `]`）、`elemDelimiter`（默认 `,`）、`ignoredElems`。 |
+| `unfold`           | Boolean             | 否       | false   | （顶点）把 list 型 CUSTOMIZE id 单元格展开为每个元素一个顶点。仅 INSERT/append。 |
+| `unfoldSource`     | Boolean             | 否       | false   | （边）把 list 型源端点 id 单元格展开为多条边（CUSTOMIZE 端点）。仅 INSERT/append。 |
+| `unfoldTarget`     | Boolean             | 否       | false   | （边）把 list 型目标端点 id 单元格展开为多条边（与源端笛卡尔积）。仅 INSERT/append。 |
 | `timeZone`         | String              | 否       | Worker JVM 默认 | 用于日期解析的时区。省略时使用 Worker JVM 默认时区，与 HugeGraph Source 一致，从而保证 Source→Sink 往返时绝对时间不变。 |
 
 ### Legacy Schema配置 (`schema_config`)
@@ -128,10 +136,17 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | ----------------- | ------------------ | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fieldMapping`    | `Map<String, String>` | 否       | -            | 一个映射，其中键是源字段名，值是HugeGraph中的目标属性名。如果未指定，则使用源字段名作为目标属性名。                                                                         |
 | `valueMapping`    | `Map<String, Map<Object, Object>>` | 否       | -            | 按字段的值转换映射。外层键为源字段名，内层为 `原始值 -> 新值`。按字段隔离，一个列的替换规则不会影响其他列。                                                                                                               |
+| `ignored`          | `List<String>`      | 否       | -       | 从属性中排除的源字段黑名单（仅隐式模式生效）。与 `properties`（充当 selected 白名单）互斥。 |
+| `updateStrategies` | `Map<String, String>` | 否       | -       | 写入时按目标属性名指定的属性级合并策略：`OVERRIDE`、`APPEND`、`SUM`、`UNION`、`BIGGER`、`SMALLER` 等。设置后对已存在元素做合并而非覆盖。 |
 | `nullableKeys`    | `List<String>`       | 否       | -            | 自动建 label 时允许为 null 的属性键白名单。设置后覆盖默认可空行为。与 `notNullableKeys` 互斥。                                                                              |
 | `notNullableKeys` | `List<String>`       | 否       | -            | 与默认可空行为配合的反向 opt-out 列表，在此列出必须为非空的属性。与 `nullableKeys` 互斥。                                                                                    |
 | `nullValues`      | `List<String>`       | 否       | -            | 应被视为`null`的字符串值列表。任何包含这些值的字段都不会被写入。                                                                                                          |
 | `dateFormat`      | String             | 否       | `yyyy-MM-dd` | 用于解析日期字符串的日期格式。                                                                                                                                            |
+| `extraDateFormats`| `List<String>`     | 否       | -            | 解析日期字符串时，在 `dateFormat` 之后按顺序尝试的额外日期格式——用于多源汇入、日期格式不一致的场景。                                                                          |
+| `listFormat`      | Object             | 否       | -            | 原始字符串如何解析为 SET/LIST 属性元素：`startSymbol`（默认 `[`）、`endSymbol`（默认 `]`）、`elemDelimiter`（默认 `,`）、`ignoredElems`。                                       |
+| `unfold`          | Boolean            | 否       | false        | （顶点）把 list 型 CUSTOMIZE id 单元格展开为每个元素一个顶点。仅 INSERT/append。                                                                                              |
+| `unfoldSource`    | Boolean            | 否       | false        | （边）把 list 型源端点 id 单元格展开为多条边（CUSTOMIZE 端点）。仅 INSERT/append。                                                                                            |
+| `unfoldTarget`    | Boolean            | 否       | false        | （边）把 list 型目标端点 id 单元格展开为多条边（与源端笛卡尔积）。仅 INSERT/append。                                                                                          |
 | `timeZone`        | String             | 否       | Worker JVM 默认 | 用于日期解析的时区。省略时使用 Worker JVM 默认时区。                                                                                                                    |
 | `sortKeys`         | `List<String>`       | 对于边   | -            | **输入行中的源字段名**（`fieldMapping` 应用之前），用于区分相同源点和目标点之间的多条边。示例：当 `fieldMapping = {event_time: created_at}` 时，应填 `[event_time]`，而不是 `[created_at]`。                                                                                                                      |
 

@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.hugegraph.structure.GraphElement;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
 
 public interface GraphDataMapper extends Serializable {
 
@@ -30,6 +32,21 @@ public interface GraphDataMapper extends Serializable {
      * should be skipped (e.g. null ID fields matched by nullValues).
      */
     GraphElement map(SeaTunnelRow row);
+
+    /**
+     * Maps a row to one or more graph elements. Without unfold this is just {@link #map} wrapped in
+     * a list; with unfold enabled a list-valued id cell expands into multiple elements. Used on the
+     * INSERT/append path only.
+     */
+    default List<GraphElement> mapAll(SeaTunnelRow row) {
+        GraphElement element = map(row);
+        return element == null ? Collections.emptyList() : Collections.singletonList(element);
+    }
+
+    /** Whether this mapper expands one row into multiple elements (unfold). */
+    default boolean isUnfoldEnabled() {
+        return false;
+    }
 
     /**
      * Extracts the graph element ID from a SeaTunnelRow. The ID format must match the server-side
