@@ -68,6 +68,13 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
             if (config.getSchemaSaveMode()
                     == HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
+                // Fail fast on any already-existing label whose immutable attributes (PK,
+                // frequency,
+                // sort keys, endpoints) conflict with the config, BEFORE creating anything — a
+                // conflict discovered only by the post-create validate() below would leave the
+                // PropertyKeys/labels created for the other mappings behind as schema pollution.
+                validator.validateExistingLabels(config.getMappings());
+
                 SchemaManager schemaManager =
                         new SchemaManager(client, config.getSchemaSaveMode(), rowType);
                 schemaManager.ensureSchema(config.getMappings());

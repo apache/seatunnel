@@ -20,11 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.utils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.apache.hugegraph.structure.constant.Frequency;
 import org.apache.hugegraph.structure.constant.IdStrategy;
+import org.apache.hugegraph.structure.schema.VertexLabel;
 
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +36,8 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * validateConfigOnly must catch every deterministic (server-independent) config error so that
@@ -220,6 +224,50 @@ class SchemaValidatorTest {
         m.setIdFields(Collections.singletonList("~id"));
 
         assertDoesNotThrow(() -> rawValidator.validateConfigOnly(Collections.singletonList(m)));
+    }
+
+    @Test
+    void failsFastWhenExistingVertexLabelPrimaryKeyMismatch() {
+        // Reproduces the schema-pollution loop: a VertexLabel already exists with PK=[id] but the
+        // (corrected) config wants PK=[name]. This must abort BEFORE any creation, not after
+        // ensureSchema has already written other schema.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        VertexLabel existing = mock(VertexLabel.class);
+        when(existing.idStrategy()).thenReturn(IdStrategy.PRIMARY_KEY);
+        when(existing.primaryKeys()).thenReturn(Collections.singletonList("id"));
+        when(client.getVertexLabelOrNull("person")).thenReturn(existing);
+        when(client.getVertexLabel("person")).thenReturn(existing);
+
+        SchemaValidator serverValidator = new SchemaValidator(client, ROW_TYPE);
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel("person");
+        m.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        m.setIdFields(Collections.singletonList("name"));
+
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () -> serverValidator.validateExistingLabels(Collections.singletonList(m)));
+        assertTrue(ex.getMessage().contains("primary key mismatch"));
+    }
+
+    @Test
+    void skipsLabelsThatDoNotYetExist() {
+        // Nothing exists on the server yet -> validateExistingLabels is a no-op (ensureSchema will
+        // create), so it must not throw or dereference a missing label.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelOrNull("person")).thenReturn(null);
+
+        SchemaValidator serverValidator = new SchemaValidator(client, ROW_TYPE);
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel("person");
+        m.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        m.setIdFields(Collections.singletonList("id"));
+
+        assertDoesNotThrow(
+                () -> serverValidator.validateExistingLabels(Collections.singletonList(m)));
     }
 
     private static MappingConfig.SourceTargetConfig sourceTarget(String label, String idField) {

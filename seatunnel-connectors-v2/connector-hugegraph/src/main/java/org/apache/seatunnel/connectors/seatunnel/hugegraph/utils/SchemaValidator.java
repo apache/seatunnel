@@ -73,6 +73,86 @@ public final class SchemaValidator {
         }
     }
 
+    /**
+     * Fails fast — BEFORE any schema is created — when a mapping targets a label that already
+     * exists on the server with incompatible immutable attributes (vertex id strategy / primary
+     * keys, edge frequency / sort keys / endpoints). HugeGraph cannot ALTER these attributes, and
+     * {@code ensureSchema} creates the PropertyKeys and labels for the <em>other</em> mappings
+     * first — so catching such a mismatch only in the post-create {@link #validate} would leave
+     * those creations behind as schema pollution and trap the user in a retry loop that never
+     * reconciles. Running this read-only check up front means an incompatible pre-existing label
+     * aborts the job with zero new writes; the fix is to drop that label on the server and re-run.
+     *
+     * <p>Only labels that already exist are inspected; missing ones are left for {@code
+     * ensureSchema} to create. Edge endpoint identity is intentionally not checked here (the
+     * endpoint vertex labels may not exist yet under CREATE_SCHEMA_WHEN_NOT_EXIST); it is verified
+     * afterwards by {@link #validate}.
+     */
+    public void validateExistingLabels(List<MappingConfig> mappings) {
+        for (MappingConfig mapping : mappings) {
+            if (mapping.getType() == LabelType.VERTEX) {
+                if (client.getVertexLabelOrNull(mapping.getLabel()) != null) {
+                    validateVertexMapping(mapping);
+                }
+            } else {
+                EdgeLabel existing = client.getEdgeLabelOrNull(mapping.getLabel());
+                if (existing != null) {
+                    validateExistingEdgeLabel(mapping, existing);
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks an already-existing EdgeLabel's immutable attributes (frequency, sort keys, source /
+     * target labels) against the config. Deliberately omits the endpoint-vertex identity checks
+     * that {@link #validateEdgeMapping} performs, because those require the endpoint labels to
+     * already exist — which is not guaranteed before {@code ensureSchema} runs.
+     */
+    private void validateExistingEdgeLabel(MappingConfig mapping, EdgeLabel edgeLabel) {
+        String label = mapping.getLabel();
+        Frequency configuredFrequency =
+                mapping.getFrequency() == null ? Frequency.SINGLE : mapping.getFrequency();
+        if (edgeLabel.frequency() != configuredFrequency) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Mapping[EDGE/%s]: frequency mismatch — server='%s', config='%s'. The "
+                                    + "EdgeLabel already exists with an immutable frequency; drop it "
+                                    + "on the server before re-running.",
+                            label, edgeLabel.frequency(), configuredFrequency));
+        }
+        List<String> configuredSortKeys =
+                configuredFrequency == Frequency.MULTIPLE
+                        ? mapToTargetNames(mapping.getSortKeys(), mapping.getFieldMapping())
+                        : java.util.Collections.emptyList();
+        if (!edgeLabel.sortKeys().equals(configuredSortKeys)) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Mapping[EDGE/%s]: sort key mismatch — server='%s', config='%s'. The "
+                                    + "EdgeLabel already exists with immutable sort keys; drop it on "
+                                    + "the server before re-running.",
+                            label, edgeLabel.sortKeys(), configuredSortKeys));
+        }
+        if (!edgeLabel.sourceLabel().equals(mapping.getSourceConfig().getLabel())) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Mapping[EDGE/%s]: sourceLabel mismatch — server='%s', config='%s'. The "
+                                    + "EdgeLabel already exists; drop it on the server before re-running.",
+                            label, edgeLabel.sourceLabel(), mapping.getSourceConfig().getLabel()));
+        }
+        if (!edgeLabel.targetLabel().equals(mapping.getTargetConfig().getLabel())) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "Mapping[EDGE/%s]: targetLabel mismatch — server='%s', config='%s'. The "
+                                    + "EdgeLabel already exists; drop it on the server before re-running.",
+                            label, edgeLabel.targetLabel(), mapping.getTargetConfig().getLabel()));
+        }
+    }
+
     private void validateMapping(MappingConfig mapping) {
         validateMappingConfig(mapping);
         if (mapping.getType() == LabelType.VERTEX) {
