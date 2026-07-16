@@ -78,6 +78,12 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | date_format               | string  | 否  | yyyy-MM-dd          | 日期类型格式                                  |
 | datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss | 日期时间类型格式                                |
 | time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
+| filename_extension        | string  | 否  | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| schema                    | config  | 否  | -                   | 读取 JSON、文本等格式时的字段定义。详见 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| common-options            |         | 否  | -                   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
+| sheet_name                | string  | 否  | -                   | 读取 Excel 文件时要读取的工作表名称。 |
+| file_filter_modified_start | string | 否  | -                   | 按文件最后修改时间筛选文件的起始时间（包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
+| file_filter_modified_end  | string  | 否  | -                   | 按文件最后修改时间筛选文件的结束时间（不包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
 | quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
 | escape_char               | string  | 否  | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
 | recursive_file_scan       | boolean | 否  | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。 | 
