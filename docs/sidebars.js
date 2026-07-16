@@ -329,6 +329,22 @@ const sidebars = {
         },
         {
             "type": "category",
+            "label": "Edge Agent",
+            "items": [
+                "edge-agent/about",
+                "edge-agent/architecture-overview",
+                "edge-agent/quick-start",
+                "edge-agent/download",
+                "edge-agent/deployment-guide",
+                "edge-agent/configuration",
+                "edge-agent/input-configuration",
+                "edge-agent/output-configuration",
+                "edge-agent/operations",
+                "edge-agent/faq"
+            ]
+        },
+        {
+            "type": "category",
             "label": "Tools",
             "items": [
                 "tools/overview",
