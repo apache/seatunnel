@@ -30,6 +30,7 @@ public class ParameterSplitter implements IParameterSplitter {
         StringBuilder currentToken = new StringBuilder();
         boolean insideBrackets = false;
         boolean insideQuotes = false;
+        boolean insideJson = false;
 
         for (char c : value.toCharArray()) {
 
@@ -37,11 +38,15 @@ public class ParameterSplitter implements IParameterSplitter {
                 insideBrackets = true;
             } else if (c == ']') {
                 insideBrackets = false;
+            } else if (c == '{') {
+                insideJson = true;
+            } else if (c == '}') {
+                insideJson = false;
             } else if (c == '"') {
                 insideQuotes = !insideQuotes;
             }
 
-            if (c == ',' && !insideQuotes && !insideBrackets) {
+            if (c == ',' && !insideQuotes && !insideBrackets && !insideJson) {
                 result.add(currentToken.toString().trim());
                 currentToken = new StringBuilder();
             } else {
