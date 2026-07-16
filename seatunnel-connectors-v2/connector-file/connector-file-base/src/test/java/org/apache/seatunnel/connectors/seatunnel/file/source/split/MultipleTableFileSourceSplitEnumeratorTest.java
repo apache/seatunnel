@@ -119,7 +119,7 @@ class MultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
-    void deferredFileDiscoveryDoesNotListFilesDuringConfigCreation() {
+    void deferredFileDiscoveryDoesNotListFilesDuringConfigCreation() throws IOException {
         CountingFileSystem.reset();
 
         BaseFileSourceConfig sourceConfig =
@@ -135,6 +135,11 @@ class MultipleTableFileSourceSplitEnumeratorTest {
 
         Assertions.assertEquals(2, filePaths.size());
         Assertions.assertEquals(1, CountingFileSystem.listStatusCount);
+        Assertions.assertEquals(1, CountingFileSystem.closeCount);
+
+        Assertions.assertEquals(
+                2, sourceConfig.getReadStrategy().getFileNamesByPath(SOURCE_PATH).size());
+        Assertions.assertEquals(2, CountingFileSystem.listStatusCount);
         Assertions.assertEquals(1, CountingFileSystem.closeCount);
     }
 
@@ -289,6 +294,7 @@ class MultipleTableFileSourceSplitEnumeratorTest {
 
         private URI uri;
         private Path workingDirectory;
+        private boolean closed;
 
         private static void reset() {
             listStatusCount = 0;
@@ -342,6 +348,9 @@ class MultipleTableFileSourceSplitEnumeratorTest {
 
         @Override
         public FileStatus[] listStatus(Path path) throws IOException {
+            if (closed) {
+                throw new IOException("File system is closed");
+            }
             listStatusCount++;
             if (failOnListStatus) {
                 throw new IOException("File discovery failed");
@@ -371,6 +380,7 @@ class MultipleTableFileSourceSplitEnumeratorTest {
 
         @Override
         public void close() throws IOException {
+            closed = true;
             closeCount++;
             super.close();
         }

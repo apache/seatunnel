@@ -88,28 +88,34 @@ public abstract class BaseFileSourceConfig implements Serializable {
 
     public List<String> getFilePathsForSplitEnumerator() {
         if (fileDiscoveryDeferred) {
+            ReadStrategy discoveryReadStrategy =
+                    ReadStrategyFactory.of(baseFileSourceConfig, getHadoopConfig());
             try {
-                return discoverFilePaths();
+                return discoverFilePaths(discoveryReadStrategy);
             } finally {
-                closeDiscoveryReadStrategy();
+                closeDiscoveryReadStrategy(discoveryReadStrategy);
             }
         }
         return filePaths;
     }
 
-    private void closeDiscoveryReadStrategy() {
+    private void closeDiscoveryReadStrategy(ReadStrategy discoveryReadStrategy) {
         try {
-            readStrategy.close();
+            discoveryReadStrategy.close();
         } catch (IOException e) {
             log.warn("Failed to close file discovery resources for plugin {}", getPluginName(), e);
         }
     }
 
     private List<String> discoverFilePaths() {
+        return discoverFilePaths(readStrategy);
+    }
+
+    private List<String> discoverFilePaths(ReadStrategy discoveryReadStrategy) {
         String rootPath = baseFileSourceConfig.get(FileBaseSourceOptions.FILE_PATH);
         long startTime = System.currentTimeMillis();
         try {
-            List<String> discoveredFilePaths = readStrategy.getFileNamesByPath(rootPath);
+            List<String> discoveredFilePaths = discoveryReadStrategy.getFileNamesByPath(rootPath);
             log.info(
                     "File source discovery finished: plugin={}, path={}, files={}, cost={}ms",
                     getPluginName(),
