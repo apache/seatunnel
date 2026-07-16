@@ -19,6 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.edgesocket.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.EdgeSocketPacketMode;
+
+import java.util.Arrays;
 
 public class EdgeSocketSourceOptions extends EdgeSocketCommonOptions {
     private static final int DEFAULT_LOCAL_QUEUE_CAPACITY = 1024;
@@ -27,9 +31,6 @@ public class EdgeSocketSourceOptions extends EdgeSocketCommonOptions {
     private static final int DEFAULT_MAX_RETRIES = 3;
     private static final int DEFAULT_RECONNECT_INTERVAL_MS = 1000;
     private static final int DEFAULT_ACCEPT_TIMEOUT_MS = 1000;
-    private static final String DEFAULT_PACKET_MODE = "RAW";
-    private static final String DEFAULT_AUTH_TYPE = "TOKEN";
-
     public static final Option<Integer> LOCAL_QUEUE_CAPACITY =
             Options.key("local_queue_capacity")
                     .intType()
@@ -80,13 +81,15 @@ public class EdgeSocketSourceOptions extends EdgeSocketCommonOptions {
                             "Socket accept timeout in milliseconds, default is "
                                     + DEFAULT_ACCEPT_TIMEOUT_MS);
 
-    public static final Option<String> PACKET_MODE =
+    public static final SingleChoiceOption<EdgeSocketPacketMode> PACKET_MODE =
             Options.key("packet_mode")
-                    .stringType()
-                    .defaultValue(DEFAULT_PACKET_MODE)
+                    .singleChoice(
+                            EdgeSocketPacketMode.class,
+                            Arrays.asList(EdgeSocketPacketMode.values()))
+                    .defaultValue(EdgeSocketPacketMode.RAW)
                     .withDescription(
                             "Incoming packet mode, supported values: RAW, PACKET. Default is "
-                                    + DEFAULT_PACKET_MODE);
+                                    + EdgeSocketPacketMode.RAW);
 
     public static final Option<String> SECRET_KEY =
             Options.key("secret_key")
@@ -102,11 +105,12 @@ public class EdgeSocketSourceOptions extends EdgeSocketCommonOptions {
                     .withDescription(
                             "Token value used by TOKEN auth_type. This option is required when auth_type is TOKEN.");
 
-    public static final Option<String> AUTH_TYPE =
+    public static final SingleChoiceOption<EdgeSocketAuthType> AUTH_TYPE =
             Options.key("auth_type")
-                    .stringType()
-                    .defaultValue(DEFAULT_AUTH_TYPE)
+                    .singleChoice(
+                            EdgeSocketAuthType.class, Arrays.asList(EdgeSocketAuthType.values()))
+                    .defaultValue(EdgeSocketAuthType.TOKEN)
                     .withDescription(
                             "Authentication type for ingress connection. Currently supported value: TOKEN. Default is "
-                                    + DEFAULT_AUTH_TYPE);
+                                    + EdgeSocketAuthType.TOKEN);
 }

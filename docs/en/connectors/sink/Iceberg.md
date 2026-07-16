@@ -79,7 +79,7 @@ libfb303-xxx.jar
 | iceberg.table.upsert-mode-enabled      | boolean | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                   |
 | schema_save_mode                       | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
-| custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
+| custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
 | multi_table_sink_replica               | int     | no       | -                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
@@ -99,6 +99,10 @@ Use a comma-separated list, for example `dt,region` or Iceberg transforms such a
 ### iceberg.table.commit-branch [string]
 
 Write commits to the specified Iceberg branch. Leave it empty to commit to the table's default branch.
+
+### custom_sql [string]
+
+When `data_save_mode = CUSTOM_PROCESSING`, configure the `delete` SQL that removes the target data before the sink writes. This option is required in that mode.
 
 ### krb5_path [string]
 
