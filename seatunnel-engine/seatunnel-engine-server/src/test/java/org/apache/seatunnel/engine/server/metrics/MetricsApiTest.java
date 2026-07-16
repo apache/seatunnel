@@ -31,7 +31,10 @@ import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.util.concurrent.TimeUnit;
+
 import static io.restassured.RestAssured.given;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.containsString;
 
 @DisabledOnOs(OS.WINDOWS)
@@ -51,12 +54,19 @@ public class MetricsApiTest {
 
     @Test
     public void metricsApiTest() {
-        given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
-                .then()
-                .statusCode(200)
-                .body(containsString("process_start_time_seconds"))
-                .body(containsString("engine_state_store_local_owned_entries"))
-                .body(containsString("engine_state_store_checkpoint_monitor_jobs"));
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
+                                        .then()
+                                        .statusCode(200)
+                                        .body(containsString("process_start_time_seconds"))
+                                        .body(
+                                                containsString(
+                                                        "engine_state_store_local_owned_entries"))
+                                        .body(
+                                                containsString(
+                                                        "engine_state_store_checkpoint_monitor_jobs")));
     }
 
     @AfterAll
