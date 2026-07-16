@@ -525,6 +525,63 @@ class HugeGraphSourceReaderTest {
                 collector.rows.get(0).getField(2));
     }
 
+    @Test
+    void testFilterIsForwardedToClient() {
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        client.vertexProperties = new HashSet<>(Arrays.asList("name", "age"));
+        client.propertyTypes.put("name", DataType.TEXT);
+        client.propertyTypes.put("age", DataType.INT);
+        Vertex vertex = new Vertex("person");
+        vertex.id("v1");
+        vertex.property("name", "alice");
+        vertex.property("age", 30);
+        client.vertexPages.add(new PageResult<>(Collections.singletonList(vertex), null));
+
+        SeaTunnelRowType propertyRowType = propertyRowType();
+        HugeGraphSourceConfig config =
+                sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType);
+        Map<String, Object> filter = new HashMap<>();
+        filter.put("name", "alice");
+        config.setFilter(filter);
+
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(
+                        new SingleSplitReaderContext(new CountingContext()),
+                        config,
+                        HugeGraphSourceFactory.prependReservedFields(
+                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        client);
+        reader.open();
+        reader.internalPollNext(new ListCollector());
+
+        assertEquals(filter, client.capturedFilter);
+    }
+
+    @Test
+    void testOpenFailsWhenFilterPropertyNotOnLabel() {
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        client.vertexProperties = new HashSet<>(Arrays.asList("name", "age"));
+        client.propertyTypes.put("name", DataType.TEXT);
+        client.propertyTypes.put("age", DataType.INT);
+
+        SeaTunnelRowType propertyRowType = propertyRowType();
+        HugeGraphSourceConfig config =
+                sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType);
+        Map<String, Object> filter = new HashMap<>();
+        filter.put("nonexistent", "x");
+        config.setFilter(filter);
+
+        HugeGraphSourceReader reader =
+                new HugeGraphSourceReader(
+                        new SingleSplitReaderContext(new CountingContext()),
+                        config,
+                        HugeGraphSourceFactory.prependReservedFields(
+                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        client);
+
+        assertThrows(HugeGraphConnectorException.class, reader::open);
+    }
+
     private HugeGraphSourceConfig sourceConfig(
             MappingConfig.LabelType labelType, SeaTunnelRowType propertyRowType) {
         HugeGraphSourceConfig config = new HugeGraphSourceConfig();
@@ -549,6 +606,7 @@ class HugeGraphSourceReaderTest {
         private final Map<String, Cardinality> propertyCardinalities = new HashMap<>();
         private Set<String> vertexProperties;
         private Set<String> edgeProperties;
+        private Map<String, Object> capturedFilter;
 
         @Override
         public Set<String> getVertexLabelPropertiesOrNull(String label) {
@@ -571,14 +629,18 @@ class HugeGraphSourceReaderTest {
         }
 
         @Override
-        public PageResult<Vertex> listVertices(String label, String page, int limit) {
+        public PageResult<Vertex> listVertices(
+                String label, java.util.Map<String, Object> filter, String page, int limit) {
             requestedPages.add(page);
+            capturedFilter = filter;
             return vertexPages.remove(0);
         }
 
         @Override
-        public PageResult<Edge> listEdges(String label, String page, int limit) {
+        public PageResult<Edge> listEdges(
+                String label, java.util.Map<String, Object> filter, String page, int limit) {
             requestedPages.add(page);
+            capturedFilter = filter;
             return edgePages.remove(0);
         }
 

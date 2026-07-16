@@ -27,6 +27,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.time.DateTimeException;
 import java.time.ZoneId;
+import java.util.Map;
 
 @Data
 public class HugeGraphSourceConfig implements Serializable {
@@ -39,6 +40,8 @@ public class HugeGraphSourceConfig implements Serializable {
     private SeaTunnelRowType schema;
     private int pageSize;
     private String timeZone;
+    // Optional server-side property equality conditions; null/empty = read all elements.
+    private Map<String, Object> filter;
 
     public static HugeGraphSourceConfig of(ReadonlyConfig config, SeaTunnelRowType schema) {
         HugeGraphSourceConfig sourceConfig = new HugeGraphSourceConfig();
@@ -52,6 +55,7 @@ public class HugeGraphSourceConfig implements Serializable {
                 config.getOptional(HugeGraphSourceOptions.PAGE_SIZE)
                         .orElse(HugeGraphSourceOptions.PAGE_SIZE.defaultValue()));
         config.getOptional(HugeGraphSourceOptions.TIME_ZONE).ifPresent(sourceConfig::setTimeZone);
+        config.getOptional(HugeGraphSourceOptions.FILTER).ifPresent(sourceConfig::setFilter);
         validate(sourceConfig);
         return sourceConfig;
     }

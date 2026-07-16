@@ -71,6 +71,7 @@ class HugeGraphSinkConfigTest {
         assertEquals(
                 HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
                 sinkConfig.getSchemaSaveMode());
+        assertEquals(HugeGraphDataSaveMode.APPEND_DATA, sinkConfig.getDataSaveMode());
         assertFalse(sinkConfig.isDeleteVertexWithEdges());
         assertEquals("yyyy-MM-dd", sinkConfig.getMappings().get(0).getDateFormat());
         // timeZone is intentionally left unset when the user does not configure one; DataTypeUtil
@@ -257,6 +258,25 @@ class HugeGraphSinkConfigTest {
                 HugeGraphSchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST,
                 sinkConfig.getSchemaSaveMode());
         assertTrue(sinkConfig.isDeleteVertexWithEdges());
+    }
+
+    @Test
+    void testDataSaveModeConfig() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "localhost");
+        configMap.put("port", 8080);
+        configMap.put("graph_name", "graph");
+        configMap.put("data_save_mode", "DROP_DATA");
+
+        List<Map<String, Object>> mappings = new ArrayList<>();
+        Map<String, Object> mapping = new HashMap<>();
+        mapping.put("type", "VERTEX");
+        mapping.put("label", "v");
+        mappings.add(mapping);
+        configMap.put("mappings", mappings);
+
+        HugeGraphSinkConfig sinkConfig = HugeGraphSinkConfig.of(ReadonlyConfig.fromMap(configMap));
+        assertEquals(HugeGraphDataSaveMode.DROP_DATA, sinkConfig.getDataSaveMode());
     }
 
     @Test

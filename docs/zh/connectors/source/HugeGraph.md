@@ -28,12 +28,14 @@ V1 支持有界的全量标签扫描，使用单 Reader 读取一个顶点标签
 | `schema`           | Object  | 是       | -        | 通过 `schema.fields` 声明输出属性列。保留图字段由 connector 自动添加。 |
 | `label_type`       | Enum    | 否       | `VERTEX` | 标签类型，支持 `VERTEX`、`EDGE`。 |
 | `page_size`        | Integer | 否       | `1000`   | 每页读取记录数，取值范围为 `[100, 10000]`。 |
+| `filter`           | Map     | 否       | -        | 可选的服务端属性等值过滤条件，例如 `{ country = "US", active = "true" }`。仅返回所有条件均匹配的元素。每个 key 必须是 `label` 的属性，未知 key 会在启动时报错。省略时读取该 label 的全部元素。 |
 | `time_zone`        | String  | 否       | Worker JVM 默认时区 | HugeGraph DATE epoch 值转换使用的 ZoneId，例如 `UTC` 或 `Asia/Shanghai`。Worker JVM 时区可能不一致时应显式设置。 |
 | `graph_space`      | String  | 否       | `DEFAULT` | 图所属的图空间（graph space）。 |
 | `username`         | String  | 否       | -        | HugeGraph 用户名。 |
 | `password`         | String  | 否       | -        | HugeGraph 密码。 |
 | `max_retries`      | Integer | 否       | `3`      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。 |
-| `retry_backoff_ms` | Integer | 否       | `5000`   | 重试间隔，单位毫秒。 |
+| `retry_backoff_ms` | Integer | 否       | `5000`   | 重试的基础退避时间（毫秒），按尝试次数指数增长（`retry_backoff_ms * 2^(attempt-1)`），上限为 `retry_backoff_max_ms`。 |
+| `retry_backoff_max_ms` | Integer | 否   | `30000`  | 指数退避的上限（毫秒）。 |
 
 ## 输出 Schema
 

@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.Map;
 
 public class HugeGraphSourceOptions {
 
@@ -50,4 +54,15 @@ public class HugeGraphSourceOptions {
                     .withDescription(
                             "Time zone used to convert HugeGraph DATE epoch values. "
                                     + "When omitted, the worker JVM default time zone is used for backward compatibility.");
+
+    public static final Option<Map<String, Object>> FILTER =
+            Options.key("filter")
+                    .type(new TypeReference<Map<String, Object>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional property equality conditions applied server-side when "
+                                    + "reading the label, e.g. { country = \"US\", active = \"true\" }. "
+                                    + "Only elements whose properties match all entries are returned. "
+                                    + "Every key must be a property of the configured label. When "
+                                    + "omitted, all elements of the label are read.");
 }

@@ -68,6 +68,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
     private final HugeGraphConnectionConfig config;
     private final int maxRetries;
     private final long retryBackoffMs;
+    private final long retryBackoffMaxMs;
 
     public HugeGraphClient(HugeGraphConnectionConfig config) {
         this.client = null;
@@ -78,6 +79,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
         this.config = config;
         this.maxRetries = Math.max(0, config.getMaxRetries());
         this.retryBackoffMs = Math.max(0, config.getRetryBackoffMs());
+        this.retryBackoffMaxMs = Math.max(0, config.getRetryBackoffMaxMs());
     }
 
     /** Default graph space per HugeGraphOptions.GRAPH_SPACE.defaultValue(). */
@@ -217,7 +219,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
                             e);
                 }
 
-                sleepBeforeRetry();
+                sleepBeforeRetry(attempt);
             } catch (HugeGraphConnectorException e) {
                 if (!HugeGraphConnectorErrorCode.BUILD_CLIENT_FAILED
                         .getCode()
@@ -238,7 +240,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
                         attempt,
                         totalAttempts,
                         e.getMessage());
-                sleepBeforeRetry();
+                sleepBeforeRetry(attempt);
             } catch (Exception e) {
                 LOG.error("Non-retryable error executing graph operation: {}", e.getMessage(), e);
                 throw new HugeGraphConnectorException(
@@ -294,7 +296,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
                             e);
                 }
 
-                sleepBeforeRetry();
+                sleepBeforeRetry(attempt);
             } catch (HugeGraphConnectorException e) {
                 if (!HugeGraphConnectorErrorCode.BUILD_CLIENT_FAILED
                         .getCode()
@@ -315,7 +317,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
                         attempt,
                         totalAttempts,
                         e.getMessage());
-                sleepBeforeRetry();
+                sleepBeforeRetry(attempt);
             } catch (Exception e) {
                 LOG.error(
                         "Non-retryable error executing graph read operation: {}",
@@ -332,10 +334,11 @@ public final class HugeGraphClient implements HugeGraphOperations {
                 "Failed to execute graph read operation");
     }
 
-    private void sleepBeforeRetry() {
+    private void sleepBeforeRetry(int attempt) {
+        long delay = computeBackoffMs(retryBackoffMs, retryBackoffMaxMs, attempt);
         try {
-            LOG.info("Will retry in {} ms...", retryBackoffMs);
-            Thread.sleep(retryBackoffMs);
+            LOG.info("Will retry in {} ms (attempt {})...", delay, attempt);
+            Thread.sleep(delay);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new HugeGraphConnectorException(
@@ -345,9 +348,48 @@ public final class HugeGraphClient implements HugeGraphOperations {
         }
     }
 
+    /**
+     * Exponential backoff: {@code baseMs * 2^(attempt-1)}, capped at {@code maxMs} (a non-positive
+     * {@code maxMs} means no cap). The shift is bounded so a large {@code maxRetries} cannot
+     * overflow. {@code attempt} is 1-based (the first retry uses the base delay).
+     */
+    static long computeBackoffMs(long baseMs, long maxMs, int attempt) {
+        if (baseMs <= 0) {
+            return 0;
+        }
+        int shift = Math.min(Math.max(attempt - 1, 0), 30);
+        long scaled = baseMs << shift;
+        if (scaled < 0) {
+            // Overflow guard (defensive; the shift cap already prevents this for int-range bases).
+            return maxMs > 0 ? maxMs : Long.MAX_VALUE;
+        }
+        return (maxMs > 0) ? Math.min(scaled, maxMs) : scaled;
+    }
+
     private SchemaManager getSchema() {
         ensureClientInitialized();
         return this.schema;
+    }
+
+    // --- Graph admin operations ---
+
+    /**
+     * Clears the ENTIRE target graph (all vertices, edges and schema) via the HugeGraph {@code
+     * clearGraph} admin API. Destructive and irreversible; only invoked when data_save_mode =
+     * DROP_DATA. The confirmation message is the exact literal the server requires.
+     */
+    public void clearGraphData() {
+        LOG.warn(
+                "data_save_mode=DROP_DATA: clearing ALL data and schema of graph '{}'",
+                config.getGraphName());
+        executeReadOperation(
+                () -> {
+                    this.client
+                            .graphs()
+                            .clearGraph(config.getGraphName(), "I'm sure to delete all data");
+                    return null;
+                });
+        LOG.info("Graph '{}' cleared successfully", config.getGraphName());
     }
 
     // --- Schema read operations ---
@@ -678,15 +720,23 @@ public final class HugeGraphClient implements HugeGraphOperations {
      * parameter is present — a null first page must be sent as an empty string, otherwise the
      * server returns a single non-paged batch without a next-page marker and the scan silently
      * stops after {@code limit} records.
+     *
+     * <p>When {@code filter} is non-empty it is passed as the server-side property-equality
+     * condition map, with {@code keepP=true} so the filtered properties are retained in the
+     * returned vertices (they may be part of the output schema).
      */
     @SuppressWarnings("unchecked")
     @Override
-    public PageResult<Vertex> listVertices(String label, String page, int limit) {
+    public PageResult<Vertex> listVertices(
+            String label, Map<String, Object> filter, String page, int limit) {
         String effectivePage = page == null ? "" : page;
+        boolean hasFilter = filter != null && !filter.isEmpty();
+        Map<String, Object> conditions = hasFilter ? filter : null;
         return executeReadOperation(
                 () -> {
                     Vertices vertices =
-                            this.vertexAPI.list(label, null, false, 0, effectivePage, limit);
+                            this.vertexAPI.list(
+                                    label, conditions, hasFilter, 0, effectivePage, limit);
                     List<Vertex> records = (List<Vertex>) vertices.results();
                     return new PageResult<>(
                             records == null ? Collections.emptyList() : records, vertices.page());
@@ -696,13 +746,23 @@ public final class HugeGraphClient implements HugeGraphOperations {
     /** Lists one page of edges. See {@link #listVertices} for the empty-first-page contract. */
     @SuppressWarnings("unchecked")
     @Override
-    public PageResult<Edge> listEdges(String label, String page, int limit) {
+    public PageResult<Edge> listEdges(
+            String label, Map<String, Object> filter, String page, int limit) {
         String effectivePage = page == null ? "" : page;
+        boolean hasFilter = filter != null && !filter.isEmpty();
+        Map<String, Object> conditions = hasFilter ? filter : null;
         return executeReadOperation(
                 () -> {
                     Edges edges =
                             this.edgeAPI.list(
-                                    null, null, label, null, false, 0, effectivePage, limit);
+                                    null,
+                                    null,
+                                    label,
+                                    conditions,
+                                    hasFilter,
+                                    0,
+                                    effectivePage,
+                                    limit);
                     List<Edge> records = (List<Edge>) edges.results();
                     return new PageResult<>(
                             records == null ? Collections.emptyList() : records, edges.page());

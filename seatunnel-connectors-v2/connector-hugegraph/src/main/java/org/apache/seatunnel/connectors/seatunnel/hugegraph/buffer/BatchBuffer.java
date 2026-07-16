@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
@@ -29,7 +30,12 @@ import org.apache.hugegraph.structure.graph.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +66,19 @@ public class BatchBuffer implements AutoCloseable {
     private final boolean batchFailureFallback;
     private final boolean checkVertex;
     private final Map<String, UpdateStrategy> updateStrategies;
+    // Fail the task once this many records have been skipped by the single-record fallback;
+    // negative means unlimited. Guards against the previously unbounded silent skipping.
+    private final int maxInsertErrors;
+    // Optional directory for skipped-record failure samples; null = do not persist.
+    private final String failureDataPath;
+    private final int subtaskIndex;
+    // Cumulative count of records skipped by the fallback across this writer's lifetime. Only
+    // mutated inside synchronized flush paths, so a plain long is sufficient.
+    private long insertFailureCount;
+    // Lazily opened on the first persisted sample; disabled after an I/O error so a broken
+    // failure-log path never turns into a second failure that masks the real one.
+    private BufferedWriter failureWriter;
+    private boolean failureWriterDisabled;
 
     public BatchBuffer(
             HugeGraphClient client,
@@ -68,11 +87,37 @@ public class BatchBuffer implements AutoCloseable {
             boolean batchFailureFallback,
             boolean checkVertex,
             Map<String, UpdateStrategy> updateStrategies) {
+        this(
+                client,
+                batchSize,
+                batchIntervalMs,
+                batchFailureFallback,
+                checkVertex,
+                updateStrategies,
+                -1,
+                null,
+                0);
+    }
+
+    public BatchBuffer(
+            HugeGraphClient client,
+            int batchSize,
+            long batchIntervalMs,
+            boolean batchFailureFallback,
+            boolean checkVertex,
+            Map<String, UpdateStrategy> updateStrategies,
+            int maxInsertErrors,
+            String failureDataPath,
+            int subtaskIndex) {
         this.batchSize = batchSize;
         this.client = client;
         this.batchFailureFallback = batchFailureFallback;
         this.checkVertex = checkVertex;
         this.updateStrategies = updateStrategies;
+        this.maxInsertErrors = maxInsertErrors;
+        this.failureDataPath = failureDataPath;
+        this.subtaskIndex = subtaskIndex;
+        this.insertFailureCount = 0;
 
         if (batchIntervalMs > 0) {
             this.scheduler =
@@ -224,9 +269,23 @@ public class BatchBuffer implements AutoCloseable {
             } catch (Exception single) {
                 failed++;
                 lastFailure = single;
+                insertFailureCount++;
                 LOG.error(
                         "Single-record write failure — {}",
                         formatFailureDiagnostic(envelope, single));
+                writeFailureSample(envelope, single);
+                // Bound the previously unlimited silent skipping: once the cumulative number of
+                // skipped records reaches max_insert_errors, stop and fail the task instead of
+                // continuing to drop data. Negative means unlimited.
+                if (maxInsertErrors >= 0 && insertFailureCount >= maxInsertErrors) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                            String.format(
+                                    "Aborting: cumulative single-insert failures (%d) reached "
+                                            + "max_insert_errors (%d). Last error: %s",
+                                    insertFailureCount, maxInsertErrors, single.getMessage()),
+                            single);
+                }
             }
         }
         if (failed == batch.size()) {
@@ -239,10 +298,67 @@ public class BatchBuffer implements AutoCloseable {
         }
         if (failed > 0) {
             LOG.warn(
-                    "Single-record fallback completed: {} succeeded, {} failed and were skipped",
+                    "Single-record fallback completed: {} succeeded, {} failed and were skipped "
+                            + "({} skipped in total so far)",
                     batch.size() - failed,
-                    failed);
+                    failed,
+                    insertFailureCount);
         }
+    }
+
+    /**
+     * Appends one line describing a skipped record — the mapped element's id/label/properties plus
+     * the server error — to the per-subtask failure file when {@code failure_data_path} is set.
+     * Best-effort: a write/open error disables further persistence rather than failing the task, so
+     * a broken debug path can never mask the real insert failure.
+     */
+    private void writeFailureSample(GraphElementEnvelope envelope, Exception failure) {
+        if (failureDataPath == null || failureDataPath.isEmpty() || failureWriterDisabled) {
+            return;
+        }
+        try {
+            if (failureWriter == null) {
+                File dir = new File(failureDataPath);
+                if (!dir.exists() && !dir.mkdirs() && !dir.exists()) {
+                    throw new IOException("Failed to create failure data directory: " + dir);
+                }
+                File file =
+                        new File(dir, "hugegraph-sink-failures-subtask-" + subtaskIndex + ".log");
+                failureWriter =
+                        new BufferedWriter(
+                                new OutputStreamWriter(
+                                        new FileOutputStream(file, true), StandardCharsets.UTF_8));
+                LOG.info("Persisting skipped-record failure samples to {}", file.getAbsolutePath());
+            }
+            failureWriter.write(formatFailureSample(envelope, failure));
+            failureWriter.newLine();
+            // Flush per record: failures are rare and losing samples on an abrupt crash defeats
+            // their purpose.
+            failureWriter.flush();
+        } catch (IOException e) {
+            failureWriterDisabled = true;
+            LOG.warn(
+                    "Failed to persist failure sample to '{}'; disabling failure-data persistence. cause={}",
+                    failureDataPath,
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * One-line, tab-delimited failure sample. Newlines are stripped to keep one record per line.
+     */
+    static String formatFailureSample(GraphElementEnvelope envelope, Exception failure) {
+        GraphElement element = envelope.getElement();
+        String line =
+                String.format(
+                        "mapping=%s\ttype=%s\tid=%s\tlabel=%s\tproperties=%s\terror=%s",
+                        envelope.getMappingLabel(),
+                        envelope.getElementType(),
+                        element == null ? null : element.id(),
+                        element == null ? null : element.label(),
+                        element == null ? null : element.properties(),
+                        failure.getMessage());
+        return line.replace('\n', ' ').replace('\r', ' ');
     }
 
     private void logBatchFailure(List<GraphElementEnvelope> batch, Exception e) {
@@ -295,9 +411,25 @@ public class BatchBuffer implements AutoCloseable {
             }
         }
         LOG.info("Closing BatchBuffer, performing final flush...");
-        flush();
-        checkFlushException();
+        try {
+            flush();
+            checkFlushException();
+        } finally {
+            closeFailureWriter();
+        }
         LOG.info("BatchBuffer closed.");
+    }
+
+    private void closeFailureWriter() {
+        if (failureWriter != null) {
+            try {
+                failureWriter.close();
+            } catch (IOException e) {
+                LOG.warn("Failed to close failure-data writer. cause={}", e.getMessage());
+            } finally {
+                failureWriter = null;
+            }
+        }
     }
 
     private void checkFlushException() {

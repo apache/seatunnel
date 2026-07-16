@@ -173,14 +173,20 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         if (sourceConfig.getLabelType() == MappingConfig.LabelType.VERTEX) {
             PageResult<Vertex> page =
                     client.listVertices(
-                            sourceConfig.getLabel(), requestedPage, sourceConfig.getPageSize());
+                            sourceConfig.getLabel(),
+                            sourceConfig.getFilter(),
+                            requestedPage,
+                            sourceConfig.getPageSize());
             collectVertices(page.getRecords(), output);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
         } else {
             PageResult<Edge> page =
                     client.listEdges(
-                            sourceConfig.getLabel(), requestedPage, sourceConfig.getPageSize());
+                            sourceConfig.getLabel(),
+                            sourceConfig.getFilter(),
+                            requestedPage,
+                            sourceConfig.getPageSize());
             collectEdges(page.getRecords(), output);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
@@ -303,6 +309,22 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                                 sourceConfig.getLabel(), propertyName, labelProperties));
             }
             validatePropertyType(propertyName, propertyRowType.getFieldType(i));
+        }
+
+        // A filter keyed on a non-existent property would be silently dropped by the server and
+        // return the whole label — fail fast so the misconfiguration surfaces at open() instead.
+        java.util.Map<String, Object> filter = sourceConfig.getFilter();
+        if (filter != null) {
+            for (String key : filter.keySet()) {
+                if (!labelProperties.contains(key)) {
+                    throw new HugeGraphConnectorException(
+                            HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                            String.format(
+                                    "filter property '%s' is not a property of label '%s'. "
+                                            + "Available properties: %s",
+                                    key, sourceConfig.getLabel(), labelProperties));
+                }
+            }
         }
     }
 

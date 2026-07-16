@@ -28,12 +28,14 @@ V1 supports bounded full-label scans with a single reader. It reads either one v
 | `schema`           | Object  | Yes      | -        | Output property columns declared with `schema.fields`. Reserved graph columns are added by the connector. |
 | `label_type`       | Enum    | No       | `VERTEX` | Label type. Supported values: `VERTEX`, `EDGE`. |
 | `page_size`        | Integer | No       | `1000`   | Number of records per HugeGraph page. Must be in range `[100, 10000]`. |
+| `filter`           | Map     | No       | -        | Optional property equality conditions applied server-side, for example `{ country = "US", active = "true" }`. Only elements whose properties match all entries are returned. Every key must be a property of `label`; an unknown key fails at startup. When omitted, all elements of the label are read. |
 | `time_zone`        | String  | No       | Worker JVM default | ZoneId used to convert HugeGraph DATE epoch values, for example `UTC` or `Asia/Shanghai`. Set it explicitly when workers may use different JVM time zones. |
 | `graph_space`      | String  | No       | `DEFAULT` | The graph space the graph belongs to. |
 | `username`         | String  | No       | -        | HugeGraph username. |
 | `password`         | String  | No       | -        | HugeGraph password. |
 | `max_retries`      | Integer | No       | `3`      | Retries after the initial attempt. Set to `0` to disable retries. |
-| `retry_backoff_ms` | Integer | No       | `5000`   | Backoff time between retries in milliseconds. |
+| `retry_backoff_ms` | Integer | No       | `5000`   | Base backoff between retries in ms. Grows exponentially per attempt (`retry_backoff_ms * 2^(attempt-1)`), capped at `retry_backoff_max_ms`. |
+| `retry_backoff_max_ms` | Integer | No   | `30000`  | Upper bound in ms for the exponential retry backoff. |
 
 ## Output Schema
 

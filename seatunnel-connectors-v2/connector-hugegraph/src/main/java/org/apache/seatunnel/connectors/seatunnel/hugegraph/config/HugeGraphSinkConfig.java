@@ -56,10 +56,15 @@ public class HugeGraphSinkConfig implements Serializable {
     private boolean checkVertex;
     private int maxRetries;
     private int retryBackoffMs;
+    // Max records the single-record fallback may skip before the task fails (-1 = unlimited).
+    private int maxInsertErrors;
+    // Optional directory to persist skipped-record failure samples; null = do not persist.
+    private String failureDataPath;
 
     // New: multi-mapping config
     private List<MappingConfig> mappings;
     private HugeGraphSchemaSaveMode schemaSaveMode;
+    private HugeGraphDataSaveMode dataSaveMode;
     private boolean deleteVertexWithEdges;
     // Per-property update-merge strategies merged across all mappings (keyed by target property).
     private Map<String, UpdateStrategy> updateStrategies;
@@ -90,6 +95,11 @@ public class HugeGraphSinkConfig implements Serializable {
                         .orElse(HugeGraphOptions.CHECK_VERTEX.defaultValue()));
         sinkConfig.setMaxRetries(sinkConfig.getConnectionConfig().getMaxRetries());
         sinkConfig.setRetryBackoffMs(sinkConfig.getConnectionConfig().getRetryBackoffMs());
+        sinkConfig.setMaxInsertErrors(
+                config.getOptional(HugeGraphOptions.MAX_INSERT_ERRORS)
+                        .orElse(HugeGraphOptions.MAX_INSERT_ERRORS.defaultValue()));
+        config.getOptional(HugeGraphOptions.FAILURE_DATA_PATH)
+                .ifPresent(sinkConfig::setFailureDataPath);
 
         // Resolve mappings with backward compatibility
         sinkConfig.setMappings(resolveMappings(config, sinkConfig));
@@ -110,6 +120,9 @@ public class HugeGraphSinkConfig implements Serializable {
                                         ? true
                                         : HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES
                                                 .defaultValue()));
+        sinkConfig.setDataSaveMode(
+                config.getOptional(HugeGraphSinkOptions.DATA_SAVE_MODE)
+                        .orElse(HugeGraphSinkOptions.DATA_SAVE_MODE.defaultValue()));
 
         // Deprecated fields (parse but warn)
         config.getOptional(HugeGraphSinkOptions.SELECTED_FIELDS)

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphDataSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
@@ -66,6 +67,14 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             SchemaValidator validator = new SchemaValidator(client, rowType);
             validator.validateConfigOnly(config.getMappings());
 
+            // Clear the whole graph before any schema work when requested. Runs after the
+            // config-only validation (so a malformed config fails before this destructive step)
+            // and before schema create/validate (clearGraph also drops the schema, so it must be
+            // recreated afterwards).
+            if (config.getDataSaveMode() == HugeGraphDataSaveMode.DROP_DATA) {
+                client.clearGraphData();
+            }
+
             if (config.getSchemaSaveMode()
                     == HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
                 // Fail fast on any already-existing label whose immutable attributes (PK,
@@ -103,7 +112,7 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public HugeGraphSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HugeGraphSinkWriter(config, rowType);
+        return new HugeGraphSinkWriter(config, rowType, context.getIndexOfSubtask());
     }
 
     @Override

@@ -67,11 +67,28 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private SeaTunnelRow pendingUpdateBefore;
 
     public HugeGraphSinkWriter(HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType) {
-        this(sinkConfig, rowType, new HugeGraphClient(sinkConfig.getConnectionConfig()));
+        this(sinkConfig, rowType, 0);
+    }
+
+    public HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, int subtaskIndex) {
+        this(
+                sinkConfig,
+                rowType,
+                new HugeGraphClient(sinkConfig.getConnectionConfig()),
+                subtaskIndex);
     }
 
     HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, HugeGraphClient client) {
+        this(sinkConfig, rowType, client, 0);
+    }
+
+    HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            HugeGraphClient client,
+            int subtaskIndex) {
         this.sinkConfig = sinkConfig;
         this.sinkConfig.applyLegacyFieldSelection(rowType);
         this.client = client;
@@ -94,7 +111,10 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         sinkConfig.getBatchIntervalMs(),
                         sinkConfig.isBatchFailureFallback(),
                         sinkConfig.isCheckVertex(),
-                        sinkConfig.getUpdateStrategies());
+                        sinkConfig.getUpdateStrategies(),
+                        sinkConfig.getMaxInsertErrors(),
+                        sinkConfig.getFailureDataPath(),
+                        subtaskIndex);
     }
 
     private List<MappingEntry> buildMappingEntries(SeaTunnelRowType rowType) {

@@ -39,6 +39,7 @@ public class HugeGraphConnectionConfig implements Serializable {
     private String password;
     private int maxRetries;
     private int retryBackoffMs;
+    private int retryBackoffMaxMs;
 
     public static HugeGraphConnectionConfig of(ReadonlyConfig config) {
         HugeGraphConnectionConfig connectionConfig = new HugeGraphConnectionConfig();
@@ -60,6 +61,9 @@ public class HugeGraphConnectionConfig implements Serializable {
         connectionConfig.setRetryBackoffMs(
                 config.getOptional(HugeGraphOptions.RETRY_BACKOFF_MS)
                         .orElse(HugeGraphOptions.RETRY_BACKOFF_MS.defaultValue()));
+        connectionConfig.setRetryBackoffMaxMs(
+                config.getOptional(HugeGraphOptions.RETRY_BACKOFF_MAX_MS)
+                        .orElse(HugeGraphOptions.RETRY_BACKOFF_MAX_MS.defaultValue()));
         validate(connectionConfig);
         return connectionConfig;
     }
@@ -114,6 +118,11 @@ public class HugeGraphConnectionConfig implements Serializable {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     "Option 'retry_backoff_ms' must be greater than or equal to 0");
+        }
+        if (config.getRetryBackoffMaxMs() < 0) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "Option 'retry_backoff_max_ms' must be greater than or equal to 0");
         }
     }
 

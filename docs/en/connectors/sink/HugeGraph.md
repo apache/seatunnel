@@ -40,9 +40,12 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
 | `batch_interval_ms` | Integer | No       | 5000          | The maximum time in milliseconds to wait before flushing a batch.              |
 | `batch_failure_fallback` | Boolean | No  | true          | When a batch insert fails, fall back to inserting the batch record by record so a single bad ("poison") record no longer fails the whole batch. Failed records are logged and skipped; the rest succeed. If every record fails (systemic error), it is surfaced. Set to `false` to fail the whole batch instead. |
+| `max_insert_errors` | Integer | No       | 500           | Maximum number of records that may be skipped by the single-record fallback (`batch_failure_fallback=true`) before the task is failed. Bounds the otherwise unlimited silent skipping of poison records. Set to `-1` for unlimited. Only applies when `batch_failure_fallback` is enabled. |
+| `failure_data_path` | String  | No       | -             | Optional local directory. When set, every record skipped by the single-record fallback is appended (mapped id, label, properties and the server error) to a per-subtask file (`hugegraph-sink-failures-subtask-N.log`) for offline investigation. In cluster mode the file is created on the worker node running the sink subtask. |
 | `check_vertex`      | Boolean | No       | false         | Whether the server verifies that an edge's source/target vertices exist when writing edges. When `false`, edges whose endpoints were never loaded are written as orphan edges (or trigger server-side phantom vertex auto-creation). Enable to reject such edges. |
 | `max_retries`       | Integer | No       | 3             | Retries after the initial attempt. Set to `0` to disable retries.               |
-| `retry_backoff_ms`  | Integer | No       | 5000          | The backoff time between retries in milliseconds.                              |
+| `retry_backoff_ms`  | Integer | No       | 5000          | Base backoff between retries in ms. Grows exponentially per attempt (`retry_backoff_ms * 2^(attempt-1)`), capped at `retry_backoff_max_ms`. |
+| `retry_backoff_max_ms` | Integer | No    | 30000         | Upper bound in ms for the exponential retry backoff.                           |
 
 ## Sink Options
 
@@ -50,6 +53,7 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 |----------------------------|---------|----------|---------------|-------------|
 | `mappings`                 | List    | Yes      | -             | Recommended mapping configuration. Each entry maps input rows to one HugeGraph vertex or edge label. |
 | `schema_save_mode`         | Enum    | No       | `CREATE_SCHEMA_WHEN_NOT_EXIST` for `mappings`; `ERROR_WHEN_SCHEMA_NOT_EXIST` for legacy `schema_config` | Schema management mode. |
+| `data_save_mode`           | Enum    | No       | `APPEND_DATA` | How pre-existing data is handled before writing. `APPEND_DATA` keeps existing data. `DROP_DATA` clears the ENTIRE target graph (all labels' data and schema) once at job start via the HugeGraph clearGraph API — destructive, use only for full reloads into a dedicated graph. |
 | `delete_vertex_with_edges` | Boolean | No       | `false` for `mappings`; `true` for legacy `schema_config` | When true, DELETE rows for vertices also delete associated edges. |
 | `schema_config`            | Object  | No       | -             | Deprecated legacy mapping object. Use `mappings` instead. Either `mappings` or `schema_config` must be specified. |
 | `selected_fields`          | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |

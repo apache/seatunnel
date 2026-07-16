@@ -26,11 +26,17 @@ import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -133,5 +139,77 @@ class BatchBufferTest {
             // Every record fails the fallback too -> not a poison record, surface a hard error.
             assertThrows(HugeGraphConnectorException.class, buffer::flush);
         }
+    }
+
+    @Test
+    void abortsWhenCumulativeFailuresReachMaxInsertErrors() throws Exception {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
+        Vertex bad1 = vertex("bad1");
+        Vertex bad2 = vertex("bad2");
+        doThrow(new RuntimeException("poison")).when(client).writeVertex(bad1);
+        doThrow(new RuntimeException("poison")).when(client).writeVertex(bad2);
+
+        // maxInsertErrors=2: two good records still succeed, but the 2nd cumulative skip aborts.
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, true, false, Collections.emptyMap(), 2, null, 0)) {
+            buffer.add(envelope(vertex("g1")));
+            buffer.add(envelope(bad1));
+            buffer.add(envelope(vertex("g2")));
+            buffer.add(envelope(bad2));
+            assertThrows(HugeGraphConnectorException.class, buffer::flush);
+        }
+
+        // The threshold is reached at the 2nd poison record, so it must have been attempted.
+        verify(client).writeVertex(bad2);
+    }
+
+    @Test
+    void unlimitedMaxInsertErrorsKeepsSkippingPoisonRecords() throws Exception {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
+        Vertex poison = vertex("bad");
+        doThrow(new RuntimeException("poison")).when(client).writeVertex(poison);
+
+        // -1 == unlimited: a single poison record is skipped, the good record survives, no throw.
+        try (BatchBuffer buffer =
+                new BatchBuffer(client, 10, 0, true, false, Collections.emptyMap(), -1, null, 0)) {
+            buffer.add(envelope(vertex("g1")));
+            buffer.add(envelope(poison));
+            buffer.flush();
+        }
+
+        verify(client).writeVertex(poison);
+    }
+
+    @Test
+    void failureSampleWrittenToPerSubtaskFile(@TempDir Path tempDir) throws Exception {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
+        Vertex poison = vertex("bad");
+        doThrow(new RuntimeException("poison-error")).when(client).writeVertex(poison);
+
+        try (BatchBuffer buffer =
+                new BatchBuffer(
+                        client,
+                        10,
+                        0,
+                        true,
+                        false,
+                        Collections.emptyMap(),
+                        -1,
+                        tempDir.toString(),
+                        3)) {
+            buffer.add(envelope(vertex("g1")));
+            buffer.add(envelope(poison));
+            buffer.flush();
+        }
+
+        Path file = tempDir.resolve("hugegraph-sink-failures-subtask-3.log");
+        assertTrue(Files.exists(file), "failure sample file should be created");
+        List<String> lines = Files.readAllLines(file);
+        assertEquals(1, lines.size());
+        assertTrue(lines.get(0).contains("id=bad"), "sample should contain the failed element id");
+        assertTrue(lines.get(0).contains("poison-error"), "sample should contain the server error");
     }
 }

@@ -41,6 +41,17 @@ public class HugeGraphSinkOptions {
                                     + "missing PropertyKey/VertexLabel/EdgeLabel. ERROR_WHEN_SCHEMA_NOT_EXIST "
                                     + "fails if schema is missing.");
 
+    public static final Option<HugeGraphDataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(HugeGraphDataSaveMode.class)
+                    .defaultValue(HugeGraphDataSaveMode.APPEND_DATA)
+                    .withDescription(
+                            "How pre-existing data is handled before writing. APPEND_DATA (default) "
+                                    + "keeps existing data. DROP_DATA clears the ENTIRE target graph "
+                                    + "(all labels' data and schema) once at job start via the "
+                                    + "HugeGraph clearGraph admin API — destructive, use only for "
+                                    + "full reloads into a dedicated graph.");
+
     public static final Option<Boolean> DELETE_VERTEX_WITH_EDGES =
             Options.key("delete_vertex_with_edges")
                     .booleanType()

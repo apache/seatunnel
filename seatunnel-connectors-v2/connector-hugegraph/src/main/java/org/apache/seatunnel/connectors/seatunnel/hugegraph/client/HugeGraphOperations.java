@@ -22,6 +22,7 @@ import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
 
+import java.util.Map;
 import java.util.Set;
 
 public interface HugeGraphOperations {
@@ -34,9 +35,17 @@ public interface HugeGraphOperations {
 
     Cardinality getPropertyCardinality(String propertyName);
 
-    PageResult<Vertex> listVertices(String label, String page, int limit);
+    /**
+     * Lists one page of vertices of {@code label}. When {@code filter} is non-empty its entries are
+     * applied server-side as property-equality conditions; null/empty means no filtering.
+     */
+    PageResult<Vertex> listVertices(
+            String label, Map<String, Object> filter, String page, int limit);
 
-    PageResult<Edge> listEdges(String label, String page, int limit);
+    /**
+     * Lists one page of edges of {@code label}. See {@link #listVertices} for the filter contract.
+     */
+    PageResult<Edge> listEdges(String label, Map<String, Object> filter, String page, int limit);
 
     void close();
 }

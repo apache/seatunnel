@@ -40,9 +40,12 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
 | `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
 | `batch_failure_fallback` | Boolean | 否   | true   | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
+| `max_insert_errors` | Integer | 否       | 500    | 逐条降级（`batch_failure_fallback=true`）累计跳过的失败记录达到该数量后使任务失败，用于约束原本无上限的“毒药”记录静默跳过。设为 `-1` 表示不限。仅在开启 `batch_failure_fallback` 时生效。 |
+| `failure_data_path` | String  | 否       | -      | 可选本地目录。设置后，逐条降级跳过的每条记录（映射后的 id、label、属性及服务端错误）会追加写入按子任务区分的文件（`hugegraph-sink-failures-subtask-N.log`）以便离线排查。集群模式下文件写在运行该 sink 子任务的 worker 节点上。 |
 | `check_vertex`      | Boolean | 否       | false  | 写入边时服务端是否校验边的源/目标顶点是否存在。为 `false` 时，端点从未写入的边会被写成孤儿边（或触发服务端幻影顶点自动创建）。开启后此类边会被拒绝。 |
 | `max_retries`       | Integer | 否       | 3      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。                       |
-| `retry_backoff_ms`  | Integer | 否       | 5000   | 重试之间的退避时间（毫秒）。                                           |
+| `retry_backoff_ms`  | Integer | 否       | 5000   | 重试的基础退避时间（毫秒），按尝试次数指数增长（`retry_backoff_ms * 2^(attempt-1)`），上限为 `retry_backoff_max_ms`。 |
+| `retry_backoff_max_ms` | Integer | 否   | 30000  | 指数退避的上限（毫秒）。                                               |
 
 ## Sink选项
 
@@ -50,6 +53,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 |----------------------------|---------|----------|--------|------|
 | `mappings`                 | List    | 是       | -      | 推荐的映射配置。每个条目将输入行映射到一个 HugeGraph 顶点或边标签。 |
 | `schema_save_mode`         | Enum    | 否       | `mappings` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST`；legacy 为 `ERROR_WHEN_SCHEMA_NOT_EXIST` | Schema 管理模式。 |
+| `data_save_mode`           | Enum    | 否       | `APPEND_DATA` | 写入前如何处理已有数据。`APPEND_DATA` 保留已有数据；`DROP_DATA` 在任务开始时通过 HugeGraph clearGraph API 清空**整个**目标 graph（所有 label 的数据和 schema）——具有破坏性，仅用于向专用 graph 全量重灌。 |
 | `delete_vertex_with_edges` | Boolean | 否       | `mappings` 为 `false`；legacy 为 `true` | 为 true 时，顶点 DELETE 行会同时删除关联边。 |
 | `schema_config`            | Object  | 否       | -      | 已废弃的 legacy 映射对象。请使用 `mappings`。必须配置 `mappings` 或 `schema_config` 之一。 |
 | `selected_fields`          | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |

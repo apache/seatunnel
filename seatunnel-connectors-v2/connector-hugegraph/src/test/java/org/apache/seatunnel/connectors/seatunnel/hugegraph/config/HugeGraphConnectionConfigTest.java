@@ -116,6 +116,23 @@ class HugeGraphConnectionConfigTest {
         assertTrue(ex.getMessage().contains("protocol"));
     }
 
+    @Test
+    void defaultsRetryBackoffMax() {
+        HugeGraphConnectionConfig config = HugeGraphConnectionConfig.of(config("host", 8080));
+        assertEquals(30000, config.getRetryBackoffMaxMs());
+    }
+
+    @Test
+    void rejectsNegativeRetryBackoffMax() {
+        Map<String, Object> map = configMap("host", 8080);
+        map.put("retry_backoff_max_ms", -1);
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () -> HugeGraphConnectionConfig.of(ReadonlyConfig.fromMap(map)));
+        assertTrue(ex.getMessage().contains("retry_backoff_max_ms"));
+    }
+
     private static ReadonlyConfig config(String host, int port) {
         return ReadonlyConfig.fromMap(configMap(host, port));
     }
