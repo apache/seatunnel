@@ -93,6 +93,19 @@ public class SFTPConnectionPool {
         return true;
     }
 
+    /** Register a newly opened connection unless shutdown won the race. */
+    boolean registerConnection(ChannelSftp channel, ConnectionInfo info) throws IOException {
+        synchronized (this) {
+            if (con2infoMap != null) {
+                con2infoMap.put(channel, info);
+                liveConnectionCount++;
+                return true;
+            }
+        }
+        closeChannel(channel);
+        return false;
+    }
+
     /** Shutdown the connection pool and close all open connections. */
     void shutdown() {
         Map<ChannelSftp, ConnectionInfo> connectionsToClose;
@@ -181,9 +194,8 @@ public class SFTPConnectionPool {
             channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect();
 
-            synchronized (this) {
-                con2infoMap.put(channel, info);
-                liveConnectionCount++;
+            if (!registerConnection(channel, info)) {
+                throw new IOException("SFTP connection pool has been closed.");
             }
 
             return channel;

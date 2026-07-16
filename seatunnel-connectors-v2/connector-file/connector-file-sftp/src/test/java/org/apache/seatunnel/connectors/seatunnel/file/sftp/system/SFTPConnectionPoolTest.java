@@ -131,6 +131,25 @@ class SFTPConnectionPoolTest {
         Assertions.assertEquals(0, connectionPool.getIdleCount());
     }
 
+    /** Connections opened concurrently with shutdown must not escape pool ownership. */
+    @Test
+    void registerConnectionAfterShutdownShouldCloseChannel() throws Exception {
+        SFTPConnectionPool connectionPool = new SFTPConnectionPool(1, 0);
+        SFTPConnectionPool.ConnectionInfo connectionInfo =
+                new SFTPConnectionPool.ConnectionInfo("host", 22, "user");
+        Session session = Mockito.mock(Session.class);
+        Mockito.when(session.isConnected()).thenReturn(true);
+        TestChannelSftp channel = new TestChannelSftp(true, session);
+
+        connectionPool.shutdown();
+        boolean registered = connectionPool.registerConnection(channel, connectionInfo);
+
+        Assertions.assertFalse(registered);
+        Assertions.assertTrue(channel.wasDisconnected());
+        Mockito.verify(session).disconnect();
+        Assertions.assertEquals(0, connectionPool.getConnPoolSize());
+    }
+
     /** Small concrete ChannelSftp stub that keeps Mockito away from final JSch internals. */
     private static final class TestChannelSftp extends ChannelSftp {
         private final boolean connected;
