@@ -849,11 +849,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                         targetStatus.getModificationTime());
                 return OpCommitResult.FAILED_RETRYABLE;
             }
-            log.info(
-                    "Post-sync backup dropped: source absent and no backup target, "
-                            + "likely deleted externally: splitId={}",
-                    op.getSplitId());
-            return OpCommitResult.SUCCESS;
+            log.warn(
+                    "Post-sync backup cannot determine completion because both source and backup "
+                            + "target are absent; operation will be retried: splitId={}, source={}, "
+                            + "target={}, checkpointId={}",
+                    op.getSplitId(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(op.getBackupTargetPath()),
+                    checkpointId);
+            return OpCommitResult.FAILED_RETRYABLE;
         }
 
         if (targetStatus != null) {
