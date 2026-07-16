@@ -48,17 +48,28 @@ class JdbcTableOptionsConditionExtensionTest {
     }
 
     @Test
-    void testPostgresRejectsNonEmptyTableOptionsViaOptionRule() {
+    void testPostgresTableOptionsPassViaOptionRule() {
         Map<String, Object> config = postgresSinkConfig();
         Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("tablespace", "pg_default");
         tableOptions.put("fillfactor", "70");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        Assertions.assertDoesNotThrow(() -> validateSinkOptionRule(config));
+    }
+
+    @Test
+    void testPostgresRejectsUnknownTableOptionsViaOptionRule() {
+        Map<String, Object> config = postgresSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("engine", "InnoDB");
         config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
 
         OptionValidationException exception =
                 Assertions.assertThrows(
                         OptionValidationException.class, () -> validateSinkOptionRule(config));
-        Assertions.assertTrue(
-                exception.getMessage().contains("not supported for dialect 'Postgres'"));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+        Assertions.assertTrue(exception.getMessage().contains("Postgres"));
     }
 
     @Test

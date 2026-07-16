@@ -26,6 +26,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 。你可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -75,7 +76,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
-
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -258,6 +258,7 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 | MySQL | 是 | `engine`、`charset`、`collate` |
 | TiDB | 是 | `engine`、`charset`、`collate`（通过 MySQL JDBC 协议与 `jdbc:mysql://` 连接） |
 | OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
+| PostgreSQL | 是 | `tablespace`、`fillfactor` |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
 
 非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
@@ -267,8 +268,9 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 - **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
 - **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
 - **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。
 
-SeaTunnel 在提交时仅校验 **key 白名单**，不校验具体取值是否被目标库支持（与 MySQL 首批实现一致）。
+SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径），还会校验空白值与 `fillfactor` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
 
 示例（MySQL 自动建表时指定存储引擎与字符集）：
 
@@ -294,6 +296,28 @@ sink {
 ```
 
 生成的 DDL 会追加 `ENGINE`、`DEFAULT CHARSET`、`COLLATE` 子句。未在白名单内的 key（如 `bucket_num`）会在作业提交阶段报错。
+
+示例（PostgreSQL 自动建表时指定 tablespace 与 fillfactor）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/mydb"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    database = "mydb"
+    table = "public.orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
 
 ### custom_sql [String]
 
@@ -419,6 +443,37 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+定时刷新 (Timer flush)
+
+在 `env` 块中配置 `sink.flush.interval` 即可启用定时刷新。JDBC sink 自动支持定时刷新——当设置了 `sink.flush.interval` 时，引擎会定期向记录流中注入 `FlushSignal` 信号，sink 收到该信号后，无论 `batch_size` 是否已满，都会立即将缓冲中的所有数据刷入数据库。
+
+:::tip
+
+当 `is_exactly_once = true` 时不支持定时刷新。精确一次模式下 sink 使用 XA 事务，其事务边界由 checkpoint 管理；定时触发的 flush 会破坏事务一致性保证。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
 }
 ```
 
