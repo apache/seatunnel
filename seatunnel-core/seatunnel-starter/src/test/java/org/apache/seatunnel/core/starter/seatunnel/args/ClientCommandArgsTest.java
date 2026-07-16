@@ -180,7 +180,8 @@ public class ClientCommandArgsTest {
                         IllegalArgumentException.class, clientCommandArgs::buildCommand);
         Assertions.assertTrue(
                 ex.getMessage()
-                        .contains("--savepoint and --restore-with-checkpoint are mutually exclusive"),
+                        .contains(
+                                "--savepoint and --restore-with-checkpoint are mutually exclusive"),
                 "Actual: " + ex.getMessage());
     }
 
@@ -193,7 +194,8 @@ public class ClientCommandArgsTest {
                 Assertions.assertThrows(
                         IllegalArgumentException.class, clientCommandArgs::buildCommand);
         Assertions.assertTrue(
-                ex.getMessage().contains("--set-job-id requires a numeric jobId, got: not-a-number"),
+                ex.getMessage()
+                        .contains("--set-job-id requires a numeric jobId, got: not-a-number"),
                 "Actual: " + ex.getMessage());
     }
 
