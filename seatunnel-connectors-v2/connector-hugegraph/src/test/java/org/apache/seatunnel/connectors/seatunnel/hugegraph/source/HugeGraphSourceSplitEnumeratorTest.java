@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOpera
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
@@ -49,6 +50,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HugeGraphSourceSplitEnumeratorTest {
@@ -91,6 +93,22 @@ class HugeGraphSourceSplitEnumeratorTest {
         assertTrue(context.noMoreSplits.contains(1));
         assertTrue(client.closed, "discovery client must be closed");
         assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void shardDiscoveryFailureSuggestsParallelismOne() {
+        // Memory backend rejects vertexShards; the raw error is unactionable, so the enumerator
+        // must wrap it with the parallelism=1 label-list guidance (and still close the client).
+        CapturingContext context = new CapturingContext(2);
+        FakeClient client = new FakeClient();
+        client.shardFailure = new RuntimeException("Not support shard for memory backend");
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(context, config(), 1024L, null, () -> client);
+
+        HugeGraphConnectorException ex =
+                assertThrows(HugeGraphConnectorException.class, enumerator::open);
+        assertTrue(ex.getMessage().contains("parallelism=1"));
+        assertTrue(client.closed, "discovery client must be closed even on failure");
     }
 
     @Test
@@ -207,6 +225,7 @@ class HugeGraphSourceSplitEnumeratorTest {
     private static class FakeClient implements HugeGraphOperations {
         private List<Shard> vertexShards = new ArrayList<>();
         private List<Shard> edgeShards = new ArrayList<>();
+        private RuntimeException shardFailure;
         private boolean closed;
 
         @Override
@@ -243,11 +262,17 @@ class HugeGraphSourceSplitEnumeratorTest {
 
         @Override
         public List<Shard> vertexShards(long splitSize) {
+            if (shardFailure != null) {
+                throw shardFailure;
+            }
             return vertexShards;
         }
 
         @Override
         public List<Shard> edgeShards(long splitSize) {
+            if (shardFailure != null) {
+                throw shardFailure;
+            }
             return edgeShards;
         }
 

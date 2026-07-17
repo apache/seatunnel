@@ -47,10 +47,10 @@ public class HugeGraphSinkOptions {
                     .defaultValue(HugeGraphDataSaveMode.APPEND_DATA)
                     .withDescription(
                             "How pre-existing data is handled before writing. APPEND_DATA (default) "
-                                    + "keeps existing data. DROP_DATA clears the ENTIRE target graph "
-                                    + "(all labels' data and schema) once at job start via the "
-                                    + "HugeGraph clearGraph admin API — destructive, use only for "
-                                    + "full reloads into a dedicated graph.");
+                                    + "keeps existing data. DROP_DATA deletes the existing data of only "
+                                    + "the labels this job targets (edges then vertices) at job start, "
+                                    + "preserving their schema and any other labels' data; the drop is "
+                                    + "scoped per label and is not re-run on checkpoint restart.");
 
     public static final Option<Boolean> DELETE_VERTEX_WITH_EDGES =
             Options.key("delete_vertex_with_edges")

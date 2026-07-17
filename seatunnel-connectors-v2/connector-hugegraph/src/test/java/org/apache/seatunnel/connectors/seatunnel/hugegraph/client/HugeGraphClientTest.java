@@ -20,16 +20,77 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.client;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphConnectionConfig;
 
 import org.apache.hugegraph.exception.ServerException;
+import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class HugeGraphClientTest {
+
+    @Test
+    void deleteVerticesByLabelPagesUntilEmptyAndDeletesEach() {
+        HugeGraphClient client = spy(new HugeGraphClient(new HugeGraphConnectionConfig()));
+        // Two full pages then an empty page ends the loop; the empty page always re-reads from the
+        // start ("" cursor), so it does not rely on a paging token staying valid across deletes.
+        doReturn(new PageResult<>(Arrays.asList(vertex("a"), vertex("b")), null))
+                .doReturn(new PageResult<>(Collections.singletonList(vertex("c")), null))
+                .doReturn(new PageResult<>(Collections.emptyList(), null))
+                .when(client)
+                .listVertices(eq("person"), isNull(), eq(""), anyInt());
+        doNothing().when(client).deleteVertex(org.mockito.ArgumentMatchers.any());
+
+        client.deleteVerticesByLabel("person");
+
+        verify(client).deleteVertex("a");
+        verify(client).deleteVertex("b");
+        verify(client).deleteVertex("c");
+        verify(client, times(3)).listVertices(eq("person"), isNull(), eq(""), anyInt());
+    }
+
+    @Test
+    void deleteEdgesByLabelPagesUntilEmptyAndDeletesEach() {
+        HugeGraphClient client = spy(new HugeGraphClient(new HugeGraphConnectionConfig()));
+        doReturn(new PageResult<>(Arrays.asList(edge("e1"), edge("e2")), null))
+                .doReturn(new PageResult<>(Collections.emptyList(), null))
+                .when(client)
+                .listEdges(eq("knows"), isNull(), eq(""), anyInt());
+        doNothing().when(client).deleteEdge(org.mockito.ArgumentMatchers.anyString());
+
+        client.deleteEdgesByLabel("knows");
+
+        verify(client).deleteEdge("e1");
+        verify(client).deleteEdge("e2");
+        verify(client, times(2)).listEdges(eq("knows"), isNull(), eq(""), anyInt());
+    }
+
+    private static Vertex vertex(Object id) {
+        Vertex vertex = new Vertex("person");
+        vertex.id(id);
+        return vertex;
+    }
+
+    private static Edge edge(String id) {
+        Edge edge = new Edge("knows");
+        edge.id(id);
+        return edge;
+    }
 
     @Test
     void testBuildHttpsServerUrl() {

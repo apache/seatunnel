@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.buffer;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 
 import org.apache.hugegraph.structure.GraphElement;
+import org.apache.hugegraph.structure.graph.UpdateStrategy;
+
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * Wraps a graph element with non-sensitive mapping context for failure diagnostics.
@@ -35,11 +39,26 @@ public class GraphElementEnvelope {
     private final String mappingLabel;
     private final LabelType elementType;
     private final GraphElement element;
+    // Per-mapping update strategies (property name -> strategy). Empty means plain insert. Carried
+    // on the envelope so the buffer can route each element by its own mapping's strategy instead of
+    // one merged global map — a strategy on one mapping no longer forces upsert on every mapping,
+    // and two mappings may assign different strategies to the same property name.
+    private final Map<String, UpdateStrategy> updateStrategies;
 
     public GraphElementEnvelope(String mappingLabel, LabelType elementType, GraphElement element) {
+        this(mappingLabel, elementType, element, Collections.emptyMap());
+    }
+
+    public GraphElementEnvelope(
+            String mappingLabel,
+            LabelType elementType,
+            GraphElement element,
+            Map<String, UpdateStrategy> updateStrategies) {
         this.mappingLabel = mappingLabel;
         this.elementType = elementType;
         this.element = element;
+        this.updateStrategies =
+                updateStrategies == null ? Collections.emptyMap() : updateStrategies;
     }
 
     public String getMappingLabel() {
@@ -52,5 +71,9 @@ public class GraphElementEnvelope {
 
     public GraphElement getElement() {
         return element;
+    }
+
+    public Map<String, UpdateStrategy> getUpdateStrategies() {
+        return updateStrategies;
     }
 }

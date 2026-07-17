@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HugeGraphSourceConfigTest {
 
@@ -65,6 +66,33 @@ class HugeGraphSourceConfigTest {
         assertThrows(
                 HugeGraphConnectorException.class,
                 () -> HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(configMap), schema()));
+    }
+
+    @Test
+    void testSplitSizeBelowMinimumRejected() {
+        // A tiny split_size shatters the keyspace into a huge number of shards (one split each, all
+        // persisted into every checkpoint) — reject anything below the HugeGraph minimum shard
+        // size.
+        Map<String, Object> configMap = baseConfig();
+        configMap.put("split_size", 1024L);
+
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSourceConfig.of(
+                                        ReadonlyConfig.fromMap(configMap), schema()));
+        assertTrue(ex.getMessage().contains("split_size"));
+    }
+
+    @Test
+    void testSplitSizeAtMinimumAccepted() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put("split_size", HugeGraphSourceOptions.MIN_SPLIT_SIZE);
+
+        HugeGraphSourceConfig config =
+                HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(configMap), schema());
+        assertEquals(HugeGraphSourceOptions.MIN_SPLIT_SIZE, config.getSplitSize());
     }
 
     @Test

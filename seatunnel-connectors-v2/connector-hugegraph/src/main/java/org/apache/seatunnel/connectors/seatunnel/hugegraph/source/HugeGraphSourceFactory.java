@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphOptio
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ReservedColumns;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.HugeGraphTypeConverter;
@@ -79,9 +80,8 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
                         HugeGraphOptions.PASSWORD,
-                        // Accepted only so the shared connection config can emit the actionable
-                        // migration error; leaving it out makes ConfigValidator reject it as an
-                        // unknown option first, hiding that message.
+                        // Optional connection setting passed through to select the HugeGraph graph
+                        // space (defaults to "DEFAULT").
                         HugeGraphOptions.GRAPH_SPACE,
                         HugeGraphOptions.MAX_RETRIES,
                         HugeGraphOptions.RETRY_BACKOFF_MS,
@@ -164,7 +164,9 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
             fieldNames[i] = name;
             fieldTypes[i] =
                     HugeGraphTypeConverter.toSeaTunnelType(
-                            client.getPropertyDataType(name), client.getPropertyCardinality(name));
+                            client.getPropertyDataType(name),
+                            client.getPropertyCardinality(name),
+                            name);
         }
         return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
@@ -197,6 +199,30 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
 
     static SeaTunnelRowType prependReservedFields(
             SeaTunnelRowType propertyRowType, MappingConfig.LabelType labelType) {
+        // The source auto-prepends reserved columns (~id/~label, plus edge endpoints). A user
+        // schema.fields column with a reserved name would silently create a duplicate column and
+        // later fail with a misleading "label has no property ~id"; reject it up front with a clear
+        // message instead. Auto-discovered names never start with '~' (HugeGraph forbids it), so
+        // this only triggers on an explicit schema.fields declaration.
+        for (String fieldName : propertyRowType.getFieldNames()) {
+            if (ReservedColumns.isReserved(fieldName)) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        String.format(
+                                "schema.fields must not declare the reserved column '%s': names "
+                                        + "starting with '%s' are emitted automatically by the "
+                                        + "HugeGraph source (%s for vertices; also %s, %s, %s, %s "
+                                        + "for edges). Remove '%s' from schema.fields.",
+                                fieldName,
+                                ReservedColumns.PREFIX,
+                                ReservedColumns.ID + "/" + ReservedColumns.LABEL,
+                                ReservedColumns.SOURCE_ID,
+                                ReservedColumns.SOURCE_LABEL,
+                                ReservedColumns.TARGET_ID,
+                                ReservedColumns.TARGET_LABEL,
+                                fieldName));
+            }
+        }
         int reservedSize = labelType == MappingConfig.LabelType.VERTEX ? 2 : 6;
         String[] fieldNames = new String[reservedSize + propertyRowType.getTotalFields()];
         SeaTunnelDataType<?>[] fieldTypes =

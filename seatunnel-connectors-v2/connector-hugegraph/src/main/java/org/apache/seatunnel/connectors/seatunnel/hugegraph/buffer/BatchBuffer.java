@@ -65,7 +65,6 @@ public class BatchBuffer implements AutoCloseable {
     private final HugeGraphClient client;
     private final boolean batchFailureFallback;
     private final boolean checkVertex;
-    private final Map<String, UpdateStrategy> updateStrategies;
     // Fail the task once this many records have been skipped by the single-record fallback;
     // negative means unlimited. Guards against the previously unbounded silent skipping.
     private final int maxInsertErrors;
@@ -85,18 +84,8 @@ public class BatchBuffer implements AutoCloseable {
             int batchSize,
             long batchIntervalMs,
             boolean batchFailureFallback,
-            boolean checkVertex,
-            Map<String, UpdateStrategy> updateStrategies) {
-        this(
-                client,
-                batchSize,
-                batchIntervalMs,
-                batchFailureFallback,
-                checkVertex,
-                updateStrategies,
-                -1,
-                null,
-                0);
+            boolean checkVertex) {
+        this(client, batchSize, batchIntervalMs, batchFailureFallback, checkVertex, -1, null, 0);
     }
 
     public BatchBuffer(
@@ -105,7 +94,6 @@ public class BatchBuffer implements AutoCloseable {
             long batchIntervalMs,
             boolean batchFailureFallback,
             boolean checkVertex,
-            Map<String, UpdateStrategy> updateStrategies,
             int maxInsertErrors,
             String failureDataPath,
             int subtaskIndex) {
@@ -113,7 +101,6 @@ public class BatchBuffer implements AutoCloseable {
         this.client = client;
         this.batchFailureFallback = batchFailureFallback;
         this.checkVertex = checkVertex;
-        this.updateStrategies = updateStrategies;
         this.maxInsertErrors = maxInsertErrors;
         this.failureDataPath = failureDataPath;
         this.subtaskIndex = subtaskIndex;
@@ -189,6 +176,17 @@ public class BatchBuffer implements AutoCloseable {
         }
         List<GraphElementEnvelope> batch = new ArrayList<>(vertexBuffer);
         vertexBuffer.clear();
+        // Route by each element's own mapping strategy: a group with no strategy is a plain insert,
+        // a group with a strategy is an upsert. HugeGraph applies one strategy map per batch call,
+        // so elements with different strategies must go in separate calls.
+        for (Map.Entry<Map<String, UpdateStrategy>, List<GraphElementEnvelope>> group :
+                groupByStrategy(batch).entrySet()) {
+            flushVertexGroup(group.getValue(), group.getKey());
+        }
+    }
+
+    private void flushVertexGroup(
+            List<GraphElementEnvelope> batch, Map<String, UpdateStrategy> updateStrategies) {
         try {
             List<Vertex> vertices =
                     batch.stream()
@@ -217,6 +215,14 @@ public class BatchBuffer implements AutoCloseable {
         }
         List<GraphElementEnvelope> batch = new ArrayList<>(edgeBuffer);
         edgeBuffer.clear();
+        for (Map.Entry<Map<String, UpdateStrategy>, List<GraphElementEnvelope>> group :
+                groupByStrategy(batch).entrySet()) {
+            flushEdgeGroup(group.getValue(), group.getKey());
+        }
+    }
+
+    private void flushEdgeGroup(
+            List<GraphElementEnvelope> batch, Map<String, UpdateStrategy> updateStrategies) {
         try {
             List<Edge> edges =
                     batch.stream().map(env -> (Edge) env.getElement()).collect(Collectors.toList());
@@ -238,6 +244,22 @@ public class BatchBuffer implements AutoCloseable {
     }
 
     /**
+     * Groups a batch by its elements' update-strategy map, preserving first-seen order so a flush
+     * stays deterministic. Elements sharing the same strategy map flush together in one server
+     * call.
+     */
+    private static Map<Map<String, UpdateStrategy>, List<GraphElementEnvelope>> groupByStrategy(
+            List<GraphElementEnvelope> batch) {
+        Map<Map<String, UpdateStrategy>, List<GraphElementEnvelope>> groups =
+                new java.util.LinkedHashMap<>();
+        for (GraphElementEnvelope envelope : batch) {
+            groups.computeIfAbsent(envelope.getUpdateStrategies(), key -> new ArrayList<>())
+                    .add(envelope);
+        }
+        return groups;
+    }
+
+    /**
      * A batch insert failed; retry each element on its own so a single poison record no longer
      * fails the whole batch. Failed records are logged and skipped; the rest succeed. If
      * <em>every</em> record fails, the failure is systemic (bad connection / schema), not a poison
@@ -251,6 +273,7 @@ public class BatchBuffer implements AutoCloseable {
         int failed = 0;
         Exception lastFailure = null;
         for (GraphElementEnvelope envelope : batch) {
+            Map<String, UpdateStrategy> updateStrategies = envelope.getUpdateStrategies();
             try {
                 if (envelope.getElementType() == LabelType.VERTEX) {
                     if (updateStrategies.isEmpty()) {

@@ -372,27 +372,6 @@ public final class HugeGraphClient implements HugeGraphOperations {
         return this.schema;
     }
 
-    // --- Graph admin operations ---
-
-    /**
-     * Clears the ENTIRE target graph (all vertices, edges and schema) via the HugeGraph {@code
-     * clearGraph} admin API. Destructive and irreversible; only invoked when data_save_mode =
-     * DROP_DATA. The confirmation message is the exact literal the server requires.
-     */
-    public void clearGraphData() {
-        LOG.warn(
-                "data_save_mode=DROP_DATA: clearing ALL data and schema of graph '{}'",
-                config.getGraphName());
-        executeReadOperation(
-                () -> {
-                    this.client
-                            .graphs()
-                            .clearGraph(config.getGraphName(), "I'm sure to delete all data");
-                    return null;
-                });
-        LOG.info("Graph '{}' cleared successfully", config.getGraphName());
-    }
-
     // --- Schema read operations ---
 
     public PropertyKey getPropertyKey(String propertyName) {
@@ -837,6 +816,53 @@ public final class HugeGraphClient implements HugeGraphOperations {
                     }
                     graph.removeVertex(vertexId);
                 });
+    }
+
+    /** Page size used when clearing a single label's data for data_save_mode=DROP_DATA. */
+    private static final int DELETE_PAGE_SIZE = 500;
+
+    /**
+     * Deletes every vertex of {@code label} (data only — the VertexLabel schema is preserved), used
+     * by data_save_mode=DROP_DATA to clear just the labels this job targets instead of wiping the
+     * whole graph with {@code clearGraph}. Removing a vertex also removes its incident edges on the
+     * server. Works by repeatedly deleting the first page until none remain, so it does not depend
+     * on a paging cursor staying valid across deletes.
+     */
+    public void deleteVerticesByLabel(String label) {
+        LOG.info("data_save_mode=DROP_DATA: deleting all vertices of label '{}'", label);
+        long deleted = 0;
+        while (true) {
+            List<Vertex> records = listVertices(label, null, "", DELETE_PAGE_SIZE).getRecords();
+            if (records.isEmpty()) {
+                break;
+            }
+            for (Vertex vertex : records) {
+                deleteVertex(vertex.id());
+                deleted++;
+            }
+        }
+        LOG.info("Deleted {} vertices of label '{}'", deleted, label);
+    }
+
+    /**
+     * Deletes every edge of {@code label} (data only — the EdgeLabel schema is preserved). See
+     * {@link #deleteVerticesByLabel} for the paging strategy; run before vertex deletion so
+     * edge-only mappings are handled even when their endpoints are out of this job's scope.
+     */
+    public void deleteEdgesByLabel(String label) {
+        LOG.info("data_save_mode=DROP_DATA: deleting all edges of label '{}'", label);
+        long deleted = 0;
+        while (true) {
+            List<Edge> records = listEdges(label, null, "", DELETE_PAGE_SIZE).getRecords();
+            if (records.isEmpty()) {
+                break;
+            }
+            for (Edge edge : records) {
+                deleteEdge(edge.id());
+                deleted++;
+            }
+        }
+        LOG.info("Deleted {} edges of label '{}'", deleted, label);
     }
 
     @Override

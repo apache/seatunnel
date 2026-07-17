@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.e2e.connector.hugegraph;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphDataSaveMode;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.LabelType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig.SourceTargetConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.sink.HugeGraphSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.sink.HugeGraphSinkWriter;
 
 import org.apache.hugegraph.driver.HugeClient;
@@ -492,5 +496,147 @@ public class HugeGraphIT {
                 1,
                 hugeClient.graph().listVertices(VERTEX_LABEL, props, 10).size(),
                 "Vertex Bob should still exist");
+    }
+
+    @Test
+    public void testDropDataDeletesOnlyTargetLabelData() {
+        // A second vertex label that this job does NOT target — its data must survive a scoped
+        // DROP_DATA. The old whole-graph clearGraph would have wiped it (and its schema) too.
+        hugeClient
+                .schema()
+                .vertexLabel("software")
+                .idStrategy(IdStrategy.PRIMARY_KEY)
+                .primaryKeys("name")
+                .properties("name")
+                .ifNotExist()
+                .create();
+        hugeClient
+                .graph()
+                .addVertex(new Vertex(VERTEX_LABEL).property("name", "marko").property("age", 29));
+        hugeClient.graph().addVertex(new Vertex("software").property("name", "lop"));
+        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL).size());
+        assertEquals(1, hugeClient.graph().listVertices("software").size());
+
+        HugeGraphSaveModeHandler handler =
+                createSaveModeHandler(
+                        Collections.singletonList(personVertexMapping()),
+                        HugeGraphDataSaveMode.DROP_DATA,
+                        VERTEX_ROW_TYPE);
+        try {
+            handler.open();
+            handler.handleDataSaveMode();
+        } finally {
+            handler.close();
+        }
+
+        Assertions.assertTrue(
+                hugeClient.graph().listVertices(VERTEX_LABEL).isEmpty(),
+                "In-scope label 'person' data must be dropped");
+        assertEquals(
+                1,
+                hugeClient.graph().listVertices("software").size(),
+                "Out-of-scope label 'software' data must be preserved");
+        // Schema of the dropped label is preserved (data-only delete, not clearGraph).
+        Assertions.assertNotNull(
+                hugeClient.schema().getVertexLabel(VERTEX_LABEL),
+                "Dropped label's schema must remain");
+    }
+
+    @Test
+    public void testDropDataDeletesTargetVerticesAndEdges() {
+        Vertex alice =
+                hugeClient
+                        .graph()
+                        .addVertex(
+                                new Vertex(VERTEX_LABEL)
+                                        .property("name", "Alice")
+                                        .property("age", 30));
+        Vertex bob =
+                hugeClient
+                        .graph()
+                        .addVertex(
+                                new Vertex(VERTEX_LABEL)
+                                        .property("name", "Bob")
+                                        .property("age", 25));
+        hugeClient
+                .graph()
+                .addEdge(new Edge("knows").source(alice).target(bob).property("weight", 1.0));
+        assertEquals(2, hugeClient.graph().listVertices(VERTEX_LABEL).size());
+        assertEquals(1, hugeClient.graph().listEdges("knows").size());
+
+        HugeGraphSaveModeHandler handler =
+                createSaveModeHandler(
+                        buildMultiMappingConfigs(),
+                        HugeGraphDataSaveMode.DROP_DATA,
+                        MULTI_MAPPING_ROW_TYPE);
+        try {
+            handler.open();
+            handler.handleDataSaveMode();
+        } finally {
+            handler.close();
+        }
+
+        Assertions.assertTrue(
+                hugeClient.graph().listEdges("knows").isEmpty(),
+                "Edges of the job's label dropped");
+        Assertions.assertTrue(
+                hugeClient.graph().listVertices(VERTEX_LABEL).isEmpty(),
+                "Vertices of the job's label dropped");
+    }
+
+    @Test
+    public void testSaveModeRestoreDoesNotDropData() {
+        // On checkpoint restore the engine calls only handleSchemaSaveModeWithRestore(); even with
+        // DROP_DATA configured, data written before the restart must survive.
+        hugeClient
+                .graph()
+                .addVertex(new Vertex(VERTEX_LABEL).property("name", "marko").property("age", 29));
+        assertEquals(1, hugeClient.graph().listVertices(VERTEX_LABEL).size());
+
+        HugeGraphSaveModeHandler handler =
+                createSaveModeHandler(
+                        Collections.singletonList(personVertexMapping()),
+                        HugeGraphDataSaveMode.DROP_DATA,
+                        VERTEX_ROW_TYPE);
+        try {
+            handler.open();
+            handler.handleSchemaSaveModeWithRestore();
+        } finally {
+            handler.close();
+        }
+
+        assertEquals(
+                1,
+                hugeClient.graph().listVertices(VERTEX_LABEL).size(),
+                "Restore must not drop data written before the restart");
+    }
+
+    private MappingConfig personVertexMapping() {
+        MappingConfig mapping = new MappingConfig();
+        mapping.setType(LabelType.VERTEX);
+        mapping.setLabel(VERTEX_LABEL);
+        mapping.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        mapping.setIdFields(Collections.singletonList("name"));
+        mapping.setProperties(Arrays.asList("name", "age"));
+        return mapping;
+    }
+
+    private HugeGraphSaveModeHandler createSaveModeHandler(
+            List<MappingConfig> mappings,
+            HugeGraphDataSaveMode dataSaveMode,
+            SeaTunnelRowType rowType) {
+        HugeGraphConnectionConfig connectionConfig = new HugeGraphConnectionConfig();
+        connectionConfig.setHost(HUGE_GRAPH_CONTAINER.getHost());
+        connectionConfig.setPort(HUGE_GRAPH_CONTAINER.getMappedPort(8080));
+        connectionConfig.setGraphName(GRAPH_NAME);
+
+        HugeGraphSinkConfig config = new HugeGraphSinkConfig();
+        config.setConnectionConfig(connectionConfig);
+        config.setMaxRetries(0);
+        config.setRetryBackoffMs(0);
+        config.setMappings(mappings);
+        config.setDataSaveMode(dataSaveMode);
+        config.setSchemaSaveMode(HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        return new HugeGraphSaveModeHandler(config, rowType, TablePath.of(GRAPH_NAME));
     }
 }

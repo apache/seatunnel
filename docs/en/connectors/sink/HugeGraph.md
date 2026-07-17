@@ -15,7 +15,7 @@ This connector supports writing data as vertices or edges, providing flexible ma
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it can flush buffered records by `batch_size` or `batch_interval_ms`.
@@ -53,7 +53,7 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 |----------------------------|---------|----------|---------------|-------------|
 | `mappings`                 | List    | Yes      | -             | Recommended mapping configuration. Each entry maps input rows to one HugeGraph vertex or edge label. |
 | `schema_save_mode`         | Enum    | No       | `CREATE_SCHEMA_WHEN_NOT_EXIST` for `mappings`; `ERROR_WHEN_SCHEMA_NOT_EXIST` for legacy `schema_config` | Schema management mode. |
-| `data_save_mode`           | Enum    | No       | `APPEND_DATA` | How pre-existing data is handled before writing. `APPEND_DATA` keeps existing data. `DROP_DATA` clears the ENTIRE target graph (all labels' data and schema) once at job start via the HugeGraph clearGraph API — destructive, use only for full reloads into a dedicated graph. |
+| `data_save_mode`           | Enum    | No       | `APPEND_DATA` | How pre-existing data is handled before writing. `APPEND_DATA` keeps existing data. `DROP_DATA` deletes, once at job start, only the data of the labels this job targets (edges then vertices), preserving their schema and any other labels' data; the drop is scoped per label (so one table's drop does not wipe another) and is not re-run on checkpoint restart. |
 | `delete_vertex_with_edges` | Boolean | No       | `false` for `mappings`; `true` for legacy `schema_config` | When true, DELETE rows for vertices also delete associated edges. |
 | `schema_config`            | Object  | No       | -             | Deprecated legacy mapping object. Use `mappings` instead. Either `mappings` or `schema_config` must be specified. |
 | `selected_fields`          | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
@@ -180,13 +180,14 @@ The connector validates the SeaTunnel row schema against the existing HugeGraph 
 
 ## Write Behavior Notes
 
-- For vertices, `idStrategy` controls how the vertex ID is built. `PRIMARY_KEY` joins all `idFields` with HugeGraph's primary-key format, `CUSTOMIZE_STRING` joins them with `:`, `CUSTOMIZE_NUMBER` expects one numeric field, and `CUSTOMIZE_UUID` expects one UUID field.
+- For vertices, `idStrategy` controls how the vertex ID is built. `PRIMARY_KEY` joins all `idFields` with HugeGraph's primary-key format, `CUSTOMIZE_STRING` joins multiple `idFields` with `:` (backslash-escaping any `:` in a value so distinct field tuples cannot collide; a single field is used verbatim), `CUSTOMIZE_NUMBER` expects one integer-valued field (a fractional value like `1.9` is rejected, not silently truncated), and `CUSTOMIZE_UUID` expects one UUID field.
 - For edges, the connector reads the ID strategy from the existing source and target vertex labels in HugeGraph. `sourceConfig.idFields` and `targetConfig.idFields` must provide enough fields to rebuild those vertex IDs.
 - `INSERT` writes a new vertex or edge, `UPDATE_AFTER` updates the existing graph element, and `DELETE` deletes it. Delete rows only need the fields required to build the element ID.
 - `AUTOMATIC` vertex IDs support INSERT only. UPDATE and DELETE require a reconstructable ID strategy.
 - The sink is at-least-once. Replayed INSERT records with `AUTOMATIC` IDs can create duplicates after retries or checkpoint recovery.
-- Edge batches use HugeGraph `check_vertex=false`, so vertices and edges may be written out of order. This is intentional; the graph reaches its final consistent state after all batches complete.
+- Edge batches use the configured `check_vertex` (default `false`). With the default, vertices and edges may be written out of order and the graph reaches its final consistent state after all batches complete; set `check_vertex=true` to have the server reject edges whose endpoints do not yet exist.
 - `nullValues` treats matching string values as null and skips those properties during writes.
+- Time zone is configured **per mapping** via `timeZone` (there is no top-level `time_zone` option on the sink, unlike the HugeGraph Source, because date parsing is a per-mapping concern). When omitted it defaults to the worker JVM zone, matching the Source so a Source→Sink round-trip preserves absolute times.
 
 ## Usage Examples
 

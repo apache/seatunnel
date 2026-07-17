@@ -15,7 +15,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且可以按 `batch_size` 或 `batch_interval_ms` 刷新缓存数据。
@@ -53,7 +53,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 |----------------------------|---------|----------|--------|------|
 | `mappings`                 | List    | 是       | -      | 推荐的映射配置。每个条目将输入行映射到一个 HugeGraph 顶点或边标签。 |
 | `schema_save_mode`         | Enum    | 否       | `mappings` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST`；legacy 为 `ERROR_WHEN_SCHEMA_NOT_EXIST` | Schema 管理模式。 |
-| `data_save_mode`           | Enum    | 否       | `APPEND_DATA` | 写入前如何处理已有数据。`APPEND_DATA` 保留已有数据；`DROP_DATA` 在任务开始时通过 HugeGraph clearGraph API 清空**整个**目标 graph（所有 label 的数据和 schema）——具有破坏性，仅用于向专用 graph 全量重灌。 |
+| `data_save_mode`           | Enum    | 否       | `APPEND_DATA` | 写入前如何处理已有数据。`APPEND_DATA` 保留已有数据；`DROP_DATA` 在任务开始时**仅**删除本任务涉及的 label 的数据（先边后点），保留其 schema 以及其他 label 的数据；删除按 label 隔离（某张表的 DROP 不会波及其他表），且在 checkpoint 重启时不会重复执行。 |
 | `delete_vertex_with_edges` | Boolean | 否       | `mappings` 为 `false`；legacy 为 `true` | 为 true 时，顶点 DELETE 行会同时删除关联边。 |
 | `schema_config`            | Object  | 否       | -      | 已废弃的 legacy 映射对象。请使用 `mappings`。必须配置 `mappings` 或 `schema_config` 之一。 |
 | `selected_fields`          | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
@@ -180,13 +180,14 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 ## 写入行为说明
 
-- 写入顶点时，`idStrategy` 决定如何生成顶点 ID。`PRIMARY_KEY` 会按 HugeGraph 主键格式拼接所有 `idFields`，`CUSTOMIZE_STRING` 会用 `:` 拼接字段，`CUSTOMIZE_NUMBER` 需要一个数字字段，`CUSTOMIZE_UUID` 需要一个 UUID 字段。
+- 写入顶点时，`idStrategy` 决定如何生成顶点 ID。`PRIMARY_KEY` 会按 HugeGraph 主键格式拼接所有 `idFields`；`CUSTOMIZE_STRING` 在多字段时用 `:` 拼接（并对字段值中的 `:` 做反斜杠转义，避免不同字段组合产生相同 id；单字段时原样使用）；`CUSTOMIZE_NUMBER` 需要一个整数值字段（`1.9` 之类的小数会被拒绝，不会被静默截断）；`CUSTOMIZE_UUID` 需要一个 UUID 字段。
 - 写入边时，连接器会从 HugeGraph 中已有的源顶点标签和目标顶点标签读取 ID 策略。`sourceConfig.idFields` 和 `targetConfig.idFields` 必须能还原对应顶点 ID。
 - `INSERT` 会写入新的顶点或边，`UPDATE_AFTER` 会更新已有图元素，`DELETE` 会删除图元素。删除行只需要包含能生成图元素 ID 的字段。
 - `AUTOMATIC` 顶点 ID 仅支持 INSERT；UPDATE 和 DELETE 必须使用可还原 ID 的策略。
 - Sink 提供 at-least-once 语义。使用 `AUTOMATIC` ID 时，重试或 checkpoint 恢复后的 INSERT 重放可能产生重复顶点。
-- 边批次使用 HugeGraph `check_vertex=false`，因此顶点与边可能乱序写入。这是刻意设计；所有批次完成后图达到最终一致状态。
+- 边批次使用所配置的 `check_vertex`（默认 `false`）。默认情况下顶点与边可能乱序写入，所有批次完成后图达到最终一致状态；设为 `check_vertex=true` 则服务端会拒绝端点尚不存在的边。
 - `nullValues` 中列出的字符串会被当作空值处理，写入时会跳过这些属性。
+- 时区通过**每个 mapping** 的 `timeZone` 配置（sink 没有顶层 `time_zone` 选项，与 HugeGraph Source 不同，因为日期解析属于每个 mapping 的行为）。省略时默认使用 Worker JVM 时区，与 Source 一致，从而保证 Source→Sink 往返时绝对时间不变。
 
 ## 使用示例
 

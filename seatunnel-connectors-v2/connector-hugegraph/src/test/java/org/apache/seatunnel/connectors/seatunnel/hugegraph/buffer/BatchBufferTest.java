@@ -57,6 +57,10 @@ class BatchBufferTest {
         return new GraphElementEnvelope("person", LabelType.VERTEX, v);
     }
 
+    private static GraphElementEnvelope envelope(Vertex v, Map<String, UpdateStrategy> strategies) {
+        return new GraphElementEnvelope("person", LabelType.VERTEX, v, strategies);
+    }
+
     @Test
     void poisonRecordDoesNotFailWholeBatchWhenFallbackEnabled() throws Exception {
         HugeGraphClient client = mock(HugeGraphClient.class);
@@ -68,8 +72,7 @@ class BatchBufferTest {
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
         doThrow(new RuntimeException("poison")).when(client).writeVertex(poison);
 
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, true, false, java.util.Collections.emptyMap())) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false)) {
             buffer.add(envelope(good1));
             buffer.add(envelope(poison));
             buffer.add(envelope(good2));
@@ -88,8 +91,7 @@ class BatchBufferTest {
         edge.sourceId("1:a");
         edge.targetId("1:b");
 
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, true, true, java.util.Collections.emptyMap())) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, true)) {
             buffer.add(new GraphElementEnvelope("knows", LabelType.EDGE, edge));
             buffer.flush();
         }
@@ -103,8 +105,8 @@ class BatchBufferTest {
         Map<String, UpdateStrategy> strategies =
                 Collections.singletonMap("count", UpdateStrategy.SUM);
 
-        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false, strategies)) {
-            buffer.add(envelope(vertex("a")));
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false)) {
+            buffer.add(envelope(vertex("a"), strategies));
             buffer.flush();
         }
 
@@ -113,12 +115,29 @@ class BatchBufferTest {
     }
 
     @Test
+    void perMappingStrategiesRouteIndependentlyInOneFlush() throws Exception {
+        // A strategy on one mapping must NOT force upsert on another: the strategy-carrying element
+        // goes through batchUpdate, while the strategy-less element still goes through batchWrite.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        Map<String, UpdateStrategy> strategies =
+                Collections.singletonMap("count", UpdateStrategy.SUM);
+
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false)) {
+            buffer.add(envelope(vertex("upsert"), strategies));
+            buffer.add(envelope(vertex("insert"))); // no strategy
+            buffer.flush();
+        }
+
+        verify(client).batchUpdateVertices(anyList(), eq(strategies));
+        verify(client).batchWriteVertices(anyList());
+    }
+
+    @Test
     void wholeBatchFailsWhenFallbackDisabled() throws Exception {
         HugeGraphClient client = mock(HugeGraphClient.class);
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
 
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, false, false, java.util.Collections.emptyMap())) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, false, false)) {
             buffer.add(envelope(vertex("g1")));
             assertThrows(HugeGraphConnectorException.class, buffer::flush);
         }
@@ -132,8 +151,7 @@ class BatchBufferTest {
         doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
         doThrow(new RuntimeException("down")).when(client).writeVertex(any(Vertex.class));
 
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, true, false, java.util.Collections.emptyMap())) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false)) {
             buffer.add(envelope(vertex("g1")));
             buffer.add(envelope(vertex("g2")));
             // Every record fails the fallback too -> not a poison record, surface a hard error.
@@ -151,8 +169,7 @@ class BatchBufferTest {
         doThrow(new RuntimeException("poison")).when(client).writeVertex(bad2);
 
         // maxInsertErrors=2: two good records still succeed, but the 2nd cumulative skip aborts.
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, true, false, Collections.emptyMap(), 2, null, 0)) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false, 2, null, 0)) {
             buffer.add(envelope(vertex("g1")));
             buffer.add(envelope(bad1));
             buffer.add(envelope(vertex("g2")));
@@ -172,8 +189,7 @@ class BatchBufferTest {
         doThrow(new RuntimeException("poison")).when(client).writeVertex(poison);
 
         // -1 == unlimited: a single poison record is skipped, the good record survives, no throw.
-        try (BatchBuffer buffer =
-                new BatchBuffer(client, 10, 0, true, false, Collections.emptyMap(), -1, null, 0)) {
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0, true, false, -1, null, 0)) {
             buffer.add(envelope(vertex("g1")));
             buffer.add(envelope(poison));
             buffer.flush();
@@ -190,16 +206,7 @@ class BatchBufferTest {
         doThrow(new RuntimeException("poison-error")).when(client).writeVertex(poison);
 
         try (BatchBuffer buffer =
-                new BatchBuffer(
-                        client,
-                        10,
-                        0,
-                        true,
-                        false,
-                        Collections.emptyMap(),
-                        -1,
-                        tempDir.toString(),
-                        3)) {
+                new BatchBuffer(client, 10, 0, true, false, -1, tempDir.toString(), 3)) {
             buffer.add(envelope(vertex("g1")));
             buffer.add(envelope(poison));
             buffer.flush();

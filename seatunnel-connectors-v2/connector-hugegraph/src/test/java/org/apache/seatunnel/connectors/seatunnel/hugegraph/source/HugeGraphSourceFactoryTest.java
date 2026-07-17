@@ -81,6 +81,40 @@ class HugeGraphSourceFactoryTest {
     }
 
     @Test
+    void rejectsReservedColumnNameInSchemaFields() {
+        // Declaring a reserved column (~id) in schema.fields used to silently duplicate the column
+        // and later fail with a misleading "label has no property ~id"; it must fail fast with a
+        // message that names the offending column.
+        SeaTunnelRowType withReserved =
+                new SeaTunnelRowType(
+                        new String[] {"~id", "name"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSourceFactory.prependReservedFields(
+                                        withReserved, MappingConfig.LabelType.VERTEX));
+        assertTrue(ex.getMessage().contains("~id"));
+        assertTrue(ex.getMessage().contains("schema.fields"));
+    }
+
+    @Test
+    void rejectsReservedEdgeEndpointColumnInSchemaFields() {
+        SeaTunnelRowType withReserved =
+                new SeaTunnelRowType(
+                        new String[] {"~source_id", "weight"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.DOUBLE_TYPE});
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSourceFactory.prependReservedFields(
+                                        withReserved, MappingConfig.LabelType.EDGE));
+        assertTrue(ex.getMessage().contains("~source_id"));
+    }
+
+    @Test
     void rejectsFilterWithParallelismGreaterThanOne() {
         Map<String, Object> options = new HashMap<>();
         options.put("parallelism", 2);

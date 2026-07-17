@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -126,6 +127,19 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                         SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                 "c_byte_array", "array<byte>");
         Assertions.assertEquals(ArrayType.BYTE_ARRAY_TYPE, byteArrayType);
+
+        ArrayType<?, ?> timestampArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_ts_array", "array<timestamp>");
+        Assertions.assertEquals(
+                ArrayType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE), timestampArrayType);
+
+        ArrayType<?, ?> dateArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_date_array", "array<date>");
+        Assertions.assertEquals(ArrayType.of(LocalTimeType.LOCAL_DATE_TYPE), dateArrayType);
 
         MapType<?, ?> longMapType =
                 (MapType<?, ?>)

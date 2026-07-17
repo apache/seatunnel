@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class EdgeMapper implements GraphDataMapper {
 
@@ -233,9 +232,7 @@ public class EdgeMapper implements GraphDataMapper {
             case CUSTOMIZE_STRING:
                 return VertexMapper.checkVertexIdLength(String.valueOf(elem));
             case CUSTOMIZE_NUMBER:
-                return elem instanceof Number
-                        ? ((Number) elem).longValue()
-                        : Long.parseLong(String.valueOf(elem));
+                return VertexMapper.coerceNumberId(elem);
             case CUSTOMIZE_UUID:
                 return elem instanceof UUID ? elem : UUID.fromString(String.valueOf(elem));
             default:
@@ -318,10 +315,7 @@ public class EdgeMapper implements GraphDataMapper {
                         || stringValues.stream().anyMatch(this::isConsideredNull)) {
                     return null;
                 }
-                return VertexMapper.checkVertexIdLength(
-                        stringValues.stream()
-                                .map(String::valueOf)
-                                .collect(Collectors.joining(":")));
+                return VertexMapper.spliceCustomizeStringId(stringValues);
             case CUSTOMIZE_NUMBER:
                 List<Object> numberValues = getFieldValues(row, idFields);
                 if (numberValues.size() != 1) {
@@ -331,11 +325,7 @@ public class EdgeMapper implements GraphDataMapper {
                 if (isConsideredNull(numValue)) {
                     return null;
                 }
-                if (numValue instanceof Number) {
-                    return ((Number) numValue).longValue();
-                } else {
-                    return Long.parseLong(String.valueOf(numValue));
-                }
+                return VertexMapper.coerceNumberId(numValue);
             case CUSTOMIZE_UUID:
                 List<Object> uuidValues = getFieldValues(row, idFields);
                 if (uuidValues.size() != 1) {

@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.hugegraph.driver.HugeClient;
+import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
@@ -53,6 +54,7 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
     private static final String GRAPH_NAME = "hugegraph";
     private static final String VERTEX_LABEL = "person";
     private static final String EDGE_LABEL = "knows";
+    private static final String GADGET_LABEL = "gadget";
 
     private GenericContainer<?> hugeGraphContainer;
     private HugeClient hugeClient;
@@ -195,6 +197,27 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), buildFailureMessage(execResult));
     }
 
+    @TestTemplate
+    public void testByteAndObjectColumnsAreReadable(TestContainer container)
+            throws IOException, InterruptedException {
+        clearGraph();
+        // A BYTE (code) and an OBJECT (meta) property: before the fix these fell through the type
+        // converter's default branch and failed schema validation, so the whole label read errored.
+        hugeClient
+                .graph()
+                .addVertex(
+                        new Vertex(GADGET_LABEL)
+                                .property("name", "g1")
+                                .property("code", (byte) 7)
+                                .property("meta", "info-1"));
+        awaitLabelVertexCount(GADGET_LABEL, 1);
+
+        Container.ExecResult execResult =
+                container.executeJob("/hugegraph/hugegraph_byte_object_to_assert.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode(), buildFailureMessage(execResult));
+    }
+
     private Vertex addVertex(String name, int age) {
         return hugeClient
                 .graph()
@@ -233,16 +256,33 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
                 .nullableKeys("weight")
                 .ifNotExist()
                 .create();
+
+        // BYTE + OBJECT property columns exercise the two type-converter branches that previously
+        // fell through to the default and blocked the whole label read.
+        hugeClient.schema().propertyKey("code").asByte().ifNotExist().create();
+        hugeClient.schema().propertyKey("meta").dataType(DataType.OBJECT).ifNotExist().create();
+        hugeClient
+                .schema()
+                .vertexLabel(GADGET_LABEL)
+                .idStrategy(IdStrategy.PRIMARY_KEY)
+                .primaryKeys("name")
+                .properties("name", "code", "meta")
+                .nullableKeys("code", "meta")
+                .ifNotExist()
+                .create();
     }
 
     private void awaitSchemaReady() {
         awaitCondition(
                 () ->
                         hugeClient.schema().getVertexLabel(VERTEX_LABEL) != null
+                                && hugeClient.schema().getVertexLabel(GADGET_LABEL) != null
                                 && hugeClient.schema().getEdgeLabel(EDGE_LABEL) != null
                                 && hugeClient.schema().getPropertyKey("name") != null
                                 && hugeClient.schema().getPropertyKey("age") != null
-                                && hugeClient.schema().getPropertyKey("weight") != null,
+                                && hugeClient.schema().getPropertyKey("weight") != null
+                                && hugeClient.schema().getPropertyKey("code") != null
+                                && hugeClient.schema().getPropertyKey("meta") != null,
                 "HugeGraph schema is not ready");
     }
 

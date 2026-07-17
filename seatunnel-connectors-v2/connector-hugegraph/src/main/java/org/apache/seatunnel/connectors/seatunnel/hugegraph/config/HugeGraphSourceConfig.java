@@ -77,12 +77,15 @@ public class HugeGraphSourceConfig implements Serializable {
                             pageSize));
         }
 
-        if (sourceConfig.getSplitSize() <= 0) {
+        if (sourceConfig.getSplitSize() < HugeGraphSourceOptions.MIN_SPLIT_SIZE) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     String.format(
-                            "Option 'split_size' must be positive, but got %s",
-                            sourceConfig.getSplitSize()));
+                            "Option 'split_size' must be at least %s bytes (the HugeGraph minimum "
+                                    + "shard size); a smaller value would split the keyspace into a "
+                                    + "huge number of shards and risk OOM / oversized checkpoints. "
+                                    + "Got %s.",
+                            HugeGraphSourceOptions.MIN_SPLIT_SIZE, sourceConfig.getSplitSize()));
         }
 
         // schema must be present, but an empty fields block is valid: a property-less label

@@ -31,9 +31,9 @@ HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图
 | `schema`           | Object  | 否       | -        | 通过 `schema.fields` 声明输出属性列。保留图字段由 connector 自动添加。**省略时，connector 会从服务端读取 `label` 定义并自动发现全部属性列（类型自动推断，列按名称排序）。** 详见[Schema 自动发现](#schema-自动发现)。 |
 | `label_type`       | Enum    | 否       | `VERTEX` | 标签类型，支持 `VERTEX`、`EDGE`。 |
 | `page_size`        | Integer | 否       | `1000`   | 每页读取记录数，取值范围为 `[100, 10000]`。 |
-| `split_size`       | Long    | 否       | `1048576` | `parallelism > 1` 时每个 key-range shard 的目标字节大小。值越大 shard 越少越大。`parallelism = 1` 时忽略。需要支持 scan 的后端（RocksDB / HBase / Cassandra）。 |
-| `filter`           | Map     | 否       | -        | 可选的服务端属性等值过滤条件，例如 `{ country = "US", active = "true" }`。仅返回所有条件均匹配的元素。每个 key 必须是 `label` 的属性，未知 key 会在启动时报错。省略时读取该 label 的全部元素。**不能与 `parallelism > 1` 同时使用**（shard 扫描无法把属性过滤下推到服务端），两者同时设置会在启动时报错。 |
-| `time_zone`        | String  | 否       | Worker JVM 默认时区 | HugeGraph DATE epoch 值转换使用的 ZoneId，例如 `UTC` 或 `Asia/Shanghai`。Worker JVM 时区可能不一致时应显式设置。 |
+| `split_size`       | Long    | 否       | `1048576` | `parallelism > 1` 时每个 key-range shard 的目标字节大小。值越大 shard 越少越大。必须不小于 `1048576`（1 MiB，HugeGraph 的最小分片大小）——更小的值会在启动时被拒绝，以避免 shard 爆炸。`parallelism = 1` 时忽略。需要支持 scan 的后端（RocksDB / HBase / Cassandra）。 |
+| `filter`           | Map     | 否       | -        | 可选的服务端属性等值过滤条件，例如 `{ country = "US", active = "true" }`。仅返回所有条件均匹配的元素。每个 key 必须是 `label` 的属性（未知 key 会在启动时报错），且每个值会被转换为该属性的类型（例如 `"true"` → 布尔、`"7"` → 对应数值类型）以便与服务端匹配——无法转换的值会在启动时报错，而不是静默返回 0 行。省略时读取该 label 的全部元素。**不能与 `parallelism > 1` 同时使用**（shard 扫描无法把属性过滤下推到服务端），两者同时设置会在启动时报错。 |
+| `time_zone`        | String  | 否       | Worker JVM 默认时区 | 用于转换服务端以 epoch/Date 返回的 HugeGraph DATE 值的 ZoneId，例如 `UTC` 或 `Asia/Shanghai`。对服务端已序列化为字符串（wall-clock）的 DATE 不生效（此类值不携带时区、原样保留）。Worker JVM 时区可能不一致时应显式设置。 |
 | `graph_space`      | String  | 否       | `DEFAULT` | 图所属的图空间（graph space）。 |
 | `username`         | String  | 否       | -        | HugeGraph 用户名。 |
 | `password`         | String  | 否       | -        | HugeGraph 密码。 |
@@ -64,6 +64,7 @@ HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图
 | HugeGraph 类型 | SeaTunnel 类型 |
 |----------------|----------------|
 | `TEXT`         | `STRING`       |
+| `BYTE`         | `TINYINT`      |
 | `INT`          | `INT`          |
 | `LONG`         | `BIGINT`       |
 | `FLOAT`        | `FLOAT`        |
@@ -71,6 +72,7 @@ HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图
 | `BOOLEAN`      | `BOOLEAN`      |
 | `DATE`         | `TIMESTAMP`    |
 | `UUID`         | `STRING`       |
+| `OBJECT`       | `STRING`       |
 | `BLOB`         | `BYTES`        |
 
 ### 多值（LIST / SET）属性
@@ -156,7 +158,7 @@ source {
 - Shard 扫描需要支持 scan 的后端（RocksDB / HBase / Cassandra）；`memory` 后端不支持 shard 切分，请在其上使用 `parallelism = 1`。
 - Shard 扫描会返回 key-range 内所有 label 的元素，connector 仅保留配置的 `label`。当目标 label 只占全图很小比例时，单并行度的 `filter` 读取可能搬运更少数据（尽管无法并行）。
 - `filter` 不能与 `parallelism > 1` 同时使用；要用服务端过滤请保持 `parallelism = 1`，要并行请去掉 filter。
-- 调优 `split_size`：值越小 shard 越多越小（负载更均衡、请求更多）；值越大 shard 越少越大。
+- 调优 `split_size`：值越小 shard 越多越小（负载更均衡、请求更多）；值越大 shard 越少越大。最小值为 `1048576`（1 MiB），更小的值会被拒绝，以避免把 keyspace 切分成过多的 shard。
 
 ## Changelog
 

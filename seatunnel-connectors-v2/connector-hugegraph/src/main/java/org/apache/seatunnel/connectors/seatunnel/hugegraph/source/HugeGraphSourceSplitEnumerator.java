@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClien
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.apache.hugegraph.structure.graph.Shard;
 
@@ -129,6 +131,21 @@ public class HugeGraphSourceSplitEnumerator
         List<Shard> shards;
         try {
             shards = vertex ? client.vertexShards(splitSize) : client.edgeShards(splitSize);
+        } catch (RuntimeException e) {
+            // Shard splitting is a scan-capable-backend feature. The in-memory backend rejects
+            // vertexShards/edgeShards, and the raw server error gives the user no way forward, so
+            // point them at the parallelism=1 label-list path (the original error is kept as
+            // cause).
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    String.format(
+                            "Failed to split %s label '%s' into shards for a parallel (parallelism>1) "
+                                    + "read. Shard scans require a scan-capable HugeGraph backend "
+                                    + "(RocksDB/HBase/Cassandra); the in-memory backend does not "
+                                    + "support them. Set parallelism=1 to read via a single "
+                                    + "label-list scan instead.",
+                            vertex ? "vertex" : "edge", sourceConfig.getLabel()),
+                    e);
         } finally {
             client.close();
         }

@@ -31,9 +31,9 @@ It performs a bounded scan of one vertex label or one edge label and checkpoints
 | `schema`           | Object  | No       | -        | Output property columns declared with `schema.fields`. Reserved graph columns are added by the connector. **When omitted, the connector auto-discovers all property columns of `label` from the server (types inferred, columns ordered by name).** See [Schema auto-discovery](#schema-auto-discovery). |
 | `label_type`       | Enum    | No       | `VERTEX` | Label type. Supported values: `VERTEX`, `EDGE`. |
 | `page_size`        | Integer | No       | `1000`   | Number of records per HugeGraph page. Must be in range `[100, 10000]`. |
-| `split_size`       | Long    | No       | `1048576` | Target size in bytes of each key-range shard when `parallelism > 1`. A larger value yields fewer, bigger shards. Ignored at `parallelism = 1`. Requires a scan-capable backend (RocksDB / HBase / Cassandra). |
-| `filter`           | Map     | No       | -        | Optional property equality conditions applied server-side, for example `{ country = "US", active = "true" }`. Only elements whose properties match all entries are returned. Every key must be a property of `label`; an unknown key fails at startup. When omitted, all elements of the label are read. **Cannot be combined with `parallelism > 1`** (the shard scan cannot push property filters server-side); the job fails at startup if both are set. |
-| `time_zone`        | String  | No       | Worker JVM default | ZoneId used to convert HugeGraph DATE epoch values, for example `UTC` or `Asia/Shanghai`. Set it explicitly when workers may use different JVM time zones. |
+| `split_size`       | Long    | No       | `1048576` | Target size in bytes of each key-range shard when `parallelism > 1`. A larger value yields fewer, bigger shards. Must be at least `1048576` (1 MiB, the HugeGraph minimum shard size) — a smaller value is rejected at startup to avoid shard explosion. Ignored at `parallelism = 1`. Requires a scan-capable backend (RocksDB / HBase / Cassandra). |
+| `filter`           | Map     | No       | -        | Optional property equality conditions applied server-side, for example `{ country = "US", active = "true" }`. Only elements whose properties match all entries are returned. Every key must be a property of `label` (an unknown key fails at startup), and each value is coerced to that property's type (e.g. `"true"` → boolean, `"7"` → the numeric type) so it matches server-side — a value that cannot be coerced fails at startup instead of silently returning 0 rows. When omitted, all elements of the label are read. **Cannot be combined with `parallelism > 1`** (the shard scan cannot push property filters server-side); the job fails at startup if both are set. |
+| `time_zone`        | String  | No       | Worker JVM default | ZoneId used to convert HugeGraph DATE values the server returns as an epoch/Date, for example `UTC` or `Asia/Shanghai`. It does not apply to DATE values the server already serializes as a wall-clock string (those carry no zone and are kept verbatim). Set it explicitly when workers may use different JVM time zones. |
 | `graph_space`      | String  | No       | `DEFAULT` | The graph space the graph belongs to. |
 | `username`         | String  | No       | -        | HugeGraph username. |
 | `password`         | String  | No       | -        | HugeGraph password. |
@@ -64,6 +64,7 @@ Columns prefixed with `~` are reserved columns added by the connector. HugeGraph
 | HugeGraph type | SeaTunnel type |
 |----------------|----------------|
 | `TEXT`         | `STRING`       |
+| `BYTE`         | `TINYINT`      |
 | `INT`          | `INT`          |
 | `LONG`         | `BIGINT`       |
 | `FLOAT`        | `FLOAT`        |
@@ -71,6 +72,7 @@ Columns prefixed with `~` are reserved columns added by the connector. HugeGraph
 | `BOOLEAN`      | `BOOLEAN`      |
 | `DATE`         | `TIMESTAMP`    |
 | `UUID`         | `STRING`       |
+| `OBJECT`       | `STRING`       |
 | `BLOB`         | `BYTES`        |
 
 ### Multi-valued (LIST / SET) properties
@@ -156,7 +158,7 @@ Notes:
 - Shard scans require a scan-capable backend (RocksDB / HBase / Cassandra). The `memory` backend does not support shard splitting; use `parallelism = 1` there.
 - A shard scan returns elements of all labels in the key range; the connector keeps only the configured `label`. On a graph where the target label is a small fraction of the data, a single-parallelism `filter`ed read may move less data even though it does not parallelize.
 - `filter` is not supported with `parallelism > 1`; keep `parallelism = 1` to use a server-side filter, or drop the filter to read in parallel.
-- Tune `split_size`: a smaller value yields more, smaller shards (finer load balancing, more requests); a larger value yields fewer, bigger shards.
+- Tune `split_size`: a smaller value yields more, smaller shards (finer load balancing, more requests); a larger value yields fewer, bigger shards. The minimum is `1048576` (1 MiB); smaller values are rejected to avoid splitting the keyspace into an excessive number of shards.
 
 ## Changelog
 

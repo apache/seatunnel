@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClien
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.serializer.direct.util.SplicingIdGenerator;
 import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -190,6 +192,84 @@ class VertexMapperTest {
             // The unfolded id column is not written as a property; only shared props are.
             assertEquals(30, ((Vertex) element).properties().get("age"));
         }
+    }
+
+    @Test
+    void testPrimaryKeyIdEscapesSeparatorLikeServer() {
+        // A PRIMARY_KEY value containing the '!' separator must be backtick-escaped exactly as the
+        // HugeGraph server assembles the id (SplicingIdGenerator.concatValues). EdgeMapper already
+        // uses concatValues for the same concept; VertexMapper must match so DELETE / key-changing
+        // UPDATE target the real vertex id instead of an ambiguous, unescaped join.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        PropertyKey name = propertyKey("name", DataType.TEXT);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKey("name")).thenReturn(name);
+
+        MappingConfig mapping = vertexMapping(IdStrategy.PRIMARY_KEY, "name");
+        VertexMapper mapper = new VertexMapper(mapping, fields("name"), client);
+
+        Object id = mapper.extractId(new SeaTunnelRow(new Object[] {"a!b"}));
+
+        String expected = "1:" + SplicingIdGenerator.concatValues(Collections.singletonList("a!b"));
+        assertEquals(expected, id);
+        // The naive join silently produces an ambiguous, server-mismatched id.
+        assertNotEquals("1:a!b", id);
+    }
+
+    @Test
+    void testMultiFieldCustomizeStringIdEscapesSeparatorToAvoidCollision() {
+        // ("x:y","z") and ("x","y:z") both collapsed to "x:y:z" with a raw ':' join, so different
+        // rows produced the same vertex id and overwrote each other. Escaping must keep them
+        // distinct.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKeyOrNull("a")).thenReturn(null);
+        when(client.getPropertyKeyOrNull("b")).thenReturn(null);
+
+        MappingConfig mapping = new MappingConfig();
+        mapping.setType(MappingConfig.LabelType.VERTEX);
+        mapping.setLabel("person");
+        mapping.setIdStrategy(IdStrategy.CUSTOMIZE_STRING);
+        mapping.setIdFields(Arrays.asList("a", "b"));
+        VertexMapper mapper = new VertexMapper(mapping, fields("a", "b"), client);
+
+        Object id1 = mapper.extractId(new SeaTunnelRow(new Object[] {"x:y", "z"}));
+        Object id2 = mapper.extractId(new SeaTunnelRow(new Object[] {"x", "y:z"}));
+
+        assertNotEquals(id1, id2, "Distinct field tuples must not collapse to the same id");
+    }
+
+    @Test
+    void testSingleFieldCustomizeStringIdIsVerbatim() {
+        // A single id field is unambiguous, so its value (even containing ':') is used as-is —
+        // escaping it would change ids already written for the common single-field case.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId("person")).thenReturn("1");
+        when(client.getPropertyKeyOrNull("a")).thenReturn(null);
+
+        MappingConfig mapping = new MappingConfig();
+        mapping.setType(MappingConfig.LabelType.VERTEX);
+        mapping.setLabel("person");
+        mapping.setIdStrategy(IdStrategy.CUSTOMIZE_STRING);
+        mapping.setIdFields(Collections.singletonList("a"));
+        VertexMapper mapper = new VertexMapper(mapping, fields("a"), client);
+
+        assertEquals("x:y", mapper.extractId(new SeaTunnelRow(new Object[] {"x:y"})));
+    }
+
+    @Test
+    void testCustomizeNumberIdRejectsFractionalConsistently() {
+        // A Number 1.9 was silently truncated to 1 while the string "1.9" threw — same logical
+        // input,
+        // different result. Both must now be rejected; integral decimals (1.0 / "1.0") are
+        // accepted.
+        assertEquals(1L, VertexMapper.coerceNumberId(1L));
+        assertEquals(1L, VertexMapper.coerceNumberId("1"));
+        assertEquals(1L, VertexMapper.coerceNumberId(1.0d));
+        assertEquals(1L, VertexMapper.coerceNumberId("1.0"));
+        assertThrows(HugeGraphConnectorException.class, () -> VertexMapper.coerceNumberId(1.9d));
+        assertThrows(HugeGraphConnectorException.class, () -> VertexMapper.coerceNumberId("1.9"));
+        assertThrows(HugeGraphConnectorException.class, () -> VertexMapper.coerceNumberId("abc"));
     }
 
     @Test

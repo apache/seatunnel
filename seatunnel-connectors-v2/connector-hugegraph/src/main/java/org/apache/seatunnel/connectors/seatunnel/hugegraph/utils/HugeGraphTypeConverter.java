@@ -39,10 +39,12 @@ public final class HugeGraphTypeConverter {
 
     /**
      * Maps a HugeGraph property type + cardinality to a SeaTunnel type. A {@code LIST}/{@code SET}
-     * cardinality becomes {@code array<element>}; {@code SINGLE} (or null) stays scalar.
+     * cardinality becomes {@code array<element>}; {@code SINGLE} (or null) stays scalar. The {@code
+     * propertyName} is used only to make any error message point at the offending column.
      */
-    public static SeaTunnelDataType<?> toSeaTunnelType(DataType dataType, Cardinality cardinality) {
-        SeaTunnelDataType<?> scalar = toSeaTunnelScalarType(dataType);
+    public static SeaTunnelDataType<?> toSeaTunnelType(
+            DataType dataType, Cardinality cardinality, String propertyName) {
+        SeaTunnelDataType<?> scalar = toSeaTunnelScalarType(dataType, propertyName);
         if (cardinality == null || cardinality == Cardinality.SINGLE) {
             return scalar;
         }
@@ -52,16 +54,19 @@ public final class HugeGraphTypeConverter {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                     String.format(
-                            "Property type BLOB with cardinality %s is not supported for reads.",
-                            cardinality));
+                            "Property '%s': type BLOB with cardinality %s is not supported for reads.",
+                            propertyName, cardinality));
         }
         return ArrayType.of(scalar);
     }
 
-    public static SeaTunnelDataType<?> toSeaTunnelScalarType(DataType dataType) {
+    public static SeaTunnelDataType<?> toSeaTunnelScalarType(
+            DataType dataType, String propertyName) {
         switch (dataType) {
             case TEXT:
                 return BasicType.STRING_TYPE;
+            case BYTE:
+                return BasicType.BYTE_TYPE;
             case INT:
                 return BasicType.INT_TYPE;
             case LONG:
@@ -76,13 +81,19 @@ public final class HugeGraphTypeConverter {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case UUID:
                 return BasicType.STRING_TYPE;
+            case OBJECT:
+                // OBJECT holds an arbitrary serialized value with no fixed shape; read it as its
+                // string representation so a single such column does not block the whole label
+                // read.
+                return BasicType.STRING_TYPE;
             case BLOB:
                 return PrimitiveByteArrayType.INSTANCE;
             default:
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
                         String.format(
-                                "Unsupported HugeGraph property type for source: %s", dataType));
+                                "Property '%s': unsupported HugeGraph property type for source: %s",
+                                propertyName, dataType));
         }
     }
 }

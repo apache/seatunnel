@@ -55,6 +55,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -346,9 +347,14 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
 
         // A filter keyed on a non-existent property would be silently dropped by the server and
         // return the whole label — fail fast so the misconfiguration surfaces at open() instead.
+        // Values are also coerced to the property's server type: the server matches by typed value,
+        // so a BOOLEAN property filtered with the string "true" (or a LONG filtered with an int)
+        // would otherwise match nothing and return 0 rows with no error.
         Map<String, Object> filter = sourceConfig.getFilter();
-        if (filter != null) {
-            for (String key : filter.keySet()) {
+        if (filter != null && !filter.isEmpty()) {
+            Map<String, Object> coerced = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : filter.entrySet()) {
+                String key = entry.getKey();
                 if (!labelProperties.contains(key)) {
                     throw new HugeGraphConnectorException(
                             HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
@@ -357,7 +363,71 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
                                             + "Available properties: %s",
                                     key, sourceConfig.getLabel(), labelProperties));
                 }
+                coerced.put(
+                        key,
+                        coerceFilterValue(key, entry.getValue(), client.getPropertyDataType(key)));
             }
+            sourceConfig.setFilter(coerced);
+        }
+    }
+
+    /**
+     * Coerces a filter value to the Java type the HugeGraph server matches against for the
+     * property's type — config often supplies a string or a loosely-typed number. A value that
+     * cannot be coerced (e.g. {@code "yes"} for a BOOLEAN) fails fast here instead of silently
+     * matching nothing. DATE/BLOB/OBJECT are passed through unchanged (not sensibly filterable).
+     */
+    static Object coerceFilterValue(String key, Object value, DataType dataType) {
+        if (value == null) {
+            return null;
+        }
+        String raw = value.toString().trim();
+        try {
+            switch (dataType) {
+                case BOOLEAN:
+                    if (value instanceof Boolean) {
+                        return value;
+                    }
+                    if ("true".equalsIgnoreCase(raw)) {
+                        return Boolean.TRUE;
+                    }
+                    if ("false".equalsIgnoreCase(raw)) {
+                        return Boolean.FALSE;
+                    }
+                    throw new IllegalArgumentException("expected true or false");
+                case BYTE:
+                    return value instanceof Number
+                            ? ((Number) value).byteValue()
+                            : Byte.valueOf(raw);
+                case INT:
+                    return value instanceof Number
+                            ? ((Number) value).intValue()
+                            : Integer.valueOf(raw);
+                case LONG:
+                    return value instanceof Number
+                            ? ((Number) value).longValue()
+                            : Long.valueOf(raw);
+                case FLOAT:
+                    return value instanceof Number
+                            ? ((Number) value).floatValue()
+                            : Float.valueOf(raw);
+                case DOUBLE:
+                    return value instanceof Number
+                            ? ((Number) value).doubleValue()
+                            : Double.valueOf(raw);
+                case TEXT:
+                case UUID:
+                    return raw;
+                default:
+                    return value;
+            }
+        } catch (RuntimeException e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "filter value '%s' for property '%s' is not a valid %s.",
+                            value, key, dataType),
+                    e);
         }
     }
 
@@ -379,7 +449,7 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
                             propertyName,
                             cardinality,
                             seaTunnelType,
-                            toSeaTunnelType(propertyDataType, Cardinality.SINGLE)));
+                            toSeaTunnelType(propertyDataType, Cardinality.SINGLE, propertyName)));
         }
         if (declaredArray && !serverIsMulti) {
             throw new HugeGraphConnectorException(
@@ -389,7 +459,8 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
                                     + "cardinality SINGLE on the server (type %s).",
                             propertyName, propertyDataType));
         }
-        SeaTunnelDataType<?> expectedType = toSeaTunnelType(propertyDataType, cardinality);
+        SeaTunnelDataType<?> expectedType =
+                toSeaTunnelType(propertyDataType, cardinality, propertyName);
         if (!expectedType.equals(seaTunnelType)) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
@@ -404,8 +475,9 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
         }
     }
 
-    private SeaTunnelDataType<?> toSeaTunnelType(DataType dataType, Cardinality cardinality) {
-        return HugeGraphTypeConverter.toSeaTunnelType(dataType, cardinality);
+    private SeaTunnelDataType<?> toSeaTunnelType(
+            DataType dataType, Cardinality cardinality, String propertyName) {
+        return HugeGraphTypeConverter.toSeaTunnelType(dataType, cardinality, propertyName);
     }
 
     private void collectVertices(List<Vertex> vertices, Collector<SeaTunnelRow> output) {
@@ -472,6 +544,8 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
         switch (targetType.getSqlType()) {
             case ARRAY:
                 return convertArrayValue(value, (ArrayType<?, ?>) targetType);
+            case TINYINT:
+                return ((Number) value).byteValue();
             case INT:
                 return ((Number) value).intValue();
             case BIGINT:
@@ -498,6 +572,10 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
                     return LocalDateTime.ofInstant(
                             new Date(((Number) value).longValue()).toInstant(), getSourceZoneId());
                 }
+                // A server-serialized wall-clock string carries no zone, so time_zone cannot be
+                // applied here without knowing the server's serialization zone — keep the value
+                // verbatim (documented on the time_zone option). time_zone applies only to the
+                // epoch/Date branches above.
                 return parseDateTime(value.toString());
             case STRING:
                 return value.toString();

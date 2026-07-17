@@ -254,6 +254,28 @@ class HugeGraphSinkWriterUpdateTest {
     }
 
     @Test
+    void automaticVertexDeleteRejectedWithClearMessage() {
+        // DELETE of an AUTOMATIC-id vertex must fail with an id-strategy message, NOT the
+        // misleading
+        // "required ID field is null" — an AUTOMATIC vertex has no id field to begin with.
+        MappingConfig cfg = new MappingConfig();
+        cfg.setType(MappingConfig.LabelType.VERTEX);
+        cfg.setLabel("auto");
+        cfg.setIdStrategy(IdStrategy.AUTOMATIC);
+        HugeGraphSinkWriter.MappingEntry entry =
+                new HugeGraphSinkWriter.MappingEntry(cfg, new FakeMapper());
+
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSinkWriter.rejectAutomaticVertexDelete(
+                                        Collections.singletonList(entry)));
+        assertTrue(ex.getMessage().contains("AUTOMATIC"));
+        assertTrue(ex.getMessage().contains("DELETE"));
+    }
+
+    @Test
     void extractIdFailureDoesNotProduceSuperseded() {
         // extractId throwing mid-scan must abort the plan without any Superseded — otherwise the
         // caller would delete based on a partial view of the mappings.

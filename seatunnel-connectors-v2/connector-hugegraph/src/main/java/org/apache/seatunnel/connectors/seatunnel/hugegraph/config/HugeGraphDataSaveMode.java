@@ -27,9 +27,11 @@ public enum HugeGraphDataSaveMode {
     APPEND_DATA,
 
     /**
-     * Clear the <em>entire</em> graph (all vertices and edges of every label, plus its schema)
-     * before writing, via the HugeGraph {@code clearGraph} admin API. This is destructive and
-     * affects labels not touched by this job — use only for full reloads into a dedicated graph.
+     * Before writing, delete the existing data of <em>only the labels this job's mappings
+     * target</em> (edges then vertices), leaving their schema and any other labels' data intact.
+     * Deleting a vertex also removes its incident edges on the server. Scoped per label so, with a
+     * multi-table sink, dropping one table does not wipe another; and on checkpoint restart the
+     * drop is not re-run, so data written before the restart survives.
      */
     DROP_DATA
 }

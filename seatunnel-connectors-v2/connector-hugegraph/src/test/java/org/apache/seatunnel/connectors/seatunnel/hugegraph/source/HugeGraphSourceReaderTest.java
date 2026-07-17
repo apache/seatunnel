@@ -573,6 +573,33 @@ class HugeGraphSourceReaderTest {
         assertEquals(1, context.noMoreElementCount);
     }
 
+    @Test
+    void filterValueCoercedToPropertyType() {
+        // A BOOLEAN property filtered with the string "true" must become a real Boolean, and a LONG
+        // filtered with a loosely-typed value must become a Long — otherwise the server matches by
+        // typed value and silently returns 0 rows.
+        assertEquals(
+                Boolean.TRUE,
+                HugeGraphSourceReader.coerceFilterValue("active", "true", DataType.BOOLEAN));
+        assertEquals(
+                Boolean.FALSE,
+                HugeGraphSourceReader.coerceFilterValue("active", "FALSE", DataType.BOOLEAN));
+        assertEquals(7L, HugeGraphSourceReader.coerceFilterValue("count", "7", DataType.LONG));
+        assertEquals(7L, HugeGraphSourceReader.coerceFilterValue("count", 7, DataType.LONG));
+        assertEquals("x", HugeGraphSourceReader.coerceFilterValue("name", "x", DataType.TEXT));
+    }
+
+    @Test
+    void filterValueThatCannotCoerceFailsFast() {
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSourceReader.coerceFilterValue(
+                                        "active", "yes", DataType.BOOLEAN));
+        assertTrue(ex.getMessage().contains("active"));
+    }
+
     private static void drain(
             HugeGraphSourceReader reader, ListCollector collector, CountingContext context)
             throws Exception {

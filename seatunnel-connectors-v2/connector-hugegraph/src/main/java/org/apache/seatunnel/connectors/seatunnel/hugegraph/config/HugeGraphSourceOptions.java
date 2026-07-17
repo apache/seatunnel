@@ -28,6 +28,12 @@ public class HugeGraphSourceOptions {
 
     public static final int MIN_PAGE_SIZE = 100;
     public static final int MAX_PAGE_SIZE = 10000;
+    // Lower bound for split_size (1 MiB), matching the HugeGraph server's own minimum shard size.
+    // A smaller value shatters the keyspace into a huge number of shards — one split per shard,
+    // each
+    // persisted into every checkpoint — risking OOM / oversized checkpoints, and the server rejects
+    // it anyway; reject it up front with a clear message.
+    public static final long MIN_SPLIT_SIZE = 1048576L;
 
     public static final Option<String> LABEL =
             Options.key("label")
@@ -52,8 +58,14 @@ public class HugeGraphSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Time zone used to convert HugeGraph DATE epoch values. "
-                                    + "When omitted, the worker JVM default time zone is used for backward compatibility.");
+                            "Time zone used to convert HugeGraph DATE values that the server returns "
+                                    + "as an epoch/Date (the instant is rendered as a local date-time "
+                                    + "in this zone). It does NOT apply when the server returns a DATE "
+                                    + "already serialized as a wall-clock string (e.g. "
+                                    + "'yyyy-MM-dd HH:mm:ss.SSS') — that value is kept verbatim, since "
+                                    + "its original zone is not carried in the string. When omitted, "
+                                    + "the worker JVM default time zone is used for backward "
+                                    + "compatibility.");
 
     public static final Option<Long> SPLIT_SIZE =
             Options.key("split_size")

@@ -111,7 +111,6 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         sinkConfig.getBatchIntervalMs(),
                         sinkConfig.isBatchFailureFallback(),
                         sinkConfig.isCheckVertex(),
-                        sinkConfig.getUpdateStrategies(),
                         sinkConfig.getMaxInsertErrors(),
                         sinkConfig.getFailureDataPath(),
                         subtaskIndex);
@@ -134,6 +133,19 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             Map<String, Integer> fieldsIndex = resolveFieldsIndex(mapping, availableFieldsIndex);
             GraphDataMapper mapper;
             if (mapping.getType() == LabelType.VERTEX) {
+                if (mapping.getIdStrategy()
+                        == org.apache.hugegraph.structure.constant.IdStrategy.AUTOMATIC) {
+                    // AUTOMATIC ids are server-assigned and not derivable from the row, so there is
+                    // no key to deduplicate on: under at-least-once, a replayed row inserts a NEW
+                    // vertex each time (duplicates). Warn so the trade-off is visible; use
+                    // PRIMARY_KEY / CUSTOMIZE_* for idempotent upserts.
+                    LOG.warn(
+                            "Mapping[VERTEX/{}] uses AUTOMATIC ids: under at-least-once delivery a "
+                                    + "replayed row creates a duplicate vertex, and DELETE is not "
+                                    + "supported. Use PRIMARY_KEY or CUSTOMIZE_* ids for idempotent "
+                                    + "writes.",
+                            mapping.getLabel());
+                }
                 mapper = new VertexMapper(mapping, fieldsIndex, client);
             } else {
                 mapper = new EdgeMapper(mapping, fieldsIndex, client);
@@ -296,6 +308,29 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                         + "jobs, but received a %s row. Disable unfold or run this "
                                         + "as an append-only job.",
                                 entry.config.getType(), entry.config.getLabel(), rowKind));
+            }
+        }
+    }
+
+    /**
+     * AUTOMATIC-id vertices have no client-derivable id (the server assigns it), so a DELETE cannot
+     * identify the target. Reject with a clear message instead of the misleading "required ID field
+     * is null" — there is no id field to be null. Package-private + static so it can be unit-tested
+     * without constructing a real writer/client.
+     */
+    static void rejectAutomaticVertexDelete(List<MappingEntry> mappingEntries) {
+        for (MappingEntry entry : mappingEntries) {
+            if (entry.config.getType() == LabelType.VERTEX
+                    && entry.config.getIdStrategy()
+                            == org.apache.hugegraph.structure.constant.IdStrategy.AUTOMATIC) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        String.format(
+                                "Mapping[VERTEX/%s]: DELETE is not supported with AUTOMATIC IDs "
+                                        + "because the target vertex cannot be identified from row "
+                                        + "data. Use a PRIMARY_KEY or CUSTOMIZE_* id strategy if this "
+                                        + "stream emits deletes.",
+                                entry.config.getLabel()));
             }
         }
     }
@@ -478,7 +513,11 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (element == null) {
             return null;
         }
-        return new GraphElementEnvelope(entry.config.getLabel(), entry.config.getType(), element);
+        return new GraphElementEnvelope(
+                entry.config.getLabel(),
+                entry.config.getType(),
+                element,
+                entry.config.getUpdateStrategies());
     }
 
     /**
@@ -507,7 +546,10 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
             envelopes.add(
                     new GraphElementEnvelope(
-                            entry.config.getLabel(), entry.config.getType(), element));
+                            entry.config.getLabel(),
+                            entry.config.getType(),
+                            element,
+                            entry.config.getUpdateStrategies()));
         }
         return envelopes;
     }
@@ -542,6 +584,7 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     private void handleDelete(SeaTunnelRow row) {
         rejectUnfoldForChangelog("DELETE");
+        rejectAutomaticVertexDelete(mappingEntries);
         try {
             buffer.flush();
         } catch (IOException e) {

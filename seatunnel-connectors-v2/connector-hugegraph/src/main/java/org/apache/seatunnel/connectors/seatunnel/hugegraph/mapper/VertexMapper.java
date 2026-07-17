@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.DataTypeUtil;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.E;
 
+import org.apache.hugegraph.serializer.direct.util.SplicingIdGenerator;
 import org.apache.hugegraph.structure.GraphElement;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
@@ -173,9 +174,7 @@ public class VertexMapper implements GraphDataMapper {
             case CUSTOMIZE_STRING:
                 return checkVertexIdLength(String.valueOf(elem));
             case CUSTOMIZE_NUMBER:
-                return elem instanceof Number
-                        ? ((Number) elem).longValue()
-                        : Long.parseLong(String.valueOf(elem));
+                return coerceNumberId(elem);
             case CUSTOMIZE_UUID:
                 return elem instanceof UUID ? elem : UUID.fromString(String.valueOf(elem));
             default:
@@ -244,9 +243,7 @@ public class VertexMapper implements GraphDataMapper {
                 case CUSTOMIZE_STRING:
                     return checkVertexIdLength(String.valueOf(raw));
                 case CUSTOMIZE_NUMBER:
-                    return raw instanceof Number
-                            ? ((Number) raw).longValue()
-                            : Long.parseLong(String.valueOf(raw));
+                    return coerceNumberId(raw);
                 case CUSTOMIZE_UUID:
                     return UUID.fromString(String.valueOf(raw));
                 default:
@@ -273,10 +270,7 @@ public class VertexMapper implements GraphDataMapper {
                         || stringValues.stream().anyMatch(this::isConsideredNull)) {
                     return null;
                 }
-                return checkVertexIdLength(
-                        stringValues.stream()
-                                .map(String::valueOf)
-                                .collect(Collectors.joining(":")));
+                return spliceCustomizeStringId(stringValues);
             case CUSTOMIZE_NUMBER:
                 List<Object> numberValues = getFieldValues(row, idFields);
                 if (numberValues.size() != 1) {
@@ -286,11 +280,7 @@ public class VertexMapper implements GraphDataMapper {
                 if (isConsideredNull(numValue)) {
                     return null;
                 }
-                if (numValue instanceof Number) {
-                    return ((Number) numValue).longValue();
-                } else {
-                    return Long.parseLong(String.valueOf(numValue));
-                }
+                return coerceNumberId(numValue);
             case CUSTOMIZE_UUID:
                 List<Object> uuidValues = getFieldValues(row, idFields);
                 if (uuidValues.size() != 1) {
@@ -367,9 +357,67 @@ public class VertexMapper implements GraphDataMapper {
     }
 
     private String spliceVertexId(List<Object> primaryValues) {
-        String joinedValues =
-                primaryValues.stream().map(Object::toString).collect(Collectors.joining("!"));
-        return checkVertexIdLength(String.format("%s:%s", labelId, joinedValues));
+        // HugeGraph primary-key vertex id = {vertexLabelId}:{concatValues(pk)}; concatValues joins
+        // with '!' and backtick-escapes any '!' in a value, matching how the server assembles the
+        // id. EdgeMapper uses the same helper for the same concept — a raw join here would produce
+        // an ambiguous, server-mismatched id when a pk value contains '!', so DELETE / key-changing
+        // UPDATE would target the wrong (or a non-existent) vertex.
+        return checkVertexIdLength(
+                String.format("%s:%s", labelId, SplicingIdGenerator.concatValues(primaryValues)));
+    }
+
+    /**
+     * Assembles a CUSTOMIZE_STRING id from its id-field values. A single field is used verbatim —
+     * it is unambiguous, and escaping it would change ids already written for the common
+     * single-field case. Multiple fields are joined with ':' after backslash-escaping any ':' (and
+     * the '\' escape char itself) in each value, so distinct field tuples cannot collapse to the
+     * same id — e.g. ("x:y","z") and ("x","y:z") no longer both yield "x:y:z" and overwrite each
+     * other. Shared by {@link VertexMapper} and {@code EdgeMapper} so both build ids identically.
+     */
+    static String spliceCustomizeStringId(List<Object> values) {
+        if (values.size() == 1) {
+            return checkVertexIdLength(String.valueOf(values.get(0)));
+        }
+        return checkVertexIdLength(
+                values.stream()
+                        .map(String::valueOf)
+                        .map(VertexMapper::escapeIdSegment)
+                        .collect(Collectors.joining(":")));
+    }
+
+    private static String escapeIdSegment(String value) {
+        return value.replace("\\", "\\\\").replace(":", "\\:");
+    }
+
+    /**
+     * Coerces a CUSTOMIZE_NUMBER id value to a long, consistently for both Number and String
+     * inputs. A fractional value ({@code 1.9} whether it arrives as a Double or the string "1.9")
+     * is rejected rather than silently truncated to {@code 1}; an integral decimal like {@code
+     * 1.0}/"1.0" is accepted. Shared by {@link VertexMapper} and {@code EdgeMapper} so both behave
+     * identically.
+     */
+    static long coerceNumberId(Object value) {
+        java.math.BigDecimal decimal;
+        try {
+            decimal = new java.math.BigDecimal(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format("CUSTOMIZE_NUMBER id value '%s' is not a number.", value),
+                    e);
+        }
+        try {
+            return decimal.longValueExact();
+        } catch (ArithmeticException e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "CUSTOMIZE_NUMBER id value '%s' is not an integer: a fractional or "
+                                    + "out-of-range value cannot be used as a numeric id (it would "
+                                    + "otherwise be silently truncated).",
+                            value),
+                    e);
+        }
     }
 
     /** HugeGraph server per-vertex id cap (see loader Constants.VERTEX_ID_LIMIT). */
