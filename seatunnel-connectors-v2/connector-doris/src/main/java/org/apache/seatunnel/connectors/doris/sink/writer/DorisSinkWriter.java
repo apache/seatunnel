@@ -194,7 +194,11 @@ public class DorisSinkWriter
         long txnId = respContent.getTxnId();
 
         return Optional.of(
-                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+                new DorisCommitInfo(
+                        dorisStreamLoad.getHostPort(),
+                        dorisStreamLoad.getDb(),
+                        txnId,
+                        dorisStreamLoad.getLabel()));
     }
 
     private RespContent flush() throws IOException {
