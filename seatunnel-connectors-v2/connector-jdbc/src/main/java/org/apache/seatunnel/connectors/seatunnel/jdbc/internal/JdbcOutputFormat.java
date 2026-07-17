@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -29,7 +30,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -49,6 +55,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
+    private transient volatile boolean flushFailed = false;
     private transient volatile Exception flushException;
     private transient long lastFlushTimeMs;
 
@@ -118,6 +125,15 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
+        if (flushException != null) {
+            LOG.warn(
+                    String.format(
+                            "An exception occurred during the previous flush process %s, skipping"
+                                    + " this flush",
+                            ExceptionUtils.getMessage(flushException)));
+            return;
+        }
+
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -128,10 +144,42 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             try {
                 attemptFlush();
                 batchCount = 0;
+                flushFailed = false;
+                flushException = null;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
             } catch (SQLException e) {
+                recordFlushException(e);
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+
+                List<SQLException> sqlExceptions = findSqlExceptions(e);
+                SQLException nonRetryableDataException =
+                        findNonRetryableDataException(sqlExceptions);
+                if (nonRetryableDataException != null) {
+                    boolean connectionValid;
+                    try {
+                        connectionValid = connectionProvider.isConnectionValid();
+                    } catch (SQLException exception) {
+                        LOG.error("JDBC connection validity check failed.", exception);
+                        throw new JdbcConnectorException(
+                                JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                                "JDBC connection validity check failed",
+                                exception);
+                    }
+                    if (connectionValid) {
+                        LOG.error(
+                                "Flush failed by non-retryable data error. batchCount={}, retry"
+                                        + " times = {}, sqlState={}, errorCode={}",
+                                batchCount,
+                                i,
+                                nonRetryableDataException.getSQLState(),
+                                nonRetryableDataException.getErrorCode(),
+                                e);
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    }
+                }
+
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
@@ -150,7 +198,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             exception);
                 }
                 try {
-                    Thread.sleep(sleepMs * i);
+                    sleepBeforeFlushRetry((long) sleepMs * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new JdbcConnectorException(
@@ -178,17 +226,22 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     private void flushBufferedRecords() {
-        if (batchCount > 0) {
+        if (batchCount > 0 && !flushFailed) {
             try {
                 flush();
             } catch (Exception e) {
                 LOG.warn("Writing records to JDBC failed.", e);
+                flushFailed = true;
                 flushException =
                         new JdbcConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Writing records to JDBC failed.",
                                 e);
             }
+        } else if (batchCount > 0) {
+            LOG.warn(
+                    "Skip flushing buffered JDBC records during close because the previous flush"
+                            + " failed.");
         }
     }
 
@@ -211,6 +264,77 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
         return batchIntervalMs > 0
                 && (System.currentTimeMillis() - lastFlushTimeMs) >= batchIntervalMs;
+    }
+
+    private void recordFlushException(Exception e) {
+        flushFailed = true;
+        flushException =
+                e instanceof JdbcConnectorException
+                        ? e
+                        : new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Writing records to JDBC failed.",
+                                e);
+    }
+
+    protected void sleepBeforeFlushRetry(long sleepMs) throws InterruptedException {
+        Thread.sleep(sleepMs);
+    }
+
+    private List<SQLException> findSqlExceptions(Throwable throwable) {
+        List<SQLException> sqlExceptions = new ArrayList<>();
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException) {
+                collectSqlExceptionChain((SQLException) current, sqlExceptions);
+            }
+            current = current.getCause();
+        }
+        return sqlExceptions;
+    }
+
+    private void collectSqlExceptionChain(
+            SQLException sqlException, List<SQLException> sqlExceptions) {
+        SQLException current = sqlException;
+        while (current != null) {
+            sqlExceptions.add(current);
+            current = current.getNextException();
+        }
+    }
+
+    private SQLException findNonRetryableDataException(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            if (isNonRetryableDataException(sqlException)) {
+                return sqlException;
+            }
+        }
+        return null;
+    }
+
+    private boolean isNonRetryableDataException(SQLException sqlException) {
+        if (sqlException instanceof SQLDataException
+                || sqlException instanceof SQLIntegrityConstraintViolationException) {
+            return true;
+        }
+
+        String sqlState = sqlException.getSQLState();
+        if (sqlState != null && (sqlState.startsWith("22") || sqlState.startsWith("23"))) {
+            return true;
+        }
+
+        return isOracleDataException(sqlException);
+    }
+
+    private boolean isOracleDataException(SQLException sqlException) {
+        String message = sqlException.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.toUpperCase(Locale.ROOT);
+        int vendorCode = sqlException.getErrorCode();
+        return (vendorCode == 1 && normalizedMessage.contains("ORA-00001"))
+                || (vendorCode == 12899 && normalizedMessage.contains("ORA-12899"));
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {

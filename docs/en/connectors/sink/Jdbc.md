@@ -221,6 +221,9 @@ exactly-once semantics
 
 Automatic transaction commit is enabled by default
 
+For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_commit = true`.
+This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
+
 ### field_ide [String]
 
 The field "field_ide" is used to identify whether the field needs to be converted to uppercase or lowercase when
@@ -359,7 +362,7 @@ When set to `APPEND_VALUES`, SeaTunnel adds the Oracle `APPEND_VALUES` hint to g
 INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
-This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`.
+This option is only supported for Oracle JDBC sink insert-only writes. It requires `generate_sink_sql = true`, `auto_commit = true`, no custom `query`, no `primary_keys`, `is_exactly_once = false`, and `support_upsert_by_insert_only = false`. Oracle sink still uses manual commit internally when writing data.
 
 ### create_index [boolean]
 

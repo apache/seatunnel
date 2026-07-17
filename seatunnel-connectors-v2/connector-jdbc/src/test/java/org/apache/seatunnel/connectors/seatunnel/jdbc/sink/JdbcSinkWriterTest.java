@@ -19,11 +19,29 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverPropertyInfo;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.Properties;
+import java.util.logging.Logger;
 
 /** Tests JDBC sink connection pool validation query customization. */
 class JdbcSinkWriterTest {
@@ -60,5 +78,88 @@ class JdbcSinkWriterTest {
 
         Assertions.assertNull(dataSource.getConnectionTestQuery());
         dataSource.close();
+    }
+
+    /** Oracle sink ignores user auto_commit=true at runtime to keep failed batches atomic. */
+    @Test
+    void testOracleSinkResourceManagerUsesManualCommit() {
+        JdbcDialect dialect = Mockito.mock(JdbcDialect.class);
+        Mockito.when(dialect.dialectName()).thenReturn(DatabaseIdentifier.ORACLE);
+        Mockito.when(dialect.getJdbcConnectionProvider(Mockito.any()))
+                .thenReturn(Mockito.mock(JdbcConnectionProvider.class));
+        Mockito.when(dialect.getRowConverter()).thenReturn(Mockito.mock(JdbcRowConverter.class));
+
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName(DummyDriver.class.getName())
+                        .url("jdbc:dummy:oracle-auto-commit")
+                        .autoCommit(true)
+                        .build();
+        JdbcSinkConfig jdbcSinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(jdbcConnectionConfig)
+                        .simpleSql("INSERT INTO TEST_TABLE(ID) VALUES (?)")
+                        .build();
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 22L, false, null, "ID"))
+                        .build();
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        null,
+                        Mockito.mock(SinkWriter.Context.class),
+                        dialect,
+                        jdbcSinkConfig,
+                        tableSchema,
+                        tableSchema,
+                        null);
+
+        MultiTableResourceManager<ConnectionPoolManager> resourceManager =
+                writer.initMultiTableResourceManager(1, 1);
+
+        try {
+            ConnectionPoolManager connectionPoolManager =
+                    resourceManager.getSharedResource().orElseThrow(AssertionError::new);
+            Assertions.assertFalse(connectionPoolManager.getConnectionPool().isAutoCommit());
+        } finally {
+            resourceManager.close();
+        }
+    }
+
+    public static class DummyDriver implements Driver {
+        @Override
+        public Connection connect(String url, Properties info) {
+            return null;
+        }
+
+        @Override
+        public boolean acceptsURL(String url) {
+            return url != null && url.startsWith("jdbc:dummy:");
+        }
+
+        @Override
+        public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
+            return new DriverPropertyInfo[0];
+        }
+
+        @Override
+        public int getMajorVersion() {
+            return 1;
+        }
+
+        @Override
+        public int getMinorVersion() {
+            return 0;
+        }
+
+        @Override
+        public boolean jdbcCompliant() {
+            return false;
+        }
+
+        @Override
+        public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            throw new SQLFeatureNotSupportedException();
+        }
     }
 }
