@@ -8,12 +8,15 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 The HugeGraph source connector reads graph data from Apache HugeGraph through the HugeGraph REST API.
 
-V1 supports bounded full-label scans with a single reader. It reads either one vertex label or one edge label, checkpoints at page boundaries, and follows HugeGraph page markers until the server returns `page = null`.
+It performs a bounded scan of one vertex label or one edge label and checkpoints its progress so a job can resume after failover.
+
+- At `parallelism = 1` it pages the label via the server-side list API, following HugeGraph page markers until the server returns `page = null`. Server-side `filter` (property-equality) is applied in this mode.
+- At `parallelism > 1` it splits the keyspace into shards (via the HugeGraph `traverser().vertexShards / edgeShards` API) and scans them across parallel readers. Because the shard scan is by key range and returns all labels, the connector filters to the configured `label` client-side. See [Parallel read](#parallel-read).
 
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
@@ -25,10 +28,11 @@ V1 supports bounded full-label scans with a single reader. It reads either one v
 | `protocol`         | String  | No       | `http`   | Server protocol: `http` or `https`. HTTPS uses the JVM trust store. |
 | `graph_name`       | String  | Yes      | -        | HugeGraph graph name. |
 | `label`            | String  | Yes      | -        | Vertex label or edge label to read. |
-| `schema`           | Object  | Yes      | -        | Output property columns declared with `schema.fields`. Reserved graph columns are added by the connector. |
+| `schema`           | Object  | No       | -        | Output property columns declared with `schema.fields`. Reserved graph columns are added by the connector. **When omitted, the connector auto-discovers all property columns of `label` from the server (types inferred, columns ordered by name).** See [Schema auto-discovery](#schema-auto-discovery). |
 | `label_type`       | Enum    | No       | `VERTEX` | Label type. Supported values: `VERTEX`, `EDGE`. |
 | `page_size`        | Integer | No       | `1000`   | Number of records per HugeGraph page. Must be in range `[100, 10000]`. |
-| `filter`           | Map     | No       | -        | Optional property equality conditions applied server-side, for example `{ country = "US", active = "true" }`. Only elements whose properties match all entries are returned. Every key must be a property of `label`; an unknown key fails at startup. When omitted, all elements of the label are read. |
+| `split_size`       | Long    | No       | `1048576` | Target size in bytes of each key-range shard when `parallelism > 1`. A larger value yields fewer, bigger shards. Ignored at `parallelism = 1`. Requires a scan-capable backend (RocksDB / HBase / Cassandra). |
+| `filter`           | Map     | No       | -        | Optional property equality conditions applied server-side, for example `{ country = "US", active = "true" }`. Only elements whose properties match all entries are returned. Every key must be a property of `label`; an unknown key fails at startup. When omitted, all elements of the label are read. **Cannot be combined with `parallelism > 1`** (the shard scan cannot push property filters server-side); the job fails at startup if both are set. |
 | `time_zone`        | String  | No       | Worker JVM default | ZoneId used to convert HugeGraph DATE epoch values, for example `UTC` or `Asia/Shanghai`. Set it explicitly when workers may use different JVM time zones. |
 | `graph_space`      | String  | No       | `DEFAULT` | The graph space the graph belongs to. |
 | `username`         | String  | No       | -        | HugeGraph username. |
@@ -99,6 +103,60 @@ source {
   }
 }
 ```
+
+## Schema auto-discovery
+
+`schema` is optional. When omitted, the connector connects to the server at job build time, reads the definition of `label`, and produces one output column per property key (types from the [Type Mapping](#type-mapping) table, `LIST`/`SET` as `array<T>`), ordered by property name. This is convenient for a full-label dump when you do not want to hand-declare every field.
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "person"
+    label_type = "VERTEX"
+    # no schema block: all properties of "person" are read
+  }
+}
+```
+
+Notes:
+
+- The label must already exist on the server, otherwise the job fails at build time.
+- A label with no property keys produces only the reserved columns (`~id`, `~label`, …).
+- Declare `schema.fields` explicitly when you want to read only a subset of properties, fix the column order, or pin the types.
+
+## Parallel read
+
+For large graphs, set `parallelism > 1` to read a label in parallel. The enumerator asks HugeGraph to split the label's keyspace into shards of roughly `split_size` bytes and distributes them round-robin across readers, so throughput scales with parallelism instead of being bound by a single paging cursor.
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "person"
+    label_type = "VERTEX"
+    parallelism = 8
+    split_size = 1048576
+    schema = {
+      fields = {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- Shard scans require a scan-capable backend (RocksDB / HBase / Cassandra). The `memory` backend does not support shard splitting; use `parallelism = 1` there.
+- A shard scan returns elements of all labels in the key range; the connector keeps only the configured `label`. On a graph where the target label is a small fraction of the data, a single-parallelism `filter`ed read may move less data even though it does not parallelize.
+- `filter` is not supported with `parallelism > 1`; keep `parallelism = 1` to use a server-side filter, or drop the filter to read in parallel.
+- Tune `split_size`: a smaller value yields more, smaller shards (finer load balancing, more requests); a larger value yields fewer, bigger shards.
 
 ## Changelog
 

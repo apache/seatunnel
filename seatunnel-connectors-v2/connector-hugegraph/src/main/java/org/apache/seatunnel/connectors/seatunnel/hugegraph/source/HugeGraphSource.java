@@ -18,20 +18,32 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 
 import java.util.Collections;
 import java.util.List;
 
-public class HugeGraphSource extends AbstractSingleSplitSource<SeaTunnelRow>
-        implements SupportColumnProjection {
+/**
+ * HugeGraph source. Bounded read of a single vertex/edge label.
+ *
+ * <p>At parallelism 1 it pages the label via the server-side list API (server-side label and
+ * property-equality filtering). At parallelism &gt; 1 it splits the keyspace into shards and scans
+ * them in parallel; see {@link HugeGraphSourceSplitEnumerator}.
+ */
+public class HugeGraphSource
+        implements SeaTunnelSource<SeaTunnelRow, HugeGraphSourceSplit, HugeGraphSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
+
+    private static final long serialVersionUID = 1L;
 
     private final CatalogTable catalogTable;
     private final HugeGraphSourceConfig sourceConfig;
@@ -57,9 +69,24 @@ public class HugeGraphSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) {
+    public SourceReader<SeaTunnelRow, HugeGraphSourceSplit> createReader(
+            SourceReader.Context readerContext) {
         return new HugeGraphSourceReader(
                 readerContext, sourceConfig, catalogTable.getSeaTunnelRowType());
+    }
+
+    @Override
+    public SourceSplitEnumerator<HugeGraphSourceSplit, HugeGraphSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<HugeGraphSourceSplit> enumeratorContext) {
+        return new HugeGraphSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, sourceConfig.getSplitSize());
+    }
+
+    @Override
+    public SourceSplitEnumerator<HugeGraphSourceSplit, HugeGraphSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<HugeGraphSourceSplit> enumeratorContext,
+            HugeGraphSourceState checkpointState) {
+        return new HugeGraphSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, sourceConfig.getSplitSize(), checkpointState);
     }
 }

@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
@@ -40,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Shard;
 import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.Test;
@@ -67,12 +67,7 @@ class HugeGraphSourceReaderTest {
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         SeaTunnelRowType propertyRowType = propertyRowType();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         assertThrows(HugeGraphConnectorException.class, reader::open);
     }
@@ -87,12 +82,7 @@ class HugeGraphSourceReaderTest {
         client.propertyTypes.put("age", DataType.TEXT);
         SeaTunnelRowType propertyRowType = propertyRowType();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         assertThrows(HugeGraphConnectorException.class, reader::open);
     }
@@ -110,12 +100,7 @@ class HugeGraphSourceReaderTest {
         client.propertyCardinalities.put("age", Cardinality.LIST);
         SeaTunnelRowType propertyRowType = propertyRowType();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         HugeGraphConnectorException ex =
                 assertThrows(HugeGraphConnectorException.class, reader::open);
@@ -134,18 +119,13 @@ class HugeGraphSourceReaderTest {
                         new String[] {"tags"},
                         new SeaTunnelDataType<?>[] {ArrayType.STRING_ARRAY_TYPE});
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         assertThrows(HugeGraphConnectorException.class, reader::open);
     }
 
     @Test
-    void testListPropertyIsReadAsArray() {
+    void testListPropertyIsReadAsArray() throws Exception {
         SeaTunnelRowType propertyRowType =
                 new SeaTunnelRowType(
                         new String[] {"tags"},
@@ -162,15 +142,11 @@ class HugeGraphSourceReaderTest {
         client.vertexPages.add(new PageResult<>(Collections.singletonList(vertex), null));
         ListCollector collector = new ListCollector();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         reader.open();
-        reader.internalPollNext(collector);
+        reader.addSplits(listSplit());
+        reader.pollNext(collector);
 
         assertEquals(1, collector.rows.size());
         Object cell = collector.rows.get(0).getField(2);
@@ -179,7 +155,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testSetPropertyIsReadAsArray() {
+    void testSetPropertyIsReadAsArray() throws Exception {
         // SET cardinality is accepted; element order is not guaranteed by the server, but the
         // reader must not fail and must produce a typed array of the server's element type.
         SeaTunnelRowType propertyRowType =
@@ -201,15 +177,11 @@ class HugeGraphSourceReaderTest {
         client.vertexPages.add(new PageResult<>(Collections.singletonList(vertex), null));
         ListCollector collector = new ListCollector();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
 
         reader.open();
-        reader.internalPollNext(collector);
+        reader.addSplits(listSplit());
+        reader.pollNext(collector);
 
         Object cell = collector.rows.get(0).getField(2);
         assertInstanceOf(Integer[].class, cell);
@@ -217,7 +189,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testVertexPagingAndNullProperties() {
+    void testVertexPagingAndNullProperties() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         Vertex vertex = new Vertex("person");
@@ -229,47 +201,40 @@ class HugeGraphSourceReaderTest {
         ListCollector collector = new ListCollector();
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(context),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.handleNoMoreSplits();
 
-        reader.pollNext(collector);
-        assertEquals(0, context.noMoreElementCount);
-        reader.pollNext(collector);
+        drain(reader, collector, context);
+
         assertEquals(1, context.noMoreElementCount);
-
         assertEquals(1, collector.rows.size());
         assertArrayEquals(
                 new Object[] {"v1", "person", "Alice", null}, collector.rows.get(0).getFields());
+        // page1 requested with the null first page, page2 with the "next" marker
         assertEquals("next", client.requestedPages.get(1));
     }
 
     @Test
-    void testEmptyLabelProducesNoRowsAndFinishes() {
+    void testEmptyLabelProducesNoRowsAndFinishes() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         client.vertexPages.add(new PageResult<>(Collections.emptyList(), null));
         CountingContext context = new CountingContext();
         ListCollector collector = new ListCollector();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(context),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.handleNoMoreSplits();
 
-        reader.pollNext(collector);
+        drain(reader, collector, context);
 
         assertTrue(collector.rows.isEmpty());
         assertEquals(1, context.noMoreElementCount);
     }
 
     @Test
-    void testAdjacentServerPagingDuplicatesAreSkipped() {
+    void testAdjacentServerPagingDuplicatesAreSkipped() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         Vertex v1 = new Vertex("person");
@@ -286,15 +251,11 @@ class HugeGraphSourceReaderTest {
         ListCollector collector = new ListCollector();
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(context),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.handleNoMoreSplits();
 
-        reader.pollNext(collector);
-        reader.pollNext(collector);
+        drain(reader, collector, context);
 
         // 4 raw records, 1 adjacent duplicate skipped; non-adjacent repeat of v2 is kept
         assertEquals(3, collector.rows.size());
@@ -304,7 +265,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testEmptyIntermediatePageContinues() {
+    void testEmptyIntermediatePageContinues() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         Vertex vertex = new Vertex("person");
@@ -315,33 +276,25 @@ class HugeGraphSourceReaderTest {
         CountingContext context = new CountingContext();
         ListCollector collector = new ListCollector();
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(context),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.handleNoMoreSplits();
 
-        reader.pollNext(collector);
-        reader.pollNext(collector);
+        drain(reader, collector, context);
 
         assertEquals(1, collector.rows.size());
         assertEquals(1, context.noMoreElementCount);
     }
 
     @Test
-    void testRepeatedPageMarkerFails() {
+    void testRepeatedPageMarkerFails() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         client.vertexPages.add(new PageResult<>(Collections.emptyList(), "next"));
         client.vertexPages.add(new PageResult<>(Collections.emptyList(), "next"));
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
         ListCollector collector = new ListCollector();
 
         reader.pollNext(collector);
@@ -358,12 +311,8 @@ class HugeGraphSourceReaderTest {
         first.property("name", "Alice");
         firstClient.vertexPages.add(new PageResult<>(Collections.singletonList(first), "next"));
         HugeGraphSourceReader firstReader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        firstClient);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, firstClient);
+        firstReader.addSplits(listSplit());
         firstReader.pollNext(new ListCollector());
 
         FakeHugeGraphOperations restoredClient = new FakeHugeGraphOperations();
@@ -373,16 +322,16 @@ class HugeGraphSourceReaderTest {
         restoredClient.vertexPages.add(new PageResult<>(Collections.singletonList(second), null));
         CountingContext restoredContext = new CountingContext();
         HugeGraphSourceReader restoredReader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(restoredContext),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                newReader(
+                        restoredContext,
+                        MappingConfig.LabelType.VERTEX,
+                        propertyRowType,
                         restoredClient);
         restoredReader.addSplits(firstReader.snapshotState(1L));
+        restoredReader.handleNoMoreSplits();
         ListCollector restoredCollector = new ListCollector();
 
-        restoredReader.pollNext(restoredCollector);
+        drain(restoredReader, restoredCollector, restoredContext);
 
         assertEquals("next", restoredClient.requestedPages.get(0));
         assertEquals("v2", restoredCollector.rows.get(0).getField(0));
@@ -395,33 +344,29 @@ class HugeGraphSourceReaderTest {
         FakeHugeGraphOperations firstClient = new FakeHugeGraphOperations();
         firstClient.vertexPages.add(new PageResult<>(Collections.emptyList(), null));
         HugeGraphSourceReader firstReader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        firstClient);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, firstClient);
+        firstReader.addSplits(listSplit());
         firstReader.pollNext(new ListCollector());
 
         FakeHugeGraphOperations restoredClient = new FakeHugeGraphOperations();
         CountingContext restoredContext = new CountingContext();
         HugeGraphSourceReader restoredReader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(restoredContext),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                newReader(
+                        restoredContext,
+                        MappingConfig.LabelType.VERTEX,
+                        propertyRowType,
                         restoredClient);
         restoredReader.addSplits(firstReader.snapshotState(1L));
+        restoredReader.handleNoMoreSplits();
 
-        restoredReader.pollNext(new ListCollector());
+        drain(restoredReader, new ListCollector(), restoredContext);
 
         assertEquals(1, restoredContext.noMoreElementCount);
         assertTrue(restoredClient.requestedPages.isEmpty());
     }
 
     @Test
-    void testEdgeReservedFieldsAreStrings() {
+    void testEdgeReservedFieldsAreStrings() throws Exception {
         SeaTunnelRowType propertyRowType = propertyRowType();
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         Edge edge = new Edge("knows");
@@ -436,16 +381,10 @@ class HugeGraphSourceReaderTest {
         ListCollector collector = new ListCollector();
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(context),
-                        sourceConfig(MappingConfig.LabelType.EDGE, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.EDGE),
-                        client);
+                newReader(context, MappingConfig.LabelType.EDGE, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.pollNext(collector);
 
-        reader.internalPollNext(collector);
-
-        assertEquals(1, context.noMoreElementCount);
         assertEquals(1, collector.rows.size());
         assertArrayEquals(
                 new Object[] {"S1>knows>S2", "knows", "1", "person", "2", "person", "since", null},
@@ -453,7 +392,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testRestDecodedPropertyValuesAreNormalizedToSeaTunnelTypes() {
+    void testRestDecodedPropertyValuesAreNormalizedToSeaTunnelTypes() throws Exception {
         SeaTunnelRowType propertyRowType =
                 new SeaTunnelRowType(
                         new String[] {"count", "ratio", "created_at", "payload"},
@@ -474,14 +413,9 @@ class HugeGraphSourceReaderTest {
         ListCollector collector = new ListCollector();
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
-
-        reader.internalPollNext(collector);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.pollNext(collector);
 
         Object[] fields = collector.rows.get(0).getFields();
         assertInstanceOf(Long.class, fields[2]);
@@ -496,7 +430,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testDatePropertyReturnedAsSpaceSeparatedStringIsParsed() {
+    void testDatePropertyReturnedAsSpaceSeparatedStringIsParsed() throws Exception {
         // HugeGraph server serializes DATE as "yyyy-MM-dd HH:mm:ss.SSS" (space separator),
         // which LocalDateTime.parse (ISO 'T' only) rejects. The reader must accept it.
         SeaTunnelRowType propertyRowType =
@@ -511,14 +445,9 @@ class HugeGraphSourceReaderTest {
         ListCollector collector = new ListCollector();
 
         HugeGraphSourceReader reader =
-                new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
-                        sourceConfig(MappingConfig.LabelType.VERTEX, propertyRowType),
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
-                        client);
-
-        reader.internalPollNext(collector);
+                newReader(MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(listSplit());
+        reader.pollNext(collector);
 
         assertEquals(
                 java.time.LocalDateTime.of(2026, 9, 11, 23, 20, 11),
@@ -526,7 +455,7 @@ class HugeGraphSourceReaderTest {
     }
 
     @Test
-    void testFilterIsForwardedToClient() {
+    void testFilterIsForwardedToClient() throws Exception {
         FakeHugeGraphOperations client = new FakeHugeGraphOperations();
         client.vertexProperties = new HashSet<>(Arrays.asList("name", "age"));
         client.propertyTypes.put("name", DataType.TEXT);
@@ -546,13 +475,14 @@ class HugeGraphSourceReaderTest {
 
         HugeGraphSourceReader reader =
                 new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
+                        new CountingContext(),
                         config,
                         HugeGraphSourceFactory.prependReservedFields(
                                 propertyRowType, MappingConfig.LabelType.VERTEX),
                         client);
         reader.open();
-        reader.internalPollNext(new ListCollector());
+        reader.addSplits(listSplit());
+        reader.pollNext(new ListCollector());
 
         assertEquals(filter, client.capturedFilter);
     }
@@ -573,13 +503,106 @@ class HugeGraphSourceReaderTest {
 
         HugeGraphSourceReader reader =
                 new HugeGraphSourceReader(
-                        new SingleSplitReaderContext(new CountingContext()),
+                        new CountingContext(),
                         config,
                         HugeGraphSourceFactory.prependReservedFields(
                                 propertyRowType, MappingConfig.LabelType.VERTEX),
                         client);
 
         assertThrows(HugeGraphConnectorException.class, reader::open);
+    }
+
+    @Test
+    void testShardModeScansShardAndFiltersByLabel() throws Exception {
+        // A shard scan returns vertices of ALL labels in the key range; the reader must keep only
+        // the configured label ("person") and drop the others ("company").
+        SeaTunnelRowType propertyRowType = propertyRowType();
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        Vertex person = new Vertex("person");
+        person.id("p1");
+        person.property("name", "Alice");
+        Vertex company = new Vertex("company");
+        company.id("c1");
+        Vertex person2 = new Vertex("person");
+        person2.id("p2");
+        person2.property("name", "Bob");
+        client.scanVertexPages.add(
+                new PageResult<>(java.util.Arrays.asList(person, company, person2), null));
+        CountingContext context = new CountingContext();
+        ListCollector collector = new ListCollector();
+
+        HugeGraphSourceReader reader =
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(
+                Collections.singletonList(
+                        HugeGraphSourceSplit.shardSplit("shard-0", new Shard("0", "9", 0L))));
+        reader.handleNoMoreSplits();
+
+        drain(reader, collector, context);
+
+        assertEquals(2, collector.rows.size());
+        assertEquals("p1", collector.rows.get(0).getField(0));
+        assertEquals("p2", collector.rows.get(1).getField(0));
+        assertEquals(1, context.noMoreElementCount);
+    }
+
+    @Test
+    void testMultipleShardSplitsAreAllDrained() throws Exception {
+        SeaTunnelRowType propertyRowType = propertyRowType();
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        Vertex a = new Vertex("person");
+        a.id("a");
+        Vertex b = new Vertex("person");
+        b.id("b");
+        client.scanVertexPages.add(new PageResult<>(Collections.singletonList(a), null));
+        client.scanVertexPages.add(new PageResult<>(Collections.singletonList(b), null));
+        CountingContext context = new CountingContext();
+        ListCollector collector = new ListCollector();
+
+        HugeGraphSourceReader reader =
+                newReader(context, MappingConfig.LabelType.VERTEX, propertyRowType, client);
+        reader.addSplits(
+                Arrays.asList(
+                        HugeGraphSourceSplit.shardSplit("shard-0", new Shard("0", "5", 0L)),
+                        HugeGraphSourceSplit.shardSplit("shard-1", new Shard("5", "9", 0L))));
+        reader.handleNoMoreSplits();
+
+        drain(reader, collector, context);
+
+        assertEquals(2, collector.rows.size());
+        assertEquals(1, context.noMoreElementCount);
+    }
+
+    private static void drain(
+            HugeGraphSourceReader reader, ListCollector collector, CountingContext context)
+            throws Exception {
+        int guard = 0;
+        while (context.noMoreElementCount == 0 && guard++ < 100) {
+            reader.pollNext(collector);
+        }
+    }
+
+    private static List<HugeGraphSourceSplit> listSplit() {
+        return Collections.singletonList(HugeGraphSourceSplit.labelListSplit("label-list"));
+    }
+
+    private HugeGraphSourceReader newReader(
+            MappingConfig.LabelType labelType,
+            SeaTunnelRowType propertyRowType,
+            HugeGraphOperations client) {
+        return newReader(new CountingContext(), labelType, propertyRowType, client);
+    }
+
+    private HugeGraphSourceReader newReader(
+            CountingContext context,
+            MappingConfig.LabelType labelType,
+            SeaTunnelRowType propertyRowType,
+            HugeGraphOperations client) {
+        return new HugeGraphSourceReader(
+                context,
+                sourceConfig(labelType, propertyRowType),
+                HugeGraphSourceFactory.prependReservedFields(propertyRowType, labelType),
+                client);
     }
 
     private HugeGraphSourceConfig sourceConfig(
@@ -601,6 +624,8 @@ class HugeGraphSourceReaderTest {
     private static class FakeHugeGraphOperations implements HugeGraphOperations {
         private final List<PageResult<Vertex>> vertexPages = new ArrayList<>();
         private final List<PageResult<Edge>> edgePages = new ArrayList<>();
+        private final List<PageResult<Vertex>> scanVertexPages = new ArrayList<>();
+        private final List<PageResult<Edge>> scanEdgePages = new ArrayList<>();
         private final List<String> requestedPages = new ArrayList<>();
         private final Map<String, DataType> propertyTypes = new HashMap<>();
         private final Map<String, Cardinality> propertyCardinalities = new HashMap<>();
@@ -642,6 +667,28 @@ class HugeGraphSourceReaderTest {
             requestedPages.add(page);
             capturedFilter = filter;
             return edgePages.remove(0);
+        }
+
+        @Override
+        public List<Shard> vertexShards(long splitSize) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<Shard> edgeShards(long splitSize) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public PageResult<Vertex> scanVertices(Shard shard, String page, int limit) {
+            requestedPages.add(page);
+            return scanVertexPages.remove(0);
+        }
+
+        @Override
+        public PageResult<Edge> scanEdges(Shard shard, String page, int limit) {
+            requestedPages.add(page);
+            return scanEdgePages.remove(0);
         }
 
         @Override

@@ -1,0 +1,269 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
+
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+
+import org.apache.hugegraph.structure.constant.Cardinality;
+import org.apache.hugegraph.structure.constant.DataType;
+import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Shard;
+import org.apache.hugegraph.structure.graph.Vertex;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class HugeGraphSourceSplitEnumeratorTest {
+
+    @Test
+    void parallelismOneProducesSingleLabelListSplit() {
+        CapturingContext context = new CapturingContext(1);
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(
+                        context, config(), 1024L, null, failingClientFactory());
+
+        enumerator.open();
+        enumerator.run();
+
+        List<HugeGraphSourceSplit> assigned = context.assignedTo(0);
+        assertEquals(1, assigned.size());
+        assertFalse(assigned.get(0).isShardMode());
+        assertEquals("label-list", assigned.get(0).splitId());
+        assertTrue(context.noMoreSplits.contains(0));
+    }
+
+    @Test
+    void parallelismGreaterThanOneSplitsByShardRoundRobin() {
+        CapturingContext context = new CapturingContext(2);
+        FakeClient client = new FakeClient();
+        client.vertexShards =
+                Arrays.asList(
+                        new Shard("0", "3", 0L), new Shard("3", "6", 0L), new Shard("6", "9", 0L));
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(context, config(), 1024L, null, () -> client);
+
+        enumerator.open();
+        enumerator.run();
+
+        // 3 shards over 2 readers, round-robin: reader0 -> shard-0, shard-2; reader1 -> shard-1
+        assertEquals(2, context.assignedTo(0).size());
+        assertEquals(1, context.assignedTo(1).size());
+        assertTrue(context.assignedTo(0).get(0).isShardMode());
+        assertTrue(context.noMoreSplits.contains(0));
+        assertTrue(context.noMoreSplits.contains(1));
+        assertTrue(client.closed, "discovery client must be closed");
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void restoreDoesNotRediscoverAndAssignsOnlyUnassigned() {
+        // Two shard splits discovered previously; shard-0 already assigned (lives in a reader),
+        // shard-1 still unassigned. On restore the enumerator must assign only shard-1 and never
+        // touch the discovery client.
+        HugeGraphSourceSplit shard0 =
+                HugeGraphSourceSplit.shardSplit("shard-0", new Shard("0", "5", 0L));
+        HugeGraphSourceSplit shard1 =
+                HugeGraphSourceSplit.shardSplit("shard-1", new Shard("5", "9", 0L));
+        Set<HugeGraphSourceSplit> all = new LinkedHashSet<>(Arrays.asList(shard0, shard1));
+        Set<HugeGraphSourceSplit> assigned = new HashSet<>(Arrays.asList(shard0));
+        HugeGraphSourceState state = new HugeGraphSourceState(all, assigned);
+
+        CapturingContext context = new CapturingContext(2);
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(
+                        context, config(), 1024L, state, failingClientFactory());
+
+        enumerator.open();
+        enumerator.run();
+
+        List<HugeGraphSourceSplit> all0 = context.assignedTo(0);
+        List<HugeGraphSourceSplit> all1 = context.assignedTo(1);
+        List<HugeGraphSourceSplit> combined = new ArrayList<>();
+        combined.addAll(all0);
+        combined.addAll(all1);
+        assertEquals(1, combined.size(), "only the unassigned shard-1 should be re-assigned");
+        assertEquals("shard-1", combined.get(0).splitId());
+    }
+
+    @Test
+    void snapshotStatePersistsAllAndAssigned() {
+        CapturingContext context = new CapturingContext(1);
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(
+                        context, config(), 1024L, null, failingClientFactory());
+
+        enumerator.open();
+        enumerator.run();
+        HugeGraphSourceState state = enumerator.snapshotState(1L);
+
+        assertEquals(1, state.getAllSplits().size());
+        assertEquals(1, state.getAssignedSplits().size());
+    }
+
+    private static Supplier<HugeGraphOperations> failingClientFactory() {
+        return () -> {
+            throw new AssertionError("discovery client must not be created in this path");
+        };
+    }
+
+    private HugeGraphSourceConfig config() {
+        HugeGraphSourceConfig config = new HugeGraphSourceConfig();
+        config.setLabel("person");
+        config.setLabelType(MappingConfig.LabelType.VERTEX);
+        config.setSchema(
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE}));
+        config.setPageSize(100);
+        config.setSplitSize(1024L);
+        return config;
+    }
+
+    private static class CapturingContext
+            implements SourceSplitEnumerator.Context<HugeGraphSourceSplit> {
+        private final int parallelism;
+        private final Map<Integer, List<HugeGraphSourceSplit>> assignments = new HashMap<>();
+        private final Set<Integer> noMoreSplits = new HashSet<>();
+
+        private CapturingContext(int parallelism) {
+            this.parallelism = parallelism;
+        }
+
+        private List<HugeGraphSourceSplit> assignedTo(int subtask) {
+            return assignments.getOrDefault(subtask, new ArrayList<>());
+        }
+
+        @Override
+        public int currentParallelism() {
+            return parallelism;
+        }
+
+        @Override
+        public Set<Integer> registeredReaders() {
+            return new HashSet<>();
+        }
+
+        @Override
+        public void assignSplit(int subtaskId, List<HugeGraphSourceSplit> splits) {
+            assignments.computeIfAbsent(subtaskId, k -> new ArrayList<>()).addAll(splits);
+        }
+
+        @Override
+        public void signalNoMoreSplits(int subtask) {
+            noMoreSplits.add(subtask);
+        }
+
+        @Override
+        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return null;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return null;
+        }
+    }
+
+    private static class FakeClient implements HugeGraphOperations {
+        private List<Shard> vertexShards = new ArrayList<>();
+        private List<Shard> edgeShards = new ArrayList<>();
+        private boolean closed;
+
+        @Override
+        public Set<String> getVertexLabelPropertiesOrNull(String label) {
+            return null;
+        }
+
+        @Override
+        public Set<String> getEdgeLabelPropertiesOrNull(String label) {
+            return null;
+        }
+
+        @Override
+        public DataType getPropertyDataType(String propertyName) {
+            return null;
+        }
+
+        @Override
+        public Cardinality getPropertyCardinality(String propertyName) {
+            return Cardinality.SINGLE;
+        }
+
+        @Override
+        public PageResult<Vertex> listVertices(
+                String label, Map<String, Object> filter, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PageResult<Edge> listEdges(
+                String label, Map<String, Object> filter, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Shard> vertexShards(long splitSize) {
+            return vertexShards;
+        }
+
+        @Override
+        public List<Shard> edgeShards(long splitSize) {
+            return edgeShards;
+        }
+
+        @Override
+        public PageResult<Vertex> scanVertices(Shard shard, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PageResult<Edge> scanEdges(Shard shard, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+}

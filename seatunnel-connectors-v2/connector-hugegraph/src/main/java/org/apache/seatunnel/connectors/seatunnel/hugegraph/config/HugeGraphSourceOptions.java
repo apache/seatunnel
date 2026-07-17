@@ -55,6 +55,18 @@ public class HugeGraphSourceOptions {
                             "Time zone used to convert HugeGraph DATE epoch values. "
                                     + "When omitted, the worker JVM default time zone is used for backward compatibility.");
 
+    public static final Option<Long> SPLIT_SIZE =
+            Options.key("split_size")
+                    .longType()
+                    .defaultValue(1048576L)
+                    .withDescription(
+                            "Target size in bytes of each key-range shard when parallelism > 1. "
+                                    + "The server splits the keyspace into shards of roughly this "
+                                    + "size and readers scan them in parallel; a larger value yields "
+                                    + "fewer, bigger shards. Ignored when parallelism = 1 (which uses "
+                                    + "the single label-list scan). Requires a scan-capable backend "
+                                    + "(RocksDB / HBase / Cassandra).");
+
     public static final Option<Map<String, Object>> FILTER =
             Options.key("filter")
                     .type(new TypeReference<Map<String, Object>>() {})

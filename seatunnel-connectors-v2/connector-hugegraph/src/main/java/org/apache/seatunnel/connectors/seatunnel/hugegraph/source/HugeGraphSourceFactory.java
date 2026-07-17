@@ -32,16 +32,24 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.HugeGraphTypeConverter;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 @AutoService(Factory.class)
 public class HugeGraphSourceFactory implements TableSourceFactory {
@@ -58,11 +66,15 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         HugeGraphOptions.HOST,
                         HugeGraphOptions.PORT,
                         HugeGraphOptions.GRAPH_NAME,
-                        HugeGraphSourceOptions.LABEL,
-                        ConnectorCommonOptions.SCHEMA)
+                        HugeGraphSourceOptions.LABEL)
                 .optional(
+                        // Optional: when omitted, the property columns are auto-discovered from the
+                        // server label definition (all properties, inferred types).
+                        ConnectorCommonOptions.SCHEMA,
                         HugeGraphSourceOptions.LABEL_TYPE,
                         HugeGraphSourceOptions.PAGE_SIZE,
+                        HugeGraphSourceOptions.SPLIT_SIZE,
+                        HugeGraphSourceOptions.FILTER,
                         HugeGraphSourceOptions.TIME_ZONE,
                         HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
@@ -72,7 +84,8 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
                         // unknown option first, hiding that message.
                         HugeGraphOptions.GRAPH_SPACE,
                         HugeGraphOptions.MAX_RETRIES,
-                        HugeGraphOptions.RETRY_BACKOFF_MS)
+                        HugeGraphOptions.RETRY_BACKOFF_MS,
+                        HugeGraphOptions.RETRY_BACKOFF_MAX_MS)
                 .build();
     }
 
@@ -85,8 +98,11 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig options = context.getOptions();
-        checkParallelism(options);
-        CatalogTable propertyCatalogTable = CatalogTableUtil.buildWithConfig(options);
+        checkFilterParallelism(options);
+        MappingConfig.LabelType labelType =
+                options.getOptional(HugeGraphSourceOptions.LABEL_TYPE)
+                        .orElse(HugeGraphSourceOptions.LABEL_TYPE.defaultValue());
+        CatalogTable propertyCatalogTable = resolvePropertyCatalogTable(options, labelType);
         SeaTunnelRowType propertyRowType = propertyCatalogTable.getSeaTunnelRowType();
         HugeGraphSourceConfig sourceConfig = HugeGraphSourceConfig.of(options, propertyRowType);
         CatalogTable producedCatalogTable =
@@ -99,19 +115,82 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
     }
 
     /**
-     * The HugeGraph source is single-split: AbstractSingleSplitSource allows only the subtask-0
-     * reader and throws at runtime for any higher subtask index. Reject {@code parallelism > 1}
-     * here, at plan/config time, so the user gets an actionable error before the job starts instead
-     * of a mid-run failure.
+     * Resolves the property columns. When {@code schema} is configured it is used verbatim;
+     * otherwise the columns are auto-discovered from the server label definition (all property
+     * keys, with types inferred from the server).
      */
-    static void checkParallelism(ReadonlyConfig options) {
+    private CatalogTable resolvePropertyCatalogTable(
+            ReadonlyConfig options, MappingConfig.LabelType labelType) {
+        if (options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            return CatalogTableUtil.buildWithConfig(options);
+        }
+        String label = options.get(HugeGraphSourceOptions.LABEL);
+        HugeGraphClient client = new HugeGraphClient(HugeGraphConnectionConfig.of(options));
+        SeaTunnelRowType propertyRowType;
+        try {
+            propertyRowType = discoverPropertyRowType(client, label, labelType);
+        } finally {
+            client.close();
+        }
+        return CatalogTableUtil.getCatalogTable(label, propertyRowType);
+    }
+
+    /**
+     * Builds the property row type from the server label definition: every property key of the
+     * label, ordered by name for a deterministic column order, typed via {@link
+     * HugeGraphTypeConverter}.
+     */
+    static SeaTunnelRowType discoverPropertyRowType(
+            HugeGraphOperations client, String label, MappingConfig.LabelType labelType) {
+        Set<String> properties =
+                labelType == MappingConfig.LabelType.VERTEX
+                        ? client.getVertexLabelPropertiesOrNull(label)
+                        : client.getEdgeLabelPropertiesOrNull(label);
+        if (properties == null) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format(
+                            "%s label '%s' does not exist in HugeGraph schema; cannot auto-discover "
+                                    + "its columns. Create the label or declare 'schema.fields'.",
+                            labelType == MappingConfig.LabelType.VERTEX ? "Vertex" : "Edge",
+                            label));
+        }
+        List<String> names = new ArrayList<>(properties);
+        Collections.sort(names);
+        String[] fieldNames = new String[names.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[names.size()];
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            fieldNames[i] = name;
+            fieldTypes[i] =
+                    HugeGraphTypeConverter.toSeaTunnelType(
+                            client.getPropertyDataType(name), client.getPropertyCardinality(name));
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    /**
+     * Parallelism &gt; 1 uses shard-based key-range scans, which cannot push a property-equality
+     * {@code filter} to the server (the scan API takes no condition). Reject that combination here,
+     * at plan/config time, so the user gets an actionable choice before the job starts rather than
+     * a silently-ignored filter or a mid-run failure. {@code filter} with parallelism = 1
+     * (label-list scan) is fully supported.
+     */
+    static void checkFilterParallelism(ReadonlyConfig options) {
         int parallelism = options.getOptional(EnvCommonOptions.PARALLELISM).orElse(1);
-        if (parallelism > 1) {
+        boolean hasFilter =
+                options.getOptional(HugeGraphSourceOptions.FILTER)
+                        .map(filter -> !filter.isEmpty())
+                        .orElse(false);
+        if (parallelism > 1 && hasFilter) {
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     String.format(
-                            "HugeGraph source is single-split and supports only parallelism = 1, "
-                                    + "but got %d. Remove the source 'parallelism' option or set it to 1.",
+                            "HugeGraph source 'filter' cannot be combined with parallelism > 1 "
+                                    + "(got %d): parallel reads use shard key-range scans that do not "
+                                    + "support server-side property filtering. Either set parallelism "
+                                    + "to 1 to keep the filter, or remove the filter to read in "
+                                    + "parallel.",
                             parallelism));
         }
     }

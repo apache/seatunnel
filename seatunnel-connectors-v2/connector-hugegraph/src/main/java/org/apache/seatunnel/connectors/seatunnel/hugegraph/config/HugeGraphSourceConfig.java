@@ -39,6 +39,7 @@ public class HugeGraphSourceConfig implements Serializable {
     private MappingConfig.LabelType labelType;
     private SeaTunnelRowType schema;
     private int pageSize;
+    private long splitSize;
     private String timeZone;
     // Optional server-side property equality conditions; null/empty = read all elements.
     private Map<String, Object> filter;
@@ -54,6 +55,9 @@ public class HugeGraphSourceConfig implements Serializable {
         sourceConfig.setPageSize(
                 config.getOptional(HugeGraphSourceOptions.PAGE_SIZE)
                         .orElse(HugeGraphSourceOptions.PAGE_SIZE.defaultValue()));
+        sourceConfig.setSplitSize(
+                config.getOptional(HugeGraphSourceOptions.SPLIT_SIZE)
+                        .orElse(HugeGraphSourceOptions.SPLIT_SIZE.defaultValue()));
         config.getOptional(HugeGraphSourceOptions.TIME_ZONE).ifPresent(sourceConfig::setTimeZone);
         config.getOptional(HugeGraphSourceOptions.FILTER).ifPresent(sourceConfig::setFilter);
         validate(sourceConfig);
@@ -71,6 +75,14 @@ public class HugeGraphSourceConfig implements Serializable {
                             HugeGraphSourceOptions.MIN_PAGE_SIZE,
                             HugeGraphSourceOptions.MAX_PAGE_SIZE,
                             pageSize));
+        }
+
+        if (sourceConfig.getSplitSize() <= 0) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Option 'split_size' must be positive, but got %s",
+                            sourceConfig.getSplitSize()));
         }
 
         // schema must be present, but an empty fields block is valid: a property-less label

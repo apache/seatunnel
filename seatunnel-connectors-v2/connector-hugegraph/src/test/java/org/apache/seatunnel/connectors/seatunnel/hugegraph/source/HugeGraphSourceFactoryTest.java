@@ -18,20 +18,34 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
+import org.apache.hugegraph.structure.constant.Cardinality;
+import org.apache.hugegraph.structure.constant.DataType;
+import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Shard;
+import org.apache.hugegraph.structure.graph.Vertex;
+
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,33 +81,164 @@ class HugeGraphSourceFactoryTest {
     }
 
     @Test
-    void rejectsParallelismGreaterThanOne() {
+    void rejectsFilterWithParallelismGreaterThanOne() {
         Map<String, Object> options = new HashMap<>();
         options.put("parallelism", 2);
+        options.put("filter", Collections.singletonMap("country", "US"));
         HugeGraphConnectorException ex =
                 assertThrows(
                         HugeGraphConnectorException.class,
                         () ->
-                                HugeGraphSourceFactory.checkParallelism(
+                                HugeGraphSourceFactory.checkFilterParallelism(
                                         ReadonlyConfig.fromMap(options)));
-        assertTrue(ex.getMessage().contains("parallelism = 1"));
+        assertTrue(ex.getMessage().contains("filter"));
+        assertTrue(ex.getMessage().contains("parallelism"));
     }
 
     @Test
-    void allowsParallelismOneOrUnset() {
-        Map<String, Object> one = new HashMap<>();
-        one.put("parallelism", 1);
-        assertDoesNotThrow(
-                () -> HugeGraphSourceFactory.checkParallelism(ReadonlyConfig.fromMap(one)));
+    void allowsParallelismGreaterThanOneWithoutFilter() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("parallelism", 4);
         assertDoesNotThrow(
                 () ->
-                        HugeGraphSourceFactory.checkParallelism(
-                                ReadonlyConfig.fromMap(Collections.emptyMap())));
+                        HugeGraphSourceFactory.checkFilterParallelism(
+                                ReadonlyConfig.fromMap(options)));
+    }
+
+    @Test
+    void allowsFilterWithParallelismOneOrUnset() {
+        Map<String, Object> one = new HashMap<>();
+        one.put("parallelism", 1);
+        one.put("filter", Collections.singletonMap("country", "US"));
+        assertDoesNotThrow(
+                () -> HugeGraphSourceFactory.checkFilterParallelism(ReadonlyConfig.fromMap(one)));
+
+        Map<String, Object> unset = new HashMap<>();
+        unset.put("filter", Collections.singletonMap("country", "US"));
+        assertDoesNotThrow(
+                () -> HugeGraphSourceFactory.checkFilterParallelism(ReadonlyConfig.fromMap(unset)));
+    }
+
+    @Test
+    void optionRuleDeclaresRetryBackoffMax() {
+        assertTrue(
+                new HugeGraphSourceFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(
+                                org.apache.seatunnel.connectors.seatunnel.hugegraph.config
+                                        .HugeGraphOptions.RETRY_BACKOFF_MAX_MS),
+                "retry_backoff_max_ms missing from source optionRule");
+    }
+
+    @Test
+    void discoversPropertyRowTypeFromServerSortedByName() {
+        FakeClient client = new FakeClient();
+        client.vertexProperties = new HashSet<>(Arrays.asList("name", "age", "tags"));
+        client.propertyTypes.put("name", DataType.TEXT);
+        client.propertyTypes.put("age", DataType.INT);
+        client.propertyTypes.put("tags", DataType.TEXT);
+        client.propertyCardinalities.put("tags", Cardinality.LIST);
+
+        SeaTunnelRowType rowType =
+                HugeGraphSourceFactory.discoverPropertyRowType(
+                        client, "person", MappingConfig.LabelType.VERTEX);
+
+        // sorted by name: age, name, tags
+        assertArrayEquals(new String[] {"age", "name", "tags"}, rowType.getFieldNames());
+        assertEquals(BasicType.INT_TYPE, rowType.getFieldType(0));
+        assertEquals(BasicType.STRING_TYPE, rowType.getFieldType(1));
+        assertEquals(ArrayType.STRING_ARRAY_TYPE, rowType.getFieldType(2));
+    }
+
+    @Test
+    void discoverFailsWhenLabelMissing() {
+        FakeClient client = new FakeClient();
+        // vertexProperties stays null -> label does not exist
+        assertThrows(
+                HugeGraphConnectorException.class,
+                () ->
+                        HugeGraphSourceFactory.discoverPropertyRowType(
+                                client, "ghost", MappingConfig.LabelType.VERTEX));
+    }
+
+    @Test
+    void discoversEmptyRowTypeForPropertylessLabel() {
+        FakeClient client = new FakeClient();
+        client.edgeProperties = new HashSet<>();
+
+        SeaTunnelRowType rowType =
+                HugeGraphSourceFactory.discoverPropertyRowType(
+                        client, "rel", MappingConfig.LabelType.EDGE);
+
+        assertEquals(0, rowType.getTotalFields());
     }
 
     private SeaTunnelRowType propertyRowType() {
         return new SeaTunnelRowType(
                 new String[] {"name", "age"},
                 new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+    }
+
+    private static class FakeClient implements HugeGraphOperations {
+        private final Map<String, DataType> propertyTypes = new HashMap<>();
+        private final Map<String, Cardinality> propertyCardinalities = new HashMap<>();
+        private Set<String> vertexProperties;
+        private Set<String> edgeProperties;
+
+        @Override
+        public Set<String> getVertexLabelPropertiesOrNull(String label) {
+            return vertexProperties;
+        }
+
+        @Override
+        public Set<String> getEdgeLabelPropertiesOrNull(String label) {
+            return edgeProperties;
+        }
+
+        @Override
+        public DataType getPropertyDataType(String propertyName) {
+            return propertyTypes.get(propertyName);
+        }
+
+        @Override
+        public Cardinality getPropertyCardinality(String propertyName) {
+            return propertyCardinalities.getOrDefault(propertyName, Cardinality.SINGLE);
+        }
+
+        @Override
+        public PageResult<Vertex> listVertices(
+                String label, Map<String, Object> filter, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PageResult<Edge> listEdges(
+                String label, Map<String, Object> filter, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Shard> vertexShards(long splitSize) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<Shard> edgeShards(long splitSize) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public PageResult<Vertex> scanVertices(Shard shard, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PageResult<Edge> scanEdges(Shard shard, String page, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void close() {}
     }
 }

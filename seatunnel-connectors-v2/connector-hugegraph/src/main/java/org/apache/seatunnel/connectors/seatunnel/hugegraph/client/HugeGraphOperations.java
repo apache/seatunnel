@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.hugegraph.client;
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.graph.Edge;
+import org.apache.hugegraph.structure.graph.Shard;
 import org.apache.hugegraph.structure.graph.Vertex;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -46,6 +48,26 @@ public interface HugeGraphOperations {
      * Lists one page of edges of {@code label}. See {@link #listVertices} for the filter contract.
      */
     PageResult<Edge> listEdges(String label, Map<String, Object> filter, String page, int limit);
+
+    /**
+     * Splits the vertex keyspace into shards of approximately {@code splitSize} bytes each, for
+     * parallel scanning. Requires a backend that supports scan (RocksDB / HBase / Cassandra); the
+     * memory backend does not.
+     */
+    List<Shard> vertexShards(long splitSize);
+
+    /** Splits the edge keyspace into shards. See {@link #vertexShards}. */
+    List<Shard> edgeShards(long splitSize);
+
+    /**
+     * Scans one page of vertices within {@code shard}. Unlike {@link #listVertices}, the scan is by
+     * key range and returns vertices of ALL labels in the range, so the caller must filter by label
+     * client-side; server-side property filters are not supported here.
+     */
+    PageResult<Vertex> scanVertices(Shard shard, String page, int limit);
+
+    /** Scans one page of edges within {@code shard}. See {@link #scanVertices}. */
+    PageResult<Edge> scanEdges(Shard shard, String page, int limit);
 
     void close();
 }

@@ -17,17 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
@@ -35,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourc
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.HugeGraphTypeConverter;
 
 import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
@@ -44,10 +42,6 @@ import org.apache.hugegraph.structure.graph.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.time.LocalDateTime;
@@ -56,15 +50,30 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
-public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+/**
+ * Reads HugeGraph vertices/edges into SeaTunnel rows, one assigned split at a time.
+ *
+ * <p>A {@code LABEL_LIST} split pages the whole label via the server-side list API (with optional
+ * server-side property filtering). A {@code SHARD} split scans a key range via the scan API and
+ * filters to the configured label client-side (the scan API cannot filter by label or property).
+ * Progress (page marker, finished flag, dedup id) is stored on the split so a checkpoint can resume
+ * mid-scan after failover.
+ */
+public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGraphSourceSplit> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HugeGraphSourceReader.class);
+
+    private static final long IDLE_POLL_INTERVAL_MS = 1000L;
 
     /** HugeGraph server DATE serialization format: {@code yyyy-MM-dd HH:mm:ss.SSS}. */
     private static final DateTimeFormatter HUGEGRAPH_DATE_FORMAT =
@@ -80,22 +89,26 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     public static final String TARGET_ID_FIELD = "~target_id";
     public static final String TARGET_LABEL_FIELD = "~target_label";
 
-    private final SingleSplitReaderContext context;
+    private final SourceReader.Context context;
     private final HugeGraphSourceConfig sourceConfig;
     private final SeaTunnelRowType outputRowType;
     private final SeaTunnelRowType propertyRowType;
     private final HugeGraphOperations client;
-    private String nextPage;
-    private boolean started;
-    private boolean finished;
-    private boolean noMoreElementSignalled;
+
+    private final Deque<HugeGraphSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
+    private HugeGraphSourceSplit currentSplit;
+    private volatile boolean noMoreSplits;
+
+    // Dedup state for the split currently being read; mirrored to/from currentSplit around each
+    // page
+    // so it survives checkpoints.
     private String lastEmittedId;
     private long duplicateSkipped;
     private long totalRecords;
     private int pageCount;
 
     public HugeGraphSourceReader(
-            SingleSplitReaderContext context,
+            SourceReader.Context context,
             HugeGraphSourceConfig sourceConfig,
             SeaTunnelRowType outputRowType) {
         this(
@@ -106,7 +119,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     HugeGraphSourceReader(
-            SingleSplitReaderContext context,
+            SourceReader.Context context,
             HugeGraphSourceConfig sourceConfig,
             SeaTunnelRowType outputRowType,
             HugeGraphOperations client) {
@@ -115,14 +128,6 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         this.outputRowType = outputRowType;
         this.propertyRowType = sourceConfig.getSchema();
         this.client = client;
-        this.nextPage = null;
-        this.started = false;
-        this.finished = false;
-        this.noMoreElementSignalled = false;
-        this.lastEmittedId = null;
-        this.duplicateSkipped = 0;
-        this.totalRecords = 0;
-        this.pageCount = 0;
     }
 
     @Override
@@ -148,46 +153,77 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        synchronized (output.getCheckpointLock()) {
-            if (noMoreSplits) {
-                signalNoMoreElement();
-                return;
-            }
-            internalPollNext(output);
+    public void addSplits(List<HugeGraphSourceSplit> splits) {
+        if (splits != null) {
+            pendingSplits.addAll(splits);
         }
     }
 
-    /** Reads one bounded page so checkpoints can persist progress between page requests. */
     @Override
-    public void internalPollNext(Collector<SeaTunnelRow> output) {
-        if (finished) {
-            noMoreSplits = true;
-            signalNoMoreElement();
-            return;
-        }
+    public void handleNoMoreSplits() {
+        noMoreSplits = true;
+    }
 
-        String requestedPage = nextPage;
+    @Override
+    public List<HugeGraphSourceSplit> snapshotState(long checkpointId) {
+        List<HugeGraphSourceSplit> state = new ArrayList<>();
+        HugeGraphSourceSplit cur = currentSplit;
+        if (cur != null && !cur.isFinished()) {
+            state.add(cur);
+        }
+        state.addAll(pendingSplits);
+        return state;
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        // No-op: the source keeps no server-side cursor to acknowledge.
+    }
+
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        boolean idle = false;
+        synchronized (output.getCheckpointLock()) {
+            if (currentSplit == null) {
+                currentSplit = pendingSplits.poll();
+            }
+            if (currentSplit == null) {
+                if (noMoreSplits && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                    context.signalNoMoreElement();
+                } else {
+                    context.sendSplitRequest();
+                    idle = true;
+                }
+            } else {
+                readOnePage(currentSplit, output);
+            }
+        }
+        if (idle) {
+            Thread.sleep(IDLE_POLL_INTERVAL_MS);
+        }
+    }
+
+    /** Reads one bounded page of the current split so checkpoints can persist progress. */
+    private void readOnePage(HugeGraphSourceSplit split, Collector<SeaTunnelRow> output) {
+        String requestedPage = split.getPage();
+        this.lastEmittedId = split.getLastEmittedId();
+
         int recordCount;
         String responsePage;
         if (sourceConfig.getLabelType() == MappingConfig.LabelType.VERTEX) {
-            PageResult<Vertex> page =
-                    client.listVertices(
-                            sourceConfig.getLabel(),
-                            sourceConfig.getFilter(),
-                            requestedPage,
-                            sourceConfig.getPageSize());
-            collectVertices(page.getRecords(), output);
+            PageResult<Vertex> page = fetchVertexPage(split, requestedPage);
+            List<Vertex> records =
+                    split.isShardMode()
+                            ? filterVerticesByLabel(page.getRecords())
+                            : page.getRecords();
+            collectVertices(records, output);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
         } else {
-            PageResult<Edge> page =
-                    client.listEdges(
-                            sourceConfig.getLabel(),
-                            sourceConfig.getFilter(),
-                            requestedPage,
-                            sourceConfig.getPageSize());
-            collectEdges(page.getRecords(), output);
+            PageResult<Edge> page = fetchEdgePage(split, requestedPage);
+            List<Edge> records =
+                    split.isShardMode() ? filterEdgesByLabel(page.getRecords()) : page.getRecords();
+            collectEdges(records, output);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
         }
@@ -196,85 +232,82 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
                     String.format(
-                            "HugeGraph pagination marker did not advance for label '%s': '%s'",
-                            sourceConfig.getLabel(), responsePage));
+                            "HugeGraph pagination marker did not advance for split '%s': '%s'",
+                            split.splitId(), responsePage));
         }
 
-        started = true;
-        nextPage = responsePage;
+        split.setLastEmittedId(this.lastEmittedId);
+        split.setPage(responsePage);
         totalRecords += recordCount;
         pageCount++;
         if (recordCount == 0 && responsePage != null) {
             LOG.debug(
-                    "HugeGraph source received an empty intermediate page for label '{}'; continuing with the next marker",
-                    sourceConfig.getLabel());
+                    "HugeGraph source received an empty intermediate page for split '{}'; continuing",
+                    split.splitId());
         }
         if (responsePage == null) {
-            finished = true;
-            noMoreSplits = true;
+            split.setFinished(true);
             LOG.info(
-                    "HugeGraph source finished scanning label '{}': {} records in {} pages"
+                    "HugeGraph source finished split '{}' (label '{}'): {} records in {} pages"
                             + " ({} server-side paging duplicates skipped)",
+                    split.splitId(),
                     sourceConfig.getLabel(),
                     totalRecords,
                     pageCount,
                     duplicateSkipped);
-            signalNoMoreElement();
+            // Reset per-split counters for the next split.
+            totalRecords = 0;
+            pageCount = 0;
+            duplicateSkipped = 0;
+            currentSplit = null;
         }
     }
 
-    @Override
-    protected byte[] snapshotStateToBytes(long checkpointId) throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (DataOutputStream output = new DataOutputStream(bytes)) {
-            output.writeBoolean(started);
-            writeNullableString(output, nextPage);
-            output.writeBoolean(finished);
-            writeNullableString(output, lastEmittedId);
-            output.writeLong(duplicateSkipped);
-            output.writeLong(totalRecords);
-            output.writeInt(pageCount);
+    private PageResult<Vertex> fetchVertexPage(HugeGraphSourceSplit split, String requestedPage) {
+        if (split.isShardMode()) {
+            return client.scanVertices(split.toShard(), requestedPage, sourceConfig.getPageSize());
         }
-        return bytes.toByteArray();
+        return client.listVertices(
+                sourceConfig.getLabel(),
+                sourceConfig.getFilter(),
+                requestedPage,
+                sourceConfig.getPageSize());
     }
 
-    @Override
-    protected void restoreState(byte[] restoredState) {
-        try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(restoredState))) {
-            started = input.readBoolean();
-            nextPage = readNullableString(input);
-            finished = input.readBoolean();
-            lastEmittedId = readNullableString(input);
-            duplicateSkipped = input.readLong();
-            totalRecords = input.readLong();
-            pageCount = input.readInt();
-            noMoreSplits = finished;
-            noMoreElementSignalled = false;
-        } catch (IOException e) {
-            throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                    "Failed to restore HugeGraph source pagination state",
-                    e);
+    private PageResult<Edge> fetchEdgePage(HugeGraphSourceSplit split, String requestedPage) {
+        if (split.isShardMode()) {
+            return client.scanEdges(split.toShard(), requestedPage, sourceConfig.getPageSize());
         }
+        return client.listEdges(
+                sourceConfig.getLabel(),
+                sourceConfig.getFilter(),
+                requestedPage,
+                sourceConfig.getPageSize());
     }
 
-    private static void writeNullableString(DataOutputStream output, String value)
-            throws IOException {
-        output.writeBoolean(value != null);
-        if (value != null) {
-            output.writeUTF(value);
+    /**
+     * Shard scans return elements of all labels in the key range; keep only the configured label.
+     */
+    private List<Vertex> filterVerticesByLabel(List<Vertex> records) {
+        String label = sourceConfig.getLabel();
+        List<Vertex> filtered = new ArrayList<>(records.size());
+        for (Vertex vertex : records) {
+            if (label.equals(vertex.label())) {
+                filtered.add(vertex);
+            }
         }
+        return filtered;
     }
 
-    private static String readNullableString(DataInputStream input) throws IOException {
-        return input.readBoolean() ? input.readUTF() : null;
-    }
-
-    private void signalNoMoreElement() {
-        if (!noMoreElementSignalled) {
-            context.signalNoMoreElement();
-            noMoreElementSignalled = true;
+    private List<Edge> filterEdgesByLabel(List<Edge> records) {
+        String label = sourceConfig.getLabel();
+        List<Edge> filtered = new ArrayList<>(records.size());
+        for (Edge edge : records) {
+            if (label.equals(edge.label())) {
+                filtered.add(edge);
+            }
         }
+        return filtered;
     }
 
     private void validateLabelAndSchema() {
@@ -313,7 +346,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
         // A filter keyed on a non-existent property would be silently dropped by the server and
         // return the whole label — fail fast so the misconfiguration surfaces at open() instead.
-        java.util.Map<String, Object> filter = sourceConfig.getFilter();
+        Map<String, Object> filter = sourceConfig.getFilter();
         if (filter != null) {
             for (String key : filter.keySet()) {
                 if (!labelProperties.contains(key)) {
@@ -372,48 +405,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     private SeaTunnelDataType<?> toSeaTunnelType(DataType dataType, Cardinality cardinality) {
-        SeaTunnelDataType<?> scalar = toSeaTunnelScalarType(dataType);
-        if (cardinality == null || cardinality == Cardinality.SINGLE) {
-            return scalar;
-        }
-        // BLOB elements would produce byte[][], which downstream SeaTunnel operators do not
-        // uniformly handle — reject with a clear message rather than a mysterious CCE later.
-        if (dataType == DataType.BLOB) {
-            throw new HugeGraphConnectorException(
-                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
-                    String.format(
-                            "Property type BLOB with cardinality %s is not supported for reads.",
-                            cardinality));
-        }
-        return ArrayType.of(scalar);
-    }
-
-    private SeaTunnelDataType<?> toSeaTunnelScalarType(DataType dataType) {
-        switch (dataType) {
-            case TEXT:
-                return BasicType.STRING_TYPE;
-            case INT:
-                return BasicType.INT_TYPE;
-            case LONG:
-                return BasicType.LONG_TYPE;
-            case FLOAT:
-                return BasicType.FLOAT_TYPE;
-            case DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case UUID:
-                return BasicType.STRING_TYPE;
-            case BLOB:
-                return PrimitiveByteArrayType.INSTANCE;
-            default:
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
-                        String.format(
-                                "Unsupported HugeGraph property type for source: %s", dataType));
-        }
+        return HugeGraphTypeConverter.toSeaTunnelType(dataType, cardinality);
     }
 
     private void collectVertices(List<Vertex> vertices, Collector<SeaTunnelRow> output) {
@@ -450,9 +442,9 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
     /**
      * The HugeGraph RocksDB backend emits one duplicate record at every internal 500-record scan
-     * boundary when limit >= 1000 (observed 2001 duplicates per 1M rows, all back-to-back). Element
-     * IDs are unique within a label, so two consecutive identical IDs can only be that server-side
-     * paging artifact — skip them with O(1) memory.
+     * boundary when limit &gt;= 1000 (observed 2001 duplicates per 1M rows, all back-to-back).
+     * Element IDs are unique within a label, so two consecutive identical IDs can only be that
+     * server-side paging artifact — skip them with O(1) memory.
      */
     private boolean isAdjacentDuplicate(String id) {
         if (id.equals(lastEmittedId)) {
@@ -464,7 +456,7 @@ public class HugeGraphSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     }
 
     private void fillProperties(
-            java.util.Map<String, Object> properties, Object[] fields, int propertyOffset) {
+            Map<String, Object> properties, Object[] fields, int propertyOffset) {
         for (int i = 0; i < propertyRowType.getTotalFields(); i++) {
             String propertyName = propertyRowType.getFieldName(i);
             fields[propertyOffset + i] =

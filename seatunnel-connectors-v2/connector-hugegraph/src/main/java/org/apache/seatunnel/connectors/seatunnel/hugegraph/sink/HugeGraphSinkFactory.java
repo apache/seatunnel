@@ -57,17 +57,29 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                         HugeGraphOptions.GRAPH_SPACE)
                 // mapping config: mappings (new) or schema_config (legacy)
                 .optional(HugeGraphSinkOptions.MAPPINGS, HugeGraphSinkOptions.SCHEMA_CONFIG)
-                // schema management
+                // schema and data save mode
                 .optional(
                         HugeGraphSinkOptions.SCHEMA_SAVE_MODE,
+                        HugeGraphSinkOptions.DATA_SAVE_MODE,
                         HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES)
                 // batch config
-                .optional(HugeGraphOptions.BATCH_SIZE, HugeGraphOptions.BATCH_INTERVAL_MS)
+                .optional(
+                        HugeGraphOptions.BATCH_SIZE,
+                        HugeGraphOptions.BATCH_INTERVAL_MS,
+                        HugeGraphOptions.CHECK_VERTEX)
                 // required by the multi-table sink SPI (HugeGraphSink implements
                 // SupportMultiTableSink): lets the framework size per-table write replicas
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                // error handling
+                .optional(
+                        HugeGraphOptions.BATCH_FAILURE_FALLBACK,
+                        HugeGraphOptions.MAX_INSERT_ERRORS,
+                        HugeGraphOptions.FAILURE_DATA_PATH)
                 // retry config
-                .optional(HugeGraphOptions.MAX_RETRIES, HugeGraphOptions.RETRY_BACKOFF_MS)
+                .optional(
+                        HugeGraphOptions.MAX_RETRIES,
+                        HugeGraphOptions.RETRY_BACKOFF_MS,
+                        HugeGraphOptions.RETRY_BACKOFF_MAX_MS)
                 // deprecated field selection
                 .optional(HugeGraphSinkOptions.SELECTED_FIELDS, HugeGraphSinkOptions.IGNORED_FIELDS)
                 .build();

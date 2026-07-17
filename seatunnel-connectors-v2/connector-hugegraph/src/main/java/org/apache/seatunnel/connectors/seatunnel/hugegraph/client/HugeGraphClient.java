@@ -38,6 +38,7 @@ import org.apache.hugegraph.structure.graph.BatchEdgeRequest;
 import org.apache.hugegraph.structure.graph.BatchVertexRequest;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Edges;
+import org.apache.hugegraph.structure.graph.Shard;
 import org.apache.hugegraph.structure.graph.UpdateStrategy;
 import org.apache.hugegraph.structure.graph.Vertex;
 import org.apache.hugegraph.structure.graph.Vertices;
@@ -764,6 +765,54 @@ public final class HugeGraphClient implements HugeGraphOperations {
                                     effectivePage,
                                     limit);
                     List<Edge> records = (List<Edge>) edges.results();
+                    return new PageResult<>(
+                            records == null ? Collections.emptyList() : records, edges.page());
+                });
+    }
+
+    /**
+     * Splits the vertex keyspace into shards for parallel scanning. Delegates to the server's
+     * {@code traverser().vertexShards} API. Requires a scan-capable backend (RocksDB / HBase /
+     * Cassandra).
+     */
+    @Override
+    public List<Shard> vertexShards(long splitSize) {
+        return executeReadOperation(() -> this.client.traverser().vertexShards(splitSize));
+    }
+
+    /** Splits the edge keyspace into shards. See {@link #vertexShards}. */
+    @Override
+    public List<Shard> edgeShards(long splitSize) {
+        return executeReadOperation(() -> this.client.traverser().edgeShards(splitSize));
+    }
+
+    /**
+     * Scans one page of vertices within {@code shard}. The empty-first-page contract of {@link
+     * #listVertices} applies: a null page is sent as the empty string so the server enters paged
+     * mode. The scan returns vertices of all labels in the key range; label filtering is the
+     * caller's responsibility.
+     */
+    @Override
+    public PageResult<Vertex> scanVertices(Shard shard, String page, int limit) {
+        String effectivePage = page == null ? "" : page;
+        return executeReadOperation(
+                () -> {
+                    Vertices vertices =
+                            this.client.traverser().vertices(shard, effectivePage, limit);
+                    List<Vertex> records = vertices.results();
+                    return new PageResult<>(
+                            records == null ? Collections.emptyList() : records, vertices.page());
+                });
+    }
+
+    /** Scans one page of edges within {@code shard}. See {@link #scanVertices}. */
+    @Override
+    public PageResult<Edge> scanEdges(Shard shard, String page, int limit) {
+        String effectivePage = page == null ? "" : page;
+        return executeReadOperation(
+                () -> {
+                    Edges edges = this.client.traverser().edges(shard, effectivePage, limit);
+                    List<Edge> records = edges.results();
                     return new PageResult<>(
                             records == null ? Collections.emptyList() : records, edges.page());
                 });
