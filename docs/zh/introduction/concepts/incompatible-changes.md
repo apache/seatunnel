@@ -103,6 +103,24 @@
     - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
       只有 sink 新建的表会改变行为。
 
+- **S3File 连接器 — `fs.s3a.aws.credentials.provider` 选项类型由枚举改为字符串**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-s3`（`connector-hive` 与
+    `connector-s3-redshift` 也复用该选项）
+  - **变更说明**：`S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER` 由
+    `Option<S3aAwsCredentialsProvider>`（仅限 `SimpleAWSCredentialsProvider` 与
+    `InstanceProfileCredentialsProvider` 两个枚举值）改为 `Option<String>`，从而支持配置 classpath
+    上任意 S3A 凭据提供程序类（详见
+    [#9233](https://github.com/apache/seatunnel/issues/9233)）。已弃用的 `S3aAwsCredentialsProvider`
+    枚举为保证二进制兼容而保留，但不再是该选项的类型。
+  - **影响**：终端用户的任务配置不受影响 —— 选项值仍是提供程序类的全限定类名，默认值也未改变。
+    仅当下游 Java 代码引用了 `Option<S3aAwsCredentialsProvider>` 泛型类型，或对选项值调用了
+    `.getProvider()` 时，才需要针对新的 `Option<String>` 类型重新编译。
+  - **迁移指南**：
+    - **已有配置**：无需任何操作。
+    - **下游代码**：将该选项按 `String` 读取，并使用
+      `S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER` /
+      `INSTANCE_PROFILE_CREDENTIALS_PROVIDER` 类名常量替代已弃用的枚举。
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：

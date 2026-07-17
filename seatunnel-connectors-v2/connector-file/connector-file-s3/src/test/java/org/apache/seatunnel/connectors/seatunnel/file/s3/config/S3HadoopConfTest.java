@@ -72,17 +72,63 @@ public class S3HadoopConfTest {
     }
 
     @Test
-    void testUnknownCredentialsProviderClassFails() {
+    void testUnknownCredentialsProviderClassIsPassedThroughWithWarning() {
+        // A class that is not resolvable on this node may still exist on the worker classpath
+        // where Hadoop S3A actually instantiates it, so it must pass through instead of failing.
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
         config.put(
                 S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
                 "com.example.NonExistentCredentialsProvider");
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                "com.example.NonExistentCredentialsProvider",
+                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+    }
+
+    @Test
+    void testNonCredentialsProviderClassFails() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), "java.lang.String");
         IllegalArgumentException exception =
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
                         () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
-        Assertions.assertTrue(
-                exception.getMessage().contains("com.example.NonExistentCredentialsProvider"));
+        Assertions.assertTrue(exception.getMessage().contains("does not implement"));
+    }
+
+    @Test
+    void testProviderChainIsPassedThrough() {
+        String chain =
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER
+                        + ","
+                        + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                chain,
+                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+    }
+
+    @Test
+    void testProviderChainWithNonProviderClassFails() {
+        // Chain entries are validated independently; a resolvable class that is not a credentials
+        // provider still fails fast because it cannot work on any node.
+        String chain = S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER + ",java.lang.String";
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(exception.getMessage().contains("does not implement"));
     }
 }

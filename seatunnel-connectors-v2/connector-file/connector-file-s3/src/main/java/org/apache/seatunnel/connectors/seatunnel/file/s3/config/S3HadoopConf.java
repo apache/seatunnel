@@ -20,10 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class S3HadoopConf extends HadoopConf {
+    private static final Logger LOGGER = LoggerFactory.getLogger(S3HadoopConf.class);
     private static final String HDFS_S3N_IMPL = "org.apache.hadoop.fs.s3native.NativeS3FileSystem";
     private static final String HDFS_S3A_IMPL = "org.apache.hadoop.fs.s3a.S3AFileSystem";
     protected static final String S3A_SCHEMA = "s3a";
@@ -63,7 +67,7 @@ public class S3HadoopConf extends HadoopConf {
         }
 
         String credentialsProvider = config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER);
-        checkCredentialsProviderOnClasspath(credentialsProvider);
+        checkCredentialsProviders(credentialsProvider);
         s3Options.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), credentialsProvider);
         s3Options.put(
                 S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
@@ -99,9 +103,42 @@ public class S3HadoopConf extends HadoopConf {
     }
 
     /**
-     * Verifies that the configured S3A credentials provider class is present on the classpath. Any
-     * fully-qualified provider class is accepted, but a missing class is reported eagerly with an
-     * actionable message instead of surfacing later as an obscure Hadoop initialization failure.
+     * The AWS credentials provider contract every configured provider class must implement. Hadoop
+     * S3A reflectively instantiates the configured class as an instance of this interface, so a
+     * class that is present but does not implement it would fail later inside S3A initialization.
+     */
+    private static final String AWS_CREDENTIALS_PROVIDER_INTERFACE =
+            "com.amazonaws.auth.AWSCredentialsProvider";
+
+    /**
+     * Best-effort eager validation of the configured S3A credentials provider value on the node
+     * that builds the Hadoop configuration. Hadoop accepts a comma-separated chain of provider
+     * classes, so each entry is validated independently.
+     *
+     * <p>The provider is ultimately instantiated on every worker by Hadoop S3A, and the classpath
+     * of the node building this configuration (client/coordinator, or a module embedding this
+     * connector) may legitimately differ from the workers' — the provider jar only has to be
+     * present where S3A actually runs (for example under {@code ${SEATUNNEL_HOME}/lib} on every
+     * cluster node). A class that cannot be resolved here is therefore only logged as a warning,
+     * never rejected. Only a class that resolves but does not implement the AWS credentials
+     * provider contract fails fast, because that configuration cannot work on any node.
+     *
+     * @param credentialsProvider the raw option value (single class or comma-separated chain)
+     */
+    private static void checkCredentialsProviders(String credentialsProvider) {
+        if (credentialsProvider == null || credentialsProvider.trim().isEmpty()) {
+            return;
+        }
+        for (String providerClassName : credentialsProvider.split(",")) {
+            String trimmed = providerClassName.trim();
+            if (!trimmed.isEmpty()) {
+                checkCredentialsProviderClass(trimmed);
+            }
+        }
+    }
+
+    /**
+     * Validates a single S3A credentials provider class as far as the local classpath allows.
      *
      * <p>The lookup tries the thread context classloader first, then falls back to the classloader
      * that loaded this connector. Under the Zeta plugin classloader the context classloader may be
@@ -109,29 +146,67 @@ public class S3HadoopConf extends HadoopConf {
      * the connector (including the default {@link
      * S3FileBaseOptions#INSTANCE_PROFILE_CREDENTIALS_PROVIDER}) is not rejected by mistake.
      *
-     * @param credentialsProvider the fully-qualified credentials provider class name
+     * @param providerClassName the fully-qualified credentials provider class name
      */
-    private static void checkCredentialsProviderOnClasspath(String credentialsProvider) {
-        ClassLoader[] classLoaders = {
-            Thread.currentThread().getContextClassLoader(), S3HadoopConf.class.getClassLoader()
-        };
-        for (ClassLoader classLoader : classLoaders) {
+    private static void checkCredentialsProviderClass(String providerClassName) {
+        for (ClassLoader classLoader : credentialsProviderClassLoaders()) {
             if (classLoader == null) {
                 continue;
             }
+            Class<?> providerClass;
             try {
-                Class.forName(credentialsProvider, false, classLoader);
-                return;
+                providerClass = Class.forName(providerClassName, false, classLoader);
             } catch (ClassNotFoundException ignored) {
-                // Try the next classloader before failing.
+                // Try the next classloader before concluding the class is not visible here.
+                continue;
             }
+            assertImplementsCredentialsProvider(providerClass, classLoader);
+            return;
         }
-        throw new IllegalArgumentException(
-                String.format(
-                        "The S3A credentials provider class '%s' is not found on the classpath. "
-                                + "Please check the value of '%s' and make sure the provider class "
-                                + "is available in the runtime classpath (for example under "
-                                + "${SEATUNNEL_HOME}/lib).",
-                        credentialsProvider, S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        LOGGER.warn(
+                "The S3A credentials provider class '{}' configured via '{}' is not visible on "
+                        + "this node's classpath. The job will fail at runtime unless the provider "
+                        + "jar is available on every node running the S3A filesystem (for example "
+                        + "under ${SEATUNNEL_HOME}/lib).",
+                providerClassName,
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key());
+    }
+
+    /**
+     * Asserts the resolved provider class implements {@link #AWS_CREDENTIALS_PROVIDER_INTERFACE}.
+     *
+     * <p>The assertion is only enforced when the interface itself resolves from the same
+     * classloader that loaded the provider class; otherwise it is skipped. This avoids falsely
+     * rejecting a valid provider when the AWS SDK interface is not visible from the classloader
+     * that happened to resolve the provider (for example under plugin classloader isolation),
+     * trading a missed check for never blocking a legitimate configuration.
+     */
+    private static void assertImplementsCredentialsProvider(
+            Class<?> providerClass, ClassLoader classLoader) {
+        Class<?> providerInterface;
+        try {
+            providerInterface =
+                    Class.forName(AWS_CREDENTIALS_PROVIDER_INTERFACE, false, classLoader);
+        } catch (ClassNotFoundException ignored) {
+            // The AWS SDK interface is not visible from this classloader; skip the assertion
+            // rather than risk rejecting a legitimate provider.
+            return;
+        }
+        if (!providerInterface.isAssignableFrom(providerClass)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The S3A credentials provider class '%s' does not implement '%s'. "
+                                    + "Please check the value of '%s' and configure a class that "
+                                    + "implements the AWS credentials provider contract.",
+                            providerClass.getName(),
+                            AWS_CREDENTIALS_PROVIDER_INTERFACE,
+                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        }
+    }
+
+    private static ClassLoader[] credentialsProviderClassLoaders() {
+        return new ClassLoader[] {
+            Thread.currentThread().getContextClassLoader(), S3HadoopConf.class.getClassLoader()
+        };
     }
 }

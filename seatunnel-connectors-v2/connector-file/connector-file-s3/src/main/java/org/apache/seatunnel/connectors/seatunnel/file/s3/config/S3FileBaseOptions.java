@@ -61,8 +61,10 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
      * credentials provider class available on the classpath is accepted, so container-oriented
      * providers (for example {@code com.amazonaws.auth.ContainerCredentialsProvider}) and custom
      * providers can be used in addition to the two well-known values {@link
-     * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. The
-     * value is validated for classpath presence when the Hadoop configuration is built.
+     * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. Hadoop
+     * also accepts a comma-separated chain of provider classes. The class must be present on the
+     * runtime classpath of every node running the S3A filesystem (for example under {@code
+     * ${SEATUNNEL_HOME}/lib}).
      */
     public static final Option<String> S3A_AWS_CREDENTIALS_PROVIDER =
             Options.key("fs.s3a.aws.credentials.provider")
@@ -87,4 +89,36 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("S3 properties");
+
+    /**
+     * The set of S3A credentials providers that used to be the only accepted values for {@link
+     * #S3A_AWS_CREDENTIALS_PROVIDER}.
+     *
+     * @deprecated {@link #S3A_AWS_CREDENTIALS_PROVIDER} is now a free-form {@code String} option
+     *     that accepts any S3A credentials provider class on the classpath. This enum is retained
+     *     only for binary compatibility with downstream code compiled against earlier releases; use
+     *     the {@link #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link
+     *     #INSTANCE_PROFILE_CREDENTIALS_PROVIDER} class-name constants instead.
+     */
+    @Deprecated
+    public enum S3aAwsCredentialsProvider {
+        SimpleAWSCredentialsProvider(SIMPLE_AWS_CREDENTIALS_PROVIDER),
+
+        InstanceProfileCredentialsProvider(INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
+
+        private final String provider;
+
+        S3aAwsCredentialsProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getProvider() {
+            return provider;
+        }
+
+        @Override
+        public String toString() {
+            return provider;
+        }
+    }
 }
