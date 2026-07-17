@@ -50,6 +50,8 @@ public class SeaTunnelRowStreamingRecordDeserializer
         switch (row.getOpType()) {
             case DELETE:
                 values = decodeObjects(row.getOldValue().toByteArray(), handle, tableInfo);
+                CommonHandleDecoder.restorePrimaryKeyColumns(
+                        row.getKey().toByteArray(), values, tableInfo);
                 SeaTunnelRow record = converter.convert(values, tableInfo, rowType);
                 record.setRowKind(RowKind.DELETE);
                 output.collect(record);
@@ -61,6 +63,8 @@ public class SeaTunnelRowStreamingRecordDeserializer
                                     row.getValue().toByteArray(),
                                     RowKey.decode(row.getKey().toByteArray()).getHandle(),
                                     tableInfo);
+                    CommonHandleDecoder.restorePrimaryKeyColumns(
+                            row.getKey().toByteArray(), values, tableInfo);
                     if (row.getOldValue() == null || row.getOldValue().isEmpty()) {
                         SeaTunnelRow insert = converter.convert(values, tableInfo, rowType);
                         insert.setRowKind(RowKind.INSERT);
