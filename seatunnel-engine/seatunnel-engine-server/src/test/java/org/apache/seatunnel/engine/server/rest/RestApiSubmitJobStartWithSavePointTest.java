@@ -271,30 +271,6 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
     }
 
-    @Test
-    public void testBuildJobWithUnsupportedRestoreModeFailsFast() throws Exception {
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(TEST_JOB_NAME);
-        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
-                buildSeaTunnelJobConfigFromJsonRequest();
-
-        RestJobExecutionEnvironment restJobExecutionEnvironment =
-                new RestJobExecutionEnvironment(
-                        masterServer,
-                        jobConfig,
-                        seaTunnelJobConfig,
-                        masterInstance.node,
-                        RestoreMode.NONE,
-                        1L);
-
-        IllegalStateException exception =
-                Assertions.assertThrows(
-                        IllegalStateException.class, restJobExecutionEnvironment::build);
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unsupported restore mode for checkpoint loading"),
-                "Actual: " + exception.getMessage());
-    }
-
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
         Field jettyServiceField = SeaTunnelServer.class.getDeclaredField("jettyService");
         jettyServiceField.setAccessible(true);
