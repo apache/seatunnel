@@ -201,6 +201,7 @@ public class SFTPConnectionPool {
             return channel;
 
         } catch (JSchException e) {
+            closeConnectionResources(channel, session);
             throw new IOException(StringUtils.stringifyException(e));
         }
     }
@@ -252,15 +253,19 @@ public class SFTPConnectionPool {
     /** Close both the SFTP channel and its backing SSH session when they are still open. */
     private void closeChannel(ChannelSftp channel) throws IOException {
         try {
-            Session session = channel.getSession();
-            if (channel.isConnected()) {
-                channel.disconnect();
-            }
-            if (session != null && session.isConnected()) {
-                session.disconnect();
-            }
+            closeConnectionResources(channel, channel.getSession());
         } catch (JSchException e) {
             throw new IOException(StringUtils.stringifyException(e));
+        }
+    }
+
+    /** Disconnect the SFTP channel and its SSH session when either has already been created. */
+    private void closeConnectionResources(ChannelSftp channel, Session session) {
+        if (channel != null && channel.isConnected()) {
+            channel.disconnect();
+        }
+        if (session != null && session.isConnected()) {
+            session.disconnect();
         }
     }
 
