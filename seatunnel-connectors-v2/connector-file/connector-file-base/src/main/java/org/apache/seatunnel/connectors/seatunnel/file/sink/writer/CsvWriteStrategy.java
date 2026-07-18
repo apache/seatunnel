@@ -185,8 +185,9 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
     private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
         if (enableHeaderWriter) {
             fsDataOutputStream.write(
-                    String.join(fieldDelimiter, seaTunnelRowType.getFieldNames()).getBytes());
-            fsDataOutputStream.write(rowDelimiter.getBytes());
+                    String.join(fieldDelimiter, seaTunnelRowType.getFieldNames())
+                            .getBytes(charset));
+            fsDataOutputStream.write(rowDelimiter.getBytes(charset));
         }
     }
 }

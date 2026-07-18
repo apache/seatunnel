@@ -36,9 +36,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +54,80 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 @Slf4j
 public class CsvWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/csv/test";
+
+    /** Isolates the raw CSV output used by the header delimiter regression test. */
+    @TempDir private Path tempDir;
+
+    @Test
+    public void testHeaderUsesDefaultFieldDelimiter() throws Exception {
+        List<String> lines = writeCsvWithHeader("default", null, "UTF-8", "name", "a");
+
+        Assertions.assertEquals("id,name", lines.get(0));
+        Assertions.assertEquals("1,a", lines.get(1));
+    }
+
+    @Test
+    public void testHeaderUsesMultiCharacterFieldDelimiter() throws Exception {
+        List<String> lines = writeCsvWithHeader("multi", "||", "UTF-8", "name", "a");
+
+        Assertions.assertEquals("id||name", lines.get(0));
+        Assertions.assertEquals("1||a", lines.get(1));
+    }
+
+    @Test
+    public void testHeaderUsesConfiguredEncoding() throws Exception {
+        List<String> lines = writeCsvWithHeader("encoding", "|", "UTF-16LE", "名称", "测试");
+
+        Assertions.assertEquals("id|名称", lines.get(0));
+        Assertions.assertEquals("1|测试", lines.get(1));
+    }
+
+    private List<String> writeCsvWithHeader(
+            String directory,
+            String fieldDelimiter,
+            String encoding,
+            String fieldName,
+            String fieldValue)
+            throws Exception {
+        String outputPath = tempDir.resolve(directory).toUri().toString();
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", outputPath);
+        writeConfig.put("path", outputPath);
+        writeConfig.put("file_format_type", FileFormat.CSV.name());
+        writeConfig.put("enable_header_write", true);
+        writeConfig.put("encoding", encoding);
+        if (fieldDelimiter != null) {
+            writeConfig.put("field_delimiter", fieldDelimiter);
+        }
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", fieldName},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {1, fieldValue}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        CsvReadStrategy readStrategy = new CsvReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(outputPath);
+        Assertions.assertEquals(1, readFiles.size());
+        List<String> lines =
+                Files.readAllLines(
+                        Paths.get(java.net.URI.create(readFiles.get(0))),
+                        Charset.forName(encoding));
+        readStrategy.close();
+        return lines;
+    }
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
