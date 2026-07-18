@@ -80,6 +80,11 @@ class PythonProcessWorker {
     /** Maximum number of pending writes retained for the single-owner stdin pump. */
     private static final int STDIN_QUEUE_CAPACITY = 32;
 
+    /**
+     * Briefly waits for daemon pipe collectors without letting inherited descriptors block close.
+     */
+    private static final long COLLECTOR_JOIN_TIMEOUT_MILLIS = 100L;
+
     /** Default executable name used when no python runtime is configured explicitly. */
     private static final String DEFAULT_PYTHON_EXECUTABLE = "python3";
 
@@ -981,7 +986,7 @@ class PythonProcessWorker {
                     waitForProcessToStop(currentProcess, !stdinClosed || interrupted, interrupted);
             interrupted = stopResult.interrupted;
         }
-        interrupted |= waitForCollectorToStop(currentStdinWriterThread);
+        interrupted |= waitForThreadToStop(currentStdinWriterThread, TimeUnit.SECONDS.toMillis(5));
         if (currentStdinWriterThread == null || !currentStdinWriterThread.isAlive()) {
             closeQuietly(currentStdinStream, "stdin stream");
             closeQuietly(currentStdinWriter, "stdin writer");
@@ -994,10 +999,14 @@ class PythonProcessWorker {
         // collector's reader lock when a detached child inherited the worker's stdout/stderr.
         closeQuietly(currentStdoutStream, "stdout stream");
         closeQuietly(currentStderrStream, "stderr stream");
-        interrupted |= waitForCollectorToStop(currentStdoutCollectorThread);
-        interrupted |= waitForCollectorToStop(currentStderrCollectorThread);
-        closeQuietly(currentStdoutReader, "stdout reader");
-        closeQuietly(currentStderrReader, "stderr reader");
+        interrupted |=
+                waitForThreadToStop(currentStdoutCollectorThread, COLLECTOR_JOIN_TIMEOUT_MILLIS);
+        interrupted |=
+                waitForThreadToStop(currentStderrCollectorThread, COLLECTOR_JOIN_TIMEOUT_MILLIS);
+        closeReaderAfterCollectorStops(
+                currentStdoutReader, currentStdoutCollectorThread, "stdout reader");
+        closeReaderAfterCollectorStops(
+                currentStderrReader, currentStderrCollectorThread, "stderr reader");
         deleteQuietly(currentWorkerScriptPath);
         deleteQuietly(currentInlineSourceCodePath);
         TransformException closeFailure = null;
@@ -1095,17 +1104,29 @@ class PythonProcessWorker {
         }
     }
 
-    /** Waits for one daemon collector to release its process stream. */
-    private boolean waitForCollectorToStop(Thread collectorThread) {
-        if (collectorThread == null) {
+    /** Waits up to the caller's lifecycle budget for a process I/O thread to terminate. */
+    private boolean waitForThreadToStop(Thread thread, long timeoutMillis) {
+        if (thread == null) {
             return false;
         }
         try {
-            collectorThread.join(TimeUnit.SECONDS.toMillis(5));
+            thread.join(timeoutMillis);
             return false;
         } catch (InterruptedException e) {
             return true;
         }
+    }
+
+    /** Avoids waiting for a reader lock held by a daemon collector on an inherited pipe. */
+    private void closeReaderAfterCollectorStops(
+            BufferedReader reader, Thread collectorThread, String streamName) {
+        if (collectorThread != null && collectorThread.isAlive()) {
+            log.debug(
+                    "Python {} collector is still waiting for an inherited process descriptor",
+                    streamName);
+            return;
+        }
+        closeQuietly(reader, streamName);
     }
 
     /**
