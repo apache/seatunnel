@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -43,5 +49,60 @@ public class ConfigBuilderTest {
                         config, ConfigShadeUtils.getSensitiveOptions(null));
         List<String> keys = new ArrayList<>(desensitizationConfig.keySet());
         Assertions.assertIterableEquals(Arrays.asList("a", "b", "c", "d", "e", "f"), keys);
+    }
+
+    @Test
+    @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
+    public void testParseMetadataConfigFromSeatunnelYaml(@TempDir Path tempDir) throws Exception {
+        Path configDir = tempDir.resolve("config");
+        Files.createDirectories(configDir);
+        Files.write(
+                configDir.resolve("seatunnel.yaml"),
+                Arrays.asList(
+                        "seatunnel:",
+                        "  engine:",
+                        "    metadata:",
+                        "      enabled: true",
+                        "      kind: gravitino",
+                        "      gravitino:",
+                        "        uri: http://localhost:8090",
+                        "        metalake: test_metalake"));
+
+        String originalHome = System.getProperty("SEATUNNEL_HOME");
+        System.setProperty("SEATUNNEL_HOME", tempDir.toString());
+        try {
+            MetadataConfig metadataConfig = ConfigBuilder.parseMetadataConfigFromSeatunnelYaml();
+
+            Assertions.assertTrue(metadataConfig.isEnabled());
+            Assertions.assertEquals("gravitino", metadataConfig.getKind());
+            Assertions.assertEquals(
+                    "http://localhost:8090", metadataConfig.getProperties().get("uri"));
+            Assertions.assertEquals(
+                    "test_metalake", metadataConfig.getProperties().get("metalake"));
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("SEATUNNEL_HOME");
+            } else {
+                System.setProperty("SEATUNNEL_HOME", originalHome);
+            }
+        }
+    }
+
+    @Test
+    @ClearEnvironmentVariable(key = "SEATUNNEL_HOME")
+    public void testParseMetadataConfigFromMissingSeatunnelYaml(@TempDir Path tempDir) {
+        String originalHome = System.getProperty("SEATUNNEL_HOME");
+        System.setProperty("SEATUNNEL_HOME", tempDir.toString());
+        try {
+            MetadataConfig metadataConfig = ConfigBuilder.parseMetadataConfigFromSeatunnelYaml();
+
+            Assertions.assertFalse(metadataConfig.isEnabled());
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("SEATUNNEL_HOME");
+            } else {
+                System.setProperty("SEATUNNEL_HOME", originalHome);
+            }
+        }
     }
 }
