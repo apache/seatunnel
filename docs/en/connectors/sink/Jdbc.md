@@ -23,7 +23,7 @@ cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
 ```
 
-SeaTunnel does not bundle every database vendor's JDBC driver. Download a driver version compatible with both your database and Java runtime, and place the JAR in the engine-specific directory below before starting the job.
+JDBC driver licenses and redistribution terms vary by database vendor, and the driver version must also be compatible with your database and Java runtime. SeaTunnel therefore does not bundle every JDBC driver. Download the appropriate driver yourself and place its JAR in the engine-specific directory below before starting the job.
 
 ### Spark and Flink engines
 
@@ -50,7 +50,7 @@ For generated SQL, configure `primary_keys` when the target needs upsert, update
 
 ## Quick start: PostgreSQL
 
-This beginner example uses generated SQL and a pre-created target table. Its rows and final database values are covered by `JdbcAutoGenerateSQLIT.testDocumentedPostgresQuickStart` against PostgreSQL 14.
+This beginner example uses generated SQL and a pre-created target table. The complete configuration has been verified by a Docker end-to-end test against PostgreSQL 14, including the inserted rows and their final database values.
 
 1. Put a compatible PostgreSQL JDBC driver in the directory described in [Using Dependency](#using-dependency).
 

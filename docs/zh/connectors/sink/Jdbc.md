@@ -23,7 +23,7 @@ cd "${SEATUNNEL_HOME}"
 sh bin/install-plugin.sh
 ```
 
-SeaTunnel 不会内置所有数据库厂商的 JDBC 驱动。请下载同时兼容目标数据库和 Java 运行时的驱动版本，并在启动任务前把 JAR 放入对应引擎的目录。
+不同数据库厂商的 JDBC 驱动具有不同的许可证和再分发条款，而且驱动版本还必须同时兼容目标数据库和 Java 运行时，因此 SeaTunnel 不会统一内置所有 JDBC 驱动。请自行下载合适的驱动，并在启动任务前把 JAR 放入对应引擎的目录。
 
 ### Spark 和 Flink 引擎
 
@@ -50,7 +50,7 @@ JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余�
 
 ## 快速入门：PostgreSQL
 
-下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。`JdbcAutoGenerateSQLIT.testDocumentedPostgresQuickStart` 会在 PostgreSQL 14 中写入相同数据并校验最终数据库值。
+下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份完整配置已经通过 PostgreSQL 14 的 Docker 端到端测试，测试覆盖了示例数据写入，并逐项校验了最终数据库值。
 
 1. 按照[使用依赖](#使用依赖)的说明放置兼容版本的 PostgreSQL JDBC 驱动。
 
