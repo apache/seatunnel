@@ -27,14 +27,35 @@ import com.hazelcast.client.impl.protocol.ClientMessage;
 class SeaTunnelGetJobCheckpointCodecTest {
 
     @Test
-    void encodeDecodeRequest_shouldUseStableRestoreModeCode() {
+    void encodeDecodeRequest_shouldKeepLegacyJobIdApi() {
+        long jobId = 123456789L;
+
+        ClientMessage message = SeaTunnelGetJobCheckpointCodec.encodeRequest(jobId);
+
+        Assertions.assertEquals(jobId, SeaTunnelGetJobCheckpointCodec.decodeRequest(message));
+    }
+
+    @Test
+    void decodeRequestParameters_shouldDefaultLegacyRequestToSavepoint() {
+        long jobId = 123456789L;
+
+        ClientMessage message = SeaTunnelGetJobCheckpointCodec.encodeRequest(jobId);
+        SeaTunnelGetJobCheckpointCodec.RequestParameters parameters =
+                SeaTunnelGetJobCheckpointCodec.decodeRequestParameters(message);
+
+        Assertions.assertEquals(jobId, parameters.jobId);
+        Assertions.assertEquals(RestoreMode.SAVEPOINT.getCode(), parameters.restoreModeCode);
+    }
+
+    @Test
+    void encodeDecodeRequestParameters_shouldUseStableRestoreModeCode() {
         long jobId = 123456789L;
         ClientMessage message =
                 SeaTunnelGetJobCheckpointCodec.encodeRequest(
                         jobId, RestoreMode.CHECKPOINT.getCode());
 
         SeaTunnelGetJobCheckpointCodec.RequestParameters parameters =
-                SeaTunnelGetJobCheckpointCodec.decodeRequest(message);
+                SeaTunnelGetJobCheckpointCodec.decodeRequestParameters(message);
 
         Assertions.assertEquals(jobId, parameters.jobId);
         Assertions.assertEquals(RestoreMode.CHECKPOINT.getCode(), parameters.restoreModeCode);

@@ -35,7 +35,7 @@ public class GetJobCheckpointTask
                 clientMessage,
                 node,
                 connection,
-                SeaTunnelGetJobCheckpointCodec::decodeRequest,
+                SeaTunnelGetJobCheckpointCodec::decodeRequestParameters,
                 SeaTunnelGetJobCheckpointCodec::encodeResponse);
     }
 

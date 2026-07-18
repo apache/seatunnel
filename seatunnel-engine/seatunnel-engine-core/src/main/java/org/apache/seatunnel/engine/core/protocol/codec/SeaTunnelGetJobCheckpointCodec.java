@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import org.apache.seatunnel.engine.core.job.RestoreMode;
+
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
 import com.hazelcast.client.impl.protocol.codec.builtin.DataCodec;
@@ -51,6 +53,8 @@ public final class SeaTunnelGetJobCheckpointCodec {
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int REQUEST_RESTORE_MODE_FIELD_OFFSET =
             REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int LEGACY_REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int REQUEST_INITIAL_FRAME_SIZE =
             REQUEST_RESTORE_MODE_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
@@ -63,6 +67,10 @@ public final class SeaTunnelGetJobCheckpointCodec {
         public long jobId;
 
         public int restoreModeCode;
+    }
+
+    public static ClientMessage encodeRequest(long jobId) {
+        return encodeRequest(jobId, RestoreMode.SAVEPOINT.getCode());
     }
 
     public static ClientMessage encodeRequest(long jobId, int restoreModeCode) {
@@ -80,14 +88,26 @@ public final class SeaTunnelGetJobCheckpointCodec {
     }
 
     /** */
-    public static RequestParameters decodeRequest(ClientMessage clientMessage) {
+    public static long decodeRequest(ClientMessage clientMessage) {
+        return decodeRequestParameters(clientMessage).jobId;
+    }
+
+    /** */
+    public static RequestParameters decodeRequestParameters(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         ClientMessage.Frame initialFrame = iterator.next();
         RequestParameters request = new RequestParameters();
         request.jobId = decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
-        request.restoreModeCode =
-                FixedSizeTypesCodec.decodeInt(
-                        initialFrame.content, REQUEST_RESTORE_MODE_FIELD_OFFSET);
+        if (initialFrame.content.length == REQUEST_INITIAL_FRAME_SIZE) {
+            request.restoreModeCode =
+                    FixedSizeTypesCodec.decodeInt(
+                            initialFrame.content, REQUEST_RESTORE_MODE_FIELD_OFFSET);
+        } else if (initialFrame.content.length == LEGACY_REQUEST_INITIAL_FRAME_SIZE) {
+            request.restoreModeCode = RestoreMode.SAVEPOINT.getCode();
+        } else {
+            throw new IllegalArgumentException(
+                    "Invalid GetJobCheckpoint request frame size: " + initialFrame.content.length);
+        }
         return request;
     }
 
