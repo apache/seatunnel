@@ -98,9 +98,13 @@ The `process` function can return one of these shapes:
 
 If the return shape does not match the declared `columns`, SeaTunnel will fail the row.
 
+## Security
+
+- This transform runs the user-configured `python_executable` and Python code without a sandbox, using the operating-system permissions of the SeaTunnel worker process. Because `python_executable` can reference any executable, operators must restrict who can submit or modify jobs that use this transform.
+- Only run trusted scripts, and do not place secrets in `source_code` or `script_config`.
+
 ## Notes
 
-- Python scripts run without a sandbox and inherit the operating-system permissions of the SeaTunnel worker process. Only run trusted scripts and do not place secrets in `source_code` or `script_config`.
 - The runtime host must have Python installed.
 - `source_code_path` must exist on every runtime node that executes the transform.
 - Regular `print(...)` output from the user script is redirected to stderr so it does not break the row protocol.

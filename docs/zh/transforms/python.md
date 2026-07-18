@@ -98,9 +98,13 @@ Python 脚本返回的输出字段名。
 
 如果返回结构和声明的 `columns` 不匹配，SeaTunnel 会把这行数据视为失败。
 
+## 安全
+
+- 本 Transform 会在没有沙箱隔离的情况下运行用户配置的 `python_executable` 和 Python 代码，并继承 SeaTunnel Worker 进程的操作系统权限。由于 `python_executable` 可以指向任意可执行文件，集群管理员必须限制可提交或修改此类任务的用户范围。
+- 请只运行可信脚本，不要在 `source_code` 或 `script_config` 中放置密钥等敏感信息。
+
 ## 注意事项
 
-- Python 脚本不会在沙箱中运行，并会继承 SeaTunnel Worker 进程的操作系统权限。请只运行可信脚本，不要在 `source_code` 或 `script_config` 中放置密钥等敏感信息。
 - 运行节点必须安装 Python。
 - `source_code_path` 指向的文件必须存在于每个实际执行该 Transform 的运行节点上。
 - 用户脚本中的普通 `print(...)` 会被重定向到 stderr，避免破坏 Worker 的 stdout 通讯协议。
