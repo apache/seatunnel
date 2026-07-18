@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -45,5 +46,34 @@ public class HubSpotSourceParameterTest {
         // Verify URL Construction
         Assertions.assertEquals(
                 "https://api.hubapi.com/crm/v3/objects/companies", parameter.getUrl());
+    }
+
+    @Test
+    public void testAuthorizationHeaderOverrideIsPreserved() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("access_token", "test_secret_token");
+
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("Authorization", "Bearer custom_token");
+        configMap.put("headers", headers);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        HubSpotSourceParameter parameter = new HubSpotSourceParameter();
+        parameter.buildWithConfig(config);
+
+        Assertions.assertEquals("Bearer custom_token", parameter.getHeaders().get("Authorization"));
+    }
+
+    @Test
+    public void testBinaryFormatDoesNotInjectPagingDefaults() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("access_token", "test_secret_token");
+        configMap.put("format", HttpConfig.ResponseFormat.BINARY.name());
+
+        ReadonlyConfig runtimeConfig =
+                HubSpotSourceParameter.buildRuntimeConfig(ReadonlyConfig.fromMap(configMap));
+
+        Assertions.assertFalse(runtimeConfig.getSourceMap().containsKey("pageing"));
+        Assertions.assertFalse(runtimeConfig.getSourceMap().containsKey("content_field"));
     }
 }

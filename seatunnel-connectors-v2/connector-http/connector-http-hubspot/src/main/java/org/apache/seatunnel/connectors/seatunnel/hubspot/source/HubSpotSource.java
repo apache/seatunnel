@@ -56,6 +56,8 @@ public class HubSpotSource extends HttpSource {
                 this.deserializationSchema,
                 jsonField,
                 contentField,
-                pageInfo);
+                pageInfo,
+                binaryMode,
+                binaryChunkSize);
     }
 }

@@ -38,13 +38,18 @@ public class HubSpotSourceParameter extends HttpParameter {
     public static ReadonlyConfig buildRuntimeConfig(ReadonlyConfig pluginConfig) {
         // Preserve nested config objects such as `pageing`; `toMap()` stringifies them.
         Map<String, Object> configMap = new HashMap<>(pluginConfig.getSourceMap());
-        configMap.putIfAbsent(HttpSourceOptions.CONTENT_FIELD.key(), DEFAULT_CONTENT_FIELD);
-        configMap.putIfAbsent(
-                HttpSourceOptions.FORMAT.key(), HttpConfig.ResponseFormat.JSON.name());
+        HttpConfig.ResponseFormat responseFormat =
+                pluginConfig
+                        .getOptional(HttpSourceOptions.FORMAT)
+                        .orElse(HttpConfig.ResponseFormat.JSON);
+        configMap.putIfAbsent(HttpSourceOptions.FORMAT.key(), responseFormat.name());
         configMap.putIfAbsent(HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM.key(), Boolean.TRUE);
-        configMap.put(
-                HttpSourceOptions.PAGEING.key(),
-                mergePagingDefaults(configMap.get(HttpSourceOptions.PAGEING.key())));
+        if (responseFormat != HttpConfig.ResponseFormat.BINARY) {
+            configMap.putIfAbsent(HttpSourceOptions.CONTENT_FIELD.key(), DEFAULT_CONTENT_FIELD);
+            configMap.put(
+                    HttpSourceOptions.PAGEING.key(),
+                    mergePagingDefaults(configMap.get(HttpSourceOptions.PAGEING.key())));
+        }
         return ReadonlyConfig.fromMap(configMap);
     }
 
@@ -73,7 +78,7 @@ public class HubSpotSourceParameter extends HttpParameter {
 
         Map<String, String> currentHeaders =
                 this.getHeaders() == null ? new HashMap<>() : new HashMap<>(this.getHeaders());
-        currentHeaders.put(
+        currentHeaders.putIfAbsent(
                 "Authorization", "Bearer " + runtimeConfig.get(HubSpotSourceOptions.ACCESS_TOKEN));
         this.setHeaders(currentHeaders);
 

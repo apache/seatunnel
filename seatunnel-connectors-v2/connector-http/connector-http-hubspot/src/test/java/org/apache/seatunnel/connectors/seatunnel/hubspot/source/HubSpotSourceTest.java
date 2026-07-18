@@ -118,6 +118,27 @@ public class HubSpotSourceTest {
         Assertions.assertEquals(Boundedness.UNBOUNDED, source.getBoundedness());
     }
 
+    @Test
+    public void testCreateReaderSupportsBinaryModeWithoutPagingDefaults() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("access_token", "test_secret_token");
+        configMap.put("format", "BINARY");
+        configMap.put("url", "https://api.hubapi.com/files/v3/files/123/download");
+
+        HubSpotSource source = new HubSpotSource(ReadonlyConfig.fromMap(configMap));
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        Mockito.when(context.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+
+        HttpSourceReader reader =
+                (HttpSourceReader) source.createReader(new SingleSplitReaderContext(context));
+
+        @SuppressWarnings("unchecked")
+        Optional<PageInfo> pageInfoOptional =
+                (Optional<PageInfo>) getField(reader, "pageInfoOptional");
+        Assertions.assertFalse(pageInfoOptional.isPresent());
+        Assertions.assertEquals(Boolean.TRUE, getField(reader, "binaryMode"));
+    }
+
     /**
      * Reads a private field so the test can assert the exact runtime object passed into the real
      * HTTP source reader.

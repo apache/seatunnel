@@ -60,7 +60,6 @@ HubSpot 继承了共享 HTTP Source 的运行时。批任务只拉取一次后�
 | body                           | String  | 否   | -      |
 | format                         | String  | 否   | JSON   |
 | schema                         | Config  | 否   | -      |
-| schema.fields                  | Config  | 否   | -      |
 | json_field                     | Config  | 否   | -      |
 | content_field                  | String  | 否   | `$.results` |
 | pageing                        | Config  | 否   | 默认游标分页 |
@@ -75,7 +74,6 @@ HubSpot 继承了共享 HTTP Source 的运行时。批任务只拉取一次后�
 | keep_params_as_form            | boolean | 否   | false  |
 | keep_page_param_as_http_param  | boolean | 否   | true   |
 | json_filed_missed_return_null  | boolean | 否   | false  |
-| common-options                 | config  | 否   | -      |
 
 ### access_token [String]
 
@@ -96,7 +94,9 @@ HTTP 请求方法。常见的 HubSpot 读取场景使用 `GET`。
 
 ### headers [Map]
 
-额外的 HTTP 请求头。除非你确实想覆盖由 `access_token` 生成的认证头，否则不要在这里配置 `Authorization`。
+额外的 HTTP 请求头。如果没有显式提供 `Authorization`，连接器会自动注入
+`Authorization: Bearer <access_token>`。只有在你确实需要覆盖该值时，才需要配置
+`headers.Authorization`。
 
 ### params [Map]
 
@@ -108,12 +108,15 @@ HTTP 请求体。只有 HubSpot 目标接口支持请求体时才需要配置。
 
 ### format [String]
 
-响应数据格式，支持 `json` 和 `text`。HubSpot 默认使用 `JSON`，因为 CRM API 的正常返回就是 JSON。
+响应数据格式，支持 `json`、`text` 和 `binary`。当未显式配置 `format` 时，
+HubSpot 默认使用 `JSON`，因为 CRM API 的正常返回就是 JSON。
 
 ### schema [Config]
 
 当 `format = "JSON"` 时，用于定义输出行结构。更多信息请参考
 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+字段定义位于 `schema.fields` 这个嵌套配置下。
 
 ### json_field [Config]
 
@@ -125,8 +128,9 @@ HTTP 请求体。只有 HubSpot 目标接口支持请求体时才需要配置。
 
 ### pageing [Config]
 
-继承自 HTTP 连接器的分页配置。HubSpot 默认使用基于 `after` 的游标分页，并从 `$.paging.next.after`
-读取下一页游标。任务配置中请保持 `pageing` 这个拼写。
+继承自 HTTP 连接器的分页配置。HubSpot 在 JSON / text 响应下默认使用基于 `after`
+的游标分页，并从 `$.paging.next.after` 读取下一页游标。二进制模式不支持分页。
+任务配置中请保持 `pageing` 这个拼写。
 
 HubSpot 常用的 `pageing` 子项如下：
 

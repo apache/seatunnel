@@ -45,7 +45,6 @@ contract.
 | body                           | String  | No       | -             |
 | format                         | String  | No       | JSON          |
 | schema                         | Config  | No       | -             |
-| schema.fields                  | Config  | No       | -             |
 | json_field                     | Config  | No       | -             |
 | content_field                  | String  | No       | `$.results`   |
 | pageing                        | Config  | No       | cursor paging defaults |
@@ -60,7 +59,6 @@ contract.
 | keep_params_as_form            | boolean | No       | false         |
 | keep_page_param_as_http_param  | boolean | No       | true          |
 | json_filed_missed_return_null  | boolean | No       | false         |
-| common-options                 | config  | No       | -             |
 
 ### access_token [String]
 
@@ -83,8 +81,9 @@ HTTP request method. The common HubSpot read path uses `GET`.
 
 ### headers [Map]
 
-Extra HTTP headers. Do not put `Authorization` here unless you intentionally want
-to override the header generated from `access_token`.
+Extra HTTP headers. If `Authorization` is not provided, the connector injects
+`Authorization: Bearer <access_token>` automatically. Provide
+`headers.Authorization` only when you intentionally need to override that value.
 
 ### params [Map]
 
@@ -97,13 +96,15 @@ HTTP request body. This is only useful for HubSpot endpoints that accept a reque
 
 ### format [String]
 
-Response format. Supports `json` and `text`. HubSpot defaults to `JSON` because the
-connector expects JSON CRM API responses.
+Response format. Supports `json`, `text`, and `binary`. HubSpot defaults to `JSON`
+because the connector expects JSON CRM API responses when `format` is not provided.
 
 ### schema [Config]
 
 Defines the output row structure when `format = "JSON"`. For details, see
 [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+Nested field definitions live under `schema.fields`.
 
 ### json_field [Config]
 
@@ -118,8 +119,9 @@ HubSpot defaults to `$.results`.
 ### pageing [Config]
 
 Pagination settings inherited from the HTTP connector. HubSpot defaults to cursor
-paging with `after` and reads the next cursor from `$.paging.next.after`. Keep the
-option name `pageing` in job configs.
+paging with `after` and reads the next cursor from `$.paging.next.after` for
+JSON and text responses. Binary mode does not support pagination. Keep the option
+name `pageing` in job configs.
 
 Common `pageing` fields for HubSpot:
 
