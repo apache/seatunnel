@@ -1,0 +1,186 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.checkpoint;
+
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
+
+/**
+ * Regression tests for <a href="https://github.com/apache/seatunnel/issues/11473">#11473</a>:
+ * stop-job with savepoint used to hang in {@link JobStatus#DOING_SAVEPOINT} forever when the source
+ * was busy emitting a very large split, because the whole split was emitted while holding the
+ * checkpoint lock and the savepoint barrier could never be injected.
+ */
+@DisabledOnOs(OS.WINDOWS)
+public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePointBusySourceTest> {
+
+    /** The reproduction config of issue #11473: one huge FakeSource split into a Console sink. */
+    public static final String BUSY_STREAM_CONF_PATH =
+            "stream_fakesource_busy_to_console_savepoint.conf";
+
+    /** A job whose savepoint deterministically times out at the sink. */
+    public static final String SAVEPOINT_TIMEOUT_CONF_PATH =
+            "stream_fake_to_inmemory_savepoint_timeout.conf";
+
+    @Test
+    public void testStopWithSavepointCompletesWhileSourceEmitsLargeSplit() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BUSY_STREAM_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        // Let the source saturate the pipeline mid-split before requesting the savepoint
+        Thread.sleep(5000L);
+
+        // This is the same call the REST stop-job handler makes for isStopWithSavePoint=true
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        // 2. the job passes through DOING_SAVEPOINT and reaches SAVEPOINT_DONE
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobStatus status = server.getCoordinatorService().getJobStatus(jobId);
+                            Assertions.assertTrue(
+                                    status == JobStatus.DOING_SAVEPOINT
+                                            || status == JobStatus.SAVEPOINT_DONE,
+                                    "unexpected status " + status);
+                        });
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.SAVEPOINT_DONE,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        // 1./3. the stop-with-savepoint request completes instead of hanging forever
+        savepointFuture.get(120, TimeUnit.SECONDS);
+
+        // 4. all slots occupied by the job are released
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    @Test
+    public void testNormalStopWhileSourceEmitsLargeSplit() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BUSY_STREAM_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        // 5. a normal stop (no savepoint) still works while the source is busy
+        server.getCoordinatorService().cancelJob(jobId);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    @Test
+    public void testSavepointFailureReportsErrorAndJobRecovers() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, SAVEPOINT_TIMEOUT_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+        Thread.sleep(2000L);
+
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        // 6. the failed savepoint reports an error to the caller instead of hanging forever
+        Assertions.assertThrows(
+                ExecutionException.class, () -> savepointFuture.get(120, TimeUnit.SECONDS));
+
+        // and the job does not stay stuck in DOING_SAVEPOINT: it reverts to RUNNING
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        // the job is still controllable afterwards: a normal stop cleans it up. The sink of this
+        // job delays every checkpoint beyond checkpoint.timeout, so the restored job's own
+        // checkpoints keep failing as well; depending on timing the job may reach FAILED on its
+        // own before the cancellation wins. Either way it must reach a terminal state and free
+        // its slots instead of hanging.
+        server.getCoordinatorService().cancelJob(jobId);
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        server.getCoordinatorService()
+                                                .getJobStatus(jobId)
+                                                .isEndState()));
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+}

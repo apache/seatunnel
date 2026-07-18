@@ -225,6 +225,24 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
+    /**
+     * Revert the job status from {@link JobStatus#DOING_SAVEPOINT} back to {@link
+     * JobStatus#RUNNING} after a savepoint failed.
+     *
+     * <p>A failed savepoint does not stop the job: the pipelines keep running (or are restored by
+     * the checkpoint error handling). Without this revert the job would stay in {@code
+     * DOING_SAVEPOINT} forever, misreporting its real state and confusing later stop or savepoint
+     * requests.
+     */
+    public synchronized void savepointFailed() {
+        if (getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+            log.warn(
+                    "{} savepoint failed but the job is still running, revert state to RUNNING",
+                    jobFullName);
+            updateJobState(JobStatus.RUNNING);
+        }
+    }
+
     public void stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {

@@ -1273,16 +1273,30 @@ public class JobMaster {
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.supplyAsync(
-                () ->
-                        Arrays.stream(passiveCompletableFutures)
-                                .allMatch(
-                                        future -> {
-                                            try {
-                                                return future.get() != null;
-                                            } catch (Exception e) {
-                                                throw new SeaTunnelEngineException(e);
-                                            }
-                                        }));
+                () -> {
+                    boolean savepointCompleted = false;
+                    try {
+                        savepointCompleted =
+                                Arrays.stream(passiveCompletableFutures)
+                                        .allMatch(
+                                                future -> {
+                                                    try {
+                                                        return future.get() != null;
+                                                    } catch (Exception e) {
+                                                        throw new SeaTunnelEngineException(e);
+                                                    }
+                                                });
+                        return savepointCompleted;
+                    } finally {
+                        if (!savepointCompleted) {
+                            // The savepoint did not complete but the job keeps running, so the
+                            // DOING_SAVEPOINT state must be reverted. Otherwise the job would be
+                            // stuck in DOING_SAVEPOINT forever while the failure is reported to
+                            // the caller.
+                            physicalPlan.savepointFailed();
+                        }
+                    }
+                });
     }
 
     public void setOwnedSlotProfiles(
