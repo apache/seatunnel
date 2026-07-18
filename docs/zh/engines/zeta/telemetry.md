@@ -50,6 +50,45 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                          | 分区是否安全                              |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                          | 本地成员是否安全                            |
 
+### SeaTunnel Engine 集群健康指标
+
+这些指标从 SeaTunnel Engine 的视角暴露集群稳定性和最近的拓扑变化，帮助运维人员回答如下问题：当前集群是否安全、最近是否发生过
+master 切换、某个作业失败前是否发生过成员离开等。
+
+这些指标仅由当前 active master 输出。因此，从 worker 节点抓取 metrics 时，可能不会包含
+`seatunnel_engine_cluster_*` 指标。
+
+这些拓扑计数器是轻量级观测信号，保存在本地内存状态中，并由当前 master 输出。在 master 切换或进程重启后，它们可能会重置，因此不应
+被理解为持久化的、覆盖整个集群生命周期的累计总量。
+
+| MetricName                                               | Type    | Labels | 描述 |
+|----------------------------------------------------------|---------|--------|------|
+| seatunnel_engine_cluster_safe                            | Gauge   | -      | SeaTunnel Engine 集群的分区状态当前是否安全 |
+| seatunnel_engine_cluster_member_count                    | Gauge   | -      | SeaTunnel Engine 集群当前成员数 |
+| seatunnel_engine_cluster_partition_migration_in_progress | Gauge   | -      | SeaTunnel Engine 集群当前是否正在进行分区迁移 |
+| seatunnel_engine_cluster_master_change_total             | Counter | -      | 已观测到的 SeaTunnel Engine master 切换总次数 |
+| seatunnel_engine_cluster_member_join_total               | Counter | -      | 已观测到的 SeaTunnel Engine 成员加入总次数 |
+| seatunnel_engine_cluster_member_leave_total              | Counter | -      | 已观测到的 SeaTunnel Engine 成员离开总次数 |
+| seatunnel_engine_cluster_last_master_change_timestamp_ms | Gauge   | -      | 最近一次 SeaTunnel Engine master 切换的毫秒时间戳 |
+| seatunnel_engine_cluster_last_member_join_timestamp_ms   | Gauge   | -      | 最近一次 SeaTunnel Engine 成员加入的毫秒时间戳 |
+| seatunnel_engine_cluster_last_member_leave_timestamp_ms  | Gauge   | -      | 最近一次 SeaTunnel Engine 成员离开的毫秒时间戳 |
+
+`seatunnel_engine_cluster_safe` 反映的是 SeaTunnel Engine 所依赖的底层集群分区安全状态，不应被理解为完整的端到端 SeaTunnel 作业
+或引擎健康信号。
+
+PromQL 示例：
+
+```promql
+# 当前集群是否安全
+seatunnel_engine_cluster_safe
+
+# 最近是否发生过成员离开
+time() * 1000 - seatunnel_engine_cluster_last_member_leave_timestamp_ms
+
+# 当前是否正在进行分区迁移
+seatunnel_engine_cluster_partition_migration_in_progress
+```
+
 ### 引擎状态存储指标
 
 这些指标暴露 Zeta 引擎状态存储的基础大小和本地资源使用情况。当前后端是 Hazelcast IMap，因此 `backend`
