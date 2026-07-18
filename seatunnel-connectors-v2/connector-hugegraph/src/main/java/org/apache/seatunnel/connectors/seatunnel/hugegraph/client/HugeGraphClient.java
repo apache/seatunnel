@@ -49,6 +49,7 @@ import org.apache.hugegraph.structure.schema.VertexLabel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -588,6 +589,30 @@ public final class HugeGraphClient implements HugeGraphOperations {
     public Set<String> getEdgeLabelPropertiesOrNull(String label) {
         EdgeLabel edgeLabel = getEdgeLabelOrNull(label);
         return edgeLabel == null ? null : edgeLabel.properties();
+    }
+
+    @Override
+    public List<String> listVertexLabels() {
+        return executeReadOperation(
+                () -> {
+                    List<String> names = new ArrayList<>();
+                    for (VertexLabel vertexLabel : getSchema().getVertexLabels()) {
+                        names.add(vertexLabel.name());
+                    }
+                    return names;
+                });
+    }
+
+    @Override
+    public List<String> listEdgeLabels() {
+        return executeReadOperation(
+                () -> {
+                    List<String> names = new ArrayList<>();
+                    for (EdgeLabel edgeLabel : getSchema().getEdgeLabels()) {
+                        names.add(edgeLabel.name());
+                    }
+                    return names;
+                });
     }
 
     @Override

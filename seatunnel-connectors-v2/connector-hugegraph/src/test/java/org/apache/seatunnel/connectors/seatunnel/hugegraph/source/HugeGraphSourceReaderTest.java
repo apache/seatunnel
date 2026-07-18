@@ -477,8 +477,7 @@ class HugeGraphSourceReaderTest {
                 new HugeGraphSourceReader(
                         new CountingContext(),
                         config,
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        singleContext("person", propertyRowType, MappingConfig.LabelType.VERTEX),
                         client);
         reader.open();
         reader.addSplits(listSplit());
@@ -505,8 +504,7 @@ class HugeGraphSourceReaderTest {
                 new HugeGraphSourceReader(
                         new CountingContext(),
                         config,
-                        HugeGraphSourceFactory.prependReservedFields(
-                                propertyRowType, MappingConfig.LabelType.VERTEX),
+                        singleContext("person", propertyRowType, MappingConfig.LabelType.VERTEX),
                         client);
 
         assertThrows(HugeGraphConnectorException.class, reader::open);
@@ -600,6 +598,54 @@ class HugeGraphSourceReaderTest {
         assertTrue(ex.getMessage().contains("active"));
     }
 
+    @Test
+    void readAllTagsRowsWithPerLabelTableId() throws Exception {
+        // Read-all mode: two label-list splits (person, software). Each split reads exactly its
+        // label and every emitted row must carry that label's tableId so a downstream multi-table
+        // sink can route it; the produced row uses that label's own row type.
+        FakeHugeGraphOperations client = new FakeHugeGraphOperations();
+        Vertex person = new Vertex("person");
+        person.id("p1");
+        person.property("name", "Alice");
+        Vertex software = new Vertex("software");
+        software.id("s1");
+        software.property("name", "SeaTunnel");
+        client.vertexPages.add(new PageResult<>(Collections.singletonList(person), null));
+        client.vertexPages.add(new PageResult<>(Collections.singletonList(software), null));
+
+        SeaTunnelRowType props =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        Map<String, LabelTableContext> contexts = new HashMap<>();
+        contexts.putAll(singleContext("person", props, MappingConfig.LabelType.VERTEX));
+        contexts.putAll(singleContext("software", props, MappingConfig.LabelType.VERTEX));
+
+        HugeGraphSourceConfig config = new HugeGraphSourceConfig();
+        config.setReadAllLabels(true);
+        config.setLabel(null);
+        config.setLabels(Arrays.asList("person", "software"));
+        config.setLabelType(MappingConfig.LabelType.VERTEX);
+        config.setPageSize(100);
+
+        CountingContext context = new CountingContext();
+        ListCollector collector = new ListCollector();
+        HugeGraphSourceReader reader = new HugeGraphSourceReader(context, config, contexts, client);
+        reader.open(); // read-all skips single-label schema validation
+        reader.addSplits(
+                Arrays.asList(
+                        HugeGraphSourceSplit.labelListSplit("label-list-person", "person"),
+                        HugeGraphSourceSplit.labelListSplit("label-list-software", "software")));
+        reader.handleNoMoreSplits();
+
+        drain(reader, collector, context);
+
+        assertEquals(2, collector.rows.size());
+        assertEquals("person", collector.rows.get(0).getTableId());
+        assertEquals("Alice", collector.rows.get(0).getField(2));
+        assertEquals("software", collector.rows.get(1).getTableId());
+        assertEquals("SeaTunnel", collector.rows.get(1).getField(2));
+    }
+
     private static void drain(
             HugeGraphSourceReader reader, ListCollector collector, CountingContext context)
             throws Exception {
@@ -610,7 +656,8 @@ class HugeGraphSourceReaderTest {
     }
 
     private static List<HugeGraphSourceSplit> listSplit() {
-        return Collections.singletonList(HugeGraphSourceSplit.labelListSplit("label-list"));
+        // null label => reader falls back to the single configured label (as a shard split does).
+        return Collections.singletonList(HugeGraphSourceSplit.labelListSplit("label-list", null));
     }
 
     private HugeGraphSourceReader newReader(
@@ -625,11 +672,21 @@ class HugeGraphSourceReaderTest {
             MappingConfig.LabelType labelType,
             SeaTunnelRowType propertyRowType,
             HugeGraphOperations client) {
+        HugeGraphSourceConfig config = sourceConfig(labelType, propertyRowType);
         return new HugeGraphSourceReader(
                 context,
-                sourceConfig(labelType, propertyRowType),
-                HugeGraphSourceFactory.prependReservedFields(propertyRowType, labelType),
+                config,
+                singleContext(config.getLabel(), propertyRowType, labelType),
                 client);
+    }
+
+    private static Map<String, LabelTableContext> singleContext(
+            String label, SeaTunnelRowType propertyRowType, MappingConfig.LabelType labelType) {
+        SeaTunnelRowType outputRowType =
+                HugeGraphSourceFactory.prependReservedFields(propertyRowType, labelType);
+        Map<String, LabelTableContext> contexts = new HashMap<>();
+        contexts.put(label, new LabelTableContext(label, propertyRowType, outputRowType, label));
+        return contexts;
     }
 
     private HugeGraphSourceConfig sourceConfig(
@@ -668,6 +725,16 @@ class HugeGraphSourceReaderTest {
         @Override
         public Set<String> getEdgeLabelPropertiesOrNull(String label) {
             return edgeProperties;
+        }
+
+        @Override
+        public List<String> listVertexLabels() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> listEdgeLabels() {
+            return Collections.emptyList();
         }
 
         @Override

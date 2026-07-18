@@ -27,6 +27,7 @@ import org.apache.hugegraph.structure.graph.Vertex;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.InOrder;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,6 +84,48 @@ class BatchBufferTest {
         verify(client).writeVertex(good1);
         verify(client).writeVertex(good2);
         verify(client).writeVertex(poison);
+    }
+
+    private static GraphElementEnvelope edgeEnvelope(String id) {
+        Edge edge = new Edge("knows");
+        edge.id(id);
+        edge.sourceId("1:a");
+        edge.targetId("1:b");
+        return new GraphElementEnvelope("knows", LabelType.EDGE, edge);
+    }
+
+    @Test
+    void checkVertexFalseDoesNotForceVertexFlushWhenEdgeBucketFills() throws Exception {
+        // Performance: with check_vertex=false the server accepts orphan edges, so
+        // vertex-before-edge
+        // ordering buys nothing. A filling edge bucket must flush edges only and leave the pending
+        // (still-undersized) vertex bucket to accumulate to a full batch.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        try (BatchBuffer buffer = new BatchBuffer(client, 2, 0, false, false)) {
+            buffer.add(envelope(vertex("v1"))); // vertex bucket = 1 (< batchSize 2)
+            buffer.add(edgeEnvelope("e1"));
+            buffer.add(edgeEnvelope("e2")); // edge bucket hits 2 -> flush edges only
+
+            verify(client).batchWriteEdges(anyList(), eq(false));
+            // The pending vertex must NOT have been force-flushed by the edge-bucket fill.
+            verify(client, never()).batchWriteVertices(anyList());
+        }
+    }
+
+    @Test
+    void checkVertexTrueForcesVertexFlushBeforeEdgesWhenEdgeBucketFills() throws Exception {
+        // Correctness invariant: with check_vertex=true the server rejects edges whose endpoints do
+        // not exist, so pending vertices must still be flushed before the edges.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        try (BatchBuffer buffer = new BatchBuffer(client, 2, 0, false, true)) {
+            buffer.add(envelope(vertex("v1")));
+            buffer.add(edgeEnvelope("e1"));
+            buffer.add(edgeEnvelope("e2")); // edge bucket hits 2
+
+            InOrder order = inOrder(client);
+            order.verify(client).batchWriteVertices(anyList());
+            order.verify(client).batchWriteEdges(anyList(), eq(true));
+        }
     }
 
     @Test

@@ -49,6 +49,12 @@ import java.util.stream.Collectors;
  * Dual-bucket batch buffer that independently accumulates and flushes vertices and edges. Each
  * bucket triggers flush when reaching batch_size; both buckets are flushed on timer, prepareCommit,
  * or close.
+ *
+ * <p>Vertex-before-edge ordering is enforced only when {@code check_vertex} is true — the server
+ * then rejects edges whose endpoint vertices do not yet exist, so a filling edge bucket first
+ * flushes any pending vertices, and {@link #flush()} writes vertices before edges. When {@code
+ * check_vertex} is false (the default) the server already accepts orphan edges, so the buckets
+ * flush independently for higher throughput (no forced, undersized vertex flushes).
  */
 public class BatchBuffer implements AutoCloseable {
 
@@ -149,7 +155,13 @@ public class BatchBuffer implements AutoCloseable {
             } else {
                 edgeBuffer.add(envelope);
                 if (edgeBuffer.size() >= batchSize) {
-                    if (!vertexBuffer.isEmpty()) {
+                    // Topology safety only matters when the server validates endpoints: with
+                    // check_vertex=true, flush pending vertices before the edges so no edge is sent
+                    // before its endpoints exist. With check_vertex=false the server already
+                    // accepts
+                    // orphan edges, so skip the forced (undersized) vertex flush and let the vertex
+                    // bucket accumulate to a full batch — fewer, fuller vertex requests.
+                    if (checkVertex && !vertexBuffer.isEmpty()) {
                         doFlushVertices();
                     }
                     doFlushEdges();

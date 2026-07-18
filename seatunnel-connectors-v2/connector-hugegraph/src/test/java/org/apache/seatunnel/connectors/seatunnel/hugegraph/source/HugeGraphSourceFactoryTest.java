@@ -18,12 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphOperations;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.PageResult;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
@@ -50,6 +52,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HugeGraphSourceFactoryTest {
+
+    @Test
+    void optionRuleMakesLabelOptionalForReadAll() {
+        // 'label' must be optional so it can be omitted to read all labels of label_type.
+        OptionRule rule = new HugeGraphSourceFactory().optionRule();
+        assertTrue(rule.getOptionalOptions().contains(HugeGraphSourceOptions.LABEL));
+    }
 
     @Test
     void testVertexReservedFields() {
@@ -228,6 +237,16 @@ class HugeGraphSourceFactoryTest {
         @Override
         public Set<String> getEdgeLabelPropertiesOrNull(String label) {
             return edgeProperties;
+        }
+
+        @Override
+        public List<String> listVertexLabels() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> listEdgeLabels() {
+            return Collections.emptyList();
         }
 
         @Override

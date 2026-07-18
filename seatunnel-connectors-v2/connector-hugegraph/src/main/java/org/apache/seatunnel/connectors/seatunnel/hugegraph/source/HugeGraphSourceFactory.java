@@ -49,7 +49,9 @@ import com.google.auto.service.AutoService;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @AutoService(Factory.class)
@@ -63,12 +65,11 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        HugeGraphOptions.HOST,
-                        HugeGraphOptions.PORT,
-                        HugeGraphOptions.GRAPH_NAME,
-                        HugeGraphSourceOptions.LABEL)
+                .required(HugeGraphOptions.HOST, HugeGraphOptions.PORT, HugeGraphOptions.GRAPH_NAME)
                 .optional(
+                        // When omitted, the source reads ALL labels of label_type (default VERTEX),
+                        // producing one table per label. When set, only that one label is read.
+                        HugeGraphSourceOptions.LABEL,
                         // Optional: when omitted, the property columns are auto-discovered from the
                         // server label definition (all properties, inferred types).
                         ConnectorCommonOptions.SCHEMA,
@@ -98,20 +99,108 @@ public class HugeGraphSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig options = context.getOptions();
-        checkFilterParallelism(options);
         MappingConfig.LabelType labelType =
                 options.getOptional(HugeGraphSourceOptions.LABEL_TYPE)
                         .orElse(HugeGraphSourceOptions.LABEL_TYPE.defaultValue());
-        CatalogTable propertyCatalogTable = resolvePropertyCatalogTable(options, labelType);
-        SeaTunnelRowType propertyRowType = propertyCatalogTable.getSeaTunnelRowType();
-        HugeGraphSourceConfig sourceConfig = HugeGraphSourceConfig.of(options, propertyRowType);
-        CatalogTable producedCatalogTable =
-                CatalogTableUtil.newCatalogTable(
-                        propertyCatalogTable,
-                        prependReservedFields(propertyRowType, sourceConfig.getLabelType()));
+        boolean readAll = !options.getOptional(HugeGraphSourceOptions.LABEL).isPresent();
+
+        List<CatalogTable> catalogTables = new ArrayList<>();
+        Map<String, LabelTableContext> labelContexts = new LinkedHashMap<>();
+        HugeGraphSourceConfig sourceConfig;
+
+        if (readAll) {
+            sourceConfig = buildReadAllTables(options, labelType, catalogTables, labelContexts);
+        } else {
+            checkFilterParallelism(options);
+            CatalogTable propertyCatalogTable = resolvePropertyCatalogTable(options, labelType);
+            SeaTunnelRowType propertyRowType = propertyCatalogTable.getSeaTunnelRowType();
+            sourceConfig = HugeGraphSourceConfig.of(options, propertyRowType);
+            CatalogTable producedCatalogTable =
+                    CatalogTableUtil.newCatalogTable(
+                            propertyCatalogTable,
+                            prependReservedFields(propertyRowType, sourceConfig.getLabelType()));
+            catalogTables.add(producedCatalogTable);
+            labelContexts.put(
+                    sourceConfig.getLabel(),
+                    new LabelTableContext(
+                            sourceConfig.getLabel(),
+                            propertyRowType,
+                            producedCatalogTable.getSeaTunnelRowType(),
+                            producedCatalogTable.getTablePath().toString()));
+        }
+
+        final List<CatalogTable> tables = catalogTables;
+        final Map<String, LabelTableContext> contexts = labelContexts;
+        final HugeGraphSourceConfig cfg = sourceConfig;
         return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new HugeGraphSource(producedCatalogTable, sourceConfig);
+                (SeaTunnelSource<T, SplitT, StateT>) new HugeGraphSource(tables, contexts, cfg);
+    }
+
+    /**
+     * Read-all mode: discover every label of {@code labelType} from the server and build one
+     * produced {@link CatalogTable} + one {@link LabelTableContext} per label. Rejects {@code
+     * schema}/{@code filter} (neither can describe multiple heterogeneous labels) and an empty
+     * graph up front. Returns the read-all {@link HugeGraphSourceConfig}.
+     */
+    private HugeGraphSourceConfig buildReadAllTables(
+            ReadonlyConfig options,
+            MappingConfig.LabelType labelType,
+            List<CatalogTable> catalogTables,
+            Map<String, LabelTableContext> labelContexts) {
+        if (options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "'schema' cannot be combined with reading all labels (option 'label' omitted): "
+                            + "a single schema cannot describe multiple labels. Set 'label' to use "
+                            + "'schema', or drop 'schema' to auto-discover every label.");
+        }
+        boolean hasFilter =
+                options.getOptional(HugeGraphSourceOptions.FILTER)
+                        .map(filter -> !filter.isEmpty())
+                        .orElse(false);
+        if (hasFilter) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    "'filter' cannot be combined with reading all labels (option 'label' omitted): "
+                            + "a property-equality filter assumes the property exists on every "
+                            + "label. Set 'label' to use 'filter'.");
+        }
+        HugeGraphClient client = new HugeGraphClient(HugeGraphConnectionConfig.of(options));
+        List<String> labels;
+        try {
+            labels =
+                    labelType == MappingConfig.LabelType.VERTEX
+                            ? client.listVertexLabels()
+                            : client.listEdgeLabels();
+            if (labels.isEmpty()) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                        String.format(
+                                "No %s labels found in HugeGraph graph '%s'; nothing to read.",
+                                labelType == MappingConfig.LabelType.VERTEX ? "vertex" : "edge",
+                                options.get(HugeGraphOptions.GRAPH_NAME)));
+            }
+            for (String label : labels) {
+                SeaTunnelRowType propertyRowType =
+                        discoverPropertyRowType(client, label, labelType);
+                CatalogTable propertyTable =
+                        CatalogTableUtil.getCatalogTable(label, propertyRowType);
+                CatalogTable producedTable =
+                        CatalogTableUtil.newCatalogTable(
+                                propertyTable, prependReservedFields(propertyRowType, labelType));
+                catalogTables.add(producedTable);
+                labelContexts.put(
+                        label,
+                        new LabelTableContext(
+                                label,
+                                propertyRowType,
+                                producedTable.getSeaTunnelRowType(),
+                                producedTable.getTablePath().toString()));
+            }
+        } finally {
+            client.close();
+        }
+        return HugeGraphSourceConfig.ofReadAll(options, labels);
     }
 
     /**

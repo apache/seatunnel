@@ -51,6 +51,9 @@ public class HugeGraphSourceSplit implements SourceSplit {
 
     private final String splitId;
     private final boolean shardMode;
+    // The label a LABEL_LIST split pages. null for SHARD splits, which scan all labels in a key
+    // range and let the reader filter/route by label client-side.
+    private final String label;
     // Shard bounds, only meaningful when shardMode == true. Shard itself is not Serializable, so we
     // store its three primitive components and rebuild it on demand.
     private final String shardStart;
@@ -63,24 +66,27 @@ public class HugeGraphSourceSplit implements SourceSplit {
     private boolean finished;
     private String lastEmittedId;
 
-    /** Creates the single label-list split (parallelism == 1 path). */
-    public static HugeGraphSourceSplit labelListSplit(String splitId) {
-        return new HugeGraphSourceSplit(splitId, false, null, null, 0L);
+    /** Creates a label-list split that pages exactly {@code label}. */
+    public static HugeGraphSourceSplit labelListSplit(String splitId, String label) {
+        return new HugeGraphSourceSplit(splitId, false, label, null, null, 0L);
     }
 
-    /** Creates a shard split (parallelism &gt; 1 path). */
+    /** Creates a shard split (parallelism &gt; 1 path). Scans all labels in the key range. */
     public static HugeGraphSourceSplit shardSplit(String splitId, Shard shard) {
-        return new HugeGraphSourceSplit(splitId, true, shard.start(), shard.end(), shard.length());
+        return new HugeGraphSourceSplit(
+                splitId, true, null, shard.start(), shard.end(), shard.length());
     }
 
     private HugeGraphSourceSplit(
             String splitId,
             boolean shardMode,
+            String label,
             String shardStart,
             String shardEnd,
             long shardLength) {
         this.splitId = splitId;
         this.shardMode = shardMode;
+        this.label = label;
         this.shardStart = shardStart;
         this.shardEnd = shardEnd;
         this.shardLength = shardLength;
@@ -96,6 +102,11 @@ public class HugeGraphSourceSplit implements SourceSplit {
 
     public boolean isShardMode() {
         return shardMode;
+    }
+
+    /** The label this split pages; null for shard splits (which scan all labels in a range). */
+    public String getLabel() {
+        return label;
     }
 
     /** Rebuilds the client {@link Shard} for a shard-mode split. */

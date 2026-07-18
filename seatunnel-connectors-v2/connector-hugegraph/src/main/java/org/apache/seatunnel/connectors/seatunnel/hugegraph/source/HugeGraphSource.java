@@ -28,15 +28,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphOptions;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSourceConfig;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
- * HugeGraph source. Bounded read of a single vertex/edge label.
+ * HugeGraph source. Bounded read of one vertex/edge label, or of all labels of a type in one job.
  *
- * <p>At parallelism 1 it pages the label via the server-side list API (server-side label and
- * property-equality filtering). At parallelism &gt; 1 it splits the keyspace into shards and scans
- * them in parallel; see {@link HugeGraphSourceSplitEnumerator}.
+ * <p>Single-label mode (option {@code label} set): at parallelism 1 it pages the label via the
+ * server-side list API (server-side label and property-equality filtering); at parallelism &gt; 1
+ * it splits the keyspace into shards and scans them in parallel. Read-all mode ({@code label}
+ * omitted): one {@code LABEL_LIST} split per discovered label, each producing its own table. See
+ * {@link HugeGraphSourceSplitEnumerator}.
  */
 public class HugeGraphSource
         implements SeaTunnelSource<SeaTunnelRow, HugeGraphSourceSplit, HugeGraphSourceState>,
@@ -45,11 +47,16 @@ public class HugeGraphSource
 
     private static final long serialVersionUID = 1L;
 
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
+    private final Map<String, LabelTableContext> labelContexts;
     private final HugeGraphSourceConfig sourceConfig;
 
-    public HugeGraphSource(CatalogTable catalogTable, HugeGraphSourceConfig sourceConfig) {
-        this.catalogTable = catalogTable;
+    public HugeGraphSource(
+            List<CatalogTable> catalogTables,
+            Map<String, LabelTableContext> labelContexts,
+            HugeGraphSourceConfig sourceConfig) {
+        this.catalogTables = catalogTables;
+        this.labelContexts = labelContexts;
         this.sourceConfig = sourceConfig;
     }
 
@@ -65,14 +72,13 @@ public class HugeGraphSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, HugeGraphSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new HugeGraphSourceReader(
-                readerContext, sourceConfig, catalogTable.getSeaTunnelRowType());
+        return new HugeGraphSourceReader(readerContext, sourceConfig, labelContexts);
     }
 
     @Override

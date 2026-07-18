@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -70,6 +71,37 @@ class HugeGraphSourceSplitEnumeratorTest {
         assertFalse(assigned.get(0).isShardMode());
         assertEquals("label-list", assigned.get(0).splitId());
         assertTrue(context.noMoreSplits.contains(0));
+    }
+
+    @Test
+    void readAllProducesOneLabelListSplitPerLabel() {
+        // Read-all mode ignores parallelism-based sharding: one label-list split per discovered
+        // label, each carrying its label, distributed across readers. The client is never touched
+        // (labels come from the config), so a failing client factory must not be invoked.
+        CapturingContext context = new CapturingContext(2);
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(
+                        context,
+                        readAllConfig("person", "software"),
+                        1024L,
+                        null,
+                        failingClientFactory());
+
+        enumerator.open();
+        enumerator.run();
+
+        List<HugeGraphSourceSplit> combined = new ArrayList<>();
+        combined.addAll(context.assignedTo(0));
+        combined.addAll(context.assignedTo(1));
+        assertEquals(2, combined.size());
+        Set<String> labels = new HashSet<>();
+        for (HugeGraphSourceSplit split : combined) {
+            assertFalse(split.isShardMode());
+            labels.add(split.getLabel());
+        }
+        assertEquals(new HashSet<>(Arrays.asList("person", "software")), labels);
+        assertTrue(context.noMoreSplits.contains(0));
+        assertTrue(context.noMoreSplits.contains(1));
     }
 
     @Test
@@ -174,6 +206,16 @@ class HugeGraphSourceSplitEnumeratorTest {
         return config;
     }
 
+    private HugeGraphSourceConfig readAllConfig(String... labels) {
+        HugeGraphSourceConfig config = new HugeGraphSourceConfig();
+        config.setReadAllLabels(true);
+        config.setLabelType(MappingConfig.LabelType.VERTEX);
+        config.setLabels(Arrays.asList(labels));
+        config.setPageSize(100);
+        config.setSplitSize(1024L);
+        return config;
+    }
+
     private static class CapturingContext
             implements SourceSplitEnumerator.Context<HugeGraphSourceSplit> {
         private final int parallelism;
@@ -236,6 +278,16 @@ class HugeGraphSourceSplitEnumeratorTest {
         @Override
         public Set<String> getEdgeLabelPropertiesOrNull(String label) {
             return null;
+        }
+
+        @Override
+        public List<String> listVertexLabels() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> listEdgeLabels() {
+            return Collections.emptyList();
         }
 
         @Override

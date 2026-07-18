@@ -27,6 +27,8 @@ import lombok.Data;
 import java.io.Serializable;
 import java.time.DateTimeException;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -37,6 +39,10 @@ public class HugeGraphSourceConfig implements Serializable {
     private HugeGraphConnectionConfig connectionConfig;
     private String label;
     private MappingConfig.LabelType labelType;
+    // Read-all-labels mode: when true, {@code label}/{@code schema} are null and {@code labels}
+    // holds every label of {@code labelType} to read (one produced table each).
+    private boolean readAllLabels;
+    private List<String> labels;
     private SeaTunnelRowType schema;
     private int pageSize;
     private long splitSize;
@@ -47,7 +53,9 @@ public class HugeGraphSourceConfig implements Serializable {
     public static HugeGraphSourceConfig of(ReadonlyConfig config, SeaTunnelRowType schema) {
         HugeGraphSourceConfig sourceConfig = new HugeGraphSourceConfig();
         sourceConfig.setConnectionConfig(HugeGraphConnectionConfig.of(config));
+        sourceConfig.setReadAllLabels(false);
         sourceConfig.setLabel(config.get(HugeGraphSourceOptions.LABEL));
+        sourceConfig.setLabels(Collections.singletonList(config.get(HugeGraphSourceOptions.LABEL)));
         sourceConfig.setLabelType(
                 config.getOptional(HugeGraphSourceOptions.LABEL_TYPE)
                         .orElse(HugeGraphSourceOptions.LABEL_TYPE.defaultValue()));
@@ -60,6 +68,33 @@ public class HugeGraphSourceConfig implements Serializable {
                         .orElse(HugeGraphSourceOptions.SPLIT_SIZE.defaultValue()));
         config.getOptional(HugeGraphSourceOptions.TIME_ZONE).ifPresent(sourceConfig::setTimeZone);
         config.getOptional(HugeGraphSourceOptions.FILTER).ifPresent(sourceConfig::setFilter);
+        validate(sourceConfig);
+        return sourceConfig;
+    }
+
+    /**
+     * Read-all-labels construction: no single {@code label} and no user {@code schema}/{@code
+     * filter}; the labels are discovered from the server and each gets its own auto-discovered row
+     * type. See {@link
+     * org.apache.seatunnel.connectors.seatunnel.hugegraph.source.HugeGraphSourceFactory}.
+     */
+    public static HugeGraphSourceConfig ofReadAll(ReadonlyConfig config, List<String> labels) {
+        HugeGraphSourceConfig sourceConfig = new HugeGraphSourceConfig();
+        sourceConfig.setConnectionConfig(HugeGraphConnectionConfig.of(config));
+        sourceConfig.setReadAllLabels(true);
+        sourceConfig.setLabel(null);
+        sourceConfig.setLabels(labels);
+        sourceConfig.setLabelType(
+                config.getOptional(HugeGraphSourceOptions.LABEL_TYPE)
+                        .orElse(HugeGraphSourceOptions.LABEL_TYPE.defaultValue()));
+        sourceConfig.setSchema(null);
+        sourceConfig.setPageSize(
+                config.getOptional(HugeGraphSourceOptions.PAGE_SIZE)
+                        .orElse(HugeGraphSourceOptions.PAGE_SIZE.defaultValue()));
+        sourceConfig.setSplitSize(
+                config.getOptional(HugeGraphSourceOptions.SPLIT_SIZE)
+                        .orElse(HugeGraphSourceOptions.SPLIT_SIZE.defaultValue()));
+        config.getOptional(HugeGraphSourceOptions.TIME_ZONE).ifPresent(sourceConfig::setTimeZone);
         validate(sourceConfig);
         return sourceConfig;
     }
@@ -88,11 +123,19 @@ public class HugeGraphSourceConfig implements Serializable {
                             HugeGraphSourceOptions.MIN_SPLIT_SIZE, sourceConfig.getSplitSize()));
         }
 
-        // schema must be present, but an empty fields block is valid: a property-less label
-        // (e.g. a pure relationship edge, or a vertex with no properties) is exported as just the
-        // reserved columns (~id/~label/…). Requiring a fake property would make such labels
-        // unreadable.
-        if (sourceConfig.getSchema() == null) {
+        if (sourceConfig.isReadAllLabels()) {
+            // Read-all mode discovers labels from the server; there must be at least one, and no
+            // single user schema applies (each label gets its own auto-discovered row type).
+            if (sourceConfig.getLabels() == null || sourceConfig.getLabels().isEmpty()) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        "Read-all-labels mode requires at least one label, but none were discovered.");
+            }
+        } else if (sourceConfig.getSchema() == null) {
+            // Single-label mode: schema must be present, but an empty fields block is valid — a
+            // property-less label (e.g. a pure relationship edge, or a vertex with no properties)
+            // is exported as just the reserved columns (~id/~label/…). Requiring a fake property
+            // would make such labels unreadable.
             throw new HugeGraphConnectorException(
                     HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
                     "Option 'schema' is required (use 'schema = { fields {} }' for a label with no properties)");

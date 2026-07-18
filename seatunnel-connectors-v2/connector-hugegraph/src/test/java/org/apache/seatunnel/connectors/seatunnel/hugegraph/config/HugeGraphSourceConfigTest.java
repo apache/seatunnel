@@ -25,10 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphCo
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,6 +132,27 @@ class HugeGraphSourceConfigTest {
         HugeGraphSourceConfig config =
                 HugeGraphSourceConfig.of(ReadonlyConfig.fromMap(baseConfig()), schema());
         assertEquals("DEFAULT", config.getConnectionConfig().getGraphSpace());
+    }
+
+    @Test
+    void testReadAllSetsFlagAndLabelsWithoutSchema() {
+        HugeGraphSourceConfig config =
+                HugeGraphSourceConfig.ofReadAll(
+                        ReadonlyConfig.fromMap(baseConfig()), Arrays.asList("person", "software"));
+
+        assertTrue(config.isReadAllLabels());
+        assertNull(config.getLabel());
+        assertNull(config.getSchema());
+        assertEquals(Arrays.asList("person", "software"), config.getLabels());
+    }
+
+    @Test
+    void testReadAllRejectsEmptyLabels() {
+        assertThrows(
+                HugeGraphConnectorException.class,
+                () ->
+                        HugeGraphSourceConfig.ofReadAll(
+                                ReadonlyConfig.fromMap(baseConfig()), Collections.emptyList()));
     }
 
     private Map<String, Object> baseConfig() {

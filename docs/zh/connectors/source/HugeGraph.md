@@ -8,10 +8,11 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图数据。
 
-对一个顶点标签或一个边标签执行有界扫描，并保存读取进度以便作业在故障后恢复。
+对一个顶点标签或一个边标签执行有界扫描——或在单个作业中读取某一类型的**全部** label——并保存读取进度以便作业在故障后恢复。
 
 - 当 `parallelism = 1` 时，通过服务端 list API 分页读取该 label，按 HugeGraph page-marker 读取到服务端返回 `page = null` 为止；此模式支持服务端 `filter`（属性等值过滤）。
 - 当 `parallelism > 1` 时，通过 HugeGraph `traverser().vertexShards / edgeShards` API 将 keyspace 切分为多个 shard，由多个 Reader 并行扫描。由于 shard 扫描按 key-range 返回所有 label，connector 会在客户端按配置的 `label` 过滤。详见[并行读取](#并行读取)。
+- 省略 `label` 时，在单个作业中读取 `label_type`（默认 `VERTEX`）下的全部 label，每个 label 产出一张输出表。详见[读取全部 label](#读取全部-label)。
 
 ## 主要特性
 
@@ -27,7 +28,7 @@ HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图
 | `port`             | Integer | 是       | -        | HugeGraph 服务端口。 |
 | `protocol`         | String  | 否       | `http`   | 服务协议，支持 `http`、`https`。HTTPS 使用 JVM trust store。 |
 | `graph_name`       | String  | 是       | -        | HugeGraph 图名称。 |
-| `label`            | String  | 是       | -        | 要读取的顶点标签或边标签。 |
+| `label`            | String  | 否       | -        | 要读取的顶点标签或边标签。**省略时，connector 会在单个作业中读取 `label_type` 下的全部 label，每个 label 产出一张表**（详见[读取全部 label](#读取全部-label)）；该模式下不允许配置 `schema` 与 `filter`。 |
 | `schema`           | Object  | 否       | -        | 通过 `schema.fields` 声明输出属性列。保留图字段由 connector 自动添加。**省略时，connector 会从服务端读取 `label` 定义并自动发现全部属性列（类型自动推断，列按名称排序）。** 详见[Schema 自动发现](#schema-自动发现)。 |
 | `label_type`       | Enum    | 否       | `VERTEX` | 标签类型，支持 `VERTEX`、`EDGE`。 |
 | `page_size`        | Integer | 否       | `1000`   | 每页读取记录数，取值范围为 `[100, 10000]`。 |
@@ -128,6 +129,30 @@ source {
 - 该 label 必须已存在于服务端，否则作业在构建阶段失败。
 - 无任何属性键的 label 只会产生保留列（`~id`、`~label` 等）。
 - 当只想读取部分属性、固定列顺序或指定类型时，请显式声明 `schema.fields`。
+
+## 读取全部 label
+
+省略 `label` 即可在单个作业中读取 `label_type`（默认 `VERTEX`）下的**全部** label——适合整图迁移 / 备份，而无需为每个 label 各配一个 source。作业构建阶段 connector 会从服务端 schema 列出该类型的所有 label，为每个 label 产出一张输出表，各自按 [Schema 自动发现](#schema-自动发现)推断列。每行都会带上其 label 对应的 table id，因此下游多表 sink 可据此将行路由到对应表。
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+    # 不写 label：读取全部顶点 label，每个 label 一张表
+  }
+}
+```
+
+注意：
+
+- 一个作业读取顶点**或**边，不能混读：设置 `label_type = "EDGE"` 以读取全部边 label。
+- 不允许配置 `schema`（单一 schema 无法描述多个 label），列始终按 label 自动发现。
+- 不允许配置 `filter`（属性等值过滤要求该属性存在于每个 label）。
+- 每个 label 对应一个 `LABEL_LIST` split，分配给各 Reader（并行度上限为 label 数量）。此模式不使用单个 label 内部的 shard 级并行。
+- 若图中不存在该类型的任何 label，作业在构建阶段失败。
 
 ## 并行读取
 

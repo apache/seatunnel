@@ -118,9 +118,22 @@ public class HugeGraphSourceSplitEnumerator
     }
 
     private void discover() {
+        if (sourceConfig.isReadAllLabels()) {
+            for (String label : sourceConfig.getLabels()) {
+                allSplits.add(HugeGraphSourceSplit.labelListSplit("label-list-" + label, label));
+            }
+            LOG.info(
+                    "HugeGraph source: read-all-labels, created {} label-list split(s) for {} "
+                            + "labels {}",
+                    allSplits.size(),
+                    sourceConfig.getLabelType(),
+                    sourceConfig.getLabels());
+            return;
+        }
         int parallelism = context.currentParallelism();
         if (parallelism <= 1) {
-            allSplits.add(HugeGraphSourceSplit.labelListSplit("label-list"));
+            allSplits.add(
+                    HugeGraphSourceSplit.labelListSplit("label-list", sourceConfig.getLabel()));
             LOG.info(
                     "HugeGraph source: parallelism=1, using single label-list split for label '{}'",
                     sourceConfig.getLabel());

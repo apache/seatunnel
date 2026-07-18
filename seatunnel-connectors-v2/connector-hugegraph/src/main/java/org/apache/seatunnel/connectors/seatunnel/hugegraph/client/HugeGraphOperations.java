@@ -33,6 +33,12 @@ public interface HugeGraphOperations {
 
     Set<String> getEdgeLabelPropertiesOrNull(String label);
 
+    /** Lists the names of all vertex labels defined in the graph schema. */
+    List<String> listVertexLabels();
+
+    /** Lists the names of all edge labels defined in the graph schema. */
+    List<String> listEdgeLabels();
+
     DataType getPropertyDataType(String propertyName);
 
     Cardinality getPropertyCardinality(String propertyName);

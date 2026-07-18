@@ -8,10 +8,11 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 The HugeGraph source connector reads graph data from Apache HugeGraph through the HugeGraph REST API.
 
-It performs a bounded scan of one vertex label or one edge label and checkpoints its progress so a job can resume after failover.
+It performs a bounded scan of one vertex label or one edge label — or of **all** labels of a type in a single job — and checkpoints its progress so a job can resume after failover.
 
 - At `parallelism = 1` it pages the label via the server-side list API, following HugeGraph page markers until the server returns `page = null`. Server-side `filter` (property-equality) is applied in this mode.
 - At `parallelism > 1` it splits the keyspace into shards (via the HugeGraph `traverser().vertexShards / edgeShards` API) and scans them across parallel readers. Because the shard scan is by key range and returns all labels, the connector filters to the configured `label` client-side. See [Parallel read](#parallel-read).
+- When `label` is omitted, it reads every label of `label_type` (default `VERTEX`) in one job, producing one output table per label. See [Read all labels](#read-all-labels).
 
 ## Key Features
 
@@ -27,7 +28,7 @@ It performs a bounded scan of one vertex label or one edge label and checkpoints
 | `port`             | Integer | Yes      | -        | HugeGraph server port. |
 | `protocol`         | String  | No       | `http`   | Server protocol: `http` or `https`. HTTPS uses the JVM trust store. |
 | `graph_name`       | String  | Yes      | -        | HugeGraph graph name. |
-| `label`            | String  | Yes      | -        | Vertex label or edge label to read. |
+| `label`            | String  | No       | -        | Vertex label or edge label to read. **When omitted, the connector reads all labels of `label_type` in one job, producing one table per label** (see [Read all labels](#read-all-labels)); `schema` and `filter` are not allowed in that mode. |
 | `schema`           | Object  | No       | -        | Output property columns declared with `schema.fields`. Reserved graph columns are added by the connector. **When omitted, the connector auto-discovers all property columns of `label` from the server (types inferred, columns ordered by name).** See [Schema auto-discovery](#schema-auto-discovery). |
 | `label_type`       | Enum    | No       | `VERTEX` | Label type. Supported values: `VERTEX`, `EDGE`. |
 | `page_size`        | Integer | No       | `1000`   | Number of records per HugeGraph page. Must be in range `[100, 10000]`. |
@@ -128,6 +129,30 @@ Notes:
 - The label must already exist on the server, otherwise the job fails at build time.
 - A label with no property keys produces only the reserved columns (`~id`, `~label`, …).
 - Declare `schema.fields` explicitly when you want to read only a subset of properties, fix the column order, or pin the types.
+
+## Read all labels
+
+Omit `label` to read **every** label of `label_type` (default `VERTEX`) in a single job — convenient for a full-graph migration or backup instead of configuring one source per label. At job build time the connector lists all labels of the type from the server schema and produces one output table per label, each with its own auto-discovered columns (see [Schema auto-discovery](#schema-auto-discovery)). Each output row carries its label's table id, so a downstream multi-table sink routes it to the matching table.
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+    # no label: every vertex label is read, one table each
+  }
+}
+```
+
+Notes:
+
+- One job reads vertices **or** edges, not both: set `label_type = "EDGE"` to read all edge labels.
+- `schema` is not allowed (a single schema cannot describe multiple labels) — columns are always auto-discovered per label.
+- `filter` is not allowed (a property-equality filter assumes the property exists on every label).
+- Each label becomes one `LABEL_LIST` split, distributed across readers (parallelism is bounded by the number of labels). Shard-level parallelism within a single label is not used in this mode.
+- The job fails at build time if the graph has no label of the requested type.
 
 ## Parallel read
 

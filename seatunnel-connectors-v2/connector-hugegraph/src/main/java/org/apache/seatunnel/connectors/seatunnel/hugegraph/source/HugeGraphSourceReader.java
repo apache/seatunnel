@@ -92,8 +92,10 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
 
     private final SourceReader.Context context;
     private final HugeGraphSourceConfig sourceConfig;
-    private final SeaTunnelRowType outputRowType;
-    private final SeaTunnelRowType propertyRowType;
+    // Per-label read context, keyed by label. Single-label mode has exactly one entry; read-all
+    // mode has one per discovered label. The reader resolves the entry by each split's active
+    // label.
+    private final Map<String, LabelTableContext> labelContexts;
     private final HugeGraphOperations client;
 
     private final Deque<HugeGraphSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
@@ -111,28 +113,52 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
     public HugeGraphSourceReader(
             SourceReader.Context context,
             HugeGraphSourceConfig sourceConfig,
-            SeaTunnelRowType outputRowType) {
+            Map<String, LabelTableContext> labelContexts) {
         this(
                 context,
                 sourceConfig,
-                outputRowType,
+                labelContexts,
                 new HugeGraphClient(sourceConfig.getConnectionConfig()));
     }
 
     HugeGraphSourceReader(
             SourceReader.Context context,
             HugeGraphSourceConfig sourceConfig,
-            SeaTunnelRowType outputRowType,
+            Map<String, LabelTableContext> labelContexts,
             HugeGraphOperations client) {
         this.context = context;
         this.sourceConfig = sourceConfig;
-        this.outputRowType = outputRowType;
-        this.propertyRowType = sourceConfig.getSchema();
+        this.labelContexts = labelContexts;
         this.client = client;
+    }
+
+    /**
+     * The label the given split reads: a LABEL_LIST split names it directly; a SHARD split scans a
+     * key range of all labels and inherits the single configured label (shard splits are only
+     * created in single-label mode).
+     */
+    private String activeLabel(HugeGraphSourceSplit split) {
+        return split.getLabel() != null ? split.getLabel() : sourceConfig.getLabel();
+    }
+
+    private LabelTableContext contextFor(String label) {
+        LabelTableContext ctx = labelContexts.get(label);
+        if (ctx == null) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
+                    String.format("No read context for label '%s'.", label));
+        }
+        return ctx;
     }
 
     @Override
     public void open() {
+        // Read-all mode auto-discovers each label's row type from the server, so there is no user
+        // schema to validate against (it cannot mismatch). Skip validation; the reader resolves
+        // each split's context by label at read time.
+        if (sourceConfig.isReadAllLabels()) {
+            return;
+        }
         try {
             // validateLabelAndSchema triggers the lazy client connection; if it throws (unknown
             // label, type mismatch, unreachable server) the framework may not call close(), so
@@ -208,23 +234,27 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
     private void readOnePage(HugeGraphSourceSplit split, Collector<SeaTunnelRow> output) {
         String requestedPage = split.getPage();
         this.lastEmittedId = split.getLastEmittedId();
+        String label = activeLabel(split);
+        LabelTableContext ctx = contextFor(label);
 
         int recordCount;
         String responsePage;
         if (sourceConfig.getLabelType() == MappingConfig.LabelType.VERTEX) {
-            PageResult<Vertex> page = fetchVertexPage(split, requestedPage);
+            PageResult<Vertex> page = fetchVertexPage(split, label, requestedPage);
             List<Vertex> records =
                     split.isShardMode()
-                            ? filterVerticesByLabel(page.getRecords())
+                            ? filterVerticesByLabel(page.getRecords(), label)
                             : page.getRecords();
-            collectVertices(records, output);
+            collectVertices(records, output, ctx);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
         } else {
-            PageResult<Edge> page = fetchEdgePage(split, requestedPage);
+            PageResult<Edge> page = fetchEdgePage(split, label, requestedPage);
             List<Edge> records =
-                    split.isShardMode() ? filterEdgesByLabel(page.getRecords()) : page.getRecords();
-            collectEdges(records, output);
+                    split.isShardMode()
+                            ? filterEdgesByLabel(page.getRecords(), label)
+                            : page.getRecords();
+            collectEdges(records, output, ctx);
             recordCount = page.getRecords().size();
             responsePage = page.getNextPage();
         }
@@ -252,7 +282,7 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
                     "HugeGraph source finished split '{}' (label '{}'): {} records in {} pages"
                             + " ({} server-side paging duplicates skipped)",
                     split.splitId(),
-                    sourceConfig.getLabel(),
+                    label,
                     totalRecords,
                     pageCount,
                     duplicateSkipped);
@@ -264,33 +294,29 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
         }
     }
 
-    private PageResult<Vertex> fetchVertexPage(HugeGraphSourceSplit split, String requestedPage) {
+    private PageResult<Vertex> fetchVertexPage(
+            HugeGraphSourceSplit split, String label, String requestedPage) {
         if (split.isShardMode()) {
             return client.scanVertices(split.toShard(), requestedPage, sourceConfig.getPageSize());
         }
         return client.listVertices(
-                sourceConfig.getLabel(),
-                sourceConfig.getFilter(),
-                requestedPage,
-                sourceConfig.getPageSize());
+                label, sourceConfig.getFilter(), requestedPage, sourceConfig.getPageSize());
     }
 
-    private PageResult<Edge> fetchEdgePage(HugeGraphSourceSplit split, String requestedPage) {
+    private PageResult<Edge> fetchEdgePage(
+            HugeGraphSourceSplit split, String label, String requestedPage) {
         if (split.isShardMode()) {
             return client.scanEdges(split.toShard(), requestedPage, sourceConfig.getPageSize());
         }
         return client.listEdges(
-                sourceConfig.getLabel(),
-                sourceConfig.getFilter(),
-                requestedPage,
-                sourceConfig.getPageSize());
+                label, sourceConfig.getFilter(), requestedPage, sourceConfig.getPageSize());
     }
 
     /**
-     * Shard scans return elements of all labels in the key range; keep only the configured label.
+     * Shard scans return elements of all labels in the key range; keep only {@code label}. (Shard
+     * mode is single-label only, so this filters to the one configured label.)
      */
-    private List<Vertex> filterVerticesByLabel(List<Vertex> records) {
-        String label = sourceConfig.getLabel();
+    private List<Vertex> filterVerticesByLabel(List<Vertex> records, String label) {
         List<Vertex> filtered = new ArrayList<>(records.size());
         for (Vertex vertex : records) {
             if (label.equals(vertex.label())) {
@@ -300,8 +326,7 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
         return filtered;
     }
 
-    private List<Edge> filterEdgesByLabel(List<Edge> records) {
-        String label = sourceConfig.getLabel();
+    private List<Edge> filterEdgesByLabel(List<Edge> records, String label) {
         List<Edge> filtered = new ArrayList<>(records.size());
         for (Edge edge : records) {
             if (label.equals(edge.label())) {
@@ -312,6 +337,9 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
     }
 
     private void validateLabelAndSchema() {
+        // Single-label mode only (read-all skips validation in open()); exactly one context, keyed
+        // by the configured label.
+        SeaTunnelRowType propertyRowType = contextFor(sourceConfig.getLabel()).getPropertyRowType();
         Set<String> labelProperties;
         if (sourceConfig.getLabelType() == MappingConfig.LabelType.VERTEX) {
             labelProperties = client.getVertexLabelPropertiesOrNull(sourceConfig.getLabel());
@@ -480,7 +508,9 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
         return HugeGraphTypeConverter.toSeaTunnelType(dataType, cardinality, propertyName);
     }
 
-    private void collectVertices(List<Vertex> vertices, Collector<SeaTunnelRow> output) {
+    private void collectVertices(
+            List<Vertex> vertices, Collector<SeaTunnelRow> output, LabelTableContext ctx) {
+        SeaTunnelRowType outputRowType = ctx.getOutputRowType();
         for (Vertex vertex : vertices) {
             String id = String.valueOf(vertex.id());
             if (isAdjacentDuplicate(id)) {
@@ -489,12 +519,16 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
             Object[] fields = new Object[outputRowType.getTotalFields()];
             fields[0] = id;
             fields[1] = vertex.label();
-            fillProperties(vertex.properties(), fields, 2);
-            output.collect(new SeaTunnelRow(fields));
+            fillProperties(vertex.properties(), fields, 2, ctx.getPropertyRowType());
+            SeaTunnelRow row = new SeaTunnelRow(fields);
+            row.setTableId(ctx.getTableId());
+            output.collect(row);
         }
     }
 
-    private void collectEdges(List<Edge> edges, Collector<SeaTunnelRow> output) {
+    private void collectEdges(
+            List<Edge> edges, Collector<SeaTunnelRow> output, LabelTableContext ctx) {
+        SeaTunnelRowType outputRowType = ctx.getOutputRowType();
         for (Edge edge : edges) {
             String id = String.valueOf(edge.id());
             if (isAdjacentDuplicate(id)) {
@@ -507,8 +541,10 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
             fields[3] = edge.sourceLabel();
             fields[4] = String.valueOf(edge.targetId());
             fields[5] = edge.targetLabel();
-            fillProperties(edge.properties(), fields, 6);
-            output.collect(new SeaTunnelRow(fields));
+            fillProperties(edge.properties(), fields, 6, ctx.getPropertyRowType());
+            SeaTunnelRow row = new SeaTunnelRow(fields);
+            row.setTableId(ctx.getTableId());
+            output.collect(row);
         }
     }
 
@@ -528,7 +564,10 @@ public class HugeGraphSourceReader implements SourceReader<SeaTunnelRow, HugeGra
     }
 
     private void fillProperties(
-            Map<String, Object> properties, Object[] fields, int propertyOffset) {
+            Map<String, Object> properties,
+            Object[] fields,
+            int propertyOffset,
+            SeaTunnelRowType propertyRowType) {
         for (int i = 0; i < propertyRowType.getTotalFields(); i++) {
             String propertyName = propertyRowType.getFieldName(i);
             fields[propertyOffset + i] =
