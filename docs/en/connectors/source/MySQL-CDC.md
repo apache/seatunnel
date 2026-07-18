@@ -193,7 +193,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value must include the database name, for example: `database_name.table_name`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Each matched table name includes the database name, for example: `database.*\\.table_.*`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | table-names-config                        | List     | No       | -       | Per-table config list. For example: `[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column. `snapshotSplitColumn` should be a primary key or unique key. If a non-unique column is provided, SeaTunnel ignores it and automatically selects an appropriate split column internally.                                                                                                                                                                                                                                               |
-| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
+| startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific`, `timestamp` and `snapshot`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.<br/> `snapshot`: Read snapshot data only and then finish. The job is bounded and does not consume binlog after the snapshot completes. Intended for one-time backfill / bootstrap. It is incompatible with `stop.mode` (other than `never`), `exactly_once`, and the `startup.specific-offset.*` options.                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | startup.specific-offset.gtid-set          | String   | No       | -       | Optional MySQL GTID set for `specific` startup mode. This option is used together with `startup.specific-offset.file` and `startup.specific-offset.pos`.                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -430,6 +430,25 @@ source {
     startup.mode = "specific"
     startup.specific-offset.file = "mysql-bin.000001"
     startup.specific-offset.pos = 154
+  }
+}
+```
+
+### Snapshot-Only Bootstrap (One-Time Backfill)
+
+Use `startup.mode = "snapshot"` for a bounded bootstrap job: it reads the configured snapshot data and then finishes cleanly, without switching into binlog streaming. This suits one-time backfill, initial warehouse/table bootstrap, and controlled migration stages where a continuous CDC task is not wanted.
+
+Because the job never consumes binlog, `snapshot` mode is incompatible with `stop.mode` values other than `never`, `exactly_once`, and the binlog-oriented `startup.specific-offset.*` options; configuring them together fails fast at startup.
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5656
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "snapshot"
   }
 }
 ```

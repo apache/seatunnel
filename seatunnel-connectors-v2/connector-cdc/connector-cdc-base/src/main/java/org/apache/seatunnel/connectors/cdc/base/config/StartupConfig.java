@@ -70,6 +70,10 @@ public final class StartupConfig implements Serializable {
                 return offsetFactory.latest();
             case INITIAL:
             case SNAPSHOT_ONLY:
+                // Snapshot-only shares INITIAL's snapshot planning; it never creates an
+                // incremental split, so the derived-from-snapshot (null) offset applies and this
+                // case guards against a leaked incremental split producing a confusing crash.
+            case SNAPSHOT:
                 return null;
             case COMMITTED_OFFSET:
                 return offsetFactory.committedOffset();

@@ -127,6 +127,52 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
+        validateSnapshotOnlyConfig(readonlyConfig);
+    }
+
+    /**
+     * Fail fast when snapshot-only startup mode is combined with options that only make sense for
+     * incremental/binlog streaming. Snapshot-only is a bounded bootstrap job: it reads the snapshot
+     * and finishes without consuming binlog, so stop-mode, exactly-once and binlog-oriented startup
+     * offsets are contradictory and are rejected rather than silently ignored.
+     */
+    private void validateSnapshotOnlyConfig(ReadonlyConfig config) {
+        if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT) {
+            return;
+        }
+        config.getOptional(getStopModeOption())
+                .filter(mode -> mode != StopMode.NEVER)
+                .ifPresent(
+                        mode -> {
+                            throw new IllegalArgumentException(
+                                    String.format(
+                                            "'%s' startup mode is a bounded snapshot-only job and does not consume binlog, "
+                                                    + "so it is incompatible with '%s = %s'. Remove the stop mode option.",
+                                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                                            SourceOptions.STOP_MODE_KEY,
+                                            mode.name().toLowerCase()));
+                        });
+        if (Boolean.TRUE.equals(config.get(SourceOptions.EXACTLY_ONCE))) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' startup mode does not consume binlog, so exactly-once semantics ('%s') is not applicable. "
+                                    + "Remove the exactly_once option.",
+                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                            SourceOptions.EXACTLY_ONCE.key()));
+        }
+        boolean specificOffsetPresent =
+                config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
+                        || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                                .isPresent();
+        if (specificOffsetPresent) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' startup mode reads the snapshot only and ignores binlog offsets, "
+                                    + "so binlog-oriented startup offset options ('%s', '%s') are not allowed.",
+                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
+        }
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
@@ -252,10 +298,20 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     @Override
     public Boundedness getBoundedness() {
-        return stopMode == StopMode.NEVER
-                        && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
-                ? Boundedness.UNBOUNDED
-                : Boundedness.BOUNDED;
+        if (isSnapshotOnly()) {
+            // Snapshot-only jobs read the snapshot and finish; they never enter binlog streaming,
+            // so the source is always bounded regardless of the configured stop mode.
+            return Boundedness.BOUNDED;
+        }
+        return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
+    }
+
+    /**
+     * Whether the source runs in snapshot-only startup mode: read the snapshot data and then finish
+     * cleanly without transitioning into incremental/binlog streaming.
+     */
+    protected boolean isSnapshotOnly() {
+        return startupConfig.getStartupMode() == StartupMode.SNAPSHOT;
     }
 
     @SuppressWarnings("MagicNumber")
@@ -320,31 +376,24 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashSet<>(remainingTables),
                         new HashMap<>(),
                         new HashMap<>());
-        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL
-                || sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
+        // Snapshot-only reuses the hybrid (snapshot + incremental) assigner for its snapshot
+        // planning, then short-circuits before the incremental phase via the snapshotOnly flag.
+        if (startupMode == StartupMode.INITIAL || startupMode == StartupMode.SNAPSHOT) {
             try {
 
                 boolean isTableIdCaseSensitive =
                         dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
-                if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
-                    splitAssigner =
-                            new SnapshotOnlySplitAssigner<>(
-                                    assignerContext,
-                                    enumeratorContext.currentParallelism(),
-                                    remainingTables,
-                                    isTableIdCaseSensitive,
-                                    dataSourceDialect);
-                } else {
-                    splitAssigner =
-                            new HybridSplitAssigner<>(
-                                    assignerContext,
-                                    enumeratorContext.currentParallelism(),
-                                    incrementalParallelism,
-                                    remainingTables,
-                                    isTableIdCaseSensitive,
-                                    dataSourceDialect,
-                                    offsetFactory);
-                }
+                splitAssigner =
+                        new HybridSplitAssigner<>(
+                                assignerContext,
+                                enumeratorContext.currentParallelism(),
+                                incrementalParallelism,
+                                remainingTables,
+                                isTableIdCaseSensitive,
+                                dataSourceDialect,
+                                offsetFactory,
+                                startupMode == StartupMode.SNAPSHOT);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover captured tables for enumerator", e);
             }
@@ -392,21 +441,9 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             incrementalParallelism,
                             (HybridPendingSplitsState) checkpointState,
                             dataSourceDialect,
-                            offsetFactory);
-        } else if (checkpointState instanceof SnapshotPhaseState) {
-            SnapshotPhaseState checkpointSnapshotState = (SnapshotPhaseState) checkpointState;
-            SplitAssigner.Context<C> assignerContext =
-                    new SplitAssigner.Context<>(
-                            sourceConfig,
-                            capturedTables,
-                            checkpointSnapshotState.getAssignedSplits(),
-                            checkpointSnapshotState.getSplitCompletedOffsets());
-            splitAssigner =
-                    new SnapshotOnlySplitAssigner<>(
-                            assignerContext,
-                            enumeratorContext.currentParallelism(),
-                            checkpointSnapshotState,
-                            dataSourceDialect);
+                            offsetFactory,
+                            sourceConfig.getStartupConfig().getStartupMode()
+                                    == StartupMode.SNAPSHOT);
         } else if (checkpointState instanceof IncrementalPhaseState) {
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(

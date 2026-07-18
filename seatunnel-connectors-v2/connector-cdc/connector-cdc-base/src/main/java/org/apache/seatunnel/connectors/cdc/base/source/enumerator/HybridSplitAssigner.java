@@ -48,6 +48,14 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     private final IncrementalSplitAssigner<C> incrementalSplitAssigner;
 
+    /**
+     * When {@code true}, the assigner stops after the snapshot phase completes and never assigns
+     * incremental (binlog) splits, so the job becomes bounded and finishes cleanly. Derived from
+     * the source startup mode (see {@code StartupMode#SNAPSHOT}); it is not persisted in checkpoint
+     * state because the startup mode is immutable for the lifetime of the job.
+     */
+    private final boolean snapshotOnly;
+
     public HybridSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
@@ -55,7 +63,8 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
             DataSourceDialect<C> dialect,
-            OffsetFactory offsetFactory) {
+            OffsetFactory offsetFactory,
+            boolean snapshotOnly) {
         this(
                 new SnapshotSplitAssigner<>(
                         context,
@@ -63,7 +72,8 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
                         remainingTables,
                         isTableIdCaseSensitive,
                         dialect),
-                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
+                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory),
+                snapshotOnly);
     }
 
     public HybridSplitAssigner(
@@ -72,22 +82,22 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             int incrementalParallelism,
             HybridPendingSplitsState checkpoint,
             DataSourceDialect<C> dialect,
-            OffsetFactory offsetFactory) {
+            OffsetFactory offsetFactory,
+            boolean snapshotOnly) {
         this(
                 new SnapshotSplitAssigner<>(
                         context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
-                new IncrementalSplitAssigner<>(
-                        context,
-                        incrementalParallelism,
-                        offsetFactory,
-                        checkpoint.getIncrementalPhaseState()));
+                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory),
+                snapshotOnly);
     }
 
     private HybridSplitAssigner(
             SnapshotSplitAssigner<C> snapshotSplitAssigner,
-            IncrementalSplitAssigner<C> incrementalSplitAssigner) {
+            IncrementalSplitAssigner<C> incrementalSplitAssigner,
+            boolean snapshotOnly) {
         this.snapshotSplitAssigner = snapshotSplitAssigner;
         this.incrementalSplitAssigner = incrementalSplitAssigner;
+        this.snapshotOnly = snapshotOnly;
     }
 
     @Override
@@ -105,6 +115,14 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             // incremental split is not ready by now
             return Optional.empty();
         }
+        if (snapshotOnly) {
+            // snapshot-only mode: the snapshot phase is complete, so do not transition into
+            // incremental (binlog) reading. Returning empty here, together with
+            // waitingForCompletedSplits() returning false, lets the enumerator signal
+            // no-more-splits
+            // so the bounded job can finish cleanly.
+            return Optional.empty();
+        }
         // incremental split assigning
         if (!incrementalSplitAssigner.noMoreSplits()) {
             // we need to wait snapshot-assigner to be completed before
@@ -118,6 +136,11 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     @Override
     public boolean waitingForCompletedSplits() {
+        if (snapshotOnly) {
+            // A checkpoint is only required before transitioning to incremental reading. Snapshot-
+            // only jobs can finish as soon as every snapshot split reports completion.
+            return snapshotSplitAssigner.waitingForCompletedSplits();
+        }
         return snapshotSplitAssigner.waitingForCompletedSplits()
                 || incrementalSplitAssigner.waitingForAssignedSplits();
     }

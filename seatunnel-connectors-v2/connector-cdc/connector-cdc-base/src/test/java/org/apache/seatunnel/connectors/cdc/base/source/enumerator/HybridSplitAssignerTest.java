@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -30,6 +31,7 @@ import io.debezium.relational.TableId;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,7 +60,7 @@ public class HybridSplitAssignerTest {
                         checkpointState.getSnapshotPhaseState().getAssignedSplits(),
                         checkpointState.getSnapshotPhaseState().getSplitCompletedOffsets());
         HybridSplitAssigner splitAssigner =
-                new HybridSplitAssigner<>(context, 1, 1, checkpointState, null, null);
+                new HybridSplitAssigner<>(context, 1, 1, checkpointState, null, null, false);
         splitAssigner.getIncrementalSplitAssigner().setSplitAssigned(true);
 
         Assertions.assertFalse(
@@ -78,6 +80,54 @@ public class HybridSplitAssignerTest {
                 splitAssigner.getSnapshotSplitAssigner().getSplitCompletedOffsets().isEmpty());
         Assertions.assertTrue(context.getAssignedSnapshotSplit().isEmpty());
         Assertions.assertTrue(context.getSplitCompletedOffsets().isEmpty());
+    }
+
+    @Test
+    public void testSnapshotOnlyFinishesWithoutCheckpoint() {
+        // All snapshot splits have finished, but parallel snapshot readers have not completed a
+        // checkpoint yet, so the snapshot assigner is not marked completed.
+        HybridPendingSplitsState completedSnapshotState =
+                new HybridPendingSplitsState(
+                        new SnapshotPhaseState(
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                createAssignedSplits(),
+                                createSplitCompletedOffsets(),
+                                false,
+                                Collections.emptyList(),
+                                false,
+                                false),
+                        null);
+
+        // snapshot-only: once the snapshot phase is complete the assigner must not hand out any
+        // incremental split, and it must stop reporting that it is waiting for completed splits so
+        // the enumerator can signal no-more-splits and let the bounded job finish.
+        HybridSplitAssigner<SourceConfig> snapshotOnlyAssigner =
+                new HybridSplitAssigner<>(
+                        newCompletedContext(), 2, 1, completedSnapshotState, null, null, true);
+        Assertions.assertFalse(
+                snapshotOnlyAssigner.getSnapshotSplitAssigner().isCompleted(),
+                "parallel snapshot assigner should still be waiting for a checkpoint");
+        Assertions.assertFalse(
+                snapshotOnlyAssigner.getNext().isPresent(),
+                "snapshot-only must not assign an incremental split after the snapshot phase");
+        Assertions.assertFalse(
+                snapshotOnlyAssigner.waitingForCompletedSplits(),
+                "snapshot-only must not keep waiting once the snapshot phase is complete");
+
+        // control: the default hybrid assigner keeps consulting the incremental assigner, so it
+        // still reports waiting for completed splits (and would proceed into the binlog phase).
+        HybridSplitAssigner<SourceConfig> hybridAssigner =
+                new HybridSplitAssigner<>(
+                        newCompletedContext(), 2, 1, completedSnapshotState, null, null, false);
+        Assertions.assertTrue(
+                hybridAssigner.waitingForCompletedSplits(),
+                "default hybrid assigner should still transition into the incremental phase");
+    }
+
+    private static SplitAssigner.Context<SourceConfig> newCompletedContext() {
+        return new SplitAssigner.Context<>(
+                null, Collections.emptySet(), new HashMap<>(), new HashMap<>());
     }
 
     private static Map<String, SnapshotSplit> createAssignedSplits() {
