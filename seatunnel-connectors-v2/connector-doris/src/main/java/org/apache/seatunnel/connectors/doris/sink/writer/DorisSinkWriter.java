@@ -329,24 +329,28 @@ public class DorisSinkWriter
 
     @Override
     public void close() throws IOException {
+        Throwable shutdownFailure = null;
         try {
             if (!dorisSinkConfig.getEnable2PC()) {
                 flush();
             }
         } catch (Exception e) {
             log.error("Flush data failed when closing doris writer.", e);
-            throw e;
+            shutdownFailure = e;
         } finally {
             if (scheduledExecutorService != null) {
                 scheduledExecutorService.shutdownNow();
             }
-            if (dorisStreamLoad != null) {
-                dorisStreamLoad.close();
+            shutdownFailure =
+                    closeStreamLoadWithSuppressed(
+                            shutdownFailure, dorisStreamLoad, "data stream load");
+            if (controlStreamLoad != null && controlStreamLoad != dorisStreamLoad) {
+                shutdownFailure =
+                        closeStreamLoadWithSuppressed(
+                                shutdownFailure, controlStreamLoad, "control stream load");
             }
         }
-        if (controlStreamLoad != null && controlStreamLoad != dorisStreamLoad) {
-            controlStreamLoad.close();
-        }
+        rethrowShutdownFailure(shutdownFailure);
     }
 
     private DorisSerializer createSerializer(
@@ -409,6 +413,49 @@ public class DorisSinkWriter
                     streamLoadName,
                     closeException);
         }
+    }
+
+    /**
+     * Closes a stream-load client while preserving any earlier shutdown failure.
+     *
+     * <p>If a previous failure is already being propagated, secondary close failures are attached
+     * as suppressed exceptions so the original error stays visible to the caller.
+     */
+    private Throwable closeStreamLoadWithSuppressed(
+            Throwable priorFailure, DorisStreamLoad streamLoad, String streamLoadName) {
+        if (streamLoad == null) {
+            return priorFailure;
+        }
+        try {
+            streamLoad.close();
+        } catch (IOException closeException) {
+            if (priorFailure == null) {
+                return closeException;
+            }
+            log.warn(
+                    "Failed to close {} while another Doris shutdown failure is already being propagated.",
+                    streamLoadName,
+                    closeException);
+            priorFailure.addSuppressed(closeException);
+        }
+        return priorFailure;
+    }
+
+    // Re-throw the shutdown failure with the narrowest type expected by the writer contract.
+    private void rethrowShutdownFailure(Throwable shutdownFailure) throws IOException {
+        if (shutdownFailure == null) {
+            return;
+        }
+        if (shutdownFailure instanceof IOException) {
+            throw (IOException) shutdownFailure;
+        }
+        if (shutdownFailure instanceof RuntimeException) {
+            throw (RuntimeException) shutdownFailure;
+        }
+        if (shutdownFailure instanceof Error) {
+            throw (Error) shutdownFailure;
+        }
+        throw new IOException("Closing Doris sink writer failed.", shutdownFailure);
     }
 
     private static final class InitializedStreamLoad {

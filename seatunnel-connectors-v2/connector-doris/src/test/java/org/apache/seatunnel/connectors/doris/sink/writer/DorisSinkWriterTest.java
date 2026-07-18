@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -205,6 +206,61 @@ public class DorisSinkWriterTest {
                                 factory));
 
         verify(frontendLoad, times(1)).close();
+    }
+
+    @Test
+    void testClosePreservesFlushFailureWhenStreamLoadCloseAlsoFails() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        when(frontendLoad.stopLoad()).thenThrow(new IOException("flush failed"));
+        doThrow(new IOException("close failed")).when(frontendLoad).close();
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+
+        DorisSinkWriter writer =
+                new DorisSinkWriter(
+                        new DefaultSinkWriterContext(0, 1),
+                        new ArrayList<>(),
+                        mockCatalogTable(),
+                        createSinkConfig(false, false),
+                        "job_1",
+                        factory);
+
+        IOException exception = Assertions.assertThrows(IOException.class, writer::close);
+        Assertions.assertEquals("flush failed", exception.getMessage());
+        Assertions.assertEquals(1, exception.getSuppressed().length);
+        Assertions.assertEquals("close failed", exception.getSuppressed()[0].getMessage());
+        verify(frontendLoad, times(1)).close();
+    }
+
+    @Test
+    void testCloseStillClosesControlStreamLoadWhenDirectToBe2PCDataStreamCloseFails()
+            throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        DorisStreamLoad backendLoad = mock(DorisStreamLoad.class);
+        when(backendLoad.getDb()).thenReturn("test_db");
+        doNothing().when(frontendLoad).abortPreCommit(anyString(), anyLong());
+        doThrow(new IOException("backend close failed")).when(backendLoad).close();
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+        factory.register("be1:8040", backendLoad);
+
+        DorisSinkWriter writer =
+                new DorisSinkWriter(
+                        new DefaultSinkWriterContext(0, 1),
+                        new ArrayList<>(),
+                        mockCatalogTable(),
+                        createSinkConfig(true, true),
+                        "job_1",
+                        factory);
+
+        IOException exception = Assertions.assertThrows(IOException.class, writer::close);
+        Assertions.assertEquals("backend close failed", exception.getMessage());
+
+        InOrder inOrder = inOrder(backendLoad, frontendLoad);
+        inOrder.verify(backendLoad).close();
+        inOrder.verify(frontendLoad).close();
     }
 
     @Test
