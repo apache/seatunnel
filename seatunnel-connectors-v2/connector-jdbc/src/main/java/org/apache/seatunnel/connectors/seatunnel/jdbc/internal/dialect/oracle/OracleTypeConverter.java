@@ -240,9 +240,18 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 break;
             case ORACLE_TIMESTAMP:
+                // TIMESTAMP without timezone is NTZ
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                if (typeDefine.getScale() == null) {
+                    builder.scale(TIMESTAMP_DEFAULT_SCALE);
+                } else {
+                    builder.scale(typeDefine.getScale());
+                }
+                break;
             case ORACLE_TIMESTAMP_WITH_TIME_ZONE:
             case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                // TIMESTAMP WITH (LOCAL) TIME ZONE is LTZ
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 if (typeDefine.getScale() == null) {
                     builder.scale(TIMESTAMP_DEFAULT_SCALE);
                 } else {
@@ -376,24 +385,47 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(ORACLE_DATE);
                 break;
             case TIMESTAMP:
+                // NTZ: maps to ORACLE_TIMESTAMP (without timezone)
                 if (column.getScale() == null || column.getScale() <= 0) {
-                    builder.columnType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+                    builder.columnType(ORACLE_TIMESTAMP);
                 } else {
                     int timestampScale = column.getScale();
-                    if (column.getScale() > MAX_TIMESTAMP_SCALE) {
-                        timestampScale = MAX_TIMESTAMP_SCALE;
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         log.warn(
                                 "The timestamp column {} type timestamp({}) is out of range, "
                                         + "which exceeds the maximum scale of {}, "
                                         + "it will be converted to timestamp({})",
                                 column.getName(),
-                                column.getScale(),
+                                timestampScale,
                                 MAX_TIMESTAMP_SCALE,
-                                timestampScale);
+                                MAX_TIMESTAMP_SCALE);
+                        timestampScale = MAX_TIMESTAMP_SCALE;
+                    }
+                    builder.columnType(String.format("TIMESTAMP(%s)", timestampScale));
+                    builder.scale(timestampScale);
+                }
+                builder.dataType(ORACLE_TIMESTAMP);
+                break;
+            case TIMESTAMP_TZ:
+                // LTZ: maps to ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                if (column.getScale() == null || column.getScale() <= 0) {
+                    builder.columnType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+                } else {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
+                                column.getName(),
+                                timestampTzScale,
+                                MAX_TIMESTAMP_SCALE,
+                                MAX_TIMESTAMP_SCALE);
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
                     }
                     builder.columnType(
-                            String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", timestampScale));
-                    builder.scale(timestampScale);
+                            String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", timestampTzScale));
+                    builder.scale(timestampTzScale);
                 }
                 builder.dataType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
                 break;

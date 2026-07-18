@@ -105,7 +105,7 @@ public class TestSQLIT extends TestSuiteBase {
     @TestTemplate
     public void testSQLTransformMultiTable(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult sqlTransform = container.executeJob("/sql_transform.conf");
+        Container.ExecResult sqlTransform = container.executeJob("/sql_transform_multi_table.conf");
         Assertions.assertEquals(0, sqlTransform.getExitCode());
     }
 

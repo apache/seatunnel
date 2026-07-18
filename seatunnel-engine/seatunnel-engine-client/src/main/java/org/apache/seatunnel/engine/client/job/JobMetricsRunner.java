@@ -35,6 +35,7 @@ public class JobMetricsRunner implements Runnable {
     private LocalDateTime lastRunTime = LocalDateTime.now();
     private Long lastReadCount = 0L;
     private Long lastWriteCount = 0L;
+    private Long lastCommittedCount = 0L;
 
     public JobMetricsRunner(SeaTunnelClient seaTunnelClient, Long jobId) {
         this.seaTunnelClient = seaTunnelClient;
@@ -50,6 +51,21 @@ public class JobMetricsRunner implements Runnable {
             long seconds = Duration.between(lastRunTime, now).getSeconds();
             long averageRead = (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
             long averageWrite = (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
+            long averageCommitted =
+                    (jobMetricsSummary.getSinkCommittedCount() - lastCommittedCount) / seconds;
+
+            String commitRate = "N/A";
+            if (jobMetricsSummary.getSinkWriteCount() > 0
+                    && jobMetricsSummary.getSinkCommittedCount() >= 0) {
+                double rate =
+                        (double) jobMetricsSummary.getSinkCommittedCount()
+                                / jobMetricsSummary.getSinkWriteCount()
+                                * 100;
+
+                rate = Math.max(0, Math.min(100, rate));
+                commitRate = String.format("%.2f%%", rate);
+            }
+
             log.info(
                     StringFormatUtils.formatTable(
                             "Job Progress Information",
@@ -57,12 +73,18 @@ public class JobMetricsRunner implements Runnable {
                             jobId,
                             "Read Count So Far",
                             jobMetricsSummary.getSourceReadCount(),
-                            "Write Count So Far",
+                            "Write Attempt Count So Far",
                             jobMetricsSummary.getSinkWriteCount(),
+                            "Write Committed Count So Far",
+                            jobMetricsSummary.getSinkCommittedCount(),
+                            "Commit Rate",
+                            commitRate,
                             "Average Read Count",
                             averageRead + "/s",
-                            "Average Write Count",
+                            "Average Write Attempt Count",
                             averageWrite + "/s",
+                            "Average Write Committed Count",
+                            averageCommitted + "/s",
                             "Last Statistic Time",
                             DateTimeUtils.toString(
                                     lastRunTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
@@ -72,6 +94,7 @@ public class JobMetricsRunner implements Runnable {
             lastRunTime = now;
             lastReadCount = jobMetricsSummary.getSourceReadCount();
             lastWriteCount = jobMetricsSummary.getSinkWriteCount();
+            lastCommittedCount = jobMetricsSummary.getSinkCommittedCount();
         } catch (Exception e) {
             log.warn("Failed to get job metrics summary, it maybe first-run");
         }
@@ -82,5 +105,6 @@ public class JobMetricsRunner implements Runnable {
     public static class JobMetricsSummary {
         private long sourceReadCount;
         private long sinkWriteCount;
+        private long sinkCommittedCount;
     }
 }

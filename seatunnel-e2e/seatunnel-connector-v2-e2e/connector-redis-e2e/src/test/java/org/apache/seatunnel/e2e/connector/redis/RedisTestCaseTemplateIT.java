@@ -16,27 +16,20 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -81,7 +74,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions.CONNECTOR_IDENTITY;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
@@ -144,6 +136,74 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         }
         // db_num backup
         jedis.select(0);
+    }
+
+    /**
+     * Initialize source data for multi-table tests. Creates test data with different key patterns:
+     * - user:* (50 keys) - order:* (30 keys) - product:* (20 keys)
+     */
+    protected void initMultiTableSourceData() {
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
+
+        // Prepare user table data (50 records)
+        for (int i = 0; i < 50; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("user:" + i, json);
+        }
+
+        // Prepare order table data (30 records)
+        for (int i = 0; i < 30; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("order:" + i, json);
+        }
+
+        // Prepare product table data (20 records)
+        for (int i = 0; i < 20; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("product:" + i, json);
+        }
+    }
+
+    /** Initialize mixed data types for multi-table tests. */
+    protected void initMixedTypesMultiTableData() {
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
+
+        // Hash type data (10 hash keys)
+        for (int i = 0; i < 10; i++) {
+            String hashKey = "multi:hash:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.hset(hashKey, "field_" + j, json);
+            }
+        }
+
+        // List type data (10 list keys)
+        for (int i = 0; i < 10; i++) {
+            String listKey = "multi:list:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.rpush(listKey, json);
+            }
+        }
+
+        // Set type data (10 set keys)
+        for (int i = 0; i < 10; i++) {
+            String setKey = "multi:set:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.sadd(setKey, json);
+            }
+        }
     }
 
     protected Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -245,9 +305,9 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         Container.ExecResult execResult = container.executeJob("/redis-to-redis-expire.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, jedis.llen("key_list"));
-        // Clear data to prevent data duplication in the next TestContainer
-        Thread.sleep(60 * 1000);
-        Assertions.assertEquals(0, jedis.llen("key_list"));
+        await().atMost(90, TimeUnit.SECONDS)
+                .pollInterval(3, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(0, jedis.llen("key_list")));
     }
 
     @TestTemplate
@@ -629,19 +689,26 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @DisabledOnOs(OS.WINDOWS)
     public void testFakeToRedisInRealTimeTest(TestContainer container)
             throws IOException, InterruptedException {
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/fake-to-redis-test-in-real-time.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        CompletableFuture<Void> jobFuture =
+                CompletableFuture.supplyAsync(
+                                () -> {
+                                    try {
+                                        container.executeJob(
+                                                "/fake-to-redis-test-in-real-time.conf");
+                                    } catch (Exception e) {
+                                        log.error("Streaming job execution failed", e);
+                                        throw new RuntimeException(e);
+                                    }
+                                    return null;
+                                })
+                        .thenAccept(v -> {});
+        await().atMost(120, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
+                            Assertions.assertFalse(
+                                    jobFuture.isCompletedExceptionally(),
+                                    "Streaming job failed unexpectedly");
                             Assertions.assertEquals(3, jedis.llen("list_check"));
                         });
         jedis.del("list_check");
@@ -707,220 +774,90 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
-    public void testFakeToRedisCustomKeyIsNullTest(TestContainer container)
+    public void testMultipleTableRedisSource(TestContainer container)
             throws IOException, InterruptedException {
+        // Prepare multi-table source data
+        initMultiTableSourceData();
+
+        // Execute job
         Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-custom-key-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        int count = 0;
-        String data = jedis.get("key_check:");
-        if (data != null) {
-            count++;
-            jedis.del("key_check:");
+                container.executeJob("/scan-multitable-string-to-redis.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
+
+        // Verify user table results (50 records)
+        long userCount = jedis.llen("multitable-result-user_table");
+        Assertions.assertEquals(50, userCount, "User table should have 50 records");
+
+        // Verify order table results (30 records)
+        long orderCount = jedis.llen("multitable-result-order_table");
+        Assertions.assertEquals(30, orderCount, "Order table should have 30 records");
+
+        // Verify product table results (20 records)
+        long productCount = jedis.llen("multitable-result-product_table");
+        Assertions.assertEquals(20, productCount, "Product table should have 20 records");
+
+        // Clean up source data
+        for (int i = 0; i < 50; i++) {
+            jedis.del("user:" + i);
         }
-        for (int i = 2; i <= 3; i++) {
-            data = jedis.get("key_check:NEW" + i);
-            if (data != null) {
-                count++;
-                jedis.del("key_check:NEW" + i);
-            }
+        for (int i = 0; i < 30; i++) {
+            jedis.del("order:" + i);
         }
-        Assertions.assertEquals(2, count);
+        for (int i = 0; i < 20; i++) {
+            jedis.del("product:" + i);
+        }
+
+        // Clean up result data
+        jedis.del("multitable-result-user_table");
+        jedis.del("multitable-result-order_table");
+        jedis.del("multitable-result-product_table");
     }
 
     @TestTemplate
-    public void testFakeToRedisOtherTypeValueIsNullTest(TestContainer container)
+    public void testMultipleTableRedisMixedTypes(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/fake-to-redis-test-custom-value-when-other-type-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.llen("list_check"));
-        jedis.del("list_check");
-    }
+        // Prepare mixed types source data
+        initMixedTypesMultiTableData();
 
-    @TestTemplate
-    public void testFakeToRedisHashTypeKeyIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
+        // Execute job
         Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-custom-value-when-hash-key-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.hlen("hash_check"));
-        jedis.del("hash_check");
-    }
+                container.executeJob("/scan-multitable-mixed-types-to-redis.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
 
-    @TestTemplate
-    public void testFakeToRedisHashTypeValueIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/fake-to-redis-test-custom-value-when-hash-value-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.hlen("hash_check"));
-        jedis.del("hash_check");
+        // Verify hash table results
+        long hashCount = jedis.llen("mixed-types-result-hash_table");
+        Assertions.assertEquals(10, hashCount);
+
+        List<String> hashTabelValueList =
+                jedis.lrange("mixed-types-result-hash_table", 0, hashCount);
+
+        for (String hashValue : hashTabelValueList) {
+            Map<String, Object> valueMap =
+                    JsonUtils.parseObject(hashValue, new TypeReference<Map<String, Object>>() {});
+            Assertions.assertNotNull(valueMap);
+            Assertions.assertEquals(6, valueMap.size());
+        }
+
+        // Verify list table results
+        long listCount = jedis.llen("mixed-types-result-list_table");
+        Assertions.assertEquals(50, listCount);
+
+        // Verify set table results
+        long setCount = jedis.llen("mixed-types-result-set_table");
+        Assertions.assertEquals(50, setCount);
+
+        // Clean up source data
+        for (int i = 0; i < 10; i++) {
+            jedis.del("multi:hash:" + i);
+            jedis.del("multi:list:" + i);
+            jedis.del("multi:set:" + i);
+        }
+
+        // Clean up result data
+        jedis.del("mixed-types-result-hash_table");
+        jedis.del("mixed-types-result-list_table");
+        jedis.del("mixed-types-result-set_table");
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();
-
-    private ReadonlyConfig getDefaultReadonlyConfig(
-            RedisDataType dataType, String key, Map<String, Object> otherParams) {
-        Map<String, Object> map = new HashMap<>(otherParams);
-        map.put("host", redisContainer.getHost());
-        map.put("port", redisContainer.getFirstMappedPort());
-        map.put("db_num", 0);
-        map.put("auth", password);
-        map.put("key", key);
-        map.put("data_type", dataType.name());
-        map.put("batch_size", 33);
-        return ReadonlyConfig.fromMap(map);
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert1() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    1,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert2() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    2,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert3() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    3,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowUpdateBefore() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            1,
-                            true,
-                            (byte) 1,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.UPDATE_BEFORE);
-        return seaTunnelRow;
-    }
-
-    private SeaTunnelRow getSeaTunnelRowUpdateAfter() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            1,
-                            true,
-                            (byte) 2,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.UPDATE_AFTER);
-        return seaTunnelRow;
-    }
-
-    private SeaTunnelRow getSeaTunnelRowDelete() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            2,
-                            true,
-                            (byte) 1,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.DELETE);
-        return seaTunnelRow;
-    }
-
-    private CatalogTable getCatalogTable(Integer dbNum, String key) {
-        return CatalogTable.of(
-                TableIdentifier.of(CONNECTOR_IDENTITY, dbNum.toString(), key),
-                getTableSchema(),
-                new HashMap<>(),
-                new ArrayList<>(),
-                "");
-    }
-
-    private TableSchema getTableSchema() {
-        return new TableSchema(getColumns(), null, null);
-    }
-
-    private List<Column> getColumns() {
-        List<Column> columns = new ArrayList<>();
-        columns.add(new PhysicalColumn("id", BasicType.INT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_bool", BasicType.BOOLEAN_TYPE, 1L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int8", BasicType.BYTE_TYPE, 8L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int16", BasicType.SHORT_TYPE, 16L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int32", BasicType.INT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int64", BasicType.LONG_TYPE, 64L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_float", BasicType.FLOAT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_double", BasicType.DOUBLE_TYPE, 64L, 0, true, "", ""));
-        columns.add(
-                new PhysicalColumn("val_decimal", new DecimalType(16, 1), 16L, 1, true, "", ""));
-        columns.add(new PhysicalColumn("val_string", BasicType.STRING_TYPE, 0L, 0, true, "", ""));
-        columns.add(
-                new PhysicalColumn(
-                        "val_unixtime_micros",
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                        64L,
-                        6,
-                        true,
-                        "",
-                        ""));
-        return columns;
-    }
 }

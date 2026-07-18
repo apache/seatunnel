@@ -44,8 +44,11 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
     public static final Option<Integer> READER_CACHE_QUEUE_SIZE =
             Options.key("reader_cache_queue_size")
                     .intType()
-                    .defaultValue(1024)
-                    .withDescription("The size of reader queue.");
+                    .defaultValue(2)
+                    .withDescription(
+                            "The capacity of the fetcher-to-reader element queue. "
+                                    + "Each element is one consumer.poll() batch, not a single message. "
+                                    + "Actual buffered messages ≈ this value × max.poll.records.");
 
     public static final Option<Boolean> COMMIT_ON_CHECKPOINT =
             Options.key("commit_on_checkpoint")
@@ -125,4 +128,22 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The time required for consumption mode to be timestamp.The endTimestamp configuration specifies the end timestamp of the messages and is only applicable in batch mode");
+
+    public static final Option<Boolean> STRIP_SCHEMA_REGISTRY_HEADER =
+            Options.key("strip_schema_registry_header")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to strip the Confluent Schema Registry wire format header "
+                                    + "(magic byte, schema id and message indexes) before "
+                                    + "protobuf deserialization.");
+
+    public static final Option<String> AVRO_SCHEMA =
+            Options.key("avro_schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Effective when the format is avro. The writer Avro schema used to "
+                                    + "deserialize binary Avro messages whose record name, namespace, "
+                                    + "or union layout differs from the SeaTunnel schema.");
 }

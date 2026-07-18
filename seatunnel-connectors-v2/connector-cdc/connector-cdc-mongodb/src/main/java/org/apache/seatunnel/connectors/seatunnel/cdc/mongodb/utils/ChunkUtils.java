@@ -23,7 +23,7 @@ import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
 import org.bson.BsonValue;
 
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 
 public class ChunkUtils {
 

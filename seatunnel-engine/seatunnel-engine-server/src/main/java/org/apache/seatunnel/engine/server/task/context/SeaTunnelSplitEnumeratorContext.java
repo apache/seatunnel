@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -45,6 +46,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+
+    private final Set<Integer> noMoreSplitsSignaledReaders = ConcurrentHashMap.newKeySet();
 
     public SeaTunnelSplitEnumeratorContext(
             int parallelism,
@@ -88,6 +91,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void signalNoMoreSplits(int subtaskIndex) {
+        noMoreSplitsSignaledReaders.add(subtaskIndex);
         List<byte[]> emptySplits = Collections.emptyList();
         task.getExecutionContext()
                 .sendToMember(
@@ -108,5 +112,9 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    public boolean hasNoMoreSplitsSignaled(int subtaskIndex) {
+        return noMoreSplitsSignaledReaders.contains(subtaskIndex);
     }
 }

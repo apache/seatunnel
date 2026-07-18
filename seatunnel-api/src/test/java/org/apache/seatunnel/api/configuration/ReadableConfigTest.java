@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -156,6 +157,42 @@ public class ReadableConfigTest {
                 config.get(Options.key("option.double-str").stringType().noDefaultValue()));
         Assertions.assertNull(
                 config.get(Options.key("option.not-exist").stringType().noDefaultValue()));
+    }
+
+    @Test
+    public void testDurationOption() {
+        Option<Duration> durationOption =
+                Options.key("option.duration").durationType().noDefaultValue();
+
+        Map<String, Object> optionMap = new HashMap<>();
+        optionMap.put("option.duration", "1S");
+        Assertions.assertEquals(
+                Duration.ofSeconds(1), ReadonlyConfig.fromMap(optionMap).get(durationOption));
+
+        optionMap.put("option.duration", "PT1S");
+        Assertions.assertEquals(
+                Duration.ofSeconds(1), ReadonlyConfig.fromMap(optionMap).get(durationOption));
+
+        optionMap.put("option.duration", "1s");
+        Assertions.assertEquals(
+                Duration.ofSeconds(1), ReadonlyConfig.fromMap(optionMap).get(durationOption));
+
+        ReadonlyConfig fromConfig =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseString("option.duration=1S"));
+        Assertions.assertEquals(Duration.ofSeconds(1), fromConfig.get(durationOption));
+
+        ReadonlyConfig fromLowercaseConfig =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseString("option.duration=\"1s\""));
+        Assertions.assertEquals(Duration.ofSeconds(1), fromLowercaseConfig.get(durationOption));
+
+        ReadonlyConfig fromIsoConfig =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseString("option.duration=\"PT1S\""));
+        Assertions.assertEquals(Duration.ofSeconds(1), fromIsoConfig.get(durationOption));
+
+        optionMap.put("option.duration", "bad_duration");
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ReadonlyConfig.fromMap(optionMap).get(durationOption));
     }
 
     @Test

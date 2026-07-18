@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
@@ -53,6 +55,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -66,12 +69,12 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return MySqlSourceOptions.STARTUP_MODE;
+        return MySqlIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return MySqlSourceOptions.STOP_MODE;
+        return MySqlIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override
@@ -84,6 +87,18 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
         configFactory.fromReadonlyConfig(readonlyConfig);
+        // Carry int_type_narrowing through the debezium properties map rather than a factory field.
+        // Adding a field/method to the Serializable MySqlSourceConfigFactory drifts its
+        // serialVersionUID and breaks rolling upgrades (jobs submitted on the prior version fail to
+        // deserialize). This runs after fromReadonlyConfig (which resets dbzProperties from the
+        // user
+        // debezium block), re-merging those user props then appending int_type_narrowing.
+        Properties dbzProperties = new Properties();
+        config.getOptional(JdbcSourceOptions.DEBEZIUM_PROPERTIES).ifPresent(dbzProperties::putAll);
+        dbzProperties.setProperty(
+                "int_type_narrowing",
+                String.valueOf(config.get(JdbcCommonOptions.INT_TYPE_NARROWING)));
+        configFactory.debeziumProperties(dbzProperties);
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCommonOptions.URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
@@ -115,6 +130,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .setSchemaChangeResolver(
                                 new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .build();
     }
 

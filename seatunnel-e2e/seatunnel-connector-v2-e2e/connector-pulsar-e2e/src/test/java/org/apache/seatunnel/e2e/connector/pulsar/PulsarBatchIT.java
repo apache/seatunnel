@@ -47,11 +47,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PulsarContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,7 +58,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 @Slf4j
 public class PulsarBatchIT extends TestSuiteBase implements TestResource {
@@ -113,15 +108,12 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     public void startUp() throws Exception {
         pulsarContainer =
-                new PulsarContainer(DockerImageName.parse(PULSAR_IMAGE_NAME))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(PULSAR_HOST)
-                        .withStartupTimeout(Duration.ofMinutes(3))
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(PULSAR_IMAGE_NAME)));
-
-        Startables.deepStart(Stream.of(pulsarContainer)).join();
+                PulsarContainerSupport.startPulsarContainer(
+                        dockerClient,
+                        PULSAR_IMAGE_NAME,
+                        NETWORK,
+                        PULSAR_HOST,
+                        Duration.ofMinutes(3));
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)

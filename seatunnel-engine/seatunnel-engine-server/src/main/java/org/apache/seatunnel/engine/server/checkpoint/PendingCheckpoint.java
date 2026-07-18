@@ -195,4 +195,14 @@ public class PendingCheckpoint implements Checkpoint {
                 this.getCheckpointId(),
                 this.getCheckpointType());
     }
+
+    public int getAcknowledgedSubtasks() {
+        return taskStatistics.values().stream()
+                .mapToInt(TaskStatistics::getNumAcknowledgedSubtasks)
+                .sum();
+    }
+
+    public int getTotalSubtasks() {
+        return taskStatistics.values().stream().mapToInt(TaskStatistics::getParallelism).sum();
+    }
 }

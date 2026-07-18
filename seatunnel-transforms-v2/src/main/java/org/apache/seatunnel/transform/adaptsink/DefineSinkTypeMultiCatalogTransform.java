@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
 import java.util.List;
 
@@ -44,5 +45,10 @@ public class DefineSinkTypeMultiCatalogTransform extends AbstractMultiCatalogMap
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable table, ReadonlyConfig config) {
         return new DefineSinkTypeTransform(DefineSinkTypeTransformConfig.of(config), table);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityMapTransform(catalogTable);
     }
 }

@@ -61,4 +61,10 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
                                     + "' ;")
                     .withDescription(
                             "Create table statement template, used to create MaxCompute table");
+
+    public static final Option<String> INSERT_STRATEGY =
+            Options.key("insert_strategy")
+                    .stringType()
+                    .defaultValue("upload")
+                    .withDescription("Insert strategy used for writing data (upload or upsert).");
 }

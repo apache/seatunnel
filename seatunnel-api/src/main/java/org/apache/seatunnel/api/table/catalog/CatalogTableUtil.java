@@ -218,12 +218,16 @@ public class CatalogTableUtil implements Serializable {
             tablePath = pluginOutputIdentifierOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
         }
 
+        List<String> partitionKeys =
+                schemaConfig
+                        .getOptional(ConnectorCommonOptions.PARTITION_KEYS)
+                        .orElseGet(Collections::emptyList);
+
         return CatalogTable.of(
                 TableIdentifier.of(catalogName, tablePath),
                 tableSchema,
                 new HashMap<>(),
-                // todo: add partitionKeys?
-                new ArrayList<>(),
+                partitionKeys,
                 readonlyConfig.get(ConnectorCommonOptions.TABLE_COMMENT));
     }
 

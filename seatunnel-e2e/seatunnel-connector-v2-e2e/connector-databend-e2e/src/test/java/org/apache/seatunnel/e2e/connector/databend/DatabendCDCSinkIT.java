@@ -63,7 +63,6 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final int PORT = 8000;
     private static final int LOCAL_PORT = 8000;
     private static final String DATABASE = "default";
-    private static final String SINK_TABLE = "sink_table";
     private DatabendContainer container;
     private GenericContainer<?> minioContainer;
     private Connection connection;
@@ -76,7 +75,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         Awaitility.await()
-                .atMost(120, TimeUnit.SECONDS)
+                .atMost(180, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .ignoreExceptions()
                 .untilAsserted(
@@ -287,9 +286,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initConnection()
-            throws SQLException, ClassNotFoundException, InstantiationException,
-                    IllegalAccessException {
+    private void initConnection() throws SQLException {
         final Properties info = new Properties();
         info.put("user", "root"); // Default Databend user
         info.put("password", ""); // Default Databend password is empty

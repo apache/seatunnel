@@ -20,12 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -71,22 +73,18 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
         Optional<String> optionalDatabase = config.getOptional(JdbcSinkOptions.DATABASE);
-        if (!optionalTable.isPresent()) {
-            optionalTable = Optional.of(SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY);
-        }
-        // get source table relevant information
+        // source table info
         TableIdentifier tableId = catalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
-        String pluginInputIdentifier = tableId.getTableName();
-        // get sink table relevant information
+        // sink table info
         String sinkDatabaseName =
-                optionalDatabase.orElse(SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY);
-        String sinkTableNameBefore = optionalTable.get();
+                optionalDatabase.orElse(catalogTable.getTablePath().getDatabaseName());
+        String sinkTableNameBefore =
+                optionalTable.orElse(catalogTable.getTablePath().getTableName());
         String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
         String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
         String sinkSchemaName;
@@ -98,49 +96,24 @@ public class JdbcSinkFactory implements TableSinkFactory {
         if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
             sinkSchemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
         }
-        // to add tablePrefix and tableSuffix
+        // prefix / suffix
         String tempTableName;
         String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
         String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
         if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
             tempTableName = StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
             tempTableName = StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
-
         } else {
             tempTableName = sinkTableName;
         }
-        // to replace
-        String finalDatabaseName = sinkDatabaseName;
-        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
-            finalDatabaseName =
-                    sinkDatabaseName.replace(
-                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
-
-        String finalSchemaName;
-        if (sinkSchemaName != null) {
-            if (sourceSchemaName == null) {
-                finalSchemaName = sinkSchemaName;
-            } else {
-                finalSchemaName =
-                        sinkSchemaName.replace(
-                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
-            }
-        } else {
-            finalSchemaName = null;
-        }
-        String finalTableName = sinkTableName;
-        if (StringUtils.isNotEmpty(pluginInputIdentifier)) {
-            finalTableName =
-                    tempTableName.replace(
-                            SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY, pluginInputIdentifier);
-        }
-
-        // rebuild TableIdentifier and catalogTable
+        // without replace, keep original directly
+        String finalSchemaName = sinkSchemaName;
+        String finalTableName = tempTableName;
+        // rebuild identifier
         TableIdentifier newTableId =
                 TableIdentifier.of(
                         tableId.getCatalogName(),
-                        finalDatabaseName,
+                        sinkDatabaseName,
                         finalSchemaName,
                         finalTableName);
         catalogTable =
@@ -151,6 +124,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         catalogTable.getPartitionKeys(),
                         catalogTable.getComment(),
                         catalogTable.getCatalogName());
+
         Map<String, String> map = config.toMap();
         if (catalogTable.getTableId().getSchemaName() != null) {
             map.put(
@@ -163,7 +137,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (!config.getOptional(JdbcSinkOptions.PRIMARY_KEYS).isPresent()) {
+        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(
                         JdbcSinkOptions.PRIMARY_KEYS.key(),
@@ -176,16 +150,17 @@ public class JdbcSinkFactory implements TableSinkFactory {
                                                 ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
                                                         key.getConstraintType()))
                                 .findFirst();
-                if (keyOptional.isPresent()) {
-                    map.put(
-                            JdbcSinkOptions.PRIMARY_KEYS.key(),
-                            keyOptional.get().getColumnNames().stream()
-                                    .map(key -> key.getColumnName())
-                                    .collect(Collectors.joining(",")));
-                }
+                keyOptional.ifPresent(
+                        constraintKey ->
+                                map.put(
+                                        JdbcSinkOptions.PRIMARY_KEYS.key(),
+                                        constraintKey.getColumnNames().stream()
+                                                .map(
+                                                        ConstraintKey.ConstraintKeyColumn
+                                                                ::getColumnName)
+                                                .collect(Collectors.joining(","))));
             }
         } else {
-            // replace primary key to config
             PrimaryKey configPk =
                     PrimaryKey.of(
                             catalogTable.getTablePath().getTableName() + "_config_pk",
@@ -205,10 +180,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
                             catalogTable.getCatalogName());
         }
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
-        // always execute
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
+        catalogTable.getOptions().putAll(sinkTableOptions);
         catalogTable
                 .getOptions()
                 .put("fieldIde", fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
@@ -223,7 +198,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
                 dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
-        // get saveMode
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
         return () ->
@@ -245,12 +219,22 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.SCHEMA_SAVE_MODE,
                         JdbcSinkOptions.DATA_SAVE_MODE)
                 .optional(
+                        JdbcSinkOptions.ORACLE_INSERT_MODE,
+                        Conditions.extension(
+                                JdbcSinkOptions.ORACLE_INSERT_MODE,
+                                new OracleAppendValuesValidator()))
+                .optional(
+                        JdbcSinkOptions.IS_EXACTLY_ONCE,
+                        Conditions.extension(
+                                JdbcSinkOptions.IS_EXACTLY_ONCE,
+                                new ExactlyOnceMaxRetriesValidator()))
+                .optional(
                         JdbcSinkOptions.CREATE_INDEX,
                         JdbcSinkOptions.USERNAME,
                         JdbcSinkOptions.PASSWORD,
                         JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
                         JdbcSinkOptions.BATCH_SIZE,
-                        JdbcSinkOptions.IS_EXACTLY_ONCE,
+                        JdbcSinkOptions.BATCH_INTERVAL_MS,
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
@@ -264,6 +248,11 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.TABLE_SUFFIX,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         JdbcSinkOptions.DIALECT)
+                .optional(
+                        SinkConnectorCommonOptions.TABLE_OPTIONS,
+                        Conditions.extension(
+                                SinkConnectorCommonOptions.TABLE_OPTIONS,
+                                JdbcTableOptionsConditionExtension.INSTANCE))
                 .conditional(
                         JdbcSinkOptions.IS_EXACTLY_ONCE,
                         true,
@@ -278,5 +267,81 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         JdbcSinkOptions.CUSTOM_SQL)
                 .build();
+    }
+
+    /**
+     * Submission-time validator for {@code oracle_insert_mode=APPEND_VALUES}.
+     *
+     * <p>Enforces config-level incompatibilities that can be detected from the user-supplied
+     * options alone: copy statement, exactly-once, auto_commit=false, custom query, and insert-only
+     * upsert.
+     *
+     * <p><b>Note:</b> The {@code primary_keys} conflict is <em>not</em> checked here because
+     * primary keys may be derived from the upstream {@code CatalogTable} at factory time (inside
+     * {@link #createSink}), which happens after OptionRule validation. That case is guarded at
+     * runtime by {@code JdbcOutputFormatBuilder.validateOracleInsertMode}.
+     */
+    static class OracleAppendValuesValidator
+            implements ConditionExtension<JdbcSinkConfig.OracleInsertMode> {
+        @Override
+        public String description() {
+            return "oracle_insert_mode=APPEND_VALUES conflicts with certain options";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, JdbcSinkConfig.OracleInsertMode value)
+                throws OptionValidationException {
+            if (value != JdbcSinkConfig.OracleInsertMode.APPEND_VALUES) {
+                return true;
+            }
+            if (config.get(JdbcSinkOptions.USE_COPY_STATEMENT)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support copy statement.");
+            }
+            if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support exactly-once.");
+            }
+            if (!config.get(JdbcSinkOptions.AUTO_COMMIT)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES requires auto_commit=true.");
+            }
+            if (!config.get(JdbcSinkOptions.GENERATE_SINK_SQL)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support custom query.");
+            }
+            if (config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY)) {
+                throw new OptionValidationException(
+                        "oracle_insert_mode=APPEND_VALUES does not support insert-only upsert.");
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Submission-time validator for {@code is_exactly_once=true}.
+     *
+     * <p>JDBC XA sink does not support retries; {@code max_retries} must be 0 when exactly-once is
+     * enabled, otherwise duplicates may occur.
+     */
+    static class ExactlyOnceMaxRetriesValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "is_exactly_once=true requires max_retries=0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value)
+                throws OptionValidationException {
+            if (Boolean.TRUE.equals(value)) {
+                int maxRetries = config.get(JdbcSinkOptions.MAX_RETRIES);
+                if (maxRetries != 0) {
+                    throw new OptionValidationException(
+                            "JDBC XA sink requires max_retries equal to 0 when is_exactly_once=true, "
+                                    + "otherwise it could cause duplicates.");
+                }
+            }
+            return true;
+        }
     }
 }

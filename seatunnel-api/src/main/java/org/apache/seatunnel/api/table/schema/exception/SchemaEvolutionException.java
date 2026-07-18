@@ -22,10 +22,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.Getter;
 
-/**
- * Base exception class for schema evolution related errors. This exception provides detailed
- * context about schema evolution failures.
- */
+/** Base exception class for schema evolution related errors. */
 @Getter
 public class SchemaEvolutionException extends SeaTunnelRuntimeException {
 

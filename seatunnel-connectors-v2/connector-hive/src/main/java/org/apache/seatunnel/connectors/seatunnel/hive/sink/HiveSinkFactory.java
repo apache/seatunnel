@@ -30,8 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -43,14 +43,14 @@ public class HiveSinkFactory
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HiveConfig.TABLE_NAME)
-                .required(HiveConfig.METASTORE_URI)
-                .optional(HiveConfig.ABORT_DROP_PARTITION_METADATA)
-                .optional(FileBaseSinkOptions.KERBEROS_PRINCIPAL)
-                .optional(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH)
-                .optional(FileBaseSinkOptions.REMOTE_USER)
-                .optional(HiveConfig.HADOOP_CONF)
-                .optional(HiveConfig.HADOOP_CONF_PATH)
+                .required(HiveSinkOptions.TABLE_NAME)
+                .required(HiveSinkOptions.METASTORE_URI)
+                .optional(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA)
+                .optional(HiveSinkOptions.KERBEROS_PRINCIPAL)
+                .optional(HiveSinkOptions.KERBEROS_KEYTAB_PATH)
+                .optional(HiveSinkOptions.REMOTE_USER)
+                .optional(HiveSinkOptions.HADOOP_CONF)
+                .optional(HiveSinkOptions.HADOOP_CONF_PATH)
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 // SaveMode related options
                 .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
@@ -29,8 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.Path;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -45,7 +46,8 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                         PrimitiveByteArrayType.INSTANCE, BasicType.STRING_TYPE, BasicType.LONG_TYPE
                     });
 
-    private File basePath;
+    private String basePath;
+    private transient boolean basePathIsFile;
     private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
     private boolean completeFileMode =
             FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
@@ -53,7 +55,16 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        basePath = new File(pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key()));
+        basePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+        try {
+            basePathIsFile = hadoopFileSystemProxy.isFile(basePath);
+        } catch (IOException e) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Failed to determine whether file source path is a file or directory: "
+                            + basePath,
+                    e);
+        }
 
         // Load binary chunk size configuration
         if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key())) {
@@ -80,18 +91,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
-            String relativePath;
-            if (hadoopFileSystemProxy.isFile(basePath.getAbsolutePath())) {
-                relativePath = basePath.getName();
-            } else {
-                relativePath =
-                        path.substring(
-                                path.indexOf(basePath.getAbsolutePath())
-                                        + basePath.getAbsolutePath().length());
-                if (relativePath.startsWith(File.separator)) {
-                    relativePath = relativePath.substring(File.separator.length());
-                }
-            }
+            String relativePath = resolveBinaryRelativePath(path);
 
             if (completeFileMode) {
                 // Read entire file as a single chunk
@@ -107,6 +107,13 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             MetadataUtil.setBinaryRowComplete(endRow);
             output.collect(endRow);
         }
+    }
+
+    private String resolveBinaryRelativePath(String filePath) {
+        if (basePathIsFile) {
+            return new Path(filePath).getName();
+        }
+        return resolveRelativePath(basePath, filePath);
     }
 
     /** Read the entire file as a single chunk. */

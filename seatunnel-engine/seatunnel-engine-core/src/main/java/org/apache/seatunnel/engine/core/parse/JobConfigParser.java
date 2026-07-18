@@ -46,15 +46,15 @@ public class JobConfigParser {
         this.isStartWithSavePoint = isStartWithSavePoint;
     }
 
-    static String createSourceActionName(int configIndex, String pluginName) {
+    public static String createSourceActionName(int configIndex, String pluginName) {
         return String.format("Source[%s]-%s", configIndex, pluginName);
     }
 
-    static String createSinkActionName(int configIndex, String pluginName, String table) {
+    public static String createSinkActionName(int configIndex, String pluginName, String table) {
         return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
     }
 
-    static String createTransformActionName(int configIndex, String pluginName) {
+    public static String createTransformActionName(int configIndex, String pluginName) {
         return String.format("Transform[%s]-%s", configIndex, pluginName);
     }
 }

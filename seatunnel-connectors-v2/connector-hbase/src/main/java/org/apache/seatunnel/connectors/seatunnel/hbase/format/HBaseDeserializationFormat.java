@@ -29,17 +29,17 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorE
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-import static org.apache.seatunnel.common.utils.DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-
 public class HBaseDeserializationFormat {
 
     private final DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
-    private final DateTimeUtils.Formatter datetimeFormat = YYYY_MM_DD_HH_MM_SS;
+    private final DateTimeUtils.Formatter datetimeFormat =
+            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     private final TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     public SeaTunnelRow deserialize(byte[][] rowCell, SeaTunnelRowType seaTunnelRowType) {
@@ -68,8 +68,14 @@ public class HBaseDeserializationFormat {
             case BIGINT:
                 return Bytes.toLong(cell);
             case FLOAT:
-            case DECIMAL:
                 return Bytes.toFloat(cell);
+            case DECIMAL:
+                String decimalAsString = Bytes.toString(cell);
+                try {
+                    return new BigDecimal(decimalAsString);
+                } catch (NumberFormatException e) {
+                    return new BigDecimal(Float.toString(Bytes.toFloat(cell)));
+                }
             case DOUBLE:
                 return Bytes.toDouble(cell);
             case BYTES:

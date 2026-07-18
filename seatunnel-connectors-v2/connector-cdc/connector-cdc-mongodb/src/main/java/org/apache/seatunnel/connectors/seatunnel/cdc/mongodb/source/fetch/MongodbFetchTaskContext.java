@@ -55,23 +55,24 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE_INSERT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_TRUE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE_INSERT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_TRUE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.TS_MS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.BsonUtils.compareBsonValue;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.buildSourceRecord;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getDocumentKey;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 
 @Slf4j
@@ -166,6 +167,22 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     public boolean isRecordBetween(
             SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
+        if (documentKey == null) {
+            if (isHeartbeatEvent(record)) {
+                log.debug(
+                        "Heartbeat record has no documentKey field, skipping range check. Record: {}",
+                        record);
+                return false;
+            }
+            log.warn(
+                    "Non-heartbeat record has no documentKey field, this is unexpected. Record: {}",
+                    record);
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    "Record has no documentKey field but is not a heartbeat event. "
+                            + "This indicates an unexpected record type: "
+                            + record);
+        }
         BsonDocument splitKeys = (BsonDocument) splitStart[0];
         String firstKey = splitKeys.getFirstKey();
         BsonValue keyValue = documentKey.get(firstKey);
@@ -195,7 +212,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         Struct value = (Struct) changeRecord.value();
 
         if (value != null) {
-            String operationType = value.getString(OPERATION_TYPE);
+            String operationType = getOperationType(changeRecord, value);
 
             switch (OperationType.fromString(operationType)) {
                 case INSERT:
@@ -230,6 +247,34 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                             "Data change record meet UNKNOWN operation: " + operationType);
             }
         }
+    }
+
+    private String getOperationType(SourceRecord record, Struct value) {
+        if (record.valueSchema() == null || record.valueSchema().field(OPERATION_TYPE) == null) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    String.format(
+                            "MongoDB CDC record has no %s field. Topic: %s, partition: %s,"
+                                    + " offset: %s",
+                            OPERATION_TYPE,
+                            record.topic(),
+                            record.sourcePartition(),
+                            record.sourceOffset()));
+        }
+
+        String operationType = value.getString(OPERATION_TYPE);
+        if (operationType == null) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    String.format(
+                            "MongoDB CDC record has null %s field. Topic: %s, partition: %s,"
+                                    + " offset: %s",
+                            OPERATION_TYPE,
+                            record.topic(),
+                            record.sourcePartition(),
+                            record.sourceOffset()));
+        }
+        return operationType;
     }
 
     @Override

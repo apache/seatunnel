@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -50,6 +51,7 @@ import com.hazelcast.cluster.Address;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,14 +61,41 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
+/**
+ * Runtime lifecycle bridge between the Zeta engine and a connector's {@link SourceReader}.
+ *
+ * <p>This class manages the full lifecycle of a source reader within a Zeta worker task, including:
+ *
+ * <ul>
+ *   <li>Creating and opening the {@link SourceReader} from the {@link SourceAction}
+ *   <li>Registering with the remote {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
+ *       and requesting splits
+ *   <li>Running the core read loop via {@link #collect()}
+ *   <li>Handling checkpoint barriers with proper checkpoint-lock synchronization
+ *   <li>Coordinating schema-change signals (before/after checkpoint phases)
+ * </ul>
+ *
+ * @param <T> the type of records produced by the source
+ * @param <SplitT> the type of source splits
+ */
 @Slf4j
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle
         implements InternalCheckpointListener {
+
+    private static final long SCHEMA_CHANGE_SLEEP_MS = 200L;
+    private static final long SCHEMA_CHANGE_SLEEP_NS =
+            TimeUnit.MILLISECONDS.toNanos(SCHEMA_CHANGE_SLEEP_MS);
+    private static final long IDLE_SLEEP_MS = 100L;
+    private static final long IDLE_SLEEP_NS = TimeUnit.MILLISECONDS.toNanos(IDLE_SLEEP_MS);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final TaskLocation enumeratorTaskLocation;
@@ -81,13 +110,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final TaskLocation currentTaskLocation;
 
-    private SeaTunnelSourceCollector<T> collector;
+    @Setter private SeaTunnelSourceCollector<T> collector;
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
     private SourceReader.Context context;
 
+    private transient Counter sourceReadNs;
+    private transient Counter sourceIdleNs;
+
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
+
+    private final long flushIntervalMs;
+
+    private transient volatile ScheduledFuture<?> flushFuture;
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
@@ -96,21 +132,28 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             SeaTunnelTask runningTask,
             TaskLocation currentTaskLocation,
             CompletableFuture<Void> completableFuture,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            long flushIntervalMs) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
         this.metricsContext = metricsContext;
+        this.flushIntervalMs = flushIntervalMs;
         this.eventListener =
                 new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
     }
 
-    public void setCollector(SeaTunnelSourceCollector<T> collector) {
-        this.collector = collector;
-    }
-
+    /**
+     * Initializes the source reader and supporting components.
+     *
+     * <p>This method creates the split serializer from the {@link SourceAction}, builds a {@link
+     * SourceReaderContext} for the reader, creates the {@link SourceReader} instance, and resolves
+     * the remote enumerator's network address.
+     *
+     * @throws Exception if reader creation or enumerator address resolution fails
+     */
     @Override
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
@@ -121,15 +164,44 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         this,
                         metricsContext,
                         eventListener);
+        this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
+        this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         this.reader = sourceAction.getSource().createReader(context);
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 
+    /**
+     * Opens the source reader and registers this reader with the remote split enumerator.
+     *
+     * <p>Fires a {@link ReaderOpenEvent}, delegates to {@link SourceReader#open()}, and then calls
+     * {@link #register()} to notify the enumerator that this reader is ready to receive splits.
+     *
+     * @throws Exception if the reader fails to open or registration fails
+     */
     @Override
     public void open() throws Exception {
         context.getEventListener().onEvent(new ReaderOpenEvent());
         reader.open();
         register();
+    }
+
+    /**
+     * Timer callback invoked by the {@code timerFlushWorker} thread pool.
+     *
+     * <p>Acquires the {@code checkpointLock} (the same monitor that {@link #triggerBarrier} uses)
+     * so that flush signals and barriers are strictly serialized — a FlushSignal either completes
+     * entirely before a Barrier or queues behind it, never crossing it.
+     */
+    private void onTimerTick() {
+        if (prepareClose) {
+            return;
+        }
+        try {
+            collector.sendFlushSignal(
+                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+        } catch (Exception e) {
+            log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
+        }
     }
 
     private Address getEnumeratorTaskAddress() throws ExecutionException, InterruptedException {
@@ -142,26 +214,72 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void close() throws IOException {
-        context.getEventListener().onEvent(new ReaderCloseEvent());
-        reader.close();
-        super.close();
+        try {
+            context.getEventListener().onEvent(new ReaderCloseEvent());
+            reader.close();
+            super.close();
+        } finally {
+            closeFlushTimer();
+        }
     }
 
+    @Override
+    public void hook() throws IOException {
+        startFlushTimer();
+    }
+
+    /**
+     * Core read loop that polls the source reader for the next batch of records.
+     *
+     * <p>This method is called repeatedly by the task execution loop. It performs the following:
+     *
+     * <ol>
+     *   <li>If {@code prepareClose} is set, the reader is shutting down and this method sleeps to
+     *       yield the thread.
+     *   <li>If a schema change is in progress, reading is paused until the schema-change checkpoint
+     *       completes.
+     *   <li>Otherwise, calls {@link SourceReader#pollNext} to fetch records. If no records were
+     *       produced, sleeps briefly to avoid busy-waiting.
+     *   <li>After polling, checks for schema-change signals from the collector. If a before or
+     *       after schema-change signal is captured, it initiates the corresponding schema-change
+     *       checkpoint phase and pauses further collection until the checkpoint completes.
+     * </ol>
+     *
+     * <p><b>Checkpoint lock interaction:</b> The reader holds the checkpoint lock during {@code
+     * pollNext}. A brief {@code Thread.sleep(0L)} after a non-empty poll gives the checkpoint
+     * thread a chance to acquire the lock via {@link #triggerBarrier(Barrier)}, preventing
+     * checkpoint starvation under high CPU load.
+     *
+     * @throws Exception if polling or schema-change triggering fails
+     */
     public void collect() throws Exception {
+        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         if (!prepareClose) {
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
-
-                Thread.sleep(200);
+                if (metricsEnabled) {
+                    sourceIdleNs.inc(SCHEMA_CHANGE_SLEEP_NS);
+                }
+                Thread.sleep(SCHEMA_CHANGE_SLEEP_MS);
                 return;
             }
 
+            collector.resetEmptyThisPollNext();
+            long startNs = metricsEnabled ? System.nanoTime() : 0L;
             reader.pollNext(collector);
+            long pollCostNs = metricsEnabled ? (System.nanoTime() - startNs) : 0L;
             if (collector.isEmptyThisPollNext()) {
-                Thread.sleep(100);
+                if (metricsEnabled) {
+                    sourceIdleNs.inc(pollCostNs);
+                    sourceIdleNs.inc(IDLE_SLEEP_NS);
+                }
+                Thread.sleep(IDLE_SLEEP_MS);
             } else {
+                if (metricsEnabled) {
+                    sourceReadNs.inc(pollCostNs);
+                }
                 collector.resetEmptyThisPollNext();
-                /**
+                /*
                  * The current thread obtain a checkpoint lock in the method {@link
                  * SourceReader#pollNext(Collector)}. When trigger the checkpoint or savepoint,
                  * other threads try to obtain the lock in the method {@link
@@ -191,10 +309,22 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 log.info("triggered schema-change-after checkpoint, stopping collect data");
             }
         } else {
-            Thread.sleep(100);
+            if (metricsEnabled) {
+                sourceIdleNs.inc(IDLE_SLEEP_NS);
+            }
+            Thread.sleep(IDLE_SLEEP_MS);
         }
     }
 
+    /**
+     * Signals that this reader has no more data to produce.
+     *
+     * <p>Sets the {@code prepareClose} flag to {@code true} and sends a {@link
+     * SourceNoMoreElementOperation} to the remote enumerator, deregistering this reader from
+     * further split assignment.
+     *
+     * @throws RuntimeException if the deregistration message fails to send
+     */
     public void signalNoMoreElement() {
         // ready close this reader
         try {
@@ -207,11 +337,19 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             enumeratorTaskAddress)
                     .get();
         } catch (Exception e) {
-            log.warn("source close failed {}", e);
+            log.warn("source close failed", e);
             throw new RuntimeException(e);
         }
     }
 
+    /**
+     * Registers this reader with the remote split enumerator.
+     *
+     * <p>Sends a {@link SourceRegisterOperation} to the enumerator at the previously resolved
+     * address, informing it that this reader subtask is ready to receive splits.
+     *
+     * @throws RuntimeException if registration fails due to communication errors
+     */
     private void register() {
         try {
             runningTask
@@ -227,6 +365,46 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
+    private void startFlushTimer() {
+        if (flushIntervalMs <= 0) {
+            return;
+        }
+        flushFuture =
+                runningTask
+                        .getExecutionContext()
+                        .getTaskExecutionService()
+                        .registerTimerFlushTask(
+                                currentTaskLocation, this::onTimerTick, flushIntervalMs);
+        log.info(
+                "Registered flush timer for source task {}, intervalMs={}",
+                currentTaskLocation,
+                flushIntervalMs);
+    }
+
+    private void closeFlushTimer() {
+        if (flushFuture == null) {
+            return;
+        }
+        try {
+            runningTask
+                    .getExecutionContext()
+                    .getTaskExecutionService()
+                    .closeTimerFlushTask(currentTaskLocation);
+        } catch (Exception e) {
+            log.warn("Failed to close flush timer for task {}", currentTaskLocation, e);
+        }
+        flushFuture = null;
+    }
+
+    /**
+     * Sends a split request to the remote split enumerator.
+     *
+     * <p>Sends a {@link RequestSplitOperation} to the enumerator, requesting new splits to be
+     * assigned to this reader. The enumerator will respond asynchronously by calling {@link
+     * #receivedSplits(List)}.
+     *
+     * @throws RuntimeException if the split request fails due to communication errors
+     */
     public void requestSplit() {
         try {
             runningTask
@@ -256,6 +434,16 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
+    /**
+     * Handles splits received from the remote split enumerator.
+     *
+     * <p>If the split list is empty, it indicates that the enumerator has no more splits to assign,
+     * and {@link SourceReader#handleNoMoreSplits()} is called. Otherwise, the splits are forwarded
+     * to the reader via {@link SourceReader#addSplits(List)}.
+     *
+     * @param splits the list of splits assigned by the enumerator; an empty list signals no more
+     *     splits
+     */
     public void receivedSplits(List<SplitT> splits) {
         if (splits.isEmpty()) {
             reader.handleNoMoreSplits();
@@ -264,6 +452,26 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
+    /**
+     * Injects a checkpoint barrier into the record stream.
+     *
+     * <p>This method acquires the {@code checkpointLock} on the collector to ensure mutual
+     * exclusion with the reader's {@code pollNext} calls. While holding the lock, it:
+     *
+     * <ol>
+     *   <li>Propagates the {@code prepareClose} flag if the barrier targets this task
+     *   <li>Snapshots the reader state (if the barrier requires a snapshot) and registers it with
+     *       the running task
+     *   <li>Acknowledges the barrier and sends it downstream as a {@link Record}
+     * </ol>
+     *
+     * <p>After releasing the lock, if the barrier carries a schema-change checkpoint type, the
+     * method associates the barrier's checkpoint ID with the current {@link SchemaChangePhase}.
+     * This locks the collect loop until the schema-change checkpoint completes or is aborted.
+     *
+     * @param barrier the checkpoint or savepoint barrier to inject
+     * @throws Exception if state snapshotting or barrier acknowledgment fails
+     */
     public void triggerBarrier(Barrier barrier) throws Exception {
         log.debug("source trigger barrier [{}]", barrier);
 
@@ -326,11 +534,33 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         return schemaChangePhase.get() != null;
     }
 
+    /**
+     * Notifies the source reader that a checkpoint has been successfully completed.
+     *
+     * <p>Delegates to {@link SourceReader#notifyCheckpointComplete(long)}, allowing the connector
+     * to perform post-commit cleanup such as acknowledging consumed offsets or removing temporary
+     * files.
+     *
+     * @param checkpointId the ID of the completed checkpoint
+     * @throws Exception if the reader's post-checkpoint hook fails
+     */
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         reader.notifyCheckpointComplete(checkpointId);
     }
 
+    /**
+     * Notifies the source reader that a checkpoint has been aborted.
+     *
+     * <p>Delegates to {@link SourceReader#notifyCheckpointAborted(long)} and then checks whether
+     * the aborted checkpoint matches an in-progress schema-change phase. If so, an {@link
+     * IllegalStateException} is thrown because a schema-change checkpoint cannot be safely retried
+     * once aborted.
+     *
+     * @param checkpointId the ID of the aborted checkpoint
+     * @throws IllegalStateException if the aborted checkpoint is a schema-change checkpoint
+     * @throws Exception if the reader's abort notification hook fails
+     */
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         reader.notifyCheckpointAborted(checkpointId);

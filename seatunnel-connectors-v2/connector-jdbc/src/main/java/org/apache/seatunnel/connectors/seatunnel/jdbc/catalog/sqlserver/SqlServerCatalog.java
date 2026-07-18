@@ -90,9 +90,9 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
+        return "SELECT TABLE_SCHEMA, TABLE_NAME FROM ["
                 + databaseName
-                + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+                + "].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
     }
 
     @Override
@@ -144,12 +144,12 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateDatabaseSql(String databaseName) {
-        return String.format("CREATE DATABASE %s", databaseName);
+        return String.format("CREATE DATABASE [%s]", databaseName);
     }
 
     @Override
     protected String getDropDatabaseSql(String databaseName) {
-        return String.format("DROP DATABASE %s;", databaseName);
+        return String.format("DROP DATABASE [%s];", databaseName);
     }
 
     @Override

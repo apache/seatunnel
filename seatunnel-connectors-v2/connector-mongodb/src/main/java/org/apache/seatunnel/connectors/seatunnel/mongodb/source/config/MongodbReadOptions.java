@@ -37,12 +37,12 @@ public class MongodbReadOptions implements Serializable {
 
     private final boolean noCursorTimeout;
 
-    private final long maxTimeMS;
+    private final long maxTimeMin;
 
-    private MongodbReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMS) {
+    private MongodbReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMin) {
         this.fetchSize = fetchSize;
         this.noCursorTimeout = noCursorTimeout;
-        this.maxTimeMS = maxTimeMS;
+        this.maxTimeMin = maxTimeMin;
     }
 
     public static MongoReadOptionsBuilder builder() {
@@ -71,8 +71,8 @@ public class MongodbReadOptions implements Serializable {
             return this;
         }
 
-        public MongoReadOptionsBuilder setMaxTimeMS(long maxTimeMS) {
-            this.maxTimeMin = maxTimeMS;
+        public MongoReadOptionsBuilder setMaxTimeMin(long maxTimeMin) {
+            this.maxTimeMin = maxTimeMin;
             return this;
         }
 

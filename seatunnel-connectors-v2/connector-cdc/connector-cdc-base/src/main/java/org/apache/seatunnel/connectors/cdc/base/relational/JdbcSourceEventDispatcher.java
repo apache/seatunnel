@@ -26,6 +26,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.base.ChangeEventQueue;
+import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
@@ -63,6 +64,7 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
             DataCollectionFilters.DataCollectionFilter<TableId> filter,
             ChangeEventCreator changeEventCreator,
             EventMetadataProvider metadataProvider,
+            HeartbeatFactory<TableId> heartbeatFactory,
             SchemaNameAdjuster schemaNameAdjuster) {
         super(
                 connectorConfig,
@@ -72,6 +74,7 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
                 filter,
                 changeEventCreator,
                 metadataProvider,
+                heartbeatFactory,
                 schemaNameAdjuster);
         this.queue = queue;
         this.topic = topicSelector.getPrimaryTopic();

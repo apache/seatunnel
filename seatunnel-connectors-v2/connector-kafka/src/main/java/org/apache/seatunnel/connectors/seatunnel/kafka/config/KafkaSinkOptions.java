@@ -46,6 +46,14 @@ public class KafkaSinkOptions extends KafkaBaseOptions {
                     .withDescription(
                             "Configure which fields are used as the key of the kafka message.");
 
+    public static final Option<List<String>> KAFKA_HEADERS_FIELDS =
+            Options.key("kafka_headers_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Configure which fields are used as the headers of the kafka message. "
+                                    + "The field value will be converted to a string and used as the header value.");
+
     public static final Option<KafkaSemantics> SEMANTICS =
             Options.key("semantics")
                     .enumType(KafkaSemantics.class)

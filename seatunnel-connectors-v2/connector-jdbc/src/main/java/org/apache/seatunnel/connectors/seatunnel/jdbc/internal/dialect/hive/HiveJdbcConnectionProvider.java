@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.hadoop.conf.Configuration;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -32,6 +33,7 @@ import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode.KERBEROS_AUTHENTICATION_FAILED;
 
+@Slf4j
 public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
 
     public HiveJdbcConnectionProvider(@NonNull JdbcConnectionConfig jdbcConfig) {
@@ -98,7 +100,32 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
             jdbcConnectionConfig
                     .getPassword()
                     .ifPresent(password -> info.setProperty("password", password));
-            return driver.connect(jdbcConnectionConfig.getUrl(), info);
+
+            int socketTimeoutMs = jdbcConnectionConfig.getSocketTimeoutMs();
+            int connectTimeoutMs = jdbcConnectionConfig.getConnectTimeoutMs();
+
+            if (socketTimeoutMs > 0) {
+                info.setProperty("socketTimeout", String.valueOf(socketTimeoutMs));
+            }
+            if (connectTimeoutMs > 0) {
+                info.setProperty("connectTimeout", String.valueOf(connectTimeoutMs));
+            }
+
+            Connection connection = driver.connect(jdbcConnectionConfig.getUrl(), info);
+
+            if (connection != null) {
+                log.info(
+                        "[HiveConnectionProvider] Connection created successfully: {}",
+                        connection.getClass().getName());
+            } else {
+                log.warn("[HiveConnectionProvider] Connection is null!");
+                log.warn("  - URL: {}", jdbcConnectionConfig.getUrl());
+                log.warn("  - User: {}", jdbcConnectionConfig.getUsername().orElse("N/A"));
+                log.warn("  - socketTimeout: {} ms (0 = no timeout)", socketTimeoutMs);
+                log.warn("  - connectTimeout: {} ms (0 = no timeout)", connectTimeoutMs);
+            }
+
+            return connection;
         }
     }
 }

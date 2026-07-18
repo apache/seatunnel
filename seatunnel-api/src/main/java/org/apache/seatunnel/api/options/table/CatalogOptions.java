@@ -59,11 +59,16 @@ public interface CatalogOptions {
                             "The table names RegEx of the database to capture."
                                     + "The table name needs to include the database name, for example: database_.*\\.table_.*");
 
+    /**
+     * This parameter is deprecated, please use parameter: TableSchemaOptions.TABLE_CONFIGS. {@link
+     * org.apache.seatunnel.api.options.table.TableSchemaOptions}
+     */
+    @Deprecated
     Option<List<Map<String, Object>>> TABLE_LIST =
             Options.key("table_list")
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "SeaTunnel Multi Table Schema, acts on structed data sources. "
+                            "This parameter is deprecated, please use parameter: TableSchemaOptions.TABLE_CONFIGS. SeaTunnel Multi Table Schema, acts on structured and unstructured data sources. "
                                     + "such as jdbc, paimon, doris, etc");
 }

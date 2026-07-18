@@ -29,7 +29,10 @@ import net.sf.jsqlparser.expression.Function;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ArrayFunction {
 
@@ -41,20 +44,29 @@ public class ArrayFunction {
         if (dataList == null || dataList.length == 0) {
             return null;
         }
-        if (dataList[0] instanceof String) {
+        Object firstNonNullValue =
+                Arrays.stream(dataList).filter(Objects::nonNull).findFirst().orElse(null);
+        if (firstNonNullValue == null) {
+            return null;
+        }
+        if (firstNonNullValue instanceof String) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(String.class::cast)
                     .max(String::compareTo)
                     .orElse(null);
-        } else if (dataList[0] instanceof Number) {
+        } else if (firstNonNullValue instanceof Number) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(Number.class::cast)
                     .max(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
-        throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported function max() arguments: %s", args));
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", "ArrayFunction");
+        params.put("dataType", firstNonNullValue.getClass().getName());
+        params.put("field", "ARRAY_MAX");
+        throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
 
     public static Object arrayMin(List<Object> args) {
@@ -65,20 +77,29 @@ public class ArrayFunction {
         if (dataList == null || dataList.length == 0) {
             return null;
         }
-        if (dataList[0] instanceof String) {
+        Object firstNonNullValue =
+                Arrays.stream(dataList).filter(Objects::nonNull).findFirst().orElse(null);
+        if (firstNonNullValue == null) {
+            return null;
+        }
+        if (firstNonNullValue instanceof String) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(String.class::cast)
                     .min(String::compareTo)
                     .orElse(null);
-        } else if (dataList[0] instanceof Number) {
+        } else if (firstNonNullValue instanceof Number) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(Number.class::cast)
                     .min(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
-        throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported function max() arguments: %s", args));
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", "ArrayFunction");
+        params.put("dataType", firstNonNullValue.getClass().getName());
+        params.put("field", "ARRAY_MIN");
+        throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
 
     public static Object[] array(List<Object> args) {

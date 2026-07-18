@@ -17,16 +17,25 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.schema.Column;
+
+import java.util.Arrays;
 import java.util.List;
 
 class ArrayFunctionTest {
@@ -71,5 +80,167 @@ class ArrayFunctionTest {
         Assertions.assertEquals(2, ((Number) inner1[1]).intValue());
         Assertions.assertEquals(3, ((Number) inner2[0]).intValue());
         Assertions.assertEquals(4, ((Number) inner2[1]).intValue());
+    }
+
+    @Test
+    void testArrayMaxAndMinWithIntegers() {
+        Object[] values = new Object[] {1, 3, 2};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals(3, max);
+        Assertions.assertEquals(1, min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithStrings() {
+        Object[] values = new Object[] {"a", "c", "b"};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals("c", max);
+        Assertions.assertEquals("a", min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithEmptyOrNullArray() {
+        Object[] empty = new Object[] {};
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) null)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) null)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElements() {
+        Object[] values = new Object[] {null, 3, 2, null, 5};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals(5, max);
+        Assertions.assertEquals(2, min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithAllNullElements() {
+        Object[] values = new Object[] {null, null};
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElementsString() {
+        Object[] values = new Object[] {null, "b", null, "a"};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals("b", max);
+        Assertions.assertEquals("a", min);
+    }
+
+    @Test
+    void testArrayMaxUnsupportedElementType() {
+        Object[] values = new Object[] {true, false};
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
+    }
+
+    @Test
+    void testArrayHomogeneousNumeric() {
+        List<Object> args = Arrays.asList(1, 2, 3);
+        Object[] result = ArrayFunction.array(args);
+
+        Assertions.assertEquals(3, result.length);
+        Assertions.assertTrue(result[0] instanceof Integer);
+        Assertions.assertEquals(1, result[0]);
+        Assertions.assertEquals(2, result[1]);
+        Assertions.assertEquals(3, result[2]);
+    }
+
+    @Test
+    void testArrayNumericPromotion() {
+        List<Object> args = Arrays.asList(1, 2L, 3.5f);
+        Object[] result = ArrayFunction.array(args);
+
+        // numeric types should be promoted to the widest type (Double here)
+        Assertions.assertEquals(3, result.length);
+        for (Object o : result) {
+            Assertions.assertTrue(o instanceof Number);
+        }
+        Assertions.assertEquals(1.0d, ((Number) result[0]).doubleValue(), 1e-9);
+        Assertions.assertEquals(2.0d, ((Number) result[1]).doubleValue(), 1e-9);
+        Assertions.assertEquals(3.5d, ((Number) result[2]).doubleValue(), 1e-9);
+    }
+
+    @Test
+    void testArrayMixedStringAndNumeric() {
+        List<Object> args = Arrays.asList(1, "2", 3);
+        Object[] result = ArrayFunction.array(args);
+
+        // mixed non-compatible types should fallback to String representation
+        Assertions.assertEquals(3, result.length);
+        for (Object o : result) {
+            Assertions.assertTrue(o instanceof String);
+        }
+        Assertions.assertArrayEquals(new Object[] {"1", "2", "3"}, result);
+    }
+
+    @Test
+    void testArrayWithEmptyArgsReturnsEmptyArray() {
+        Object[] result = ArrayFunction.array(java.util.Collections.emptyList());
+        Assertions.assertEquals(0, result.length);
+    }
+
+    @Test
+    void testCastArrayTypeMappingWithLiteralArgs() {
+        // ARRAY(1, 2, 3) -> element type INT
+        Function function = new Function();
+        function.setName("ARRAY");
+        function.setParameters(
+                new ExpressionList<Expression>(
+                        Arrays.asList(new LongValue(1), new LongValue(2), new LongValue(3))));
+
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        ArrayType resultType = ArrayFunction.castArrayTypeMapping(function, inputType);
+        Assertions.assertEquals(BasicType.INT_TYPE, resultType.getElementType());
+    }
+
+    @Test
+    void testCastArrayTypeMappingWithEmptyArgsDefaultsToString() {
+        Function function = new Function();
+        function.setName("ARRAY");
+        function.setParameters(new ExpressionList<Expression>(java.util.Collections.emptyList()));
+
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        ArrayType resultType = ArrayFunction.castArrayTypeMapping(function, inputType);
+        Assertions.assertEquals(BasicType.STRING_TYPE, resultType.getElementType());
+    }
+
+    @Test
+    void testGetElementTypeFromRowType() {
+        // column "arr" is ARRAY<INT>
+        SeaTunnelRowType inputType =
+                new SeaTunnelRowType(
+                        new String[] {"arr"}, new SeaTunnelDataType[] {ArrayType.INT_ARRAY_TYPE});
+
+        Function function = new Function();
+        function.setName("ARRAY_MAX");
+        function.setParameters(new ExpressionList<Expression>(Arrays.asList(new Column("arr"))));
+
+        SeaTunnelDataType<?> elementType = ArrayFunction.getElementType(function, inputType);
+        Assertions.assertEquals(BasicType.INT_TYPE, elementType);
     }
 }

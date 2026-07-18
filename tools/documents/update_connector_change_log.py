@@ -95,8 +95,8 @@ def main():
     commit_version_map = get_tag_commit_list()
     in_release = get_current_branch_name().endswith('-release')
     directory = os.path.dirname(os.path.abspath(Path(__file__).parent.parent))
-    changelog_dir = os.path.join(directory, 'docs', 'en', 'connector-v2', 'changelog')
-    zh_changelog_dir = os.path.join(directory, 'docs', 'zh', 'connector-v2', 'changelog')
+    changelog_dir = os.path.join(directory, 'docs', 'en', 'connectors', 'changelog')
+    zh_changelog_dir = os.path.join(directory, 'docs', 'zh', 'connectors', 'changelog')
     for connector, prs in changes.items():
         write_commit(connector, prs, changelog_dir, commit_version_map, in_release)
         write_commit(connector, prs, zh_changelog_dir, commit_version_map, in_release)

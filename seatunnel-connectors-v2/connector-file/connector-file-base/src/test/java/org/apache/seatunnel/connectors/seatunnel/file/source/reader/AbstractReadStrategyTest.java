@@ -17,7 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import org.apache.seatunnel.connectors.seatunnel.file.writer.ParquetReadStrategyTest;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
@@ -27,6 +37,7 @@ import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.Seekable;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -36,23 +47,63 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@Slf4j
 public class AbstractReadStrategyTest {
+
+    @Test
+    void testSafeSliceUsesSeekForSeekableStream() throws Exception {
+        byte[] data = "0123456789".getBytes(StandardCharsets.UTF_8);
+        TrackingSeekableInputStream in = new TrackingSeekableInputStream(data);
+
+        try (InputStream sliced = AbstractReadStrategy.safeSlice(in, 5, 3)) {
+            byte[] buffer = new byte[10];
+            int n = sliced.read(buffer);
+            Assertions.assertEquals(3, n);
+            Assertions.assertEquals("567", new String(buffer, 0, n, StandardCharsets.UTF_8));
+            Assertions.assertTrue(in.seekCalled);
+        }
+    }
+
+    @Test
+    void testSafeSliceReadsToEndWhenLengthIsNegative() throws Exception {
+        byte[] data = "0123456789".getBytes(StandardCharsets.UTF_8);
+        TrackingSeekableInputStream in = new TrackingSeekableInputStream(data);
+
+        try (InputStream sliced = AbstractReadStrategy.safeSlice(in, 5, -1)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4];
+            int n;
+            while ((n = sliced.read(buffer)) != -1) {
+                out.write(buffer, 0, n);
+            }
+            Assertions.assertEquals("56789", new String(out.toByteArray(), StandardCharsets.UTF_8));
+            Assertions.assertTrue(in.seekCalled);
+        }
+    }
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testReadDirectorySkipHiddenDirectories() throws Exception {
         AutoGenerateParquetData.generateTestData();
         try (ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy(); ) {
-            ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             List<String> list =
                     parquetReadStrategy.getFileNamesByPath(AutoGenerateParquetData.DATA_FILE_PATH);
@@ -132,6 +183,52 @@ public class AbstractReadStrategyTest {
                     Assertions.assertTrue(b);
                 }
             }
+        }
+    }
+
+    private static class TrackingSeekableInputStream extends InputStream implements Seekable {
+        private final byte[] data;
+        private int pos;
+        private boolean seekCalled;
+
+        private TrackingSeekableInputStream(byte[] data) {
+            this.data = data;
+            this.pos = 0;
+        }
+
+        @Override
+        public int read() {
+            if (pos >= data.length) {
+                return -1;
+            }
+            return data[pos++] & 0xFF;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            if (pos >= data.length) {
+                return -1;
+            }
+            int toRead = Math.min(len, data.length - pos);
+            System.arraycopy(data, pos, b, off, toRead);
+            pos += toRead;
+            return toRead;
+        }
+
+        @Override
+        public void seek(long newPos) {
+            this.seekCalled = true;
+            this.pos = (int) newPos;
+        }
+
+        @Override
+        public long getPos() {
+            return pos;
+        }
+
+        @Override
+        public boolean seekToNewSource(long targetPos) {
+            return false;
         }
     }
 
@@ -225,6 +322,355 @@ public class AbstractReadStrategyTest {
                     new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
             boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    public void testSetCatalogTableShouldNotThrowWhenFileListIsEmpty() {
+        Config pluginConfig = ConfigFactory.parseMap(buildBasePluginConfigWithPartitions());
+        CatalogTable catalogTable = buildCatalogTable();
+
+        Assertions.assertAll(
+                () -> {
+                    try (ReadStrategy strategy = new TextReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new CsvReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new ExcelReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new XmlReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new JsonReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                });
+    }
+
+    @Test
+    public void testGetSeaTunnelRowTypeInfoShouldNotThrowWhenFileListIsEmpty() throws Exception {
+        Config pluginConfig = ConfigFactory.parseMap(buildBasePluginConfigWithPartitions());
+
+        try (TextReadStrategy textReadStrategy = new TextReadStrategy()) {
+            textReadStrategy.setPluginConfig(pluginConfig);
+            SeaTunnelRowType textRowType =
+                    Assertions.assertDoesNotThrow(
+                            () -> textReadStrategy.getSeaTunnelRowTypeInfo("/tmp/dt=2024-01-01"));
+            Assertions.assertEquals(
+                    "dt", textRowType.getFieldNames()[textRowType.getTotalFields() - 1]);
+        }
+
+        try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
+            csvReadStrategy.setPluginConfig(pluginConfig);
+            SeaTunnelRowType csvRowType =
+                    Assertions.assertDoesNotThrow(
+                            () -> csvReadStrategy.getSeaTunnelRowTypeInfo("/tmp/dt=2024-01-01"));
+            Assertions.assertEquals(
+                    "dt", csvRowType.getFieldNames()[csvRowType.getTotalFields() - 1]);
+        }
+    }
+
+    @Test
+    void testTextReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        TempCollector collector = new TempCollector();
+
+        try (TextReadStrategy textReadStrategy = new TextReadStrategy()) {
+            textReadStrategy.setPluginConfig(ConfigFactory.empty());
+            textReadStrategy.setCatalogTable(catalogTable);
+            textReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.txt"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "alice\n").getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.txt");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
+    }
+
+    @Test
+    void testJsonReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        TempCollector collector = new TempCollector();
+
+        try (JsonReadStrategy jsonReadStrategy = new JsonReadStrategy()) {
+            jsonReadStrategy.setPluginConfig(ConfigFactory.empty());
+            jsonReadStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            jsonReadStrategy.setCatalogTable(catalogTable);
+            jsonReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.json"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "{\"name\":\"alice\"}\n").getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.json");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
+    }
+
+    @Test
+    void testXmlReadStrategyShouldSkipUtf8Bom() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        Map<String, Object> pluginConfig = new HashMap<>();
+        pluginConfig.put(FileBaseSourceOptions.XML_ROW_TAG.key(), "row");
+        pluginConfig.put(FileBaseSourceOptions.XML_USE_ATTR_FORMAT.key(), false);
+        TempCollector collector = new TempCollector();
+
+        try (XmlReadStrategy xmlReadStrategy = new XmlReadStrategy()) {
+            xmlReadStrategy.setPluginConfig(ConfigFactory.parseMap(pluginConfig));
+            xmlReadStrategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+            xmlReadStrategy.setCatalogTable(catalogTable);
+            xmlReadStrategy.readProcess(
+                    new FileSourceSplit("test", "/tmp/bom.xml"),
+                    collector,
+                    new ByteArrayInputStream(
+                            ("\uFEFF" + "<rows><row><name>alice</name></row></rows>")
+                                    .getBytes(StandardCharsets.UTF_8)),
+                    new HashMap<>(),
+                    "bom.xml");
+        }
+
+        Assertions.assertEquals(1, collector.getRows().size());
+        Assertions.assertEquals("alice", collector.getRows().get(0).getField(0));
+    }
+
+    @Test
+    void testResolveRelativePathWithSftpUri() {
+        String basePath = "sftp://server:22/path";
+        String fullFilePath = "sftp://server:22/path/sub/file.txt";
+        Assertions.assertEquals(
+                "sub/file.txt", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
+    @Test
+    void testResolveRelativePathWithFtpUri() {
+        String basePath = "ftp://server:21/tmp/seatunnel/read";
+        String fullFilePath = "ftp://server:21/tmp/seatunnel/read/file.txt";
+        Assertions.assertEquals(
+                "file.txt", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
+    @Test
+    void testResolveRelativePathWithCustomSchemeUri() {
+        String basePath = "default.default_sftp://sftp:22/tmp/seatunnel/update/src";
+        String fullFilePath = "default.default_sftp://sftp:22/tmp/seatunnel/update/src/test.bin_0";
+        Assertions.assertEquals(
+                "test.bin_0", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
+    private static Map<String, Object> buildBasePluginConfigWithPartitions() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_PATH.key(), "/tmp/dt=2024-01-01");
+        return config;
+    }
+
+    private static CatalogTable buildCatalogTable() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        return CatalogTableUtil.getCatalogTable("test", rowType);
+    }
+
+    private static void assertSetCatalogTableWithEmptyFileNames(
+            ReadStrategy readStrategy, Config pluginConfig, CatalogTable catalogTable) {
+        readStrategy.setPluginConfig(pluginConfig);
+        Assertions.assertDoesNotThrow(() -> readStrategy.setCatalogTable(catalogTable));
+        SeaTunnelRowType actualRowType = readStrategy.getActualSeaTunnelRowTypeInfo();
+        Assertions.assertArrayEquals(new String[] {"id", "dt"}, actualRowType.getFieldNames());
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveFileScan() throws Exception {
+        String baseDir = "/tmp/test_recursive";
+        String file1 = baseDir + "/file1.txt";
+        String file2 = baseDir + "/file2.txt";
+        String subdirFile = baseDir + "/subdir/file3.txt";
+
+        try {
+            createTestFiles(file1, file2, subdirFile);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(2, fileNames.size());
+                Assertions.assertTrue(fileNames.stream().noneMatch(f -> f.contains("subdir")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.endsWith("file1.txt")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.endsWith("file2.txt")));
+            }
+
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testRecursiveFileScanDefault() throws Exception {
+        String baseDir = "/tmp/test_default";
+        String file1 = baseDir + "/file1.txt";
+        String subdirFile = baseDir + "/subdir/file2.txt";
+
+        try {
+            createTestFiles(file1, subdirFile);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(2, fileNames.size());
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("file1.txt")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("subdir")));
+                Assertions.assertTrue(
+                        fileNames.stream().anyMatch(f -> f.contains("subdir/file2.txt")));
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveEmptyDirectory() throws Exception {
+        String baseDir = "/tmp/test_empty";
+        String subdirDir = baseDir + "/subdir";
+        String subdirFile = baseDir + "/subdir/file.txt";
+        createTestFiles(subdirFile);
+
+        try {
+            Configuration conf = new Configuration();
+            Path path = new Path(subdirDir);
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
+            fs.mkdirs(path);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(0, fileNames.size());
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveWithOnlySubdirectories() throws Exception {
+        String baseDir = "/tmp/test_only_subdir";
+        String subdirFile1 = baseDir + "/subdir1/file1.txt";
+        String subdirFile2 = baseDir + "/subdir2/file2.txt";
+
+        try {
+            createTestFiles(subdirFile1, subdirFile2);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                LocalFileSystemConf.LocalConf localConf =
+                        new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(0, fileNames.size());
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    private void createTestFiles(String... filePaths) throws IOException {
+        Configuration conf = new Configuration();
+        for (String filePath : filePaths) {
+            Path path = new Path(filePath);
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
+
+            fs.mkdirs(path.getParent());
+
+            try (org.apache.hadoop.fs.FSDataOutputStream out = fs.create(path)) {
+                out.writeBytes("test content");
+            }
+        }
+    }
+
+    private void deleteTestDirectory(String dirPath) {
+        try {
+            Path path = new Path(dirPath);
+            Configuration conf = new Configuration();
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
+            fs.delete(path, true);
+        } catch (Exception e) {
+            log.error("Warning: Failed to delete test directory: " + dirPath, e);
         }
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
+import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
 import java.util.List;
 
@@ -33,13 +34,18 @@ public class DynamicCompileMultiCatalogTransform extends AbstractMultiCatalogMap
     }
 
     @Override
+    public String getPluginName() {
+        return DynamicCompileTransform.PLUGIN_NAME;
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new DynamicCompileTransform(config, inputCatalogTable);
     }
 
     @Override
-    public String getPluginName() {
-        return DynamicCompileTransform.PLUGIN_NAME;
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityMapTransform(catalogTable);
     }
 }

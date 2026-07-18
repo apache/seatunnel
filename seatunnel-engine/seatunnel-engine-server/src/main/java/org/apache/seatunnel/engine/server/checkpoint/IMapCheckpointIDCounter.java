@@ -35,14 +35,10 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 public class IMapCheckpointIDCounter implements CheckpointIDCounter {
 
-    private final Long jobID;
-    private final Integer pipelineId;
     private final String key;
     private final IMap<String, Long> checkpointIdMap;
 
     public IMapCheckpointIDCounter(Long jobID, Integer pipelineId, NodeEngine nodeEngine) {
-        this.jobID = jobID;
-        this.pipelineId = pipelineId;
         this.key = convertLongIntToBase64(jobID, pipelineId);
         this.checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(IMAP_CHECKPOINT_ID);
     }
@@ -50,13 +46,11 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     @Override
     public void start() throws Exception {
         RetryUtils.retryWithException(
-                () -> {
-                    return checkpointIdMap.putIfAbsent(key, INITIAL_CHECKPOINT_ID);
-                },
+                () -> checkpointIdMap.putIfAbsent(key, INITIAL_CHECKPOINT_ID),
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
-                        exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                        ExceptionUtil::isOperationNeedRetryException,
                         Constant.OPERATION_RETRY_SLEEP));
     }
 

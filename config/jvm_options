@@ -28,3 +28,15 @@
 
 # G1GC
 -XX:+UseG1GC
+
+# GC Logging
+# Uncomment the following options to enable GC logging for troubleshooting and performance analysis.
+# The GC log directory will be automatically created on startup if it doesn't exist.
+# -XX:+PrintGCDetails
+# -XX:+PrintGCDateStamps
+# -XX:+PrintGCTimeStamps
+# -Xloggc:/tmp/seatunnel/gc/gc.log
+# -XX:+UseGCLogFileRotation
+# -XX:NumberOfGCLogFiles=10
+# -XX:GCLogFileSize=200M
+# -XX:+PrintGCApplicationStoppedTime

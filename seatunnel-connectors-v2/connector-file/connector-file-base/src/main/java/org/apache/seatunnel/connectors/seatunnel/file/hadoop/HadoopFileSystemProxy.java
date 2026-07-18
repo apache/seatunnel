@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -92,6 +93,31 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 });
     }
 
+    public boolean deleteEmptyDirectory(@NonNull String filePath) throws IOException {
+        return execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    FileSystem fileSystem = getFileSystem();
+                    try {
+                        if (!fileSystem.exists(path)
+                                || !fileSystem.getFileStatus(path).isDirectory()) {
+                            return false;
+                        }
+                        FileStatus[] children = fileSystem.listStatus(path);
+                        if (children != null && children.length > 0) {
+                            return false;
+                        }
+                        return fileSystem.delete(path, false);
+                    } catch (IOException e) {
+                        log.debug(
+                                "Skip deleting empty directory {}, it may be changed concurrently",
+                                filePath,
+                                e);
+                        return false;
+                    }
+                });
+    }
+
     public void renameFile(
             @NonNull String oldFilePath,
             @NonNull String newFilePath,
@@ -104,11 +130,11 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
 
                     if (!fileExist(oldPath.toString())) {
                         log.warn(
-                                "rename file :["
-                                        + oldPath
-                                        + "] to ["
-                                        + newPath
-                                        + "] already finished in the last commit, skip");
+                                "rename file:[{}] to [{}] already finished in the last commit, skip. "
+                                        + "WARNING: In cluster mode with LocalFile without shared storage, "
+                                        + "the file may not be actually synced successfully, but the status shows success.",
+                                oldPath,
+                                newPath);
                         return Void.class;
                     }
 
@@ -136,10 +162,19 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         execute(
                 () -> {
                     Path dfs = new Path(filePath);
-                    if (!getFileSystem().mkdirs(dfs)) {
-                        throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
+                    FileSystem fs = getFileSystem();
+
+                    if (fs.mkdirs(dfs)) {
+                        return Void.class;
                     }
-                    return Void.class;
+
+                    if (fs.exists(dfs)) {
+                        return Void.class;
+                    }
+
+                    IOException enhanced = enhanceMkdirsException(fs, dfs, "create directory");
+                    throw CommonError.fileOperationFailed(
+                            "SeaTunnel", "create", filePath, enhanced);
                 });
     }
 
@@ -188,8 +223,25 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)));
     }
 
+    public FileChecksum getFileChecksum(String filePath) throws IOException {
+        return execute(() -> getFileSystem().getFileChecksum(new Path(filePath)));
+    }
+
     public FSDataOutputStream getOutputStream(String filePath) throws IOException {
-        return execute(() -> getFileSystem().create(new Path(filePath), true));
+        return execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    FileSystem fs = getFileSystem();
+                    try {
+                        return fs.create(path, true);
+                    } catch (IOException e) {
+                        IOException enhanced =
+                                enhanceMkdirsException(
+                                        fs, path.getParent(), "create file " + path.getName(), e);
+                        throw CommonError.fileOperationFailed(
+                                "SeaTunnel", "create", filePath, enhanced);
+                    }
+                });
     }
 
     public FSDataInputStream getInputStream(String filePath) throws IOException {
@@ -260,6 +312,53 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         Configuration configuration = hadoopConf.toConfiguration();
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
+    }
+
+    private IOException enhanceMkdirsException(FileSystem fs, Path path, String operation)
+            throws IOException {
+        return enhanceMkdirsException(fs, path, operation, null);
+    }
+
+    private IOException enhanceMkdirsException(
+            FileSystem fs, Path path, String operation, IOException cause) throws IOException {
+        StringBuilder reason = new StringBuilder();
+
+        if (!fs.exists(path)) {
+            Path parent = path.getParent();
+            if (parent != null && !fs.exists(parent)) {
+                reason.append("Parent directory does not exist: ").append(parent).append(". ");
+            } else {
+                reason.append("Directory does not exist and creation failed: ")
+                        .append(path)
+                        .append(". ");
+            }
+
+            try {
+                fs.getFileStatus(path);
+            } catch (IOException e) {
+                if (e.getMessage() != null) {
+                    if (e.getMessage().contains("Permission denied")) {
+                        reason.append("Permission denied. ");
+                    } else {
+                        reason.append("Hadoop error: ").append(e.getMessage()).append(". ");
+                    }
+                }
+            }
+        } else {
+            reason.append("Path exists but may be inaccessible: ").append(path).append(". ");
+        }
+
+        reason.append("Operation: ")
+                .append(operation)
+                .append(". ")
+                .append("Current working directory: ")
+                .append(fs.getWorkingDirectory());
+
+        IOException enhanced = new IOException(reason.toString());
+        if (cause != null) {
+            enhanced.addSuppressed(cause);
+        }
+        return enhanced;
     }
 
     private boolean enableKerberos() {
