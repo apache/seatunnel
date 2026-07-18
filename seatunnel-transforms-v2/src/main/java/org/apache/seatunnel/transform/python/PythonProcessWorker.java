@@ -42,6 +42,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -53,6 +54,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.INIT_PYTHON_PROCESS_ERROR;
@@ -74,6 +76,9 @@ class PythonProcessWorker {
 
     /** Maximum number of unread protocol responses retained from the Python worker. */
     private static final int STDOUT_QUEUE_CAPACITY = 32;
+
+    /** Maximum number of pending writes retained for the single-owner stdin pump. */
+    private static final int STDIN_QUEUE_CAPACITY = 32;
 
     /** Default executable name used when no python runtime is configured explicitly. */
     private static final String DEFAULT_PYTHON_EXECUTABLE = "python3";
@@ -99,9 +104,22 @@ class PythonProcessWorker {
     /** Coordinates resource publication with asynchronous task cancellation. */
     private final Object lifecycleLock = new Object();
 
+    /** Atomically orders stdin request admission, pump ownership, and terminal shutdown. */
+    private final Object stdinLifecycleLock = new Object();
+
     /** Responses read by a daemon thread so task interruption never blocks in native pipe IO. */
     private final BlockingQueue<WorkerOutput> stdoutMessages =
             new ArrayBlockingQueue<>(STDOUT_QUEUE_CAPACITY);
+
+    /** Requests handled by one daemon writer so task and close threads never enter pipe writes. */
+    private final BlockingQueue<StdinRequest> stdinRequests =
+            new ArrayBlockingQueue<>(STDIN_QUEUE_CAPACITY);
+
+    /** True only while new protocol writes may be admitted to the current stdin pump. */
+    private boolean stdinAccepting;
+
+    /** Request currently owned by the stdin pump, completed exceptionally on forced shutdown. */
+    private StdinRequest activeStdinRequest;
 
     /** Running Python process instance. */
     private volatile Process process;
@@ -109,11 +127,23 @@ class PythonProcessWorker {
     /** Writer connected to the Python worker stdin. */
     private volatile BufferedWriter stdinWriter;
 
+    /** Raw stdin pipe released only after its single writer thread has stopped. */
+    private volatile OutputStream stdinStream;
+
+    /** Single owner of stdin pipe writes and graceful EOF signaling. */
+    private volatile Thread stdinWriterThread;
+
     /** Reader connected to the Python worker stdout. */
     private volatile BufferedReader stdoutReader;
 
+    /** Raw stdout pipe closed before joining a collector blocked in {@code readLine()}. */
+    private volatile InputStream stdoutStream;
+
     /** Reader connected to the Python worker stderr. */
     private volatile BufferedReader stderrReader;
+
+    /** Raw stderr pipe closed before joining a collector blocked in {@code readLine()}. */
+    private volatile InputStream stderrStream;
 
     /** Background stderr collector that preserves debug context without polluting stdout. */
     private volatile Thread stderrCollectorThread;
@@ -158,21 +188,37 @@ class PythonProcessWorker {
      */
     synchronized void open() {
         ensureNotClosed();
-        if (process != null && process.isAlive()) {
-            return;
+        if (process != null) {
+            if (process.isAlive()) {
+                return;
+            }
+            String failureMessage =
+                    buildWorkerFailureMessage(
+                            "Python worker exited and cannot be restarted safely");
+            closeSilently();
+            throw new TransformException(PYTHON_PROCESS_TERMINATED_ERROR, failureMessage);
         }
         Path currentWorkerScriptPath = null;
         Path currentInlineSourceCodePath = null;
         Process currentProcess = null;
+        OutputStream currentStdinStream = null;
         BufferedWriter currentStdinWriter = null;
+        InputStream currentStdoutStream = null;
         BufferedReader currentStdoutReader = null;
+        InputStream currentStderrStream = null;
         BufferedReader currentStderrReader = null;
+        Thread currentStdinWriterThread = null;
         Thread currentStdoutCollectorThread = null;
         Thread currentStderrCollectorThread = null;
         boolean resourcesPublished = false;
         try {
             synchronized (stderrTail) {
                 stderrTail.clear();
+            }
+            synchronized (stdinLifecycleLock) {
+                stdinRequests.clear();
+                activeStdinRequest = null;
+                stdinAccepting = true;
             }
             stdoutMessages.clear();
             currentWorkerScriptPath = writeWorkerScript();
@@ -181,18 +227,19 @@ class PythonProcessWorker {
                 currentInlineSourceCodePath = userScriptPath;
             }
             currentProcess = startPythonProcess(currentWorkerScriptPath, userScriptPath);
+            currentStdinStream = currentProcess.getOutputStream();
             currentStdinWriter =
                     new BufferedWriter(
-                            new OutputStreamWriter(
-                                    currentProcess.getOutputStream(), StandardCharsets.UTF_8));
+                            new OutputStreamWriter(currentStdinStream, StandardCharsets.UTF_8));
+            currentStdoutStream = currentProcess.getInputStream();
             currentStdoutReader =
                     new BufferedReader(
-                            new InputStreamReader(
-                                    currentProcess.getInputStream(), StandardCharsets.UTF_8));
+                            new InputStreamReader(currentStdoutStream, StandardCharsets.UTF_8));
+            currentStderrStream = currentProcess.getErrorStream();
             currentStderrReader =
                     new BufferedReader(
-                            new InputStreamReader(
-                                    currentProcess.getErrorStream(), StandardCharsets.UTF_8));
+                            new InputStreamReader(currentStderrStream, StandardCharsets.UTF_8));
+            currentStdinWriterThread = createStdinWriter(currentStdinWriter);
             currentStdoutCollectorThread = createStdoutCollector(currentStdoutReader);
             currentStderrCollectorThread = createStderrCollector(currentStderrReader);
             synchronized (lifecycleLock) {
@@ -200,45 +247,60 @@ class PythonProcessWorker {
                 workerScriptPath = currentWorkerScriptPath;
                 inlineSourceCodePath = currentInlineSourceCodePath;
                 process = currentProcess;
+                stdinStream = currentStdinStream;
                 stdinWriter = currentStdinWriter;
+                stdinWriterThread = currentStdinWriterThread;
+                stdoutStream = currentStdoutStream;
                 stdoutReader = currentStdoutReader;
+                stderrStream = currentStderrStream;
                 stderrReader = currentStderrReader;
                 stdoutCollectorThread = currentStdoutCollectorThread;
                 stderrCollectorThread = currentStderrCollectorThread;
                 resourcesPublished = true;
+                currentStdinWriterThread.start();
                 currentStdoutCollectorThread.start();
                 currentStderrCollectorThread.start();
             }
-            initializeRemoteContext(currentStdinWriter);
+            initializeRemoteContext();
             ensureNotClosed();
         } catch (IOException e) {
-            close();
+            closeSilently();
             if (!resourcesPublished) {
                 terminateWorker(
                         currentProcess,
+                        currentStdinStream,
                         currentStdinWriter,
+                        currentStdoutStream,
                         currentStdoutReader,
+                        currentStderrStream,
                         currentStderrReader,
+                        currentStdinWriterThread,
                         currentStdoutCollectorThread,
                         currentStderrCollectorThread,
                         currentWorkerScriptPath,
-                        currentInlineSourceCodePath);
+                        currentInlineSourceCodePath,
+                        false);
             }
             throw new TransformException(
                     START_PYTHON_PROCESS_ERROR,
                     START_PYTHON_PROCESS_ERROR.getDescription() + ": " + e.getMessage());
         } catch (RuntimeException e) {
-            close();
+            closeSilently();
             if (!resourcesPublished) {
                 terminateWorker(
                         currentProcess,
+                        currentStdinStream,
                         currentStdinWriter,
+                        currentStdoutStream,
                         currentStdoutReader,
+                        currentStderrStream,
                         currentStderrReader,
+                        currentStdinWriterThread,
                         currentStdoutCollectorThread,
                         currentStderrCollectorThread,
                         currentWorkerScriptPath,
-                        currentInlineSourceCodePath);
+                        currentInlineSourceCodePath,
+                        false);
             }
             throw e;
         }
@@ -251,28 +313,28 @@ class PythonProcessWorker {
     synchronized Object[] processRow(SeaTunnelRowAccessor inputRow) {
         open();
         ensureNotClosed();
-        BufferedWriter currentStdinWriter = stdinWriter;
         BufferedReader currentStdoutReader = stdoutReader;
-        if (currentStdinWriter == null || currentStdoutReader == null) {
+        if (stdinWriterThread == null || currentStdoutReader == null) {
             throw new TransformException(
                     PYTHON_PROCESS_TERMINATED_ERROR,
                     buildWorkerFailureMessage("Python worker is not available"));
         }
         ObjectNode requestNode = OBJECT_MAPPER.createObjectNode();
-        requestNode.put("id", ++requestId);
+        long currentRequestId = ++requestId;
+        requestNode.put("id", currentRequestId);
         requestNode.set("row", toRowJson(inputRow));
         try {
-            currentStdinWriter.write(OBJECT_MAPPER.writeValueAsString(requestNode));
-            currentStdinWriter.newLine();
-            currentStdinWriter.flush();
+            writeWorkerMessage(OBJECT_MAPPER.writeValueAsString(requestNode));
 
             String responseLine =
                     takeWorkerOutput("Python worker exited before returning a response");
-            JsonNode response = JsonUtils.stringToJsonNode(responseLine);
+            JsonNode response = parseWorkerResponse(responseLine);
+            validateResponse(response, currentRequestId);
             if (response.hasNonNull("error")) {
                 return handlePythonExecutionError(response.get("error").asText());
             }
             if (!response.has("result")) {
+                closeSilently();
                 throw new TransformException(
                         INVALID_PYTHON_RESULT_ERROR,
                         INVALID_PYTHON_RESULT_ERROR.getDescription()
@@ -280,6 +342,7 @@ class PythonProcessWorker {
             }
             return convertResult(response.get("result"));
         } catch (IOException e) {
+            closeSilently();
             throw new TransformException(
                     PYTHON_PROCESS_TERMINATED_ERROR, buildWorkerFailureMessage(e.getMessage()));
         }
@@ -289,46 +352,77 @@ class PythonProcessWorker {
      * Terminates the Python process and unblocks a concurrent row request during task cancellation.
      */
     void close() {
+        closeInternal(true);
+    }
+
+    /** Closes a failed or cancelled worker without replacing the primary exception. */
+    private void closeSilently() {
+        closeInternal(false);
+    }
+
+    /** Atomically detaches and terminates the current resource snapshot. */
+    private void closeInternal(boolean reportCloseFailure) {
         closed = true;
 
         BufferedWriter currentStdinWriter;
+        OutputStream currentStdinStream;
+        InputStream currentStdoutStream;
         BufferedReader currentStdoutReader;
+        InputStream currentStderrStream;
         BufferedReader currentStderrReader;
         Process currentProcess;
+        Thread currentStdinWriterThread;
         Thread currentStdoutCollectorThread;
         Thread currentStderrCollectorThread;
         Path currentWorkerScriptPath;
         Path currentInlineSourceCodePath;
         synchronized (lifecycleLock) {
+            currentStdinStream = stdinStream;
             currentStdinWriter = stdinWriter;
+            currentStdoutStream = stdoutStream;
             currentStdoutReader = stdoutReader;
+            currentStderrStream = stderrStream;
             currentStderrReader = stderrReader;
             currentProcess = process;
+            currentStdinWriterThread = stdinWriterThread;
             currentStdoutCollectorThread = stdoutCollectorThread;
             currentStderrCollectorThread = stderrCollectorThread;
             currentWorkerScriptPath = workerScriptPath;
             currentInlineSourceCodePath = inlineSourceCodePath;
 
             process = null;
+            stdinStream = null;
             stdinWriter = null;
+            stdoutStream = null;
             stdoutReader = null;
+            stderrStream = null;
             stderrReader = null;
+            stdinWriterThread = null;
             stdoutCollectorThread = null;
             stderrCollectorThread = null;
             workerScriptPath = null;
             inlineSourceCodePath = null;
         }
-        terminateWorker(
-                currentProcess,
-                currentStdinWriter,
-                currentStdoutReader,
-                currentStderrReader,
-                currentStdoutCollectorThread,
-                currentStderrCollectorThread,
-                currentWorkerScriptPath,
-                currentInlineSourceCodePath);
+        TransformException closeFailure =
+                terminateWorker(
+                        currentProcess,
+                        currentStdinStream,
+                        currentStdinWriter,
+                        currentStdoutStream,
+                        currentStdoutReader,
+                        currentStderrStream,
+                        currentStderrReader,
+                        currentStdinWriterThread,
+                        currentStdoutCollectorThread,
+                        currentStderrCollectorThread,
+                        currentWorkerScriptPath,
+                        currentInlineSourceCodePath,
+                        reportCloseFailure);
         synchronized (stderrTail) {
             stderrTail.clear();
+        }
+        if (closeFailure != null) {
+            throw closeFailure;
         }
     }
 
@@ -356,6 +450,40 @@ class PythonProcessWorker {
                     errorHandleWay, PYTHON_EXECUTION_ERROR, detailedMessage);
         }
         throw new ErrorDataTransformException(PYTHON_EXECUTION_ERROR, detailedMessage);
+    }
+
+    /** Rejects malformed or out-of-order responses before they can desynchronize later rows. */
+    private void validateResponse(JsonNode response, long expectedRequestId) {
+        if (response != null
+                && response.isObject()
+                && response.hasNonNull("id")
+                && response.get("id").isIntegralNumber()
+                && response.get("id").asLong() == expectedRequestId) {
+            return;
+        }
+        String actualResponse = response == null ? "null" : response.toString();
+        closeSilently();
+        throw new TransformException(
+                INVALID_PYTHON_RESULT_ERROR,
+                INVALID_PYTHON_RESULT_ERROR.getDescription()
+                        + ": expected response id "
+                        + expectedRequestId
+                        + " but received "
+                        + actualResponse);
+    }
+
+    /** Parses one protocol line and poisons the worker when stdout is not valid JSON. */
+    private JsonNode parseWorkerResponse(String responseLine) {
+        try {
+            return JsonUtils.stringToJsonNode(responseLine);
+        } catch (IOException | RuntimeException e) {
+            closeSilently();
+            throw new TransformException(
+                    INVALID_PYTHON_RESULT_ERROR,
+                    INVALID_PYTHON_RESULT_ERROR.getDescription()
+                            + ": invalid worker response: "
+                            + responseLine);
+        }
     }
 
     /**
@@ -420,6 +548,14 @@ class PythonProcessWorker {
         Object[] values = new Object[outputConverters.length];
         for (int i = 0; i < outputConverters.length; i++) {
             String destField = outputColumnConfigs.get(i).getDestField();
+            if (!resultObject.has(destField)) {
+                throw new TransformException(
+                        INVALID_PYTHON_RESULT_ERROR,
+                        INVALID_PYTHON_RESULT_ERROR.getDescription()
+                                + ": missing declared field '"
+                                + destField
+                                + "'");
+            }
             values[i] = outputConverters[i].convert(resultObject.get(destField), destField);
         }
         return values;
@@ -446,19 +582,51 @@ class PythonProcessWorker {
      *
      * @throws IOException when the worker pipe cannot be used
      */
-    private void initializeRemoteContext(BufferedWriter currentStdinWriter) throws IOException {
+    private void initializeRemoteContext() throws IOException {
         ObjectNode initNode = OBJECT_MAPPER.createObjectNode();
+        initNode.put("id", 0L);
         initNode.set("context", buildRuntimeContext());
-        currentStdinWriter.write(OBJECT_MAPPER.writeValueAsString(initNode));
-        currentStdinWriter.newLine();
-        currentStdinWriter.flush();
+        writeWorkerMessage(OBJECT_MAPPER.writeValueAsString(initNode));
 
         String responseLine = takeWorkerOutput("Python worker exited during initialization");
-        JsonNode response = JsonUtils.stringToJsonNode(responseLine);
+        JsonNode response = parseWorkerResponse(responseLine);
+        validateResponse(response, 0L);
         if (!response.path("ok").asBoolean(false)) {
             String errorMessage = response.path("error").asText("unknown initialization error");
             throw new TransformException(
                     INIT_PYTHON_PROCESS_ERROR, buildWorkerFailureMessage(errorMessage));
+        }
+    }
+
+    /** Queues one protocol line and waits interruptibly for the stdin pump to flush it. */
+    private void writeWorkerMessage(String line) throws IOException {
+        StdinRequest request = StdinRequest.line(line);
+        String admissionFailure = null;
+        synchronized (stdinLifecycleLock) {
+            Thread currentWriterThread = stdinWriterThread;
+            if (!stdinAccepting || currentWriterThread == null || !currentWriterThread.isAlive()) {
+                admissionFailure = "Python worker stdin writer is not available";
+            } else if (!stdinRequests.offer(request)) {
+                admissionFailure = "Python worker stdin queue overflow";
+            } else {
+                stdinLifecycleLock.notifyAll();
+            }
+        }
+        if (admissionFailure != null) {
+            closeSilently();
+            throw new IOException(admissionFailure);
+        }
+        try {
+            request.await();
+        } catch (InterruptedException e) {
+            String message =
+                    buildWorkerFailureMessage("Interrupted while writing to Python worker");
+            Thread.currentThread().interrupt();
+            closeSilently();
+            throw new TransformException(PYTHON_PROCESS_TERMINATED_ERROR, message);
+        }
+        if (request.error != null) {
+            throw request.error;
         }
     }
 
@@ -602,6 +770,87 @@ class PythonProcessWorker {
         }
     }
 
+    /** Creates the sole stdin pipe owner so lifecycle callers never block in native writes. */
+    private Thread createStdinWriter(BufferedWriter writer) {
+        Thread writerThread =
+                new Thread(
+                        () -> {
+                            IOException terminalError = null;
+                            try {
+                                while (true) {
+                                    StdinRequest request = takeNextStdinRequest();
+                                    if (request == null) {
+                                        return;
+                                    }
+                                    try {
+                                        if (request.close) {
+                                            writer.close();
+                                            request.complete(null);
+                                            return;
+                                        }
+                                        writer.write(request.line);
+                                        writer.newLine();
+                                        writer.flush();
+                                        request.complete(null);
+                                    } catch (IOException e) {
+                                        terminalError = e;
+                                        request.complete(e);
+                                        return;
+                                    } finally {
+                                        if (!request.isCompleted()) {
+                                            request.complete(
+                                                    terminalError == null
+                                                            ? new IOException(
+                                                                    "Python stdin writer stopped")
+                                                            : terminalError);
+                                        }
+                                        synchronized (stdinLifecycleLock) {
+                                            if (activeStdinRequest == request) {
+                                                activeStdinRequest = null;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                terminalError =
+                                        new IOException("Python stdin writer interrupted", e);
+                            } finally {
+                                IOException finalError =
+                                        terminalError == null
+                                                ? new IOException("Python stdin writer stopped")
+                                                : terminalError;
+                                synchronized (stdinLifecycleLock) {
+                                    stdinAccepting = false;
+                                    if (activeStdinRequest != null) {
+                                        activeStdinRequest.complete(finalError);
+                                        activeStdinRequest = null;
+                                    }
+                                    StdinRequest pending;
+                                    while ((pending = stdinRequests.poll()) != null) {
+                                        pending.complete(finalError);
+                                    }
+                                    stdinLifecycleLock.notifyAll();
+                                }
+                            }
+                        },
+                        "seatunnel-python-transform-stdin");
+        writerThread.setDaemon(true);
+        return writerThread;
+    }
+
+    /** Atomically transfers one admitted request from the queue to the stdin pump. */
+    private StdinRequest takeNextStdinRequest() throws InterruptedException {
+        synchronized (stdinLifecycleLock) {
+            while (stdinRequests.isEmpty() && stdinAccepting) {
+                stdinLifecycleLock.wait();
+            }
+            StdinRequest request = stdinRequests.poll();
+            activeStdinRequest = request;
+            return request;
+        }
+    }
+
     /**
      * Starts a daemon thread that captures worker stderr for debugging without breaking stdout.
      *
@@ -684,41 +933,116 @@ class PythonProcessWorker {
             String message =
                     buildWorkerFailureMessage("Interrupted while waiting for Python worker");
             Thread.currentThread().interrupt();
-            close();
+            closeSilently();
             throw new TransformException(PYTHON_PROCESS_TERMINATED_ERROR, message);
         }
     }
 
     /** Terminates one resource snapshot without consulting mutable worker fields. */
-    private void terminateWorker(
+    private TransformException terminateWorker(
             Process currentProcess,
+            OutputStream currentStdinStream,
             BufferedWriter currentStdinWriter,
+            InputStream currentStdoutStream,
             BufferedReader currentStdoutReader,
+            InputStream currentStderrStream,
             BufferedReader currentStderrReader,
+            Thread currentStdinWriterThread,
             Thread currentStdoutCollectorThread,
             Thread currentStderrCollectorThread,
             Path currentWorkerScriptPath,
-            Path currentInlineSourceCodePath) {
+            Path currentInlineSourceCodePath,
+            boolean reportCloseFailure) {
         boolean interrupted = Thread.interrupted();
-        // EOF is the normal shutdown signal and lets worker_template.py invoke the user close hook.
-        closeQuietly(currentStdinWriter, "stdin");
-        if (currentProcess != null) {
-            interrupted |= waitForProcessToStop(currentProcess, interrupted);
+        boolean stdinClosed = false;
+        if (currentStdinWriterThread != null && currentStdinWriterThread.isAlive()) {
+            StdinRequest closeRequest = StdinRequest.close();
+            boolean closeAdmitted;
+            synchronized (stdinLifecycleLock) {
+                stdinAccepting = false;
+                closeAdmitted = stdinRequests.offer(closeRequest);
+                stdinLifecycleLock.notifyAll();
+            }
+            if (closeAdmitted) {
+                try {
+                    stdinClosed = closeRequest.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } else {
+            failPendingStdinRequests(new IOException("Python stdin writer is not available"));
+            closeQuietly(currentStdinWriter, "stdin writer");
+            stdinClosed = true;
         }
-        closeQuietly(currentStdoutReader, "stdout");
-        closeQuietly(currentStderrReader, "stderr");
+        ProcessStopResult stopResult = ProcessStopResult.notStarted(interrupted);
+        if (currentProcess != null) {
+            stopResult =
+                    waitForProcessToStop(currentProcess, !stdinClosed || interrupted, interrupted);
+            interrupted = stopResult.interrupted;
+        }
+        interrupted |= waitForCollectorToStop(currentStdinWriterThread);
+        if (currentStdinWriterThread == null || !currentStdinWriterThread.isAlive()) {
+            closeQuietly(currentStdinStream, "stdin stream");
+            closeQuietly(currentStdinWriter, "stdin writer");
+        } else {
+            failPendingStdinRequests(
+                    new IOException("Python stdin writer did not stop after process shutdown"));
+            log.warn("Python stdin writer did not terminate after process shutdown");
+        }
+        // Close the raw descriptors first. BufferedReader.close() can wait forever for the
+        // collector's reader lock when a detached child inherited the worker's stdout/stderr.
+        closeQuietly(currentStdoutStream, "stdout stream");
+        closeQuietly(currentStderrStream, "stderr stream");
         interrupted |= waitForCollectorToStop(currentStdoutCollectorThread);
         interrupted |= waitForCollectorToStop(currentStderrCollectorThread);
+        closeQuietly(currentStdoutReader, "stdout reader");
+        closeQuietly(currentStderrReader, "stderr reader");
         deleteQuietly(currentWorkerScriptPath);
         deleteQuietly(currentInlineSourceCodePath);
+        TransformException closeFailure = null;
+        if (reportCloseFailure && currentProcess != null && !interrupted) {
+            if (stopResult.forced) {
+                closeFailure =
+                        new TransformException(
+                                PYTHON_PROCESS_TERMINATED_ERROR,
+                                buildWorkerFailureMessage(
+                                        "Python worker did not stop cleanly during close"));
+            } else if (stopResult.exitCode != 0) {
+                closeFailure =
+                        new TransformException(
+                                PYTHON_PROCESS_TERMINATED_ERROR,
+                                buildWorkerFailureMessage(
+                                        "Python worker close hook failed with exit code "
+                                                + stopResult.exitCode));
+            }
+        }
         if (interrupted) {
             Thread.currentThread().interrupt();
+        }
+        return closeFailure;
+    }
+
+    /** Stops further admission and completes every owned or queued stdin request exceptionally. */
+    private void failPendingStdinRequests(IOException error) {
+        synchronized (stdinLifecycleLock) {
+            stdinAccepting = false;
+            if (activeStdinRequest != null) {
+                activeStdinRequest.complete(error);
+                activeStdinRequest = null;
+            }
+            StdinRequest pending;
+            while ((pending = stdinRequests.poll()) != null) {
+                pending.complete(error);
+            }
+            stdinLifecycleLock.notifyAll();
         }
     }
 
     /** Stops the subprocess deterministically while preserving the caller's interrupt status. */
-    private boolean waitForProcessToStop(Process currentProcess, boolean forceShutdown) {
-        boolean interrupted = false;
+    private ProcessStopResult waitForProcessToStop(
+            Process currentProcess, boolean forceShutdown, boolean interrupted) {
+        boolean forced = forceShutdown;
         if (!forceShutdown) {
             boolean stopped = false;
             try {
@@ -727,15 +1051,17 @@ class PythonProcessWorker {
                 }
             } catch (InterruptedException e) {
                 interrupted = true;
+                forced = true;
             }
             if (stopped) {
-                return interrupted;
+                return ProcessStopResult.stopped(interrupted, false, currentProcess.exitValue());
             }
+            forced = true;
         }
         currentProcess.destroy();
         try {
             if (currentProcess.waitFor(5, TimeUnit.SECONDS)) {
-                return interrupted;
+                return ProcessStopResult.stopped(interrupted, forced, currentProcess.exitValue());
             }
         } catch (InterruptedException e) {
             interrupted = true;
@@ -748,7 +1074,8 @@ class PythonProcessWorker {
         } catch (InterruptedException e) {
             interrupted = true;
         }
-        return interrupted;
+        int exitCode = currentProcess.isAlive() ? Integer.MIN_VALUE : currentProcess.exitValue();
+        return ProcessStopResult.stopped(interrupted, true, exitCode);
     }
 
     /**
@@ -810,6 +1137,69 @@ class PythonProcessWorker {
             Files.deleteIfExists(path);
         } catch (IOException e) {
             log.debug("Ignore Python transform temp file cleanup failure: {}", path, e);
+        }
+    }
+
+    /** One stdin protocol line or the graceful EOF request owned by the writer pump. */
+    private static final class StdinRequest {
+        private final String line;
+        private final boolean close;
+        private final CountDownLatch completed = new CountDownLatch(1);
+        private volatile IOException error;
+
+        private StdinRequest(String line, boolean close) {
+            this.line = line;
+            this.close = close;
+        }
+
+        private static StdinRequest line(String line) {
+            return new StdinRequest(line, false);
+        }
+
+        private static StdinRequest close() {
+            return new StdinRequest(null, true);
+        }
+
+        private synchronized void complete(IOException error) {
+            if (completed.getCount() == 0) {
+                return;
+            }
+            this.error = error;
+            completed.countDown();
+        }
+
+        private void await() throws InterruptedException {
+            completed.await();
+        }
+
+        private boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+            return completed.await(timeout, unit);
+        }
+
+        private boolean isCompleted() {
+            return completed.getCount() == 0;
+        }
+    }
+
+    /** Captures whether shutdown was graceful so close-hook failures are reported accurately. */
+    private static final class ProcessStopResult {
+        private final boolean interrupted;
+        private final boolean forced;
+        private final int exitCode;
+
+        private ProcessStopResult(boolean interrupted, boolean forced, int exitCode) {
+            this.interrupted = interrupted;
+            this.forced = forced;
+            this.exitCode = exitCode;
+        }
+
+        private static ProcessStopResult notStarted(boolean interrupted) {
+            return new ProcessStopResult(interrupted, false, 0);
+        }
+
+        private static ProcessStopResult stopped(
+                boolean interrupted, boolean forced, int exitCode) {
+            return new ProcessStopResult(interrupted, forced, exitCode);
         }
     }
 

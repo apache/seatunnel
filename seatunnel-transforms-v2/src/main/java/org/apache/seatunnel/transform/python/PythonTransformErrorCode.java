@@ -45,7 +45,13 @@ public enum PythonTransformErrorCode implements SeaTunnelErrorCode {
             "PythonTransform returned a result shape that does not match the configured columns"),
     PYTHON_PROCESS_TERMINATED_ERROR(
             "PYTHON_TRANSFORM_ERROR_CODE-09",
-            "PythonTransform Python worker terminated unexpectedly");
+            "PythonTransform Python worker terminated unexpectedly"),
+    DUPLICATE_DEST_FIELD_ERROR(
+            "PYTHON_TRANSFORM_ERROR_CODE-10",
+            "PythonTransform columns.dest_field values must be unique"),
+    UNSUPPORTED_ERROR_HANDLE_WAY(
+            "PYTHON_TRANSFORM_ERROR_CODE-11",
+            "PythonTransform only supports FAIL and SKIP row_error_handle_way values");
 
     /** Stable error code exposed to users and logs. */
     private final String code;

@@ -52,11 +52,12 @@ def main():
     if not init_line:
         raise RuntimeError("Python transform worker did not receive init payload")
     init_payload = json.loads(init_line)
+    init_id = init_payload.get("id")
     context = init_payload.get("context", {})
 
     if callable(open_fn):
         open_fn(context)
-    _write_response({"ok": True})
+    _write_response({"id": init_id, "ok": True})
 
     try:
         for line in sys.stdin:

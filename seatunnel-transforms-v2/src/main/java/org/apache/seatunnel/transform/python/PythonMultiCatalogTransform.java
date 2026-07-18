@@ -77,6 +77,20 @@ public class PythonMultiCatalogTransform extends AbstractMultiCatalogMapTransfor
     /** Closes every inner transform so Python subprocesses do not outlive the wrapper. */
     @Override
     public void close() {
-        transformMap.values().forEach(SeaTunnelTransform::close);
+        RuntimeException closeFailure = null;
+        for (SeaTunnelTransform<SeaTunnelRow> transform : transformMap.values()) {
+            try {
+                transform.close();
+            } catch (RuntimeException e) {
+                if (closeFailure == null) {
+                    closeFailure = e;
+                } else {
+                    closeFailure.addSuppressed(e);
+                }
+            }
+        }
+        if (closeFailure != null) {
+            throw closeFailure;
+        }
     }
 }

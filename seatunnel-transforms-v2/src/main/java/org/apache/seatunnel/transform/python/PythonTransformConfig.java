@@ -36,14 +36,18 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.COLUMNS_MUST_NOT_EMPTY;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.DEST_FIELD_MUST_NOT_EMPTY;
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.DUPLICATE_DEST_FIELD_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.PYTHON_SCRIPT_MUST_BE_CONFIGURED;
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.UNSUPPORTED_ERROR_HANDLE_WAY;
 
 /** Immutable user-facing configuration for the Python transform. */
 @Getter
@@ -183,8 +187,16 @@ public class PythonTransformConfig implements Serializable {
                 new LinkedHashMap<>(
                         config.getOptional(SCRIPT_CONFIG).orElse(Collections.emptyMap()));
 
+        ErrorHandleWay errorHandleWay =
+                config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION);
+        if (errorHandleWay != ErrorHandleWay.FAIL && errorHandleWay != ErrorHandleWay.SKIP) {
+            throw new TransformException(
+                    UNSUPPORTED_ERROR_HANDLE_WAY,
+                    UNSUPPORTED_ERROR_HANDLE_WAY.getDescription() + ": " + errorHandleWay);
+        }
+
         return new PythonTransformConfig(
-                config.get(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION),
+                errorHandleWay,
                 config.get(PYTHON_EXECUTABLE),
                 validInline ? sourceCode : null,
                 validPath ? sourceCodePath : null,
@@ -200,11 +212,17 @@ public class PythonTransformConfig implements Serializable {
      */
     private static List<PythonColumnConfig> parseColumns(List<Map<String, String>> rawColumns) {
         List<PythonColumnConfig> columns = new ArrayList<>(rawColumns.size());
+        Set<String> destFields = new HashSet<>();
         for (Map<String, String> rawColumn : rawColumns) {
             String destField = rawColumn.get(DEST_FIELD.key());
             if (StringUtils.isBlank(destField)) {
                 throw new TransformException(
                         DEST_FIELD_MUST_NOT_EMPTY, DEST_FIELD_MUST_NOT_EMPTY.getDescription());
+            }
+            if (!destFields.add(destField)) {
+                throw new TransformException(
+                        DUPLICATE_DEST_FIELD_ERROR,
+                        DUPLICATE_DEST_FIELD_ERROR.getDescription() + ": " + destField);
             }
 
             String destType =

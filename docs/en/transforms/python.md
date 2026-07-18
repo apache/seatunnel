@@ -96,18 +96,21 @@ The `process` function can return one of these shapes:
 - an array aligned with the `columns` order
 - a scalar value when only one output column is configured
 
-If the return shape does not match the declared `columns`, SeaTunnel will fail the row.
+If the return shape does not match the declared `columns`, SeaTunnel will fail the row. Object results must contain every declared `dest_field`; an explicitly returned `null` is accepted, but a missing field is not.
 
 ## Security
 
 - This transform runs the user-configured `python_executable` and Python code without a sandbox, using the operating-system permissions of the SeaTunnel worker process. Because `python_executable` can reference any executable, operators must restrict who can submit or modify jobs that use this transform.
 - Only run trusted scripts, and do not place secrets in `source_code` or `script_config`.
+- SeaTunnel manages only the direct Python worker process. Child processes started by user code are not terminated as a process tree and must be bounded by an external sandbox or process supervisor.
 
 ## Notes
 
 - The runtime host must have Python installed.
 - `source_code_path` must exist on every runtime node that executes the transform.
 - Regular `print(...)` output from the user script is redirected to stderr so it does not break the row protocol.
+- Writing directly to stdout through `sys.stdout`, native libraries, or child processes is not supported because stdout is reserved for the worker protocol.
+- A failure in the optional `close()` hook is reported by transform cleanup and logged by the runtime. Transform cleanup is best-effort, so this failure does not change an already completed job's terminal state. Keep cleanup bounded and monitor worker logs for cleanup failures.
 - Avoid long-running blocking logic in `process(...)` because every row waits for the Python worker response.
 
 ## Example: Inline Script

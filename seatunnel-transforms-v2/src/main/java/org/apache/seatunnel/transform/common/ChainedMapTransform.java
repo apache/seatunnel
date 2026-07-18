@@ -96,7 +96,21 @@ class ChainedMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
 
     @Override
     public void close() {
-        transforms.forEach(SeaTunnelTransform::close);
+        RuntimeException closeFailure = null;
+        for (SeaTunnelTransform<SeaTunnelRow> transform : transforms) {
+            try {
+                transform.close();
+            } catch (RuntimeException e) {
+                if (closeFailure == null) {
+                    closeFailure = e;
+                } else {
+                    closeFailure.addSuppressed(e);
+                }
+            }
+        }
+        if (closeFailure != null) {
+            throw closeFailure;
+        }
     }
 
     private void setTransformInput(

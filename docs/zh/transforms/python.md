@@ -96,18 +96,21 @@ Python 脚本返回的输出字段名。
 - 与 `columns` 顺序一致的数组
 - 当只声明了一个输出列时，直接返回单个标量值
 
-如果返回结构和声明的 `columns` 不匹配，SeaTunnel 会把这行数据视为失败。
+如果返回结构和声明的 `columns` 不匹配，SeaTunnel 会把这行数据视为失败。对象结果必须包含每一个已声明的 `dest_field`；显式返回 `null` 是允许的，但缺少字段会失败。
 
 ## 安全
 
 - 本 Transform 会在没有沙箱隔离的情况下运行用户配置的 `python_executable` 和 Python 代码，并继承 SeaTunnel Worker 进程的操作系统权限。由于 `python_executable` 可以指向任意可执行文件，集群管理员必须限制可提交或修改此类任务的用户范围。
 - 请只运行可信脚本，不要在 `source_code` 或 `script_config` 中放置密钥等敏感信息。
+- SeaTunnel 只管理直接启动的 Python Worker 进程，不会按进程树终止用户代码创建的子进程；这类进程必须由外部沙箱或进程监管器限制。
 
 ## 注意事项
 
 - 运行节点必须安装 Python。
 - `source_code_path` 指向的文件必须存在于每个实际执行该 Transform 的运行节点上。
 - 用户脚本中的普通 `print(...)` 会被重定向到 stderr，避免破坏 Worker 的 stdout 通讯协议。
+- 不支持通过 `sys.stdout`、原生库或子进程直接写 stdout，因为 stdout 专用于 Worker 通讯协议。
+- 可选的 `close()` hook 执行失败会由 Transform 清理流程报告并记录到运行时日志。Transform 清理采用 best-effort 语义，因此该错误不会改变已经完成的 Job 终态。清理逻辑应保持有界，并监控 Worker 日志中的清理失败。
 - 如果 `process(...)` 里执行了耗时阻塞逻辑，每一行都会等待 Python Worker 返回结果，可能明显影响吞吐。
 
 ## 示例：内联脚本
