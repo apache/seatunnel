@@ -287,11 +287,12 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
             putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
 
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
+            jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
@@ -345,6 +346,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
+            cancelContinuousJobQuietly(container, jobId, jobFuture);
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
     }
@@ -357,9 +359,10 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
             TestContainer container) throws IOException, InterruptedException {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
+            jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
@@ -397,6 +400,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
+            cancelContinuousJobQuietly(container, jobId, jobFuture);
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
     }
@@ -409,12 +413,13 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpBinaryUpdateModeContinuousDiscoveryPostSyncDelete(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
             putSftpFile(
                     SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/delete-test.bin", "abc");
 
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
+            jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
@@ -452,6 +457,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
+            cancelContinuousJobQuietly(container, jobId, jobFuture);
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
     }
@@ -464,12 +470,13 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpBinaryUpdateModeContinuousDiscoveryPostSyncBackup(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
             putSftpFile(
                     SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/backup-test.bin", "abc");
 
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
+            jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
@@ -520,6 +527,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
+            cancelContinuousJobQuietly(container, jobId, jobFuture);
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
     }
@@ -532,14 +540,16 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     public void testSftpContinuousBackupRetentionCleanup(TestContainer container)
             throws IOException, InterruptedException {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            putSftpFile(
+            String retentionFile =
                     SFTP_CONTAINER_HOME
-                            + "/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456",
-                    "abc");
+                            + "/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456";
+            putSftpFile(retentionFile, "abc");
+            setSftpFileMtimeToPast(retentionFile);
 
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
+            jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
@@ -568,6 +578,7 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
+            cancelContinuousJobQuietly(container, jobId, jobFuture);
             deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
         }
     }
@@ -738,6 +749,41 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult result =
                 sftpContainer.execInContainer("sh", "-c", "test -f '" + containerPath + "'");
         return result.getExitCode() == 0;
+    }
+
+    private void setSftpFileMtimeToPast(String containerPath)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                sftpContainer.execInContainer(
+                        "sh", "-c", "touch -t 202001010000.00 '" + containerPath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    /**
+     * Best-effort cleanup for assertion failures so one continuous test cannot leak into the next
+     * test's shared SFTP directories.
+     */
+    private void cancelContinuousJobQuietly(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        if (jobFuture == null || jobFuture.isDone()) {
+            return;
+        }
+        try {
+            String status = container.getJobStatus(jobId);
+            if (!"CANCELED".equals(status)
+                    && !"FINISHED".equals(status)
+                    && !"FAILED".equals(status)) {
+                container.cancelJob(jobId);
+            }
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .until(jobFuture::isDone);
+        } catch (Exception e) {
+            log.warn("Failed to clean up continuous SFTP job {}.", jobId, e);
+        }
     }
 
     /**

@@ -47,6 +47,7 @@ public class SFTPConnectionPool {
             new HashMap<ConnectionInfo, HashSet<ChannelSftp>>();
     private HashMap<ChannelSftp, ConnectionInfo> con2infoMap =
             new HashMap<ChannelSftp, ConnectionInfo>();
+    private HashMap<ChannelSftp, Session> con2sessionMap = new HashMap<ChannelSftp, Session>();
 
     SFTPConnectionPool(int maxConnection, int liveConnectionCount) {
         this.maxConnection = maxConnection;
@@ -95,20 +96,33 @@ public class SFTPConnectionPool {
 
     /** Register a newly opened connection unless shutdown won the race. */
     boolean registerConnection(ChannelSftp channel, ConnectionInfo info) throws IOException {
+        try {
+            return registerConnection(channel, channel.getSession(), info);
+        } catch (JSchException e) {
+            closeChannel(channel, null);
+            throw new IOException(StringUtils.stringifyException(e));
+        }
+    }
+
+    /** Register the channel together with the session captured when the connection was opened. */
+    private boolean registerConnection(ChannelSftp channel, Session session, ConnectionInfo info)
+            throws IOException {
         synchronized (this) {
             if (con2infoMap != null) {
                 con2infoMap.put(channel, info);
+                con2sessionMap.put(channel, session);
                 liveConnectionCount++;
                 return true;
             }
         }
-        closeChannel(channel);
+        closeChannel(channel, session);
         return false;
     }
 
     /** Shutdown the connection pool and close all open connections. */
     void shutdown() {
         Map<ChannelSftp, ConnectionInfo> connectionsToClose;
+        Map<ChannelSftp, Session> sessionsToClose;
         synchronized (this) {
             if (this.con2infoMap == null) {
                 return; // already shutdown in case it is called
@@ -117,15 +131,17 @@ public class SFTPConnectionPool {
 
             // Shutdown must close every tracked connection regardless of live-count drift.
             connectionsToClose = new HashMap<ChannelSftp, ConnectionInfo>(con2infoMap);
+            sessionsToClose = new HashMap<ChannelSftp, Session>(con2sessionMap);
             this.maxConnection = 0;
             this.liveConnectionCount = 0;
             this.idleConnections = null;
             this.con2infoMap = null;
+            this.con2sessionMap = null;
         }
 
         for (Map.Entry<ChannelSftp, ConnectionInfo> entry : connectionsToClose.entrySet()) {
             try {
-                closeChannel(entry.getKey());
+                closeChannel(entry.getKey(), sessionsToClose.get(entry.getKey()));
             } catch (IOException ioe) {
                 LOG.error(
                         "Error encountered while closing connection to "
@@ -153,8 +169,8 @@ public class SFTPConnectionPool {
             if (channel.isConnected()) {
                 return channel;
             } else {
-                removeTrackedChannel(channel);
-                closeChannel(channel);
+                Session trackedSession = removeTrackedChannel(channel);
+                closeChannel(channel, trackedSession);
                 channel = null;
             }
         }
@@ -194,7 +210,7 @@ public class SFTPConnectionPool {
             channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect();
 
-            if (!registerConnection(channel, info)) {
+            if (!registerConnection(channel, session, info)) {
                 throw new IOException("SFTP connection pool has been closed.");
             }
 
@@ -210,19 +226,21 @@ public class SFTPConnectionPool {
         if (channel != null) {
             // close connection if too many active connections
             boolean closeConnection = false;
+            Session trackedSession = null;
             synchronized (this) {
                 if (con2infoMap == null || !con2infoMap.containsKey(channel)) {
                     closeConnection = true;
                 } else if (liveConnectionCount > maxConnection) {
                     --liveConnectionCount;
                     con2infoMap.remove(channel);
+                    trackedSession = con2sessionMap.remove(channel);
                     closeConnection = true;
                 }
             }
             if (closeConnection) {
-                closeChannel(channel);
+                closeChannel(channel, trackedSession);
             } else if (!returnToPool(channel)) {
-                closeChannel(channel);
+                closeChannel(channel, null);
             }
         }
     }
@@ -231,11 +249,12 @@ public class SFTPConnectionPool {
      * Remove bookkeeping for a channel that can no longer be reused before we create a replacement
      * connection.
      */
-    synchronized void removeTrackedChannel(ChannelSftp channel) {
+    synchronized Session removeTrackedChannel(ChannelSftp channel) {
         if (con2infoMap == null) {
-            return;
+            return null;
         }
         ConnectionInfo info = con2infoMap.remove(channel);
+        Session session = con2sessionMap.remove(channel);
         if (info != null) {
             Set<ChannelSftp> cons = idleConnections.get(info);
             if (cons != null) {
@@ -244,18 +263,30 @@ public class SFTPConnectionPool {
                     idleConnections.remove(info);
                 }
             }
+            if (liveConnectionCount > 0) {
+                liveConnectionCount--;
+            }
         }
-        if (liveConnectionCount > 0) {
-            liveConnectionCount--;
-        }
+        return session;
     }
 
-    /** Close both the SFTP channel and its backing SSH session when they are still open. */
-    private void closeChannel(ChannelSftp channel) throws IOException {
-        try {
-            closeConnectionResources(channel, channel.getSession());
-        } catch (JSchException e) {
-            throw new IOException(StringUtils.stringifyException(e));
+    /**
+     * Close both connection resources, preferring the session captured before the channel can lose
+     * its back-link during cancellation.
+     */
+    private void closeChannel(ChannelSftp channel, Session capturedSession) throws IOException {
+        JSchException sessionLookupFailure = null;
+        Session session = capturedSession;
+        if (session == null) {
+            try {
+                session = channel.getSession();
+            } catch (JSchException e) {
+                sessionLookupFailure = e;
+            }
+        }
+        closeConnectionResources(channel, session);
+        if (sessionLookupFailure != null) {
+            throw new IOException(StringUtils.stringifyException(sessionLookupFailure));
         }
     }
 

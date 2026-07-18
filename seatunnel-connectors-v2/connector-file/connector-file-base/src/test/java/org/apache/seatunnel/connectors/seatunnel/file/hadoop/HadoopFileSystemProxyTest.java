@@ -23,8 +23,15 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 class HadoopFileSystemProxyTest {
+
+    @TempDir private java.nio.file.Path tempDir;
 
     @Test
     void testMakeQualifiedPathUsesConfiguredFileSystemUri() throws Exception {
@@ -34,6 +41,57 @@ class HadoopFileSystemProxyTest {
 
             Assertions.assertEquals("file", qualifiedPath.toUri().getScheme());
             Assertions.assertEquals("/backup/post-sync", qualifiedPath.toUri().getPath());
+        } finally {
+            proxy.close();
+        }
+    }
+
+    @Test
+    void testRenameRejectsMissingSourceAndTarget() throws Exception {
+        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
+        java.nio.file.Path source = tempDir.resolve("missing-source.bin");
+        java.nio.file.Path target = tempDir.resolve("missing-target.bin");
+        try {
+            IOException error =
+                    Assertions.assertThrows(
+                            IOException.class,
+                            () -> proxy.renameFile(source.toString(), target.toString(), false));
+
+            Assertions.assertTrue(error.getMessage().contains(source.getFileName().toString()));
+            Assertions.assertTrue(error.getMessage().contains(target.getFileName().toString()));
+        } finally {
+            proxy.close();
+        }
+    }
+
+    @Test
+    void testRenameTreatsExistingTargetAsCompletedRetry() throws Exception {
+        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
+        java.nio.file.Path source = tempDir.resolve("missing-source.bin");
+        java.nio.file.Path target = tempDir.resolve("existing-target.bin");
+        Files.write(target, "target".getBytes(StandardCharsets.UTF_8));
+        try {
+            proxy.renameFile(source.toString(), target.toString(), false);
+
+            Assertions.assertEquals(
+                    "target", new String(Files.readAllBytes(target), StandardCharsets.UTF_8));
+        } finally {
+            proxy.close();
+        }
+    }
+
+    @Test
+    void testRenameMovesExistingSource() throws Exception {
+        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
+        java.nio.file.Path source = tempDir.resolve("source.bin");
+        java.nio.file.Path target = tempDir.resolve("nested/target.bin");
+        Files.write(source, "source".getBytes(StandardCharsets.UTF_8));
+        try {
+            proxy.renameFile(source.toString(), target.toString(), false);
+
+            Assertions.assertFalse(Files.exists(source));
+            Assertions.assertEquals(
+                    "source", new String(Files.readAllBytes(target), StandardCharsets.UTF_8));
         } finally {
             proxy.close();
         }

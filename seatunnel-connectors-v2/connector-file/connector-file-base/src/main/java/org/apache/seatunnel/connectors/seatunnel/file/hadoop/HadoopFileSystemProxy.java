@@ -142,13 +142,20 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                     Path newPath = new Path(newFilePath);
 
                     if (!fileExist(oldPath.toString())) {
-                        log.warn(
-                                "rename file:[{}] to [{}] already finished in the last commit, skip. "
-                                        + "WARNING: In cluster mode with LocalFile without shared storage, "
-                                        + "the file may not be actually synced successfully, but the status shows success.",
-                                oldPath,
-                                newPath);
-                        return Void.class;
+                        if (fileExist(newPath.toString())) {
+                            log.info(
+                                    "Rename file from [{}] to [{}] already finished in a previous "
+                                            + "commit, skip.",
+                                    oldPath,
+                                    newPath);
+                            return Void.class;
+                        }
+                        throw new IOException(
+                                "Cannot rename file from ["
+                                        + oldPath
+                                        + "] to ["
+                                        + newPath
+                                        + "]: both source and target are missing.");
                     }
 
                     if (removeWhenNewFilePathExist) {

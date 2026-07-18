@@ -27,6 +27,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
@@ -210,22 +211,79 @@ class SFTPConnectionPoolTest {
         Mockito.verify(session).disconnect();
     }
 
+    /**
+     * Shutdown must use the session captured at connect time if the channel loses its back-link.
+     */
+    @Test
+    void shutdownShouldCloseCapturedSessionWhenChannelCannotReturnSession() throws Exception {
+        Session session = Mockito.mock(Session.class);
+        Mockito.when(session.isConnected()).thenReturn(true);
+        TestChannelSftp channel =
+                new TestChannelSftp(
+                        true,
+                        session,
+                        null,
+                        new JSchException("Channel is no longer attached to its session"));
+        Mockito.when(session.openChannel("sftp")).thenReturn(channel);
+
+        try (MockedConstruction<JSch> ignored =
+                Mockito.mockConstruction(
+                        JSch.class,
+                        (jsch, context) ->
+                                Mockito.when(jsch.getSession("user", "host", 22))
+                                        .thenReturn(session))) {
+            SFTPConnectionPool connectionPool = new SFTPConnectionPool(1, 0);
+            connectionPool.connect("host", 22, "user", "password", null);
+
+            connectionPool.shutdown();
+        }
+
+        Assertions.assertTrue(channel.wasDisconnected());
+        Mockito.verify(session).disconnect();
+    }
+
+    /** Input streams must return their channel to the pool that owns the backing SSH session. */
+    @Test
+    void inputStreamCloseShouldReturnChannelToConnectionPool() throws Exception {
+        SFTPConnectionPool connectionPool = Mockito.mock(SFTPConnectionPool.class);
+        TestChannelSftp channel = new TestChannelSftp(true, Mockito.mock(Session.class));
+        SFTPInputStream inputStream =
+                new SFTPInputStream(
+                        new ByteArrayInputStream(new byte[] {1}), channel, connectionPool, null);
+
+        inputStream.close();
+        inputStream.close();
+
+        Mockito.verify(connectionPool).disconnect(channel);
+        Assertions.assertFalse(channel.wasDisconnected());
+    }
+
     /** Small concrete ChannelSftp stub that keeps Mockito away from final JSch internals. */
     private static final class TestChannelSftp extends ChannelSftp {
         private final boolean connected;
         private final Session session;
         private final JSchException connectException;
+        private final JSchException getSessionException;
         private boolean disconnected;
 
         private TestChannelSftp(boolean connected, Session session) {
-            this(connected, session, null);
+            this(connected, session, null, null);
         }
 
         private TestChannelSftp(
                 boolean connected, Session session, JSchException connectException) {
+            this(connected, session, connectException, null);
+        }
+
+        private TestChannelSftp(
+                boolean connected,
+                Session session,
+                JSchException connectException,
+                JSchException getSessionException) {
             this.connected = connected;
             this.session = session;
             this.connectException = connectException;
+            this.getSessionException = getSessionException;
         }
 
         @Override
@@ -247,6 +305,9 @@ class SFTPConnectionPoolTest {
 
         @Override
         public Session getSession() throws JSchException {
+            if (getSessionException != null) {
+                throw getSessionException;
+            }
             return session;
         }
 

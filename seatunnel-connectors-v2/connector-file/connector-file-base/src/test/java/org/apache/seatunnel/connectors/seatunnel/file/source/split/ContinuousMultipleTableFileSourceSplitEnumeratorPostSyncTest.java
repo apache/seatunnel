@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,6 +89,59 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorPostSyncTest {
                     1,
                     stateAfterRetry.getPendingOpsByCheckpoint().get(1L).get(0).getRetryCount(),
                     "an ambiguously missing backup operation must increment its retry count");
+        } finally {
+            enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupWaitsUntilSinkTargetContainsSourceData() throws Exception {
+        Path sourceDir = tempDir.resolve("source");
+        Path sourcePath = sourceDir.resolve("source.bin");
+        Path targetDir = tempDir.resolve("target");
+        Path targetPath = targetDir.resolve("source.bin");
+        Path backupTargetPath = tempDir.resolve("backup/source.bin.v3_1");
+        Files.createDirectories(sourceDir);
+        Files.write(sourcePath, "abc".getBytes(StandardCharsets.UTF_8));
+        FileSourceOperationState operation =
+                new FileSourceOperationState(
+                        TABLE_ID,
+                        "source",
+                        sourcePath.toString(),
+                        Files.size(sourcePath),
+                        Files.getLastModifiedTime(sourcePath).toMillis(),
+                        FilePostSyncAction.BACKUP,
+                        backupTargetPath.toString());
+        Map<Long, List<FileSourceOperationState>> pendingOperations = new HashMap<>();
+        pendingOperations.put(1L, new ArrayList<>(Collections.singletonList(operation)));
+
+        ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                createEnumerator(
+                        sourceDir,
+                        targetDir,
+                        new FileSourceState(
+                                Collections.emptySet(),
+                                System.currentTimeMillis(),
+                                pendingOperations,
+                                Collections.emptyMap()));
+        try {
+            enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(sourcePath),
+                    "source must remain until the sink target is durably visible");
+            Assertions.assertFalse(Files.exists(backupTargetPath));
+            Assertions.assertTrue(
+                    enumerator.snapshotState(2L).getPendingOpsByCheckpoint().containsKey(1L));
+
+            Files.createDirectories(targetDir);
+            Files.write(targetPath, "abc".getBytes(StandardCharsets.UTF_8));
+            enumerator.notifyCheckpointComplete(2L);
+
+            Assertions.assertFalse(Files.exists(sourcePath));
+            Assertions.assertTrue(Files.exists(backupTargetPath));
+            Assertions.assertFalse(
+                    enumerator.snapshotState(3L).getPendingOpsByCheckpoint().containsKey(1L));
         } finally {
             enumerator.close();
         }

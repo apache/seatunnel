@@ -707,6 +707,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.SUCCESS;
         }
 
+        if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+
         // Stage first and then validate the staged inode. This closes the gap between the version
         // check and deletion for filesystem updates that are visible through rename.
         try {
@@ -873,6 +877,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.STALE_SKIPPED;
         }
 
+        if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+
         // Phase 1: rename source to backup target (act-then-verify)
         ctx.sourceFs.renameFile(op.getSourcePath(), op.getBackupTargetPath(), false);
 
@@ -920,6 +928,57 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 op.getSourceLength(),
                 op.getSourceModificationTime());
         return OpCommitResult.SUCCESS;
+    }
+
+    /**
+     * Verify the final sink object before mutating its source counterpart.
+     *
+     * <p>Source and sink checkpoint completion callbacks are independent. A source enumerator can
+     * therefore observe the completed checkpoint before the sink committer has renamed its
+     * temporary file. Checking both length and content prevents post-sync delete or backup from
+     * racing ahead of that final sink commit, including when an older same-length target already
+     * exists.
+     */
+    private boolean isSinkTargetCommitted(
+            TableScanContext ctx, FileSourceOperationState op, long checkpointId) {
+        String targetPath = ctx.targetFilePath(op.getSourcePath());
+        FileStatus targetStatus;
+        try {
+            targetStatus = getFileStatusIfPresent(ctx.targetFs, targetPath);
+            if (targetStatus == null || targetStatus.getLen() != op.getSourceLength()) {
+                log.info(
+                        "Post-sync operation is waiting for sink target: action={}, source={}, "
+                                + "target={}, checkpointId={}, expectedLen={}, actualLen={}",
+                        op.getAction(),
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(targetPath),
+                        checkpointId,
+                        op.getSourceLength(),
+                        targetStatus == null ? null : targetStatus.getLen());
+                return false;
+            }
+            if (!ctx.fileContentEquals(op.getSourcePath(), targetPath)) {
+                log.info(
+                        "Post-sync operation is waiting for sink target content: action={}, "
+                                + "source={}, target={}, checkpointId={}",
+                        op.getAction(),
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(targetPath),
+                        checkpointId);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn(
+                    "Post-sync operation cannot verify sink target and will be retried: action={}, "
+                            + "source={}, target={}, checkpointId={}",
+                    op.getAction(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(targetPath),
+                    checkpointId,
+                    e);
+            return false;
+        }
     }
 
     private FileStatus getFileStatusIfPresent(HadoopFileSystemProxy sourceFs, String path)
@@ -1556,9 +1615,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
 
         private boolean shouldSyncInUpdateMode(FileStatus sourceFileStatus) throws IOException {
             String sourceFilePath = sourceFileStatus.getPath().toString();
-            String relativePath = resolveRelativePath(rootPath, sourceFilePath);
-            String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);
-            String targetFilePath = buildTargetFilePath(targetPath, relativePath);
+            String targetFilePath = targetFilePath(sourceFilePath);
 
             FileStatus targetFileStatus;
             try {
@@ -1663,6 +1720,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             }
 
             return true;
+        }
+
+        private String targetFilePath(String sourceFilePath) {
+            String relativePath = resolveRelativePath(rootPath, sourceFilePath);
+            String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);
+            return buildTargetFilePath(targetPath, relativePath);
         }
 
         private boolean fileContentEquals(String sourceFilePath, String targetFilePath)
