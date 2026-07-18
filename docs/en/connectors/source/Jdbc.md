@@ -239,6 +239,9 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  |              |          |
 
+#### Timestamp with time zone
+
+JDBC columns that natively carry timezone semantics are mapped to SeaTunnel `TIMESTAMP_TZ`. This includes the JDBC 4.2 `TIMESTAMP_WITH_TIMEZONE` type and dialect-specific types such as Db2 for z/OS and Teradata `TIMESTAMP WITH TIME ZONE`, Presto `timestamp(p) with time zone`, and Vertica `TIMESTAMPTZ`. The runtime value is represented by `java.time.OffsetDateTime`. Db2 LUW does not provide this native column type. Db2 for z/OS supports up to 12 fractional digits; digits beyond SeaTunnel's nanosecond precision are truncated.
 
 ## Parallel Reader
 

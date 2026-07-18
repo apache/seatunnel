@@ -129,6 +129,9 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | DSQL      |              |          |
 | YashanDB  |              |          |
+
+SeaTunnel `TIMESTAMP_TZ` values are written to existing native timezone-aware columns through JDBC `setObject` with `java.time.OffsetDateTime`. Auto table creation remains available only for dialects that provide a catalog and a timezone-aware type converter; Db2 does not currently provide JDBC auto table creation.
+
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.

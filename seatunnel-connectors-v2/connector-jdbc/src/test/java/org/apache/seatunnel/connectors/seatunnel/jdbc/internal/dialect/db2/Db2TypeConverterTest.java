@@ -369,6 +369,24 @@ public class Db2TypeConverterTest {
                 column.getSourceType());
     }
 
+    /* Verifies DB2 TIMESTAMP WITH TIME ZONE is discovered as SeaTunnel TIMESTAMP_TZ. */
+    @Test
+    public void testConvertTimestampWithTimeZone() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("event_time")
+                        .columnType("TIMESTAMP(6) WITH TIME ZONE")
+                        .dataType(DB2TypeConverter.DB2_TIMESTAMP_WITH_TIME_ZONE)
+                        .scale(6)
+                        .build();
+
+        Column column = DB2TypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals("TIMESTAMP(6) WITH TIME ZONE", column.getSourceType());
+        Assertions.assertEquals(6, column.getScale());
+    }
+
     @Test
     public void testReconvertUnsupported() {
         Column column =

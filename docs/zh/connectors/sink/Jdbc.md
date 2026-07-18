@@ -127,6 +127,8 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | DSQL      |            |          |
 | YashanDB  |            |          |
 
+SeaTunnel `TIMESTAMP_TZ` 值通过 JDBC `setObject` 和 `java.time.OffsetDateTime` 写入已有的原生带时区列。只有实现了 Catalog 和带时区类型转换器的方言支持自动建表；Db2 当前不支持 JDBC 自动建表。
+
 ### database [string]
 
 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
