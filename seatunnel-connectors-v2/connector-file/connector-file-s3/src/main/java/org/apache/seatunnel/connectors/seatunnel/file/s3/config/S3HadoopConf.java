@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,8 +105,11 @@ public class S3HadoopConf extends HadoopConf {
 
     /**
      * The AWS credentials provider contract every configured provider class must implement. Hadoop
-     * S3A reflectively instantiates the configured class as an instance of this interface, so a
-     * class that is present but does not implement it would fail later inside S3A initialization.
+     * S3A's {@code S3AUtils.createAWSCredentialProvider} performs the exact same {@code
+     * AWSCredentialsProvider.isAssignableFrom(clazz)} check (and rejects abstract classes) before
+     * it reflectively instantiates the class, so validating it here only moves that failure
+     * earlier, from an opaque worker-side {@code IOException} to an actionable config-parse-time
+     * error. It never rejects anything Hadoop itself would have accepted.
      */
     private static final String AWS_CREDENTIALS_PROVIDER_INTERFACE =
             "com.amazonaws.auth.AWSCredentialsProvider";
@@ -115,13 +119,20 @@ public class S3HadoopConf extends HadoopConf {
      * that builds the Hadoop configuration. Hadoop accepts a comma-separated chain of provider
      * classes, so each entry is validated independently.
      *
+     * <p>The splitting mirrors Hadoop's own {@code getTrimmedStrings} semantics: entries are
+     * separated by commas and surrounding whitespace is trimmed, so a value such as {@code "A, B"}
+     * that Hadoop accepts is accepted here too. An empty entry (for example {@code "A,,B"} or a
+     * trailing comma) is rejected, because Hadoop would treat it as a blank class name and fail at
+     * runtime with a far less actionable error.
+     *
      * <p>The provider is ultimately instantiated on every worker by Hadoop S3A, and the classpath
      * of the node building this configuration (client/coordinator, or a module embedding this
      * connector) may legitimately differ from the workers' — the provider jar only has to be
      * present where S3A actually runs (for example under {@code ${SEATUNNEL_HOME}/lib} on every
      * cluster node). A class that cannot be resolved here is therefore only logged as a warning,
      * never rejected. Only a class that resolves but does not implement the AWS credentials
-     * provider contract fails fast, because that configuration cannot work on any node.
+     * provider contract, or a malformed (empty) chain entry, fails fast because that configuration
+     * cannot work on any node.
      *
      * @param credentialsProvider the raw option value (single class or comma-separated chain)
      */
@@ -129,11 +140,21 @@ public class S3HadoopConf extends HadoopConf {
         if (credentialsProvider == null || credentialsProvider.trim().isEmpty()) {
             return;
         }
-        for (String providerClassName : credentialsProvider.split(",")) {
+        // Keep trailing empty segments (split limit -1) so that a stray comma such as "A," is
+        // detected instead of being silently dropped.
+        String[] providerClassNames = credentialsProvider.split(",", -1);
+        for (String providerClassName : providerClassNames) {
             String trimmed = providerClassName.trim();
-            if (!trimmed.isEmpty()) {
-                checkCredentialsProviderClass(trimmed);
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The S3A credentials provider chain configured via '%s' contains an "
+                                        + "empty class name ('%s'). Please remove the stray comma so "
+                                        + "every entry is a fully-qualified provider class name.",
+                                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                                credentialsProvider));
             }
+            checkCredentialsProviderClass(trimmed);
         }
     }
 
@@ -173,7 +194,11 @@ public class S3HadoopConf extends HadoopConf {
     }
 
     /**
-     * Asserts the resolved provider class implements {@link #AWS_CREDENTIALS_PROVIDER_INTERFACE}.
+     * Asserts the resolved provider class can actually be used by Hadoop S3A: it must implement
+     * {@link #AWS_CREDENTIALS_PROVIDER_INTERFACE} and must not be abstract. These are exactly the
+     * two conditions {@code S3AUtils.createAWSCredentialProvider} enforces before instantiation, so
+     * this check never rejects a class Hadoop would have accepted — it only surfaces the failure at
+     * config-parse time with an actionable message instead of an opaque worker-side error.
      *
      * <p>The assertion is only enforced when the interface itself resolves from the same
      * classloader that loaded the provider class; otherwise it is skipped. This avoids falsely
@@ -200,6 +225,15 @@ public class S3HadoopConf extends HadoopConf {
                                     + "implements the AWS credentials provider contract.",
                             providerClass.getName(),
                             AWS_CREDENTIALS_PROVIDER_INTERFACE,
+                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        }
+        if (Modifier.isAbstract(providerClass.getModifiers())) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "The S3A credentials provider class '%s' configured via '%s' is "
+                                    + "abstract and cannot be instantiated. Please configure a "
+                                    + "concrete AWS credentials provider class.",
+                            providerClass.getName(),
                             S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
         }
     }

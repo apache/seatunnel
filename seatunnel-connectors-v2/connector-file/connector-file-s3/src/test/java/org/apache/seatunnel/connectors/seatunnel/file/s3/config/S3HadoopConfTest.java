@@ -131,4 +131,80 @@ public class S3HadoopConfTest {
                         () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
         Assertions.assertTrue(exception.getMessage().contains("does not implement"));
     }
+
+    @Test
+    void testProviderChainWithWhitespaceIsPassedThrough() {
+        // Hadoop trims whitespace around commas, so "A, B" is a valid chain; the raw value
+        // (including the space) is passed through unchanged for Hadoop to parse.
+        String chain =
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER
+                        + ", "
+                        + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                chain,
+                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+    }
+
+    @Test
+    void testProviderChainWithEmptySegmentFails() {
+        String chain =
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER
+                        + ",,"
+                        + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(exception.getMessage().contains("empty class name"));
+    }
+
+    @Test
+    void testProviderChainWithTrailingCommaFails() {
+        String chain = S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER + ",";
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(exception.getMessage().contains("empty class name"));
+    }
+
+    @Test
+    void testAbstractCredentialsProviderClassFails() {
+        // An abstract class implementing the provider contract passes the isAssignableFrom check
+        // but cannot be instantiated by Hadoop S3A, which rejects it before construction; the
+        // eager check mirrors that and fails fast with an actionable message.
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                AbstractTestCredentialsProvider.class.getName());
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(exception.getMessage().contains("abstract"));
+    }
+
+    /**
+     * An abstract class that implements the AWS credentials provider contract. Used to verify the
+     * eager validation rejects abstract classes, matching Hadoop {@code S3AUtils} behavior.
+     */
+    abstract static class AbstractTestCredentialsProvider
+            implements com.amazonaws.auth.AWSCredentialsProvider {}
 }
