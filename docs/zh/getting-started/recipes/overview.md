@@ -14,6 +14,7 @@ slug: /getting-started/recipes
 | --- | --- |
 | 从 MySQL CDC 同步到分析型数据库 | [MySQL CDC 到 Doris](./mysql-cdc-to-doris.md) |
 | 从 MySQL CDC 同步到 Kafka，并附带元数据消息头 | [MySQL CDC 到 Kafka](./mysql-cdc-to-kafka.md) |
+| 在关系型数据库之间批量迁移，并进行数据过滤和转换 | [JDBC 到 JDBC](./jdbc-to-jdbc.md) |
 | 把 JDBC 数据抽取到对象存储 | [JDBC 到 S3](./jdbc-to-s3.md) |
 | 从 Kafka 流式写入表格式存储 | [Kafka 到 Iceberg](./kafka-to-iceberg.md) |
 | 把 HTTP 数据写入关系型数据库 | [HTTP 到 JDBC](./http-to-jdbc.md) |
