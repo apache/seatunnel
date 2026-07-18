@@ -69,13 +69,13 @@ class S3FileFactoryTest {
         Assertions.assertTrue(
                 hasConditionalRequiredOption(
                         sourceRule,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileBaseOptions.S3_ACCESS_KEY),
                 "S3File source optionRule should require access_key when the credentials provider is SimpleAWSCredentialsProvider");
         Assertions.assertTrue(
                 hasConditionalRequiredOption(
                         sourceRule,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileBaseOptions.S3_SECRET_KEY),
                 "S3File source optionRule should require secret_key when the credentials provider is SimpleAWSCredentialsProvider");
 
@@ -83,13 +83,13 @@ class S3FileFactoryTest {
         Assertions.assertTrue(
                 hasConditionalRequiredOption(
                         sinkRule,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileBaseOptions.S3_ACCESS_KEY),
                 "S3File sink optionRule should require access_key when the credentials provider is SimpleAWSCredentialsProvider");
         Assertions.assertTrue(
                 hasConditionalRequiredOption(
                         sinkRule,
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileBaseOptions.S3_SECRET_KEY),
                 "S3File sink optionRule should require secret_key when the credentials provider is SimpleAWSCredentialsProvider");
     }

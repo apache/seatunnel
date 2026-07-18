@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
+import org.apache.hadoop.util.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,9 +69,11 @@ public class S3HadoopConf extends HadoopConf {
                     .forEach((key, value) -> s3Options.put(key, String.valueOf(value)));
         }
 
-        String credentialsProvider = config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER);
+        String credentialsProvider =
+                config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS);
         checkCredentialsProviders(credentialsProvider);
-        s3Options.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), credentialsProvider);
+        s3Options.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), credentialsProvider);
         s3Options.put(
                 S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                 config.get(S3FileBaseOptions.FS_S3A_ENDPOINT));
@@ -116,14 +120,13 @@ public class S3HadoopConf extends HadoopConf {
 
     /**
      * Best-effort eager validation of the configured S3A credentials provider value on the node
-     * that builds the Hadoop configuration. Hadoop accepts a comma-separated chain of provider
-     * classes, so each entry is validated independently.
+     * that builds the Hadoop configuration. Hadoop accepts a comma- or newline-separated chain of
+     * provider classes, so each entry is validated independently.
      *
-     * <p>The splitting mirrors Hadoop's own {@code getTrimmedStrings} semantics: entries are
-     * separated by commas and surrounding whitespace is trimmed, so a value such as {@code "A, B"}
-     * that Hadoop accepts is accepted here too. An empty entry (for example {@code "A,,B"} or a
-     * trailing comma) is rejected, because Hadoop would treat it as a blank class name and fail at
-     * runtime with a far less actionable error.
+     * <p>Provider names are parsed with Hadoop's own {@link StringUtils#getTrimmedStrings(String)}
+     * utility. This preserves Hadoop 3.1.4 behavior for whitespace, newlines, and trailing
+     * separators while still allowing an interior empty entry such as {@code "A,,B"} to fail with
+     * an actionable error.
      *
      * <p>The provider is ultimately instantiated on every worker by Hadoop S3A, and the classpath
      * of the node building this configuration (client/coordinator, or a module embedding this
@@ -137,24 +140,18 @@ public class S3HadoopConf extends HadoopConf {
      * @param credentialsProvider the raw option value (single class or comma-separated chain)
      */
     private static void checkCredentialsProviders(String credentialsProvider) {
-        if (credentialsProvider == null || credentialsProvider.trim().isEmpty()) {
-            return;
-        }
-        // Keep trailing empty segments (split limit -1) so that a stray comma such as "A," is
-        // detected instead of being silently dropped.
-        String[] providerClassNames = credentialsProvider.split(",", -1);
+        String[] providerClassNames = StringUtils.getTrimmedStrings(credentialsProvider);
         for (String providerClassName : providerClassNames) {
-            String trimmed = providerClassName.trim();
-            if (trimmed.isEmpty()) {
+            if (providerClassName.isEmpty()) {
                 throw new IllegalArgumentException(
                         String.format(
                                 "The S3A credentials provider chain configured via '%s' contains an "
-                                        + "empty class name ('%s'). Please remove the stray comma so "
-                                        + "every entry is a fully-qualified provider class name.",
-                                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                                        + "empty class name ('%s'). Please ensure every entry between "
+                                        + "separators is a fully-qualified provider class name.",
+                                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
                                 credentialsProvider));
             }
-            checkCredentialsProviderClass(trimmed);
+            checkCredentialsProviderClass(providerClassName);
         }
     }
 
@@ -175,22 +172,28 @@ public class S3HadoopConf extends HadoopConf {
                 continue;
             }
             Class<?> providerClass;
+            Class<?> providerInterface;
             try {
                 providerClass = Class.forName(providerClassName, false, classLoader);
+                providerInterface =
+                        Class.forName(AWS_CREDENTIALS_PROVIDER_INTERFACE, false, classLoader);
             } catch (ClassNotFoundException ignored) {
-                // Try the next classloader before concluding the class is not visible here.
+                // Both classes must resolve through the same loader before assignability can be
+                // checked. Try the next loader instead of treating a skipped check as success.
                 continue;
             }
-            assertImplementsCredentialsProvider(providerClass, classLoader);
+            assertImplementsCredentialsProvider(providerClass, providerInterface);
             return;
         }
         LOGGER.warn(
-                "The S3A credentials provider class '{}' configured via '{}' is not visible on "
-                        + "this node's classpath. The job will fail at runtime unless the provider "
-                        + "jar is available on every node running the S3A filesystem (for example "
-                        + "under ${SEATUNNEL_HOME}/lib).",
+                "The S3A credentials provider class '{}' configured via '{}' could not be fully "
+                        + "validated on this node because the provider class or '{}' is not visible "
+                        + "through the available classloaders. The job will fail at runtime unless "
+                        + "the provider jar is available on every node running the S3A filesystem "
+                        + "(for example under ${SEATUNNEL_HOME}/lib).",
                 providerClassName,
-                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key());
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
+                AWS_CREDENTIALS_PROVIDER_INTERFACE);
     }
 
     /**
@@ -200,23 +203,12 @@ public class S3HadoopConf extends HadoopConf {
      * this check never rejects a class Hadoop would have accepted — it only surfaces the failure at
      * config-parse time with an actionable message instead of an opaque worker-side error.
      *
-     * <p>The assertion is only enforced when the interface itself resolves from the same
-     * classloader that loaded the provider class; otherwise it is skipped. This avoids falsely
-     * rejecting a valid provider when the AWS SDK interface is not visible from the classloader
-     * that happened to resolve the provider (for example under plugin classloader isolation),
-     * trading a missed check for never blocking a legitimate configuration.
+     * <p>The caller resolves both classes through the same candidate classloader. If either class
+     * is unavailable it tries the next loader, so an isolated thread context classloader cannot
+     * bypass validation when the connector classloader can perform it.
      */
     private static void assertImplementsCredentialsProvider(
-            Class<?> providerClass, ClassLoader classLoader) {
-        Class<?> providerInterface;
-        try {
-            providerInterface =
-                    Class.forName(AWS_CREDENTIALS_PROVIDER_INTERFACE, false, classLoader);
-        } catch (ClassNotFoundException ignored) {
-            // The AWS SDK interface is not visible from this classloader; skip the assertion
-            // rather than risk rejecting a legitimate provider.
-            return;
-        }
+            Class<?> providerClass, Class<?> providerInterface) {
         if (!providerInterface.isAssignableFrom(providerClass)) {
             throw new IllegalArgumentException(
                     String.format(
@@ -225,7 +217,7 @@ public class S3HadoopConf extends HadoopConf {
                                     + "implements the AWS credentials provider contract.",
                             providerClass.getName(),
                             AWS_CREDENTIALS_PROVIDER_INTERFACE,
-                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
         }
         if (Modifier.isAbstract(providerClass.getModifiers())) {
             throw new IllegalArgumentException(
@@ -234,7 +226,7 @@ public class S3HadoopConf extends HadoopConf {
                                     + "abstract and cannot be instantiated. Please configure a "
                                     + "concrete AWS credentials provider class.",
                             providerClass.getName(),
-                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                            S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
         }
     }
 

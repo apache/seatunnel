@@ -57,9 +57,9 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .required(S3FileSourceOptions.FILE_FORMAT_TYPE)
                 .required(S3FileSourceOptions.S3_BUCKET)
                 .required(S3FileSourceOptions.FS_S3A_ENDPOINT)
-                .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS)
                 .conditional(
-                        S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
                         S3FileSourceOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
                         S3FileSourceOptions.S3_ACCESS_KEY,
                         S3FileSourceOptions.S3_SECRET_KEY)

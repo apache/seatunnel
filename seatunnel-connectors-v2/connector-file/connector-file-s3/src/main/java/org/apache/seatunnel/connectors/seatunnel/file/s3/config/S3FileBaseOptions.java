@@ -57,17 +57,31 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
             "com.amazonaws.auth.InstanceProfileCredentialsProvider";
 
     /**
+     * The legacy typed S3A credentials provider option.
+     *
+     * @deprecated Use {@link #S3A_AWS_CREDENTIALS_PROVIDER_CLASS}. This field retains its original
+     *     generic type so downstream code compiled against earlier releases remains source and
+     *     binary compatible.
+     */
+    @Deprecated
+    public static final Option<S3aAwsCredentialsProvider> S3A_AWS_CREDENTIALS_PROVIDER =
+            Options.key("fs.s3a.aws.credentials.provider")
+                    .enumType(S3aAwsCredentialsProvider.class)
+                    .defaultValue(S3aAwsCredentialsProvider.InstanceProfileCredentialsProvider)
+                    .withDescription("s3a aws credentials provider");
+
+    /**
      * The S3A credentials provider class name passed through to Hadoop. Any fully-qualified S3A
      * credentials provider class available on the classpath is accepted, so container-oriented
      * providers (for example {@code com.amazonaws.auth.ContainerCredentialsProvider}) and custom
      * providers can be used in addition to the two well-known values {@link
      * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. Hadoop
-     * also accepts a comma-separated chain of provider classes. The class must be present on the
-     * runtime classpath of every node running the S3A filesystem (for example under {@code
-     * ${SEATUNNEL_HOME}/lib}).
+     * also accepts a comma- or newline-separated chain of provider classes. The class must be
+     * present on the runtime classpath of every node running the S3A filesystem (for example under
+     * {@code ${SEATUNNEL_HOME}/lib}).
      */
-    public static final Option<String> S3A_AWS_CREDENTIALS_PROVIDER =
-            Options.key("fs.s3a.aws.credentials.provider")
+    public static final Option<String> S3A_AWS_CREDENTIALS_PROVIDER_CLASS =
+            Options.key(S3A_AWS_CREDENTIALS_PROVIDER.key())
                     .stringType()
                     .defaultValue(INSTANCE_PROFILE_CREDENTIALS_PROVIDER)
                     .withDescription(
@@ -91,14 +105,12 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .withDescription("S3 properties");
 
     /**
-     * The set of S3A credentials providers that used to be the only accepted values for {@link
-     * #S3A_AWS_CREDENTIALS_PROVIDER}.
+     * The set of S3A credentials providers accepted by the legacy {@link
+     * #S3A_AWS_CREDENTIALS_PROVIDER} option.
      *
-     * @deprecated {@link #S3A_AWS_CREDENTIALS_PROVIDER} is now a free-form {@code String} option
-     *     that accepts any S3A credentials provider class on the classpath. This enum is retained
-     *     only for binary compatibility with downstream code compiled against earlier releases; use
-     *     the {@link #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link
-     *     #INSTANCE_PROFILE_CREDENTIALS_PROVIDER} class-name constants instead.
+     * @deprecated Use {@link #S3A_AWS_CREDENTIALS_PROVIDER_CLASS} with the {@link
+     *     #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}
+     *     class-name constants. This enum remains the type of the deprecated compatibility option.
      */
     @Deprecated
     public enum S3aAwsCredentialsProvider {

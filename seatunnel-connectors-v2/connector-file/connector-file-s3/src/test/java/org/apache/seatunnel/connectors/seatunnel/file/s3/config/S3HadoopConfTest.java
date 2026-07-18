@@ -53,7 +53,22 @@ public class S3HadoopConfTest {
         HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertEquals(
                 S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER,
-                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
+    }
+
+    @Test
+    void testLegacyCredentialsProviderOptionTypeIsPreserved() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER);
+
+        S3FileBaseOptions.S3aAwsCredentialsProvider provider =
+                ReadonlyConfig.fromMap(config).get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER);
+
+        Assertions.assertEquals(
+                S3FileBaseOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider, provider);
     }
 
     @Test
@@ -61,14 +76,15 @@ public class S3HadoopConfTest {
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
         config.put(
-                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
                 S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
         HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertEquals(
                 S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
-                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
     }
 
     @Test
@@ -78,24 +94,43 @@ public class S3HadoopConfTest {
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
         config.put(
-                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
                 "com.example.NonExistentCredentialsProvider");
         HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertEquals(
                 "com.example.NonExistentCredentialsProvider",
-                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
     }
 
     @Test
     void testNonCredentialsProviderClassFails() {
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), "java.lang.String");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), "java.lang.String");
         IllegalArgumentException exception =
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
                         () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
         Assertions.assertTrue(exception.getMessage().contains("does not implement"));
+    }
+
+    @Test
+    void testNonProviderCannotBypassValidationWithIsolatedContextClassLoader() {
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(new ClassLoader(null) {});
+            Map<String, Object> config = new HashMap<>();
+            config.put("bucket", "test");
+            config.put(
+                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), "java.lang.String");
+
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        } finally {
+            Thread.currentThread().setContextClassLoader(original);
+        }
     }
 
     @Test
@@ -106,13 +141,14 @@ public class S3HadoopConfTest {
                         + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
         HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertEquals(
                 chain,
-                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
     }
 
     @Test
@@ -122,7 +158,7 @@ public class S3HadoopConfTest {
         String chain = S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER + ",java.lang.String";
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
         IllegalArgumentException exception =
@@ -142,13 +178,30 @@ public class S3HadoopConfTest {
                         + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
         HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
         Assertions.assertEquals(
                 chain,
-                conf.getExtraOptions().get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
+    }
+
+    @Test
+    void testProviderChainWithNewlineValidatesEachEntry() {
+        String chain = S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER + "\njava.lang.String";
+        Map<String, Object> config = new HashMap<>();
+        config.put("bucket", "test");
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
+        config.put("access_key", "access_key");
+        config.put("secret_key", "secret_key");
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(exception.getMessage().contains("does not implement"));
     }
 
     @Test
@@ -159,7 +212,7 @@ public class S3HadoopConfTest {
                         + S3FileBaseOptions.INSTANCE_PROFILE_CREDENTIALS_PROVIDER;
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
         IllegalArgumentException exception =
@@ -170,18 +223,27 @@ public class S3HadoopConfTest {
     }
 
     @Test
-    void testProviderChainWithTrailingCommaFails() {
+    void testProviderChainWithTrailingCommaMatchesHadoopSemantics() {
         String chain = S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER + ",";
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
-        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(), chain);
+        config.put(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
         config.put("access_key", "access_key");
         config.put("secret_key", "secret_key");
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config)));
-        Assertions.assertTrue(exception.getMessage().contains("empty class name"));
+
+        org.apache.hadoop.conf.Configuration hadoopConfig =
+                new org.apache.hadoop.conf.Configuration(false);
+        hadoopConfig.set(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(), chain);
+        Assertions.assertEquals(
+                1,
+                hadoopConfig.getClasses(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key())
+                        .length);
+
+        HadoopConf conf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(config));
+        Assertions.assertEquals(
+                chain,
+                conf.getExtraOptions()
+                        .get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key()));
     }
 
     @Test
@@ -192,7 +254,7 @@ public class S3HadoopConfTest {
         Map<String, Object> config = new HashMap<>();
         config.put("bucket", "test");
         config.put(
-                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
                 AbstractTestCredentialsProvider.class.getName());
         IllegalArgumentException exception =
                 Assertions.assertThrows(

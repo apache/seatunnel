@@ -108,26 +108,6 @@ You need to check this document before you upgrade to related version.
       Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
       behavior.
 
-- **S3File Connector — `fs.s3a.aws.credentials.provider` option type changed from enum to string**
-  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-s3` (also reused
-    by `connector-hive` and `connector-s3-redshift`)
-  - **Description**: `S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER` changed from
-    `Option<S3aAwsCredentialsProvider>` (an enum limited to `SimpleAWSCredentialsProvider` and
-    `InstanceProfileCredentialsProvider`) to `Option<String>`, so any S3A credentials provider class
-    on the classpath can now be configured (see
-    [#9233](https://github.com/apache/seatunnel/issues/9233)). The deprecated
-    `S3aAwsCredentialsProvider` enum is retained for binary compatibility but is no longer the option
-    type.
-  - **Impact**: End-user job configs are unaffected — the option value is still the fully-qualified
-    provider class name and the default is unchanged. Only downstream Java code that referenced the
-    `Option<S3aAwsCredentialsProvider>` generic type or called `.getProvider()` on the option value
-    must be recompiled against the new `Option<String>` type.
-  - **Migration Guide**:
-    - **Existing configs**: No action needed.
-    - **Downstream code**: Read the option as a `String` and use the
-      `S3FileBaseOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER` /
-      `INSTANCE_PROFILE_CREDENTIALS_PROVIDER` class-name constants instead of the deprecated enum.
-
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:

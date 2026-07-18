@@ -44,7 +44,8 @@ public class S3StorageTest {
                                                     S3FileBaseOptions.S3_BUCKET.key(),
                                                     "s3a://my_bucket");
                                             put(
-                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions
+                                                            .S3A_AWS_CREDENTIALS_PROVIDER_CLASS
                                                             .key(),
                                                     S3FileBaseOptions
                                                             .INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
@@ -68,7 +69,8 @@ public class S3StorageTest {
                                                     S3FileBaseOptions.S3_BUCKET.key(),
                                                     "s3://my_bucket");
                                             put(
-                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions
+                                                            .S3A_AWS_CREDENTIALS_PROVIDER_CLASS
                                                             .key(),
                                                     S3FileBaseOptions
                                                             .INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
