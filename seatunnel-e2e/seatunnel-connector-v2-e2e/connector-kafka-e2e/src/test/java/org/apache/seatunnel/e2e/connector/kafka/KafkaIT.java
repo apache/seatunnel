@@ -105,10 +105,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -768,6 +770,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         });
 
         awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(firstJobFuture);
 
         // Produce 10 additional records after the job starts.
         for (int i = 0; i < 10; i++) {
@@ -828,6 +831,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         });
 
         awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(restoredJobFuture);
 
         // After restore, sink should advance by the 15 newly produced records at
         // minimum.
@@ -884,6 +888,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         });
 
         awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(firstJobFuture);
 
         // Produce 10 records after job start; latest mode should consume only these 10
         // initially.
@@ -1178,6 +1183,42 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         } catch (ExecutionException | TimeoutException e) {
             throw new AssertionError("Streaming job command did not complete successfully", e);
         }
+    }
+
+    /**
+     * Give a streaming submit command a short startup window before the test publishes data that
+     * must only be observed after initialization.
+     */
+    private void waitForStreamingJobStartup(CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            jobFuture.get(15, SECONDS);
+            throw new AssertionError("Streaming job finished before startup grace window elapsed");
+        } catch (TimeoutException expected) {
+            // Expected path: the job is still running and had time to initialize.
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for streaming job startup", e);
+        } catch (ExecutionException e) {
+            throw new AssertionError("Streaming job failed before startup grace window elapsed", e);
+        }
+    }
+
+    /**
+     * Publish a probe record and wait until it becomes visible on the sink topic so later
+     * assertions only count business records emitted after the Kafka source is actively consuming.
+     */
+    private long awaitStreamingPipelineReady(
+            String producerTopic, String consumerTopic, long sinkStartOffset, String probeData) {
+        sendTextRecordAndWait(producerTopic, probeData);
+        given().pollDelay(5, SECONDS)
+                .pollInterval(5, SECONDS)
+                .await()
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, sinkStartOffset, 1, probeData)));
+        return endOffsetOnP0(consumerTopic);
     }
 
     /**
@@ -1911,51 +1952,38 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
+        String readinessProbeData = sourceData + "-probe-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
-        }
 
         // async execute
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                exactlyOnceVariables);
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                        exactlyOnceVariables);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
+        waitForStreamingJobStartup(jobFuture);
+        long sinkDataStartOffset =
+                awaitStreamingPipelineReady(
+                        producerTopic, consumerTopic, sinkStartOffset, readinessProbeData);
+        for (int i = 0; i < 10; i++) {
+            sendTextRecordAndWait(producerTopic, sourceData);
+        }
         // wait for data written to kafka
-        given().pollDelay(120, SECONDS)
+        given().pollDelay(10, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
                         () -> {
-                            // Keep the streaming source active so the last exactly-once transaction
-                            // is forced through a later checkpoint on slow Flink CI axes.
-                            ProducerRecord<byte[], byte[]> keepAliveRecord =
-                                    new ProducerRecord<>(
-                                            producerTopic,
-                                            null,
-                                            keepAliveData.getBytes(StandardCharsets.UTF_8));
-                            producer.send(keepAliveRecord);
-                            producer.flush();
                             Assertions.assertTrue(
-                                    checkData(
-                                            consumerTopic,
-                                            sinkStartOffset,
-                                            10,
-                                            sourceData,
-                                            Collections.singletonList(keepAliveData)));
+                                    checkData(consumerTopic, sinkDataStartOffset, 10, sourceData));
                         });
     }
 
@@ -1993,6 +2021,23 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
         return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    /**
+     * Sends one text record and waits for the broker acknowledgement so producer-side delivery
+     * issues surface immediately instead of appearing later as assertion flakes.
+     */
+    private void sendTextRecordAndWait(String topicName, String data) {
+        ProducerRecord<byte[], byte[]> record =
+                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+        try {
+            producer.send(record).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while sending Kafka test record", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
+        }
     }
 
     private boolean checkData(
@@ -2612,6 +2657,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
+            Set<Long> seenOffsets = new HashSet<>();
             consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
@@ -2621,7 +2667,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
-            Long lastProcessedOffset = startOffset - 1;
+            long lastObservedOffset = startOffset - 1;
             int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
@@ -2631,12 +2677,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 }
                 consecutiveEmptyPolls = 0;
                 for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
-                    if (record.offset() >= startOffset && record.offset() > lastProcessedOffset) {
+                    if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
                         data.add(record.value());
                     }
-                    lastProcessedOffset = record.offset();
+                    lastObservedOffset = Math.max(lastObservedOffset, record.offset());
                 }
-            } while (lastProcessedOffset < visibleEndOffsetExclusive - 1
+            } while (lastObservedOffset < visibleEndOffsetExclusive - 1
                     && consecutiveEmptyPolls < 20);
             return data;
         } finally {
