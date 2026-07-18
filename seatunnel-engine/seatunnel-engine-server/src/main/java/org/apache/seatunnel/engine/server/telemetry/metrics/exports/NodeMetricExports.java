@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.jmx.InstanceMBean;
 import com.hazelcast.internal.jmx.PartitionServiceMBean;
@@ -342,7 +343,24 @@ public class NodeMetricExports extends AbstractCollector {
         return mfs;
     }
 
-    private void partitionMetric(
+    void partitionMetric(
+            PartitionServiceMBean partitionServiceMBean,
+            List<MetricFamilySamples> mfs,
+            String address) {
+        if (partitionServiceMBean == null) {
+            return;
+        }
+        try {
+            collectPartitionMetrics(partitionServiceMBean, mfs, address);
+        } catch (HazelcastInstanceNotActiveException e) {
+            getLogger(getClass())
+                    .fine("Skip partition metrics because Hazelcast is shutting down.", e);
+        } catch (RuntimeException e) {
+            getLogger(getClass()).warning("Failed to collect partition metrics from Hazelcast.", e);
+        }
+    }
+
+    private void collectPartitionMetrics(
             PartitionServiceMBean partitionServiceMBean,
             List<MetricFamilySamples> mfs,
             String address) {
