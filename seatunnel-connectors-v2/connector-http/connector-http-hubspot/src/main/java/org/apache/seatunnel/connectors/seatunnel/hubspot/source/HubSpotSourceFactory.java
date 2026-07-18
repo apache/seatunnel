@@ -18,20 +18,22 @@
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
 @AutoService(Factory.class)
-public class HubSpotSourceFactory implements TableSourceFactory {
+public class HubSpotSourceFactory extends HttpSourceFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -40,10 +42,13 @@ public class HubSpotSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
+        return getHttpOptionBuilder()
                 .required(HubSpotSourceOptions.ACCESS_TOKEN)
-                .optional(HubSpotSourceOptions.OBJECT_TYPE)
-                .optional(HttpCommonOptions.URL)
+                .optional(HubSpotSourceOptions.OBJECT_TYPE, HttpSourceOptions.URL)
+                .conditional(
+                        HttpSourceOptions.FORMAT,
+                        HttpConfig.ResponseFormat.JSON,
+                        ConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

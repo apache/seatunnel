@@ -36,7 +36,8 @@ public class HubSpotSourceParameter extends HttpParameter {
      * and the HubSpot parameter object both observe the same pagination contract.
      */
     public static ReadonlyConfig buildRuntimeConfig(ReadonlyConfig pluginConfig) {
-        Map<String, Object> configMap = new HashMap<>(pluginConfig.toMap());
+        // Preserve nested config objects such as `pageing`; `toMap()` stringifies them.
+        Map<String, Object> configMap = new HashMap<>(pluginConfig.getSourceMap());
         configMap.putIfAbsent(HttpSourceOptions.CONTENT_FIELD.key(), DEFAULT_CONTENT_FIELD);
         configMap.putIfAbsent(
                 HttpSourceOptions.FORMAT.key(), HttpConfig.ResponseFormat.JSON.name());
