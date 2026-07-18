@@ -114,6 +114,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -1110,6 +1111,42 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Give a streaming submit command a short startup window before the test publishes data that
+     * must only be observed after initialization.
+     */
+    private void waitForStreamingJobStartup(CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            jobFuture.get(15, SECONDS);
+            throw new AssertionError("Streaming job finished before startup grace window elapsed");
+        } catch (TimeoutException expected) {
+            // Expected path: the job is still running and had time to initialize.
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for streaming job startup", e);
+        } catch (ExecutionException e) {
+            throw new AssertionError("Streaming job failed before startup grace window elapsed", e);
+        }
+    }
+
+    /**
+     * Publish a probe record and wait until it becomes visible on the sink topic so later
+     * assertions only count business records emitted after the Kafka source is actively consuming.
+     */
+    private long awaitStreamingPipelineReady(
+            String producerTopic, String consumerTopic, long sinkStartOffset, String probeData) {
+        sendTextRecordAndWait(producerTopic, probeData);
+        given().pollDelay(5, SECONDS)
+                .pollInterval(5, SECONDS)
+                .await()
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, sinkStartOffset, 1, probeData)));
+        return endOffsetOnP0(consumerTopic);
+    }
+
     @TestTemplate
     public void testSourceKafkaWithEndTimestamp(TestContainer container)
             throws IOException, InterruptedException {
@@ -1684,60 +1721,43 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
         String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
-        String jobId = "kafka-exactly-once-" + resourceSuffix;
         List<String> exactlyOnceVariables =
                 buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
+        String readinessProbeData = sourceData + "-probe-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
 
         // async execute
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                jobId,
-                                exactlyOnceVariables.toArray(new String[0]));
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-        given().pollDelay(5, SECONDS)
-                .pollInterval(1, SECONDS)
-                .await()
-                .atMost(30, SECONDS)
-                .untilAsserted(
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
                         () -> {
-                            // Publish the seed records only after the streaming job is actually
-                            // running, otherwise the Flink 1.20 Kafka source can miss the tail of
-                            // the preloaded batch during startup.
-                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                        exactlyOnceVariables);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
                         });
+        waitForStreamingJobStartup(jobFuture);
+        long sinkDataStartOffset =
+                awaitStreamingPipelineReady(
+                        producerTopic, consumerTopic, sinkStartOffset, readinessProbeData);
         for (int i = 0; i < 10; i++) {
             sendTextRecordAndWait(producerTopic, sourceData);
         }
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
+        given().pollDelay(10, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
                         () -> {
-                            // Keep the streaming source active so the last exactly-once transaction
-                            // is forced through a later checkpoint on slow Flink CI axes.
-                            sendTextRecordAndWait(producerTopic, keepAliveData);
                             Assertions.assertTrue(
-                                    checkData(
-                                            consumerTopic,
-                                            sinkStartOffset,
-                                            10,
-                                            sourceData,
-                                            Collections.singletonList(keepAliveData)));
+                                    checkData(consumerTopic, sinkDataStartOffset, 10, sourceData));
                         });
     }
 
