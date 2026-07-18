@@ -16,6 +16,7 @@ The MySQL CDC to Kafka recipe in this section was cross-checked against a Docker
 | CDC from MySQL into Kafka with metadata headers | [MySQL CDC to Kafka](./mysql-cdc-to-kafka.md) |
 | JDBC extraction into object storage | [JDBC to S3](./jdbc-to-s3.md) |
 | Streaming from Kafka into a table format | [Kafka to Iceberg](./kafka-to-iceberg.md) |
+| CDC from PostgreSQL into a table format | [PostgreSQL CDC to Iceberg](./postgresql-cdc-to-iceberg.md) |
 | HTTP ingestion into a relational target | [HTTP to JDBC](./http-to-jdbc.md) |
 | File-based loading into an analytical system | [File to StarRocks](./file-to-starrocks.md) |
 | Multi-table CDC orchestration | [Multi-Table CDC](./multi-table-cdc.md) |
