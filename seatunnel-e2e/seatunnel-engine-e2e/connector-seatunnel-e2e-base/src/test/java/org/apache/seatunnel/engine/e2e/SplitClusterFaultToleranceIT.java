@@ -417,9 +417,11 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -533,12 +535,14 @@ public class SplitClusterFaultToleranceIT {
                                         fileLineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, fileLineNumberFromDir);
+                                Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -553,10 +557,11 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.CANCELED, objectCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -671,9 +676,11 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -787,12 +794,14 @@ public class SplitClusterFaultToleranceIT {
                                         fileLineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, fileLineNumberFromDir);
+                                Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -806,10 +815,11 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.CANCELED, objectCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -1009,12 +1019,14 @@ public class SplitClusterFaultToleranceIT {
                                     log.error(ExceptionUtils.getMessage(e));
                                 }
                                 Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, fileLineNumberFromDir);
+                                Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    100_000L);
             log.warn(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
@@ -1030,10 +1042,11 @@ public class SplitClusterFaultToleranceIT {
                                 Assertions.assertEquals(
                                         JobStatus.CANCELED, waitForJobCompleteFuture.get());
                             });
-            // prove that the task was restarted
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             log.warn(

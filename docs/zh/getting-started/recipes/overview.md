@@ -6,11 +6,14 @@ slug: /getting-started/recipes
 
 这些示例更适合在你已经跑通第一个本地任务之后再阅读。不要按顺序把所有示例都看一遍，而是优先找到最接近你真实 source 和 sink 组合的那条链路。
 
+本节里的 “MySQL CDC 到 Kafka” 这篇教程，在 2026 年 7 月 16 日对照过一条真实的 Docker E2E 链路。页面里的配置、观测结果和前置条件，都是先和那次验证结果核对一致后才更新的。
+
 ## 按业务目标选择示例
 
 | 目标 | 推荐入口 |
 | --- | --- |
 | 从 MySQL CDC 同步到分析型数据库 | [MySQL CDC 到 Doris](./mysql-cdc-to-doris.md) |
+| 从 MySQL CDC 同步到 Kafka，并附带元数据消息头 | [MySQL CDC 到 Kafka](./mysql-cdc-to-kafka.md) |
 | 把 JDBC 数据抽取到对象存储 | [JDBC 到 S3](./jdbc-to-s3.md) |
 | 从 Kafka 流式写入表格式存储 | [Kafka 到 Iceberg](./kafka-to-iceberg.md) |
 | 把 HTTP 数据写入关系型数据库 | [HTTP 到 JDBC](./http-to-jdbc.md) |

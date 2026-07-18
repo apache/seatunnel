@@ -68,6 +68,11 @@ const sidebars = {
                     "label": "Kubernetes",
                     "items": [
                         "getting-started/kubernetes/kubernetes",
+                        "getting-started/kubernetes/local-mode",
+                        "getting-started/kubernetes/hybrid-cluster-mode",
+                        "getting-started/kubernetes/separated-cluster-mode",
+                        "getting-started/kubernetes/configuration",
+                        "getting-started/kubernetes/operations",
                         "getting-started/kubernetes/helm"
                     ]
                 }
@@ -156,6 +161,7 @@ const sidebars = {
                     },
                     "items": [
                         "getting-started/recipes/mysql-cdc-to-doris",
+                        "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
@@ -182,6 +188,7 @@ const sidebars = {
                         "transforms/common-options/common-options"
                     ]
                 },
+                "transforms/recipes",
                 "transforms/calcite",
                 "transforms/calcite-udf",
                 "transforms/copy",
@@ -320,6 +327,22 @@ const sidebars = {
                         "architecture/features/multi-table"
                     ]
                 }
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Edge Agent",
+            "items": [
+                "edge-agent/about",
+                "edge-agent/architecture-overview",
+                "edge-agent/quick-start",
+                "edge-agent/download",
+                "edge-agent/deployment-guide",
+                "edge-agent/configuration",
+                "edge-agent/input-configuration",
+                "edge-agent/output-configuration",
+                "edge-agent/operations",
+                "edge-agent/faq"
             ]
         },
         {

@@ -28,6 +28,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -267,9 +268,21 @@ Current support:
 | Dialect | Supported | Allowed keys |
 |---------|-----------|--------------|
 | MySQL | Yes | `engine`, `charset`, `collate` |
+| TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
+| OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
+| PostgreSQL | Yes | `tablespace`, `fillfactor` |
 | Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
 
 Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
+
+**Dialect notes:**
+
+- **MySQL**: `engine`, `charset`, and `collate` are appended to `CREATE TABLE` and take effect.
+- **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
+- **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission. OceanBase **Oracle-compatible mode** does not support `table_options`; a non-empty map fails at job submission.
+- **PostgreSQL**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH` parameters are not supported). OpenGauss and HighGo inherit the same validation and DDL path via Postgres catalog/dialect.
+
+SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), it also validates blank values and the `fillfactor` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
 
 Example (MySQL auto-create with engine and charset):
 
@@ -295,6 +308,28 @@ sink {
 ```
 
 The generated `CREATE TABLE` statement appends `ENGINE`, `DEFAULT CHARSET`, and `COLLATE` clauses. Keys outside the dialect whitelist (for example `bucket_num`) fail during job submission.
+
+Example (PostgreSQL auto-create with tablespace and fillfactor):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/mydb"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    database = "mydb"
+    table = "public.orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
 
 ### enable_upsert [boolean]
 
@@ -344,7 +379,6 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
-
 
 ## tips
 
@@ -417,6 +451,37 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+Timer flush
+
+Enable timer-based flush by configuring `sink.flush.interval` in the `env` block. The JDBC sink automatically supports timer flush — when `sink.flush.interval` is set, the engine periodically injects a `FlushSignal` into the record stream, and the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
+
+:::tip
+
+Timer flush is not supported when `is_exactly_once = true`. In exactly-once mode the sink uses XA transactions whose boundaries are managed by checkpoints; a timer-triggered flush would break transactional guarantees.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
 }
 ```
 
