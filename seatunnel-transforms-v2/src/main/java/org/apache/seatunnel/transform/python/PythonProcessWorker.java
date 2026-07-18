@@ -141,13 +141,13 @@ class PythonProcessWorker {
     /** Reader connected to the Python worker stdout. */
     private volatile BufferedReader stdoutReader;
 
-    /** Raw stdout pipe closed before joining a collector blocked in {@code readLine()}. */
+    /** Raw stdout pipe closed synchronously only after its collector has stopped. */
     private volatile InputStream stdoutStream;
 
     /** Reader connected to the Python worker stderr. */
     private volatile BufferedReader stderrReader;
 
-    /** Raw stderr pipe closed before joining a collector blocked in {@code readLine()}. */
+    /** Raw stderr pipe closed synchronously only after its collector has stopped. */
     private volatile InputStream stderrStream;
 
     /** Background stderr collector that preserves debug context without polluting stdout. */
@@ -408,6 +408,7 @@ class PythonProcessWorker {
             workerScriptPath = null;
             inlineSourceCodePath = null;
         }
+        publishStdoutTerminal(new IOException("Python worker closed during shutdown"));
         TransformException closeFailure =
                 terminateWorker(
                         currentProcess,
@@ -865,9 +866,9 @@ class PythonProcessWorker {
         Thread collectorThread =
                 new Thread(
                         () -> {
-                            try {
+                            try (BufferedReader reader = errorReader) {
                                 String line;
-                                while ((line = errorReader.readLine()) != null) {
+                                while ((line = reader.readLine()) != null) {
                                     synchronized (stderrTail) {
                                         if (stderrTail.size() == STDERR_TAIL_LIMIT) {
                                             stderrTail.removeFirst();
@@ -892,9 +893,9 @@ class PythonProcessWorker {
         Thread collectorThread =
                 new Thread(
                         () -> {
-                            try {
+                            try (BufferedReader reader = outputReader) {
                                 String line;
-                                while ((line = outputReader.readLine()) != null) {
+                                while ((line = reader.readLine()) != null) {
                                     if (!stdoutMessages.offer(WorkerOutput.line(line))) {
                                         publishStdoutTerminal(
                                                 new IOException(
@@ -995,18 +996,17 @@ class PythonProcessWorker {
                     new IOException("Python stdin writer did not stop after process shutdown"));
             log.warn("Python stdin writer did not terminate after process shutdown");
         }
-        // Close the raw descriptors first. BufferedReader.close() can wait forever for the
-        // collector's reader lock when a detached child inherited the worker's stdout/stderr.
-        closeQuietly(currentStdoutStream, "stdout stream");
-        closeQuietly(currentStderrStream, "stderr stream");
+        // A detached child can retain inherited pipe handles. Closing either the raw stream or
+        // BufferedReader from this thread can then block on Windows, so each collector owns its
+        // reader and task shutdown only closes streams after that collector has stopped.
         interrupted |=
                 waitForThreadToStop(currentStdoutCollectorThread, COLLECTOR_JOIN_TIMEOUT_MILLIS);
         interrupted |=
                 waitForThreadToStop(currentStderrCollectorThread, COLLECTOR_JOIN_TIMEOUT_MILLIS);
-        closeReaderAfterCollectorStops(
-                currentStdoutReader, currentStdoutCollectorThread, "stdout reader");
-        closeReaderAfterCollectorStops(
-                currentStderrReader, currentStderrCollectorThread, "stderr reader");
+        closeProcessOutputAfterCollectorStops(
+                currentStdoutStream, currentStdoutReader, currentStdoutCollectorThread, "stdout");
+        closeProcessOutputAfterCollectorStops(
+                currentStderrStream, currentStderrReader, currentStderrCollectorThread, "stderr");
         deleteQuietly(currentWorkerScriptPath);
         deleteQuietly(currentInlineSourceCodePath);
         TransformException closeFailure = null;
@@ -1117,16 +1117,17 @@ class PythonProcessWorker {
         }
     }
 
-    /** Avoids waiting for a reader lock held by a daemon collector on an inherited pipe. */
-    private void closeReaderAfterCollectorStops(
-            BufferedReader reader, Thread collectorThread, String streamName) {
+    /** Avoids blocking on stream or reader locks held by a collector on an inherited pipe. */
+    private void closeProcessOutputAfterCollectorStops(
+            InputStream stream, BufferedReader reader, Thread collectorThread, String streamName) {
         if (collectorThread != null && collectorThread.isAlive()) {
             log.debug(
                     "Python {} collector is still waiting for an inherited process descriptor",
                     streamName);
             return;
         }
-        closeQuietly(reader, streamName);
+        closeQuietly(reader, streamName + " reader");
+        closeQuietly(stream, streamName + " stream");
     }
 
     /**

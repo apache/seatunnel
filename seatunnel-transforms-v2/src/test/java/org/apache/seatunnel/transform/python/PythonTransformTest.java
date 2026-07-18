@@ -282,24 +282,32 @@ class PythonTransformTest {
         }
     }
 
-    /** Verifies inherited child pipes cannot make direct-worker shutdown block indefinitely. */
+    /** Verifies inherited child pipes cannot block an active row or concurrent shutdown. */
     @Test
     void testCloseIsBoundedWhenChildInheritsWorkerPipes() throws Exception {
         assumePythonAvailable();
 
+        Path markerPath = tempDir.resolve("python-transform-child-pipe-inherited");
+        String escapedMarkerPath = markerPath.toString().replace("\\", "\\\\").replace("'", "\\'");
         Map<String, Object> config = baseConfig();
         config.put(
                 PythonTransformConfig.SOURCE_CODE.key(),
-                "import subprocess\n"
+                "import pathlib\n"
+                        + "import subprocess\n"
                         + "import sys\n"
-                        + "def open(context):\n"
-                        + "    subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'])\n"
+                        + "import time\n"
                         + "def process(row, context):\n"
-                        + "    return [row['name'], row['age']]\n");
+                        + "    subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(9)'])\n"
+                        + "    pathlib.Path('"
+                        + escapedMarkerPath
+                        + "').touch()\n"
+                        + "    while True:\n"
+                        + "        time.sleep(1)\n");
 
         PythonTransform transform = createOpenedTransform(config);
         ExecutorService executor =
-                Executors.newSingleThreadExecutor(
+                Executors.newFixedThreadPool(
+                        2,
                         runnable -> {
                             Thread thread =
                                     new Thread(runnable, "python-transform-bounded-close-test");
@@ -307,7 +315,38 @@ class PythonTransformTest {
                             return thread;
                         });
         try {
-            executor.submit(transform::close).get(5, TimeUnit.SECONDS);
+            Future<SeaTunnelRow> rowFuture =
+                    executor.submit(
+                            () -> transform.map(new SeaTunnelRow(new Object[] {1, "Alice", 20})));
+            long markerDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!Files.exists(markerPath) && System.nanoTime() < markerDeadlineNanos) {
+                Thread.sleep(50L);
+            }
+            Assertions.assertTrue(
+                    Files.exists(markerPath), "Python child should inherit pipes before close");
+
+            Object processWorker = readFieldValue(transform, "processWorker");
+            Process process = (Process) readFieldValue(processWorker, "process");
+            Thread stdoutCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stdoutCollectorThread");
+            Thread stderrCollectorThread =
+                    (Thread) readFieldValue(processWorker, "stderrCollectorThread");
+            Future<?> closeFuture = executor.submit(transform::close);
+
+            ExecutionException rowFailure =
+                    Assertions.assertThrows(
+                            ExecutionException.class, () -> rowFuture.get(5, TimeUnit.SECONDS));
+            ExecutionException closeFailure =
+                    Assertions.assertThrows(
+                            ExecutionException.class, () -> closeFuture.get(7, TimeUnit.SECONDS));
+            Assertions.assertTrue(rowFailure.getCause() instanceof TransformException);
+            Assertions.assertTrue(closeFailure.getCause() instanceof TransformException);
+            Assertions.assertFalse(process.isAlive());
+            waitForThreadToStop(stdoutCollectorThread);
+            waitForThreadToStop(stderrCollectorThread);
+            Assertions.assertFalse(stdoutCollectorThread.isAlive());
+            Assertions.assertFalse(stderrCollectorThread.isAlive());
+            openedTransforms.remove(transform);
         } finally {
             executor.shutdownNow();
         }
