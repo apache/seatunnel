@@ -162,6 +162,7 @@ const sidebars = {
                     "items": [
                         "getting-started/recipes/mysql-cdc-to-doris",
                         "getting-started/recipes/mysql-cdc-to-kafka",
+                        "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
