@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
@@ -161,7 +162,7 @@ class BigQuerySerializerTest {
     }
 
     @Test
-    void testConvertWithSequenceNumber() {
+    void testConvertLongSequenceNumberToHex() {
         List<Column> columns =
                 Arrays.asList(
                         PhysicalColumn.of("id", BasicType.LONG_TYPE, null, null, true, null, null),
@@ -172,13 +173,65 @@ class BigQuerySerializerTest {
         CatalogTable table = createCatalogTable(columns);
         BigQuerySerializer serializer = new BigQuerySerializer(table, createConfig("updated_at"));
 
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1L, "Alice", 1700000000L});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1L, "Alice", 255L});
         row.setRowKind(RowKind.INSERT);
 
         JSONObject result = serializer.convert(row, true);
 
         assertEquals("UPSERT", result.getString(CHANGE_TYPE));
-        assertEquals(1700000000L, result.getLong(SEQUENCE_NUM));
+        assertEquals("FF", result.getString(SEQUENCE_NUM));
+    }
+
+    @Test
+    void testConvertIntSequenceNumberToHex() {
+        assertEquals("FF", convertSequenceNumber(255, BasicType.INT_TYPE));
+    }
+
+    @Test
+    void testPreserveEncodedStringSequenceNumber() {
+        assertEquals("123", convertSequenceNumber("123", BasicType.STRING_TYPE));
+    }
+
+    @Test
+    void testAllowMultiPartSequenceNumber() {
+        assertEquals("FFF/ABC", convertSequenceNumber("FFF/ABC", BasicType.STRING_TYPE));
+    }
+
+    @Test
+    void testRejectNullSequenceNumber() {
+        assertInvalidSequenceNumber(null, BasicType.LONG_TYPE, "must not be null");
+    }
+
+    @Test
+    void testRejectNegativeSequenceNumber() {
+        assertInvalidSequenceNumber(-1L, BasicType.LONG_TYPE, "must not be negative");
+    }
+
+    @Test
+    void testRejectEmptySequenceNumber() {
+        assertInvalidSequenceNumber("", BasicType.STRING_TYPE, "must not be empty");
+    }
+
+    @Test
+    void testRejectInvalidHexSequenceNumber() {
+        assertInvalidSequenceNumber(
+                "FFF/XYZ", BasicType.STRING_TYPE, "only hexadecimal characters");
+    }
+
+    @Test
+    void testRejectSequenceNumberSectionLongerThan16Characters() {
+        assertInvalidSequenceNumber(
+                "1234567890ABCDEF0", BasicType.STRING_TYPE, "at most 16 characters");
+    }
+
+    @Test
+    void testRejectSequenceNumberWithMoreThan4Sections() {
+        assertInvalidSequenceNumber("1/2/3/4/5", BasicType.STRING_TYPE, "at most 4 sections");
+    }
+
+    @Test
+    void testRejectEmptySequenceNumberSection() {
+        assertInvalidSequenceNumber("1//2", BasicType.STRING_TYPE, "empty section");
     }
 
     @Test
@@ -262,5 +315,29 @@ class BigQuerySerializerTest {
         assertThrows(
                 SeaTunnelRuntimeException.class,
                 () -> new BigQuerySerializer(table, createConfig("non_existent_col")));
+    }
+
+    private String convertSequenceNumber(Object sequenceNumber, SeaTunnelDataType<?> dataType) {
+        BigQuerySerializer serializer = createSequenceSerializer(dataType);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1L, sequenceNumber});
+        row.setRowKind(RowKind.INSERT);
+        return serializer.convert(row, true).getString(SEQUENCE_NUM);
+    }
+
+    private void assertInvalidSequenceNumber(
+            Object sequenceNumber, SeaTunnelDataType<?> dataType, String expectedMessage) {
+        SeaTunnelRuntimeException exception =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> convertSequenceNumber(sequenceNumber, dataType));
+        assertTrue(exception.getMessage().contains(expectedMessage));
+    }
+
+    private BigQuerySerializer createSequenceSerializer(SeaTunnelDataType<?> dataType) {
+        List<Column> columns =
+                Arrays.asList(
+                        PhysicalColumn.of("id", BasicType.LONG_TYPE, null, null, true, null, null),
+                        PhysicalColumn.of("sequence", dataType, null, null, true, null, null));
+        return new BigQuerySerializer(createCatalogTable(columns), createConfig("sequence"));
     }
 }

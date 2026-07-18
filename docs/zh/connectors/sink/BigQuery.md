@@ -73,7 +73,9 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 如果没有配置 `sequence_number_column`，则不会发送 `_CHANGE_SEQUENCE_NUMBER`，BigQuery 也不会执行基于 sequence number 的去重。
 
 > **注意**
-> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。该列的值必须能够转换为 `long` 类型。
+> - BigQuery 要求 `_CHANGE_SEQUENCE_NUMBER` 是十六进制 `STRING`。对于整数列，connector 会将非负值转换为十六进制字符串；对于字符串列，connector 会将值视为已编码的十六进制 sequence number，仅进行校验而不转换。
+> - sequence number 最多可以包含 4 个以 `/` 分隔的 section，每个 section 最多包含 16 个十六进制字符。Null、负数、空值或格式错误的值会被拒绝。
+> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。
 > - 如果要在 streaming 模式下启用 BigQuery 侧的去重，目标 BigQuery 表必须定义 Primary Key。否则，无论是否配置 sequence number，BigQuery 都会将每次写入视为 append 操作。
 
 ### emulator_host
