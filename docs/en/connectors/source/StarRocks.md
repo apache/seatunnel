@@ -19,6 +19,10 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
+## Data Type Mapping
+
+StarRocks native `JSON` columns map to the SeaTunnel `JSON` logical type. JSON values are represented as valid JSON text inside SeaTunnel.
+
 ## Options
 
 | name                    | type    | required | default value     |

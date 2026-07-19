@@ -240,9 +240,39 @@ public class DorisIT extends AbstractDorisIT {
             String sinkSql =
                     String.format("select * from %s.%s order by F_ID", sinkDB, DUPLICATE_TABLE);
             checkSourceAndSinkTableDate(sourceSql, sinkSql, DUPLICATE_TABLE_COLUMN_STRING);
+            assertJsonColumnsRoundTrip();
             clearDuplicateTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
+        }
+    }
+
+    /**
+     * Verifies Doris JSON and JSONB values remain structured JSON after source-to-sink transfer.
+     */
+    private void assertJsonColumnsRoundTrip() throws Exception {
+        String sourceSql =
+                String.format(
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID LIMIT 1",
+                        sourceDB, DUPLICATE_TABLE);
+        String sinkSql =
+                String.format(
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID LIMIT 1",
+                        sinkDB, DUPLICATE_TABLE);
+        try (Statement sourceStatement = conn.createStatement();
+                Statement sinkStatement = conn.createStatement();
+                ResultSet sourceResult = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResult = sinkStatement.executeQuery(sinkSql)) {
+            Assertions.assertTrue(sourceResult.next());
+            Assertions.assertTrue(sinkResult.next());
+            for (String column : new String[] {"F_JSON", "F_JSONB"}) {
+                String sourceJson = sourceResult.getString(column);
+                String sinkJson = sinkResult.getString(column);
+                Assertions.assertTrue(JsonUtils.stringToJsonNode(sourceJson).isObject());
+                Assertions.assertEquals(
+                        JsonUtils.stringToJsonNode(sourceJson),
+                        JsonUtils.stringToJsonNode(sinkJson));
+            }
         }
     }
 

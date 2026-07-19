@@ -305,9 +305,23 @@ public class DorisTypeConvertorV2Test {
                 BasicTypeDefine.builder().name("test").columnType("json").dataType("json").build();
         Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(DorisTypeConverterV2.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    /**
+     * Verifies that SeaTunnel JSON is created as Doris JSON.
+     *
+     * <p>This protects native JSON table creation from falling back to a text column.
+     */
+    @Test
+    public void testReconvertJson() {
+        Column column = PhysicalColumn.builder().name("test").dataType(BasicType.JSON_TYPE).build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_JSON, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_JSON, typeDefine.getDataType());
     }
 
     @Test

@@ -172,7 +172,7 @@ You can use the following placeholders
 | STRING          | STRING                                  |
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
-| JSON            | STRING                                  |
+| JSON<br/>JSONB  | JSON                                    |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |

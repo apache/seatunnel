@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | STRING         | STRING                                  |
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
-| JSON           | STRING                                  |
+| JSON<br/>JSONB | JSON                                    |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |

@@ -183,9 +183,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.scale(0);
                 break;
             case DORIS_STRING:
-            case DORIS_JSON:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
+                break;
+            case DORIS_JSON:
+            case DORIS_JSONB:
+                builder.dataType(BasicType.JSON_TYPE);
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
@@ -370,6 +373,10 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 reconvertBuildArrayInternal(elementType, builder, column.getName());
                 break;
             case ROW:
+                builder.columnType(DORIS_JSON);
+                builder.dataType(DORIS_JSON);
+                break;
+            case JSON:
                 builder.columnType(DORIS_JSON);
                 builder.dataType(DORIS_JSON);
                 break;

@@ -189,10 +189,13 @@ sink {
 | ARRAY               | STRING              |
 | MAP                 | STRING              |
 | BYTES               | STRING              |
+| JSON                | JSON                |
 
 #### Supported import data formats
 
 The supported formats include CSV and JSON
+
+Native StarRocks `JSON` columns require JSON Stream Load. Set `starrocks.config.format = "JSON"`; CSV Stream Load does not support JSON-formatted columns.
 
 ## Task Example
 

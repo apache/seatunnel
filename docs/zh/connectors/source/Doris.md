@@ -57,6 +57,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+| JSON<br/>JSONB                       | JSON                                                                                                                                                |
 
 ## 源选项
 

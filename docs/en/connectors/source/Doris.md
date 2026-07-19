@@ -57,6 +57,7 @@ Used to read data from Apache Doris.
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
+| JSON<br/>JSONB                       | JSON                                                                                                                                                |
 
 ## Source Options
 

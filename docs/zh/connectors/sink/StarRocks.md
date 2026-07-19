@@ -183,10 +183,13 @@ sink {
 | ARRAY         | STRING        |
 | MAP           | STRING        |
 | BYTES         | STRING        |
+| JSON          | JSON          |
 
 #### 支持导入的数据格式
 
 StarRocks数据接收器支持的格式有CSV和JSON格式。
+
+StarRocks 原生 `JSON` 列必须使用 JSON Stream Load，需设置 `starrocks.config.format = "JSON"`；CSV Stream Load 不支持 JSON 格式的列。
 
 ## 任务示例
 

@@ -352,9 +352,10 @@ public class StarRocksCatalog implements Catalog {
             case TEXT:
             case MEDIUMTEXT:
             case LONGTEXT:
-            case JSON:
             case ENUM:
                 return BasicType.STRING_TYPE;
+            case JSON:
+                return BasicType.JSON_TYPE;
             case BINARY:
             case VARBINARY:
             case TINYBLOB:

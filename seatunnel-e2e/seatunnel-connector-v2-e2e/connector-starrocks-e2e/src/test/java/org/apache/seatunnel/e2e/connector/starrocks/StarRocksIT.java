@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
@@ -84,7 +85,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String SR_DRIVER_CONTAINER_PATH =
             "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
     private static final String COLUMN_STRING =
-            "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
+            "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL, JSON_COL";
 
     private static final String DDL_SOURCE =
             "create table "
@@ -106,7 +107,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL VARCHAR(11),\n"
                     + "  STRING_COL     STRING,\n"
                     + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE\n"
+                    + "  DATE_COL       DATE,\n"
+                    + "  JSON_COL       JSON\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
                     + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
@@ -135,7 +137,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL VARCHAR(11),\n"
                     + "  STRING_COL     STRING,\n"
                     + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE\n"
+                    + "  DATE_COL       DATE,\n"
+                    + "  JSON_COL       JSON\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
                     + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
@@ -189,9 +192,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL,\n"
                     + "  STRING_COL,\n"
                     + "  DATETIME_COL,\n"
-                    + "  DATE_COL\n"
+                    + "  DATE_COL,\n"
+                    + "  JSON_COL\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,parse_json(?)\n"
                     + ")";
 
     private static final String INIT_DATA_SQL_2 =
@@ -213,9 +217,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL,\n"
                     + "  STRING_COL,\n"
                     + "  DATETIME_COL,\n"
-                    + "  DATE_COL\n"
+                    + "  DATE_COL,\n"
+                    + "  JSON_COL\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,parse_json(?)\n"
                     + ")";
 
     private Connection jdbcConnection;
@@ -298,7 +303,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                 "VARCHAR_COL",
                                 "STRING_COL",
                                 "2022-08-13 17:35:59",
-                                "2022-08-13"
+                                "2022-08-13",
+                                String.format("{\"id\":%s,\"nested\":[true,2]}", i)
                             });
             rows.add(row);
         }
@@ -489,6 +495,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
 
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
+        Assertions.assertEquals(
+                BasicType.JSON_TYPE,
+                catalogTable.getTableSchema().getColumn("JSON_COL").getDataType());
         catalogTable =
                 CatalogTable.of(
                         catalogTable.getTableId(),
