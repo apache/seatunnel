@@ -43,11 +43,14 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | DECIMAL(x,y)（获取指定列的大小>38）                                       | DECIMAL(38,18)     |
 | REAL<br/>FLOAT4                                                          | FLOAT              |
 | DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT<br/>                    | DOUBLE             |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT| STRING             |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>OBJECT| STRING             |
+| VARIANT                                                        | JSON               |
 | DATE                                                                     | DATE               |
 | TIME                                                                     | TIME               |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
 | BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                          | BYTES              |
+
+SeaTunnel 自动生成插入语句时，会使用 `PARSE_JSON` 包装 JSON 字段，使其 JSON 结构存入 Snowflake `VARIANT`。使用自定义 `query` 时，需要在查询中显式添加 Snowflake 所需的转换函数。
 
 ## 配置选项
 

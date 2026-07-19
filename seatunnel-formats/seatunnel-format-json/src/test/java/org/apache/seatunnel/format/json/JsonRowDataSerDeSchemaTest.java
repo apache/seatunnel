@@ -62,6 +62,7 @@ import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.JSON_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
@@ -73,6 +74,55 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    /** Verifies JSON logical values retain their JSON structure and null semantics. */
+    @Test
+    public void testJsonLogicalTypeSerDe() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "object", "array", "string", "number", "boolean", "jsonNull", "sqlNull"
+                        },
+                        new SeaTunnelDataType[] {
+                            JSON_TYPE, JSON_TYPE, JSON_TYPE, JSON_TYPE, JSON_TYPE, JSON_TYPE,
+                            JSON_TYPE
+                        });
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
+        JsonDeserializationSchema deserializer =
+                new JsonDeserializationSchema(catalogTable, false, false);
+        JsonSerializationSchema serializer = new JsonSerializationSchema(schema);
+
+        String input =
+                "{\"object\":{\"id\":1},\"array\":[true,2],\"string\":\"value\",\"number\":42.5,\"boolean\":true,\"jsonNull\":null}";
+        SeaTunnelRow row = deserializer.deserialize(input.getBytes(StandardCharsets.UTF_8));
+
+        assertEquals("{\"id\":1}", row.getField(0));
+        assertEquals("[true,2]", row.getField(1));
+        assertEquals("\"value\"", row.getField(2));
+        assertEquals("42.5", row.getField(3));
+        assertEquals("true", row.getField(4));
+        assertEquals("null", row.getField(5));
+        assertNull(row.getField(6));
+        assertEquals(
+                "{\"object\":{\"id\":1},\"array\":[true,2],\"string\":\"value\",\"number\":42.5,\"boolean\":true,\"jsonNull\":null,\"sqlNull\":null}",
+                new String(serializer.serialize(row), StandardCharsets.UTF_8));
+    }
+
+    /** Verifies invalid JSON logical values fail serialization. */
+    @Test
+    public void testJsonLogicalTypeRejectsInvalidJson() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"payload"}, new SeaTunnelDataType[] {JSON_TYPE});
+        JsonSerializationSchema serializer = new JsonSerializationSchema(schema);
+        for (String invalidJson :
+                new String[] {"not-json", "", "   ", "true false", "{\"incomplete\":"}) {
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {invalidJson});
+            assertThrows(
+                    SeaTunnelRuntimeException.class,
+                    () -> serializer.serialize(row),
+                    "Expected invalid JSON to be rejected: " + invalidJson);
+        }
+    }
 
     @Test
     public void testSerDe() throws Exception {
