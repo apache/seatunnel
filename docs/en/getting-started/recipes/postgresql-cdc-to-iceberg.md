@@ -4,9 +4,9 @@ title: PostgreSQL CDC to Iceberg with field shaping and upserts
 
 # PostgreSQL CDC to Iceberg with field shaping and upserts
 
-This recipe captures an initial PostgreSQL snapshot and subsequent changes, cleans and enriches each row, and maintains the current state in an Iceberg table. The accompanying Docker E2E test executes this exact pipeline and verifies snapshot, update, insert, and delete events against the Iceberg table.
+This recipe captures an initial PostgreSQL snapshot and subsequent changes, cleans and enriches each row, and maintains the current state in an Iceberg table. The example uses PostgreSQL 14 with `pgoutput` and covers snapshot, update, insert, and delete events.
 
-The tested pipeline is:
+The pipeline is:
 
 - `Postgres-CDC` reads `sales.inventory.customer_orders` through PostgreSQL logical replication.
 - `Sql` trims customer names, normalizes status values, and fills `sync_source`.
@@ -70,9 +70,9 @@ ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
 
 7. Choose an empty Iceberg warehouse path writable by every SeaTunnel worker. A local `file://` warehouse is suitable only when all workers see the same filesystem. Use HDFS, S3, or another shared catalog storage for a distributed cluster.
 
-## Source data used by the validation
+## Prepare the source data
 
-The Docker E2E test runs PostgreSQL 14 with `pgoutput` and creates this table:
+Create the source schema and table in PostgreSQL 14:
 
 ```sql
 CREATE SCHEMA inventory;
@@ -92,7 +92,7 @@ INSERT INTO inventory.customer_orders VALUES
   (1002, 'Bob Li', 80.00, 'paid', '2026-07-18 09:05:00');
 ```
 
-After the initial snapshot reaches Iceberg, the test executes:
+After the initial snapshot reaches Iceberg, run the following changes in PostgreSQL:
 
 ```sql
 UPDATE inventory.customer_orders
@@ -105,9 +105,9 @@ INSERT INTO inventory.customer_orders VALUES
 DELETE FROM inventory.customer_orders WHERE id = 1002;
 ```
 
-## Exact job config covered by Docker E2E
+## Complete job configuration
 
-The following is the exact HOCON pipeline executed by the E2E test. For a normal deployment, replace the Docker hostname, credentials, slot name, and warehouse path. Each concurrently running CDC job on the same PostgreSQL instance must use a distinct `slot.name`.
+The following HOCON config implements the complete pipeline. Replace the example hostname, credentials, slot name, and warehouse path for your environment. Each concurrently running CDC job on the same PostgreSQL instance must use a distinct `slot.name`.
 
 ```hocon
 env {
@@ -180,7 +180,7 @@ After the incremental SQL is committed and the next Iceberg checkpoint completes
 | 1001 | Alice Zhang | 150.75 | PAID | postgresql_cdc |
 | 1003 | Carol Wang | 42.00 | PENDING | postgresql_cdc |
 
-The E2E test reads the Iceberg snapshot directly and asserts the exact primary-key set and every transformed field shown above. Row `1002` must no longer exist.
+Query the Iceberg table and verify the exact primary-key set and transformed fields shown above. Row `1002` must no longer exist.
 
 ## Operational checks
 

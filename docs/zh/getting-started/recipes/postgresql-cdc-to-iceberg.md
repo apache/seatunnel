@@ -4,9 +4,9 @@ title: PostgreSQL CDC 到 Iceberg：字段整形与 Upsert
 
 # PostgreSQL CDC 到 Iceberg：字段整形与 Upsert
 
-这个场景会先读取 PostgreSQL 全量快照，再持续捕获增量变更，对字段进行清洗和补充，最后在 Iceberg 中维护最新状态。配套的 Docker E2E 测试会执行完全相同的链路，并直接读取 Iceberg 表校验快照、更新、新增和删除事件。
+这个场景会先读取 PostgreSQL 全量快照，再持续捕获增量变更，对字段进行清洗和补充，最后在 Iceberg 中维护最新状态。示例使用 PostgreSQL 14 和 `pgoutput`，覆盖快照、更新、新增和删除事件。
 
-经过验证的链路是：
+完整链路是：
 
 - `Postgres-CDC` 通过 PostgreSQL 逻辑复制读取 `sales.inventory.customer_orders`。
 - `Sql` 清理客户名称、统一状态值，并填充 `sync_source`。
@@ -70,9 +70,9 @@ ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
 
 7. 选择所有 SeaTunnel Worker 都能访问且可写的空 Iceberg warehouse。只有所有 Worker 共享同一文件系统时才适合使用本地 `file://` 路径；分布式集群应使用 HDFS、S3 或其他共享 catalog 存储。
 
-## 验证使用的源数据
+## 准备源数据
 
-Docker E2E 使用 PostgreSQL 14 和 `pgoutput`，并创建以下表：
+在 PostgreSQL 14 中创建源 schema 和表：
 
 ```sql
 CREATE SCHEMA inventory;
@@ -92,7 +92,7 @@ INSERT INTO inventory.customer_orders VALUES
   (1002, 'Bob Li', 80.00, 'paid', '2026-07-18 09:05:00');
 ```
 
-初始快照进入 Iceberg 后，测试会执行：
+初始快照进入 Iceberg 后，在 PostgreSQL 中执行以下变更：
 
 ```sql
 UPDATE inventory.customer_orders
@@ -105,9 +105,9 @@ INSERT INTO inventory.customer_orders VALUES
 DELETE FROM inventory.customer_orders WHERE id = 1002;
 ```
 
-## Docker E2E 覆盖的完整任务配置
+## 完整任务配置
 
-下面是 E2E 测试实际执行的 HOCON。用于真实环境时，需要替换 Docker 主机名、账号、slot 名称和 warehouse 路径。同一个 PostgreSQL 实例上的并发 CDC 任务必须使用不同的 `slot.name`。
+下面的 HOCON 实现了完整链路。请按实际环境替换示例主机名、账号、slot 名称和 warehouse 路径。同一个 PostgreSQL 实例上的并发 CDC 任务必须使用不同的 `slot.name`。
 
 ```hocon
 env {
@@ -180,7 +180,7 @@ slot.name = "seatunnel_sales_orders"
 | 1001 | Alice Zhang | 150.75 | PAID | postgresql_cdc |
 | 1003 | Carol Wang | 42.00 | PENDING | postgresql_cdc |
 
-E2E 测试会直接读取 Iceberg 快照，精确断言上述主键集合和每个转换字段；被删除的 `1002` 不得继续存在。
+查询 Iceberg 表并核对上述主键集合和每个转换字段；被删除的 `1002` 不得继续存在。
 
 ## 运行检查
 
