@@ -90,8 +90,10 @@ cd "apache-seatunnel-${version}"
 ## 下一步
 
 - 如果你想看完整本地链路，请继续看 [SeaTunnel 引擎快速开始](quick-start-seatunnel-engine.md)。
-- 如果你想直接看真实源端到目标端示例，请从下面这些教程开始：
+- 如果你想直接看一条刚完成端到端核对的新教程，请先看 [MySQL CDC 到 Kafka](../recipes/mysql-cdc-to-kafka.md)。
+- 如果你想按别的链路形态继续阅读，再看下面这些示例：
   - [MySQL CDC 到 Doris](../recipes/mysql-cdc-to-doris.md)
+  - [MySQL CDC 到 Kafka](../recipes/mysql-cdc-to-kafka.md)
   - [JDBC 到 S3](../recipes/jdbc-to-s3.md)
   - [Kafka 到 Iceberg](../recipes/kafka-to-iceberg.md)
   - [Http 到 JDBC](../recipes/http-to-jdbc.md)
