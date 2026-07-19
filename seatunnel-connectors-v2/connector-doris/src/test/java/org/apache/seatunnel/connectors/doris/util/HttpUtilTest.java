@@ -74,7 +74,7 @@ public class HttpUtilTest {
                                             new ByteArrayInputStream(
                                                     payload.getBytes(StandardCharsets.UTF_8))))
                             .build();
-            try (CloseableHttpClient httpClient = new HttpUtil().getHttpClient();
+            try (CloseableHttpClient httpClient = new HttpUtil().getStreamLoadHttpClient();
                     CloseableHttpResponse response = httpClient.execute(put)) {
                 Assertions.assertEquals(200, response.getStatusLine().getStatusCode());
                 EntityUtils.consume(response.getEntity());
