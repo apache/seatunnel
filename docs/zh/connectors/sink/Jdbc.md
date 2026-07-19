@@ -50,7 +50,7 @@ JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余�
 
 ## 快速入门：PostgreSQL
 
-下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份完整配置已经通过 PostgreSQL 14 的 Docker 端到端测试，测试覆盖了示例数据写入，并逐项校验了最终数据库值。
+下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份配置和预期结果已经在 PostgreSQL 14 中验证，包括示例数据写入和最终数据库值。
 
 1. 按照[使用依赖](#使用依赖)的说明放置兼容版本的 PostgreSQL JDBC 驱动。
 
@@ -511,7 +511,7 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                              |
 | Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                 |
 | sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                          |
-| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
+| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                   | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
 | StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |
 | db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                  |
 | saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                     |
