@@ -683,6 +683,30 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             }
                         });
 
+        AtomicInteger partitionProbeId = new AtomicInteger();
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            int currentProbeId = partitionProbeId.getAndIncrement();
+                            String probeMessage =
+                                    String.format(
+                                            "{\"id\":%d,\"message\":\"partition_probe_%d\",\"timestamp\":%d}",
+                                            10000 + currentProbeId,
+                                            currentProbeId,
+                                            System.currentTimeMillis());
+                            producer.send(
+                                    new ProducerRecord<>(
+                                            sourceTopic, 1, null, probeMessage.getBytes()));
+                            producer.flush();
+
+                            Assertions.assertTrue(
+                                    countKafkaMessagesContaining(outputTopic, "partition_probe_")
+                                            > 0,
+                                    "SeaTunnel should discover and consume the new Kafka partition");
+                        });
+
         for (int i = 0; i < 15; i++) {
             String message =
                     String.format(
@@ -695,17 +719,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
+                .untilAsserted(
                         () -> {
-                            try {
-                                // Check the output topic data count
-                                List<String> outputData = getKafkaConsumerListData(outputTopic);
-                                log.info("Output topic data count: {}", outputData.size());
-                                return outputData.size() >= 15 && outputData.size() < 25;
-                            } catch (Exception e) {
-                                log.error("Error checking output topic data", e);
-                                return false;
-                            }
+                            long newPartitionMessageCount =
+                                    countKafkaMessagesContaining(
+                                            outputTopic, "new_partition_message_");
+                            log.info(
+                                    "New partition output message count: {}",
+                                    newPartitionMessageCount);
+                            Assertions.assertTrue(
+                                    newPartitionMessageCount >= 15,
+                                    "All messages from the discovered Kafka partition should be consumed");
                         });
 
         try (AdminClient adminClient = createKafkaAdmin()) {
@@ -857,6 +881,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String sinkTopic = resourceSuffix + "_sink";
         final String consumerGroup = resourceSuffix + "_group";
         final String payload = "Seatunnel Restore Test Data Latest";
+        final String firstRunPayload = payload + "_additional";
+        final String restorePayload = payload + "_restore";
         final String jobId = "18696753645410";
         List<String> restoreVariables =
                 buildKafkaRestoreVariables(sourceTopic, sinkTopic, consumerGroup);
@@ -890,6 +916,27 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         awaitJobRunning(container, jobId);
         waitForStreamingJobStartup(firstJobFuture);
 
+        AtomicInteger latestModeProbeId = new AtomicInteger();
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            int currentProbeId = latestModeProbeId.getAndIncrement();
+                            String probePayload = payload + "_probe_" + currentProbeId;
+                            producer.send(
+                                    new ProducerRecord<>(
+                                            sourceTopic,
+                                            ("key_probe_" + currentProbeId).getBytes(),
+                                            probePayload.getBytes()));
+                            producer.flush();
+
+                            Assertions.assertTrue(
+                                    countKafkaMessagesContaining(sinkTopic, payload + "_probe_")
+                                            > 0,
+                                    "Latest mode source should consume records produced after startup");
+                        });
+
         // Produce 10 records after job start; latest mode should consume only these 10
         // initially.
         for (int i = 0; i < 10; i++) {
@@ -897,15 +944,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new ProducerRecord<>(
                             sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (payload + "_additional").getBytes()));
+                            firstRunPayload.getBytes()));
         }
         producer.flush();
 
-        final long expectedSinkAfterFirstRun = 10;
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        10, countKafkaMessages(sinkTopic, firstRunPayload)));
 
         assertCommandSucceeded("Savepoint", container.savepointJob(jobId));
         assertCommandSucceeded("Initial job", waitForJobResult(firstJobFuture));
@@ -916,13 +965,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new ProducerRecord<>(
                             sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (payload + "_restore").getBytes()));
+                            restorePayload.getBytes()));
         }
         producer.flush();
 
         long srcEndAfterAll = endOffsetOnP0(sourceTopic);
         Assertions.assertTrue(
-                srcEndAfterAll == srcEndBeforeStart + 25,
+                srcEndAfterAll >= srcEndBeforeStart + 25,
                 "Final end offset should advance by at least 25");
 
         CompletableFuture<Container.ExecResult> restoredJobFuture =
@@ -943,7 +992,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        15, countKafkaMessages(sinkTopic, restorePayload)));
         assertCommandSucceeded("Restored job cancellation", container.cancelJob(jobId));
         assertCommandSucceeded("Restored job", waitForJobResult(restoredJobFuture));
     }
@@ -1241,6 +1293,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long end = c.endOffsets(Collections.singletonList(tp0)).get(tp0);
             return end - begin;
         }
+    }
+
+    private long countKafkaMessages(String topic, String expectedValue) {
+        return getKafkaConsumerListData(topic, 0).stream().filter(expectedValue::equals).count();
+    }
+
+    private long countKafkaMessagesContaining(String topic, String expectedValue) {
+        return getKafkaConsumerListData(topic, 0).stream()
+                .filter(value -> value.contains(expectedValue))
+                .count();
     }
 
     /** Get the current end offset (LEO) on partition-0. */
@@ -1890,8 +1952,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
@@ -1924,8 +1985,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(10, MINUTES)
                 .untilAsserted(

@@ -12,16 +12,17 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 ## 关键特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-用于从 My Hours 读取数据。
+用于通过 My Hours REST API 读取数据。连接器会先使用配置的 `email` 和 `password` 登录获取访问令牌，
+然后在后续请求中自动携带该令牌。
 
 ## 支持的数据源信息
 
@@ -34,26 +35,26 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 ## 源选项
 
-| 参数名                         | 类型      | 必须 | 默认值   | 描述                                                                                          |
-|-----------------------------|---------|----|-------|---------------------------------------------------------------------------------------------|
-| url                         | String  | 是  | -     | HTTP 请求 URL                                                                                 |
-| email                       | String  | 是  | -     | My Hours 登录电子邮件地址                                                                           |
-| password                    | String  | 是  | -     | My Hours 登录密码                                                                               |
-| schema                      | Config  | 否  | -     | HTTP 和 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
-| schema.fields               | Config  | 否  | -     | 上游数据的模式字段                                                                                   |
-| json_field                  | Config  | 否  | -     | 此参数帮助您配置模式，因此此参数必须与 schema 一起使用。                                                            |
-| content_json                | String  | 否  | -     | 此参数可以获取一些 JSON 数据。                                                                          |
-| format                      | String  | 否  | json  | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。                                                      |
-| method                      | String  | 否  | get   | HTTP 请求方法，仅支持 GET、POST 方法。                                                                  |
-| headers                     | Map     | 否  | -     | HTTP 请求头                                                                                    |
-| params                      | Map     | 否  | -     | HTTP 参数                                                                                     |
-| body                        | String  | 否  | -     | HTTP 请求体                                                                                    |
-| poll_interval_millis        | Int     | 否  | -     | 流模式下请求 HTTP API 的间隔（毫秒）                                                                     |
-| retry                       | Int     | 否  | -     | 如果 HTTP 请求返回 `IOException` 的最大重试次数                                                          |
-| retry_backoff_multiplier_ms | Int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）                                                                       |
-| retry_backoff_max_ms        | Int     | 否  | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒）                                                                     |
-| enable_multi_lines          | Boolean | 否  | false | 是否启用多行模式                                                                                    |
-| common-options              |         | 否  | -     | 源插件通用参数                                                                                     |
+| 参数名                         | 类型      | 必须 | 默认值 | 描述                                                                                               |
+|-------------------------------|---------|------|--------|----------------------------------------------------------------------------------------------------|
+| url                           | String  | 是   | -      | My Hours API 请求 URL。                                                                            |
+| email                         | String  | 是   | -      | My Hours 登录邮箱。                                                                                |
+| password                      | String  | 是   | -      | My Hours 登录密码。                                                                                |
+| schema                        | Config  | 否   | -      | 当 `format` 为 `json` 时需要配置。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| schema.fields                 | Config  | 否   | -      | 上游数据字段。                                                                                      |
+| json_field                    | Config  | 否   | -      | 通过 JSONPath 从响应中抽取字段，需要与 `schema` 一起使用。                                           |
+| content_field                 | String  | 否   | -      | 在解析 schema 前抽取 JSON 响应中的一部分，例如 `$.store.book.*`。                                  |
+| format                        | String  | 否   | text   | 响应格式，支持 `json` 和 `text`。使用 `schema`、`json_field` 或 `content_field` 时请设置为 `json`。 |
+| method                        | String  | 否   | GET    | HTTP 请求方法，支持 `GET` 和 `POST`。                                                              |
+| headers                       | Map     | 否   | -      | 额外 HTTP 请求头。连接器登录后会自动添加 My Hours `Authorization` 请求头。                         |
+| params                        | Map     | 否   | -      | HTTP 查询参数。                                                                                    |
+| body                          | String  | 否   | -      | HTTP 请求体。                                                                                      |
+| poll_interval_millis          | Int     | 否   | -      | 流模式下请求 HTTP API 的间隔，单位毫秒。                                                            |
+| retry                         | Int     | 否   | -      | 请求抛出 `IOException` 时的最大重试次数。                                                           |
+| retry_backoff_multiplier_ms   | Int     | 否   | 100    | 重试退避倍数，单位毫秒。                                                                            |
+| retry_backoff_max_ms          | Int     | 否   | 10000  | 最大重试退避时间，单位毫秒。                                                                        |
+| json_filed_missed_return_null | Boolean | 否   | false  | 配置的 JSON 字段缺失时返回 `null`。                                                                |
+| common-options                |         | 否   | -      | 源插件通用参数。                                                                                   |
 
 ## 如何创建 My Hours 数据同步作业
 
@@ -64,10 +65,12 @@ env {
 }
 
 source {
-  MyHours{
+  MyHours {
     url = "https://api2.myhours.com/api/Projects/getAll"
     email = "seatunnel@test.com"
-    password = "seatunnel"
+    password = "********"
+    method = "GET"
+    format = "json"
     schema {
        fields {
          name = string
@@ -112,9 +115,9 @@ sink {
 
 当您指定格式为 `json` 时，您还应该指定 schema 选项。
 
-### content_json
+### content_field
 
-此参数可以获取一些 JSON 数据。如果您只需要 'book' 部分中的数据，配置 `content_field = "$.store.book.*"`。
+此参数可以获取响应中的一部分 JSON 数据。如果只需要 `book` 部分，可配置 `content_field = "$.store.book.*"`。
 
 ### json_field
 
@@ -123,4 +126,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-

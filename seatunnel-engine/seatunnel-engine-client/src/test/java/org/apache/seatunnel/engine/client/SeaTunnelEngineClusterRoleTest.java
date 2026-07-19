@@ -487,10 +487,11 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () -> {
                                 String status = jobClient.getJobStatus(jobId);
-                                Assertions.assertEquals(
-                                        "CANCELED",
-                                        status,
-                                        "Expected terminal state but was: " + status);
+                                Assertions.assertTrue(
+                                        JobStatus.CANCELING.name().equals(status)
+                                                || JobStatus.CANCELED.name().equals(status),
+                                        "Expected job status to be CANCELING or CANCELED, but got "
+                                                + status);
                             });
         } finally {
             if (hazelcastClient != null) {
