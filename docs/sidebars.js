@@ -165,6 +165,7 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
+                        "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
                         "getting-started/recipes/file-to-starrocks",
                         "getting-started/recipes/multi-table-cdc"
