@@ -41,16 +41,29 @@ public class MetricsApiTest {
 
     @BeforeAll
     public static void before() {
+        instance = createHazelcastInstance();
+    }
+
+    private static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getEngineConfig().getTelemetryConfig().getMetric().setEnabled(true);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(true);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setPort(8080);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
-        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
     @Test
     public void metricsApiTest() {
+        assertMetricsApi();
+
+        instance.shutdown();
+        instance = createHazelcastInstance();
+
+        assertMetricsApi();
+    }
+
+    private void assertMetricsApi() {
         given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
                 .then()
                 .statusCode(200)
