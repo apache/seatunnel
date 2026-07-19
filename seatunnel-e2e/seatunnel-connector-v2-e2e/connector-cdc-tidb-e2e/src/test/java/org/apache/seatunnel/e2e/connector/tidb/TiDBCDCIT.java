@@ -31,10 +31,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.MountableFile;
+import org.tikv.common.TiSession;
 
+import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -76,36 +83,58 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, f_bit64, f_char,"
                     + " f_enum, f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
                     + " f_json, cast(f_year as year) from %s.%s";
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    private String tiKVUrl() {
-        return "https://repo1.maven.org/maven2/org/tikv/tikv-client-java/3.2.0/tikv-client-java-3.2.0.jar";
-    }
+    private static final String TIDB_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/TiDB-CDC/lib";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/TiDB-CDC/lib && cd "
-                                        + "/tmp/seatunnel/plugins/TiDB-CDC/lib && wget "
-                                        + driverUrl());
+                        container.execInContainer("bash", "-c", "mkdir -p " + TIDB_CDC_PLUGIN_LIB);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                Container.ExecResult extraCommands2 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/TiDB-CDC/lib && cd "
-                                        + "/tmp/seatunnel/plugins/TiDB-CDC/lib && wget "
-                                        + tiKVUrl());
-                Assertions.assertEquals(
-                        0, extraCommands2.getExitCode(), extraCommands2.getStderr());
+
+                copyDriverToContainer(container, mysqlDriverJarPath());
+                copyDriverToContainer(container, tiKVClientJarPath());
             };
+
+    private void copyDriverToContainer(GenericContainer<?> container, Path driverJarPath) {
+        container.copyFileToContainer(
+                MountableFile.forHostPath(driverJarPath),
+                TIDB_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
+    }
+
+    private Path mysqlDriverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
+
+    private Path tiKVClientJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            TiSession.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve TiKV client jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
