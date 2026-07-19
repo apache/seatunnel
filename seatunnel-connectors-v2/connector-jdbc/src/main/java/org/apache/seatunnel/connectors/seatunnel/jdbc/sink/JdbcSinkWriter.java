@@ -65,8 +65,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
-        this.connectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        this.connectionProvider = dialect.getJdbcConnectionProvider(resolveSinkConnectionConfig());
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,
@@ -114,6 +113,53 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return false;
         }
         return jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit();
+    }
+
+    private JdbcConnectionConfig resolveSinkConnectionConfig() {
+        JdbcConnectionConfig connectionConfig = jdbcSinkConfig.getJdbcConnectionConfig();
+        if (!DatabaseIdentifier.ORACLE.equals(dialect.dialectName())) {
+            return connectionConfig;
+        }
+
+        return copyConnectionConfig(connectionConfig, false);
+    }
+
+    private JdbcConnectionConfig copyConnectionConfig(
+            JdbcConnectionConfig connectionConfig, boolean autoCommit) {
+        JdbcConnectionConfig.Builder builder =
+                JdbcConnectionConfig.builder()
+                        .url(connectionConfig.getUrl())
+                        .driverName(connectionConfig.getDriverName())
+                        .compatibleMode(connectionConfig.getCompatibleMode())
+                        .connectionCheckTimeoutSeconds(
+                                connectionConfig.getConnectionCheckTimeoutSeconds())
+                        .maxRetries(connectionConfig.getMaxRetries())
+                        .query(connectionConfig.getQuery())
+                        .autoCommit(autoCommit)
+                        .batchSize(connectionConfig.getBatchSize())
+                        .batchIntervalMs(connectionConfig.getBatchIntervalMs())
+                        .isExactlyOnce(connectionConfig.isExactlyOnce())
+                        .xaDataSourceClassName(connectionConfig.getXaDataSourceClassName())
+                        .decimalTypeNarrowing(connectionConfig.isDecimalTypeNarrowing())
+                        .intTypeNarrowing(connectionConfig.isIntTypeNarrowing())
+                        .handleBlobAsString(connectionConfig.isHandleBlobAsString())
+                        .maxCommitAttempts(connectionConfig.getMaxCommitAttempts())
+                        .transactionTimeoutSec(
+                                connectionConfig.getTransactionTimeoutSec().orElse(-1))
+                        .socketTimeoutMs(connectionConfig.getSocketTimeoutMs())
+                        .connectTimeoutMs(connectionConfig.getConnectTimeoutMs())
+                        .properties(connectionConfig.getProperties())
+                        .useKerberos(connectionConfig.isUseKerberos())
+                        .kerberosPrincipal(connectionConfig.getKerberosPrincipal())
+                        .kerberosKeytabPath(connectionConfig.getKerberosKeytabPath())
+                        .krb5Path(connectionConfig.getKrb5Path())
+                        .dialect(connectionConfig.getDialect())
+                        .region(connectionConfig.getRegion())
+                        .accessKeyId(connectionConfig.getAccessKeyId())
+                        .secretAccessKey(connectionConfig.getSecretAccessKey());
+        connectionConfig.getUsername().ifPresent(builder::username);
+        connectionConfig.getPassword().ifPresent(builder::password);
+        return builder.build();
     }
 
     /**
@@ -210,6 +256,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     public void close() throws IOException {
         tryOpen();
         try {
+            outputFormat.checkFlushException();
             outputFormat.flush();
             commitIfNeeded();
         } catch (Exception e) {

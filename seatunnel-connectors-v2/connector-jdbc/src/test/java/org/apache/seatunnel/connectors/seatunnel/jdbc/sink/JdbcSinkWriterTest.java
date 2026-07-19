@@ -24,16 +24,21 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.sql.Connection;
@@ -124,6 +129,96 @@ class JdbcSinkWriterTest {
         } finally {
             resourceManager.close();
         }
+    }
+
+    /** Oracle single-table sink also ignores user auto_commit=true at runtime. */
+    @Test
+    void testOracleSinkSingleTableProviderUsesManualCommit() {
+        JdbcDialect dialect = Mockito.mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = Mockito.mock(JdbcConnectionProvider.class);
+        ArgumentCaptor<JdbcConnectionConfig> configCaptor =
+                ArgumentCaptor.forClass(JdbcConnectionConfig.class);
+        Mockito.when(dialect.dialectName()).thenReturn(DatabaseIdentifier.ORACLE);
+        Mockito.when(dialect.getJdbcConnectionProvider(configCaptor.capture()))
+                .thenReturn(connectionProvider);
+        Mockito.when(dialect.getRowConverter()).thenReturn(Mockito.mock(JdbcRowConverter.class));
+
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName(DummyDriver.class.getName())
+                        .url("jdbc:dummy:oracle-single-table")
+                        .autoCommit(true)
+                        .build();
+        JdbcSinkConfig jdbcSinkConfig = buildJdbcSinkConfig(jdbcConnectionConfig);
+        TableSchema tableSchema = buildTableSchema();
+
+        new JdbcSinkWriter(
+                null,
+                Mockito.mock(SinkWriter.Context.class),
+                dialect,
+                jdbcSinkConfig,
+                tableSchema,
+                tableSchema,
+                null);
+
+        Assertions.assertTrue(jdbcConnectionConfig.isAutoCommit());
+        Assertions.assertFalse(configCaptor.getValue().isAutoCommit());
+    }
+
+    /** Close must rollback, not commit, when a previous flush failure is already recorded. */
+    @Test
+    void testCloseShouldNotCommitAfterKnownFlushFailure() throws Exception {
+        JdbcDialect dialect = Mockito.mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(dialect.dialectName()).thenReturn(DatabaseIdentifier.POSTGRESQL);
+        Mockito.when(dialect.getJdbcConnectionProvider(Mockito.any()))
+                .thenReturn(connectionProvider);
+        Mockito.when(dialect.getRowConverter()).thenReturn(Mockito.mock(JdbcRowConverter.class));
+        Mockito.when(connectionProvider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        null,
+                        Mockito.mock(SinkWriter.Context.class),
+                        dialect,
+                        buildJdbcSinkConfig(
+                                JdbcConnectionConfig.builder()
+                                        .driverName(DummyDriver.class.getName())
+                                        .url("jdbc:dummy:close-flush-failure")
+                                        .autoCommit(false)
+                                        .build()),
+                        buildTableSchema(),
+                        buildTableSchema(),
+                        null);
+        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
+                Mockito.mock(JdbcOutputFormat.class);
+        writer.outputFormat = outputFormat;
+        writer.isOpen = true;
+        Mockito.doThrow(new RuntimeException("previous flush failed"))
+                .when(outputFormat)
+                .checkFlushException();
+
+        Assertions.assertThrows(JdbcConnectorException.class, writer::close);
+
+        Mockito.verify(outputFormat, Mockito.never()).flush();
+        Mockito.verify(connection, Mockito.never()).commit();
+        Mockito.verify(connection).rollback();
+        Mockito.verify(outputFormat).close();
+    }
+
+    private static JdbcSinkConfig buildJdbcSinkConfig(JdbcConnectionConfig jdbcConnectionConfig) {
+        return JdbcSinkConfig.builder()
+                .jdbcConnectionConfig(jdbcConnectionConfig)
+                .simpleSql("INSERT INTO TEST_TABLE(ID) VALUES (?)")
+                .build();
+    }
+
+    private static TableSchema buildTableSchema() {
+        return TableSchema.builder()
+                .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 22L, false, null, "ID"))
+                .build();
     }
 
     public static class DummyDriver implements Driver {
