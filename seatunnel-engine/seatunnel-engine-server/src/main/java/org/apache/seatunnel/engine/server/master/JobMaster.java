@@ -183,7 +183,7 @@ public class JobMaster {
     @Getter private volatile boolean needRestore = true;
 
     /** Whether this JobMaster was recreated after an active-master switch. */
-    private boolean masterFailoverRestore;
+    private volatile boolean masterFailoverRestore;
 
     private CheckpointConfig jobCheckpointConfig;
 

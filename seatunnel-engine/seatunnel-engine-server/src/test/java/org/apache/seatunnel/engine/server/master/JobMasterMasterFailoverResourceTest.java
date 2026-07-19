@@ -79,7 +79,7 @@ public class JobMasterMasterFailoverResourceTest
             Assertions.assertTrue(restored.preApplyResources());
         } finally {
             resourceManager.releaseResources(jobId + 1, blockerSlots).join();
-            releasePersistedSlots(resourceManager, jobId);
+            releasePersistedSlots(resourceManager, original, jobId);
         }
     }
 
@@ -153,16 +153,20 @@ public class JobMasterMasterFailoverResourceTest
         return resourceManager.applyResources(jobId, resourceProfiles, null).get();
     }
 
-    private void releasePersistedSlots(ResourceManager resourceManager, long jobId) {
+    private void releasePersistedSlots(
+            ResourceManager resourceManager, JobMaster jobMaster, long jobId) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
         List<SlotProfile> persistedSlots = new ArrayList<>();
-        for (Map<TaskGroupLocation, SlotProfile> slotProfiles :
-                nodeEngine
-                        .getHazelcastInstance()
-                        .<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>getMap(
-                                "ownedSlotProfilesIMap")
-                        .values()) {
-            persistedSlots.addAll(slotProfiles.values());
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                    ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+            if (slotProfiles != null) {
+                persistedSlots.addAll(slotProfiles.values());
+            }
         }
-        resourceManager.releaseResources(jobId, persistedSlots).join();
+        if (!persistedSlots.isEmpty()) {
+            resourceManager.releaseResources(jobId, persistedSlots).join();
+        }
     }
 }
