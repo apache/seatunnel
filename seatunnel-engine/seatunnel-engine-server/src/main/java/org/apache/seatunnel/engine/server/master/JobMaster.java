@@ -1183,6 +1183,18 @@ public class JobMaster {
         }
     }
 
+    /**
+     * Clears runtime metrics from a failed pipeline attempt before it is restored.
+     *
+     * <p>Task locations are stable across retries, so keeping the old snapshots would make the
+     * replacement attempt continue counting from the failed attempt's values.
+     *
+     * @param pipelineLocation pipeline that is about to be restored
+     */
+    public void clearPipelineMetricsForRestore(PipelineLocation pipelineLocation) {
+        seaTunnelServer.removeMetrics(pipelineLocation);
+    }
+
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
         Map<TaskGroupLocation, SlotProfile> slotProfileMap =
                 ownedSlotProfilesIMap.get(pipelineLocation);

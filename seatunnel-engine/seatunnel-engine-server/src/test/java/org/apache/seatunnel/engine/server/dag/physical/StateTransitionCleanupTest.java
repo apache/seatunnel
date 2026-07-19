@@ -28,7 +28,9 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,10 +40,16 @@ import com.hazelcast.map.IMap;
 
 import java.net.MalformedURLException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
@@ -95,6 +103,57 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
+    }
+
+    @Test
+    void testPipelineRestoreClearsMetricsFromTheFailedAttempt() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobImmutableInformation jobImmutableInformation = mock(JobImmutableInformation.class);
+        JobConfig jobConfig = mock(JobConfig.class);
+        Map<String, Object> envOptions = new HashMap<>();
+        envOptions.put("job.retry.times", "1");
+        envOptions.put("job.retry.interval.seconds", "0");
+        when(jobImmutableInformation.getJobId()).thenReturn(jobId);
+        when(jobImmutableInformation.getJobConfig()).thenReturn(jobConfig);
+        when(jobConfig.getEnvOptions()).thenReturn(envOptions);
+
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("restoreMetricsState-" + jobId);
+        IMap<Object, Long[]> runningJobStateTimestamps =
+                nodeEngine.getHazelcastInstance().getMap("restoreMetricsStateTimestamps-" + jobId);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        runningJobState.put(pipelineLocation, PipelineStatus.FAILED);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            SubPlan subPlan =
+                    new SubPlan(
+                            1,
+                            1,
+                            System.currentTimeMillis(),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            jobImmutableInformation,
+                            executorService,
+                            runningJobState,
+                            runningJobStateTimestamps,
+                            Collections.emptyMap());
+            JobMaster jobMaster = mock(JobMaster.class);
+            CheckpointManager checkpointManager = mock(CheckpointManager.class);
+            PhysicalPlan physicalPlan = mock(PhysicalPlan.class);
+            when(jobMaster.getCheckpointManager()).thenReturn(checkpointManager);
+            when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+            subPlan.setJobMaster(jobMaster);
+
+            java.lang.reflect.Method restore =
+                    SubPlan.class.getDeclaredMethod("prepareRestorePipeline");
+            restore.setAccessible(true);
+            restore.invoke(subPlan);
+
+            verify(jobMaster).clearPipelineMetricsForRestore(pipelineLocation);
+        } finally {
+            executorService.shutdownNow();
+        }
     }
 
     private PlanWithStateMaps createPhysicalPlan(long jobId) throws MalformedURLException {
