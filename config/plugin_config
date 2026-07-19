@@ -103,4 +103,5 @@ connector-sensorsdata
 connector-hugegraph
 connector-lance
 connector-mqtt
+connector-python
 connector-bigquery
