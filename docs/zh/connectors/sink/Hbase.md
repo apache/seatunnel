@@ -16,23 +16,23 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 ## 选项
 
-| 名称               | 类型    | 是否必须 | 默认值 |
-|--------------------|---------|----------|--------|
-| zookeeper_quorum   | string  | 是       | -      |
-| table              | string  | 是       | -      |
-| rowkey_column      | list    | 是       | -      |
-| family_name        | config  | 是       | -      |
-| rowkey_delimiter   | string  | 否       | ""     |
-| version_column     | string  | 否       | -      |
-| null_mode          | string  | 否       | skip   |
-| wal_write          | boolean | 否       | false  |
-| write_buffer_size  | string  | 否       | 8 * 1024 * 1024 |
-| encoding           | string  | 否       | utf8   |
-| schema_save_mode   | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode     | enum    | 否       | APPEND_DATA |
-| hbase_extra_config | config  | 否       | -      |
-| common-options     |         | 否       | -      |
-| ttl                | long    | 否       | -      |
+| 名称                     | 类型    | 是否必须 | 默认值                         | 描述 |
+|--------------------------|---------|----------|--------------------------------|------|
+| zookeeper_quorum         | string  | 是       | -                              | HBase ZooKeeper 地址，例如 `hadoop001:2181,hadoop002:2181`。 |
+| table                    | string  | 是       | -                              | 目标 HBase 表。多表写入时可使用 `${table_name}` 等占位符。 |
+| rowkey_column            | list    | 是       | -                              | 用来组成 HBase rowkey 的上游字段名。 |
+| family_name              | config  | 是       | -                              | 上游字段到 HBase 列簇的映射，也可以用 `all_columns` 统一写入一个列簇。 |
+| rowkey_delimiter         | string  | 否       | ""                             | 多个字段组成 rowkey 时使用的连接符。 |
+| version_column           | string  | 否       | -                              | 用作 HBase 单元格时间戳的上游字段。 |
+| null_mode                | string  | 否       | skip                           | null 值写入方式，支持 `skip` 和 `empty`。 |
+| wal_write                | boolean | 否       | false                          | 写入时是否记录 HBase WAL。 |
+| write_buffer_size        | int     | 否       | 8 * 1024 * 1024                | HBase 客户端写入缓冲区大小，单位字节。 |
+| encoding                 | string  | 否       | utf8                           | STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY 的编码，支持 `utf8` 和 `gbk`。 |
+| schema_save_mode         | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST   | 写入前如何处理目标表结构。 |
+| data_save_mode           | enum    | 否       | APPEND_DATA                    | 写入前如何处理目标端已有数据。 |
+| hbase_extra_config       | config  | 否       | -                              | 额外的 HBase 或 Hadoop 客户端配置。 |
+| multi_table_sink_replica | int     | 否       | 1                              | 多表写入时每张表对应的 Sink Writer 副本数。 |
+| common-options           |         | 否       | -                              | Sink 插件通用参数，例如 `plugin_input`。 |
 
 ### zookeeper_quorum [string]
 
@@ -80,7 +80,7 @@ all_columns = "info"
 
 版本列名称，您可以使用它来分配 hbase 记录的时间戳
 
-### null_mode [double]
+### null_mode [string]
 
 写入 null 值的模式，支持 [ skip , empty], 默认 skip
 
@@ -110,6 +110,10 @@ Hbase 存储字节，连接器支持：
 
 hbase 扩展配置
 
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。通常保持默认值即可；只有单表写入压力较大、需要更多写入并行度时再调大。
+
 ### schema_save_mode [enum]
 
 写入前如何处理目标 HBase 表结构。常用值包括 `RECREATE_SCHEMA`、`CREATE_SCHEMA_WHEN_NOT_EXIST` 和
@@ -119,13 +123,15 @@ hbase 扩展配置
 
 写入前如何处理目标端已有数据。支持 `DROP_DATA`、`APPEND_DATA` 和 `ERROR_WHEN_DATA_EXISTS`。
 
-### ttl [long]
-
-hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
-
 ### 常见选项
 
 Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../common-options/sink-common-options.md)
+
+## 注意事项
+
+- `table = "${table_name}"` 会把每张上游表写入同名 HBase 表，也可以和固定文本组合，例如 `ods_${table_name}`。
+- `family_name { all_columns = "info" }` 会把所有非 rowkey 字段写入同一个列簇。不同字段需要写入不同列簇时，请使用逐字段映射。
+- `schema_save_mode` 控制是否创建或重建表，`data_save_mode` 控制保留、清空已有数据，还是在已有数据存在时报错。
 
 ## 案例
 

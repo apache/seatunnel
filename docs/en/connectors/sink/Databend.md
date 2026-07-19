@@ -37,7 +37,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 
 | Name                | Type | Required | Default Value | Description                                 |
 |---------------------|------|----------|---------------|---------------------------------------------|
-| url                 | String | Yes | - | Databend JDBC connection URL               |
+| url                 | String | Yes | - | Databend JDBC connection URL. It must start with `jdbc:databend://` |
 | username            | String | Yes | - | Databend database username                    |
 | password            | String | Yes | - | Databend database password                     |
 | database            | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
@@ -159,6 +159,7 @@ sink {
 
 Set `conflict_key` to the primary-key column used to merge update/delete events. Set
 `enable_delete = true` only when DELETE events should remove rows from Databend.
+If `conflict_key` is not configured, the sink writes normal insert-style batches.
 
 ```hocon
 sink {

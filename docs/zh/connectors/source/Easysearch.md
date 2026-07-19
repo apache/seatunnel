@@ -89,9 +89,12 @@ Easysearch 索引名称，支持 `*` 通配符匹配。
 
 ### source [array]
 
-索引字段。
-可以通过指定字段 `_id` 来获取文档 id。如果要把 `_id` 写入其他索引，由于 Easysearch 限制，需要为 `_id` 指定别名。
-如果不配置 `source`，则必须配置 `schema`。
+要从索引中读取的字段。
+
+可以通过指定字段 `_id` 来获取文档 id。如果要把 `_id` 写入其他 Easysearch 索引，由于 Easysearch 不允许把
+`_id` 当作普通字段写入，需要为 `_id` 指定别名。
+
+`source` 和 `schema` 互斥。如果两者都不配置，连接器会从 Easysearch 读取字段映射，并使用索引中的全部映射字段。
 
 ### query [json]
 
@@ -108,7 +111,9 @@ Easysearch 为 scroll 请求保留查询上下文的时间。
 ### schema
 
 数据结构，包括字段名和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
-如果不配置 `schema`，则必须配置 `source`。
+
+`schema` 和 `source` 互斥。需要用明确的 SeaTunnel 类型定义转换字段时使用 `schema`。如果两者都不配置，连接器会从
+Easysearch 读取字段映射，并使用索引中的全部映射字段。
 
 ### tls_verify_certificate [boolean]
 
@@ -134,9 +139,9 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 指定的信任存储的密钥密码
 
-### common options
+### 通用选项
 
-Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。
+Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)。
 
 ## 示例
 
@@ -156,6 +161,11 @@ source {
 ### 使用 Schema 和 Query 读取
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
 source {
   Easysearch {
     hosts = ["https://e2e_easysearch:9200"]
@@ -184,6 +194,18 @@ source {
         c_timestamp = timestamp
       }
     }
+  }
+}
+
+sink {
+  Easysearch {
+    hosts = ["https://e2e_easysearch:9200"]
+    username = "admin"
+    password = "admin"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index2"
   }
 }
 ```

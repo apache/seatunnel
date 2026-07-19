@@ -12,12 +12,27 @@ Redis Cluster, and can write to `key`/`string`, `hash`, `list`, `set`, and `zset
 The configured `key` can be either a literal Redis key or an upstream field name. When `support_custom_key = true`,
 the connector can build the Redis key from one or more upstream fields, for example `user:${id}`.
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+To use the Redis connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
+
+| Datasource | Dependency |
+|------------|------------|
+| Redis      | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## Options
 
@@ -40,6 +55,7 @@ the connector can build the Redis key from one or more upstream fields, for exam
 | value_field        | string  | No                          | -       | Upstream field used as the Redis value for `KEY`/`STRING`, `LIST`, `SET`, and `ZSET`. |
 | hash_key_field     | string  | No                          | -       | Upstream field used as the Redis hash field when `data_type = HASH`. |
 | hash_value_field   | string  | No                          | -       | Upstream field used as the Redis hash value when `data_type = HASH`. |
+| multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Write Rules
@@ -72,6 +88,13 @@ as the Redis value. If `value_field` is not configured, the connector serializes
 For `HASH`, `hash_key_field` chooses the Redis hash field. If `hash_value_field` is configured, that field value is
 written as the Redis hash value. If `hash_value_field` is not configured, the connector serializes the whole upstream
 row as the hash value.
+
+### multi_table_sink_replica
+
+Replica count for multi-table sink writers. It applies when upstream rows carry table identifiers and the job writes multiple Redis tables in one pipeline.
+
+For multi-table jobs, `key` may include `${table_name}` so rows from different upstream tables are written to separate
+Redis keys, for example `key = "redis-result-${table_name}"`.
 
 ## Examples
 

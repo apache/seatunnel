@@ -52,6 +52,7 @@
         <module>seatunnel-trace</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
+        <module>seatunnel-edge-agent</module>
         <module>seatunnel-shade</module>
         <module>seatunnel-ci-tools</module>
     </modules>

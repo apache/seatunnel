@@ -139,7 +139,7 @@ Choose how to handle the target-side data before starting the synchronization ta
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Examples
 
@@ -230,6 +230,7 @@ sink {
         username = "admin"
         password = "admin"
 
+        index = "seatunnel_index"
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode = "APPEND_DATA"
     }
