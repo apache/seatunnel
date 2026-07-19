@@ -79,7 +79,7 @@ public class DsqlJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
             // caller expectation.
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
-                    "No suitable driver found for " + url);
+                    "No suitable driver found for the configured JDBC URL");
         }
 
         connection.setAutoCommit(jdbcConfig.isAutoCommit());
