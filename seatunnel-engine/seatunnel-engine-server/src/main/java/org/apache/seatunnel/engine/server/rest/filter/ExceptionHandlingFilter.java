@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.rest.filter;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.engine.server.rest.ErrResponse;
 
@@ -64,7 +65,7 @@ public class ExceptionHandlingFilter implements Filter {
         response.setContentType("application/json;charset=UTF-8");
 
         ErrResponse errorResponse = new ErrResponse();
-        errorResponse.setMessage(e.getMessage());
+        errorResponse.setMessage(ExceptionUtils.getStackTrace(e));
         errorResponse.setStatus("fail");
 
         String jsonResponse = objectMapper.writeValueAsString(errorResponse);

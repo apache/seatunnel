@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTy
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -52,7 +53,9 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         this.createIndex = createIndex;
     }
 
-    public String build(TablePath tablePath) {
+    public List<String> build(TablePath tablePath) {
+        List<String> sqls = new ArrayList<>();
+
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
@@ -90,6 +93,7 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
+        sqls.add(createTableSql.toString());
 
         List<String> commentSqls =
                 columns.stream()
@@ -99,14 +103,9 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                                         buildColumnCommentSql(
                                                 column, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
+        sqls.addAll(commentSqls);
 
-        if (!commentSqls.isEmpty()) {
-            createTableSql.append(";\n");
-            createTableSql.append(String.join(";\n", commentSqls));
-            createTableSql.append(";");
-        }
-
-        return createTableSql.toString();
+        return sqls;
     }
 
     String buildColumnSql(Column column) {

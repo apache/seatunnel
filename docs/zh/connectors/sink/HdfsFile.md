@@ -33,6 +33,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] maxwell_json
 - [x] 压缩编解码器
   - [x] lzo
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -79,8 +80,10 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
 | remote_user                      | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
+| schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。                                                                                                                                                                                                            |
 | schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                                                                                                                                                                                                                                                         |
 | data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                                                                                                                                                                                                                                                         |
+| multi_table_sink_replica         | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                                                                                                                                                                                                                                             |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                                                                                                                                                                                        |
 
 ### 提示
@@ -103,6 +106,36 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - DROP_DATA：保留目录并删除数据文件
 - APPEND_DATA：保留目录，保留数据文件
 - ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/seatunnel/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
 
 ### merge_update_event [boolean]
 
@@ -149,12 +182,12 @@ source {
     }
   }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的源端插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -164,7 +197,7 @@ sink {
       file_format_type = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -286,6 +319,7 @@ HdfsFile {
     </property>
 </configuration>
 ```
+
 
 ## 变更日志
 

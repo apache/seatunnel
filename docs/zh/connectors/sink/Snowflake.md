@@ -13,7 +13,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [（CDC）](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -74,6 +75,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 如果未设置`partition_column`，将以单并发运行，如果设置了`partition_column`，将根据任务的并发度并行执行。
 
+## 注意事项
+
+- 需要完全控制 INSERT 语句和参数顺序时，使用 `query`。
+- 希望 SeaTunnel 为插入、更新、删除事件自动生成写入 SQL 时，使用 `database`、`table` 和 `primary_keys`。
+- Snowflake sink 使用普通 JDBC 批量写入，不提供 Snowflake 的精确一次保证。
+- 不要把真实 Snowflake 密码写进共享示例、日志或截图。
+
 ## 任务示例
 
 ### 简单示例
@@ -100,12 +108,12 @@ source {
         }
     }
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的源插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+    # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 transform {
 
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 sink {
     jdbc {
@@ -116,7 +124,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
     }
     # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的接收器插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+    # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -107,6 +108,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     jobClient.getCheckpointData(
                             Long.parseLong(jobConfig.getJobContext().getJobId()));
         }
+        MetadataConfig metaDataConfig = seaTunnelConfig.getEngineConfig().getMetadataConfig();
         return new MultipleTableJobConfigParser(
                 jobFilePath,
                 variables,
@@ -114,7 +116,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                metaDataConfig);
     }
 
     @VisibleForTesting

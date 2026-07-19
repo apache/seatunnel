@@ -224,15 +224,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         int readerIndex = readerId.getTaskIndex();
+        boolean needResignalNoMoreSplits;
         this.addTaskMemberMapping(readerId, memberAddr);
-        synchronized (this) {
+        synchronized (enumeratorContext) {
             enumerator.registerReader(readerIndex);
-            if (enumeratorContext.hasNoMoreSplitsSignaled(readerIndex)) {
-                log.info(
-                        "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
-                        readerIndex);
-                enumeratorContext.signalNoMoreSplits(readerIndex);
-            }
+            needResignalNoMoreSplits = enumeratorContext.hasNoMoreSplitsSignaled(readerIndex);
+        }
+        if (needResignalNoMoreSplits) {
+            log.info(
+                    "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
+                    readerIndex);
+            enumeratorContext.signalNoMoreSplits(readerIndex);
         }
         int taskSize = taskMemberMapping.size();
         if (maxReaderSize == taskSize) {

@@ -15,19 +15,19 @@
 ## 已支持的连接器
 
 ### 源
-[Mysql-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/MySQL-CDC.md)
-[Oracle-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Oracle-CDC.md)
+[Mysql-CDC](../../connectors/source/MySQL-CDC.md)
+[Oracle-CDC](../../connectors/source/Oracle-CDC.md)
 
 ### 目标
-[Jdbc-Mysql](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
-[Jdbc-Oracle](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
-[Jdbc-Postgres](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
-[Jdbc-Dameng](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
-[Jdbc-SqlServer](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[StarRocks](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/StarRocks.md)
-[Doris](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Doris.md)
-[Paimon](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Paimon.md#模式演变)
-[Elasticsearch](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Elasticsearch.md#模式演变)
+[Jdbc-Mysql](../../connectors/sink/Jdbc.md)
+[Jdbc-Oracle](../../connectors/sink/Jdbc.md)
+[Jdbc-Postgres](../../connectors/sink/Jdbc.md)
+[Jdbc-Dameng](../../connectors/sink/Jdbc.md)
+[Jdbc-SqlServer](../../connectors/sink/Jdbc.md)
+[StarRocks](../../connectors/sink/StarRocks.md)
+[Doris](../../connectors/sink/Doris.md)
+[Paimon](../../connectors/sink/Paimon.md#模式演变)
+[Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
 
 注意: 
 * 目前模式演进不支持transform。不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
@@ -254,6 +254,8 @@ sink {
   }
 }
 ```
+
+> **注意（schema 演进 + 2PC）：** 当 `sink.enable-2pc = "true"` 时，Doris schema 演进仅支持 `format = "json"`，因为 JSON load 会按列名匹配。CSV 等位置敏感格式在启用 2PC 的 schema 演进场景下会被运行时拒绝。请使用 `format = "json"`，或设置 `sink.enable-2pc = "false"`，让 sink 可以在应用 DDL 前先 flush 已缓冲的数据。
 
 ### Mysql-CDC -> Jdbc-Postgres
 ```hocon

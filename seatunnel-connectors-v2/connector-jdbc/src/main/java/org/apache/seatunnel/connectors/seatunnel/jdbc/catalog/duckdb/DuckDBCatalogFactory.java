@@ -50,6 +50,14 @@ public class DuckDBCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
+        return OptionRule.builder()
+                .required(JdbcCommonOptions.URL)
+                .optional(
+                        JdbcCommonOptions.USERNAME,
+                        JdbcCommonOptions.PASSWORD,
+                        JdbcCommonOptions.SCHEMA,
+                        JdbcCommonOptions.DECIMAL_TYPE_NARROWING,
+                        JdbcCommonOptions.HANDLE_BLOB_AS_STRING)
+                .build();
     }
 }

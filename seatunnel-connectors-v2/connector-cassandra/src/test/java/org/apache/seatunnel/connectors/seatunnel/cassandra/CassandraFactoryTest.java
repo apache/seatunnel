@@ -17,11 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.sink.CassandraSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.source.CassandraSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 class CassandraFactoryTest {
 
@@ -29,5 +40,56 @@ class CassandraFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new CassandraSourceFactory()).optionRule());
         Assertions.assertNotNull((new CassandraSinkFactory()).optionRule());
+    }
+
+    @Test
+    void testSourceOptionRuleWithCqlOnly() {
+        OptionRule rule = new CassandraSourceFactory().optionRule();
+        Map<String, Object> cfg = baseConfig();
+        cfg.put(CassandraSourceOptions.CQL.key(), "select * from test.table1");
+        ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule);
+    }
+
+    @Test
+    void testSourceOptionRuleWithTablesConfigsOnly() {
+        OptionRule rule = new CassandraSourceFactory().optionRule();
+        Map<String, Object> cfg = baseConfig();
+        List<Map<String, Object>> tablesConfigs =
+                Collections.singletonList(
+                        Collections.singletonMap(
+                                CassandraSourceOptions.CQL.key(), "select * from test.table1"));
+        cfg.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), tablesConfigs);
+        ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule);
+    }
+
+    @Test
+    void testSourceOptionRuleWithBothCqlAndTablesConfigsThrows() {
+        OptionRule rule = new CassandraSourceFactory().optionRule();
+        Map<String, Object> cfg = baseConfig();
+        cfg.put(CassandraSourceOptions.CQL.key(), "select * from test.table1");
+        List<Map<String, Object>> tablesConfigs =
+                Collections.singletonList(
+                        Collections.singletonMap(
+                                CassandraSourceOptions.CQL.key(), "select * from test.table2"));
+        cfg.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), tablesConfigs);
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
+    }
+
+    @Test
+    void testSourceOptionRuleWithNeitherCqlNorTablesConfigsThrows() {
+        OptionRule rule = new CassandraSourceFactory().optionRule();
+        Map<String, Object> cfg = baseConfig();
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule));
+    }
+
+    private Map<String, Object> baseConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("host", "localhost:9042");
+        cfg.put("keyspace", "test");
+        return cfg;
     }
 }

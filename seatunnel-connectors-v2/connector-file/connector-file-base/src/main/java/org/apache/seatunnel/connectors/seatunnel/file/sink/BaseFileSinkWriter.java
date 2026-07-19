@@ -21,10 +21,14 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -50,7 +54,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSink
 
 public class BaseFileSinkWriter
         implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,
-                SupportMultiTableSinkWriter<WriteStrategy> {
+                SupportMultiTableSinkWriter<WriteStrategy>,
+                SupportSchemaEvolutionSinkWriter {
 
     protected final WriteStrategy writeStrategy;
 
@@ -114,6 +119,21 @@ public class BaseFileSinkWriter
     }
 
     private void preCheckConfig(SinkWriter.Context context) {
+        if (writeStrategy.getFileSinkConfig().getFileFormat() == FileFormat.BINARY
+                && writeStrategy.getFileSinkConfig().isCustomFilename()
+                && context.getNumberOfParallelSubtasks() > 1
+                && !hasParallelUniqueFilenameExpression(
+                        writeStrategy.getFileSinkConfig().getFileNameExpression())) {
+            throw new IllegalArgumentException(
+                    "Binary custom filename requires a unique filename expression when parallel "
+                            + "subtasks are used. Please include "
+                            + DEFAULT_FILE_NAME_EXPRESSION
+                            + " or ${"
+                            + Constants.UUID
+                            + "} in "
+                            + FILE_NAME_EXPRESSION.key()
+                            + ".");
+        }
         if (writeStrategy.getFileSinkConfig().isSingleFileMode()
                 && context.getNumberOfParallelSubtasks() > 1) {
             if (StringUtils.isNotEmpty(writeStrategy.getFileSinkConfig().getFileNameExpression())
@@ -129,6 +149,12 @@ public class BaseFileSinkWriter
                                 + " but has parallel subtasks.");
             }
         }
+    }
+
+    private boolean hasParallelUniqueFilenameExpression(String fileNameExpression) {
+        return StringUtils.isBlank(fileNameExpression)
+                || fileNameExpression.contains(DEFAULT_FILE_NAME_EXPRESSION)
+                || fileNameExpression.contains("${" + Constants.UUID + "}");
     }
 
     private List<String> findTransactionList(
@@ -174,6 +200,11 @@ public class BaseFileSinkWriter
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
         return writeStrategy.snapshotState(checkpointId);
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        writeStrategy.applySchemaChange(event);
     }
 
     @Override

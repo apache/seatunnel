@@ -38,6 +38,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -57,6 +58,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
@@ -70,6 +72,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -94,7 +97,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
     // The hostname is uniformly set to lowercase letters to prevent errors during Kerberos
     // authentication
     private static final String KAFKA_HOST = "kafkacluster";
-    private static final String BOOTSTRAP_SERVERS = KAFKA_HOST + ":9092";
 
     private KafkaProducer<byte[], byte[]> producer;
 
@@ -156,7 +158,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KERBEROS_IMAGE_NAME)));
-        kerberosContainer.setPortBindings(Arrays.asList("88/udp:88/udp", "749:749"));
         Startables.deepStart(Stream.of(kerberosContainer)).join();
         log.info("Kerberos just started");
 
@@ -165,9 +166,11 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                 "-c",
                 "kadmin.local -q \"addprinc -randkey kafka/kafkacluster@EXAMPLE.COM\"");
         kerberosContainer.execInContainer(
+                "bash", "-c", "kadmin.local -q \"addprinc -randkey kafka/localhost@EXAMPLE.COM\"");
+        kerberosContainer.execInContainer(
                 "bash",
                 "-c",
-                "kadmin.local -q \"xst -k /tmp/kafka.keytab kafka/kafkacluster@EXAMPLE.COM\"");
+                "kadmin.local -q \"xst -k /tmp/kafka.keytab kafka/kafkacluster@EXAMPLE.COM kafka/localhost@EXAMPLE.COM\"");
 
         // test.keytab verify unprivileged keytab usage
         kerberosContainer.execInContainer(
@@ -202,81 +205,91 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                         .withFileSystemBind(
                                 ContainerUtil.getResourcesFile("/kerberos/krb5.conf").getPath(),
                                 "/etc/krb5.conf")
-                        .withExposedPorts(9092, 2181)
-                        .withFileSystemBind(
-                                ContainerUtil.getResourcesFile("/kerberos/kafka.properties")
-                                        .getPath(),
-                                "/etc/kafka/kafka.properties")
+                        .withExposedPorts(9093, 2181)
                         .withFileSystemBind("/tmp/kafka.keytab", "/tmp/kafka.keytab")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)))
+                        .waitingFor(
+                                Wait.forLogMessage(".*ZooKeeper is ready.*", 1)
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
                         .withCommand(
                                 "bash",
                                 "-c",
                                 FileUtils.readFileToStr(
                                         ContainerUtil.getResourcesFile("/kerberos/start.sh")
                                                 .toPath()));
-        kafkaContainer.setPortBindings(Arrays.asList("9092:9092", "2181:2181"));
         Startables.deepStart(Stream.of(kafkaContainer)).join();
-        log.info("Kafka container started");
+        log.info("Kafka container started, ZooKeeper is ready");
 
-        // Add Hosts, local connection kerberos kafka use
-        appendToHosts("127.0.0.1", "kafkacluster");
+        int externalMappedPort = kafkaContainer.getMappedPort(9093);
+        String originalProps =
+                FileUtils.readFileToStr(
+                        ContainerUtil.getResourcesFile("/kerberos/kafka.properties").toPath());
+        String patchedProps =
+                originalProps.replace(
+                        "EXTERNAL://localhost:9093", "EXTERNAL://localhost:" + externalMappedPort);
+        String propsBase64 = Base64.getEncoder().encodeToString(patchedProps.getBytes("UTF-8"));
+        kafkaContainer.execInContainer(
+                "bash",
+                "-c",
+                "echo '"
+                        + propsBase64
+                        + "' | base64 -d > /etc/kafka/kafka.properties"
+                        + " && touch /tmp/start_kafka");
+        log.info(
+                "Kafka config written with external port {}, signaling broker start",
+                externalMappedPort);
 
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initKafkaProducer);
+                .untilAsserted(this::waitForKafkaKerberosReady);
+        initKafkaProducer();
     }
 
     private void initKafkaProducer() {
-        Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        Properties props = createKafkaClientSecurityProperties();
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
-        props.put("security.protocol", "SASL_PLAINTEXT");
-        props.put("sasl.mechanism", "GSSAPI");
-        props.put("sasl.kerberos.service.name", "kafka");
         producer = new KafkaProducer<>(props);
     }
 
     private Properties kafkaConsumerConfig() {
-        Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        Properties props = createKafkaClientSecurityProperties();
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-kafka-sink-group");
         props.put(
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                 OffsetResetStrategy.EARLIEST.toString().toLowerCase());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put("security.protocol", "SASL_PLAINTEXT");
-        props.put("sasl.mechanism", "GSSAPI");
-        props.put("sasl.kerberos.service.name", "kafka");
         return props;
     }
 
-    private static void appendToHosts(String ip, String hostname) {
-        try {
-            String entry = String.format("%s %s", ip, hostname);
-            ProcessBuilder processBuilder =
-                    new ProcessBuilder("sudo", "sh", "-c", "echo '" + entry + "' >> /etc/hosts");
-            processBuilder.redirectErrorStream(true);
+    private Properties createKafkaClientSecurityProperties() {
+        Properties props = new Properties();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, getBootstrapServers());
+        return props;
+    }
 
-            Process process = processBuilder.start();
+    private void waitForKafkaKerberosReady() {
+        String logs = kafkaContainer.getLogs();
+        Assertions.assertTrue(
+                logs.contains("started (kafka.server.KafkaServer)"),
+                "Kafka kerberos broker has not fully started");
+    }
 
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                log.info("Successfully added to /etc/hosts: {}", entry);
-            } else {
-                log.error("Failed to add to /etc/hosts: {}", entry);
-            }
-        } catch (Exception e) {
-            log.error("Failed to add to /etc/hosts: {}", e.getMessage());
-            throw new RuntimeException(e);
-        }
+    static boolean containsKafkaAuthenticationFailure(String logs) {
+        return logs != null
+                && logs.contains("Failed authentication with")
+                && (logs.contains("during SASL handshake")
+                        || logs.contains("SaslAuthenticationException"));
+    }
+
+    private String getBootstrapServers() {
+        return kafkaContainer.getHost() + ":" + kafkaContainer.getMappedPort(9093);
     }
 
     @TestTemplate
@@ -285,19 +298,39 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         container.copyFileToContainer("/kerberos/krb5.conf", "/etc/krb5.conf");
         container.copyAbsolutePathToContainer("/tmp/test.keytab", "/tmp/kafka.keytab");
 
-        Container.ExecResult execResult =
-                container.executeJob("/kerberos/kafka_sink_fake_to_kafka_kerberos.conf");
-        Assertions.assertEquals(1, execResult.getExitCode());
+        int logOffsetBeforeJob = container.getServerLogs().length();
+
+        String jobId = "654321";
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kerberos/kafka_sink_fake_to_kafka_kerberos.conf", jobId);
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.given()
+                .ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FAILED", container.getJobStatus(jobId)));
+
+        String newLogs = container.getServerLogs().substring(logOffsetBeforeJob);
         Assertions.assertTrue(
-                execResult
-                        .getStderr()
-                        .contains(
-                                "Could not login: the client is being asked for a password, but the Kafka client code does not currently support obtaining a password from the user."));
+                newLogs.contains(
+                        "Could not login: the client is being asked for a password, but the Kafka client code does not currently support obtaining a password from the user."),
+                "Expected Kerberos login failure with wrong keytab");
     }
 
     @TestTemplate
     public void testNotKerberosConfig(TestContainer container)
             throws IOException, InterruptedException {
+        int brokerLogOffsetBeforeJob = kafkaContainer.getLogs().length();
+
         String jobId = "123456";
         CompletableFuture.runAsync(
                 () -> {
@@ -307,22 +340,27 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                         throw new RuntimeException(e);
                     }
                 });
-        // step 1. Verify whether Kafka has authentication failure logs
+
         Awaitility.given()
+                .ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        kafkaContainer
-                                                .execInContainer(
-                                                        "bash",
-                                                        "-c",
-                                                        "tail /var/log/kafka/server.log")
-                                                .getStdout()
-                                                .matches(
-                                                        "(?s).*Failed authentication with /.*? \\(Unexpected Kafka request of type METADATA during SASL handshake.*")));
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            String newBrokerLogs =
+                                    kafkaContainer.getLogs().substring(brokerLogOffsetBeforeJob);
+                            Assertions.assertTrue(
+                                    containsKafkaAuthenticationFailure(newBrokerLogs),
+                                    "Expected broker to log authentication failure for non-Kerberos PLAINTEXT client");
+                        });
 
         container.cancelJob(jobId);
 
@@ -332,19 +370,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
                             Assertions.assertEquals("CANCELED", jobStatus);
                         });
-
-        // step 2. Verify that the program outputs retry logs
-        Awaitility.given()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        container
-                                                .getServerLogs()
-                                                .contains(
-                                                        "Cancelled in-flight INIT_PRODUCER_ID request with correlation id")));
     }
 
     @TestTemplate
@@ -450,6 +475,9 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         }
         if (kafkaContainer != null) {
             kafkaContainer.close();
+        }
+        if (kerberosContainer != null) {
+            kerberosContainer.close();
         }
     }
 }

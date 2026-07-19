@@ -75,8 +75,11 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        MySqlIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
