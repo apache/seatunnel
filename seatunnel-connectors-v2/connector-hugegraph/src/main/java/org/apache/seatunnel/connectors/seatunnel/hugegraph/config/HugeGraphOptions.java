@@ -87,25 +87,25 @@ public class HugeGraphOptions {
     public static final Option<Boolean> BATCH_FAILURE_FALLBACK =
             Options.key("batch_failure_fallback")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription(
-                            "When a batch insert fails, fall back to inserting the batch record by "
-                                    + "record so a single bad ('poison') record no longer fails the "
+                            "When true, a failed batch insert falls back to inserting records one "
+                                    + "by one so a single bad ('poison') record no longer fails the "
                                     + "whole batch. Failed records are logged and skipped; the rest "
-                                    + "succeed. Disable to fail the whole batch instead.");
+                                    + "succeed. Default false (fail-fast): any batch failure fails "
+                                    + "the task immediately. Opt in explicitly when record skipping "
+                                    + "is acceptable.");
 
     public static final Option<Integer> MAX_INSERT_ERRORS =
             Options.key("max_insert_errors")
                     .intType()
-                    .defaultValue(500)
+                    .defaultValue(0)
                     .withDescription(
                             "Maximum number of records that may be skipped by the single-record "
                                     + "fallback (batch_failure_fallback=true) before the task is "
-                                    + "failed. This bounds the previously unlimited silent skipping "
-                                    + "of poison records. Set to -1 for unlimited (never fail on "
-                                    + "skipped records). Only applies when batch_failure_fallback "
-                                    + "is enabled; when it is disabled the first batch failure "
-                                    + "already fails the task.");
+                                    + "failed. Default 0: any skipped record fails the task. Set to "
+                                    + "-1 for unlimited (never fail on skipped records). Only applies "
+                                    + "when batch_failure_fallback is enabled.");
 
     public static final Option<String> FAILURE_DATA_PATH =
             Options.key("failure_data_path")

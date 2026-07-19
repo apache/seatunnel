@@ -173,6 +173,18 @@ public class BatchBuffer implements AutoCloseable {
         }
     }
 
+    /**
+     * Backward-compatible overload that wraps a plain {@link GraphElement} in a minimal envelope.
+     *
+     * @deprecated Use {@link #add(GraphElementEnvelope)} instead so the buffer receives complete
+     *     mapping context (label name, element type) for failure diagnostics.
+     */
+    @Deprecated
+    public synchronized void add(GraphElement element) throws IOException {
+        LabelType type = element instanceof Vertex ? LabelType.VERTEX : LabelType.EDGE;
+        add(new GraphElementEnvelope(null, type, element));
+    }
+
     public synchronized void flush() throws IOException {
         checkFlushException();
         if (closed && vertexBuffer.isEmpty() && edgeBuffer.isEmpty()) {
