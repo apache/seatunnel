@@ -45,6 +45,12 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
         this.converter = new AvroToRowConverter(rowType);
     }
 
+    public AvroDeserializationSchema(CatalogTable catalogTable, String writerSchema) {
+        this.catalogTable = catalogTable;
+        this.rowType = catalogTable.getSeaTunnelRowType();
+        this.converter = new AvroToRowConverter(rowType, writerSchema);
+    }
+
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);

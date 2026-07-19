@@ -50,7 +50,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 - [数据来源连接器总览](../connectors/source-overview.md)
 - [数据写入连接器总览](../connectors/sink-overview.md)
 - [数据转换总览](../transforms)
-- [场景示例](./recipes/overview.md)
+- [场景教程](./recipes/overview.md)
 
 ### 路径 C：我想先理解整体架构
 
@@ -78,7 +78,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 推荐继续阅读：
 
 - [作业配置指南](./job-configuration-guide.md)
-- [场景示例](./recipes/overview.md)
+- [场景教程](./recipes/overview.md)
 - [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
 - [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

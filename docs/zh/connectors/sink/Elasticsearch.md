@@ -11,6 +11,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -19,7 +20,6 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 * 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
 
 :::
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | 否    | -                            |
 | common-options         |         | 否    | -                            |
 | vectorization_fields   | array   | 否    | -                            |
-| vector_dimensions      | int     | 否    | -                            |
+| vector_dimensions      | int     | 否    | 0                            |
 | multi_table_sink_replica | int   | 否    | 1                            |
 
 
@@ -270,7 +270,6 @@ sink {
 }
 ```
 
-```
 变更数据捕获 (Change data capture) 事件多表写入
 
 ```conf

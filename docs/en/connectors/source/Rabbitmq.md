@@ -1,12 +1,12 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq source connector
+> RabbitMQ source connector
 
 ## Description
 
-Used to read data from Rabbitmq.
+Used to read data from RabbitMQ queues.
 
 ## Key features
 
@@ -16,6 +16,7 @@ Used to read data from Rabbitmq.
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -99,7 +100,7 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### tables_configs [array]
 
-Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema.
+Used to read from multiple queues simultaneously. Each object in the array must contain `queue_name` and `schema`.
 
 ### network_recovery_interval [int]
 
@@ -169,9 +170,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
 
 **Configuration Priority:**
-- You cannot configure both `tables_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
+- You cannot configure both `tables_configs` and the root-level `queue_name` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
 - Use `tables_configs` for multi-table mode.
-- Use root-level `queue_name` and `schema` for single-table mode.
+- Use root-level `queue_name` and `schema` for single-queue mode.
+- In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
 - If you configure `username`, you must also configure `password`, and vice versa.
 - `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
@@ -193,6 +195,9 @@ source {
         username = "guest"
         password = "guest"
         queue_name = "test"
+        durable = true
+        exclusive = false
+        auto_delete = false
         schema = {
             fields {
                 id = bigint
@@ -209,6 +214,7 @@ sink {
     Console {}
 }
 ```
+
 ### Multi-table Read Example
 
 You can use the `tables_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `plugin_input`.

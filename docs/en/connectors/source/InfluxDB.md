@@ -15,11 +15,22 @@ query and an optional parallel scan mode that splits one query by an integer col
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-
-supports query SQL and can achieve projection effect.
-
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+
+## Data Type Mapping
+
+| SeaTunnel Data Type | Notes |
+|---------------------|-------|
+| BOOLEAN             | Parsed from the returned InfluxDB value. |
+| SMALLINT            | Parsed from the returned InfluxDB value. |
+| INT                 | Parsed from the returned InfluxDB value. |
+| BIGINT              | Parsed from the returned InfluxDB value. |
+| FLOAT               | InfluxDB returns numbers as double values; the connector converts them to FLOAT. |
+| DOUBLE              | Uses the returned numeric value. |
+| STRING              | Uses the returned value as a string. |
+
+Other SeaTunnel types are not supported by the current InfluxDB source converter.
 
 ## Options
 
@@ -35,7 +46,7 @@ supports query SQL and can achieve projection effect.
 | upper_bound        | int    | no       | -             | Upper bound of `split_column` when parallel scan is enabled.                                      |
 | partition_num      | int    | no       | 0             | Number of query splits. `0` means the source runs the original `sql` as one split.                |
 | split_column       | string | no       | -             | Integer column used to split the query when parallel scan is enabled.                             |
-| where              | string | no       | -             | Reserved source option. The current split logic reads the `where` keyword from `sql` directly.    |
+| where              | string | no       | -             | Reserved source option. The current split logic reads the lowercase `where` keyword from `sql` directly. |
 | epoch              | string | no       | n             | Time precision returned by InfluxDB. For example: `H`, `m`, `s`, `MS`, `u`, `n`.                 |
 | connect_timeout_ms | long   | no       | 15000         | Timeout for connecting to InfluxDB, in milliseconds.                                             |
 | query_timeout_sec  | int    | no       | 3             | Timeout for querying InfluxDB, in seconds.                                                       |
@@ -94,6 +105,8 @@ The column used to split one query into multiple range queries.
 > - influxDB time is not supported as a segmented primary key because the time field cannot participate in mathematical calculation
 > - Currently, `split_column` only supports integer data segmentation, and does not support `float`, `string`, `date` and other types.
 > - `split_column`, `lower_bound`, `upper_bound`, and `partition_num` must be configured together.
+> - If the split query contains a filter, use lowercase `where` in `sql`, for example `select * from test where age > 0`. The current split parser is case-sensitive.
+> - `where` is an option in the validation rule, but the current split logic reads the filter from `sql`. Put the filter in `sql` instead of configuring a separate `where` value.
 
 ### upper_bound [int]
 

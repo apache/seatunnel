@@ -8,7 +8,13 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 Used to read data from Redis.
 
-## Key features
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -17,6 +23,15 @@ Used to read data from Redis.
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+To use the Redis connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
+
+| Datasource | Dependency |
+|------------|------------|
+| Redis      | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## Options
 
@@ -31,6 +46,9 @@ Used to read data from Redis.
 | nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
 | tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
+
+Use `keys` and `data_type` for a single key pattern. Use `tables_configs` for multiple key patterns; `keys` and
+`tables_configs` cannot be configured at the same time.
 
 ### Table list configuration
 
@@ -49,7 +67,7 @@ When using `tables_configs` to read multiple key patterns, each table configurat
 | single_field_name   | string | no       | -             | Field name for single-value types |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
-**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in tables_configs to the outer layer (backward compatible).
+**Note:** When this configuration corresponds to a single table, configure these table-level options at the outer layer instead of using `tables_configs`. For example, put `keys`, `data_type`, `format`, and `schema` directly under `Redis`.
 
 **Important:** In multi-table mode, the above table-level parameters should be configured within each item of `tables_configs`.
 
@@ -125,7 +143,7 @@ schema {
 
 each kv that in hash key it will be treated as a row and send it to upstream.
 
-**Tips: connector will use the first field information of schema config as the field name of each k that in each kv**
+**Tips: connector will use the first field in the schema config as the field name for each key in each hash kv pair.**
 
 ### keys [string]
 
@@ -139,10 +157,10 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, 
-you must also specify `single_field_name` to map the value to a schema column, and `key_field_name` to map the Redis key.
+If you are using a single-value Redis data type (such as `string`, `list`, `set`, or `zset`) with `read_key_enabled = true`,
+you must specify `single_field_name` to map the value to a schema column. `key_field_name` is optional and defaults to `key`.
 
-Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
+When you configure a schema, include the actual output field names, including the default `key` field or the name set by `key_field_name`.
 
 Example :
 ```hocon
@@ -448,6 +466,7 @@ source {
         format = JSON
         batch_size = 10
         schema {
+          table = "user_table"
           fields {
             id = int
             name = string
@@ -463,6 +482,7 @@ source {
         read_key_enabled = true
         key_field_name = "session_id"
         schema {
+          table = "session_table"
           fields {
             session_id = string
             user_id = int
@@ -476,17 +496,29 @@ source {
         data_type = LIST
         format = TEXT
         field_delimiter = "|"
+        schema {
+          table = "task_table"
+          fields {
+            content = string
+          }
+        }
       }
     ]
   }
 }
 
 sink {
-  Console {
-    parallelism = 1
+  Redis {
+    host = "localhost"
+    port = 6379
+    key = "redis-result-${table_name}"
+    data_type = LIST
   }
 }
 ```
+
+In multi-table mode, the table name comes from `schema.table`. Downstream sinks can use `${table_name}` to route
+different Redis key patterns to different target tables or keys.
 
 **Example 2: Cluster mode with multiple tables**
 

@@ -29,10 +29,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
->使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
->支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+> 使用 `XA 事务` 来保证 `精确一次`。因此仅支持支持 `XA 事务` 的数据库。可以通过设置 `is_exactly_once=true` 和 `max_retries=0` 来启用。
 
 ## 支持的数据源信息
 
@@ -77,8 +77,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
-| batch_size                   | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中。                                                                  |
-| batch_interval_ms            | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中。                                                                           |
+| batch_size                   | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录数达到 `batch_size` 时，数据会刷新到数据库。如果 `batch_interval_ms` 大于 0，经过指定时间也会触发刷新。                                                                  |
+| batch_interval_ms            | Long    | 否       | 0                            | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 0 时，写入器会在每条记录写入时检查间隔，达到间隔后同步刷新。                                                                           |
 | is_exactly_once              | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
 | generate_sink_sql            | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
 | xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
@@ -91,6 +91,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
 | custom_sql                   | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |
 | enable_upsert                | Boolean | 否       | true                         | 通过primary_keys存在启用upstart，如果任务只有“插入”，将此参数设置为“false”可以加快数据导入                                                                                                          |
+| multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入时使用的 Sink Writer 副本数量。                                                                                                          |
 
 ### 提示
 

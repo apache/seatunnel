@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 从 Hive 读取数据。
 
-使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个元素都转换为具有以下架构的行：
+使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -205,7 +205,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 3：正则匹配多表（整库/整库子集）
+### 示例 4：正则匹配多表（整库/整库子集）
 
 ```bash
   Hive {
@@ -238,7 +238,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 4：Kerberos
+### 示例 5：Kerberos
 
 ```bash
 source {

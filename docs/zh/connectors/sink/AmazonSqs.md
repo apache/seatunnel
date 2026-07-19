@@ -2,11 +2,11 @@ import ChangeLog from '../changelog/connector-amazonsqs.md';
 
 # AmazonSqs
 
-> Amazon SQS Sink 连接器
+> Amazon SQS 写入连接器
 
 ## 描述
 
-Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一个 Amazon SQS 队列 URL。
+Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一个 Amazon SQS 队列 URL。
 连接器会按照 `format` 序列化数据，并把序列化后的内容作为 SQS 消息体发送。
 
 ## 支持的引擎
@@ -20,11 +20,11 @@ Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一�
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## Sink 选项
+## 写入选项
 
 | 名称                | 类型     | 是否必填 | 默认值  | 描述                                                                                                                   |
 |-------------------|--------|------|------|----------------------------------------------------------------------------------------------------------------------|
@@ -36,15 +36,51 @@ Amazon SQS Sink 连接器用于把每条输入的 SeaTunnel 行数据写入一�
 | field_delimiter   | String | 否    | ,    | 当 `format = text` 时使用的字段分隔符。                                                                                       |
 | common-options    |        | 否    | -    | Sink 插件通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                                      |
 
+`url` 可以指向 AWS SQS，也可以指向兼容 SQS 的本地服务，例如 `http://sqs-host:4566/000000000000/sink_queue`。
+
 ## 格式说明
 
 - `json`：把每行数据写成 JSON 对象。
 - `text`：用 `field_delimiter` 拼接每行中的字段。
 - `canal_json`：写出 Canal JSON 消息，详见 [Canal JSON](../formats/canal-json.md)。
 - `debezium_json`：写出 Debezium JSON 消息，详见 [Debezium JSON](../formats/debezium-json.md)。
-- 当前 sink 只发送消息体，不提供 SQS message attributes、delay seconds、deduplication ID 或 message group ID 等配置。
+- 当前写入连接器只发送消息体，不提供 SQS message attributes、delay seconds、deduplication ID 或 message group ID 等配置。
+- `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
+- 该写入连接器会把每条 SeaTunnel 行数据发送成一条 SQS 消息，不会把多行数据合并到一次 SQS 请求里。
 
 ## 任务示例
+
+### 在本地兼容队列之间复制消息
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/source_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+    schema = {
+      fields {
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/sink_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+  }
+}
+```
 
 ### 写入 JSON 消息
 

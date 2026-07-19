@@ -14,11 +14,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 Used to read data from IoTDB.
 
+The current source runs a bounded SQL query. It is suitable for batch reads and does not continuously tail new IoTDB data in streaming mode.
+
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
   > IoTDB allows column projection using SQL query.
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
@@ -43,9 +45,8 @@ Used to read data from IoTDB.
 | DOUBLE          | DOUBLE              |
 | TEXT            | STRING              |
 | STRING          | STRING              |
-| TIMESTAMP       | TIMESTAMP           |
-| BLOB            | STRING              |
-| DATE            | DATE                |
+| time column     | BIGINT              |
+| time column     | TIMESTAMP           |
 
 ## Source Options
 
@@ -66,7 +67,11 @@ Used to read data from IoTDB.
 | version                    | string  | no       | -             | SQL semantic version used by the client. The possible values are `V_0_12` and `V_0_13`.                           |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
-We can use time column as a partition key in SQL queries.
+The first field in `schema.fields` must describe the IoTDB time column. It can be `bigint` when you want epoch milliseconds, or `timestamp` when you want a SeaTunnel timestamp value.
+
+When the SQL uses `align by device`, the second field normally describes the IoTDB device name. The remaining fields must follow the same order as the measurements returned by the SQL query.
+
+You can use the time column as a partition key in SQL queries.
 
 #### num_partitions [int]
 
@@ -83,7 +88,7 @@ the lower bound of the time range
 ```
      split the time range into numPartitions parts
      if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
+     if (upper_bound - lower_bound) < numPartitions, will use (upper_bound - lower_bound) as numPartitions
      
      eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
      sql = "select * from test where age > 0 and age < 10"
@@ -134,6 +139,67 @@ sink {
 ```
 
 `lower_bound`, `upper_bound`, and `num_partitions` are optional. They are useful when the query covers a large time range and you want SeaTunnel to split the read into multiple time partitions.
+
+The following example reads from one IoTDB path, replaces the device prefix, and writes the result to another IoTDB path.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  IoTDB {
+    plugin_output = "iotdb_rows"
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+    sql = "SELECT c_string, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double FROM root.source_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
+    schema {
+      fields {
+        ts = timestamp
+        device_name = string
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+      }
+    }
+  }
+}
+
+transform {
+  Replace {
+    plugin_input = "iotdb_rows"
+    plugin_output = "sink_rows"
+    replace_field = "device_name"
+    pattern = "root.source_group"
+    replacement = "root.sink_group"
+    is_regex = false
+    replace_first = true
+  }
+}
+
+sink {
+  IoTDB {
+    plugin_input = "sink_rows"
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "ts"
+    key_measurement_fields = ["c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double"]
+    batch_size = 1
+  }
+}
+```
 
 The data format from upstream IoTDB is as follows:
 
