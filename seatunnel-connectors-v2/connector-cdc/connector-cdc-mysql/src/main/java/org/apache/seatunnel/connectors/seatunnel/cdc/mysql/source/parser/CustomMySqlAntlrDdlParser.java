@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 
 import io.debezium.antlr.AntlrDdlParserListener;
@@ -44,6 +45,17 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
         super();
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
+    }
+
+    /**
+     * Retains the original constructor for binary and source compatibility.
+     *
+     * @deprecated the parser now resolves table identifiers from each DDL statement
+     */
+    @Deprecated
+    public CustomMySqlAntlrDdlParser(
+            TablePath ignoredTablePath, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        this(dbzConnectorConfig);
     }
 
     @Override
