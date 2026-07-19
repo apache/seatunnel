@@ -600,6 +600,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                     state.getPendingOpsByCheckpoint().get(1L).size(),
                     "checkpoint should persist staged post-sync operation");
 
+            Files.write(dstDir.resolve("test.bin"), "abc".getBytes());
             enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
             Assertions.assertFalse(
                     Files.exists(srcFile),

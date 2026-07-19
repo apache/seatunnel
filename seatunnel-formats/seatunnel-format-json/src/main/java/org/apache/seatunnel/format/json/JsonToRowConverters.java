@@ -45,6 +45,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
@@ -312,7 +313,19 @@ public class JsonToRowConverters implements Serializable {
             throw CommonError.formatDateTimeError(datetimeStr, fieldName);
         }
 
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        TemporalAccessor parsedTimestamp;
+        try {
+            parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        } catch (DateTimeParseException e) {
+            dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
+            if (dateTimeFormatter == null) {
+                throw e;
+            }
+            if (fieldName != null) {
+                fieldFormatterMap.put(fieldName, dateTimeFormatter);
+            }
+            parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        }
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
