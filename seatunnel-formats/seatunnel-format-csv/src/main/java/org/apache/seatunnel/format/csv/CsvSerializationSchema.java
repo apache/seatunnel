@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -201,6 +202,7 @@ public class CsvSerializationSchema implements SerializationSchema {
                 BigDecimal bd = (BigDecimal) field;
                 return bd.stripTrailingZeros().toPlainString();
             case STRING:
+            case JSON:
                 byte[] bytes = field.toString().getBytes(StandardCharsets.UTF_8);
                 String str = new String(bytes, StandardCharsets.UTF_8);
                 // Focus only on the base string
@@ -223,9 +225,13 @@ public class CsvSerializationSchema implements SerializationSchema {
                 return new String((byte[]) field, StandardCharsets.UTF_8);
             case ARRAY:
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
-                return Arrays.stream((Object[]) field)
-                        .map(f -> convert(f, elementType, level + 1))
-                        .collect(Collectors.joining(separators[level + 1]));
+                String arrayValue =
+                        Arrays.stream((Object[]) field)
+                                .map(f -> convert(f, elementType, level + 1))
+                                .collect(Collectors.joining(separators[level + 1]));
+                return level == 0 && elementType.getSqlType() == SqlType.JSON
+                        ? addQuotesUsingCSVFormat(arrayValue)
+                        : arrayValue;
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
