@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -43,6 +44,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -69,6 +71,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
@@ -594,26 +597,45 @@ public class CoordinatorServiceTest {
     @Test
     public void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
 
-        HazelcastInstanceImpl instance =
-                SeaTunnelServerStarter.createHazelcastInstance(
+        int maxRetryCount = 3;
+        ReturnRetryTimesOperation.resetRetryTimes();
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
                         TestUtils.getClusterName(
                                 "CoordinatorServiceTest_testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast"));
+        // Keep the production retry contract intact while using a small test-only budget so CI
+        // can still verify terminal exception propagation without waiting for 250 retries.
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setProperty(
+                        ClusterProperty.INVOCATION_MAX_RETRY_COUNT.getName(),
+                        String.valueOf(maxRetryCount));
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setProperty(ClusterProperty.INVOCATION_RETRY_PAUSE.getName(), "1");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         try {
             CompletionException exception =
                     Assertions.assertThrows(
                             CompletionException.class,
-                            () -> {
-                                NodeEngineUtil.sendOperationToMemberNode(
-                                                instance.node.getNodeEngine(),
-                                                new ReturnRetryTimesOperation(),
-                                                instance.getCluster().getLocalMember().getAddress())
-                                        .join();
-                            });
+                            () ->
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                    instance.node.getNodeEngine(),
+                                                    new ReturnRetryTimesOperation(),
+                                                    instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress())
+                                            .join());
             Assertions.assertTrue(
                     exception
                             .getCause()
                             .getMessage()
-                            .contains("Retryable exception occurred, retry times: 250"));
+                            .contains(
+                                    "Retryable exception occurred, retry times: " + maxRetryCount));
+            Assertions.assertEquals(maxRetryCount, ReturnRetryTimesOperation.getRetryTimes());
         } finally {
             instance.shutdown();
         }
@@ -1258,6 +1280,202 @@ public class CoordinatorServiceTest {
                                 thread ->
                                         thread.getName().startsWith("pending-job-schedule-runner"))
                         .count());
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateRetriesUntilRestoreComplete() throws Exception {
+        CountDownLatch restoreLatch = new CountDownLatch(1);
+
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateRetriesUntilRestoreComplete",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_retries_until_restore_complete");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+        JobMaster jobMaster = coordinatorService.getJobMaster(jobInformation.jobId);
+
+        Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        mapField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> runningJobMasterMap =
+                (Map<Long, JobMaster>) mapField.get(coordinatorService);
+        runningJobMasterMap.remove(jobInformation.jobId);
+
+        CompletableFuture<Void> delayedFuture =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                restoreLatch.await(10, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+
+        PassiveCompletableFuture<Void> delayedPassiveFuture =
+                new PassiveCompletableFuture<>(new CompletableFuture<>(delayedFuture));
+
+        Field futureField =
+                CoordinatorService.class.getDeclaredField(
+                        "restoreAllJobFromMasterNodeSwitchFuture");
+        futureField.setAccessible(true);
+        futureField.set(coordinatorService, delayedPassiveFuture);
+
+        ExecutorService restoreExecutor = Executors.newSingleThreadExecutor();
+        try {
+            restoreExecutor.submit(
+                    () -> {
+                        try {
+                            Thread.sleep(1000);
+                            runningJobMasterMap.put(jobInformation.jobId, jobMaster);
+                            restoreLatch.countDown();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+
+            TaskGroupLocation taskGroupLocation =
+                    jobMaster
+                            .getPhysicalPlan()
+                            .getPipelineList()
+                            .get(0)
+                            .getPhysicalVertexList()
+                            .get(0)
+                            .getTaskGroupLocation();
+            TaskExecutionState taskExecutionState =
+                    new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED);
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertDoesNotThrow(
+                                            () ->
+                                                    coordinatorService.updateTaskExecutionState(
+                                                            taskExecutionState)));
+        } finally {
+            restoreExecutor.shutdownNow();
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateThrowsWhenJobNotFound() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateThrowsWhenJobNotFound",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_throws_when_job_not_found");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        try {
+            TaskGroupLocation fakeLocation = new TaskGroupLocation(99999L, 0, 0);
+            TaskExecutionState taskExecutionState =
+                    new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+            Assertions.assertThrows(
+                    JobNotFoundException.class,
+                    () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+        } finally {
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateWhenRestoreFailed() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWhenRestoreFailed",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_when_restore_failed");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+
+        try {
+            Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+            mapField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Long, JobMaster> runningJobMasterMap =
+                    (Map<Long, JobMaster>) mapField.get(coordinatorService);
+            runningJobMasterMap.remove(jobInformation.jobId);
+
+            CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(new SeaTunnelEngineException("Restore failed"));
+            PassiveCompletableFuture<Void> failedPassiveFuture =
+                    new PassiveCompletableFuture<>(failedFuture);
+
+            Field futureField =
+                    CoordinatorService.class.getDeclaredField(
+                            "restoreAllJobFromMasterNodeSwitchFuture");
+            futureField.setAccessible(true);
+            futureField.set(coordinatorService, failedPassiveFuture);
+
+            TaskGroupLocation fakeLocation = new TaskGroupLocation(jobInformation.jobId, 0, 0);
+            TaskExecutionState taskExecutionState =
+                    new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+            Assertions.assertThrows(
+                    JobNotFoundException.class,
+                    () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+        } finally {
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateWhenJobRemovedDuringRestore() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWhenJobRemovedDuringRestore",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_job_removed_during_restore");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+
+        try {
+            Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+            mapField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Long, JobMaster> runningJobMasterMap =
+                    (Map<Long, JobMaster>) mapField.get(coordinatorService);
+
+            Long jobId = jobInformation.jobId;
+            runningJobMasterMap.remove(jobId);
+
+            CompletableFuture<Void> completedFuture = CompletableFuture.completedFuture(null);
+            PassiveCompletableFuture<Void> completedPassiveFuture =
+                    new PassiveCompletableFuture<>(completedFuture);
+
+            Field futureField =
+                    CoordinatorService.class.getDeclaredField(
+                            "restoreAllJobFromMasterNodeSwitchFuture");
+            futureField.setAccessible(true);
+            futureField.set(coordinatorService, completedPassiveFuture);
+
+            TaskGroupLocation fakeLocation = new TaskGroupLocation(jobId, 0, 0);
+            TaskExecutionState taskExecutionState =
+                    new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+            Assertions.assertThrows(
+                    JobNotFoundException.class,
+                    () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+        } finally {
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
     }
 
     @Test
