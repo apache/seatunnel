@@ -17,6 +17,7 @@ The recipes in this section include concrete prerequisites, complete configurati
 | Batch migration between relational databases with row transformation | [JDBC to JDBC](./jdbc-to-jdbc.md) |
 | JDBC extraction into object storage | [JDBC to S3](./jdbc-to-s3.md) |
 | Streaming from Kafka into a table format | [Kafka to Iceberg](./kafka-to-iceberg.md) |
+| CDC from PostgreSQL into a table format | [PostgreSQL CDC to Iceberg](./postgresql-cdc-to-iceberg.md) |
 | HTTP ingestion into a relational target | [HTTP to JDBC](./http-to-jdbc.md) |
 | File-based loading into an analytical system | [File to StarRocks](./file-to-starrocks.md) |
 | Multi-table CDC orchestration | [Multi-Table CDC](./multi-table-cdc.md) |

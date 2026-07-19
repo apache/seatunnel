@@ -17,6 +17,7 @@ slug: /getting-started/recipes
 | 在关系型数据库之间批量迁移，并进行数据过滤和转换 | [JDBC 到 JDBC](./jdbc-to-jdbc.md) |
 | 把 JDBC 数据抽取到对象存储 | [JDBC 到 S3](./jdbc-to-s3.md) |
 | 从 Kafka 流式写入表格式存储 | [Kafka 到 Iceberg](./kafka-to-iceberg.md) |
+| 从 PostgreSQL CDC 同步到表格式存储 | [PostgreSQL CDC 到 Iceberg](./postgresql-cdc-to-iceberg.md) |
 | 把 HTTP 数据写入关系型数据库 | [HTTP 到 JDBC](./http-to-jdbc.md) |
 | 把文件数据加载到分析型系统 | [文件到 StarRocks](./file-to-starrocks.md) |
 | 多表 CDC 编排 | [多表 CDC](./multi-table-cdc.md) |
