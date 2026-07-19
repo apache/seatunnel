@@ -36,6 +36,8 @@ is serialized by the configured `format`, and the serialized value is sent as th
 | field_delimiter   | String | No       | ,       | Field delimiter used when `format = text`.                                                                                                                  |
 | common-options    |        | No       | -       | Sink plugin common parameters. For details, see [Sink Common Options](../common-options/sink-common-options.md).                                            |
 
+`url` can point to AWS SQS or to an SQS-compatible local service, for example `http://sqs-host:4566/000000000000/sink_queue`.
+
 ## Format Notes
 
 - `json` writes each row as a JSON object.
@@ -43,8 +45,42 @@ is serialized by the configured `format`, and the serialized value is sent as th
 - `canal_json` writes Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
 - `debezium_json` writes Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
 - The sink sends only the message body. It does not expose SQS message attributes, delay seconds, deduplication ID, or message group ID options.
+- `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
+- The sink sends each SeaTunnel row as one SQS message. It does not batch multiple rows into one SQS request.
 
 ## Task Examples
+
+### Copy Messages Between Local-Compatible Queues
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/source_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+    schema = {
+      fields {
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/sink_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+  }
+}
+```
 
 ### Write JSON Messages
 

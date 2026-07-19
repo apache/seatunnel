@@ -13,11 +13,26 @@ Configure `url` as the server base address, such as `http://prometheus:9090` or 
 SeaTunnel automatically uses the Prometheus query endpoint for `Instant` queries and the query range endpoint for
 `Range` queries.
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+To use the Prometheus connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## Source Options
 

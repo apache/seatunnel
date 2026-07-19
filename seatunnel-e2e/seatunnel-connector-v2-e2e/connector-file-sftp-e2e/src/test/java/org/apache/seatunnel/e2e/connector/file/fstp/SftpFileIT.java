@@ -387,11 +387,16 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                                                     SFTP_CONTAINER_HOME
                                                             + "/tmp/seatunnel/continuous/dst/root.bin")));
 
-            Thread.sleep(3000);
-            Assertions.assertFalse(
-                    isSftpFileExists(
-                            SFTP_CONTAINER_HOME
-                                    + "/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+            Awaitility.await()
+                    .during(3, TimeUnit.SECONDS)
+                    .atMost(5, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isSftpFileExists(
+                                                    SFTP_CONTAINER_HOME
+                                                            + "/tmp/seatunnel/continuous/dst/subdir/nested.bin")));
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());

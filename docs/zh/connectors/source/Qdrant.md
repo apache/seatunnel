@@ -28,7 +28,7 @@ Qdrant source 用来从一个已经存在的 Qdrant collection 读取 point。po
 | schema          | config | 是   | -         | SeaTunnel schema，用来映射 Qdrant point ID、payload 字段和向量。 |
 | host            | string | 否   | localhost | Qdrant gRPC 主机。 |
 | port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
-| api_key         | string | 否   | -         | 认证场景下使用的 Qdrant API key。 |
+| api_key         | string | 否   | ""        | 认证场景下使用的 Qdrant API key。 |
 | use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
 | common-options  |        | 否   | -         | Source 通用选项。 |
 
@@ -46,6 +46,7 @@ Qdrant 中的每条记录叫作 point：
 - 向量列会从 Qdrant 向量中读取。读取命名向量时，SeaTunnel 列名必须和 Qdrant 向量名一致。
 - 其他支持的列会从 Qdrant point payload 中读取。
 - 如果 collection 使用默认的未命名向量，请使用 `default_vector` 作为 SeaTunnel 向量列名。
+- schema 中只配置实际存在的 payload 或向量字段。Source 会按字段名直接取值，配置的字段需要在读取到的 point 中存在。
 
 示例：
 
@@ -78,7 +79,7 @@ Qdrant 实例的 gRPC 端口。
 
 ### api_key [string]
 
-连接需要认证的 Qdrant 部署时使用的 API key。
+连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
 
 ### use_tls [bool]
 
@@ -110,6 +111,7 @@ Source 插件通用参数，请参考 [Source 通用选项](../common-options/so
 
 - 作业启动前，collection 必须已经存在。
 - Qdrant 中的向量字段名和维度必须与 SeaTunnel schema 中的向量列一致。
+- 如果 collection 只有一个未命名向量，请把 SeaTunnel 向量列命名为 `default_vector`。
 - Qdrant source 是有界读取，并且只使用一个 split，不支持并行读取。
 - Qdrant source 只输出 `INSERT` 行，不读取 CDC 变更。
 

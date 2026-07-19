@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-web3j.md';
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
@@ -24,6 +24,8 @@ import ChangeLog from '../changelog/connector-web3j.md';
 Web3j 源连接器用于通过 Web3 服务端点读取区块链数据。目前连接器读取最新区块号，并输出一个
 `value` 字段。`value` 字段是 JSON 字符串，里面包含 `blockNumber` 和连接器生成的读取时间戳。
 
+批处理模式下，source 输出一行后结束。流处理模式下，它会持续轮询服务端点，并输出观察到的最新区块号。
+
 ## 源选项
 
 | 参数名 | 类型 | 必须 | 默认值 | 描述 |
@@ -35,6 +37,12 @@ Web3j 源连接器用于通过 Web3 服务端点读取区块链数据。目前�
 | 字段 | 类型 | 描述 |
 |------|------|------|
 | value | String | JSON 字符串，包含最新区块号和连接器生成的时间戳。 |
+
+`value` 中保存的 JSON 结构如下：
+
+```json
+{"blockNumber":19525949,"timestamp":"2024-03-27T13:28:45.605Z"}
+```
 
 ## 示例
 
@@ -59,7 +67,7 @@ sink {
 }
 ```
 
-然后您将获得以下数据：
+然后可以得到类似下面的数据：
 
 ```json
 {"value":"{\"blockNumber\":19525949,\"timestamp\":\"2024-03-27T13:28:45.605Z\"}"}
