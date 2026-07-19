@@ -447,7 +447,7 @@ jobs:
         run: |
           ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates
         env:
-          MAVEN_OPTS: -Xmx4096m
+          MAVEN_OPTS: -Xmx4096m -Dfile.encoding=UTF-8
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
