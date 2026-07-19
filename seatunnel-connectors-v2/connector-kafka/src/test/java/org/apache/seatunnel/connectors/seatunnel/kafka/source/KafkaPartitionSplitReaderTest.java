@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -32,9 +35,43 @@ import org.mockito.Mockito;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
-class KafkaPartitionSplitReaderTest {
+/**
+ * Tests the Kafka source reader consumer property mapping.
+ *
+ * <p>This guards the offset commit contract between SeaTunnel checkpoint commits and Kafka auto
+ * commit.
+ */
+public class KafkaPartitionSplitReaderTest {
+
+    /** Verifies that checkpoint commits disable Kafka auto commit. */
+    @Test
+    void testBuildConsumerPropertiesDisablesAutoCommitWhenCheckpointCommitEnabled() {
+        KafkaSourceConfig kafkaSourceConfig = new KafkaSourceConfig(createConfig(true));
+
+        Properties properties =
+                KafkaPartitionSplitReader.buildConsumerProperties(
+                        kafkaSourceConfig, 1, "seatunnel-test");
+
+        Assertions.assertEquals(
+                "false", properties.getProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
+    }
+
+    /** Verifies that Kafka auto commit stays enabled when checkpoint commits are disabled. */
+    @Test
+    void testBuildConsumerPropertiesEnablesAutoCommitWhenCheckpointCommitDisabled() {
+        KafkaSourceConfig kafkaSourceConfig = new KafkaSourceConfig(createConfig(false));
+
+        Properties properties =
+                KafkaPartitionSplitReader.buildConsumerProperties(
+                        kafkaSourceConfig, 2, "seatunnel-test");
+
+        Assertions.assertEquals(
+                "true", properties.getProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
+    }
 
     @Test
     void shouldFinishSplitWhenConsumerPositionReachesStoppingOffsetAfterControlRecord()
@@ -57,14 +94,35 @@ class KafkaPartitionSplitReaderTest {
         KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(sourceConfig, context);
         setConsumer(reader, consumer);
         reader.handleSplitsChanges(
-                new org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader
-                        .SplitsAddition<>(
+                new SplitsAddition<>(
                         Collections.singletonList(
                                 new KafkaSourceSplit(null, partition, 0L, 101L))));
 
         RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> records = reader.fetch();
 
         Assertions.assertTrue(records.finishedSplits().contains(partition.toString()));
+    }
+
+    /** Creates the minimum Kafka source config used by the tests. */
+    private ReadonlyConfig createConfig(boolean commitOnCheckpoint) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("bootstrap.servers", "localhost:9092");
+        configMap.put("group.id", "test-group");
+        configMap.put("topic", "test-topic");
+        configMap.put("schema", createSchema());
+        configMap.put("format", "text");
+        configMap.put("commit_on_checkpoint", commitOnCheckpoint);
+        return ReadonlyConfig.fromMap(configMap);
+    }
+
+    /** Creates a minimal text schema for constructing {@link KafkaSourceConfig}. */
+    private Map<String, Object> createSchema() {
+        Map<String, Object> schemaFields = new HashMap<>();
+        schemaFields.put("id", "int");
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", schemaFields);
+        return schema;
     }
 
     private void setConsumer(
