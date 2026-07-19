@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
 import org.apache.seatunnel.common.config.Common;
@@ -36,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,6 +52,19 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        init(hazelcastInstance, properties, mapName, Common.appStarterDir().resolve("zeta"));
+    }
+
+    /**
+     * Initializes the map store with an explicit Zeta starter directory for isolated classloader
+     * verification.
+     */
+    @VisibleForTesting
+    void init(
+            HazelcastInstance hazelcastInstance,
+            Properties properties,
+            String mapName,
+            Path zetaDirectory) {
         if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
             this.mapStorage = NoOpMapStorage.INSTANCE;
             log.info(
@@ -65,8 +80,7 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         try {
             List<URL> storageJars =
                     FileUtils.searchJarFilesForStorage(
-                            Common.appStarterDir().resolve("zeta"),
-                            properties.getProperty("storage.type"));
+                            zetaDirectory, properties.getProperty("storage.type"));
             if (!storageJars.isEmpty()) {
                 storageClassLoader =
                         new URLClassLoader(storageJars.toArray(new URL[0]), storageClassLoader);

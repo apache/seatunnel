@@ -47,10 +47,15 @@ import java.util.stream.Stream;
 public class FileUtils {
 
     public static List<URL> searchJarFiles(@NonNull Path directory) throws IOException {
+        return searchJarFiles(directory, Integer.MAX_VALUE);
+    }
+
+    private static List<URL> searchJarFiles(@NonNull Path directory, int maxDepth)
+            throws IOException {
         if (!directory.toFile().exists()) {
             return new ArrayList<>();
         }
-        try (Stream<Path> paths = Files.walk(directory, FileVisitOption.FOLLOW_LINKS)) {
+        try (Stream<Path> paths = Files.walk(directory, maxDepth, FileVisitOption.FOLLOW_LINKS)) {
             return paths.filter(path -> path.toString().endsWith(".jar"))
                     .map(
                             path -> {
@@ -109,6 +114,8 @@ public class FileUtils {
         }
 
         if (splitLayoutDetected) {
+            // Keep root-level jars visible for installations transitioning from the legacy layout.
+            jars.addAll(searchJarFiles(zetaDirectory, 1));
             log.info(
                     "Loaded {} storage JAR(s) for storage type '{}' from {}",
                     jars.size(),

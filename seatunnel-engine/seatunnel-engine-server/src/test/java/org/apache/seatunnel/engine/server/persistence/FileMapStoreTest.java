@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
@@ -28,9 +30,17 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.hazelcast.core.HazelcastInstance;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 import static org.mockito.Mockito.mock;
 
@@ -52,6 +62,9 @@ import static org.mockito.Mockito.mock;
  */
 @EnabledOnOs({OS.LINUX, OS.MAC})
 public class FileMapStoreTest {
+
+    private static final String TEST_STORAGE_TYPE = "isolated-test-storage";
+    private static final String FACTORY_CLASS_NAME = "isolated.IsolatedIMapStorageFactory";
 
     @TempDir Path tempDir;
 
@@ -120,6 +133,99 @@ public class FileMapStoreTest {
         Assertions.assertDoesNotThrow(() -> store.delete("k"));
 
         store.destroy();
+    }
+
+    /** Proves that FileMapStore reads SPI resources from the split starter layout. */
+    @Test
+    public void testLoadsMapStorageFactoryFromZetaStarterJar() throws IOException {
+        Path zetaDirectory = tempDir.resolve("zeta");
+        createServiceJar(
+                zetaDirectory.resolve("s3/imap-test.jar"),
+                IMapStorageFactory.class,
+                FACTORY_CLASS_NAME,
+                imapFactorySource());
+        Properties props = new Properties();
+        props.setProperty("type", TEST_STORAGE_TYPE);
+        props.setProperty("storage.type", "s3");
+
+        FileMapStore store = new FileMapStore();
+        Assertions.assertDoesNotThrow(
+                () -> store.init(mock(HazelcastInstance.class), props, "test-map", zetaDirectory));
+        Assertions.assertDoesNotThrow(
+                () -> store.storeAll(Collections.singletonMap("key", "value")));
+        Assertions.assertEquals(Collections.emptySet(), store.loadAllKeys());
+
+        store.destroy();
+    }
+
+    private static void createServiceJar(
+            Path jarPath, Class<?> serviceClass, String implementationClass, String source)
+            throws IOException {
+        Path compilationRoot = jarPath.getParent().resolve("compiled-provider");
+        Path sourcePath =
+                compilationRoot.resolve("src/" + implementationClass.replace('.', '/') + ".java");
+        Path classesPath = compilationRoot.resolve("classes");
+        Files.createDirectories(sourcePath.getParent());
+        Files.createDirectories(classesPath);
+        Files.write(sourcePath, source.getBytes(StandardCharsets.UTF_8));
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assertions.assertNotNull(compiler, "A JDK compiler is required for this classloader test");
+        String classPath =
+                System.getProperty(
+                        "surefire.test.class.path", System.getProperty("java.class.path"));
+        int compilationResult =
+                compiler.run(
+                        null,
+                        null,
+                        null,
+                        "-proc:none",
+                        "-classpath",
+                        classPath,
+                        "-d",
+                        classesPath.toString(),
+                        sourcePath.toString());
+        Assertions.assertEquals(0, compilationResult, "The isolated test provider must compile");
+
+        String classEntry = implementationClass.replace('.', '/') + ".class";
+        Files.createDirectories(jarPath.getParent());
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jarPath))) {
+            output.putNextEntry(new JarEntry(classEntry));
+            Files.copy(classesPath.resolve(classEntry), output);
+            output.closeEntry();
+            output.putNextEntry(new JarEntry("META-INF/services/" + serviceClass.getName()));
+            output.write(implementationClass.getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+    }
+
+    /** Returns a factory implementation that is compiled only into the temporary starter jar. */
+    private static String imapFactorySource() {
+        return "package isolated;\n"
+                + "public final class IsolatedIMapStorageFactory implements "
+                + IMapStorageFactory.class.getName()
+                + " {\n"
+                + "  public String factoryIdentifier() { return \""
+                + TEST_STORAGE_TYPE
+                + "\"; }\n"
+                + "  public "
+                + IMapStorage.class.getName()
+                + " create(java.util.Map<String, Object> configuration) {\n"
+                + "    return ("
+                + IMapStorage.class.getName()
+                + ") java.lang.reflect.Proxy.newProxyInstance(\n"
+                + "        getClass().getClassLoader(), new Class<?>[] {"
+                + IMapStorage.class.getName()
+                + ".class}, (proxy, method, args) -> {\n"
+                + "          if (method.getReturnType().equals(boolean.class)) return true;\n"
+                + "          if (method.getReturnType().equals(java.util.Set.class)) "
+                + "return java.util.Collections.emptySet();\n"
+                + "          if (method.getReturnType().equals(java.util.Map.class)) "
+                + "return java.util.Collections.emptyMap();\n"
+                + "          return null;\n"
+                + "        });\n"
+                + "  }\n"
+                + "}\n";
     }
 
     private Properties buildLocalFsProperties(String namespace) {

@@ -185,6 +185,23 @@ public class FileUtilsTest {
                 new HashSet<>(Arrays.asList(legacyJar.getFileName().toString())), jarNames);
     }
 
+    @Test
+    public void testSearchJarFilesForStorageKeepsLegacyRootJarsInMixedLayout() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta-mixed");
+        Files.createDirectories(zetaDir.resolve("common"));
+        Path commonJar = Files.createFile(zetaDir.resolve("common/common.jar"));
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy-storage.jar"));
+
+        Set<String> jarNames = extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "s3"));
+
+        Assertions.assertEquals(
+                new HashSet<>(
+                        Arrays.asList(
+                                commonJar.getFileName().toString(),
+                                legacyJar.getFileName().toString())),
+                jarNames);
+    }
+
     private Set<String> extractJarNames(List<URL> jarUrls) {
         return jarUrls.stream()
                 .map(
