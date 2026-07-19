@@ -37,7 +37,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -152,6 +154,22 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
         return builder.build();
     }
 
+    private Set<String> keyColumnNames() {
+        Set<String> keyColumns = new LinkedHashSet<>();
+        PrimaryKey primaryKey = inputCatalogTable.getTableSchema().getPrimaryKey();
+        if (primaryKey != null && primaryKey.getColumnNames() != null) {
+            keyColumns.addAll(primaryKey.getColumnNames());
+        }
+        for (ConstraintKey constraintKey : inputCatalogTable.getTableSchema().getConstraintKeys()) {
+            if (constraintKey.getConstraintType() == ConstraintKey.ConstraintType.UNIQUE_KEY) {
+                constraintKey
+                        .getColumnNames()
+                        .forEach(column -> keyColumns.add(column.getColumnName()));
+            }
+        }
+        return keyColumns;
+    }
+
     private PrimaryKey extendPrimaryKeyWithChunkIndex(PrimaryKey primaryKey) {
         List<String> columnNames = new ArrayList<>(primaryKey.getColumnNames());
         if (!Boolean.TRUE.equals(primaryKey.getEnableAutoId())
@@ -183,10 +201,17 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
         return inputCatalogTable.getTableId().copy();
     }
 
-    private static int addOrReplace(
+    private int addOrReplace(
             List<Column> columns, String name, SeaTunnelDataType<?> type, boolean nullable) {
         for (int i = 0; i < columns.size(); i++) {
             if (columns.get(i).getName().equals(name)) {
+                if (keyColumnNames().contains(name)) {
+                    throw TransformCommonError.validationFailed(
+                            String.format(
+                                    "%s transform: output/index field '%s' must not reuse a "
+                                            + "primary/unique key column",
+                                    getPluginName(), name));
+                }
                 columns.set(i, columns.get(i).copy(type));
                 return i;
             }

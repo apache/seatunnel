@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -292,6 +293,116 @@ class TextChunkTransformTest {
         Assertions.assertEquals(
                 Collections.singletonList("id"), schema.getPrimaryKey().getColumnNames());
         Assertions.assertEquals(Boolean.TRUE, schema.getPrimaryKey().getEnableAutoId());
+    }
+
+    @Test
+    void chunkIndexFieldCollidingWithPrimaryKeyIsRejected() {
+        CatalogTable withPk =
+                CatalogTable.of(
+                        TableIdentifier.of("default", "default", "default", "docs"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 0L, false, "", ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "content",
+                                                BasicType.STRING_TYPE,
+                                                1000L,
+                                                true,
+                                                "",
+                                                ""))
+                                .primaryKey(PrimaryKey.of("pk_id", Collections.singletonList("id")))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(TextChunkTransformConfig.TEXT_FIELD.key(), "content");
+        configMap.put(TextChunkTransformConfig.CHUNK_INDEX_FIELD.key(), "id");
+
+        SeaTunnelRuntimeException ex =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                new TextChunkTransform(
+                                        TextChunkTransformConfig.of(
+                                                ReadonlyConfig.fromMap(configMap)),
+                                        withPk));
+        Assertions.assertTrue(ex.getMessage().contains("id"));
+    }
+
+    @Test
+    void outputFieldCollidingWithUniqueKeyIsRejected() {
+        // output_field = "doc_hash" would overwrite a unique-key column with per-chunk text.
+        CatalogTable withUniqueKey =
+                CatalogTable.of(
+                        TableIdentifier.of("default", "default", "default", "docs"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 0L, false, "", ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "doc_hash",
+                                                BasicType.STRING_TYPE,
+                                                64L,
+                                                true,
+                                                "",
+                                                ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "content",
+                                                BasicType.STRING_TYPE,
+                                                1000L,
+                                                true,
+                                                "",
+                                                ""))
+                                .constraintKey(
+                                        Collections.singletonList(
+                                                ConstraintKey.of(
+                                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                                        "uk_doc_hash",
+                                                        Collections.singletonList(
+                                                                ConstraintKey.ConstraintKeyColumn
+                                                                        .of(
+                                                                                "doc_hash",
+                                                                                ConstraintKey
+                                                                                        .ColumnSortType
+                                                                                        .ASC)))))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(TextChunkTransformConfig.TEXT_FIELD.key(), "content");
+        configMap.put(TextChunkTransformConfig.OUTPUT_FIELD.key(), "doc_hash");
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        new TextChunkTransform(
+                                TextChunkTransformConfig.of(ReadonlyConfig.fromMap(configMap)),
+                                withUniqueKey));
+    }
+
+    @Test
+    void reusingNonKeyColumnAsOutputFieldIsAllowed() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(TextChunkTransformConfig.TEXT_FIELD.key(), "content");
+        configMap.put(TextChunkTransformConfig.OUTPUT_FIELD.key(), "content");
+        TextChunkTransform transform =
+                new TextChunkTransform(
+                        TextChunkTransformConfig.of(ReadonlyConfig.fromMap(configMap)),
+                        catalogTable);
+
+        TableSchema schema = transform.getProducedCatalogTable().getTableSchema();
+        // "content" is reused (not duplicated): original 2 columns + chunk_index only
+        Assertions.assertEquals(3, schema.getColumns().size());
+        Assertions.assertNotNull(schema.getColumn("content"));
+        Assertions.assertNotNull(schema.getColumn("chunk_index"));
     }
 
     @Test

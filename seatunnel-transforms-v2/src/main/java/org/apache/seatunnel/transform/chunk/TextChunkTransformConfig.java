@@ -42,7 +42,9 @@ public class TextChunkTransformConfig implements Serializable {
             Options.key("output_field")
                     .stringType()
                     .defaultValue("chunk")
-                    .withDescription("The output field name holding each chunk (STRING)");
+                    .withDescription(
+                            "The output field name holding each chunk (STRING). Must not match an "
+                                    + "existing primary or unique key column");
 
     public static final Option<String> CHUNK_INDEX_FIELD =
             Options.key("chunk_index_field")
@@ -50,23 +52,23 @@ public class TextChunkTransformConfig implements Serializable {
                     .defaultValue("chunk_index")
                     .withDescription(
                             "The output field name holding the chunk sequence index within a "
-                                    + "document (INT, 0-based)");
+                                    + "document (INT, 0-based). Must not match an existing primary "
+                                    + "or unique key column");
 
     public static final Option<Integer> CHUNK_SIZE =
             Options.key("chunk_size")
                     .intType()
                     .defaultValue(1000)
                     .withDescription(
-                            "Maximum length of each chunk, counted in UTF-16 code units "
-                                    + "(Java char)");
+                            "Maximum length of each chunk, counted in Unicode code points");
 
     public static final Option<Integer> OVERLAP_SIZE =
             Options.key("overlap_size")
                     .intType()
                     .defaultValue(0)
                     .withDescription(
-                            "Overlap length between adjacent chunks, counted in UTF-16 code units "
-                                    + "(Java char). Must be less than chunk_size");
+                            "Overlap length between adjacent chunks, counted in Unicode code "
+                                    + "points. Must be less than chunk_size");
 
     public static final Option<List<String>> SEPARATORS =
             Options.key("separators")

@@ -24,27 +24,27 @@
 
 ### output_field [string]
 
-存放每个块的输出列名（类型 `STRING`）。若已存在同名列则复用该列，否则追加新列。默认值为 `chunk`。
+存放每个块的输出列名（类型 `STRING`）。若已存在同名列则复用该列，否则追加新列。默认值为 `chunk`，但**不能**与主键或唯一键所包含的列同名。
 
 ### chunk_index_field [string]
 
-存放块在文档内序号的输出列名（类型 `INT`，从 0 开始）。默认值为 `chunk_index`。
+存放块在文档内序号的输出列名（类型 `INT`，从 0 开始）。若已存在同名列则复用该列，否则追加新列。默认值为 `chunk_index`，但**不能**与主键或唯一键所包含的列同名。
 
 ### chunk_size [int]
 
-每个块的最大长度，以 **UTF-16 code unit**（Java `char`）计，而非字符数——一个字符（如 emoji）
-可能占用多个 UTF-16 code unit。必须大于 `0`。默认值为 `1000`。
+每个块的最大长度，以 **Unicode 码点（code point）** 计——一个增补字符（如 emoji）计为一个码点。（组合字符或 ZWJ 连字 emoji 仍算作
+多个码点，可能在码点之间被切分。）必须大于 `0`。默认值为 `1000`。
 
 ### overlap_size [int]
 
-相邻块之间的重叠长度，以 **UTF-16 code unit** 计。把前一个块末尾的少量上下文带入下一个块开头，有助于在块边界处保留语义。重叠由
+相邻块之间的重叠长度，以 **Unicode 码点（code point）** 计。把前一个块末尾的少量上下文带入下一个块开头，有助于在块边界处保留语义。重叠由
 **若干个完整的片段**（完整的词/句）组成，因此绝不会从单词中间开始；`overlap_size` 是一个上界——实际重叠会向下取整到完整片段，
 当连最后一个片段都超过该预算时，则不携带任何重叠。（当 `separators` 留空、回退为固定长度切分时不存在"片段"，此时重叠为
-`overlap_size` 个字符的定长窗口，不会向词边界取整。）必须满足 `0 <= overlap_size < chunk_size`。默认值为 `0`。
+`overlap_size` 个码点的定长窗口，不会向词边界取整。）必须满足 `0 <= overlap_size < chunk_size`。默认值为 `0`。
 
 > 注意：块的数量大致按 `chunk_size / (chunk_size - overlap_size)` 增长，因此当 `overlap_size` 接近
 > `chunk_size` 时，输出行数（以及内存占用）会急剧膨胀——例如 `chunk_size = 1000` 且 `overlap_size = 999`
-> 时，几乎每个字符都会产生一个块。请让 overlap 明显小于 `chunk_size`。
+> 时，几乎每个码点都会产生一个块。请让 overlap 明显小于 `chunk_size`。
 
 ### separators [array]
 
@@ -64,9 +64,10 @@
 ## 行为说明
 
 - 当 `skip_empty_text = true`（默认）时，文本值为 `null` 或空字符串的输入行**不产生**任何输出行；设为 `skip_empty_text = false` 则该行会被透传（`chunk = null`、`chunk_index = 0`）。
-- 每个产生的块长度不超过 `chunk_size` 个 UTF-16 code unit（携带的 overlap 也计入该上限）；为避免劈开代理对，某个块可能短最多 1 个 code unit。
+- 每个产生的块长度不超过 `chunk_size` 个 Unicode 码点（携带的 overlap 也计入该上限）；代理对（例如 emoji）计为一个码点，不会被劈开。
 - 分隔符会被保留：每个分隔符附着在它前面那一片的末尾，因此合并多片以填满一个块时，片与片之间的空格/换行会被保留（按 `" "` 切分的单词会重新拼成 `a b` 而不是 `ab`），连续的分隔符（例如空行）也会被保留。当 `overlap_size = 0` 时，各块拼接后可还原为原始文本。
 - 同一输入行产生的多行都带有相同的源键（例如相同的 `id`）。为让它仍然唯一，转换会把 `chunk_index_field` 追加到主键和每个唯一键上。
+- 正因为存在上述键扩展，`output_field` 与 `chunk_index_field` 不能复用主键或唯一键所包含的列：用每块的值覆盖这样的键列，会导致不同源行的块在依赖键的 sink 中碰撞，因此转换会对这类配置直接报错拒绝。复用非键列（例如把块写回源文本列）仍然允许。
 
 ## 示例
 

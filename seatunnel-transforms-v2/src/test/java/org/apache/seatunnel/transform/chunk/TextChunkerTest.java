@@ -48,7 +48,7 @@ class TextChunkerTest {
         }
         List<String> chunks = TextChunker.split(sb.toString(), SEPARATORS, 40, 0);
         Assertions.assertFalse(chunks.isEmpty());
-        chunks.forEach(c -> Assertions.assertTrue(c.length() <= 40, "chunk too long: " + c));
+        chunks.forEach(c -> Assertions.assertTrue(codePoints(c) <= 40, "chunk too long: " + c));
     }
 
     @Test
@@ -65,17 +65,16 @@ class TextChunkerTest {
 
     @Test
     void longUnbreakableSegmentIsHardSplit() {
-        // single 25-char token, no usable separator -> hard-split to <= chunkSize
+        // single 25-code-point token, no usable separator -> hard-split to <= chunkSize
         String token = "abcdefghijklmnopqrstuvwxy";
         List<String> chunks = TextChunker.split(token, SEPARATORS, 10, 0);
-        chunks.forEach(c -> Assertions.assertTrue(c.length() <= 10));
+        chunks.forEach(c -> Assertions.assertTrue(codePoints(c) <= 10));
         Assertions.assertEquals(token, String.join("", chunks));
     }
 
     @Test
     void overlapCarriesWholeWordsNotCharacterFragments() {
         List<String> chunks = TextChunker.split("aa bb cc dd", Arrays.asList(" "), 6, 3);
-        chunks.forEach(c -> Assertions.assertTrue(c.length() <= 6, "chunk too long: " + c));
         Assertions.assertEquals(Arrays.asList("aa bb ", "bb cc ", "cc dd"), chunks);
         Assertions.assertTrue(chunks.get(1).startsWith("bb "));
     }
@@ -83,26 +82,47 @@ class TextChunkerTest {
     @Test
     void overlapDegradesToEmptyWhenAWholeWordExceedsBudget() {
         List<String> chunks = TextChunker.split("aa bb cc dd", Arrays.asList(" "), 5, 2);
-        chunks.forEach(c -> Assertions.assertTrue(c.length() <= 5, "chunk too long: " + c));
         Assertions.assertEquals(Arrays.asList("aa ", "bb ", "cc dd"), chunks);
     }
 
     @Test
     void separatorsAndBlankLinesAreRetainedSoChunkingIsLossless() {
         List<String> chunks = TextChunker.split("aa bb\n\ncc dd", Arrays.asList("\n\n", " "), 6, 0);
-        chunks.forEach(c -> Assertions.assertTrue(c.length() <= 6, "chunk too long: " + c));
         Assertions.assertEquals(Arrays.asList("aa ", "bb\n\n", "cc dd"), chunks);
         Assertions.assertEquals("aa bb\n\ncc dd", String.join("", chunks));
     }
 
     @Test
-    void fixedSizeSplitDoesNotBreakSurrogatePairs() {
+    void fixedSizeOverlapDoesNotBreakSurrogatePairs() {
         String emoji = "😀";
         String text = emoji + emoji + emoji; // 3 code points, 6 chars
-        // chunkSize=3 would cut the second emoji mid-pair without code-point alignment
-        List<String> chunks = TextChunker.split(text, Collections.emptyList(), 3, 0);
+        // chunk_size=2, overlap=1 (code points): the window steps by one whole code point.
+        List<String> chunks = TextChunker.split(text, Collections.emptyList(), 2, 1);
+        Assertions.assertEquals(Arrays.asList(emoji + emoji, emoji + emoji), chunks);
+    }
+
+    @Test
+    void chunkSizeIsCountedInCodePointsNotCodeUnits() {
+        String emoji = "😀";
+        String text = emoji + emoji + emoji;
+        List<String> chunks = TextChunker.split(text, Collections.emptyList(), 1, 0);
+        Assertions.assertEquals(Arrays.asList(emoji, emoji, emoji), chunks);
+    }
+
+    @Test
+    void mergeMeasuresChunkSizeInCodePoints() {
+        String text = "😀 😀 😀 😀";
+        List<String> chunks = TextChunker.split(text, Arrays.asList(" "), 3, 0);
+        chunks.forEach(
+                c ->
+                        Assertions.assertTrue(
+                                codePoints(c) <= 3, "chunk exceeds 3 code points: " + c));
         chunks.forEach(TextChunkerTest::assertNoDanglingSurrogate);
-        Assertions.assertEquals(text, String.join("", chunks)); // no overlap -> lossless
+        Assertions.assertEquals(text, String.join("", chunks));
+    }
+
+    private static int codePoints(String s) {
+        return s.codePointCount(0, s.length());
     }
 
     private static void assertNoDanglingSurrogate(String s) {

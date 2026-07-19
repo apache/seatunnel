@@ -27,32 +27,36 @@ The source text field to split into chunks.
 ### output_field [string]
 
 The name of the output column holding each chunk (type `STRING`). If a column with this name already
-exists it is reused, otherwise a new column is appended. Defaults to `chunk`.
+exists it is reused, otherwise a new column is appended. Defaults to `chunk`, but **must not** match a
+column that takes part in a primary key or a unique key.
 
 ### chunk_index_field [string]
 
 The name of the output column holding the chunk sequence index within a document (type `INT`,
-0-based). Defaults to `chunk_index`.
+0-based). If a column with this name already exists it is reused, otherwise a new column is appended.
+Defaults to `chunk_index`, but **must not** match a column that takes part in a primary key or a
+unique key.
 
 ### chunk_size [int]
 
-Maximum length of each chunk, counted in **UTF-16 code units** (Java `char`), not characters — a
-character such as an emoji may take multiple code units. Must be greater than `0`. Defaults to `1000`.
+Maximum length of each chunk, counted in **Unicode code points** — a supplementary character such as
+an emoji counts as one. (A combining sequence or a ZWJ-joined emoji still counts as several code
+points and may be split between them.) Must be greater than `0`. Defaults to `1000`.
 
 ### overlap_size [int]
 
-Overlap length between adjacent chunks, counted in **UTF-16 code units**.
+Overlap length between adjacent chunks, counted in **Unicode code points**.
 Carrying a little context from the end
 of one chunk into the start of the next helps preserve meaning across chunk boundaries. The overlap is
 made up of **whole trailing pieces** (complete words/sentences), so it never begins in the middle of a
 word; `overlap_size` is therefore an upper bound — the actual overlap rounds down to whole pieces, and
 is empty when even the last single piece is longer than the budget. (In the empty-`separators`
-fixed-size fallback there are no pieces, so the overlap is a plain `overlap_size`-character window and
+fixed-size fallback there are no pieces, so the overlap is a plain `overlap_size`-code-point window and
 is not rounded to a word boundary.) Must satisfy `0 <= overlap_size < chunk_size`. Defaults to `0`.
 
 > Note: the number of chunks grows roughly as `chunk_size / (chunk_size - overlap_size)`, so an
 > `overlap_size` close to `chunk_size` multiplies the output row count (and memory) dramatically —
-> e.g. `chunk_size = 1000` with `overlap_size = 999` produces about one chunk per character. Keep the
+> e.g. `chunk_size = 1000` with `overlap_size = 999` produces about one chunk per code point. Keep the
 > overlap well below `chunk_size`.
 
 ### separators [array]
@@ -75,9 +79,10 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 ## Behavior
 
 - A `null` or empty text value produces **no** output rows for that input row when `skip_empty_text = true` (the default); set `skip_empty_text = false` to pass such a row through instead (`chunk = null`, `chunk_index = 0`).
-- Each produced chunk is at most `chunk_size` UTF-16 code units long (the carried overlap counts toward the budget); a chunk may be up to 1 unit shorter to avoid splitting a surrogate pair.
+- Each produced chunk is at most `chunk_size` Unicode code points long (the carried overlap counts toward the budget); a surrogate pair (e.g. an emoji) counts as one code point and is never split.
 - Separators are retained: each separator stays attached to the end of the piece it follows, so merging pieces to fill a chunk keeps the spaces/newlines between them (words split on `" "` are re-joined as `a b`, not `ab`) and runs of consecutive separators (e.g. blank lines) are preserved. With `overlap_size = 0` the chunks concatenate back to the original text.
 - The rows produced from one input row all carry the same source key (e.g. the same `id`). To keep it unique, the transform appends `chunk_index_field` to the primary key and to every unique key.
+- Because of that key extension, `output_field` and `chunk_index_field` must not reuse a column that is part of a primary or unique key: overwriting such a key column with per-chunk values would let chunks from different source rows collide in key-aware sinks, so the transform rejects that configuration with an error. Reusing a non-key column (e.g. writing the chunk back into the source text column) is still allowed.
 
 ## Example
 

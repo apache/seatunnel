@@ -31,19 +31,23 @@ import java.util.List;
  *       pieces up to {@code chunkSize}.
  * </ul>
  *
+ * <p>All lengths ({@code chunkSize} and {@code overlapSize}) are measured in <b>Unicode code
+ * points</b>, not UTF-16 code units, so a supplementary character (e.g. an emoji) counts as one and
+ * is never split across chunks.
+ *
  * <p>Guarantees:
  *
  * <ul>
- *   <li>each chunk is {@code <= chunkSize} (carried overlap counts toward the budget);
+ *   <li>each chunk holds {@code <= chunkSize} code points (carried overlap counts toward the
+ *       budget);
  *   <li>in the separator path, overlap is composed of whole trailing pieces, so it never starts
  *       mid-word; {@code overlapSize} is an upper bound and rounds down to whole pieces. In the
- *       empty-separators fixed-size fallback there are no pieces, so overlap is a plain character
- *       window ({@code overlapSize} code units, code-point aligned) and is not rounded;
+ *       empty-separators fixed-size fallback there are no pieces, so overlap is a plain window of
+ *       {@code overlapSize} code points and is not rounded;
  *   <li>separators are retained on the piece they follow, so with {@code overlapSize == 0} the
  *       chunks concatenate back to the original text;
  *   <li>boundaries align to whole Unicode code points, so a surrogate pair (e.g. an emoji) is never
- *       split; if {@code chunkSize} is smaller than one code point, that code point is emitted
- *       whole.
+ *       split.
  * </ul>
  */
 public final class TextChunker {
@@ -74,7 +78,7 @@ public final class TextChunker {
             if (part.isEmpty()) {
                 continue;
             }
-            if (part.length() <= chunkSize) {
+            if (codePointLength(part) <= chunkSize) {
                 result.add(part);
             } else if (index + 1 < separators.size()) {
                 result.addAll(recursiveSplit(part, separators, index + 1, chunkSize));
@@ -106,18 +110,19 @@ public final class TextChunker {
         List<String> current = new ArrayList<>();
         int currentLen = 0;
         for (String segment : segments) {
-            if (currentLen > 0 && currentLen + segment.length() > chunkSize) {
+            int segmentLen = codePointLength(segment);
+            if (currentLen > 0 && currentLen + segmentLen > chunkSize) {
                 chunks.add(String.join("", current));
                 current =
                         trailingSegmentsWithin(
-                                current, Math.min(overlapSize, chunkSize - segment.length()));
+                                current, Math.min(overlapSize, chunkSize - segmentLen));
                 currentLen = 0;
                 for (String s : current) {
-                    currentLen += s.length();
+                    currentLen += codePointLength(s);
                 }
             }
             current.add(segment);
-            currentLen += segment.length();
+            currentLen += segmentLen;
         }
         if (currentLen > 0) {
             chunks.add(String.join("", current));
@@ -133,7 +138,7 @@ public final class TextChunker {
         int total = 0;
         int from = segments.size();
         for (int i = segments.size() - 1; i >= 0; i--) {
-            int len = segments.get(i).length();
+            int len = codePointLength(segments.get(i));
             if (total + len > budget) {
                 break;
             }
@@ -146,34 +151,29 @@ public final class TextChunker {
     private static List<String> fixedSize(String text, int chunkSize, int overlapSize) {
         List<String> chunks = new ArrayList<>();
         int len = text.length();
-        int step = Math.max(1, chunkSize - overlapSize);
+        int stepCodePoints = Math.max(1, chunkSize - overlapSize);
         int start = 0;
         while (start < len) {
-            int end = alignToCodePoint(text, Math.min(len, start + chunkSize));
-            if (end == start) {
-                // chunkSize too small to hold even one code point here: emit the whole pair.
-                end = Math.min(len, start + 2);
-            }
+            int end = advanceCodePoints(text, start, chunkSize);
             chunks.add(text.substring(start, end));
             if (end >= len) {
                 break;
             }
-            int next = alignToCodePoint(text, start + step);
-            // Guarantee forward progress. When the aligned step does not advance past `start` (step
-            // smaller than the code point at `start`, e.g. a large overlap over an emoji), skip the
-            // whole code point so the next chunk never starts in the middle of a surrogate pair.
-            start = next > start ? next : start + Character.charCount(text.codePointAt(start));
+            start = advanceCodePoints(text, start, stepCodePoints);
         }
         return chunks;
     }
 
-    private static int alignToCodePoint(String text, int pos) {
-        if (pos > 0
-                && pos < text.length()
-                && Character.isLowSurrogate(text.charAt(pos))
-                && Character.isHighSurrogate(text.charAt(pos - 1))) {
-            return pos - 1;
+    private static int codePointLength(String s) {
+        return s.codePointCount(0, s.length());
+    }
+
+    private static int advanceCodePoints(String text, int start, int codePoints) {
+        int index = start;
+        int len = text.length();
+        for (int c = 0; c < codePoints && index < len; c++) {
+            index += Character.charCount(text.codePointAt(index));
         }
-        return pos;
+        return index;
     }
 }
