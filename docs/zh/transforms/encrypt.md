@@ -1,19 +1,20 @@
-# Encrypt
+# 字段加解密
 
-> 加密 Transform 插件
+> FieldEncrypt：对指定字段执行加密或解密
 
 ## 描述
 
-Encrypt Transform 插件用于使用对称加密算法，对记录中指定的字段进行加密或解密。
+FieldEncrypt 转换插件用于使用对称加密算法，对记录中的指定字段进行加密或解密。
 
 ## 参数说明
 
-| 参数名         | 类型     | 是否必填 | 默认值       | 描述                         |
-|-------------|--------|------|-----------|----------------------------|
-| `fields`    | Array  | 是    | -         | 需要加密或解密的字段列表               |
-| `algorithm` | String | 否    | `AES_CBC` | 加密算法                       |
-| `key`       | String | 是    | -         | Base64 编码的加密密钥             |
-| `mode`      | String | 否    | `ENCRYPT` | 操作模式：`ENCRYPT` 或 `DECRYPT` |
+| 参数名              | 类型      | 是否必填 | 默认值        | 描述                   |
+|------------------|---------|------|------------|----------------------|
+| `fields`         | Array   | 是    | -          | 需要加密或解密的字段列表         |
+| `algorithm`      | String  | 否    | `AES_GCM`  | 加密算法                 |
+| `key`            | String  | 是    | -          | Base64 编码的加密密钥       |
+| `mode`           | String  | 否    | `encrypt`  | 操作模式：`encrypt` 或 `decrypt` |
+| `max_field_length` | Integer | 否    | `10485760` | 处理前允许的最大字符串字段长度      |
 
 ### algorithm [string]
 
@@ -39,9 +40,17 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 - `base64:AAAAAAAAAAAAAAAAAAAAAA==`
 - `AAAAAAAAAAAAAAAAAAAAAA==`
 
+### mode [string]
+
+转换模式。支持 `encrypt` 和 `decrypt`。代码会忽略大小写，但新配置建议使用和默认值一致的小写写法。
+
+### max_field_length [int]
+
+每个配置字段在加密或解密前允许的最大字符串长度。如果字段值超过该限制，Transform 会直接失败，避免处理异常大的字段值。
+
 ### common options [string]
 
-Transform 插件的通用参数，请参考 [Transform Plugin](common-options.md)。
+Transform 插件的通用参数，请参考 [Transform Plugin](common-options/common-options.md)。
 
 ## 示例
 

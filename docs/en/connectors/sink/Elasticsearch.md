@@ -10,6 +10,8 @@ Output data to `Elasticsearch`.
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -46,7 +48,9 @@ Engine Supported
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
 | vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | -                            |
+| vector_dimensions       | int     | no       | 0                            |
+| multi_table_sink_replica | int     | no       | 1                            |
+
 ### hosts [array]
 
 `Elasticsearch` cluster http address, the format is `host:port` , allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.
@@ -67,6 +71,10 @@ Primary key fields used to generate the document `_id`, this is cdc required opt
 ### key_delimiter [string]
 
 Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. Keep the default value unless one table needs more sink writer parallelism.
 
 ## Authentication
 
@@ -161,12 +169,6 @@ sink {
 
 one bulk request max try size
 
-### vectorization_fields [array]
-fields to embeddings 
-
-### vector_dimensions [int]
-embeddings dimensions
-
 ### max_batch_size [int]
 
 batch bulk doc max size
@@ -238,6 +240,7 @@ sink {
         hosts = ["localhost:9200"]
         index = "${table_name}"
         schema_save_mode="IGNORE"
+        multi_table_sink_replica = 1
     }
 }
 ```

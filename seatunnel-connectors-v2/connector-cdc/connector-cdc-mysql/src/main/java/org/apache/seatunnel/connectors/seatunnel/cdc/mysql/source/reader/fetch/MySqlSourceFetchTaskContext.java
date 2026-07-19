@@ -75,9 +75,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
@@ -89,6 +92,8 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private static final Logger LOG = LoggerFactory.getLogger(MySqlSourceFetchTaskContext.class);
+    private static final int BINLOG_FILE_SAMPLE_SIZE = 10;
+    private static final Pattern BINLOG_NUMBER_PATTERN = Pattern.compile("^(.*?)(\\d+)$");
 
     private final MySqlConnection connection;
     private final BinaryLogClient binaryLogClient;
@@ -333,10 +338,11 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         // And compare with the one we're supposed to use ...
         boolean found = logNames.stream().anyMatch(binlogFilename::equals);
         if (!found) {
-            LOG.info(
-                    "Connector requires binlog file '{}', but MySQL only has {}",
+            LOG.warn(
+                    "Connector requires binlog file '{}', but it is not available on the connected MySQL server. {}",
                     binlogFilename,
-                    String.join(", ", logNames));
+                    summarizeBinlogFiles(logNames));
+            logBinlogNotAvailableDiagnostics(binlogFilename, logNames, offset);
         } else {
             LOG.info("MySQL has the binlog file '{}' required by the connector", binlogFilename);
         }
@@ -355,6 +361,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             // Last offsets had GTIDs but the server does not use them ...
             LOG.warn(
                     "Connector used GTIDs previously, but MySQL does not know of any GTIDs or they are not enabled");
+            logGtidNotAvailableDiagnostics(offset);
             return false;
         }
 
@@ -390,12 +397,312 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                     nonPurgedGtidSetToReplicate);
             if (!gtidSetToReplicate.equals(nonPurgedGtidSetToReplicate)) {
                 LOG.warn("Some of the GTIDs needed to replicate have been already purged");
+                logGtidNotAvailableDiagnostics(offset);
                 return false;
             }
             return true;
         }
         LOG.info("Connector last known GTIDs are {}, but MySQL has {}", gtidSet, availableGtidSet);
+        logGtidNotAvailableDiagnostics(offset);
         return false;
+    }
+
+    private void logBinlogNotAvailableDiagnostics(
+            String requiredBinlogFilename,
+            List<String> availableBinlogFiles,
+            MySqlOffsetContext offset) {
+        LOG.warn(
+                "MySQL-CDC diagnostic: requested starting offset sourceInfo={}",
+                offset.getSourceInfo());
+        LOG.warn(
+                "MySQL-CDC diagnostic: debezium connection target host={}, port={}",
+                getDbzConnectorConfig().hostname(),
+                getDbzConnectorConfig().port());
+
+        logMySqlServerIdentity();
+        logMySqlBinlogRetentionVariables();
+        logMySqlMasterStatus();
+        logMySqlReplicationStatus();
+        logBinlogRangeAnalysis(requiredBinlogFilename, availableBinlogFiles);
+    }
+
+    private void logGtidNotAvailableDiagnostics(MySqlOffsetContext offset) {
+        LOG.warn(
+                "MySQL-CDC diagnostic: GTID set is not available on server for restored offset. restored_gtid_set={}, sourceInfo={}",
+                offset.gtidSet(),
+                offset.getSourceInfo());
+        LOG.warn(
+                "MySQL-CDC diagnostic: debezium connection target host={}, port={}",
+                getDbzConnectorConfig().hostname(),
+                getDbzConnectorConfig().port());
+        logMySqlServerIdentity();
+        logMySqlBinlogRetentionVariables();
+        logMySqlMasterStatus();
+        logMySqlReplicationStatus();
+    }
+
+    private void logMySqlServerIdentity() {
+        final String sql =
+                "SELECT @@hostname AS hostname, @@port AS port, @@server_id AS server_id, "
+                        + "@@server_uuid AS server_uuid, @@read_only AS read_only, "
+                        + "@@super_read_only AS super_read_only, @@version AS version, "
+                        + "@@gtid_mode AS gtid_mode";
+        try {
+            connection.query(
+                    sql,
+                    rs -> {
+                        if (!rs.next()) {
+                            return;
+                        }
+                        LOG.warn(
+                                "MySQL-CDC diagnostic: connected to MySQL hostname={}, port={}, server_id={}, server_uuid={}, read_only={}, super_read_only={}, version={}, gtid_mode={}",
+                                rs.getString("hostname"),
+                                rs.getString("port"),
+                                rs.getString("server_id"),
+                                rs.getString("server_uuid"),
+                                rs.getString("read_only"),
+                                rs.getString("super_read_only"),
+                                rs.getString("version"),
+                                rs.getString("gtid_mode"));
+                    });
+        } catch (SQLException e) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: failed to query MySQL server identity: {}",
+                    e.getMessage());
+        }
+    }
+
+    private void logMySqlBinlogRetentionVariables() {
+        logMySqlVariable("log_bin");
+        logMySqlVariable("binlog_format");
+        logMySqlVariable("binlog_expire_logs_seconds");
+        logMySqlVariable("expire_logs_days");
+    }
+
+    private void logMySqlVariable(String variableName) {
+        final String sql = String.format("SHOW VARIABLES LIKE '%s'", variableName);
+        try {
+            connection.query(
+                    sql,
+                    rs -> {
+                        if (!rs.next()) {
+                            LOG.warn("MySQL-CDC diagnostic: variable {} not found", variableName);
+                            return;
+                        }
+                        LOG.warn(
+                                "MySQL-CDC diagnostic: variable {}={}",
+                                rs.getString(1),
+                                rs.getString(2));
+                    });
+        } catch (SQLException e) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: failed to query variable {}: {}",
+                    variableName,
+                    e.getMessage());
+        }
+    }
+
+    private void logMySqlMasterStatus() {
+        try {
+            connection.query(
+                    "SHOW MASTER STATUS",
+                    rs -> {
+                        if (!rs.next()) {
+                            LOG.warn(
+                                    "MySQL-CDC diagnostic: SHOW MASTER STATUS returned empty result");
+                            return;
+                        }
+                        String file = safeGetString(rs, "File");
+                        String position = safeGetString(rs, "Position");
+                        String gtidSet = safeGetString(rs, "Executed_Gtid_Set");
+                        LOG.warn(
+                                "MySQL-CDC diagnostic: master status file={}, position={}, executed_gtid_set={}",
+                                file,
+                                position,
+                                gtidSet);
+                    });
+        } catch (SQLException e) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: failed to query SHOW MASTER STATUS: {}", e.getMessage());
+        }
+    }
+
+    private void logMySqlReplicationStatus() {
+        if (logReplicationStatus("SHOW REPLICA STATUS", "replica")) {
+            return;
+        }
+        logReplicationStatus("SHOW SLAVE STATUS", "slave");
+    }
+
+    private boolean logReplicationStatus(String sql, String label) {
+        try {
+            final List<String> row = new ArrayList<>(8);
+            connection.query(
+                    sql,
+                    rs -> {
+                        if (!rs.next()) {
+                            return;
+                        }
+                        String sourceHost =
+                                firstNonNull(
+                                        safeGetString(rs, "Source_Host"),
+                                        safeGetString(rs, "Master_Host"));
+                        String ioRunning =
+                                firstNonNull(
+                                        safeGetString(rs, "Replica_IO_Running"),
+                                        safeGetString(rs, "Slave_IO_Running"));
+                        String sqlRunning =
+                                firstNonNull(
+                                        safeGetString(rs, "Replica_SQL_Running"),
+                                        safeGetString(rs, "Slave_SQL_Running"));
+                        String relayMasterLogFile =
+                                firstNonNull(
+                                        safeGetString(rs, "Relay_Master_Log_File"),
+                                        safeGetString(rs, "Master_Log_File"));
+                        String execMasterLogPos =
+                                firstNonNull(
+                                        safeGetString(rs, "Exec_Master_Log_Pos"),
+                                        safeGetString(rs, "Read_Master_Log_Pos"));
+                        String retrievedGtidSet = safeGetString(rs, "Retrieved_Gtid_Set");
+                        String executedGtidSet = safeGetString(rs, "Executed_Gtid_Set");
+
+                        row.add("source_host=" + sourceHost);
+                        row.add("io_running=" + ioRunning);
+                        row.add("sql_running=" + sqlRunning);
+                        row.add("relay_master_log_file=" + relayMasterLogFile);
+                        row.add("exec_master_log_pos=" + execMasterLogPos);
+                        if (retrievedGtidSet != null) {
+                            row.add("retrieved_gtid_set=" + retrievedGtidSet);
+                        }
+                        if (executedGtidSet != null) {
+                            row.add("executed_gtid_set=" + executedGtidSet);
+                        }
+                    });
+            if (row.isEmpty()) {
+                LOG.warn("MySQL-CDC diagnostic: {} status empty/unsupported", label);
+                return true;
+            }
+            LOG.warn("MySQL-CDC diagnostic: {} status {}", label, String.join(", ", row));
+            return true;
+        } catch (SQLException e) {
+            LOG.warn("MySQL-CDC diagnostic: {} failed: {}", sql, e.getMessage());
+            return false;
+        }
+    }
+
+    private void logBinlogRangeAnalysis(
+            String requiredBinlogFilename, List<String> availableBinlogFiles) {
+        BinlogFileNumber required = parseBinlogFileNumber(requiredBinlogFilename);
+        if (required == null) {
+            return;
+        }
+
+        long min = Long.MAX_VALUE;
+        long max = Long.MIN_VALUE;
+        boolean any = false;
+        for (String file : availableBinlogFiles) {
+            BinlogFileNumber parsed = parseBinlogFileNumber(file);
+            if (parsed == null || !required.prefix.equals(parsed.prefix)) {
+                continue;
+            }
+            any = true;
+            min = Math.min(min, parsed.number);
+            max = Math.max(max, parsed.number);
+        }
+        if (!any) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: cannot compare binlog sequence because available binlog filenames don't match required prefix '{}'",
+                    required.prefix);
+            return;
+        }
+
+        if (required.number < min) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: required binlog sequence {}{} is older than the earliest available {}{}; likely purged/expired binlog on server",
+                    required.prefix,
+                    required.number,
+                    required.prefix,
+                    min);
+        } else if (required.number > max) {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: required binlog sequence {}{} is newer than the latest available {}{}; possible connection to an out-of-date replica, proxy routing to different instance, or RESET MASTER",
+                    required.prefix,
+                    required.number,
+                    required.prefix,
+                    max);
+        } else {
+            LOG.warn(
+                    "MySQL-CDC diagnostic: required binlog sequence {}{} is within available range {}{}..{}{} but missing; possible manual binlog deletion, binlog.index corruption, or connecting to a different MySQL instance intermittently",
+                    required.prefix,
+                    required.number,
+                    required.prefix,
+                    min,
+                    required.prefix,
+                    max);
+        }
+    }
+
+    private static String summarizeBinlogFiles(List<String> files) {
+        if (files == null || files.isEmpty()) {
+            return "available binlog files: (empty)";
+        }
+        int total = files.size();
+        int headCount = Math.min(BINLOG_FILE_SAMPLE_SIZE, total);
+        int tailCount = Math.min(BINLOG_FILE_SAMPLE_SIZE, Math.max(0, total - headCount));
+
+        List<String> head = files.subList(0, headCount);
+        List<String> tail =
+                tailCount > 0
+                        ? files.subList(total - tailCount, total)
+                        : java.util.Collections.emptyList();
+
+        if (tail.isEmpty()) {
+            return String.format(
+                    "available binlog files: count=%d, sample=%s", total, String.join(", ", head));
+        }
+        return String.format(
+                "available binlog files: count=%d, head=[%s], tail=[%s]",
+                total, String.join(", ", head), String.join(", ", tail));
+    }
+
+    private static BinlogFileNumber parseBinlogFileNumber(String filename) {
+        if (filename == null) {
+            return null;
+        }
+        Matcher matcher = BINLOG_NUMBER_PATTERN.matcher(filename);
+        if (!matcher.matches()) {
+            return null;
+        }
+        String prefix = matcher.group(1);
+        String numberStr = matcher.group(2);
+        try {
+            long number = Long.parseLong(numberStr);
+            return new BinlogFileNumber(prefix, number);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String safeGetString(java.sql.ResultSet rs, String columnLabel) {
+        try {
+            return rs.getString(columnLabel);
+        } catch (SQLException e) {
+            return null;
+        }
+    }
+
+    private static String firstNonNull(String a, String b) {
+        return a != null ? a : b;
+    }
+
+    private static class BinlogFileNumber {
+        private final String prefix;
+        private final long number;
+
+        private BinlogFileNumber(String prefix, long number) {
+            this.prefix = prefix;
+            this.number = number;
+        }
     }
 
     private void validateAndLoadDatabaseHistory(

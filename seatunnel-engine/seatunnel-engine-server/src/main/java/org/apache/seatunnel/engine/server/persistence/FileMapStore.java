@@ -25,11 +25,13 @@ import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
 import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -41,14 +43,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@Slf4j
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
 
     private IMapStorage mapStorage;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        if (EngineStateStoreNames.RUNNING_JOB_METRICS.equals(mapName)) {
+            this.mapStorage = NoOpMapStorage.INSTANCE;
+            log.info(
+                    "Skip persistence for map '{}' because runtime metrics snapshots are auxiliary "
+                            + "observability state and should not write to persistent IMAP storage.",
+                    mapName);
+            return;
+        }
 
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
+        String storageType = (String) initMap.get("type");
         ClassLoader storageClassLoader = Thread.currentThread().getContextClassLoader();
         try {
             List<URL> storageJars =
@@ -65,12 +77,22 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
         try (TemporaryClassLoaderContext ignored =
                 TemporaryClassLoaderContext.of(storageClassLoader)) {
-            this.mapStorage =
-                    FactoryUtil.discoverFactory(
-                                    Thread.currentThread().getContextClassLoader(),
-                                    IMapStorageFactory.class,
-                                    (String) initMap.get("type"))
-                            .create(initMap);
+            try {
+                this.mapStorage =
+                        FactoryUtil.discoverFactory(
+                                        Thread.currentThread().getContextClassLoader(),
+                                        IMapStorageFactory.class,
+                                        storageType)
+                                .create(initMap);
+            } catch (RuntimeException e) {
+                log.error(
+                        "Failed to initialize IMap storage for map '{}', type='{}'. "
+                                + "Cluster state will NOT be persisted.",
+                        mapName,
+                        storageType,
+                        e);
+                throw e;
+            }
         }
     }
 
@@ -118,5 +140,49 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     @Override
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
+    }
+
+    private static final class NoOpMapStorage implements IMapStorage {
+        private static final NoOpMapStorage INSTANCE = new NoOpMapStorage();
+
+        @Override
+        public void initialize(Map<String, Object> properties) {
+            // no-op
+        }
+
+        @Override
+        public boolean store(Object key, Object value) {
+            return true;
+        }
+
+        @Override
+        public java.util.Set<Object> storeAll(Map<Object, Object> map) {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean delete(Object key) {
+            return true;
+        }
+
+        @Override
+        public java.util.Set<Object> deleteAll(Collection<Object> keys) {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public Map<Object, Object> loadAll() {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public java.util.Set<Object> loadAllKeys() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public void destroy(boolean deleteAllFileFlag) {
+            // no-op
+        }
     }
 }

@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalFieldValue;
@@ -51,22 +52,22 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     private final ReadonlyConfig config;
-    private List<Integer> fieldOriginalIndexes;
     private transient Model model;
     private Integer dimension;
     private boolean isMultimodalFields = false;
-    private Map<Integer, FieldSpec> fieldSpecMap;
+    private Map<VectorFieldSpec, List<Integer>> fieldSpecMap;
     private List<String> fieldNames;
 
     private final Map<String, TreeMap<Long, byte[]>> binaryFileCache = new ConcurrentHashMap<>();
@@ -88,6 +89,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @Override
     public void open() {
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+        ModelInvocationOptions invocationOptions = ModelInvocationOptions.fromConfig(config);
         String apiPath =
                 provider.usedEmbeddingPath(
                         config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
@@ -118,7 +120,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                                     .CUSTOM_RESPONSE_PARSE),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case OPENAI:
                     model =
@@ -128,7 +131,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     apiPath,
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case DOUBAO:
                     model =
@@ -139,7 +143,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    isMultimodalFields);
+                                    isMultimodalFields,
+                                    invocationOptions);
                     break;
                 case QIANFAN:
                     model =
@@ -151,7 +156,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(ModelTransformConfig.OAUTH_PATH),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
 
                     break;
                 case ZHIPU:
@@ -163,7 +169,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(ModelTransformConfig.DIMENSION),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case AMAZON:
                     model =
@@ -197,30 +204,35 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     }
 
     private void initOutputFields(SeaTunnelRowType inputRowType, ReadonlyConfig config) {
-        Map<Integer, FieldSpec> fieldSpecMap = new HashMap<>();
-        List<String> fieldNames = new ArrayList<>();
         Map<String, Object> fieldsConfig =
                 config.get(EmbeddingTransformConfig.VECTORIZATION_FIELDS);
         if (fieldsConfig == null || fieldsConfig.isEmpty()) {
             throw new IllegalArgumentException("vectorization_fields configuration is required");
         }
 
-        for (Map.Entry<String, Object> field : fieldsConfig.entrySet()) {
-            FieldSpec fieldSpec = new FieldSpec(field);
-            log.info("Field spec: {}", fieldSpec.toString());
-            String srcField = fieldSpec.getFieldName();
-            int srcFieldIndex;
-            try {
-                srcFieldIndex = inputRowType.indexOf(srcField);
-            } catch (IllegalArgumentException e) {
-                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
+        List<String> fieldNames = new ArrayList<>();
+        Map<VectorFieldSpec, List<Integer>> fieldSpecMap = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> fieldConfig : fieldsConfig.entrySet()) {
+            VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(fieldConfig);
+            log.info("Vector field spec: {}", vectorFieldSpec);
+            List<String> srcFieldNames =
+                    vectorFieldSpec.getSrcFieldSpecs().stream()
+                            .map(SrcFieldSpec::getFieldName)
+                            .collect(Collectors.toList());
+            List<Integer> srcFieldIndexes = new ArrayList<>();
+            for (String srcFieldName : srcFieldNames) {
+                try {
+                    srcFieldIndexes.add(inputRowType.indexOf(srcFieldName));
+                } catch (IllegalArgumentException e) {
+                    throw TransformCommonError.cannotFindInputFieldsError(
+                            getPluginName(), srcFieldNames);
+                }
             }
-            if (fieldSpec.isMultimodalField()) {
-                isMultimodalFields = true;
-            }
-            fieldSpecMap.put(srcFieldIndex, fieldSpec);
-            fieldNames.add(field.getKey());
+            fieldSpecMap.put(vectorFieldSpec, srcFieldIndexes);
+            fieldNames.add(vectorFieldSpec.getFieldName());
         }
+        this.isMultimodalFields =
+                fieldSpecMap.keySet().stream().anyMatch(VectorFieldSpec::isMultimodalField);
         this.fieldSpecMap = fieldSpecMap;
         this.fieldNames = fieldNames;
     }
@@ -232,19 +244,28 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
             if (MetadataUtil.isBinaryFormat(inputRow)) {
                 return vectorizationBinaryRow(inputRow);
             }
-            Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
-            Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
-            List<ByteBuffer> vectorization;
+
+            Set<VectorFieldSpec> vectorFieldSpecs = fieldSpecMap.keySet();
+            Object[] fieldValues = new Object[vectorFieldSpecs.size()];
             int i = 0;
 
-            for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
-                FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
-                Object value = inputRow.getField(fieldOriginalIndex);
+            for (VectorFieldSpec vectorFieldSpec : vectorFieldSpecs) {
+                List<SrcFieldSpec> srcFieldSpecs = vectorFieldSpec.getSrcFieldSpecs();
+                List<Integer> srcFieldIndexes = fieldSpecMap.get(vectorFieldSpec);
+                List<SrcField> srcFields = new ArrayList<>();
+                for (int j = 0; j < srcFieldSpecs.size(); j++) {
+                    srcFields.add(
+                            new SrcField(
+                                    srcFieldSpecs.get(j),
+                                    inputRow.getField(srcFieldIndexes.get(j))));
+                }
                 fieldValues[i++] =
-                        isMultimodalFields ? new MultimodalFieldValue(fieldSpec, value) : value;
+                        isMultimodalFields
+                                ? new MultimodalFieldValue(srcFields)
+                                : srcFields.get(0).getFieldValue();
             }
 
-            vectorization = model.vectorization(fieldValues);
+            List<ByteBuffer> vectorization = model.vectorization(fieldValues);
             return vectorization.toArray();
         } catch (Exception e) {
             throw new RuntimeException("Failed to data vectorization", e);
@@ -282,32 +303,34 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     /** Process a row in binary format: [data, relativePath, partIndex] */
     private Object[] vectorizationBinaryRow(SeaTunnelRowAccessor inputRow) throws Exception {
-
         byte[] completeData = processBinaryRow(inputRow);
         if (completeData == null) {
             return null;
         }
-        Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
-        Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
+
+        Set<VectorFieldSpec> vectorFieldSpecs = fieldSpecMap.keySet();
+        Object[] fieldValues = new Object[vectorFieldSpecs.size()];
         int i = 0;
 
-        for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
-            FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
-            if (fieldSpec.isBinary()) {
-                fieldValues[i++] = new MultimodalFieldValue(fieldSpec, completeData);
-            } else {
-                log.warn(
-                        "Non-binary field {} configured in binary format data",
-                        fieldSpec.getFieldName());
-                fieldValues[i++] = null;
+        for (VectorFieldSpec vectorFieldSpec : vectorFieldSpecs) {
+            List<SrcFieldSpec> srcFieldSpecs = vectorFieldSpec.getSrcFieldSpecs();
+            List<SrcField> srcFields = new ArrayList<>();
+            for (SrcFieldSpec srcFieldSpec : srcFieldSpecs) {
+                if (srcFieldSpec.isBinary()) {
+                    srcFields.add(new SrcField(srcFieldSpec, completeData));
+                } else {
+                    log.warn(
+                            "Non-binary field {} configured in binary format data",
+                            srcFieldSpec.getFieldName());
+                }
             }
+            fieldValues[i++] = srcFields.isEmpty() ? null : new MultimodalFieldValue(srcFields);
         }
 
         try {
             return model.vectorization(fieldValues).toArray();
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to vectorize binary data for file: " + inputRow.toString(), e);
+            throw new RuntimeException("Failed to vectorize binary data for file: " + inputRow, e);
         }
     }
 

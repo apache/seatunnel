@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLPa
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +46,7 @@ import org.testcontainers.utility.MountableFile;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -166,6 +168,16 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
     }
 
+    /**
+     * Disabled on Spark: TIMESTAMP WITH LOCAL TIME ZONE is now mapped to TIMESTAMP_TZ
+     * (OffsetDateTime). Spark encodes TIMESTAMP_TZ as DecimalType(18, 5) internally, causing
+     * byte-level mismatch on Oracle round-trip. See JdbcMysqlTimestampIT for the same limitation.
+     */
+    @Override
+    protected boolean isDisabledOnContainer(TestContainer container) {
+        return container.identifier().getEngineType() == EngineType.SPARK;
+    }
+
     @TestTemplate
     public void testOracleWithoutDecimalTypeNarrowing(TestContainer container) throws Exception {
         Container.ExecResult execResult =
@@ -186,6 +198,25 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_oracle_fake_source_to_sink_with_lob.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testOracleAppendValuesInsertMode(TestContainer container) throws Exception {
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_oracle_source_to_sink_append_values.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "SELECT COUNT(*) FROM "
+                                            + buildTableInfoWithSchema(SCHEMA, SINK_TABLE))) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getInt(1));
+            }
+        } finally {
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+        }
     }
 
     @Override

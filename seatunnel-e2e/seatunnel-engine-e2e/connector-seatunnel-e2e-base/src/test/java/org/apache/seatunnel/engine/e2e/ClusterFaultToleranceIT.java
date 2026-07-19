@@ -83,6 +83,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
 
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -211,6 +212,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -305,6 +307,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -371,9 +374,11 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -404,6 +409,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -468,12 +474,14 @@ public class ClusterFaultToleranceIT {
                                         lineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -487,10 +495,11 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.CANCELED, waitForCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -521,6 +530,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -588,9 +598,11 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -621,6 +633,7 @@ public class ClusterFaultToleranceIT {
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         try {
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
@@ -684,12 +697,14 @@ public class ClusterFaultToleranceIT {
                                         lineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, (long) lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -702,10 +717,11 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.CANCELED, objectCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -786,6 +802,7 @@ public class ClusterFaultToleranceIT {
             hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -887,9 +904,14 @@ public class ClusterFaultToleranceIT {
                                 log.warn(
                                         "\n================================={}=================================\n",
                                         lineNumberFromDir);
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
+
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    100_000L);
 
             log.warn(
                     "==========================================Cancel Job========================================");
@@ -906,10 +928,11 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertEquals(
                                         JobStatus.CANCELED, waitForCompletableFuture.get());
                             });
-            // prove that the task was restarted
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             log.warn(
@@ -1002,6 +1025,7 @@ public class ClusterFaultToleranceIT {
             hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -1077,8 +1101,6 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> waitForJobCompleteFuture =
                     CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
 
-            Thread.sleep(10000);
-
             Awaitility.await()
                     .atMost(100000, TimeUnit.MILLISECONDS)
                     .pollInterval(2000, TimeUnit.MILLISECONDS)
@@ -1096,12 +1118,14 @@ public class ClusterFaultToleranceIT {
                                     log.error(ExceptionUtils.getMessage(e));
                                 }
                                 Assertions.assertEquals(JobStatus.RUNNING, jobStatus);
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism, lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    100_000L);
             log.info(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
@@ -1116,10 +1140,11 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertEquals(
                                         JobStatus.CANCELED, waitForJobCompleteFuture.get());
                             });
-            // prove that the task was restarted
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             log.info(

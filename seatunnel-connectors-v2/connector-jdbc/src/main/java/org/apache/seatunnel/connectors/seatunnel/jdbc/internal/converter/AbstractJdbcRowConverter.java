@@ -114,11 +114,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     fields[fieldIndex] = readTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTimestamp)
-                                    .map(e -> e.toLocalDateTime())
-                                    .orElse(null);
+                    // Use getLocalDateTime() which avoids JVM-default-timezone influence.
+                    // See JdbcFieldTypeUtils.getLocalDateTime() for full strategy details.
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalDateTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP_TZ:
                     OffsetDateTime offsetDateTime =
@@ -210,14 +208,15 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
                 String fieldName = rowType.getFieldName(fieldIndex);
                 int statementIndex = fieldIndex + 1;
-                Object fieldValue = row.getField(fieldIndex);
-                if (fieldValue == null) {
-                    statement.setObject(statementIndex, null);
-                    continue;
-                }
                 String sourceType = null;
                 if (databaseTableSchema != null && databaseTableSchema.contains(fieldName)) {
                     sourceType = databaseTableSchema.getColumn(fieldName).getSourceType();
+                }
+                Object fieldValue = row.getField(fieldIndex);
+                if (fieldValue == null) {
+                    setNullToStatementByDataType(
+                            statement, seaTunnelDataType, statementIndex, sourceType);
+                    continue;
                 }
                 setValueToStatementByDataType(
                         row.getField(fieldIndex),
@@ -233,6 +232,41 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             }
         }
         return statement;
+    }
+    /**
+     * Bind a null value to the PreparedStatement parameter.
+     *
+     * <p>Default implementation uses {@link PreparedStatement#setObject(int, Object)}, which works
+     * for most databases. However, some databases (e.g., SQL Server) require explicit type
+     * information for null values in certain column types (e.g., IMAGE, BLOB).
+     *
+     * <p>Subclasses can override this method to provide database-specific null handling. For
+     * example, SQL Server uses {@link PreparedStatement#setNull(int, int)} with the appropriate
+     * JDBC type (e.g., {@link java.sql.Types#LONGVARBINARY} for IMAGE columns).
+     *
+     * @param statement the PreparedStatement to bind the parameter to
+     * @param seaTunnelDataType the SeaTunnel data type of the field
+     * @param statementIndex the 1-based parameter index in the PreparedStatement
+     * @param sourceType the source database column type (if available), used to determine the
+     *     appropriate JDBC type for null values
+     * @throws SQLException if a database access error occurs
+     */
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        statement.setObject(statementIndex, null);
+    }
+
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        statement.setObject(statementIndex, null);
     }
 
     protected void setValueToStatementByDataType(
@@ -284,12 +318,19 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             case TIMESTAMP_TZ:
                 OffsetDateTime offsetDateTime = (OffsetDateTime) value;
                 try {
-                    // Try to use setObject first for better timezone support
+                    // Try to use setObject first for better timezone support.
+                    // Modern Oracle JDBC (12.2+) and most other drivers accept OffsetDateTime
+                    // directly and preserve the offset accurately.
                     statement.setObject(statementIndex, offsetDateTime);
                 } catch (SQLException e) {
-                    // Fallback to setTimestamp if setObject is not supported
+                    // Fallback for older drivers that do not support OffsetDateTime via setObject.
+                    // Pass an explicit UTC Calendar so the driver does not apply the JVM default
+                    // timezone when interpreting the Timestamp, which would silently corrupt the
+                    // stored instant in any non-UTC environment.
                     statement.setTimestamp(
-                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                            statementIndex,
+                            Timestamp.from(offsetDateTime.toInstant()),
+                            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")));
                 }
                 break;
             case BYTES:

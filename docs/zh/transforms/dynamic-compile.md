@@ -1,17 +1,17 @@
-# DynamicCompile
+# 动态编译转换
 
-> 动态编译插件
+> DynamicCompile：在运行时编译并执行自定义代码，完成灵活的数据处理
 
 ## 描述
 
 :::tip
 
-特别申明
+特别声明
 您需要确保服务的安全性，并防止攻击者上传破坏性代码
 
 :::
 
-提供一种可编程的方式来处理行，允许用户自定义任何业务行为，甚至基于现有行字段作为参数的RPC请求，或者通过从其他数据源检索相关数据来扩展字段。为了区分业务，您还可以定义多个转换进行组合，
+DynamicCompile 转换插件提供一种可编程的方式来处理行，允许用户自定义任何业务行为，甚至基于现有行字段作为参数的 RPC 请求，或者通过从其他数据源检索相关数据来扩展字段。为了区分业务，您还可以定义多个转换进行组合，
 如果转换过于复杂，可能会影响性能
 
 ## 属性
@@ -24,7 +24,7 @@
 | absolute_path    | string | no       |               |
 
 
-### common options [string]
+### 通用选项 [string]
 
 转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情。
 
@@ -32,6 +32,8 @@
 
 Java中的某些语法可能不受支持，请参阅https://github.com/janino-compiler/janino
 GROOVY，JAVA，SCALA(目前支持 Zeta)
+
+**注意**：SCALA 支持使用 Scala REPL 进行动态编译，需要编写符合 Scala 语法的代码。
 
 ### compile_pattern [Enum]
 
@@ -62,7 +64,7 @@ SOURCE_CODE,ABSOLUTE_PATH
 你需要重启集群服务，才能重新加载这些依赖。
 
 
-## Example
+## 示例
 
 源端数据读取的表格如下：
 
@@ -220,8 +222,50 @@ transform {
 | Kin Dom  | 30  | 123  | JAVA             |
 | Joy Dom  | 30  | 123  | JAVA             |
 
+- 使用 Scala
+
+下面的 Scala 示例演示如何新增 `compile_language` 字段。
+
+```hacon
+transform {
+ DynamicCompile {
+    plugin_input = "fake"
+    plugin_output = "scala_out"
+    compile_language="SCALA"
+    compile_pattern="SOURCE_CODE"
+    source_code="""
+                 import org.apache.seatunnel.api.table.catalog.Column
+                 import org.apache.seatunnel.api.table.catalog.CatalogTable
+                 import org.apache.seatunnel.api.table.catalog.PhysicalColumn
+                 import org.apache.seatunnel.api.table.`type`.SeaTunnelRowAccessor
+                 import org.apache.seatunnel.api.table.`type`.BasicType
+                 import java.util.ArrayList
+
+                 class ScalaDemo {
+                   def getInlineOutputColumns(inputCatalogTable: CatalogTable): Array[Column] = {
+                     val columns = new ArrayList[Column]()
+                     val destColumn = PhysicalColumn.of(
+                       "compile_language",
+                       BasicType.STRING_TYPE,
+                       10L,
+                       true,
+                       "",
+                       ""
+                     )
+                     columns.add(destColumn)
+                     columns.toArray(new Array[Column](0))
+                   }
+
+                   def getInlineOutputFieldValues(inputRow: SeaTunnelRowAccessor): Array[Object] = {
+                     Array[Object]("SCALA")
+                   }
+                 }
+                """
+  }
+}
+```
+
 更多复杂例子可以参考
 https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-transforms-v2-e2e/seatunnel-transforms-v2-e2e-part-2/src/test/resources/dynamic_compile/conf
 
 ## Changelog
-

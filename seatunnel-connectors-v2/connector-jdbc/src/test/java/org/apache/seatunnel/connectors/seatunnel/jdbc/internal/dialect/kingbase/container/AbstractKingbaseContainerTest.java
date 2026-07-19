@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.kingbase.KingbaseC
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.GenericContainer;
@@ -44,6 +45,7 @@ import java.time.Duration;
  * errors, please replace the image with a newly built one that contains a valid license.
  */
 @DisabledOnOs(OS.WINDOWS)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractKingbaseContainerTest {
 
     protected static final String KINGBASE_IMAGE = "liangyaobo/kingbase:v8r6-license";
@@ -53,12 +55,12 @@ public abstract class AbstractKingbaseContainerTest {
     protected static final String SCHEMA = "public";
     protected static final int KINGBASE_PORT = 54321;
 
-    protected static GenericContainer<?> kingbaseContainer;
-    protected static Connection connection;
-    protected static KingbaseCatalog catalog;
+    protected GenericContainer<?> kingbaseContainer;
+    protected String jdbcUrl;
+    protected KingbaseCatalog catalog;
 
     @BeforeAll
-    public static void startContainer() throws SQLException {
+    public void startContainer() throws SQLException {
         DockerImageName imageName = DockerImageName.parse(KINGBASE_IMAGE);
 
         kingbaseContainer =
@@ -73,9 +75,9 @@ public abstract class AbstractKingbaseContainerTest {
 
         String host = kingbaseContainer.getHost();
         Integer mappedPort = kingbaseContainer.getMappedPort(KINGBASE_PORT);
-        String jdbcUrl = String.format("jdbc:kingbase8://%s:%d/%s", host, mappedPort, DATABASE);
+        jdbcUrl = String.format("jdbc:kingbase8://%s:%d/%s", host, mappedPort, DATABASE);
 
-        connection = connectWithRetry(jdbcUrl, USERNAME, PASSWORD);
+        waitUntilSqlReady();
 
         catalog =
                 new KingbaseCatalog(
@@ -89,12 +91,9 @@ public abstract class AbstractKingbaseContainerTest {
     }
 
     @AfterAll
-    public static void stopContainer() throws SQLException {
+    public void stopContainer() {
         if (catalog != null) {
             catalog.close();
-        }
-        if (connection != null && !connection.isClosed()) {
-            connection.close();
         }
         if (kingbaseContainer != null) {
             kingbaseContainer.stop();
@@ -102,8 +101,36 @@ public abstract class AbstractKingbaseContainerTest {
     }
 
     protected void executeSql(String sql) throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
+        try (Connection connection = getConnection();
+                Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
+        }
+    }
+
+    protected Connection getConnection() throws SQLException {
+        return connectWithRetry(jdbcUrl, USERNAME, PASSWORD);
+    }
+
+    private void waitUntilSqlReady() throws SQLException {
+        RetryUtils.RetryMaterial retryMaterial =
+                new RetryUtils.RetryMaterial(30, true, exception -> true, 2000);
+
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        try (Connection connection =
+                                        DriverManager.getConnection(jdbcUrl, USERNAME, PASSWORD);
+                                Statement stmt = connection.createStatement()) {
+                            stmt.execute("SELECT 1");
+                        }
+                        return null;
+                    },
+                    retryMaterial);
+        } catch (Exception e) {
+            if (e instanceof SQLException) {
+                throw (SQLException) e;
+            }
+            throw new SQLException("Kingbase is not ready to execute SQL", e);
         }
     }
 

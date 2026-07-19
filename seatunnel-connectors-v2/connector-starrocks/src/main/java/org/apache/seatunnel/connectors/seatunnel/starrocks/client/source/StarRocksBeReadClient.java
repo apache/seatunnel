@@ -44,8 +44,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
-
 @Slf4j
 public class StarRocksBeReadClient implements Serializable {
     private static final String DEFAULT_CLUSTER_NAME = "default_cluster";
@@ -186,13 +184,29 @@ public class StarRocksBeReadClient implements Serializable {
 
     public void close() {
         log.info("Close reader for {}:{} with context id {}", ip, port, contextId);
+        if (contextId == null) {
+            // not opened yet
+            return;
+        }
         TScanCloseParams tScanCloseParams = new TScanCloseParams();
         tScanCloseParams.setContext_id(this.contextId);
-        try {
-            this.client.close_scanner(tScanCloseParams);
-        } catch (TException e) {
-            log.error("Failed to close reader {}:{} with context id {}", ip, port, contextId, e);
-            throw new StarRocksConnectorException(CLOSE_BE_READER_FAILED, e);
+        for (int i = 0; i < 3; i++) {
+            try {
+                this.client.close_scanner(tScanCloseParams);
+                break;
+            } catch (Exception e) {
+                log.error(
+                        "Failed to close reader {}:{} with context id {}", ip, port, contextId, e);
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                log.error(
+                        "Waiting for closing is interrupted, reader {}:{} with context id {}",
+                        ip,
+                        port,
+                        contextId);
+            }
         }
     }
 }
