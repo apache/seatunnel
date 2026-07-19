@@ -321,6 +321,48 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRestoreWriterDoesNotRestorePreviouslyFailedTable() throws IOException {
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        "test.failed",
+                        MultiTableFailurePhase.RUNTIME_WRITE,
+                        "test",
+                        new RuntimeException("restore should skip"));
+        MultiTableState state =
+                new MultiTableState(new HashMap<>(), Collections.singletonList(failedTable));
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        Map<TablePath, SeaTunnelSink> restoredSinks = new HashMap<>();
+        restoredSinks.put(TablePath.of("test.failed"), new ThrowingRestoreSink());
+        restoredSinks.put(TablePath.of("test.healthy"), new TestSeaTunnelSink(healthyWriter));
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.CONTINUE_OTHER_TABLES.name());
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        MultiTableSink multiTableSink =
+                new MultiTableSink(
+                        new MultiTableFactoryContext(
+                                ReadonlyConfig.fromMap(options),
+                                Thread.currentThread().getContextClassLoader(),
+                                restoredSinks));
+
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoredWriter =
+                multiTableSink.restoreWriter(
+                        new TestSinkWriterContext(), Collections.singletonList(state));
+        restoredWriter.write(buildRow("test.healthy", 1));
+
+        Optional<MultiTableCommitInfo> commitInfo = restoredWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, healthyWriter.getWriteCount());
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, restoredWriter::close);
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+    }
+
+    @Test
     public void testRuntimeWriteZeroRetryKeepsImmediateIsolation() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
@@ -825,6 +867,24 @@ public class MultiTableSinkWriterTest {
         public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
                 SinkWriter.Context context, List<Object> states) {
             return writer;
+        }
+    }
+
+    static class ThrowingRestoreSink extends TestSeaTunnelSink {
+        ThrowingRestoreSink() {
+            super(new RecordingSinkWriter(false));
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) {
+            throw new AssertionError("failed table writer should not be created");
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                SinkWriter.Context context, List<Object> states) {
+            throw new AssertionError("failed table writer should not be restored");
         }
     }
 

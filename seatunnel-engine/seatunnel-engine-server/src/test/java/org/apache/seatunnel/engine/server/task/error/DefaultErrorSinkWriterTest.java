@@ -22,17 +22,24 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -95,6 +102,83 @@ public class DefaultErrorSinkWriterTest {
         assertTrue(context.getFlushAction() == flushAction);
         context.getFlushAction().run();
         assertTrue(flushes.get() == 1);
+    }
+
+    @Test
+    @Timeout(3)
+    public void testBlockPolicyFailsWhenWorkerFailedWhileQueueIsFull() throws Exception {
+        StageErrorConfig config =
+                StageErrorConfig.builder()
+                        .mode(ErrorHandlerMode.ROUTE)
+                        .queueOverflowPolicy(QueueOverflowPolicy.BLOCK)
+                        .queueCapacity(1)
+                        .build();
+        DefaultErrorSinkWriter<SeaTunnelRow> writer =
+                new DefaultErrorSinkWriter<>(config, ErrorSinkConfig.empty(), 1L, 0, null);
+        ArrayBlockingQueue<SeaTunnelRow> queue = new ArrayBlockingQueue<>(1);
+        queue.put(new SeaTunnelRow(new Object[] {"queued"}));
+
+        setField(writer, "initialized", true);
+        setField(writer, "queue", queue);
+        setField(writer, "pendingRows", new AtomicInteger(0));
+        setField(writer, "errorRowType", errorRowType());
+        Thread workerFailurePublisher =
+                new Thread(
+                        () -> {
+                            try {
+                                Thread.sleep(200L);
+                                setField(writer, "workerFailure", new IOException("worker failed"));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        workerFailurePublisher.start();
+
+        Exception ex =
+                assertThrows(
+                        Exception.class,
+                        () ->
+                                writer.write(
+                                        new RowErrorContext("SINK", "SINK", "Jdbc", "table"),
+                                        new SeaTunnelRow(new Object[] {1}),
+                                        new RuntimeException("row error")));
+        workerFailurePublisher.join(1000L);
+
+        assertTrue(ex.getMessage().contains("worker failed"));
+    }
+
+    private static SeaTunnelRowType errorRowType() {
+        return new SeaTunnelRowType(
+                new String[] {
+                    "error_stage",
+                    "plugin_type",
+                    "plugin_name",
+                    "source_table_path",
+                    "job_id",
+                    "error_message",
+                    "exception_class",
+                    "stacktrace",
+                    "original_data",
+                    "occur_time"
+                },
+                new SeaTunnelDataType[] {
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.LONG_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    LocalTimeType.LOCAL_DATE_TIME_TYPE
+                });
+    }
+
+    private static void setField(Object target, String name, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     private static class TestSink implements SeaTunnelSink<SeaTunnelRow, String, String, String> {

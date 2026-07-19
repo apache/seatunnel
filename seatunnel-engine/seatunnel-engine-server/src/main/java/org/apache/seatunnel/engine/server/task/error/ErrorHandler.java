@@ -45,7 +45,8 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return;
         }
-        totalRecords.incrementAndGet();
+        long currentTotal = totalRecords.incrementAndGet();
+        maybeThrowOnRatioThreshold(null, errorRecords.get(), currentTotal);
     }
 
     public ErrorHandlerMode getMode() {
@@ -151,17 +152,21 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
     }
 
     private void maybeThrowOnThreshold(RowErrorContext ctx, long currentErrorCount) {
-        long total = totalRecords.get();
         if (config.getMaxErrorRecords() > 0 && currentErrorCount > config.getMaxErrorRecords()) {
             throw new RuntimeException(
                     String.format(
                             "Too many row-level errors in stage [%s], plugin [%s]: %d records exceeded max_error_records=%d",
-                            ctx.getStage(),
-                            ctx.getPluginName(),
+                            stageName(ctx),
+                            pluginName(ctx),
                             currentErrorCount,
                             config.getMaxErrorRecords()));
         }
 
+        maybeThrowOnRatioThreshold(ctx, currentErrorCount, totalRecords.get());
+    }
+
+    private void maybeThrowOnRatioThreshold(
+            RowErrorContext ctx, long currentErrorCount, long total) {
         // Only check ratio after min records threshold to ensure stability.
         int minTotalForRatio =
                 config.getMaxErrorRatioMinRecords() > 0 ? config.getMaxErrorRatioMinRecords() : 1;
@@ -171,14 +176,22 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                 throw new RuntimeException(
                         String.format(
                                 "Row-level error ratio in stage [%s], plugin [%s] exceeded max_error_ratio=%.4f (current=%.4f, errors=%d, total=%d)",
-                                ctx.getStage(),
-                                ctx.getPluginName(),
+                                stageName(ctx),
+                                pluginName(ctx),
                                 config.getMaxErrorRatio(),
                                 ratio,
                                 currentErrorCount,
                                 total));
             }
         }
+    }
+
+    private String stageName(RowErrorContext ctx) {
+        return ctx == null ? "UNKNOWN" : ctx.getStage();
+    }
+
+    private String pluginName(RowErrorContext ctx) {
+        return ctx == null ? "UNKNOWN" : ctx.getPluginName();
     }
 
     private String truncate(String value, int maxLength) {

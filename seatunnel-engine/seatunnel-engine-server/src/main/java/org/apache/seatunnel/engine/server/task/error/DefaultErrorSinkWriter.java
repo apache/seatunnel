@@ -73,6 +73,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
 
     private static final long serialVersionUID = 1L;
     private static final long DEFAULT_CLOSE_TIMEOUT_MILLIS = 60_000L;
+    private static final long BLOCK_OFFER_RETRY_MILLIS = 100L;
 
     private final StageErrorConfig stageConfig;
     private final ErrorSinkConfig sinkConfig;
@@ -136,7 +137,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                     break;
                 case BLOCK:
                     pendingRows.incrementAndGet();
-                    queue.put(errorRow);
+                    enqueueWithBlockPolicy(ctx, errorRow);
                     break;
                 case FAIL:
                 default:
@@ -154,6 +155,33 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             Thread.currentThread().interrupt();
             pendingRows.decrementAndGet();
             throw new RuntimeException("Interrupted while enqueuing error row for error sink", e);
+        }
+    }
+
+    private void enqueueWithBlockPolicy(RowErrorContext ctx, SeaTunnelRow errorRow)
+            throws Exception {
+        boolean enqueued = false;
+        try {
+            while (true) {
+                throwWorkerFailureIfAny();
+                if (closed) {
+                    throw new RuntimeException(
+                            String.format(
+                                    "Error sink is closing for stage [%s], plugin [%s]",
+                                    ctx.getStage(), ctx.getPluginName()));
+                }
+                if (queue.offer(errorRow, BLOCK_OFFER_RETRY_MILLIS, TimeUnit.MILLISECONDS)) {
+                    enqueued = true;
+                    return;
+                }
+            }
+        } catch (InterruptedException e) {
+            throw e;
+        } catch (Exception | Error e) {
+            if (!enqueued) {
+                pendingRows.decrementAndGet();
+            }
+            throw e;
         }
     }
 

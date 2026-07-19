@@ -22,12 +22,14 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Routes connector-reported row errors to the shared ErrorHandler. */
 public final class EngineRowErrorCollector implements RowErrorCollector {
 
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final String pluginName;
+    private final AtomicLong collectedErrors = new AtomicLong();
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -44,5 +46,10 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         RowErrorContext ctx =
                 new RowErrorContext("SINK", "SINK", pluginName, tableId == null ? "" : tableId);
         errorHandler.onError(ctx, row, error);
+        collectedErrors.incrementAndGet();
+    }
+
+    public long getCollectedErrors() {
+        return collectedErrors.get();
     }
 }

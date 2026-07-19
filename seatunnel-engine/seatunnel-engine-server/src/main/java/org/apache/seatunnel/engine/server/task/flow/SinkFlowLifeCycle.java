@@ -452,6 +452,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         String tableId;
         long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
+        long collectedErrorsBeforeWrite = getCollectedErrorCount();
         ErrorHandlingSinkWriter.WriteOutcome writeOutcome;
         if (writer instanceof ErrorHandlingSinkWriter) {
             writeOutcome =
@@ -460,6 +461,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         } else {
             writer.write((T) record.getData());
             writeOutcome = ErrorHandlingSinkWriter.WriteOutcome.WRITTEN;
+        }
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                && getCollectedErrorCount() > collectedErrorsBeforeWrite) {
+            writeOutcome =
+                    stageErrorHandler != null
+                                    && stageErrorHandler.getMode() == ErrorHandlerMode.ROUTE
+                            ? ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK
+                            : ErrorHandlingSinkWriter.WriteOutcome.DROPPED;
         }
         if (metricsEnabled) {
             sinkWriteNs.inc(System.nanoTime() - writeStartNs);
@@ -536,6 +545,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    private long getCollectedErrorCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getCollectedErrors();
+        }
+        return 0L;
+    }
+
     private void processSignal(Signal signal) throws Exception {
         if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
             try {
@@ -557,42 +573,47 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             prepareClose = true;
         }
         if (barrier.snapshot()) {
+            boolean prepared = false;
             try {
                 long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
                 lastCommitInfo = writer.prepareCommit(barrier.getId());
+                prepared = true;
                 if (metricsEnabled) {
                     sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
                 }
-            } catch (Exception e) {
-                writer.abortPrepare();
-                throw e;
-            }
-            List<StateT> states = writer.snapshotState(barrier.getId());
-            if (!writerStateSerializer.isPresent()) {
-                runningTask.addState(
-                        barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
-            } else {
-                runningTask.addState(
-                        barrier,
-                        ActionStateKey.of(sinkAction),
-                        serializeStates(writerStateSerializer.get(), states));
-            }
-            if (containAggCommitter) {
-                CommitInfoT commitInfoT = null;
-                if (lastCommitInfo.isPresent()) {
-                    commitInfoT = lastCommitInfo.get();
+
+                List<StateT> states = writer.snapshotState(barrier.getId());
+                if (!writerStateSerializer.isPresent()) {
+                    runningTask.addState(
+                            barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
+                } else {
+                    runningTask.addState(
+                            barrier,
+                            ActionStateKey.of(sinkAction),
+                            serializeStates(writerStateSerializer.get(), states));
                 }
-                runningTask
-                        .getExecutionContext()
-                        .sendToMember(
-                                new SinkPrepareCommitOperation<CommitInfoT>(
-                                        barrier,
-                                        committerTaskLocation,
-                                        commitInfoSerializer.isPresent()
-                                                ? commitInfoSerializer.get().serialize(commitInfoT)
-                                                : null),
-                                committerTaskAddress)
-                        .join();
+                if (containAggCommitter) {
+                    CommitInfoT commitInfoT = null;
+                    if (lastCommitInfo.isPresent()) {
+                        commitInfoT = lastCommitInfo.get();
+                    }
+                    runningTask
+                            .getExecutionContext()
+                            .sendToMember(
+                                    new SinkPrepareCommitOperation<CommitInfoT>(
+                                            barrier,
+                                            committerTaskLocation,
+                                            commitInfoSerializer.isPresent()
+                                                    ? commitInfoSerializer
+                                                            .get()
+                                                            .serialize(commitInfoT)
+                                                    : null),
+                                    committerTaskAddress)
+                            .join();
+                }
+            } catch (Exception e) {
+                abortPreparedWriter(prepared, e);
+                throw e;
             }
         } else {
             if (containAggCommitter) {
@@ -611,6 +632,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 barrier.getId(),
                 System.currentTimeMillis() - startTime,
                 taskLocation);
+    }
+
+    private void abortPreparedWriter(boolean prepared, Exception originalException) {
+        try {
+            writer.abortPrepare();
+        } catch (RuntimeException abortException) {
+            originalException.addSuppressed(abortException);
+        }
+        if (prepared) {
+            lastCommitInfo = Optional.empty();
+        }
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {

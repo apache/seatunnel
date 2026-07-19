@@ -133,10 +133,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public synchronized void clearBatchSilently() {
         try {
             jdbcStatementExecutor.clearBatch();
-        } catch (SQLException e) {
-            LOG.warn("Failed to clear JDBC batch after row-level error", e);
-        } finally {
             batchCount = 0;
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Failed to clear JDBC batch after row-level error.",
+                    e);
         }
     }
 

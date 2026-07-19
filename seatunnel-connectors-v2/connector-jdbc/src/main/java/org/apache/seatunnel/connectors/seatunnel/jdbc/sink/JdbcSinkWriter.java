@@ -381,25 +381,37 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private void handleRowLevelBatchFailure(
             RowErrorPhase phase, Long checkpointId, List<SeaTunnelRow> batchRows, Throwable error)
             throws IOException {
+        IOException failure = null;
         try {
             for (SeaTunnelRow row : batchRows) {
                 rowErrorCollector.get().collect(new RowErrorEvent(phase, checkpointId, row, error));
             }
         } catch (Exception collectorEx) {
-            throwAsIoException(collectorEx);
+            failure = toIOException(collectorEx);
         } finally {
-            outputFormat.clearBatchSilently();
-            rollbackIfNeeded();
+            try {
+                outputFormat.clearBatchSilently();
+            } catch (Throwable clearEx) {
+                failure = appendFailure(failure, clearEx);
+            }
+            try {
+                rollbackIfNeeded();
+            } catch (Throwable rollbackEx) {
+                failure = appendFailure(failure, rollbackEx);
+            }
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 
-    private void rollbackIfNeeded() {
+    private void rollbackIfNeeded() throws SQLException {
         try {
             if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().rollback();
             }
-        } catch (Throwable rollbackEx) {
-            log.warn("Failed to rollback transaction after row-level batch failure", rollbackEx);
+        } catch (SQLException rollbackEx) {
+            throw rollbackEx;
         }
     }
 
@@ -410,13 +422,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     }
 
     private void throwAsIoException(Throwable e) throws IOException {
+        throw toIOException(e);
+    }
+
+    private IOException toIOException(Throwable e) {
         if (e instanceof IOException) {
-            throw (IOException) e;
+            return (IOException) e;
         }
         if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
+            return new IOException(e);
         }
-        throw new IOException(e);
+        return new IOException(e);
+    }
+
+    private IOException appendFailure(IOException current, Throwable next) {
+        IOException nextException = toIOException(next);
+        if (current == null) {
+            return nextException;
+        }
+        current.addSuppressed(nextException);
+        return current;
     }
 
     /**

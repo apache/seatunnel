@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
@@ -66,11 +67,40 @@ public class JdbcOutputFormatTest {
         Assertions.assertEquals(1, executor.executeBatchCount);
     }
 
+    @Test
+    public void testClearBatchFailureIsPropagatedAndKeepsBatchCount() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        FailingClearBatchExecutor executor = new FailingClearBatchExecutor();
+        JdbcConnectionConfig config = JdbcConnectionConfig.builder().batchSize(100).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, FailingClearBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecordWithAutoFlush("row-1");
+
+        JdbcConnectorException ex =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, outputFormat::clearBatchSilently);
+
+        Assertions.assertTrue(ex.getMessage().contains("Failed to clear JDBC batch"));
+        Assertions.assertEquals(1, getBatchCount(outputFormat));
+    }
+
     private static void setLastFlushTimeMs(JdbcOutputFormat<?, ?> outputFormat, long value)
             throws Exception {
         Field field = JdbcOutputFormat.class.getDeclaredField("lastFlushTimeMs");
         field.setAccessible(true);
         field.set(outputFormat, value);
+    }
+
+    private static int getBatchCount(JdbcOutputFormat<?, ?> outputFormat) throws Exception {
+        Field field = JdbcOutputFormat.class.getDeclaredField("batchCount");
+        field.setAccessible(true);
+        return (int) field.get(outputFormat);
     }
 
     private static class CountingExecutor implements JdbcBatchStatementExecutor<String> {
@@ -90,5 +120,13 @@ public class JdbcOutputFormatTest {
 
         @Override
         public void closeStatements() throws SQLException {}
+    }
+
+    private static class FailingClearBatchExecutor extends CountingExecutor {
+
+        @Override
+        public void clearBatch() throws SQLException {
+            throw new SQLException("clear failed");
+        }
     }
 }

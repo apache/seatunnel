@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.error.EngineRowErrorCollector;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
@@ -129,6 +132,28 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
     }
 
+    @Test
+    void collectorReportedErrorDoesNotReportMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, new CollectorReportingWriter(collector), handler);
+        setField(flow, "stageRowErrorCollector", collector);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+    }
+
     @SuppressWarnings("unchecked")
     private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createFlow(
             SeaTunnelMetricsContext metrics,
@@ -193,6 +218,37 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         public void write(SeaTunnelRow element) throws IOException {
             if (fail) {
                 throw new IOException("row error");
+            }
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class CollectorReportingWriter
+            implements SinkWriter<SeaTunnelRow, String, String> {
+        private final EngineRowErrorCollector collector;
+
+        private CollectorReportingWriter(EngineRowErrorCollector collector) {
+            this.collector = collector;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) throws IOException {
+            try {
+                collector.collect(
+                        new RowErrorEvent(
+                                RowErrorPhase.WRITE, null, element, new IOException("row error")));
+            } catch (Exception e) {
+                throw new IOException(e);
             }
         }
 

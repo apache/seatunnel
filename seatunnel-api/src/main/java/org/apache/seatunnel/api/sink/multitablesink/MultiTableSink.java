@@ -129,6 +129,9 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
@@ -182,6 +185,9 @@ public class MultiTableSink
 
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
@@ -216,6 +222,24 @@ public class MultiTableSink
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    private boolean shouldSkipFailedTable(
+            Collection<MultiTableFailedTable> failedTables, TablePath tablePath) {
+        if (!failurePolicy.continueOtherTables()
+                || failedTables == null
+                || failedTables.isEmpty()
+                || tablePath == null) {
+            return false;
+        }
+        String tablePathText = tablePath.toString();
+        String fullName = tablePath.getFullName();
+        return failedTables.stream()
+                .map(MultiTableFailedTable::getTablePath)
+                .filter(Objects::nonNull)
+                .anyMatch(
+                        failedTable ->
+                                failedTable.equals(tablePathText) || failedTable.equals(fullName));
     }
 
     /**

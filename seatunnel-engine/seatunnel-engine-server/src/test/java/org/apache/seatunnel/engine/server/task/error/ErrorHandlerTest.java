@@ -165,6 +165,36 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testMaxErrorRatioTriggersWhenSuccessRowsCrossWarmupThreshold() {
+        StageErrorConfig config =
+                StageErrorConfig.builder()
+                        .mode(ErrorHandlerMode.LOG)
+                        .maxErrorRatio(0.1)
+                        .maxErrorRatioMinRecords(10)
+                        .build();
+        ErrorHandler<SeaTunnelRow> handler = new ErrorHandler<>(config);
+        RowErrorContext ctx = createContext();
+
+        for (int i = 0; i < 5; i++) {
+            handler.incrementTotalRecords();
+            handler.onError(ctx, createRow(i), new RuntimeException("error " + i));
+        }
+
+        RuntimeException ex =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> {
+                            for (int i = 0; i < 5; i++) {
+                                handler.incrementTotalRecords();
+                            }
+                        });
+
+        assertTrue(ex.getMessage().contains("error ratio"));
+        assertTrue(ex.getMessage().contains("exceeded max_error_ratio"));
+        handler.close();
+    }
+
+    @Test
     public void testLogModeLogsErrors() {
         // LOG mode should log but not route to error sink
         StageErrorConfig config =
