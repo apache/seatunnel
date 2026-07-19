@@ -66,20 +66,7 @@ public class EdgeSocketMysql8_4IT extends AbstractEdgeSocketIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
+            AbstractEdgeSocketIT::copyMySQLDriverToJdbcContainer;
 
     @Override
     protected void startSinkDependencies() throws Exception {
