@@ -89,7 +89,7 @@ source {
   Jdbc {
     plugin_output = "mysql_orders"
     driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://mysql:3306/source_db?useSSL=false&allowPublicKeyRetrieval=true"
+    url = "jdbc:mysql://mysql.example.com:3306/source_db?useSSL=false&allowPublicKeyRetrieval=true"
     username = "root"
     password = "password"
     query = "SELECT id, customer_name, amount, status FROM orders"
@@ -116,7 +116,7 @@ sink {
   Jdbc {
     plugin_input = "paid_orders"
     driver = "org.postgresql.Driver"
-    url = "jdbc:postgresql://postgresql:5432/target_db"
+    url = "jdbc:postgresql://postgresql.example.com:5432/target_db"
     username = "test"
     password = "test"
     query = "INSERT INTO public.paid_orders (id, customer_name, amount, source_system) VALUES (?, ?, ?, ?)"
@@ -152,12 +152,13 @@ Expected result:
 | 1001 | ALICE CHEN | 120.50 | MYSQL |
 | 1003 | CAROL WU | 42.00 | MYSQL |
 
-This result proves each transformation independently: order `1002` was filtered out because it was not paid, names were uppercased, amounts have scale 2, and the constant `source_system` field was added. The repository's companion Docker E2E test starts MySQL and PostgreSQL containers, runs this pipeline, and asserts these exact target rows.
+This result verifies each transformation independently: order `1002` was filtered out because it was not paid, names were uppercased, amounts have scale 2, and the constant `source_system` field was added.
 
 ## Common pitfalls
 
 - The MySQL or PostgreSQL driver is missing from `${SEATUNNEL_HOME}/lib`, or its version is incompatible with the database.
-- A Docker hostname such as `mysql` or `postgresql` is copied into a non-Docker environment without being replaced by a resolvable host.
+- An example hostname is copied without being replaced by an address that the SeaTunnel process can resolve.
+- The sample MySQL URL disables TLS and allows public-key retrieval for a simple development setup. Configure TLS according to your organization's security requirements before using the job in production.
 - The selected field order changes, but the columns in the sink `INSERT` statement do not change with it.
 - The target table is not empty and a second run conflicts with its primary key. Truncate the table for a repeatable tutorial run, or choose an upsert strategy for production.
 - A source `DECIMAL` value exceeds the precision or scale declared by `DECIMAL(12, 2)`. Choose a target type that fits the real data before migrating it.

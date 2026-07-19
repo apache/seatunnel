@@ -89,7 +89,7 @@ source {
   Jdbc {
     plugin_output = "mysql_orders"
     driver = "com.mysql.cj.jdbc.Driver"
-    url = "jdbc:mysql://mysql:3306/source_db?useSSL=false&allowPublicKeyRetrieval=true"
+    url = "jdbc:mysql://mysql.example.com:3306/source_db?useSSL=false&allowPublicKeyRetrieval=true"
     username = "root"
     password = "password"
     query = "SELECT id, customer_name, amount, status FROM orders"
@@ -116,7 +116,7 @@ sink {
   Jdbc {
     plugin_input = "paid_orders"
     driver = "org.postgresql.Driver"
-    url = "jdbc:postgresql://postgresql:5432/target_db"
+    url = "jdbc:postgresql://postgresql.example.com:5432/target_db"
     username = "test"
     password = "test"
     query = "INSERT INTO public.paid_orders (id, customer_name, amount, source_system) VALUES (?, ?, ?, ?)"
@@ -152,12 +152,13 @@ ORDER BY id;
 | 1001 | ALICE CHEN | 120.50 | MYSQL |
 | 1003 | CAROL WU | 42.00 | MYSQL |
 
-这组结果分别证明了每一步转换：订单 `1002` 因未支付而被过滤，姓名已转为大写，金额保留两位小数，并新增了固定值为 `MYSQL` 的 `source_system` 字段。仓库配套的 Docker E2E 测试会启动 MySQL 和 PostgreSQL 容器、运行这条链路，并断言目标表中的数据与上表完全一致。
+这组结果分别验证了每一步转换：订单 `1002` 因未支付而被过滤，姓名已转为大写，金额保留两位小数，并新增了固定值为 `MYSQL` 的 `source_system` 字段。
 
 ## 常见问题
 
 - `${SEATUNNEL_HOME}/lib` 中缺少 MySQL 或 PostgreSQL 驱动，或者驱动版本与数据库不兼容。
-- 把 `mysql`、`postgresql` 这类 Docker 主机名原样复制到非 Docker 环境，却没有替换为可解析的实际地址。
+- 原样复制示例主机名，却没有替换为 SeaTunnel 进程能够解析的实际地址。
+- 示例 MySQL URL 为简化开发环境而关闭了 TLS，并允许公钥检索。用于生产环境前，应按照所在组织的安全要求配置 TLS。
 - 调整了 `SELECT` 字段顺序，却没有同步调整 sink `INSERT` 语句中的列顺序。
 - 目标表中已有数据，第二次运行时与主键冲突。教程重复执行前可以清空目标表；生产环境应根据业务选择 upsert 策略。
 - 源端 `DECIMAL` 数据超出 `DECIMAL(12, 2)` 的精度或小数位范围。正式迁移前需要按真实数据选择合适的目标类型。
