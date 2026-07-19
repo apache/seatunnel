@@ -4,9 +4,9 @@ title: MySQL CDC 到 Elasticsearch：过滤、转换与自定义字段
 
 # MySQL CDC 到 Elasticsearch：过滤、清洗与自定义补字段
 
-这篇文档只保留一条由配套 Docker E2E 测试端到端执行的链路。下面出现的配置、输入数据和结果，都与这条可执行测试里的内容保持一致。
+本教程把客户资料从 MySQL 持续同步到 Elasticsearch，同时过滤非管理范围的数据、清洗手机号、映射状态值并补充来源元数据。
 
-这条受测链路是：
+完整链路是：
 
 - `MySQL-CDC` 读取 `crm.customer_profile`
 - `Metadata` 暴露库名、表名和行变更类型
@@ -14,7 +14,7 @@ title: MySQL CDC 到 Elasticsearch：过滤、转换与自定义字段
 - `Sql` 负责行过滤、状态映射和补充 `sync_source`
 - `Elasticsearch` 按主键把数据写入索引
 
-## 这次验证环境具备的前置条件
+## 前置条件
 
 1. 先完成 [跑第一个任务](../locally/run-your-first-job.md)，确认本地执行链路正常。
 
@@ -56,22 +56,18 @@ SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_i
 
 期望值是 `log_bin = ON`、`binlog_format = ROW`、`binlog_row_image = FULL`。
 
-6. 确保 Elasticsearch 可以通过 HTTPS 认证访问。Docker E2E 测试使用 Elasticsearch 8.9.0，并通过下面的命令检查连通性：
+6. 确保 Elasticsearch 可以通过 HTTPS 认证访问。本示例使用 Elasticsearch 8.9.0。请使用 SeaTunnel 能访问的地址和账号检查连通性：
 
 ```bash
-curl -k -u elastic:elasticsearch https://localhost:9200
+curl --cacert /path/to/http_ca.crt \
+  -u elastic:your_password https://elasticsearch.example.com:9200
 ```
 
-配套 Docker E2E 环境会用容器网络内的主机名准备同样的条件：
+把可信 CA 证书复制到每个 SeaTunnel 节点，并在任务配置的 `tls_truststore_path` 中填写对应的本地路径。
 
-- MySQL 使用了 `docker/server-gtids/my.cnf` 里的 GTID / binlog 配置。
-- `MySQL-CDC` 插件的 `lib` 目录里已经放入了 MySQL JDBC driver JAR。
-- 预先创建了名为 `st_user_source` 的 CDC 用户，并授予了 `SELECT`、`RELOAD`、`SHOW DATABASES`、`REPLICATION SLAVE`、`REPLICATION CLIENT`、`LOCK TABLES` 权限。
-- Elasticsearch 可以通过 `https://elasticsearch:9200` 访问，用户名是 `elastic`，密码是 `elasticsearch`。
+## 准备源表数据
 
-## 验证使用的源表数据
-
-E2E 测试先创建了下面这张表，并插入两条初始数据：
+创建源表并插入两条初始数据：
 
 ```sql
 CREATE DATABASE IF NOT EXISTS crm;
@@ -91,7 +87,7 @@ INSERT INTO customer_profile (id, name, phone, email, status, city) VALUES
   (900, 'Bob Li', '139-8888-2222', 'bob@example.com', 0, 'Beijing');
 ```
 
-任务启动后，测试又执行了这两条增量变更：
+任务启动且初始快照已经可以在 Elasticsearch 中查询到后，执行下面两条增量变更：
 
 ```sql
 UPDATE crm.customer_profile
@@ -102,9 +98,9 @@ INSERT INTO crm.customer_profile (id, name, phone, email, status, city) VALUES
   (1003, 'Carol Wang', '137-1234-8888', 'carol@example.com', 1, 'Hangzhou');
 ```
 
-## Docker E2E 测试执行的完整配置
+## 完整任务配置
 
-下面这份配置就是 Docker E2E 测试实际执行的作业配置。里面的主机名是测试网络里的服务别名。如果 SeaTunnel 直接运行在宿主机上，需要把 `mysql_cdc_e2e` 和 `elasticsearch` 替换成 SeaTunnel 进程可以访问的地址，通常是 `localhost`。
+请把下面的示例主机名和凭据替换为 SeaTunnel 进程可以访问的实际值。并发运行的 MySQL CDC 任务必须使用不同的 `server-id` 范围。
 
 ```hocon
 env {
@@ -115,7 +111,7 @@ env {
 source {
   MySQL-CDC {
     plugin_output = "mysql_customer_raw"
-    url = "jdbc:mysql://mysql_cdc_e2e:3306/crm"
+    url = "jdbc:mysql://mysql.example.com:3306/crm"
     username = "st_user_source"
     password = "mysqlpw"
     server-id = 5701-5704
@@ -155,11 +151,12 @@ transform {
 sink {
   Elasticsearch {
     plugin_input = "es_customer_profile"
-    hosts = ["https://elasticsearch:9200"]
+    hosts = ["https://elasticsearch.example.com:9200"]
     username = "elastic"
     password = "elasticsearch"
-    tls_verify_certificate = false
-    tls_verify_hostname = false
+    tls_verify_certificate = true
+    tls_verify_hostname = true
+    tls_truststore_path = "/path/to/http_ca.crt"
     index = "recipe_customer_profile"
     primary_keys = ["id"]
     max_batch_size = 1
@@ -179,13 +176,13 @@ cd "${SEATUNNEL_HOME}"
 在另一个终端中，分别在执行上面的增量 SQL 前后查询索引：
 
 ```bash
-curl -k -u elastic:elasticsearch \
-  'https://localhost:9200/recipe_customer_profile/_search?pretty&sort=id'
+curl --cacert /path/to/http_ca.crt -u elastic:your_password \
+  'https://elasticsearch.example.com:9200/recipe_customer_profile/_search?pretty&sort=id'
 ```
 
-## E2E 测试会验证什么
+## 验证结果
 
-Docker E2E 测试会对下面这些结果做断言：
+在 Elasticsearch 返回结果中确认以下内容：
 
 - 快照阶段最终只写入了 1 条文档。
 - `1001` 被保留下来，因为它的不可变主键属于 `id >= 1000` 的管理范围。
@@ -200,11 +197,11 @@ Docker E2E 测试会对下面这些结果做断言：
 
 ### 1. `Replace` 负责轻量清洗
 
-这份受测配置里，`Replace` 只做一件事：把手机号里的 `-` 去掉。
+这份配置里，`Replace` 只做一件事：把手机号里的 `-` 去掉。
 
 ### 2. `Sql` 负责业务过滤与补字段
 
-测试覆盖的 SQL 规则是：
+SQL 包含以下业务规则：
 
 - 只保留 `id >= 1000` 的主键范围
 - 把 `status` 映射成 `ACTIVE` 或 `FROZEN`
@@ -212,12 +209,13 @@ Docker E2E 测试会对下面这些结果做断言：
 
 这里特意使用不可变主键做过滤。不要在写入 upsert sink 之前直接用 `is_deleted`、`status` 这类可变字段过滤 CDC 更新：已经写入 ES 的记录如果后来不再满足条件，旧文档不会自动收到删除事件。软删除场景应把删除标记同步到 Elasticsearch 后在查询时过滤，或者使用能把状态变化明确转换为删除事件的链路。
 
-### 3. 测试覆盖的 Elasticsearch 写入配置
+### 3. Elasticsearch 写入配置
 
-测试里的 sink 配置使用下面这些参数，并断言上面的写入结果：
+Sink 使用下面这些参数，并产生上述预期结果：
 
 - `primary_keys = ["id"]`
 - `max_batch_size = 1`
+- `tls_verify_certificate = true` 和 `tls_verify_hostname = true`
 - `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`
 - `data_save_mode = "APPEND_DATA"`
 

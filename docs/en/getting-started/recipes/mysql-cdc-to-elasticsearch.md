@@ -4,9 +4,9 @@ title: MySQL CDC to Elasticsearch with filtering, conversion, and custom fields
 
 # MySQL CDC to Elasticsearch with filtering, cleanup, and custom fields
 
-This page describes a MySQL CDC to Elasticsearch recipe that is exercised end to end by the accompanying Docker E2E test.
+This recipe continuously synchronizes customer profiles from MySQL to Elasticsearch, filters unmanaged rows, normalizes phone numbers, maps status values, and adds source metadata.
 
-The tested pipeline is:
+The pipeline is:
 
 - `MySQL-CDC` reads `crm.customer_profile`
 - `Metadata` exposes database, table, and row kind
@@ -14,7 +14,7 @@ The tested pipeline is:
 - `Sql` filters rows and derives `status_name` plus `sync_source`
 - `Elasticsearch` writes documents by primary key
 
-## Validation environment prerequisites
+## Prerequisites
 
 1. Finish [Run your first job](../locally/run-your-first-job.md) and make sure local execution works.
 
@@ -56,22 +56,18 @@ SHOW VARIABLES WHERE variable_name IN ('log_bin', 'binlog_format', 'binlog_row_i
 
 The expected values are `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`.
 
-6. Make Elasticsearch reachable with HTTPS authentication. The Docker E2E test uses Elasticsearch 8.9.0 and verifies connectivity with:
+6. Make Elasticsearch reachable with HTTPS authentication. This example uses Elasticsearch 8.9.0. Verify connectivity with an address and account that SeaTunnel can use:
 
 ```bash
-curl -k -u elastic:elasticsearch https://localhost:9200
+curl --cacert /path/to/http_ca.crt \
+  -u elastic:your_password https://elasticsearch.example.com:9200
 ```
 
-The accompanying Docker E2E environment prepares the same prerequisites with network-local hostnames:
+Copy the trusted CA certificate to every SeaTunnel node and use that local path for `tls_truststore_path` in the job configuration.
 
-- MySQL ran with the GTID/binlog settings from `docker/server-gtids/my.cnf`.
-- The MySQL JDBC driver JAR was present under the `MySQL-CDC` plugin `lib` directory.
-- A CDC user named `st_user_source` existed with `SELECT`, `RELOAD`, `SHOW DATABASES`, `REPLICATION SLAVE`, `REPLICATION CLIENT`, and `LOCK TABLES` privileges.
-- Elasticsearch was reachable as `https://elasticsearch:9200` with username `elastic` and password `elasticsearch`.
+## Prepare the source data
 
-## Source data used by the validation
-
-The E2E test created this source table and loaded two initial rows:
+Create the source table and load two initial rows:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS crm;
@@ -91,7 +87,7 @@ INSERT INTO customer_profile (id, name, phone, email, status, city) VALUES
   (900, 'Bob Li', '139-8888-2222', 'bob@example.com', 0, 'Beijing');
 ```
 
-After the job started, the test executed these incremental changes:
+After the job starts and the initial snapshot is visible in Elasticsearch, execute these incremental changes:
 
 ```sql
 UPDATE crm.customer_profile
@@ -102,9 +98,9 @@ INSERT INTO crm.customer_profile (id, name, phone, email, status, city) VALUES
   (1003, 'Carol Wang', '137-1234-8888', 'carol@example.com', 1, 'Hangzhou');
 ```
 
-## Exact job config covered by the Docker E2E test
+## Complete job configuration
 
-The following config is the exact job config executed by the Docker E2E test. The hostnames are Docker network aliases from that environment. When SeaTunnel runs directly on your host, replace `mysql_cdc_e2e` and `elasticsearch` with the addresses reachable from your SeaTunnel process, commonly `localhost`.
+Replace the example hostnames and credentials below with values reachable from the SeaTunnel process. Each concurrently running MySQL CDC job must use a unique `server-id` range.
 
 ```hocon
 env {
@@ -115,7 +111,7 @@ env {
 source {
   MySQL-CDC {
     plugin_output = "mysql_customer_raw"
-    url = "jdbc:mysql://mysql_cdc_e2e:3306/crm"
+    url = "jdbc:mysql://mysql.example.com:3306/crm"
     username = "st_user_source"
     password = "mysqlpw"
     server-id = 5701-5704
@@ -155,11 +151,12 @@ transform {
 sink {
   Elasticsearch {
     plugin_input = "es_customer_profile"
-    hosts = ["https://elasticsearch:9200"]
+    hosts = ["https://elasticsearch.example.com:9200"]
     username = "elastic"
     password = "elasticsearch"
-    tls_verify_certificate = false
-    tls_verify_hostname = false
+    tls_verify_certificate = true
+    tls_verify_hostname = true
+    tls_truststore_path = "/path/to/http_ca.crt"
     index = "recipe_customer_profile"
     primary_keys = ["id"]
     max_batch_size = 1
@@ -179,13 +176,13 @@ cd "${SEATUNNEL_HOME}"
 In another terminal, query the indexed documents before and after executing the incremental SQL above:
 
 ```bash
-curl -k -u elastic:elasticsearch \
-  'https://localhost:9200/recipe_customer_profile/_search?pretty&sort=id'
+curl --cacert /path/to/http_ca.crt -u elastic:your_password \
+  'https://elasticsearch.example.com:9200/recipe_customer_profile/_search?pretty&sort=id'
 ```
 
-## What the E2E test verifies
+## Verify the result
 
-The Docker E2E test asserts all of the following:
+Confirm the following results in the Elasticsearch response:
 
 - Only one document existed after the snapshot phase.
 - Document `1001` was kept because its immutable primary key is in the managed range `id >= 1000`.
@@ -200,7 +197,7 @@ The Docker E2E test asserts all of the following:
 
 ### 1. `Replace` is used for lightweight field normalization
 
-This tested job uses `Replace` only for one purpose: remove `-` from `phone` before indexing.
+This job uses `Replace` only for one purpose: remove `-` from `phone` before indexing.
 
 ### 2. `Sql` owns the business filter
 
@@ -212,12 +209,13 @@ The SQL contains the full business rule:
 
 The filter intentionally uses the immutable primary key. Avoid filtering CDC updates by mutable fields such as `is_deleted` or `status` before an upsert sink: when a previously indexed row stops matching, no delete event is emitted for the old Elasticsearch document. For soft deletion, keep the deletion flag in Elasticsearch and filter it at query time, or use a pipeline that explicitly converts the transition into a delete event.
 
-### 3. Elasticsearch write settings covered by the test
+### 3. Elasticsearch write settings
 
-The tested config uses these sink settings together with the asserted results above:
+The sink uses these settings together with the expected results above:
 
 - `primary_keys = ["id"]`
 - `max_batch_size = 1`
+- `tls_verify_certificate = true` and `tls_verify_hostname = true`
 - `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`
 - `data_save_mode = "APPEND_DATA"`
 

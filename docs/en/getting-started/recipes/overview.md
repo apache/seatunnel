@@ -6,7 +6,7 @@ slug: /getting-started/recipes
 
 These recipes are best read after your first local job succeeds. Instead of reading every example in order, start with the pipeline shape that is closest to your real source and sink.
 
-The MySQL CDC to Kafka and Elasticsearch recipes in this section are backed by Docker E2E tests. Their configs, observed results, and prerequisites are kept aligned with those executable paths.
+The recipes in this section include concrete prerequisites, complete configurations, and expected results so that you can validate each pipeline in your own environment.
 
 ## Choose A Recipe By Pipeline Goal
 
