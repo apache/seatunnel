@@ -183,7 +183,7 @@ The existing error handling options of each Transform / Sink plugin (such as `ro
 | `original_data_format`        | String  | `TEXT`   | **Reserved parameter**. Current version only supports `TEXT`, internally unified as string form written to error table (`original_data` is the string representation of the record, i.e., `String.valueOf(row)`).                   |
 | `original_data_max_length`    | Integer | `8192`   | Maximum length of serialized original data, excess will be truncated, used to control the size of individual error records.                                                                                                         |
 
-Threshold statistics scope: Current version thresholds use internal counters: Sink counts 1 per `write(...)`; Transform chain counts 1 per `map(...)`/`flatMap(...)` call; multiple operators on the same Transform chain share the same counter.
+Threshold statistics scope: Current version thresholds use in-memory counters in each Zeta task attempt and subtask. Sink counts 1 per `write(...)`; Transform chain counts 1 per `map(...)`/`flatMap(...)` call; multiple operators on the same Transform chain share the same counter. These counters are not checkpointed and are not aggregated into a job-wide or stage-wide total across parallel subtasks. After task recovery the counters start from zero for the new attempt, and increasing parallelism also increases the effective threshold budget. Configure `max_error_records` and `max_error_ratio` with this per-subtask attempt scope in mind.
 
 ### Error Sink Related Parameters Overview
 

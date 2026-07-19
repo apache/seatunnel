@@ -112,8 +112,13 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
 
     @Override
     public void write(RowErrorContext ctx, T row, Throwable t) throws Exception {
+        writeAndCheckAccepted(ctx, row, t);
+    }
+
+    @Override
+    public boolean writeAndCheckAccepted(RowErrorContext ctx, T row, Throwable t) throws Exception {
         if (stageConfig.getMode() != ErrorHandlerMode.ROUTE) {
-            return;
+            return false;
         }
         ensureInitialized();
 
@@ -133,6 +138,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                     pendingRows.incrementAndGet();
                     if (!queue.offer(errorRow)) {
                         pendingRows.decrementAndGet();
+                        return false;
                     }
                     break;
                 case BLOCK:
@@ -156,6 +162,7 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             pendingRows.decrementAndGet();
             throw new RuntimeException("Interrupted while enqueuing error row for error sink", e);
         }
+        return true;
     }
 
     private void enqueueWithBlockPolicy(RowErrorContext ctx, SeaTunnelRow errorRow)

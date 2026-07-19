@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.function.BiConsumer;
+
 /** Bridges multi-table sink sub-writer errors to the shared ErrorHandler. */
 @Slf4j
 public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandler {
@@ -32,14 +34,24 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final RowErrorClassifier<SeaTunnelRow> rowErrorClassifier;
     private final String pluginName;
+    private final BiConsumer<SeaTunnelRow, ErrorHandlingSinkWriter.WriteOutcome> outcomeConsumer;
 
     public EngineMultiTableRowErrorHandler(
             ErrorHandler<SeaTunnelRow> errorHandler,
             RowErrorClassifier<SeaTunnelRow> rowErrorClassifier,
             String pluginName) {
+        this(errorHandler, rowErrorClassifier, pluginName, (row, outcome) -> {});
+    }
+
+    public EngineMultiTableRowErrorHandler(
+            ErrorHandler<SeaTunnelRow> errorHandler,
+            RowErrorClassifier<SeaTunnelRow> rowErrorClassifier,
+            String pluginName,
+            BiConsumer<SeaTunnelRow, ErrorHandlingSinkWriter.WriteOutcome> outcomeConsumer) {
         this.errorHandler = errorHandler;
         this.rowErrorClassifier = rowErrorClassifier;
         this.pluginName = pluginName;
+        this.outcomeConsumer = outcomeConsumer;
     }
 
     @Override
@@ -67,7 +79,8 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
                 pluginName,
                 effectiveTableId,
                 t != null ? t.getMessage() : null);
-        errorHandler.onError(ctx, row, t);
+        ErrorHandler.ErrorHandleResult result = errorHandler.onError(ctx, row, t);
+        outcomeConsumer.accept(row, ErrorHandlingSinkWriter.toWriteOutcome(result));
         return true;
     }
 

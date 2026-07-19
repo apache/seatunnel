@@ -43,6 +43,16 @@ public final class SynchronizedErrorSinkRowWriter<T> implements ErrorSinkRowWrit
     }
 
     @Override
+    public boolean writeAndCheckAccepted(RowErrorContext ctx, T row, Throwable t) throws Exception {
+        synchronized (lock) {
+            if (closed) {
+                throw new IllegalStateException("ErrorSinkRowWriter is already closed");
+            }
+            return delegate.writeAndCheckAccepted(ctx, row, t);
+        }
+    }
+
+    @Override
     public void flush() throws Exception {
         synchronized (lock) {
             if (closed) {

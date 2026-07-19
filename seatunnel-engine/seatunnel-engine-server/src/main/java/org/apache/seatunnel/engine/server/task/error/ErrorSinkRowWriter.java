@@ -24,6 +24,12 @@ public interface ErrorSinkRowWriter<T> extends Serializable, AutoCloseable {
 
     void write(RowErrorContext ctx, T row, Throwable t) throws Exception;
 
+    default boolean writeAndCheckAccepted(RowErrorContext ctx, T row, Throwable t)
+            throws Exception {
+        write(ctx, row, t);
+        return true;
+    }
+
     default void flush() throws Exception {}
 
     @Override

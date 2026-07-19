@@ -65,6 +65,10 @@ class ErrorHandlingSinkWriterTest {
         Assertions.assertEquals(
                 ErrorHandlingSinkWriter.WriteOutcome.DROPPED,
                 writer(ErrorHandlerMode.LOG, null, true).writeWithOutcome("row"));
+        Assertions.assertEquals(
+                ErrorHandlingSinkWriter.WriteOutcome.DROPPED,
+                writer(ErrorHandlerMode.ROUTE, new DroppingErrorSinkWriter(), true)
+                        .writeWithOutcome("row"));
     }
 
     @Test
@@ -140,6 +144,19 @@ class ErrorHandlingSinkWriterTest {
         @Override
         public void flush() {
             flushes.incrementAndGet();
+        }
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class DroppingErrorSinkWriter implements ErrorSinkRowWriter<String> {
+        @Override
+        public void write(RowErrorContext ctx, String row, Throwable t) {}
+
+        @Override
+        public boolean writeAndCheckAccepted(RowErrorContext ctx, String row, Throwable t) {
+            return false;
         }
 
         @Override

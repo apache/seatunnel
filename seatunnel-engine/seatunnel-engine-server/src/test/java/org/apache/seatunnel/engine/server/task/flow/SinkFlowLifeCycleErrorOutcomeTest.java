@@ -154,6 +154,30 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
     }
 
+    @Test
+    void collectorDroppedErrorDoesNotReportMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new DroppingErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, new CollectorReportingWriter(collector), handler);
+        setField(flow, "stageRowErrorCollector", collector);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_DROPPED + "#7").getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
+    }
+
     @SuppressWarnings("unchecked")
     private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createFlow(
             SeaTunnelMetricsContext metrics,
@@ -270,6 +294,20 @@ class SinkFlowLifeCycleErrorOutcomeTest {
 
         @Override
         public void flush() {}
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class DroppingErrorSinkWriter implements ErrorSinkRowWriter<SeaTunnelRow> {
+        @Override
+        public void write(RowErrorContext context, SeaTunnelRow row, Throwable error) {}
+
+        @Override
+        public boolean writeAndCheckAccepted(
+                RowErrorContext context, SeaTunnelRow row, Throwable error) {
+            return false;
+        }
 
         @Override
         public void close() {}

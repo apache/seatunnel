@@ -639,6 +639,35 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testWriteSuccessHandlerReportsAfterAsyncWriteCompletes() throws Exception {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        BlockingSuccessSinkWriter onlyWriter = new BlockingSuccessSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(TablePath.DEFAULT.toString(), 0);
+        sinkWriters.put(sinkIdentifier, onlyWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+        CountDownLatch successReported = new CountDownLatch(1);
+        AtomicReference<SeaTunnelRow> reportedRow = new AtomicReference<>();
+        multiTableSinkWriter.setWriteSuccessHandler(
+                row -> {
+                    reportedRow.set(row);
+                    successReported.countDown();
+                });
+        SeaTunnelRow row = buildRow(TablePath.DEFAULT.toString(), 1);
+
+        multiTableSinkWriter.write(row);
+        Assertions.assertTrue(onlyWriter.awaitWriteStarted());
+        Assertions.assertEquals(1L, successReported.getCount());
+
+        onlyWriter.releaseWrite();
+        Assertions.assertTrue(successReported.await(1, TimeUnit.SECONDS));
+        Assertions.assertSame(row, reportedRow.get());
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(
@@ -728,6 +757,35 @@ public class MultiTableSinkWriterTest {
 
         int getWriteCount() {
             return writeCount.get();
+        }
+    }
+
+    static class BlockingSuccessSinkWriter extends RecordingSinkWriter {
+        private final CountDownLatch writeStarted = new CountDownLatch(1);
+        private final CountDownLatch releaseWrite = new CountDownLatch(1);
+
+        BlockingSuccessSinkWriter() {
+            super(false);
+        }
+
+        @Override
+        public void write(SeaTunnelRow seaTunnelRow) {
+            writeStarted.countDown();
+            try {
+                Assertions.assertTrue(releaseWrite.await(1, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            super.write(seaTunnelRow);
+        }
+
+        boolean awaitWriteStarted() throws InterruptedException {
+            return writeStarted.await(1, TimeUnit.SECONDS);
+        }
+
+        void releaseWrite() {
+            releaseWrite.countDown();
         }
     }
 

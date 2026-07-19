@@ -50,6 +50,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -255,6 +256,12 @@ public class MultiTableSinkWriter
         this.rowErrorHandler = rowErrorHandler;
         for (MultiTableWriterRunnable writerRunnable : runnable) {
             writerRunnable.setRowErrorHandler(rowErrorHandler);
+        }
+    }
+
+    public void setWriteSuccessHandler(Consumer<SeaTunnelRow> writeSuccessHandler) {
+        for (MultiTableWriterRunnable writerRunnable : runnable) {
+            writerRunnable.setWriteSuccessHandler(writeSuccessHandler);
         }
     }
 

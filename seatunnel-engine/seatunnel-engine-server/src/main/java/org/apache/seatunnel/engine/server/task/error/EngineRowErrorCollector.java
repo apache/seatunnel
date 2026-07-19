@@ -30,6 +30,8 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final String pluginName;
     private final AtomicLong collectedErrors = new AtomicLong();
+    private final AtomicLong routedErrors = new AtomicLong();
+    private final AtomicLong droppedErrors = new AtomicLong();
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -45,11 +47,24 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         String tableId = row.getTableId();
         RowErrorContext ctx =
                 new RowErrorContext("SINK", "SINK", pluginName, tableId == null ? "" : tableId);
-        errorHandler.onError(ctx, row, error);
+        ErrorHandler.ErrorHandleResult result = errorHandler.onError(ctx, row, error);
         collectedErrors.incrementAndGet();
+        if (result == ErrorHandler.ErrorHandleResult.ROUTED_TO_ERROR_SINK) {
+            routedErrors.incrementAndGet();
+        } else {
+            droppedErrors.incrementAndGet();
+        }
     }
 
     public long getCollectedErrors() {
         return collectedErrors.get();
+    }
+
+    public long getRoutedErrors() {
+        return routedErrors.get();
+    }
+
+    public long getDroppedErrors() {
+        return droppedErrors.get();
     }
 }

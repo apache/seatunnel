@@ -183,7 +183,7 @@ env {
 | `original_data_format` | String    | `TEXT`  | **预留参数**。当前版本仅支持 `TEXT`，内部统一按字符串形式写入错误表（`original_data` 为记录的字符串表示，即 `String.valueOf(row)`）。 |
 | `original_data_max_length` | Integer | `8192`  | 原始数据序列化后的最大长度，超过部分将被截断，用于控制单条错误记录大小。                                                |
 
-阈值统计口径：当前版本阈值使用内部计数器：Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个计数器。
+阈值统计口径：当前版本阈值使用每个 Zeta task attempt、每个 subtask 内部的内存计数器：Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个计数器。这些计数器不会写入 checkpoint，也不会跨并行 subtask 聚合成作业级或阶段级总数。任务恢复后，新 attempt 会从 0 重新计数；提高并行度也会相应放大实际可容忍的阈值预算。配置 `max_error_records` 和 `max_error_ratio` 时，需要按这种“单 subtask、单 attempt”的口径预估。
 
 ### 错误 Sink 相关参数一览
 

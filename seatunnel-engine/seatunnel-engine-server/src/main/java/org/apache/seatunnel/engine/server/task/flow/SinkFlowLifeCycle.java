@@ -148,6 +148,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private transient ErrorHandler<T> stageErrorHandler;
     private transient RowErrorClassifier<T> stageRowErrorClassifier;
     private transient RowErrorCollector stageRowErrorCollector;
+    private transient boolean multiTableTerminalOutcomeCallbackEnabled;
 
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
@@ -413,8 +414,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             @SuppressWarnings("unchecked")
             RowErrorClassifier<SeaTunnelRow> rowClassifier =
                     (RowErrorClassifier<SeaTunnelRow>) classifier;
+            multiTableSinkWriter.setWriteSuccessHandler(
+                    row ->
+                            recordTerminalWriteOutcome(
+                                    row, ErrorHandlingSinkWriter.WriteOutcome.WRITTEN));
+            multiTableTerminalOutcomeCallbackEnabled = true;
             multiTableSinkWriter.setRowErrorHandler(
-                    new EngineMultiTableRowErrorHandler(rowHandler, rowClassifier, pluginName));
+                    new EngineMultiTableRowErrorHandler(
+                            rowHandler,
+                            rowClassifier,
+                            pluginName,
+                            this::recordTerminalWriteOutcome));
         }
 
         ErrorHandlingSinkWriter<T, CommitInfoT, StateT> errorHandlingWriter =
@@ -450,9 +460,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private void processDataRecord(Record<?> record) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
-        String tableId;
         long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
         long collectedErrorsBeforeWrite = getCollectedErrorCount();
+        long routedErrorsBeforeWrite = getCollectedRoutedCount();
+        long droppedErrorsBeforeWrite = getCollectedDroppedCount();
+        boolean asyncMultiTableWriter = isAsyncMultiTableWriter();
         ErrorHandlingSinkWriter.WriteOutcome writeOutcome;
         if (writer instanceof ErrorHandlingSinkWriter) {
             writeOutcome =
@@ -465,89 +477,120 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
                 && getCollectedErrorCount() > collectedErrorsBeforeWrite) {
             writeOutcome =
-                    stageErrorHandler != null
-                                    && stageErrorHandler.getMode() == ErrorHandlerMode.ROUTE
-                            ? ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK
-                            : ErrorHandlingSinkWriter.WriteOutcome.DROPPED;
+                    getCollectedDroppedCount() > droppedErrorsBeforeWrite
+                                    || getCollectedRoutedCount() == routedErrorsBeforeWrite
+                            ? ErrorHandlingSinkWriter.WriteOutcome.DROPPED
+                            : ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK;
         }
         if (metricsEnabled) {
             sinkWriteNs.inc(System.nanoTime() - writeStartNs);
             sinkRecordsIn.inc();
         }
+        if (!asyncMultiTableWriter
+                || writeOutcome != ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+            recordTerminalWriteOutcome(record.getData(), writeOutcome);
+        }
+    }
+
+    private boolean isAsyncMultiTableWriter() {
+        if (!multiTableTerminalOutcomeCallbackEnabled) {
+            return false;
+        }
+        if (writer instanceof MultiTableSinkWriter) {
+            return true;
+        }
+        if (writer instanceof ErrorHandlingSinkWriter) {
+            return ((ErrorHandlingSinkWriter<?, ?, ?>) writer).wrapsMultiTableSinkWriter();
+        }
+        return false;
+    }
+
+    private void recordTerminalWriteOutcome(
+            Object data, ErrorHandlingSinkWriter.WriteOutcome writeOutcome) {
         if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK) {
             sinkErrorRecordsRouted.inc();
         } else if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.DROPPED) {
             sinkErrorRecordsDropped.inc();
         }
-        if (record.getData() instanceof SeaTunnelRow) {
-            SeaTunnelRow row = (SeaTunnelRow) record.getData();
-            if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                if (row.getTableId() == null || row.getTableId().isEmpty()) {
-                    tableId = row.getTableId();
-                } else {
+        if (!(data instanceof SeaTunnelRow)) {
+            return;
+        }
 
-                    TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
-                    tableId =
-                            tablePath != null
-                                    ? tablePath.getFullName()
-                                    : TablePath.DEFAULT.getFullName();
-                }
+        SeaTunnelRow row = (SeaTunnelRow) data;
+        String tableId = resolveSinkTableId(row);
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+            connectorMetricsCalcContext.updateMetrics(data, tableId);
+        }
+        if (!StainTraceUtils.hasPayload(row)) {
+            return;
+        }
 
-            } else {
-                Optional<CatalogTable> writeCatalogTable =
-                        this.sinkAction.getSink().getWriteCatalogTable();
-                tableId =
-                        writeCatalogTable
-                                .map(catalogTable -> catalogTable.getTablePath().getFullName())
-                                .orElseGet(TablePath.DEFAULT::getFullName);
-            }
-
-            if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
-                connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
-            }
-
-            if (StainTraceUtils.hasPayload(row)) {
-                long nowMs = System.currentTimeMillis();
-                StainTraceStage traceStage;
-                switch (writeOutcome) {
-                    case ROUTED_TO_ERROR_SINK:
-                        traceStage = StainTraceStage.SINK_ERROR_ROUTED;
-                        break;
-                    case DROPPED:
-                        traceStage = StainTraceStage.SINK_ERROR_DROPPED;
-                        break;
-                    case WRITTEN:
-                    default:
-                        traceStage = StainTraceStage.SINK_WRITE_DONE;
-                        break;
-                }
-                StainTraceUtils.appendIfPresent(
-                        row,
-                        traceStage,
-                        runningTask.getTaskID(),
-                        nowMs,
-                        getStainTraceMaxEntriesPerTrace(),
-                        getStainTraceEntriesTruncatedTotal());
-                byte[] payload = StainTraceUtils.getPayloadOrNull(row);
-                if (payload != null) {
-                    try {
-                        long traceId = StainTracePayload.readTraceId(payload);
-                        eventListener.onEvent(
-                                new StainTraceEvent(
-                                        traceId, payload, taskLocation.getTaskID(), tableId));
-                        stainTraceEventsReportedTotal.inc();
-                    } catch (Exception e) {
-                        stainTraceInvalidPayloadTotal.inc();
-                        log.debug("Failed to report stain trace event", e);
-                    }
-                }
+        long nowMs = System.currentTimeMillis();
+        StainTraceStage traceStage;
+        switch (writeOutcome) {
+            case ROUTED_TO_ERROR_SINK:
+                traceStage = StainTraceStage.SINK_ERROR_ROUTED;
+                break;
+            case DROPPED:
+                traceStage = StainTraceStage.SINK_ERROR_DROPPED;
+                break;
+            case WRITTEN:
+            default:
+                traceStage = StainTraceStage.SINK_WRITE_DONE;
+                break;
+        }
+        StainTraceUtils.appendIfPresent(
+                row,
+                traceStage,
+                runningTask.getTaskID(),
+                nowMs,
+                getStainTraceMaxEntriesPerTrace(),
+                getStainTraceEntriesTruncatedTotal());
+        byte[] payload = StainTraceUtils.getPayloadOrNull(row);
+        if (payload != null) {
+            try {
+                long traceId = StainTracePayload.readTraceId(payload);
+                eventListener.onEvent(
+                        new StainTraceEvent(traceId, payload, taskLocation.getTaskID(), tableId));
+                stainTraceEventsReportedTotal.inc();
+            } catch (Exception e) {
+                stainTraceInvalidPayloadTotal.inc();
+                log.debug("Failed to report stain trace event", e);
             }
         }
+    }
+
+    private String resolveSinkTableId(SeaTunnelRow row) {
+        if (this.sinkAction.getSink() instanceof MultiTableSink) {
+            if (row.getTableId() == null || row.getTableId().isEmpty()) {
+                return row.getTableId();
+            }
+            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
+            return tablePath != null ? tablePath.getFullName() : TablePath.DEFAULT.getFullName();
+        }
+        Optional<CatalogTable> writeCatalogTable = this.sinkAction.getSink().getWriteCatalogTable();
+        return writeCatalogTable
+                .map(catalogTable -> catalogTable.getTablePath().getFullName())
+                .orElseGet(TablePath.DEFAULT::getFullName);
     }
 
     private long getCollectedErrorCount() {
         if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
             return ((EngineRowErrorCollector) stageRowErrorCollector).getCollectedErrors();
+        }
+        return 0L;
+    }
+
+    private long getCollectedRoutedCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getRoutedErrors();
+        }
+        return 0L;
+    }
+
+    private long getCollectedDroppedCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getDroppedErrors();
         }
         return 0L;
     }

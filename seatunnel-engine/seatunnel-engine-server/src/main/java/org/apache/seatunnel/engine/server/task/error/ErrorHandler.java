@@ -26,6 +26,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public class ErrorHandler<T> implements Serializable, AutoCloseable {
 
+    public enum ErrorHandleResult {
+        DROPPED,
+        ROUTED_TO_ERROR_SINK
+    }
+
     private final StageErrorConfig config;
     private final ErrorSinkRowWriter<T> errorSinkWriter;
 
@@ -53,12 +58,13 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         return config.getMode();
     }
 
-    public void onError(RowErrorContext ctx, T row, Throwable t) {
+    public ErrorHandleResult onError(RowErrorContext ctx, T row, Throwable t) {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
-            return;
+            return ErrorHandleResult.DROPPED;
         }
 
         long currentErrorCount = errorRecords.incrementAndGet();
+        ErrorHandleResult result = ErrorHandleResult.DROPPED;
 
         // Build original data safely.
         String originalData = null;
@@ -133,7 +139,11 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                         ctx.getStage(),
                         ctx.getPluginName(),
                         ctx.getTableId());
-                errorSinkWriter.write(ctx, row, t);
+                boolean accepted = errorSinkWriter.writeAndCheckAccepted(ctx, row, t);
+                result =
+                        accepted
+                                ? ErrorHandleResult.ROUTED_TO_ERROR_SINK
+                                : ErrorHandleResult.DROPPED;
             } catch (Exception sinkEx) {
                 log.error(
                         "Error sink failed for stage [{}], plugin [{}], failing the job",
@@ -149,6 +159,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         }
 
         maybeThrowOnThreshold(ctx, currentErrorCount);
+        return result;
     }
 
     private void maybeThrowOnThreshold(RowErrorContext ctx, long currentErrorCount) {

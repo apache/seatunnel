@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
@@ -40,6 +41,7 @@ public class MultiTableWriterRunnable implements Runnable {
     private volatile Throwable throwable;
     private volatile String currentTableId;
     private volatile MultiTableRowErrorHandler rowErrorHandler;
+    private volatile Consumer<SeaTunnelRow> writeSuccessHandler = row -> {};
     private volatile boolean processingRow;
     private volatile boolean handlingTableFailure;
 
@@ -75,6 +77,10 @@ public class MultiTableWriterRunnable implements Runnable {
 
     public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
         this.rowErrorHandler = rowErrorHandler;
+    }
+
+    public void setWriteSuccessHandler(Consumer<SeaTunnelRow> writeSuccessHandler) {
+        this.writeSuccessHandler = writeSuccessHandler == null ? row -> {} : writeSuccessHandler;
     }
 
     @Override
@@ -122,6 +128,7 @@ public class MultiTableWriterRunnable implements Runnable {
                     }
                     try {
                         writeWithRetry(writer, row, currentTableId);
+                        writeSuccessHandler.accept(row);
                         processingRow = false;
                     } catch (InterruptedException e) {
                         processingRow = false;

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.error;
 import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
@@ -96,11 +97,18 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
 
             RowErrorContext ctx =
                     new RowErrorContext("SINK", "SINK", pluginName, resolveTableId(element));
-            errorHandler.onError(ctx, element, ex);
-            return errorHandler.getMode() == ErrorHandlerMode.ROUTE
-                    ? WriteOutcome.ROUTED_TO_ERROR_SINK
-                    : WriteOutcome.DROPPED;
+            return toWriteOutcome(errorHandler.onError(ctx, element, ex));
         }
+    }
+
+    public boolean wrapsMultiTableSinkWriter() {
+        return delegate instanceof MultiTableSinkWriter;
+    }
+
+    static WriteOutcome toWriteOutcome(ErrorHandler.ErrorHandleResult result) {
+        return result == ErrorHandler.ErrorHandleResult.ROUTED_TO_ERROR_SINK
+                ? WriteOutcome.ROUTED_TO_ERROR_SINK
+                : WriteOutcome.DROPPED;
     }
 
     @SuppressWarnings("unchecked")
