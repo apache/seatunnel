@@ -1,0 +1,573 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.python.source;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+/** Verifies the Python subprocess protocol, bounded completion, and cancellation boundaries. */
+class PythonSourceTest {
+
+    @TempDir Path tempDir;
+
+    @Test
+    void testSourceMetadataAndBoundedness() {
+        PythonSource source =
+                new PythonSource(ReadonlyConfig.fromMap(baseConfig("python3", "/tmp/fake.py")));
+
+        Assertions.assertEquals(PythonSourceOptions.CONNECTOR_IDENTITY, source.getPluginName());
+        Assertions.assertEquals(Boundedness.BOUNDED, source.getBoundedness());
+    }
+
+    @Test
+    void testProducedCatalogTables() {
+        PythonSource source =
+                new PythonSource(ReadonlyConfig.fromMap(baseConfig("python3", "/tmp/fake.py")));
+
+        List<CatalogTable> catalogTables = source.getProducedCatalogTables();
+
+        Assertions.assertEquals(1, catalogTables.size());
+        Assertions.assertArrayEquals(
+                new String[] {"id", "name"}, catalogTables.get(0).getTableSchema().getFieldNames());
+    }
+
+    @Test
+    void testCreateReader() throws Exception {
+        PythonSource source =
+                new PythonSource(ReadonlyConfig.fromMap(baseConfig("python3", "/tmp/fake.py")));
+
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        AbstractSingleSplitReader<?> reader = source.createReader(readerContext);
+
+        Assertions.assertInstanceOf(PythonSourceReader.class, reader);
+    }
+
+    @Test
+    void testReaderCollectsRowsFromPythonScript() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_rows.py");
+
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("prefix", "seatunnel");
+        scriptConfig.put("count", 2);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        PythonSource source = new PythonSource(ReadonlyConfig.fromMap(config));
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader = createReader(source, readerContext);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            pollUntilRows(reader, collector, 2);
+            pollUntilBoundedCompletion(reader, collector, readerContext);
+        } finally {
+            reader.close();
+        }
+
+        Assertions.assertEquals(2, collector.rows.size());
+        Assertions.assertEquals(1, collector.rows.get(0).getField(0));
+        Assertions.assertEquals("seatunnel_1", collector.rows.get(0).getField(1));
+        Assertions.assertEquals(2, collector.rows.get(1).getField(0));
+        Assertions.assertEquals("seatunnel_2", collector.rows.get(1).getField(1));
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    @Test
+    void testReaderFailsWhenPythonProcessExitsNonZero() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/exit_with_error.py");
+
+        PythonSource source =
+                new PythonSource(
+                        ReadonlyConfig.fromMap(
+                                baseConfig(pythonExecutable, scriptPath.toString())));
+        PythonSourceReader reader = createReader(source);
+
+        reader.open();
+        try {
+            IllegalStateException exception = pollUntilFailure(reader, new RecordingCollector());
+            Assertions.assertTrue(exception.getMessage().contains("exited with code"));
+            Assertions.assertTrue(exception.getMessage().contains("boom from python"));
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testReaderFailsFastWhenScriptPathDoesNotExist() {
+        PythonSource source =
+                new PythonSource(
+                        ReadonlyConfig.fromMap(
+                                baseConfig("python3", tempDir.resolve("missing.py").toString())));
+        PythonSourceReader reader = createReader(source);
+
+        Assertions.assertThrows(IllegalArgumentException.class, reader::open);
+    }
+
+    @Test
+    void testReaderReturnsBeforePythonProcessExit() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_then_sleep.py");
+
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("prefix", "seatunnel");
+        scriptConfig.put("sleep_seconds", 5);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        PythonSource source = new PythonSource(ReadonlyConfig.fromMap(config));
+        PythonSourceReader reader = createReader(source);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (collector.rows.isEmpty() && System.nanoTime() < deadlineNanos) {
+                reader.pollNext(collector);
+            }
+
+            Assertions.assertFalse(
+                    collector.rows.isEmpty(),
+                    "pollNext should return rows before the Python process exits");
+            Assertions.assertEquals(1, collector.rows.size());
+            Assertions.assertEquals(1, collector.rows.get(0).getField(0));
+            Assertions.assertEquals("seatunnel_1", collector.rows.get(0).getField(1));
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testReaderCloseStopsLongRunningPythonProcess() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_then_wait_forever.py");
+
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        PythonSource source = new PythonSource(ReadonlyConfig.fromMap(config));
+        PythonSourceReader reader = createReader(source);
+        RecordingCollector collector = new RecordingCollector();
+        boolean closed = false;
+
+        reader.open();
+        try {
+            pollUntilRows(reader, collector, 1);
+            Assertions.assertTimeoutPreemptively(Duration.ofSeconds(5), reader::close);
+            closed = true;
+        } finally {
+            if (!closed) {
+                reader.close();
+            }
+        }
+    }
+
+    @Test
+    void testReaderOpenTimesOutWhenPythonDoesNotReadLargeConfig() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/ignore_stdin_wait_forever.py");
+
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("payload", new String(new char[2 * 1024 * 1024]).replace('\0', 'x'));
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        PythonSourceReader reader = createReader(new PythonSource(ReadonlyConfig.fromMap(config)));
+        try {
+            IOException exception =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(10),
+                            () -> Assertions.assertThrows(IOException.class, reader::open));
+            Assertions.assertTrue(exception.getMessage().contains("Timed out"));
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testReaderCannotOpenAfterCloseReturns() throws Exception {
+        Path scriptPath = copyResource("python/emit_rows.py");
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(
+                                                "executable-must-not-run",
+                                                scriptPath.toString()))));
+
+        reader.close();
+        IOException exception = Assertions.assertThrows(IOException.class, reader::open);
+
+        Assertions.assertTrue(exception.getMessage().contains("already been closed"));
+    }
+
+    @Test
+    void testConcurrentCloseDoesNotFailOrEmitAfterBlockedPoll() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_then_wait_forever.py");
+
+        PythonSource source =
+                new PythonSource(
+                        ReadonlyConfig.fromMap(
+                                baseConfig(pythonExecutable, scriptPath.toString())));
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader = createReader(source, readerContext);
+        RecordingCollector collector = new RecordingCollector();
+        AtomicReference<Throwable> pollFailure = new AtomicReference<>();
+
+        reader.open();
+        pollUntilRows(reader, collector, 1);
+        Thread pollThread =
+                new Thread(
+                        () -> {
+                            try {
+                                reader.pollNext(collector);
+                            } catch (Throwable e) {
+                                pollFailure.set(e);
+                            }
+                        },
+                        "python-source-concurrent-poll-test");
+        pollThread.start();
+        Thread.sleep(50L);
+        reader.close();
+        pollThread.join(TimeUnit.SECONDS.toMillis(5));
+
+        Assertions.assertFalse(pollThread.isAlive());
+        Assertions.assertNull(pollFailure.get());
+        Assertions.assertEquals(1, collector.rows.size());
+        Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
+    }
+
+    @Test
+    void testConcurrentCloseStopsBufferedBatchEmission() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_rows.py");
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("count", 3);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        PythonSourceReader reader = createReader(new PythonSource(ReadonlyConfig.fromMap(config)));
+        BlockingCollector collector = new BlockingCollector();
+        AtomicReference<Throwable> pollFailure = new AtomicReference<>();
+        AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+        CountDownLatch closeStarted = new CountDownLatch(1);
+
+        reader.open();
+        Thread pollThread =
+                new Thread(
+                        () -> {
+                            try {
+                                reader.pollNext(collector);
+                            } catch (Throwable e) {
+                                pollFailure.set(e);
+                            }
+                        },
+                        "python-source-buffered-poll-test");
+        pollThread.start();
+        Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
+
+        Thread closeThread =
+                new Thread(
+                        () -> {
+                            closeStarted.countDown();
+                            try {
+                                reader.close();
+                            } catch (Throwable e) {
+                                closeFailure.set(e);
+                            }
+                        },
+                        "python-source-buffered-close-test");
+        closeThread.start();
+        Assertions.assertTrue(closeStarted.await(5, TimeUnit.SECONDS));
+        Thread.sleep(50L);
+        collector.releaseCollect.countDown();
+
+        pollThread.join(TimeUnit.SECONDS.toMillis(5));
+        closeThread.join(TimeUnit.SECONDS.toMillis(5));
+        Assertions.assertFalse(pollThread.isAlive());
+        Assertions.assertFalse(closeThread.isAlive());
+        Assertions.assertNull(pollFailure.get());
+        Assertions.assertNull(closeFailure.get());
+        Assertions.assertEquals(1, collector.rows.size());
+    }
+
+    @Test
+    void testCloseWaitsForBoundedCompletionSignal() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_rows.py");
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("count", 0);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        CountDownLatch signalEntered = new CountDownLatch(1);
+        CountDownLatch releaseSignal = new CountDownLatch(1);
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            signalEntered.countDown();
+                            if (!releaseSignal.await(5, TimeUnit.SECONDS)) {
+                                throw new IllegalStateException(
+                                        "Timed out waiting to release signal");
+                            }
+                            return null;
+                        })
+                .when(readerContext)
+                .signalNoMoreElement();
+        PythonSourceReader reader =
+                createReader(new PythonSource(ReadonlyConfig.fromMap(config)), readerContext);
+        AtomicReference<Throwable> pollFailure = new AtomicReference<>();
+        AtomicReference<Throwable> closeFailure = new AtomicReference<>();
+
+        reader.open();
+        Thread pollThread =
+                new Thread(
+                        () -> {
+                            try {
+                                while (signalEntered.getCount() > 0) {
+                                    reader.pollNext(new RecordingCollector());
+                                }
+                            } catch (Throwable e) {
+                                pollFailure.set(e);
+                            }
+                        },
+                        "python-source-completion-poll-test");
+        pollThread.start();
+        Assertions.assertTrue(signalEntered.await(5, TimeUnit.SECONDS));
+
+        Thread closeThread =
+                new Thread(
+                        () -> {
+                            try {
+                                reader.close();
+                            } catch (Throwable e) {
+                                closeFailure.set(e);
+                            }
+                        },
+                        "python-source-completion-close-test");
+        closeThread.start();
+        Thread.sleep(100L);
+        Assertions.assertTrue(
+                closeThread.isAlive(), "close must wait for the in-flight completion signal");
+        releaseSignal.countDown();
+
+        pollThread.join(TimeUnit.SECONDS.toMillis(5));
+        closeThread.join(TimeUnit.SECONDS.toMillis(5));
+        Assertions.assertFalse(pollThread.isAlive());
+        Assertions.assertFalse(closeThread.isAlive());
+        Assertions.assertNull(pollFailure.get());
+        Assertions.assertNull(closeFailure.get());
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    @Test
+    void testNormalExitIgnoresIntentionalStderrPipeShutdown() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/spawn_stderr_child_then_exit.py");
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(pythonExecutable, scriptPath.toString()))),
+                        readerContext);
+
+        reader.open();
+        try {
+            pollUntilBoundedCompletion(reader, new RecordingCollector(), readerContext);
+        } finally {
+            reader.close();
+        }
+
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    private PythonSourceReader createReader(PythonSource source) {
+        return createReader(source, Mockito.mock(SingleSplitReaderContext.class));
+    }
+
+    private PythonSourceReader createReader(
+            PythonSource source, SingleSplitReaderContext readerContext) {
+        return (PythonSourceReader) source.createReader(readerContext);
+    }
+
+    private Map<String, Object> baseConfig(String pythonExecutable, String scriptPath) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(PythonSourceOptions.PYTHON_EXECUTABLE.key(), pythonExecutable);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_PATH.key(), scriptPath);
+        config.put(PythonSourceOptions.FIELD_DELIMITER.key(), ",");
+        config.put("schema", schemaConfig());
+        return config;
+    }
+
+    private Map<String, Object> schemaConfig() {
+        Map<String, Object> schema = new HashMap<>();
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("id", "int");
+        fields.put("name", "string");
+        schema.put("fields", fields);
+        return schema;
+    }
+
+    private String requirePythonExecutable() {
+        String executable = findPythonExecutable();
+        Assumptions.assumeTrue(
+                executable != null, "python interpreter not available in test environment");
+        return executable;
+    }
+
+    private String findPythonExecutable() {
+        String[] candidates = new String[] {"python3", "python"};
+        for (String candidate : candidates) {
+            try {
+                Process process = new ProcessBuilder(candidate, "--version").start();
+                int exitCode = process.waitFor();
+                if (exitCode == 0) {
+                    return candidate;
+                }
+            } catch (Exception ignored) {
+                // Try the next common interpreter name.
+            }
+        }
+        return null;
+    }
+
+    private Path copyResource(String resourceName) throws IOException {
+        Path resourcePath = tempDir.resolve(Paths.get(resourceName).getFileName().toString());
+        try (InputStream inputStream =
+                PythonSourceTest.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (inputStream == null) {
+                throw new IOException("Resource not found: " + resourceName);
+            }
+            Files.copy(inputStream, resourcePath, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return resourcePath;
+    }
+
+    private void pollUntilRows(
+            PythonSourceReader reader, RecordingCollector collector, int expectedRows)
+            throws Exception {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (collector.rows.size() < expectedRows && System.nanoTime() < deadlineNanos) {
+            reader.pollNext(collector);
+        }
+
+        Assertions.assertEquals(expectedRows, collector.rows.size());
+    }
+
+    private IllegalStateException pollUntilFailure(
+            PythonSourceReader reader, RecordingCollector collector) throws Exception {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                reader.pollNext(collector);
+            } catch (IllegalStateException e) {
+                return e;
+            }
+        }
+
+        Assertions.fail("Expected python source reader to fail");
+        return null;
+    }
+
+    private void pollUntilBoundedCompletion(
+            PythonSourceReader reader,
+            RecordingCollector collector,
+            SingleSplitReaderContext readerContext)
+            throws Exception {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                Mockito.verify(readerContext).signalNoMoreElement();
+                return;
+            } catch (AssertionError ignored) {
+                reader.pollNext(collector);
+            }
+        }
+
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    private static class RecordingCollector implements Collector<SeaTunnelRow> {
+        private final Object checkpointLock = new Object();
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+
+        @Override
+        public void collect(SeaTunnelRow row) {
+            rows.add(row);
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return checkpointLock;
+        }
+    }
+
+    /** Holds the first collect call so the test can race engine close with buffered records. */
+    private static class BlockingCollector implements Collector<SeaTunnelRow> {
+        private final Object checkpointLock = new Object();
+        private final List<SeaTunnelRow> rows = new ArrayList<>();
+        private final CountDownLatch collectEntered = new CountDownLatch(1);
+        private final CountDownLatch releaseCollect = new CountDownLatch(1);
+
+        @Override
+        public void collect(SeaTunnelRow row) {
+            rows.add(row);
+            collectEntered.countDown();
+            try {
+                releaseCollect.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while holding test collector", e);
+            }
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return checkpointLock;
+        }
+    }
+}
