@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
+import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.SerializationService;
@@ -30,6 +31,8 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -203,11 +206,6 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeLong(jobId);
         out.writeString(jobName);
         out.writeBoolean(isStartWithSavePoint);
-        out.writeInt(restoreMode == null ? RestoreMode.NONE.getCode() : restoreMode.getCode());
-        out.writeBoolean(restoreSourceJobId != null);
-        if (restoreSourceJobId != null) {
-            out.writeLong(restoreSourceJobId);
-        }
         out.writeLong(createTime);
         out.writeInt(logicalVertexDataList.size());
         for (int i = 0; i < logicalVertexDataList.size(); i++) {
@@ -218,6 +216,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
         out.writeObject(connectorJarIdentifiers);
+        out.writeInt(restoreMode == null ? RestoreMode.NONE.getCode() : restoreMode.getCode());
+        out.writeBoolean(restoreSourceJobId != null);
+        if (restoreSourceJobId != null) {
+            out.writeLong(restoreSourceJobId);
+        }
     }
 
     @Override
@@ -225,10 +228,6 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobId = in.readLong();
         jobName = in.readString();
         isStartWithSavePoint = in.readBoolean();
-        restoreMode = RestoreMode.fromCode(in.readInt());
-        if (in.readBoolean()) {
-            restoreSourceJobId = in.readLong();
-        }
         createTime = in.readLong();
         int size = in.readInt();
         for (int i = 0; i < size; i++) {
@@ -239,11 +238,30 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobConfig = in.readObject();
         pluginJarsUrls = in.readObject();
         connectorJarIdentifiers = in.readObject();
-        if (restoreMode == null) {
-            restoreMode = isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE;
+
+        restoreMode = isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE;
+        restoreSourceJobId = isStartWithSavePoint ? jobId : null;
+        if (hasRemainingBytes(in)) {
+            restoreMode = RestoreMode.fromCode(in.readInt());
+            if (in.readBoolean()) {
+                restoreSourceJobId = in.readLong();
+            } else {
+                restoreSourceJobId = null;
+            }
         }
-        if (restoreSourceJobId == null && isStartWithSavePoint) {
-            restoreSourceJobId = jobId;
+    }
+
+    private static boolean hasRemainingBytes(ObjectDataInput in) throws IOException {
+        if (!(in instanceof BufferObjectDataInput)) {
+            return false;
+        }
+        try {
+            Method availableMethod = in.getClass().getDeclaredMethod("available");
+            availableMethod.setAccessible(true);
+            Object available = availableMethod.invoke(in);
+            return available instanceof Integer && ((Integer) available) > 0;
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new IOException("Failed to inspect remaining JobImmutableInformation bytes", e);
         }
     }
 }

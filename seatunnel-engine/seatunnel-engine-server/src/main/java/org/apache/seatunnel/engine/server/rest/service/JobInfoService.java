@@ -308,10 +308,6 @@ public class JobInfoService extends BaseService {
             in.readLong(); // jobId
             String jobName = in.readString();
             in.readBoolean(); // isStartWithSavePoint
-            in.readInt(); // restoreMode ordinal
-            if (in.readBoolean()) {
-                in.readLong(); // restoreSourceJobId
-            }
             long createTime = in.readLong();
             return new JobBasicInfo(jobName, createTime);
         } catch (Throwable t) {
