@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public interface IFileReader<R> {
@@ -32,5 +33,18 @@ public interface IFileReader<R> {
 
     void initialize(FileSystem fs, Serializer serializer) throws IOException;
 
-    List<R> readAllData(Path parentPath) throws IOException;
+    /** Streams records without retaining the complete WAL history in memory. */
+    void forEachData(Path parentPath, RecordConsumer<R> consumer) throws IOException;
+
+    /** Compatibility helper for callers that explicitly require all records. */
+    default List<R> readAllData(Path parentPath) throws IOException {
+        List<R> result = new ArrayList<>();
+        forEachData(parentPath, result::add);
+        return result;
+    }
+
+    @FunctionalInterface
+    interface RecordConsumer<R> {
+        void accept(R record) throws IOException;
+    }
 }
