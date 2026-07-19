@@ -237,6 +237,7 @@ int_type_narrowing = false
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
+| SingleStore | -       | -      |
 | YashanDB  |          |          |
 
 ## 并行读取器
@@ -275,6 +276,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 | kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
 | oceanbase         | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
 | hive              | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar                                 |
+| SingleStore       | com.singlestore.jdbc.Driver                         | jdbc:singlestore://localhost:3306/test                                 | https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client                                                   |
 | YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
 ## 示例
@@ -340,6 +342,22 @@ source {
     password = "password"
     query = "SELECT ID, NAME, CONTENT_BLOB FROM MY_TABLE"
     handle_blob_as_string = true  # 为 Oracle 启用 BLOB 到字符串转换
+  }
+}
+```
+
+#### 情况 5 SingleStore 源
+
+SingleStore（原 MemSQL）是兼容 MySQL 的高性能实时分析数据库。使用 SingleStore JDBC 驱动和 URL。当 URL 不是 `jdbc:singlestore:` 时，可设置 `dialect = "SingleStore"`。
+
+```
+source {
+  Jdbc {
+    url = "jdbc:singlestore://localhost:3306/test?user=root&password=myPassword"
+    driver = "com.singlestore.jdbc.Driver"
+    user = "root"
+    password = "myPassword"
+    table_path = "test.my_table"
   }
 }
 ```

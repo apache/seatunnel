@@ -128,6 +128,7 @@
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.30</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
+                <singlestore.version>1.2.8</singlestore.version>
 
                 <!-- Imap storage dependency package  -->
                 <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
@@ -902,6 +903,12 @@
                     <groupId>io.trino</groupId>
                     <artifactId>trino-jdbc</artifactId>
                     <version>${trino.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.singlestore</groupId>
+                    <artifactId>singlestore-jdbc-client</artifactId>
+                    <version>${singlestore.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- jdbc driver end -->

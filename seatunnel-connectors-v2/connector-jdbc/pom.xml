@@ -60,6 +60,9 @@
         <trino.version>460</trino.version>
         <aws.sdk.version>2.31.30</aws.sdk.version>
         <duckdb.version>1.3.1.0</duckdb.version>
+        <!-- SingleStore JDBC: 1.2.8 chosen for MySQL wire compatibility and JDBC 4.2 support.
+             See docs (SingleStore connector) for version policy; check for security updates periodically. -->
+        <singlestore.jdbc.version>1.2.8</singlestore.jdbc.version>
         <yashandb.jdbc.version>1.9.24</yashandb.jdbc.version>
     </properties>
 
@@ -254,6 +257,12 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <groupId>com.singlestore</groupId>
+                <artifactId>singlestore-jdbc-client</artifactId>
+                <version>${singlestore.jdbc.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.yashandb</groupId>
                 <artifactId>yashandb-jdbc</artifactId>
                 <version>${yashandb.jdbc.version}</version>
@@ -397,6 +406,11 @@
         <dependency>
             <groupId>org.duckdb</groupId>
             <artifactId>duckdb_jdbc</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.singlestore</groupId>
+            <artifactId>singlestore-jdbc-client</artifactId>
             <scope>provided</scope>
         </dependency>
         <!-- AWS SDK for DSQL -->
