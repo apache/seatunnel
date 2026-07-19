@@ -154,9 +154,11 @@ public class RestApiSubmitJobStartWithSavePointTest {
                         + "&isStartWithSavePoint=true";
 
         HttpResponse response = postJson(requestUrl, getRequestBody());
+        System.out.println("response.body: " + response.body);
         Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
         Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
         Assertions.assertTrue(response.body.contains("No checkpoint found for jobId=" + jobId));
+        Assertions.assertTrue(response.body.contains("restoreSourceJobId=" + jobId));
     }
 
     @Test

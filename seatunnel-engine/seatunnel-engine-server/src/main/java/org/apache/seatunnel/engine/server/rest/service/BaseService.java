@@ -1284,6 +1284,15 @@ public abstract class BaseService {
                 StringUtils.isNotBlank(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
                         ? Long.parseLong(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
                         : null;
+        // Keep the legacy savepoint REST contract where jobId also identifies the restore source.
+        if (restoreMode == RestoreMode.SAVEPOINT && restoreSourceJobId == null) {
+            if (finalJobId != null) {
+                restoreSourceJobId = finalJobId;
+            } else {
+                throw new IllegalArgumentException(
+                        "restoreSourceJobId is required when restoreMode=" + restoreMode);
+            }
+        }
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
                         seaTunnelServer,

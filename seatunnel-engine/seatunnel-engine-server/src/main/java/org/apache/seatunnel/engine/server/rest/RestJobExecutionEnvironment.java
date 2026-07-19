@@ -151,7 +151,9 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
             pipelineCheckpoints = loadPipelineCheckpointsFromMasterNode();
             if (pipelineCheckpoints == null || pipelineCheckpoints.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "No checkpoint found for restoreMode="
+                        "No checkpoint found for jobId="
+                                + jobConfig.getJobContext().getJobId()
+                                + ", restoreMode="
                                 + restoreMode
                                 + ", restoreSourceJobId="
                                 + restoreSourceJobId);
