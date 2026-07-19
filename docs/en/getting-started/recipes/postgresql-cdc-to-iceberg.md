@@ -53,26 +53,36 @@ SHOW max_replication_slots;
 SHOW max_wal_senders;
 ```
 
-5. Create a dedicated CDC user. Replace the database, schema, user, and password as needed:
+5. As a PostgreSQL administrator, create the source database and a dedicated CDC user. Replace the database, user, and password as needed. If either object already exists, skip its `CREATE` statement and reuse it:
+
+```sql
+CREATE DATABASE sales;
+```
+
+PostgreSQL requires `CREATE DATABASE` to run outside a transaction. After it completes, run:
 
 ```sql
 CREATE ROLE seatunnel_cdc WITH REPLICATION LOGIN PASSWORD 'change_me';
 GRANT CONNECT ON DATABASE sales TO seatunnel_cdc;
-GRANT USAGE ON SCHEMA inventory TO seatunnel_cdc;
-GRANT SELECT ON TABLE inventory.customer_orders TO seatunnel_cdc;
 ```
 
-6. Set a replica identity that includes the previous row values required by the default CDC safety check:
+Add a matching rule to `pg_hba.conf`. Replace the example CIDR with the network used by your SeaTunnel nodes:
+
+```conf
+host  sales  seatunnel_cdc  192.0.2.0/24  scram-sha-256
+```
+
+Logical replication connects to the actual database, so this rule names `sales` rather than the `replication` keyword used for physical replication. Reload the PostgreSQL configuration after saving the file:
 
 ```sql
-ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
+SELECT pg_reload_conf();
 ```
 
-7. Choose an empty Iceberg warehouse path writable by every SeaTunnel worker. A local `file://` warehouse is suitable only when all workers see the same filesystem. Use HDFS, S3, or another shared catalog storage for a distributed cluster.
+6. Choose an empty Iceberg warehouse path writable by every SeaTunnel worker. A local `file://` warehouse is suitable only when all workers see the same filesystem. Use HDFS, S3, or another shared catalog storage for a distributed cluster.
 
 ## Prepare the source data
 
-Create the source schema and table in PostgreSQL 14:
+Connect to the `sales` database as an administrator, create the source schema and table in PostgreSQL 14, then grant the read-only CDC user access:
 
 ```sql
 CREATE SCHEMA inventory;
@@ -90,9 +100,17 @@ ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
 INSERT INTO inventory.customer_orders VALUES
   (1001, ' Alice Zhang ', 120.50, 'pending', '2026-07-18 09:00:00'),
   (1002, 'Bob Li', 80.00, 'paid', '2026-07-18 09:05:00');
+
+GRANT USAGE ON SCHEMA inventory TO seatunnel_cdc;
+GRANT SELECT ON TABLE inventory.customer_orders TO seatunnel_cdc;
+
+CREATE PUBLICATION seatunnel_sales_orders_pub
+FOR TABLE inventory.customer_orders;
 ```
 
-After the initial snapshot reaches Iceberg, run the following changes in PostgreSQL:
+The administrator creates the publication so that the CDC user can remain read-only. The job configuration below reuses this publication instead of trying to create one for every table in the database.
+
+After the initial snapshot reaches Iceberg, run the following changes with the source application's write account or an administrator account, not the read-only CDC account:
 
 ```sql
 UPDATE inventory.customer_orders
@@ -107,7 +125,7 @@ DELETE FROM inventory.customer_orders WHERE id = 1002;
 
 ## Complete job configuration
 
-The following HOCON config implements the complete pipeline. Replace the example hostname, credentials, slot name, and warehouse path for your environment. Each concurrently running CDC job on the same PostgreSQL instance must use a distinct `slot.name`.
+The following HOCON config implements the complete pipeline. Replace the example hostname, credentials, slot name, and warehouse path for your environment. Each concurrently running CDC job on the same PostgreSQL instance must use a distinct `slot.name`. Keep `publication.name` aligned with the publication created above.
 
 ```hocon
 env {
@@ -119,15 +137,19 @@ env {
 source {
   Postgres-CDC {
     plugin_output = "postgres_orders_raw"
-    url = "jdbc:postgresql://postgres_iceberg_recipe:5432/sales"
-    username = "postgres"
-    password = "postgres"
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales"
+    username = "seatunnel_cdc"
+    password = "change_me"
     database-names = ["sales"]
     schema-names = ["inventory"]
     table-names = ["sales.inventory.customer_orders"]
     startup.mode = "initial"
     decoding.plugin.name = "pgoutput"
     slot.name = ${slot_name}
+    debezium = {
+      "publication.name" = "seatunnel_sales_orders_pub"
+      "publication.autocreate.mode" = "disabled"
+    }
   }
 }
 

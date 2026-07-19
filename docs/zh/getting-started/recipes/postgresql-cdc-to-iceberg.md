@@ -53,26 +53,36 @@ SHOW max_replication_slots;
 SHOW max_wal_senders;
 ```
 
-5. 创建专用 CDC 用户，并按实际环境替换数据库、schema、用户名和密码：
+5. 使用 PostgreSQL 管理员账号创建源数据库和专用 CDC 用户，并按实际环境替换数据库、用户名和密码。如果数据库或用户已经存在，请跳过对应的 `CREATE` 语句并直接复用：
+
+```sql
+CREATE DATABASE sales;
+```
+
+PostgreSQL 要求在事务外执行 `CREATE DATABASE`。创建完成后再执行：
 
 ```sql
 CREATE ROLE seatunnel_cdc WITH REPLICATION LOGIN PASSWORD 'change_me';
 GRANT CONNECT ON DATABASE sales TO seatunnel_cdc;
-GRANT USAGE ON SCHEMA inventory TO seatunnel_cdc;
-GRANT SELECT ON TABLE inventory.customer_orders TO seatunnel_cdc;
 ```
 
-6. 设置包含变更前完整行数据的 replica identity，满足 CDC 默认安全检查：
+在 `pg_hba.conf` 中添加匹配规则，并把示例 CIDR 替换为 SeaTunnel 节点所在的实际网段：
+
+```conf
+host  sales  seatunnel_cdc  192.0.2.0/24  scram-sha-256
+```
+
+逻辑复制连接的是实际数据库，因此这里填写 `sales`，而不是物理复制连接使用的 `replication` 关键字。保存文件后重新加载 PostgreSQL 配置：
 
 ```sql
-ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
+SELECT pg_reload_conf();
 ```
 
-7. 选择所有 SeaTunnel Worker 都能访问且可写的空 Iceberg warehouse。只有所有 Worker 共享同一文件系统时才适合使用本地 `file://` 路径；分布式集群应使用 HDFS、S3 或其他共享 catalog 存储。
+6. 选择所有 SeaTunnel Worker 都能访问且可写的空 Iceberg warehouse。只有所有 Worker 共享同一文件系统时才适合使用本地 `file://` 路径；分布式集群应使用 HDFS、S3 或其他共享 catalog 存储。
 
 ## 准备源数据
 
-在 PostgreSQL 14 中创建源 schema 和表：
+使用管理员账号连接 `sales` 数据库，在 PostgreSQL 14 中创建源 schema 和表，然后为只读 CDC 用户授权：
 
 ```sql
 CREATE SCHEMA inventory;
@@ -90,9 +100,17 @@ ALTER TABLE inventory.customer_orders REPLICA IDENTITY FULL;
 INSERT INTO inventory.customer_orders VALUES
   (1001, ' Alice Zhang ', 120.50, 'pending', '2026-07-18 09:00:00'),
   (1002, 'Bob Li', 80.00, 'paid', '2026-07-18 09:05:00');
+
+GRANT USAGE ON SCHEMA inventory TO seatunnel_cdc;
+GRANT SELECT ON TABLE inventory.customer_orders TO seatunnel_cdc;
+
+CREATE PUBLICATION seatunnel_sales_orders_pub
+FOR TABLE inventory.customer_orders;
 ```
 
-初始快照进入 Iceberg 后，在 PostgreSQL 中执行以下变更：
+publication 由管理员创建，因此 CDC 用户可以保持只读权限。下面的任务配置会复用该 publication，而不是尝试为数据库中的所有表创建 publication。
+
+初始快照进入 Iceberg 后，使用源业务的写入账号或管理员账号执行以下变更，不要使用只读 CDC 账号：
 
 ```sql
 UPDATE inventory.customer_orders
@@ -107,7 +125,7 @@ DELETE FROM inventory.customer_orders WHERE id = 1002;
 
 ## 完整任务配置
 
-下面的 HOCON 实现了完整链路。请按实际环境替换示例主机名、账号、slot 名称和 warehouse 路径。同一个 PostgreSQL 实例上的并发 CDC 任务必须使用不同的 `slot.name`。
+下面的 HOCON 实现了完整链路。请按实际环境替换示例主机名、账号、slot 名称和 warehouse 路径。同一个 PostgreSQL 实例上的并发 CDC 任务必须使用不同的 `slot.name`，并确保 `publication.name` 与上面创建的 publication 一致。
 
 ```hocon
 env {
@@ -119,15 +137,19 @@ env {
 source {
   Postgres-CDC {
     plugin_output = "postgres_orders_raw"
-    url = "jdbc:postgresql://postgres_iceberg_recipe:5432/sales"
-    username = "postgres"
-    password = "postgres"
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales"
+    username = "seatunnel_cdc"
+    password = "change_me"
     database-names = ["sales"]
     schema-names = ["inventory"]
     table-names = ["sales.inventory.customer_orders"]
     startup.mode = "initial"
     decoding.plugin.name = "pgoutput"
     slot.name = ${slot_name}
+    debezium = {
+      "publication.name" = "seatunnel_sales_orders_pub"
+      "publication.autocreate.mode" = "disabled"
+    }
   }
 }
 
