@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -187,13 +188,8 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
-        Assertions.assertEquals(
-                2,
-                server.getCoordinatorService()
-                        .getJobMaster(jobId)
-                        .getPhysicalPlan()
-                        .getPipelineList()
-                        .size());
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        Assertions.assertEquals(2, jobMaster.getPhysicalPlan().getPipelineList().size());
 
         PassiveCompletableFuture<Void> savepointFuture =
                 server.getCoordinatorService().savePoint(jobId);
@@ -207,6 +203,40 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                 JobStatus.RUNNING, server.getCoordinatorService().getJobStatus(jobId));
         Assertions.assertNotEquals(
                 JobStatus.DOING_SAVEPOINT, server.getCoordinatorService().getJobStatus(jobId));
+        jobMaster
+                .getPhysicalPlan()
+                .getPipelineList()
+                .forEach(
+                        subPlan ->
+                                Assertions.assertTrue(
+                                        subPlan.getPipelineState().isEndState(),
+                                        "unexpected pipeline status "
+                                                + subPlan.getPipelineState()));
+        Assertions.assertTrue(
+                jobMaster.getPhysicalPlan().getPipelineList().stream()
+                        .map(
+                                subPlan ->
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .waitCheckpointCoordinatorComplete(
+                                                        subPlan.getPipelineId())
+                                                .join()
+                                                .getCheckpointCoordinatorStatus())
+                        .anyMatch(CheckpointCoordinatorStatus.SUSPEND::equals),
+                "expected the successful pipeline checkpoint coordinator to reach SUSPEND");
+        jobMaster
+                .getPhysicalPlan()
+                .getPipelineList()
+                .forEach(
+                        subPlan ->
+                                Assertions.assertNotEquals(
+                                        CheckpointCoordinatorStatus.RUNNING,
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .waitCheckpointCoordinatorComplete(
+                                                        subPlan.getPipelineId())
+                                                .join()
+                                                .getCheckpointCoordinatorStatus()));
 
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(

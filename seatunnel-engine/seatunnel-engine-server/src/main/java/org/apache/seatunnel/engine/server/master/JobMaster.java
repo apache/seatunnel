@@ -62,9 +62,10 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -1269,13 +1270,13 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
-        physicalPlan.savepointJob();
-        PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-                checkpointManager.triggerSavePoints();
         return CompletableFuture.supplyAsync(
                 () -> {
                     boolean savepointCompleted = false;
                     try {
+                        physicalPlan.savepointJob();
+                        PassiveCompletableFuture<CheckpointCoordinatorState>[]
+                                passiveCompletableFutures = checkpointManager.triggerSavePoints();
                         savepointCompleted = waitSavepointCompleted(passiveCompletableFutures);
                         return savepointCompleted;
                     } finally {
@@ -1291,7 +1292,7 @@ public class JobMaster {
     }
 
     private boolean waitSavepointCompleted(
-            PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures) {
+            PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
         try {
             java.util.concurrent.CompletableFuture.allOf(passiveCompletableFutures).join();
         } catch (Exception e) {
@@ -1301,9 +1302,13 @@ public class JobMaster {
 
         boolean savepointCompleted = true;
         Exception firstException = null;
-        for (PassiveCompletableFuture<CompletedCheckpoint> future : passiveCompletableFutures) {
+        for (PassiveCompletableFuture<CheckpointCoordinatorState> future :
+                passiveCompletableFutures) {
             try {
-                if (future.get() == null) {
+                CheckpointCoordinatorState state = future.get();
+                if (state == null
+                        || state.getCheckpointCoordinatorStatus()
+                                != CheckpointCoordinatorStatus.SUSPEND) {
                     savepointCompleted = false;
                 }
             } catch (InterruptedException e) {

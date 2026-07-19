@@ -155,9 +155,9 @@ public class CheckpointManager {
      * After the savepoint is triggered, it will cause the job to stop automatically.
      */
     @SuppressWarnings("unchecked")
-    public PassiveCompletableFuture<CompletedCheckpoint>[] triggerSavePoints() {
+    public PassiveCompletableFuture<CheckpointCoordinatorState>[] triggerSavePoints() {
         return MDCTracer.tracing(coordinatorMap.values().parallelStream())
-                .map(CheckpointCoordinator::startSavepoint)
+                .map(CheckpointCoordinator::startSavepointAndWaitComplete)
                 .toArray(PassiveCompletableFuture[]::new);
     }
 

@@ -125,8 +125,9 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                     if (remainingRowNum > 0) {
                         // The requeued split carries the remaining row count, so a checkpoint or
                         // savepoint taken between batches snapshots the not-yet-emitted rows.
-                        split.setRowNum(remainingRowNum);
-                        splits.addFirst(split);
+                        splits.addFirst(
+                                new FakeSourceSplit(
+                                        split.getTableId(), split.getSplitId(), remainingRowNum));
                         splitInProgress = true;
                     } else {
                         log.info(
