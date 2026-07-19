@@ -365,10 +365,17 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http airtable source
         Container.ExecResult execResult22 = container.executeJob("/airtable_json_to_assert.conf");
         Assertions.assertEquals(0, execResult22.getExitCode());
+    }
 
-        // http binary download
-        Container.ExecResult execResult23 = container.executeJob("/http_binary_to_assert.conf");
-        Assertions.assertEquals(0, execResult23.getExitCode());
+    /**
+     * Run the binary download case in a fresh container so the longest HTTP source path does not
+     * inherit accumulated runtime pressure from the broader source-to-assert matrix.
+     */
+    @TestTemplate
+    public void testBinarySourceToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/http_binary_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate

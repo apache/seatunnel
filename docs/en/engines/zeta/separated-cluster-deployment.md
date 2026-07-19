@@ -232,7 +232,7 @@ The following describes how to use the MapStore persistence configuration. For d
 
 **type**
 
-The type of IMap persistence, currently only supports `hdfs`.
+The type of IMap persistence. Currently, only `hdfs` is supported.
 
 **namespace**
 
@@ -279,6 +279,11 @@ map:
         storage.type: hdfs
         fs.defaultFS: file:///
 ```
+
+Note: `engine_runningJobMetrics` stores high-frequency runtime metrics snapshots and is
+intentionally excluded from persistent IMAP storage even when `map.engine*` uses `map-store`. This
+avoids excessive WAL growth for observability-only state. After an engine restart, running-job
+metrics are rebuilt from subsequent reports instead of continuing from the pre-restart snapshot.
 
 If you use OSS, you can configure it like this:
 

@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format type
@@ -93,7 +93,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_split_size            | long    | no       | 134217728                            |
 | quote_char                 | string  | no       | "                                    |
 | escape_char                | string  | no       | -                                    |
-| sort_files_by_modification_time | boolean | no       | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
+| metalake_type              | string  | no       | gravitino                            |
+| recursive_file_scan        | boolean | no       | true                                 |
+| sort_files_by_modification_time | boolean | no       | false                                |
+
 ### path [string]
 
 The source file path.
@@ -546,6 +549,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
 
 ### sort_files_by_modification_time [boolean]
 

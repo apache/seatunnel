@@ -26,6 +26,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 。你可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -40,8 +41,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | dialect                                   | String  | 否    | -                            | 
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
+| tablePrefix                               | String  | 否    | -                            |
+| tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
+| connect_timeout_ms                        | Int     | 否    | 86400000                     |
+| socket_timeout_ms                         | Int     | 否    | 86400000                     |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
 | batch_interval_ms                         | Long    | 否    | 0                            |
@@ -58,12 +63,19 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode                            | Enum    | 否    | APPEND_DATA                  |
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
+| is_primary_key_updated                    | Boolean | 否    | true                         |
+| support_upsert_by_insert_only             | Boolean | 否    | false                        |
+| table_options                             | Map     | 否    | -                            |
 | use_copy_statement                        | Boolean | 否    | false                        |
 | oracle_insert_mode                        | Enum    | 否    | CONVENTIONAL                 |
+| create_index                              | Boolean | 否    | true                         |
+| use_kerberos                              | Boolean | 否    | false                        |
+| kerberos_principal                        | String  | 否    | -                            |
+| kerberos_keytab_path                      | String  | 否    | -                            |
+| krb5_path                                 | String  | 否    | /etc/krb5.conf               |
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
-
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
@@ -113,6 +125,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
+| YashanDB  |            |          |
 
 ### database [string]
 
@@ -126,7 +139,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
 
-table参数可以填入一个任意的表名，这个名字最终会被用作创建表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
+table 参数可以填入目标表名，这个名字最终会被用作创建或写入的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
 
 mysql 接收器示例:
@@ -143,6 +156,14 @@ pgsql (Oracle Sqlserver ...) 接收器示例:
 
 Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.xxx`
 
+### tablePrefix [string]
+
+已过时。请改用带表占位符的 `table` 参数。例如，使用 `table = "prefix_${table_name}_suffix"` 替代 `tablePrefix` 和 `tableSuffix`。
+
+### tableSuffix [string]
+
+已过时。请改用带表占位符的 `table` 参数。例如，使用 `table = "prefix_${table_name}_suffix"` 替代 `tablePrefix` 和 `tableSuffix`。
+
 ### primary_keys [array]
 
 该选项用于辅助生成 insert、delete、update 等 sql 语句。设置了该选项，将会根据该选项生成对应的 sql 语句
@@ -150,6 +171,14 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
+
+### connect_timeout_ms [int]
+
+建立 JDBC 连接时的连接超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
+
+### socket_timeout_ms [int]
+
+JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 24 小时。设置为 `0` 表示不超时。
 
 ### max_retries [int]
 
@@ -218,6 +247,78 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
 
+### table_options [Map]
+
+Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_save_mode` 触发建表时生效，例如 `CREATE_SCHEMA_WHEN_NOT_EXIST`、`RECREATE_SCHEMA`；**不影响**数据写入阶段的 INSERT/UPSERT，也**不会**对已存在表执行 `ALTER TABLE`。
+
+当前支持情况：
+
+| 方言 | 是否支持 | 可用 key |
+|------|----------|----------|
+| MySQL | 是 | `engine`、`charset`、`collate` |
+| TiDB | 是 | `engine`、`charset`、`collate`（通过 MySQL JDBC 协议与 `jdbc:mysql://` 连接） |
+| OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
+| PostgreSQL | 是 | `tablespace`、`fillfactor` |
+| 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
+
+非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
+
+**方言说明：**
+
+- **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
+- **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
+- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。
+
+SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径），还会校验空白值与 `fillfactor` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
+
+示例（MySQL 自动建表时指定存储引擎与字符集）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3307/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "password"
+    database = "mydb"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "engine" = "InnoDB"
+      "charset" = "utf8mb4"
+      "collate" = "utf8mb4_general_ci"
+    }
+  }
+}
+```
+
+生成的 DDL 会追加 `ENGINE`、`DEFAULT CHARSET`、`COLLATE` 子句。未在白名单内的 key（如 `bucket_num`）会在作业提交阶段报错。
+
+示例（PostgreSQL 自动建表时指定 tablespace 与 fillfactor）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/mydb"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    database = "mydb"
+    table = "public.orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
+
 ### custom_sql [String]
 
 当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行
@@ -227,6 +328,14 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 ### enable_upsert [boolean]
 
 启用通过主键更新插入，如果任务没有key重复数据，设置该参数为 false 可以加快数据导入速度
+
+### is_primary_key_updated [boolean]
+
+生成 update 语句时是否包含主键字段。除非目标数据库要求更新时跳过主键列，一般保持默认值即可。
+
+### support_upsert_by_insert_only [boolean]
+
+是否通过仅 insert 的语句支持 upsert 行为。该参数属于高级兼容选项，默认关闭。
 
 ### use_copy_statement [boolean]
 
@@ -246,6 +355,14 @@ INSERT /*+ APPEND_VALUES */ INTO ...
 ```
 
 该选项仅支持 Oracle JDBC Sink 的 insert-only 写入。使用时必须配置 `generate_sink_sql = true`、`auto_commit = true`，不能配置自定义 `query`，不能配置 `primary_keys`，并且 `is_exactly_once = false`、`support_upsert_by_insert_only = false`。
+
+### create_index [boolean]
+
+自动建表时是否创建索引（包含主键和其他索引）。迁移大表时可关闭该选项以提升写入速度，但迁移完成后需要手动创建索引来保证查询性能。
+
+### use_kerberos [boolean]
+
+是否为 JDBC 连接启用 Kerberos 认证。开启后，请根据环境同时配置 `kerberos_principal`、`kerberos_keytab_path` 和 `krb5_path`。
 
 ### access_key_id [String]
 AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"
@@ -291,6 +408,7 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
+| YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
 ## 示例
 
@@ -325,6 +443,37 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+定时刷新 (Timer flush)
+
+在 `env` 块中配置 `sink.flush.interval` 即可启用定时刷新。JDBC sink 自动支持定时刷新——当设置了 `sink.flush.interval` 时，引擎会定期向记录流中注入 `FlushSignal` 信号，sink 收到该信号后，无论 `batch_size` 是否已满，都会立即将缓冲中的所有数据刷入数据库。
+
+:::tip
+
+当 `is_exactly_once = true` 时不支持定时刷新。精确一次模式下 sink 使用 XA 事务，其事务边界由 checkpoint 管理；定时触发的 flush 会破坏事务一致性保证。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
 }
 ```
 
@@ -474,7 +623,9 @@ sink {
 
 ### 如何配置 Upsert（INSERT OR UPDATE）行为？
 
-指定 `primary_keys` 即可启用 upsert。SeaTunnel 会根据目标数据库方言自动生成 `INSERT ... ON DUPLICATE KEY UPDATE`（或等效）语句：
+SeaTunnel 只有在最终拿到了主键/唯一键信息时，才会进入 upsert / update 路径。这个 key 既可以来自显式配置的 `primary_keys`，也可以在未显式配置时从上游 catalog 元数据里继承主键；如果没有主键，还会尝试继承第一组 unique key。
+
+当最终存在 key 且 `enable_upsert = true` 时，SeaTunnel 会优先使用目标数据库方言支持的原生 upsert 语句。例如 PostgreSQL 会生成 `INSERT ... ON CONFLICT (...) DO UPDATE`（如果所有字段都是主键，没有可更新列，则退化为 `DO NOTHING`）：
 
 ```hocon
 sink {
@@ -487,7 +638,29 @@ sink {
 }
 ```
 
-不设置 `primary_keys` 时，JDBC Sink 执行普通 INSERT，不处理主键冲突。
+当最终存在 key 但 `enable_upsert = false` 时，SeaTunnel 不再生成数据库原生 upsert 语句，而是回到按行类型执行的 insert/update 路径：
+
+- `INSERT` 行执行普通 INSERT
+- CDC `UPDATE_AFTER` 行执行 UPDATE
+- CDC `DELETE` 行执行 DELETE
+
+因此，`enable_upsert = false` 不适合依赖重复键自动覆盖的普通批量导入场景。
+
+### 未显式配置 `primary_keys` 时会发生什么？
+
+如果你没有显式配置 `primary_keys`，SeaTunnel 会先尝试从上游 catalog 元数据继承主键；如果没有主键，则再尝试继承第一组 unique key。
+
+只有在“显式配置也没有、上游元数据里也没有可继承 key”时，JDBC Sink 才会退回普通 INSERT。进入这个无 key 模式后，不仅不会生成数据库原生 upsert 语句，Sink 也不会再使用按 `RowKind` 执行 UPDATE / DELETE 的写入器。对于 CDC 输入，这条写链路会实质上退化为普通 INSERT batching，重复键是否报错完全取决于目标表自身约束。
+
+### 什么时候应该开启 `use_copy_statement`？
+
+`use_copy_statement = true` 会让 JDBC Sink 直接优先走 `COPY <table> (...) FROM STDIN WITH CSV` 路径，而不是常规的 INSERT / UPSERT 语句。即使同时配置了 `primary_keys`，也会优先进入 COPY 路径。
+
+这个选项更适合 PostgreSQL 大批量导入场景，但要同时满足下面几个前提：
+
+- JDBC 驱动连接对象必须提供 `getCopyAPI()` 能力；否则任务会直接报错，并提示把 `use_copy_statement` 改回 `false`
+- 它不是 `ON CONFLICT` 的替代品，不负责处理重复键覆盖逻辑
+- 当前不支持 `MAP`、`ARRAY`、`ROW` 类型
 
 ### 如何在一个任务中写入多张表？
 

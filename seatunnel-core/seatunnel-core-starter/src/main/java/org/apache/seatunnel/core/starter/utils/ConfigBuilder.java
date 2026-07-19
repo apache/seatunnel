@@ -135,6 +135,10 @@ public class ConfigBuilder {
                                 } else {
                                     m.put(key, "******");
                                 }
+                            } else if (value instanceof String
+                                    && ((String) value)
+                                            .regionMatches(true, 0, "jdbc:", 0, "jdbc:".length())) {
+                                m.put(key, "******");
                             } else {
                                 if (value instanceof Map<?, ?>) {
                                     m.put(

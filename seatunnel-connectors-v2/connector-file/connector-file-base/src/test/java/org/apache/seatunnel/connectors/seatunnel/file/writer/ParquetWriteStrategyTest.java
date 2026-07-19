@@ -149,4 +149,48 @@ public class ParquetWriteStrategyTest {
         Assertions.assertEquals(1, readRows.size());
         readStrategy.close();
     }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteInt96WithMixedCaseTimestampColumn() throws Exception {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH + "-mixed-case");
+        writeConfig.put("path", "file:///tmp/seatunnel/parquet/int96-mixed-case");
+        writeConfig.put("file_format_type", FileFormat.PARQUET.name());
+        writeConfig.put("parquet_avro_write_timestamp_as_int96", "true");
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"createTime"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {LocalDateTime.now()}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        ParquetReadStrategy readStrategy = new ParquetReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(TMP_PATH + "-mixed-case");
+        Assertions.assertEquals(1, readFiles.size());
+        try (ParquetFileReader reader =
+                ParquetFileReader.open(
+                        HadoopInputFile.fromPath(
+                                new org.apache.hadoop.fs.Path(readFiles.get(0)),
+                                new Configuration()))) {
+            FileMetaData metadata = reader.getFooter().getFileMetaData();
+            Type createTimeType = metadata.getSchema().getType("createtime");
+            Assertions.assertEquals(
+                    PrimitiveType.PrimitiveTypeName.INT96,
+                    createTimeType.asPrimitiveType().getPrimitiveTypeName());
+        }
+        readStrategy.close();
+    }
 }

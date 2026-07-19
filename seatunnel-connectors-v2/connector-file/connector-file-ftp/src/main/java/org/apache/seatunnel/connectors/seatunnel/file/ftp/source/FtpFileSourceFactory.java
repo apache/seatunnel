@@ -122,6 +122,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         FileBaseSourceOptions.TARGET_PATH)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

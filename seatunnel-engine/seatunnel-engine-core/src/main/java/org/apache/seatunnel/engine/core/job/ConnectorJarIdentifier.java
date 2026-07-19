@@ -27,6 +27,7 @@ import java.io.Serializable;
 @Setter
 @EqualsAndHashCode
 public class ConnectorJarIdentifier implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private byte[] connectorJarID;
 
