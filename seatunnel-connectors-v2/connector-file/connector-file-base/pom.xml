@@ -42,6 +42,7 @@
         <easyexcel.version>4.0.3</easyexcel.version>
         <fastexcel-reader.version>0.18.4</fastexcel-reader.version>
         <flexmark-all.version>0.62.2</flexmark-all.version>
+        <pdfbox.version>3.0.2</pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -191,6 +192,12 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>${mockito.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
     </dependencies>
 

@@ -260,6 +260,15 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         statement.setObject(statementIndex, null);
     }
 
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        statement.setObject(statementIndex, null);
+    }
+
     protected void setValueToStatementByDataType(
             Object value,
             PreparedStatement statement,
