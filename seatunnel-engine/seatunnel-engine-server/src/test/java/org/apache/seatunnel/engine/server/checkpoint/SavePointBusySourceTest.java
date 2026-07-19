@@ -48,6 +48,10 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
     public static final String SAVEPOINT_TIMEOUT_CONF_PATH =
             "stream_fake_to_inmemory_savepoint_timeout.conf";
 
+    /** One pipeline completes its savepoint while another pipeline times out. */
+    public static final String MULTI_PIPELINE_SAVEPOINT_PARTIAL_FAILURE_CONF_PATH =
+            "stream_two_pipelines_savepoint_partial_failure.conf";
+
     @Test
     public void testStopWithSavepointCompletesWhileSourceEmitsLargeSplit() throws Exception {
         long jobId = System.currentTimeMillis();
@@ -133,7 +137,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
     }
 
     @Test
-    public void testSavepointFailureReportsErrorAndJobRecovers() throws Exception {
+    public void testSavepointFailureReportsErrorAndStopsJob() throws Exception {
         long jobId = System.currentTimeMillis();
         startJob(jobId, SAVEPOINT_TIMEOUT_CONF_PATH, false);
 
@@ -152,27 +156,15 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
         Assertions.assertThrows(
                 ExecutionException.class, () -> savepointFuture.get(120, TimeUnit.SECONDS));
 
-        // and the job does not stay stuck in DOING_SAVEPOINT: it reverts to RUNNING
+        // and the job does not stay stuck in DOING_SAVEPOINT or report RUNNING after a failed
+        // stop-with-savepoint request.
         await().atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        server.getCoordinatorService().getJobStatus(jobId)));
+                .untilAsserted(() -> assertFailedSavepointTerminalStatus(jobId));
+        Assertions.assertNotEquals(
+                JobStatus.RUNNING, server.getCoordinatorService().getJobStatus(jobId));
+        Assertions.assertNotEquals(
+                JobStatus.DOING_SAVEPOINT, server.getCoordinatorService().getJobStatus(jobId));
 
-        // the job is still controllable afterwards: a normal stop cleans it up. The sink of this
-        // job delays every checkpoint beyond checkpoint.timeout, so the restored job's own
-        // checkpoints keep failing as well; depending on timing the job may reach FAILED on its
-        // own before the cancellation wins. Either way it must reach a terminal state and free
-        // its slots instead of hanging.
-        server.getCoordinatorService().cancelJob(jobId);
-        await().atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        server.getCoordinatorService()
-                                                .getJobStatus(jobId)
-                                                .isEndState()));
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
@@ -182,5 +174,55 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                                 .getWorkerProfile()
                                                 .getAssignedSlots()
                                                 .length));
+    }
+
+    @Test
+    public void testSavepointFailureStopsWholeMultiPipelineJob() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, MULTI_PIPELINE_SAVEPOINT_PARTIAL_FAILURE_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+        Assertions.assertEquals(
+                2,
+                server.getCoordinatorService()
+                        .getJobMaster(jobId)
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .size());
+
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        Assertions.assertThrows(
+                ExecutionException.class, () -> savepointFuture.get(120, TimeUnit.SECONDS));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFailedSavepointTerminalStatus(jobId));
+        Assertions.assertNotEquals(
+                JobStatus.RUNNING, server.getCoordinatorService().getJobStatus(jobId));
+        Assertions.assertNotEquals(
+                JobStatus.DOING_SAVEPOINT, server.getCoordinatorService().getJobStatus(jobId));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    private void assertFailedSavepointTerminalStatus(long jobId) {
+        JobStatus status = server.getCoordinatorService().getJobStatus(jobId);
+        Assertions.assertTrue(
+                status == JobStatus.FAILED || status == JobStatus.CANCELED,
+                "unexpected status " + status);
     }
 }

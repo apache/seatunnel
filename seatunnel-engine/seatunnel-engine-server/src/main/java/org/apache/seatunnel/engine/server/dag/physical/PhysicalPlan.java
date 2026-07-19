@@ -226,20 +226,21 @@ public class PhysicalPlan {
     }
 
     /**
-     * Revert the job status from {@link JobStatus#DOING_SAVEPOINT} back to {@link
-     * JobStatus#RUNNING} after a savepoint failed.
+     * Stop every pipeline after a savepoint failure while the job is in {@link
+     * JobStatus#DOING_SAVEPOINT}.
      *
-     * <p>A failed savepoint does not stop the job: the pipelines keep running (or are restored by
-     * the checkpoint error handling). Without this revert the job would stay in {@code
-     * DOING_SAVEPOINT} forever, misreporting its real state and confusing later stop or savepoint
-     * requests.
+     * <p>Some pipelines may already have completed the savepoint and stopped when another pipeline
+     * fails. Reverting only the global job state to {@link JobStatus#RUNNING} would leave those
+     * completed pipelines stopped while the job appears to be running. The same fallback used by a
+     * stop request during {@code DOING_SAVEPOINT} finishes completed pipelines and force-stops the
+     * rest so the job reaches one terminal state.
      */
     public synchronized void savepointFailed() {
         if (getJobStatus() == JobStatus.DOING_SAVEPOINT) {
             log.warn(
-                    "{} savepoint failed but the job is still running, revert state to RUNNING",
+                    "{} savepoint failed, stop all pipelines with checkpoint fallback",
                     jobFullName);
-            updateJobState(JobStatus.RUNNING);
+            stopJob();
         }
     }
 

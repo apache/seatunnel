@@ -1276,27 +1276,53 @@ public class JobMaster {
                 () -> {
                     boolean savepointCompleted = false;
                     try {
-                        savepointCompleted =
-                                Arrays.stream(passiveCompletableFutures)
-                                        .allMatch(
-                                                future -> {
-                                                    try {
-                                                        return future.get() != null;
-                                                    } catch (Exception e) {
-                                                        throw new SeaTunnelEngineException(e);
-                                                    }
-                                                });
+                        savepointCompleted = waitSavepointCompleted(passiveCompletableFutures);
                         return savepointCompleted;
                     } finally {
                         if (!savepointCompleted) {
-                            // The savepoint did not complete but the job keeps running, so the
-                            // DOING_SAVEPOINT state must be reverted. Otherwise the job would be
-                            // stuck in DOING_SAVEPOINT forever while the failure is reported to
-                            // the caller.
+                            // At least one pipeline failed its final checkpoint. Some other
+                            // pipelines may already have completed the savepoint and stopped, so
+                            // the job must leave DOING_SAVEPOINT through a deterministic stop
+                            // path instead of being reported as RUNNING.
                             physicalPlan.savepointFailed();
                         }
                     }
                 });
+    }
+
+    private boolean waitSavepointCompleted(
+            PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures) {
+        try {
+            java.util.concurrent.CompletableFuture.allOf(passiveCompletableFutures).join();
+        } catch (Exception e) {
+            // Inspect every pipeline future below so a fast failure does not short-circuit the
+            // stop-with-savepoint decision while another pipeline is still completing.
+        }
+
+        boolean savepointCompleted = true;
+        Exception firstException = null;
+        for (PassiveCompletableFuture<CompletedCheckpoint> future : passiveCompletableFutures) {
+            try {
+                if (future.get() == null) {
+                    savepointCompleted = false;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                savepointCompleted = false;
+                if (firstException == null) {
+                    firstException = e;
+                }
+            } catch (Exception e) {
+                savepointCompleted = false;
+                if (firstException == null) {
+                    firstException = e;
+                }
+            }
+        }
+        if (firstException != null) {
+            throw new SeaTunnelEngineException(firstException);
+        }
+        return savepointCompleted;
     }
 
     public void setOwnedSlotProfiles(
