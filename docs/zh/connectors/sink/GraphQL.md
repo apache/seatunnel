@@ -47,6 +47,7 @@ mutation 一起发送。
 | retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败后的最大重试退避时间，单位毫秒。 |
 | connect_timeout_ms | Int | 否 | 12000 | HTTP 连接超时时间，单位毫秒。 |
 | socket_timeout_ms | Int | 否 | 60000 | HTTP socket 超时时间，单位毫秒。 |
+| multi_table_sink_replica | Int | 否 | - | Sink 通用参数，用于控制多表运行时的 sink 副本数；但写入到该 sink 的所有行仍使用同一条 GraphQL mutation。 |
 | common-options | Config | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
 ## 注意事项
@@ -55,6 +56,8 @@ mutation 一起发送。
 - 上游字段名应和 mutation 里使用的变量名保持一致。
 - 如果 `variables` 已有某个 key，并且设置 `valueCover = true`，会保留配置里的变量值。
 - 如果 `valueCover = false`，同名输入行字段会覆盖配置里的变量值。
+- Sink 会为每一行输入数据发送一次 mutation 请求。如果上游包含多张表，需要确认同一条 mutation 和变量名可以处理所有写入到该 Sink 的表。
+- `multi_table_sink_replica` 只影响多表 sink 运行时的副本数，不会按不同表自动选择不同的 GraphQL mutation。
 
 ## 任务示例
 
@@ -146,6 +149,64 @@ sink {
     query = """
       mutation MyMutation($id: Int!, $val_bool: Boolean!) {
         insert_sink(objects: {id: $id, val_bool: $val_bool}) {
+          affected_rows
+        }
+      }
+    """
+  }
+}
+```
+
+### 写入多张上游表
+
+```hocon
+source {
+  FakeSource {
+    plugin_output = "fake"
+    tables_configs = [
+      {
+        schema = {
+          table = "graphql_sink_1"
+          fields {
+            id = int
+            val_bool = boolean
+            val_string = string
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [1, true, "NEW"]
+          }
+        ]
+      },
+      {
+        schema = {
+          table = "graphql_sink_2"
+          fields {
+            id = int
+            val_bool = boolean
+            val_string = string
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = [2, true, "READY"]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "fake"
+    url = "http://graphql:8080/v1/graphql"
+    query = """
+      mutation MyMutation($id: Int!, $val_bool: Boolean!, $val_string: String!) {
+        insert_sink(objects: {id: $id, val_bool: $val_bool, val_string: $val_string}) {
           affected_rows
         }
       }

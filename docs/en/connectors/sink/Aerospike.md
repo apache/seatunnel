@@ -4,26 +4,30 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 > Aerospike sink connector
 
-## Support Those Engines
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## License Compatibility Notice
 
-This connector depends on Aerospike Client Library which is licensed under AGPL 3.0.                                                                                                                                                
+This connector depends on Aerospike Client Library which is licensed under AGPL 3.0.
 When using this connector, you need to comply with AGPL 3.0 license terms.
 
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
 Sink connector for Aerospike database. The connector writes records to one Aerospike namespace and set. It uses the configured `key` field as the Aerospike record key.
+
+The connector writes to one fixed target set. It does not route records to different Aerospike sets by table name.
+When a record with the same Aerospike key already exists, the connector updates that record's bins.
 
 ## Supported DataSource Info
 
@@ -41,26 +45,25 @@ Sink connector for Aerospike database. The connector writes records to one Aeros
 | DOUBLE              | DOUBLE              | 64-bit floating point                                                         |
 | BOOLEAN             | BOOLEAN             | Stored as true/false values                                                   |
 | ARRAY               | BYTEARRAY           | Only support byte array type                                                  |
-| LIST                | LIST                | Support generic list types                                                   |
 | DATE                | LONG                | Converted to epoch milliseconds                                              |
 | TIMESTAMP           | LONG                | Converted to epoch milliseconds                                              |
 
 Note:
-- When using ARRAY type, SeaTunnel's array elements must be byte type
-- LIST type supports any element types that can be serialized
-- DATE/TIMESTAMP conversion uses system default time zone
+- When using `ARRAY`, SeaTunnel's array elements must be byte type.
+- `LIST` is not inferred automatically from a SeaTunnel field type. Use `schema.field` to explicitly map a field to `LIST` when the incoming value is iterable.
+- `DATE` and `TIMESTAMP` conversion uses the system default time zone.
 
 ## Options
 
 | Name           | Type   | Required | Default | Description                                                                 |
 |----------------|--------|----------|---------|-----------------------------------------------------------------------------|
 | host           | string | Yes      | -       | Aerospike server hostname or IP address.                                    |
-| port           | int    | No       | 3000    | Aerospike server port.                                                      |
+| port           | int    | Yes      | 3000    | Aerospike server port.                                                      |
 | namespace      | string | Yes      | -       | Aerospike namespace.                                                        |
 | set            | string | Yes      | -       | Aerospike set name.                                                         |
 | username       | string | No       | -       | Username for authentication. Leave unset when authentication is disabled.    |
 | password       | string | No       | -       | Password for authentication. Leave unset when authentication is disabled.    |
-| key            | string | Yes      | -       | SeaTunnel field used as the Aerospike record key.                           |
+| key            | string | Yes      | -       | SeaTunnel field used as the Aerospike record key. The field must exist in the input schema. |
 | bin_name       | string | No       | -       | Aerospike bin used by `map` and `string` formats. Required for those formats. |
 | data_format    | string | No       | string  | Storage format. Supported values are `map`, `string`, and `kv`.             |
 | write_timeout  | int    | No       | 200     | Write operation timeout in milliseconds.                                    |
@@ -73,10 +76,23 @@ Note:
 - **kv**: Store each non-key field as a separate bin. `bin_name` is not used
 
 When `data_format` is `map` or `string`, configure `bin_name`; otherwise the writer does not know which Aerospike bin should receive the packed row data.
+The `key` field must be present in the input schema because it is used as the Aerospike record key for every write.
 
 ### schema.field
 
-`schema.field` is optional. Configure it when you need to control the Aerospike type used for each field. Supported Aerospike type names include `STRING`, `INTEGER`, `LONG`, `DOUBLE`, `BOOLEAN`, `BYTEARRAY`, and `LIST`.
+`schema.field` is optional for `map` and `string` formats. If it is omitted, the connector writes all input fields and maps the SeaTunnel field types automatically. Configure it when you need to control the Aerospike type used for each field.
+
+For `kv` format, configure `schema.field` for the fields you want to write as independent Aerospike bins. The writer iterates over `schema.field`, so fields not listed there are not written in `kv` mode.
+
+Supported Aerospike type names include `STRING`, `INTEGER`, `LONG`, `DOUBLE`, `BOOLEAN`, `BYTEARRAY`, and `LIST`.
+
+## Usage Notes
+
+- `key` must name an existing input field. The field value is converted to a string and used as the Aerospike record key.
+- `data_format = "string"` stores the selected fields as one JSON string in `bin_name`.
+- `data_format = "map"` stores the selected fields as one Aerospike map in `bin_name`.
+- `data_format = "kv"` writes each configured field as a separate Aerospike bin and ignores `bin_name`.
+- Empty `username` and `password` values are only suitable when Aerospike authentication is disabled.
 
 ## Task Example
 
@@ -137,6 +153,7 @@ sink {
   }
 }
 ```
+
 ## Changelog
 
 <ChangeLog />

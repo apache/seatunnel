@@ -21,16 +21,16 @@ Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。
 
 | 名称            | 类型   | 必填 | 默认值    | 说明 |
 |-----------------|--------|------|-----------|------|
-| collection_name | string | 是   | -         | 要写入的 Qdrant collection 名称。 |
+| collection_name | string | 是   | -         | 要写入的 Qdrant collection 名称。普通任务中请显式配置该项。 |
 | host            | string | 否   | localhost | Qdrant gRPC 主机。 |
 | port            | int    | 否   | 6334      | Qdrant gRPC 端口。 |
-| api_key         | string | 否   | -         | 认证场景下使用的 Qdrant API key。 |
+| api_key         | string | 否   | ""        | 认证场景下使用的 Qdrant API key。 |
 | use_tls         | bool   | 否   | false     | gRPC 连接是否启用 TLS。 |
 | common-options  |        | 否   | -         | Sink 通用选项。 |
 
 ### collection_name [string]
 
-要写入的 Qdrant collection 名称。
+要写入的 Qdrant collection 名称。目标 collection 必须已经存在，并且向量名、向量维度要和 SeaTunnel 向量列一致。
 
 ### host [string]
 
@@ -42,7 +42,7 @@ Qdrant 实例的 gRPC 端口。
 
 ### api_key [string]
 
-连接需要认证的 Qdrant 部署时使用的 API key。
+连接需要认证的 Qdrant 部署时使用的 API key。如果 Qdrant 服务不需要认证，可以保持为空。
 
 ### use_tls [bool]
 
@@ -75,7 +75,10 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 
 - 目标 collection 必须在作业启动前已经存在。连接器不会自动创建 collection 或向量索引。
 - 向量列名和维度必须与目标 Qdrant collection 的向量配置一致。
+- sink 会把向量列写成命名向量。目标 collection 中的命名向量需要和 SeaTunnel 向量列名一致。
+- 写入 Qdrant 前，请先处理 payload 和向量字段中的空值，因为写入器会把每个配置字段直接转换成 Qdrant point 值。
 - sink 会把每条输入行作为 upsert 写入，不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义。
+- 写入器最多缓存 64 个 point，并且在关闭写入器或准备提交时也会刷新。这一批次大小目前不是可配置项。
 - 每个 sink 配置块写入一个 collection。如果不同 collection 需要不同配置，请使用多个 sink 配置块。
 
 ## 任务示例

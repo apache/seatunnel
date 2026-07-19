@@ -13,12 +13,13 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::caution 投递语义
 
 当 `qos = 0` 时，该连接器提供最多一次投递；当 `qos = 1` 时，提供尽力而为的至少一次投递。
 
-默认 `clean_session = true`，连接器按无状态方式运行。客户端断开连接时，未确认的消息可能丢失。如果需要更强的投递保证，可以设置 `clean_session = false`，并确保每个 writer 使用稳定且唯一的 client id；也可以配合 SeaTunnel 的上游重放能力使用。
+默认 `clean_session = true`，连接器按无状态方式运行。客户端断开连接时，未确认的消息可能丢失。设置 `clean_session = false` 后，broker 可以在 writer 运行期间保留会话状态；但当前 Sink 会为每个 writer 自动生成唯一 client id，尚不提供 `client_id` 配置。作业重启后的恢复主要依赖上游重放能力和 MQTT QoS，而不是稳定的 Sink client id。
 
 :::
 
@@ -104,7 +105,7 @@ MQTT broker 认证密码。匿名访问时可以不配置。
 是否使用 clean MQTT session。默认值为 `true`。
 
 - `true`：broker 会丢弃之前的会话状态，适合大多数无状态写入场景。
-- `false`：broker 可以保留会话状态和未确认的 QoS 1 消息，可以增强至少一次语义，但可能造成 broker 端状态堆积。使用时需要确保每个 writer 的 client id 稳定且唯一。
+- `false`：broker 可以在 writer 运行期间保留自动生成的 client id 对应的会话状态。它有助于处理短暂断连，但可能造成 broker 端状态堆积，也不提供跨作业重启的稳定 client id。
 
 ### common options
 
@@ -160,6 +161,23 @@ sink {
 ### 使用认证并写入文本格式
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
 sink {
   MQTT {
     url = "tcp://secure-broker.example.com:1883"

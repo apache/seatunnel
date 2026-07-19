@@ -11,6 +11,8 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`，连接器会使用目标 Cassandra 表里的全部字段。
 如果配置了 `fields`，则只写这些字段，并且每个字段都必须存在于目标表中。
 
+连接器不会自动创建 keyspace、表或缺失字段。启动任务前请先准备好目标 Cassandra 表结构。
+
 ## 关键特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
@@ -30,6 +32,7 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 | batch_size        | int     | 否       | 5000        | 每次 flush 前最多缓存的行数。 |
 | batch_type        | String  | 否       | UNLOGGED    | Cassandra batch 类型，常用值包括 `LOGGED`、`UNLOGGED`、`COUNTER`。 |
 | async_write       | boolean | 否       | true        | 是否异步执行写入。 |
+| common-options    |         | 否       | -           | Sink 插件通用参数，例如 `plugin_input`。 |
 
 ### host [string]
 
@@ -66,6 +69,8 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 如果配置了该选项，字段名必须存在于目标 Cassandra 表中，也必须存在于上游 SeaTunnel 数据中。
 
+当上游数据中有不需要写入 Cassandra 的额外字段时，可以使用该选项只选择目标字段。
+
 ### batch_size [number]
 
 通过 [Cassandra-Java-Driver](https://github.com/datastax/java-driver) 每次写入的行数,
@@ -78,6 +83,16 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 ### async_write [boolean]
 
 `cassandra` 是否以异步模式写入, 默认值 `true`.
+
+### common-options
+
+Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/sink-common-options.md)。
+
+## 注意事项
+
+- 任务启动前，目标 keyspace 和表必须已经存在。
+- `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
+- `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
 
 ## 示例
 

@@ -16,6 +16,7 @@ Apache Pulsar 的源连接器。
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行读取](../../introduction/concepts/connector-v2-features.md)
 - [ ] [用户自定义 split](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
@@ -26,7 +27,7 @@ Apache Pulsar 的源连接器。
 | table_path               | String  | 否    | -      | 多表模式中单个配置项对应的逻辑表标识                                                                        |
 | tables_configs           | Array   | 否    | -      | 多表读取配置。每个 item 可覆盖全局默认值。**注意:只能在 `topic`、`topic-pattern` 和 `tables_configs` 中选择一种**       |
 | topic-discovery.interval | Long    | 否    | -1     | 发现新 topic 分区的间隔(毫秒)。非正值禁用发现。仅在使用 `topic-pattern` 时生效                                      |
-| subscription.name        | String  | 否    | -      | 消费者订阅名。在多表模式下可定义在全局或 item 中                                                               |
+| subscription.name        | String  | 单表模式必填，或在多表 item 中配置 | -      | 消费者订阅名。在多表模式下可定义在全局或 item 中                                                               |
 | client.service-url       | String  | 是    | -      | Pulsar 服务的客户端 URL,例如 `pulsar://localhost:6650`                                            |
 | admin.service-url        | String  | 是    | -      | Pulsar 管理端点的 HTTP URL,例如 `http://localhost:8080`                                          |
 | auth.plugin-class        | String  | 否    | -      | Pulsar 客户端认证插件类名                                                                          |
@@ -36,11 +37,12 @@ Apache Pulsar 的源连接器。
 | poll.batch.size          | Integer | 否    | 500    | 单次拉取的最大消息数                                                                                |
 | cursor.startup.mode      | Enum    | 否    | LATEST | 启动位置模式。可选值:`EARLIEST`、`LATEST`、`SUBSCRIPTION`、`TIMESTAMP`                                 |
 | cursor.startup.timestamp | Long    | 否    | -      | 当 `cursor.startup.mode=TIMESTAMP` 时的起始时间戳(毫秒)                                             |
-| cursor.reset.mode        | Enum    | 否    | LATEST | 当 `cursor.startup.mode=SUBSCRIPTION` 时的重置模式。可选值:`EARLIEST`、`LATEST`                       |
+| cursor.reset.mode        | Enum    | 当 `cursor.startup.mode=SUBSCRIPTION` 时必填 | - | 当 `cursor.startup.mode=SUBSCRIPTION` 时的重置模式。可选值:`EARLIEST`、`LATEST`                       |
 | cursor.stop.mode         | Enum    | 否    | NEVER  | 停止位置模式。可选值:`NEVER`(流式)、`LATEST`(批式)、`TIMESTAMP`(批式)                                       |
 | cursor.stop.timestamp    | Long    | 否    | -      | 当 `cursor.stop.mode=TIMESTAMP` 时的停止时间戳(毫秒)                                                |
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
-| format                   | String  | 否    | json   | 数据格式。支持 `json` 和 `canal_json`。                                                              |
+| format                   | String  | 否    | json   | 数据格式。默认为 json。支持 json、canal_json 和 avro 格式。**多表模式仅支持 JSON、CANAL_JSON 和 AVRO**                                               |
+| field_delimiter          | String  | 否    | ,      | `text` 格式使用的字段分隔符。                                                                             |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -72,7 +74,7 @@ Apache Pulsar 的源连接器。
 
 - 当使用 `topic-pattern` 时，必须显式配置 `table_path`。
 - `subscription.name` 必须在全局或 item 内存在。
-- 多表模式当前只支持 `JSON` 和 `CANAL_JSON`。
+- 多表模式当前只支持 `JSON`、`CANAL_JSON` 和 `AVRO`。
 - 显式配置的 `topic` 不能与任何 `topic-pattern` 发生重叠。
 - 在 batch 模式下，多表配置必须全部是 bounded。只有当配置了多于一张表且任意一张表使用 `cursor.stop.mode = NEVER` 时，整个 source 才会被视为 unbounded，并拒绝在 batch 作业中运行。单表模式和仅包含一个配置项的 `tables_configs` 保持向后兼容的 batch 行为。
 
@@ -136,6 +138,8 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 当 `cursor.startup.mode = SUBSCRIPTION` 时使用的 cursor reset 策略，可选值为 `'EARLIEST'`、`'LATEST'`。
 
+该参数没有默认值。使用 `cursor.startup.mode = SUBSCRIPTION` 时必须显式配置。
+
 ### cursor.stop.mode [Enum]
 
 停止模式，可选值为 `'NEVER'`、`'LATEST'`、`'TIMESTAMP'`。
@@ -152,7 +156,11 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 ### format [String]
 
-数据格式。默认值为 `json`。Pulsar Source 当前支持 `json` 和 `canal_json`。
+数据格式。默认值为 `json`。支持 json、canal_json 和 avro 格式。使用 avro 格式时需要配置 `schema`。更多格式说明参考 [formats](../formats)。
+
+### field_delimiter [String]
+
+`text` 格式使用的字段分隔符。默认值为 `,`。
 
 ### 通用参数
 

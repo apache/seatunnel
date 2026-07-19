@@ -50,7 +50,7 @@ Used to write data to IoTDB.
 | key_device                  | String  | Yes      | -                              | Specify field name of the IoTDB deviceId in SeaTunnelRow                                                                                                          |
 | key_timestamp               | String  | No       | processing time                | Specify field-name of the IoTDB timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                     |
 | key_measurement_fields      | Array   | No       | exclude device and timestamp fields | Specify field names of the IoTDB measurement list in SeaTunnelRow. If not specified, include all fields except `key_device` and `key_timestamp` fields.             |
-| storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
+| storage_group               | String  | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
 | batch_size                  | Integer | No       | 1024                           | For batch writing, data is flushed into IoTDB when the buffered row count reaches `batch_size`.                                                                    |
 | max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
 | retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
@@ -61,6 +61,14 @@ Used to write data to IoTDB.
 | enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in IoTDB client                                                                                                                            |
 | connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                         |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                       |
+
+## Write Rules
+
+- `key_device` must name the SeaTunnel field that contains the IoTDB device path.
+- `storage_group` is a string prefix. When it is set, the final device path is built from `storage_group` and the value of `key_device`.
+- `key_timestamp` can name a `STRING`, `BIGINT`, or `TIMESTAMP` field. If it is not configured, the connector uses the current processing time.
+- If `key_measurement_fields` is not configured, all fields except `key_device` and `key_timestamp` are written as measurements.
+- The sink supports `STRING`, `BOOLEAN`, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, and `DOUBLE` measurement fields.
 
 ## Examples
 

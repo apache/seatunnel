@@ -42,7 +42,7 @@ describes how to set up the TiDB CDC connector to snapshot data and capture stre
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
-Please download and put Mysql driver and tikv-java-client in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mysql-connector-java-xxx.jar `$SEATUNNEL_HOME/lib/`
+Please download and put the MySQL driver and tikv-java-client in the directory required by your engine.
 
 ## Data Type Mapping
 
@@ -68,12 +68,12 @@ Please download and put Mysql driver and tikv-java-client in `${SEATUNNEL_HOME}/
 | Name                    | Type    | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                  |
 |-------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                     | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: `jdbc:mysql://tidb0:4000/inventory`.                                                                                                                                                                                                                                                                                                        |
-| username                | String  | Yes      | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                          |
+| username                | String  | Yes      | -       | Username used to connect to the TiDB server.                                                                                                                                                                                                                                                                                                                                                 |
 | password                | String  | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                      |
 | pd-addresses            | String  | Yes      | -       | TiKV cluster's PD address                                                                                                                                                                                                                                                                                                                                                                    |
 | database-name           | String  | Yes      | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                    |
-| table-name              | String  | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name.                                                                                                                                                                                                                                                                                                    |
-| startup.mode            | Enum    | No       | INITIAL | Optional startup mode for TiDB CDC consumer, valid enumerations are `initial`, `earliest`, `latest` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets. |
+| table-name              | String  | Yes      | -       | Table name to monitor in `database-name`. Do not include the database name here.                                                                                                                                                                                                                                                                                                             |
+| startup.mode            | Enum    | No       | INITIAL | Optional startup mode for TiDB CDC consumer, valid enumerations are `initial`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest available offset.<br/> `latest`: Startup from the latest offset and skip the initial snapshot.                                                                                                           |
 | batch-size-per-scan     | Int     | No       | 1000    | Size per scan.                                                                                                                                                                                                                                                                                                                                                                               |
 | tikv.grpc.timeout_in_ms | Long    | No       | -       | TiKV GRPC timeout in ms.                                                                                                                                                                                                                                                                                                                                                                     |
 | tikv.grpc.scan_timeout_in_ms | Long    | No       | -       | TiKV GRPC scan timeout in ms.                                                                                                                                                                                                                                                                                                                                                                |
@@ -84,7 +84,7 @@ Please download and put Mysql driver and tikv-java-client in `${SEATUNNEL_HOME}/
 
 ### Simple
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -95,14 +95,14 @@ source {
   # This is a example source plugin **only for test and demonstrate the feature source plugin**
   TiDB-CDC {
     plugin_output = "products_tidb_cdc"
-    url = "jdbc:mysql://tidb0:4000/inventory"
+    url = "jdbc:mysql://tidb0:4000/tidb_cdc"
     driver = "com.mysql.cj.jdbc.Driver"
     tikv.grpc.timeout_in_ms = 20000
     pd-addresses = "pd0:2379"
     username = "root"
     password = ""
-    database-name = "inventory"
-    table-name = "products"
+    database-name = "tidb_cdc"
+    table-name = "tidb_cdc_e2e_source_table"
   }
 }
 
@@ -112,17 +112,42 @@ transform {
 sink {
   jdbc {
     plugin_input = "products_tidb_cdc"
-    url = "jdbc:mysql://tidb0:4000/inventory"
+    url = "jdbc:mysql://tidb0:4000/tidb_cdc"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = ""
-    database = "inventory"
-    table = "products_sink"
+    database = "tidb_cdc"
+    table = "tidb_cdc_e2e_sink_table"
     generate_sink_sql = true
     primary_keys = ["id"]
   }
 }
 ```
+
+### Start From Latest Offset
+
+Use `startup.mode = "latest"` when only new changes are needed and the historical snapshot should be skipped.
+
+```hocon
+source {
+  TiDB-CDC {
+    url = "jdbc:mysql://tidb0:4000/tidb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    pd-addresses = "pd0:2379"
+    username = "root"
+    password = ""
+    database-name = "tidb_cdc"
+    table-name = "tidb_cdc_e2e_source_table"
+    startup.mode = "latest"
+  }
+}
+```
+
+## Notes
+
+- TiDB CDC reads one table per source block. Use multiple `TiDB-CDC` source blocks if one job needs to capture multiple tables.
+- `startup.mode = "specific"` is not a valid TiDB CDC option. Use `initial`, `earliest`, or `latest`.
+- Tune `tikv.grpc.*` and `tikv.batch_*_concurrency` only when the default TiKV client settings are not enough for your cluster.
 
 ## Changelog
 

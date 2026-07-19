@@ -1,12 +1,12 @@
 import ChangeLog from '../changelog/connector-rabbitmq.md';
 
-# Rabbitmq
+# RabbitMQ
 
-> Rabbitmq sink connector
+> RabbitMQ sink connector
 
 ## Description
 
-Used to write data to Rabbitmq.
+Used to write data to RabbitMQ queues.
 
 ## Key features
 
@@ -123,7 +123,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Example
 
-simple:
+### Write Messages to a Queue
 
 ```hocon
 env {
@@ -159,9 +159,9 @@ sink {
 }
 ```
 
-### Example 2
+### Declare Queue Options
 
-queue with durable, exclusive, auto_delete:
+Queue with `durable`, `exclusive`, and `auto_delete`:
 
 ```hocon
 env {
@@ -189,9 +189,9 @@ sink {
           username = "guest"
           password = "guest"
           queue_name = "test1"
-          durable = "true"
-          exclusive = "false"
-          auto_delete = "false"
+          durable = true
+          exclusive = false
+          auto_delete = false
           rabbitmq.config = {
             requested-heartbeat = 10
             connection-timeout = 10
