@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -58,6 +60,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -304,7 +307,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                 "STRING_COL",
                                 "2022-08-13 17:35:59",
                                 "2022-08-13",
-                                String.format("{\"id\":%s,\"nested\":[true,2]}", i)
+                                i % 7 == 0 ? null : jsonValueForIndex(i)
                             });
             rows.add(row);
         }
@@ -360,9 +363,76 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 }
             }
             Assertions.assertFalse(sinkResultSet.next());
+            assertJsonColumnCoverage();
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
+        }
+    }
+
+    /**
+     * Verifies StarRocks preserves every JSON value category through source and JSON Stream Load.
+     */
+    private void assertJsonColumnCoverage() throws SQLException {
+        String sourceSql =
+                String.format(
+                        "SELECT JSON_COL FROM %s.%s ORDER BY BIGINT_COL", DATABASE, SOURCE_TABLE);
+        String sinkSql =
+                String.format(
+                        "SELECT JSON_COL FROM %s.%s ORDER BY BIGINT_COL", DATABASE, SINK_TABLE);
+        boolean sawObject = false;
+        boolean sawArray = false;
+        boolean sawScalar = false;
+        boolean sawJsonNull = false;
+        boolean sawSqlNull = false;
+        try (Statement sourceStatement = jdbcConnection.createStatement();
+                Statement sinkStatement = jdbcConnection.createStatement();
+                ResultSet sourceResult = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResult = sinkStatement.executeQuery(sinkSql)) {
+            while (sourceResult.next()) {
+                Assertions.assertTrue(sinkResult.next());
+                String sourceJson = sourceResult.getString("JSON_COL");
+                String sinkJson = sinkResult.getString("JSON_COL");
+                if (sourceJson == null) {
+                    Assertions.assertNull(sinkJson);
+                    sawSqlNull = true;
+                    continue;
+                }
+                JsonNode sourceNode = JsonUtils.stringToJsonNode(sourceJson);
+                Assertions.assertEquals(sourceNode, JsonUtils.stringToJsonNode(sinkJson));
+                sawObject |= sourceNode.isObject();
+                sawArray |= sourceNode.isArray();
+                sawJsonNull |= sourceNode.isNull();
+                sawScalar |= sourceNode.isValueNode() && !sourceNode.isNull();
+            }
+            Assertions.assertFalse(sinkResult.next());
+        }
+        Assertions.assertTrue(sawObject, "StarRocks JSON E2E must cover object values");
+        Assertions.assertTrue(sawArray, "StarRocks JSON E2E must cover array values");
+        Assertions.assertTrue(sawScalar, "StarRocks JSON E2E must cover scalar values");
+        Assertions.assertTrue(sawJsonNull, "StarRocks JSON E2E must cover JSON null");
+        Assertions.assertTrue(sawSqlNull, "StarRocks JSON E2E must cover SQL NULL");
+    }
+
+    /**
+     * Generates every JSON value category required by native JSON connector round trips.
+     *
+     * <p>The deterministic sequence guarantees that E2E assertions observe every category.
+     */
+    private static String jsonValueForIndex(int index) {
+        switch (index % 6) {
+            case 0:
+                return String.format("{\"id\":%s,\"nested\":[true,2]}", index);
+            case 1:
+                return String.format("[{\"id\":%s},\"text\",false]", index);
+            case 2:
+                return "true";
+            case 3:
+                return String.valueOf(index);
+            case 4:
+                return "\"text\"";
+            default:
+                return "null";
         }
     }
 
@@ -371,6 +441,23 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake-to-starrocks.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    /**
+     * Verifies native JSON fields fail explicitly when StarRocks Stream Load uses CSV.
+     *
+     * <p>This protects the format contract from silently writing quoted JSON text.
+     */
+    @TestTemplate
+    public void testNativeJsonRejectsCsvStreamLoad(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/starrocks-json-csv-streamload-rejected.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode(), execResult.getStderr());
+        String failureOutput = execResult.getStderr() + container.getServerLogs();
+        Assertions.assertTrue(
+                failureOutput.contains("Native JSON columns require JSON Stream Load format"),
+                failureOutput);
     }
 
     @TestTemplate
@@ -513,6 +600,17 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true);
         boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertTrue(tableExistsAfter);
+        CatalogTable sinkCatalogTable = starRocksCatalog.getTable(tablePathStarRocksSink);
+        Assertions.assertEquals(
+                BasicType.JSON_TYPE,
+                sinkCatalogTable.getTableSchema().getColumn("JSON_COL").getDataType());
+        Assertions.assertEquals(
+                "json",
+                sinkCatalogTable
+                        .getTableSchema()
+                        .getColumn("JSON_COL")
+                        .getSourceType()
+                        .toLowerCase(Locale.ROOT));
         // isExistsData ?
         boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocksSink);
         Assertions.assertFalse(existsDataBefore);

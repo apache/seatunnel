@@ -348,6 +348,8 @@ public class LocalFileIT extends TestSuiteBase {
         TestHelper helper = new TestHelper(container);
         helper.execute("/csv/fake_to_local_csv.conf");
         helper.execute("/csv/local_csv_to_assert.conf");
+        helper.execute("/csv/fake_json_type_to_local_csv.conf");
+        helper.execute("/csv/local_json_type_csv_to_assert.conf");
         helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
@@ -387,6 +389,8 @@ public class LocalFileIT extends TestSuiteBase {
         TestHelper helper = new TestHelper(container);
         helper.execute("/json/fake_to_local_file_json.conf");
         helper.execute("/json/local_file_json_to_assert.conf");
+        helper.execute("/json/fake_json_type_to_local_file.conf");
+        helper.execute("/json/local_file_json_type_to_assert.conf");
         helper.execute("/json/local_file_json_enable_split_to_assert.conf");
         helper.execute("/json/local_file_json_lzo_to_console.conf");
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");

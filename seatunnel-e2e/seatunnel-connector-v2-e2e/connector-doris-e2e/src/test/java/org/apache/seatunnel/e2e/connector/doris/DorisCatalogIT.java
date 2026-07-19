@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -151,6 +152,51 @@ public class DorisCatalogIT extends AbstractDorisIT {
         if (dbCreated) {
             catalog.dropDatabase(tablePath, false);
             Assertions.assertFalse(catalog.databaseExists(tablePath.getDatabaseName()));
+        }
+    }
+
+    /**
+     * Verifies Doris JSON and JSONB discovery and automatic table creation use logical JSON.
+     *
+     * <p>Both catalog directions must expose the same SeaTunnel type.
+     */
+    @Test
+    public void testJsonCatalogMappingAndCreation() throws Exception {
+        TablePath sourcePath = TablePath.of(DATABASE, "doris_json_catalog_source");
+        TablePath sinkPath = TablePath.of(DATABASE, "doris_json_catalog_sink");
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + sourcePath);
+            statement.execute("DROP TABLE IF EXISTS " + sinkPath);
+            statement.execute(
+                    "CREATE TABLE "
+                            + sourcePath
+                            + " (id INT, payload JSON, payloadb JSONB) "
+                            + "DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                            + "PROPERTIES(\"replication_num\" = \"1\")");
+
+            CatalogTable sourceTable = catalog.getTable(sourcePath);
+            Assertions.assertEquals(
+                    BasicType.JSON_TYPE,
+                    sourceTable.getTableSchema().getColumn("payload").getDataType());
+            Assertions.assertEquals(
+                    BasicType.JSON_TYPE,
+                    sourceTable.getTableSchema().getColumn("payloadb").getDataType());
+
+            catalog.createTable(sinkPath, sourceTable, false);
+            CatalogTable sinkTable = catalog.getTable(sinkPath);
+            Assertions.assertEquals(
+                    BasicType.JSON_TYPE,
+                    sinkTable.getTableSchema().getColumn("payload").getDataType());
+            Assertions.assertEquals(
+                    "json",
+                    sinkTable
+                            .getTableSchema()
+                            .getColumn("payload")
+                            .getSourceType()
+                            .toLowerCase(Locale.ROOT));
+        } finally {
+            catalog.dropTable(sinkPath, true);
+            catalog.dropTable(sourcePath, true);
         }
     }
 

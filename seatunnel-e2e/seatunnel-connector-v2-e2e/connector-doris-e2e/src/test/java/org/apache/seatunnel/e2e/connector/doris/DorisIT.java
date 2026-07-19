@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -253,27 +255,45 @@ public class DorisIT extends AbstractDorisIT {
     private void assertJsonColumnsRoundTrip() throws Exception {
         String sourceSql =
                 String.format(
-                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID LIMIT 1",
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID",
                         sourceDB, DUPLICATE_TABLE);
         String sinkSql =
                 String.format(
-                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID LIMIT 1",
-                        sinkDB, DUPLICATE_TABLE);
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID", sinkDB, DUPLICATE_TABLE);
+        boolean sawObject = false;
+        boolean sawArray = false;
+        boolean sawScalar = false;
+        boolean sawJsonNull = false;
+        boolean sawSqlNull = false;
         try (Statement sourceStatement = conn.createStatement();
                 Statement sinkStatement = conn.createStatement();
                 ResultSet sourceResult = sourceStatement.executeQuery(sourceSql);
                 ResultSet sinkResult = sinkStatement.executeQuery(sinkSql)) {
-            Assertions.assertTrue(sourceResult.next());
-            Assertions.assertTrue(sinkResult.next());
-            for (String column : new String[] {"F_JSON", "F_JSONB"}) {
-                String sourceJson = sourceResult.getString(column);
-                String sinkJson = sinkResult.getString(column);
-                Assertions.assertTrue(JsonUtils.stringToJsonNode(sourceJson).isObject());
-                Assertions.assertEquals(
-                        JsonUtils.stringToJsonNode(sourceJson),
-                        JsonUtils.stringToJsonNode(sinkJson));
+            while (sourceResult.next()) {
+                Assertions.assertTrue(sinkResult.next());
+                for (String column : new String[] {"F_JSON", "F_JSONB"}) {
+                    String sourceJson = sourceResult.getString(column);
+                    String sinkJson = sinkResult.getString(column);
+                    if (sourceJson == null) {
+                        Assertions.assertNull(sinkJson);
+                        sawSqlNull = true;
+                        continue;
+                    }
+                    JsonNode sourceNode = JsonUtils.stringToJsonNode(sourceJson);
+                    Assertions.assertEquals(sourceNode, JsonUtils.stringToJsonNode(sinkJson));
+                    sawObject |= sourceNode.isObject();
+                    sawArray |= sourceNode.isArray();
+                    sawJsonNull |= sourceNode.isNull();
+                    sawScalar |= sourceNode.isValueNode() && !sourceNode.isNull();
+                }
             }
+            Assertions.assertFalse(sinkResult.next());
         }
+        Assertions.assertTrue(sawObject, "Doris JSON E2E must cover object values");
+        Assertions.assertTrue(sawArray, "Doris JSON E2E must cover array values");
+        Assertions.assertTrue(sawScalar, "Doris JSON E2E must cover scalar values");
+        Assertions.assertTrue(sawJsonNull, "Doris JSON E2E must cover JSON null");
+        Assertions.assertTrue(sawSqlNull, "Doris JSON E2E must cover SQL NULL");
     }
 
     protected void checkSinkData() {
@@ -750,8 +770,8 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genDatetimeString(true),
                                 GenerateTestData.genDateString(),
                                 GenerateTestData.genDateString(),
-                                GenerateTestData.genJsonString(),
-                                GenerateTestData.genJsonString(),
+                                jsonValueForIndex(i),
+                                i % 7 == 0 ? null : jsonValueForIndex(i + 1),
                                 Arrays.toString(new boolean[] {true, true, false}),
                                 Arrays.toString(new byte[] {1, 2, 3}),
                                 Arrays.toString(new short[] {1, 2, 3}),
@@ -774,6 +794,28 @@ public class DorisIT extends AbstractDorisIT {
         }
         log.info("generate test data succeed");
         return datas;
+    }
+
+    /**
+     * Generates every JSON value category required by native JSON connector round trips.
+     *
+     * <p>The deterministic sequence guarantees that E2E assertions observe every category.
+     */
+    private String jsonValueForIndex(int index) {
+        switch (index % 6) {
+            case 0:
+                return String.format("{\"id\":%s,\"nested\":[true,2]}", index);
+            case 1:
+                return String.format("[{\"id\":%s},\"text\",false]", index);
+            case 2:
+                return "true";
+            case 3:
+                return String.valueOf(index);
+            case 4:
+                return "\"text\"";
+            default:
+                return "null";
+        }
     }
 
     @AfterAll

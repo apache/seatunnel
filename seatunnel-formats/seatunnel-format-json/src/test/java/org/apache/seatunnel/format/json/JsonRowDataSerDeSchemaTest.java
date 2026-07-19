@@ -75,7 +75,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
 
-    /** Verifies JSON logical values retain their JSON structure and null semantics. */
+    /**
+     * Verifies JSON logical values retain their JSON structure and null semantics.
+     *
+     * <p>Explicit JSON null and an omitted SQL NULL field must remain distinguishable.
+     */
     @Test
     public void testJsonLogicalTypeSerDe() throws Exception {
         SeaTunnelRowType schema =
@@ -103,12 +107,37 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals("true", row.getField(4));
         assertEquals("null", row.getField(5));
         assertNull(row.getField(6));
+
+        SeaTunnelRow previousRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            "{\"id\":1}",
+                            "[true,2]",
+                            "\"value\"",
+                            "42.5",
+                            "true",
+                            "null",
+                            "{\"previous\":true}"
+                        });
+        assertTrue(
+                new String(serializer.serialize(previousRow), StandardCharsets.UTF_8)
+                        .contains("\"sqlNull\":{\"previous\":true}"));
+
+        byte[] serialized = serializer.serialize(row);
         assertEquals(
-                "{\"object\":{\"id\":1},\"array\":[true,2],\"string\":\"value\",\"number\":42.5,\"boolean\":true,\"jsonNull\":null,\"sqlNull\":null}",
-                new String(serializer.serialize(row), StandardCharsets.UTF_8));
+                "{\"object\":{\"id\":1},\"array\":[true,2],\"string\":\"value\",\"number\":42.5,\"boolean\":true,\"jsonNull\":null}",
+                new String(serialized, StandardCharsets.UTF_8));
+
+        SeaTunnelRow roundTrip = deserializer.deserialize(serialized);
+        assertEquals("null", roundTrip.getField(5));
+        assertNull(roundTrip.getField(6));
     }
 
-    /** Verifies invalid JSON logical values fail serialization. */
+    /**
+     * Verifies invalid JSON logical values fail serialization.
+     *
+     * <p>Trailing tokens and incomplete documents must never reach downstream systems.
+     */
     @Test
     public void testJsonLogicalTypeRejectsInvalidJson() {
         SeaTunnelRowType schema =

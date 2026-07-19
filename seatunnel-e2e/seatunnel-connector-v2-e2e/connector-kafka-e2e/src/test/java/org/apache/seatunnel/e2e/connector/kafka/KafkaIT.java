@@ -309,6 +309,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(10, data.size());
     }
 
+    /**
+     * Verifies JSON format writes logical JSON values as structured JSON and preserves SQL null.
+     */
+    @TestTemplate
+    public void testJsonLogicalTypeFormat(TestContainer container) throws Exception {
+        String topic =
+                "test_json_logical_type_" + container.identifier().name().toLowerCase(Locale.ROOT);
+        dynamicTopics.add(topic);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/json/fake_json_type_to_kafka.conf",
+                        Collections.singletonList("jsonTopic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        List<ConsumerRecord<String, String>> records = getKafkaRecordData(topic);
+        Assertions.assertEquals(1, records.size());
+        ObjectNode value = JsonUtils.parseObject(records.get(0).value());
+        Assertions.assertEquals(
+                JsonUtils.stringToJsonNode("{\"id\":1,\"nested\":[true,2]}"),
+                value.get("object_payload"));
+        Assertions.assertEquals(
+                JsonUtils.stringToJsonNode("[{\"id\":2},\"text\",false]"),
+                value.get("array_payload"));
+        Assertions.assertEquals(JsonUtils.stringToJsonNode("7"), value.get("scalar_payload"));
+        Assertions.assertTrue(value.get("json_null").isNull());
+        Assertions.assertFalse(value.has("sql_null"));
+    }
+
     @TestTemplate
     public void testNativeSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
@@ -1484,6 +1512,63 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     Assertions.assertInstanceOf(LocalDateTime.class, row.getField(13));
                     Assertions.assertInstanceOf(SeaTunnelRow.class, row.getField(14));
                 });
+    }
+
+    /**
+     * Verifies Avro transports object, array, scalar, JSON null, and SQL null logical values.
+     *
+     * <p>The Kafka record is decoded with the production Avro deserializer before assertions.
+     */
+    @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    public void testJsonLogicalTypeAvroRoundTrip(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic =
+                "test_json_logical_type_avro_"
+                        + container.identifier().name().toLowerCase(Locale.ROOT);
+        dynamicTopics.add(topic);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/avro/fake_json_type_to_kafka_avro.conf",
+                        Collections.singletonList("avroTopic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "object_payload",
+                            "array_payload",
+                            "scalar_payload",
+                            "json_null",
+                            "sql_null"
+                        },
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.JSON_TYPE,
+                            BasicType.JSON_TYPE,
+                            BasicType.JSON_TYPE,
+                            BasicType.JSON_TYPE,
+                            BasicType.JSON_TYPE
+                        });
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        AvroDeserializationSchema deserializer = new AvroDeserializationSchema(catalogTable);
+        List<SeaTunnelRow> rows =
+                getKafkaSTRow(
+                        topic,
+                        value -> {
+                            try {
+                                return deserializer.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Assertions.assertEquals(1, rows.size());
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals("{\"id\":1,\"nested\":[true,2]}", row.getField(0));
+        Assertions.assertEquals("[{\"id\":2},\"text\",false]", row.getField(1));
+        Assertions.assertEquals("7", row.getField(2));
+        Assertions.assertEquals("null", row.getField(3));
+        Assertions.assertNull(row.getField(4));
     }
 
     @TestTemplate

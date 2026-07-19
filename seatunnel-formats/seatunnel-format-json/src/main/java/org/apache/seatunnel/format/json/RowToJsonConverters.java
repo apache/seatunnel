@@ -265,6 +265,7 @@ public class RowToJsonConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
+        final SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         final int arity = fieldNames.length;
 
         return new RowToJsonConverter() {
@@ -282,6 +283,13 @@ public class RowToJsonConverters implements Serializable {
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
                     SeaTunnelRow row = (SeaTunnelRow) value;
+                    if (fieldTypes[i].getSqlType() == SqlType.JSON && row.getField(i) == null) {
+                        // Missing fields preserve SQL NULL, while the JSON text "null" remains an
+                        // explicit NullNode. Remove reused values so consecutive rows stay
+                        // isolated.
+                        node.remove(fieldName);
+                        continue;
+                    }
                     node.set(
                             fieldName,
                             fieldConverters[i].convert(
