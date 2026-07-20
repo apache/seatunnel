@@ -574,6 +574,12 @@
 
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jackson-yaml</artifactId>
+                <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-shade-commons-lang3</artifactId>
                 <version>${seatunnel.shade.commons-lang3.version}-${seatunnel.shade.version}</version>
             </dependency>

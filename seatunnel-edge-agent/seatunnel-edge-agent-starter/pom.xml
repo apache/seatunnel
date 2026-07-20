@@ -1,4 +1,4 @@
-<p></p><?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
     Licensed to the Apache Software Foundation (ASF) under one or more
     contributor license agreements.  See the NOTICE file distributed with
@@ -53,14 +53,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-jackson</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-jackson</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-shade-jackson-yaml</artifactId>
-            <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
         </dependency>
         <dependency>
             <groupId>com.beust</groupId>
