@@ -83,11 +83,18 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.tableSchema = tableSchemaChangeEventDispatcher.reset(tableSchema).apply(event);
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
-        this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
 
         if (event instanceof RestoreTableSchemaEvent) {
+            try {
+                this.manager.close();
+            } catch (IOException e) {
+                throw CommonError.closeFailed(StarRocksBaseOptions.CONNECTOR_IDENTITY, e);
+            }
+            this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
             return;
         }
+
+        this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
 
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");

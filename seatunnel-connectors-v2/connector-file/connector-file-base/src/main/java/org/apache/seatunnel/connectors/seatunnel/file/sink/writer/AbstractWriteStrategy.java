@@ -225,6 +225,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // append new cols at the end of the sink's catalog, but upstream's actual row has new
         // cols at the position upstream put them. Reading changeAfter directly aligns the sink's
         // catalog with the actual row layout.
+        TableSchema previousTableSchema = this.tableSchema;
         if (event.getChangeAfter() != null) {
             this.tableSchema = event.getChangeAfter().getTableSchema();
         } else {
@@ -237,8 +238,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // Step 3: update sinkColumnNames to reflect the structural change.
         if (event instanceof RestoreTableSchemaEvent) {
             this.sinkColumnNames =
-                    new ArrayList<>(
-                            Arrays.asList(tableSchema.toPhysicalRowDataType().getFieldNames()));
+                    restoreSinkColumnNames(previousTableSchema, tableSchema, sinkColumnNames);
         } else {
             updateSinkColumnNames(event);
         }
@@ -361,6 +361,27 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                 updateSinkColumnNames(sub);
             }
         }
+    }
+
+    private static List<String> restoreSinkColumnNames(
+            TableSchema previousSchema,
+            TableSchema restoredSchema,
+            List<String> previousSinkColumnNames) {
+        List<String> previousFields = Arrays.asList(previousSchema.getFieldNames());
+        List<String> restoredFields = Arrays.asList(restoredSchema.getFieldNames());
+        List<String> restoredSinkColumns = new ArrayList<>();
+        for (String restoredField : restoredFields) {
+            boolean previouslySelected =
+                    previousSinkColumnNames.stream()
+                            .anyMatch(column -> column.equalsIgnoreCase(restoredField));
+            boolean newlyAdded =
+                    previousFields.stream()
+                            .noneMatch(column -> column.equalsIgnoreCase(restoredField));
+            if (previouslySelected || newlyAdded) {
+                restoredSinkColumns.add(restoredField);
+            }
+        }
+        return restoredSinkColumns;
     }
 
     /** Case-insensitive indexOf for a list of column names. Returns -1 if not found. */

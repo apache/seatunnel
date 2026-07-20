@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -85,12 +86,14 @@ public class SchemaOperatorTest {
                         Collections.emptyList(),
                         null);
 
-        assertTrue(
-                createOperator(false)
-                        .operator
-                        .isSchemaChangeSupported(
-                                new RestoreTableSchemaEvent(restoredTable),
-                                Collections.emptyList()));
+        OperatorTestContext context =
+                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
+        context.operator.processElement(
+                new StreamRecord<>(
+                        createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
+
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(1, getPendingQueue(context.operator).size());
     }
 
     @Test
@@ -277,9 +280,17 @@ public class SchemaOperatorTest {
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
+        return createOperator(
+                stateStore, restored, Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            boolean restored,
+            List<SchemaChangeType> supportedTypes)
+            throws Exception {
         SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
-        Mockito.when(source.supports())
-                .thenReturn(Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+        Mockito.when(source.supports()).thenReturn(supportedTypes);
 
         SchemaOperator operator =
                 new SchemaOperator(
@@ -324,7 +335,7 @@ public class SchemaOperatorTest {
                 PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
     }
 
-    private static SeaTunnelRow createSchemaRow(AlterTableAddColumnEvent event) {
+    private static SeaTunnelRow createSchemaRow(SchemaChangeEvent event) {
         SeaTunnelRow row = new SeaTunnelRow(0);
         row.setTableId("__SCHEMA_CHANGE_EVENT__");
         Map<String, Object> options = new LinkedHashMap<>();

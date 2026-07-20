@@ -153,14 +153,31 @@ public class TableRenameTransformTest {
     void testRestoreEventUsesRenamedTable() {
         TableRenameConfig config = new TableRenameConfig().setPrefix("restored-");
         TableRenameTransform transform = new TableRenameTransform(config, DEFAULT_TABLE);
-        CatalogTable producedTable = transform.getProducedCatalogTable();
+        transform.getProducedCatalogTable();
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        DEFAULT_TABLE.getTableId(),
+                        TableSchema.builder()
+                                .columns(DEFAULT_TABLE.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f4", BasicType.STRING_TYPE, 64L, true, null, null))
+                                .primaryKey(DEFAULT_TABLE.getTableSchema().getPrimaryKey())
+                                .constraintKey(DEFAULT_TABLE.getTableSchema().getConstraintKeys())
+                                .build(),
+                        DEFAULT_TABLE.getOptions(),
+                        DEFAULT_TABLE.getPartitionKeys(),
+                        DEFAULT_TABLE.getComment());
 
         RestoreTableSchemaEvent outputEvent =
                 (RestoreTableSchemaEvent)
-                        transform.mapSchemaChangeEvent(new RestoreTableSchemaEvent(DEFAULT_TABLE));
+                        transform.mapSchemaChangeEvent(new RestoreTableSchemaEvent(restoredTable));
 
         Assertions.assertEquals(
                 "Database-x.Schema-x.restored-Table-x", outputEvent.tablePath().getFullName());
-        Assertions.assertEquals(producedTable, outputEvent.getChangeAfter());
+        Assertions.assertEquals(
+                4, outputEvent.getChangeAfter().getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                "f4", outputEvent.getChangeAfter().getTableSchema().getFieldNames()[3]);
     }
 }

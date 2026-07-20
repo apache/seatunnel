@@ -123,6 +123,9 @@ public class IcebergSinkWriter
         if (config.isTableSchemaEvolutionEnabled() || event instanceof RestoreTableSchemaEvent) {
             log.info("changed rowType before: {}", fieldsInfo(rowType));
             this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+            if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+                this.tableSchema = event.getChangeAfter().getTableSchema();
+            }
             log.info("changed rowType after: {}", fieldsInfo(rowType));
             tryCreateRecordWriter();
             if (!(event instanceof RestoreTableSchemaEvent)) {

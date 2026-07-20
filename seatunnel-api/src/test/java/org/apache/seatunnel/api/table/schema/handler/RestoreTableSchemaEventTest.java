@@ -46,10 +46,16 @@ class RestoreTableSchemaEventTest {
                 new TableSchemaChangeEventDispatcher()
                         .reset(initialTable.getTableSchema())
                         .apply(event);
+        TableSchema restoredAlterSchema =
+                new AlterTableSchemaEventHandler()
+                        .reset(initialTable.getTableSchema())
+                        .apply(event);
 
         Assertions.assertEquals(restoredTable.getSeaTunnelRowType(), restoredRowType);
         Assertions.assertEquals(
                 restoredTable.getTableSchema().getColumns(), restoredSchema.getColumns());
+        Assertions.assertEquals(
+                restoredTable.getTableSchema().getColumns(), restoredAlterSchema.getColumns());
         Assertions.assertSame(restoredTable, event.getChangeAfter());
     }
 

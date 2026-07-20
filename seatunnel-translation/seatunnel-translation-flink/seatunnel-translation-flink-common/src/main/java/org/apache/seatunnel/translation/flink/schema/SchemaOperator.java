@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
@@ -166,7 +167,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     private void handleSchemaChangeDetected(SchemaChangeEvent event) {
         List<SchemaChangeType> supportedTypes = source.supports();
-        if (supportedTypes == null || supportedTypes.isEmpty()) {
+        if (!(event instanceof RestoreTableSchemaEvent)
+                && (supportedTypes == null || supportedTypes.isEmpty())) {
             log.info("Source does not support any schema change types, skipping");
             return;
         }

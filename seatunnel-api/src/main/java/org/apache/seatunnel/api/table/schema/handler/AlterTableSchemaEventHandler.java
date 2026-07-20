@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -58,6 +59,10 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
     }
 
     private TableSchema apply(TableSchema schema, AlterTableEvent alterTableEvent) {
+        if (alterTableEvent instanceof RestoreTableSchemaEvent
+                && alterTableEvent.getChangeAfter() != null) {
+            return alterTableEvent.getChangeAfter().getTableSchema();
+        }
         if (alterTableEvent instanceof AlterTableNameEvent) {
             return schema;
         }
