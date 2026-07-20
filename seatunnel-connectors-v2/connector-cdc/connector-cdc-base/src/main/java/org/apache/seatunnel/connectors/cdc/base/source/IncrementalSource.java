@@ -413,7 +413,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             sourceConfig, capturedTables, new HashMap<>(), new HashMap<>());
             splitAssigner =
                     new IncrementalSplitAssigner<>(
-                            assignerContext, incrementalParallelism, offsetFactory);
+                            assignerContext,
+                            incrementalParallelism,
+                            offsetFactory,
+                            (IncrementalPhaseState) checkpointState);
         } else {
             throw new UnsupportedOperationException(
                     "Unsupported restored PendingSplitsState: " + checkpointState);

@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
@@ -31,6 +33,8 @@ import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.time.Conversions;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.HashMap;
@@ -70,32 +74,55 @@ public class LsnOffsetFactory extends OffsetFactory {
     public Offset committedOffset() {
         String slotName = sourceConfig.getDbzConfiguration().getString("slot.name");
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
-            return jdbcConnection.prepareQueryAndMap(
-                    "SELECT confirmed_flush_lsn::text FROM pg_replication_slots WHERE slot_name = ?",
-                    statement -> statement.setString(1, slotName),
-                    resultSet -> {
-                        if (!resultSet.next()) {
-                            throw new SQLException(
-                                    String.format(
-                                            "PostgreSQL replication slot '%s' does not exist.",
-                                            slotName));
-                        }
-                        String committedLsn = resultSet.getString(1);
-                        if (committedLsn == null || committedLsn.trim().isEmpty()) {
-                            throw new SQLException(
-                                    String.format(
-                                            "PostgreSQL replication slot '%s' does not have a usable committed LSN.",
-                                            slotName));
-                        }
-                        return toLsnOffset(committedLsn.trim());
-                    });
+            try (PreparedStatement statement =
+                    jdbcConnection
+                            .connection()
+                            .prepareStatement(
+                                    "SELECT confirmed_flush_lsn::text, active_pid FROM pg_replication_slots WHERE slot_name = ?")) {
+                statement.setString(1, slotName);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    return readCommittedOffset(resultSet, slotName);
+                }
+            }
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException(
+            throw new SeaTunnelRuntimeException(
+                    PostgresConnectorErrorCode.READ_COMMITTED_OFFSET_FAILED,
                     String.format(
-                            "Read the committed offset from PostgreSQL replication slot '%s' error",
+                            "Could not read PostgreSQL replication slot '%s'. Verify that the slot still exists and is not being dropped.",
                             slotName),
                     e);
         }
+    }
+
+    static LsnOffset readCommittedOffset(ResultSet resultSet, String slotName) throws SQLException {
+        if (!resultSet.next()) {
+            throw invalidReplicationSlot(
+                    slotName, "does not exist; create the logical replication slot first");
+        }
+        Object activePid = resultSet.getObject(2);
+        if (activePid != null) {
+            throw invalidReplicationSlot(
+                    slotName,
+                    String.format(
+                            "is already active in PostgreSQL backend PID %s; stop the other consumer first",
+                            activePid));
+        }
+        String committedLsn = resultSet.getString(1);
+        if (resultSet.wasNull() || committedLsn == null || committedLsn.trim().isEmpty()) {
+            throw invalidReplicationSlot(
+                    slotName,
+                    "has no usable confirmed_flush_lsn; wait until the slot has committed an LSN");
+        }
+        return toLsnOffset(committedLsn.trim());
+    }
+
+    private static SeaTunnelRuntimeException invalidReplicationSlot(
+            String slotName, String reason) {
+        return new SeaTunnelRuntimeException(
+                PostgresConnectorErrorCode.READ_COMMITTED_OFFSET_FAILED,
+                String.format("PostgreSQL replication slot '%s' %s.", slotName, reason));
     }
 
     static LsnOffset toLsnOffset(String committedLsn) {

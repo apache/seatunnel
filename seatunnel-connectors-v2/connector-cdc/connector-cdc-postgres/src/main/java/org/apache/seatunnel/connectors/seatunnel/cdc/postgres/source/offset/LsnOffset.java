@@ -30,6 +30,7 @@ import java.util.Map;
 public class LsnOffset extends Offset {
 
     private static final long serialVersionUID = 1L;
+
     public static final LsnOffset INITIAL_OFFSET =
             new LsnOffset(Lsn.INVALID_LSN.asLong(), null, Instant.MIN);
     public static final LsnOffset NO_STOPPING_OFFSET =

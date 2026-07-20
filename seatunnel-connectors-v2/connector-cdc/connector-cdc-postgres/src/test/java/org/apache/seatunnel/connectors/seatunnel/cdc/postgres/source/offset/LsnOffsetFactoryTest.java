@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.SerializationUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +27,11 @@ import io.debezium.connector.postgresql.PostgresOffsetContext;
 import io.debezium.connector.postgresql.SourceInfo;
 import io.debezium.connector.postgresql.connection.Lsn;
 
+import java.sql.ResultSet;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class LsnOffsetFactoryTest {
 
@@ -42,5 +49,61 @@ public class LsnOffsetFactoryTest {
         Assertions.assertEquals(
                 offsetMap.get(SourceInfo.LSN_KEY),
                 offsetMap.get(PostgresOffsetContext.LAST_COMMIT_LSN_KEY));
+    }
+
+    @Test
+    public void shouldRoundTripSerializedLsnOffset() {
+        LsnOffset offset = LsnOffsetFactory.toLsnOffset("0/16B6C50");
+
+        LsnOffset restored = SerializationUtils.deserialize(SerializationUtils.serialize(offset));
+
+        Assertions.assertEquals(offset, restored);
+        Assertions.assertEquals(offset.getOffset(), restored.getOffset());
+    }
+
+    @Test
+    public void shouldRejectReplicationSlotWithNullCommittedLsn() throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getString(1)).thenReturn(null);
+        when(resultSet.wasNull()).thenReturn(true);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> LsnOffsetFactory.readCommittedOffset(resultSet, "empty_slot"));
+
+        Assertions.assertTrue(exception.getMessage().contains("empty_slot"));
+        Assertions.assertTrue(exception.getMessage().contains("confirmed_flush_lsn"));
+    }
+
+    @Test
+    public void shouldRejectMissingReplicationSlot() throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(false);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> LsnOffsetFactory.readCommittedOffset(resultSet, "missing_slot"));
+
+        Assertions.assertTrue(exception.getMessage().contains("missing_slot"));
+        Assertions.assertTrue(exception.getMessage().contains("does not exist"));
+    }
+
+    @Test
+    public void shouldRejectActiveReplicationSlot() throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getObject(2)).thenReturn(1234);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> LsnOffsetFactory.readCommittedOffset(resultSet, "active_slot"));
+
+        Assertions.assertTrue(exception.getMessage().contains("active_slot"));
+        Assertions.assertTrue(exception.getMessage().contains("1234"));
+        Assertions.assertTrue(exception.getMessage().contains("other consumer"));
     }
 }

@@ -611,6 +611,40 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                         + SINK_TABLE_1
                                                         + " where id = 14"));
                             });
+
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
+            committedOffsetJob.get(30, TimeUnit.SECONDS);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+
+            committedOffsetJob =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.restoreJob(
+                                            "/postgrescdc_to_postgres_committed_offset.conf",
+                                            String.valueOf(committedOffsetJobId),
+                                            committedSlotVariable);
+                                } catch (Exception e) {
+                                    log.error("Restore committed-offset task exception", e);
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
+                                Assertions.assertEquals(
+                                        1,
+                                        query(
+                                                        "select * from "
+                                                                + POSTGRESQL_SCHEMA
+                                                                + "."
+                                                                + SINK_TABLE_1
+                                                                + " where id = 15")
+                                                .size());
+                            });
         } finally {
             try {
                 try {
