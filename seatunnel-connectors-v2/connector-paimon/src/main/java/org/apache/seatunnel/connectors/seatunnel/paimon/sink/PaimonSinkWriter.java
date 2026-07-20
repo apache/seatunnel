@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -263,14 +264,18 @@ public class PaimonSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        this.sourceTableSchema =
-                new AlterPaimonTableSchemaEventHandler(
-                                sourceTableSchema,
-                                paimonCatalog,
-                                sinkPaimonTableSchema,
-                                paimonTablePath,
-                                paimonSinkConfig.getBranch())
-                        .apply(event);
+        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+            this.sourceTableSchema = event.getChangeAfter().getTableSchema();
+        } else {
+            this.sourceTableSchema =
+                    new AlterPaimonTableSchemaEventHandler(
+                                    sourceTableSchema,
+                                    paimonCatalog,
+                                    sinkPaimonTableSchema,
+                                    paimonTablePath,
+                                    paimonSinkConfig.getBranch())
+                            .apply(event);
+        }
         reOpenTableWrite();
     }
 

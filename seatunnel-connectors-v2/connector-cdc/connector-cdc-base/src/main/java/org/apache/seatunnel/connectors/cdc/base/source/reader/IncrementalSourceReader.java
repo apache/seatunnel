@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -209,14 +210,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointDataType() != null) {
-                log.info(
-                        "The incremental split[{}] has checkpoint datatype {} for restore.",
-                        incrementalSplit.splitId(),
-                        incrementalSplit.getCheckpointDataType());
-                debeziumDeserializationSchema.restoreCheckpointProducedType(
-                        incrementalSplit.getCheckpointTables());
-            }
+            restoreCheckpointState(incrementalSplit, debeziumDeserializationSchema);
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
@@ -230,6 +224,27 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context.sendSourceEventToEnumerator(event);
             }
             return splitState;
+        }
+    }
+
+    static <T> void restoreCheckpointState(
+            IncrementalSplit incrementalSplit,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
+        List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
+        if (checkpointTables != null && !checkpointTables.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has checkpoint tables {} for restore.",
+                    incrementalSplit.splitId(),
+                    checkpointTables);
+            debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
+        }
+
+        Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
+        if (historyTableChanges != null && !historyTableChanges.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has checkpoint history table changes for restore.",
+                    incrementalSplit.splitId());
+            debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
         }
     }
 

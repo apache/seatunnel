@@ -62,6 +62,16 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
         return new HashMap<>(tableChangesStructMap);
     }
 
+    @Override
+    public void restoreCheckpointHistoryTableChanges(
+            Map<TableId, byte[]> checkpointHistoryTableChanges) {
+        if (checkpointHistoryTableChanges == null || checkpointHistoryTableChanges.isEmpty()) {
+            return;
+        }
+        tableChangesStructMap.clear();
+        tableChangesStructMap.putAll(checkpointHistoryTableChanges);
+    }
+
     public void deserialize(SourceRecord record, Collector<T> out) throws Exception {
         if (isSchemaChangeEvent(record)) {
             Struct recordValue = (Struct) record.value();

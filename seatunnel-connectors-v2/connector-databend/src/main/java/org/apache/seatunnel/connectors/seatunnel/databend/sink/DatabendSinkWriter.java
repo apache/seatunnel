@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -283,7 +284,9 @@ public class DatabendSinkWriter
             this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
 
             // update the catalog table
-            schemaChangeManager.applySchemaChange(sinkTablePath, event);
+            if (!(event instanceof RestoreTableSchemaEvent)) {
+                schemaChangeManager.applySchemaChange(sinkTablePath, event);
+            }
 
             // close the old prepared statement
             if (preparedStatement != null) {
