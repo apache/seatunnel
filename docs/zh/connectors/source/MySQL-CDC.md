@@ -512,7 +512,7 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 
 ### 全量快照阶段如何工作？何时切换为增量读取？
 
-首次启动时，SeaTunnel 对已配置的表做一次一致性全量快照。快照完成后，自动从快照开始时记录的 binlog 位置切换为增量读取，确保切换过程中不丢失任何变更事件。
+使用 `startup.mode = "initial"` 时，SeaTunnel 会对已配置的表执行一致性全量快照，随后从快照阶段记录的 binlog 位置切换为增量读取，确保切换过程中不丢失变更事件。使用 `startup.mode = "snapshot"` 时，source 会在快照阶段完成后结束，不会进入持续 binlog 读取。
 
 ### MySQL CDC 是否支持 DDL 传播？
 

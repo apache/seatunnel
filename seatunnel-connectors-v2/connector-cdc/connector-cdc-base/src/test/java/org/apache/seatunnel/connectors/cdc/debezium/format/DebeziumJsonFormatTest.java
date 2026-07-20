@@ -135,6 +135,38 @@ class DebeziumJsonFormatTest {
         options.put(STARTUP_MODE.key(), "snapshot");
         options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
 
+        assertSnapshotOnlyConfigRejected(options, "startup.timestamp");
+    }
+
+    @Test
+    void testSnapshotOnlyRejectsStopModeBeforeSourceInitialization() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(STARTUP_MODE.key(), "snapshot");
+        options.put(STOP_MODE.key(), "latest");
+
+        assertSnapshotOnlyConfigRejected(options, "stop.mode");
+    }
+
+    @Test
+    void testSnapshotOnlyRejectsSpecificOffsetsBeforeSourceInitialization() {
+        for (Option<?> offsetOption :
+                Arrays.asList(
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)) {
+            Map<String, Object> options = new HashMap<>();
+            options.put(STARTUP_MODE.key(), "snapshot");
+            options.put(
+                    offsetOption.key(),
+                    offsetOption == SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE
+                            ? "mysql-bin.000001"
+                            : 4L);
+
+            assertSnapshotOnlyConfigRejected(options, offsetOption.key());
+        }
+    }
+
+    private void assertSnapshotOnlyConfigRejected(
+            Map<String, Object> options, String expectedOption) {
         IllegalArgumentException exception =
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
@@ -142,7 +174,7 @@ class DebeziumJsonFormatTest {
                                 new FailingSource(
                                         ReadonlyConfig.fromMap(options), Collections.emptyList()));
 
-        Assertions.assertTrue(exception.getMessage().contains("startup.timestamp"));
+        Assertions.assertTrue(exception.getMessage().contains(expectedOption));
     }
 
     static class FailingSource extends TestIncrementalSource {

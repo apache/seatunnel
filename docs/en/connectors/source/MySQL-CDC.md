@@ -516,7 +516,7 @@ unique key, UPDATE and DELETE events cannot be applied safely downstream.
 
 ### How does the full snapshot phase work, and when does it switch to incremental reading?
 
-On first startup, SeaTunnel takes a consistent full snapshot of the configured tables. After the snapshot completes, it automatically switches to reading binlog from the position recorded at the beginning of the snapshot, ensuring no events are lost during the transition.
+With `startup.mode = "initial"`, SeaTunnel takes a consistent full snapshot of the configured tables and then switches to reading binlog from the position recorded during the snapshot, ensuring no events are lost during the transition. With `startup.mode = "snapshot"`, the source finishes after the snapshot phase and never enters continuous binlog reading.
 
 ### Does MySQL CDC support DDL propagation?
 

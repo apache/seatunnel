@@ -115,7 +115,7 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
     }
 
     @TestTemplate
-    public void testMysqlCdcSnapshotOnlyFinishesAndSkipsBinlog(TestContainer container)
+    public void testMysqlCdcSnapshotOnlyFinishesAndSkipsContinuousBinlog(TestContainer container)
             throws Exception {
         clearTable(MYSQL_DATABASE, SOURCE_TABLE);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
