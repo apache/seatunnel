@@ -161,8 +161,11 @@ const sidebars = {
                     },
                     "items": [
                         "getting-started/recipes/mysql-cdc-to-doris",
+                        "getting-started/recipes/mysql-cdc-to-kafka",
+                        "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
+                        "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
                         "getting-started/recipes/file-to-starrocks",
                         "getting-started/recipes/multi-table-cdc"
@@ -325,6 +328,22 @@ const sidebars = {
                         "architecture/features/multi-table"
                     ]
                 }
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Edge Agent",
+            "items": [
+                "edge-agent/about",
+                "edge-agent/architecture-overview",
+                "edge-agent/quick-start",
+                "edge-agent/download",
+                "edge-agent/deployment-guide",
+                "edge-agent/configuration",
+                "edge-agent/input-configuration",
+                "edge-agent/output-configuration",
+                "edge-agent/operations",
+                "edge-agent/faq"
             ]
         },
         {

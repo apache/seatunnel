@@ -1,0 +1,95 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SeaTunnel Edge Agent Configuration
+#
+# Most defaults work out of the box. Only fields marked REQUIRED need editing.
+# Full reference: docs/en/edge-agent/configuration.md
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ========================= Agent (process-level) =============================
+# Identity and scheduler tuning. Safe to leave entirely commented out.
+agent:
+  # id: auto
+  # delivery-guarantee: BEST_EFFORT   # BEST_EFFORT: WAL + retry; NON: no WAL, stateless, drop on failure
+  # idle-sleep-ms: 200
+  # bulk-max-size: 256
+  # flush-interval-ms: 1000
+
+# ========================= Input (file collector) ============================
+# What to collect. At minimum, set paths.
+input:
+  paths:                                # REQUIRED — glob patterns for files to tail
+    - "/var/log/*.log"
+  # encoding: UTF-8
+  # read-from-beginning: false
+  # glob-scan-interval-ms: 5000
+  # close-inactive-ms: 300000
+  # on-error: skip
+
+  # Multiline log assembly (uncomment to enable):
+  # multiline:
+  #   pattern: "^\\d{4}-\\d{2}-\\d{2}"
+  #   match: after
+  #   negate: false
+  #   max-lines: 500
+  #   flush-idle-timeout-ms: 5000
+
+  # output-format:
+  #   type: line
+
+# ========================= Queue (WAL persistence) ===========================
+# SQLite WAL buffer. Defaults are safe for most deployments.
+# Ignored when delivery-guarantee is NON.
+# queue:
+#   sqlite-path: data/wal.db
+#   poll-batch-size: 128
+#   cleanup-batch-size: 128
+#   acked-retention-ms: 0
+#   resurrect-batch-size: 100
+#   resurrect-interval-ms: 60000
+
+# ========================= Retry =============================================
+# WAL row send retry policy. Defaults handle most failure scenarios.
+# Ignored when delivery-guarantee is NON.
+# retry:
+#   max-attempts: 16
+#   backoff-ms: 250
+#   backoff-max-ms: 300000
+
+# ========================= Output ============================================
+# Where to send. Default: console (logs to log/edge-agent.log for local debugging).
+# For production, switch to type: transport and set endpoint + token.
+output:
+  type: console
+
+  # --- Production transport settings (uncomment to enable) ---
+  # type: transport
+  # endpoint: "collector.example.com:9876" # REQUIRED when type=transport
+  # token: "my-secret-token"               # REQUIRED when type=transport
+  # auth-type: token
+  # connect-timeout-ms: 5000
+  # read-timeout-ms: 30000
+  # initial-backoff-ms: 100
+  # max-backoff-ms: 30000
+  # max-reconnect-cycles: 16
+  # max-batch-send-attempts: 64
+
+  # Packet mode (uncomment for compression/encryption):
+  # packet-mode: RAW
+  # compression: none
+  # encryption: none
+  # aes-secret-key-base64: ""
