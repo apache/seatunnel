@@ -32,6 +32,9 @@ import java.util.HashMap;
 
 public class S3StorageTest {
 
+    private static final String TEST_S3_CREDENTIALS_PROVIDER =
+            S3FileBaseOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider.getProvider();
+
     private static final ReadonlyConfig S3A =
             ReadonlyConfig.fromMap(
                     new HashMap<String, Object>() {
@@ -46,9 +49,7 @@ public class S3StorageTest {
                                             put(
                                                     S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    TEST_S3_CREDENTIALS_PROVIDER);
                                             put(
                                                     S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                                                     "http://s3.ap-northeast-1.amazonaws.com");
@@ -71,9 +72,7 @@ public class S3StorageTest {
                                             put(
                                                     S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
-                                                            .InstanceProfileCredentialsProvider
-                                                            .getProvider());
+                                                    TEST_S3_CREDENTIALS_PROVIDER);
                                             put(S3FileBaseOptions.FS_S3A_ENDPOINT.key(), "test");
                                         }
                                     });
