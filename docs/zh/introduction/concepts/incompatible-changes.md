@@ -4,6 +4,17 @@
 
 ## dev
 
+### Engine / Zeta
+
+- **破坏性变更：默认 Slot 模式由动态改为静态**
+  - **影响范围**：Zeta 引擎 Slot 服务（`seatunnel-engine`、`ServerConfigOptions.DYNAMIC_SLOT`、随发行版附带的 `seatunnel.yaml` 模板）
+  - **变更说明**：`dynamic-slot` 的默认值由 `true` 改为 `false`。Zeta 现在默认使用静态 Slot：每个 Worker 在启动时预创建固定数量的 Slot（未设置 `slot-num` 时默认为 `2 × availableProcessors()`），而不再按需动态生成。随发行版附带的 `seatunnel.yaml` 模板（`seatunnel-engine-common`、`config/`、`deploy/kubernetes/`）已同步翻转为 `dynamic-slot: false`。
+  - **影响**：
+    - 以前依靠按需动态生成 Slot 即可运行的任务，现在在达到固定 Slot 上限时可能在提交阶段失败并抛出 `NoEnoughResourceException`。在默认的 `job-schedule-strategy: REJECT` 下，这类任务会立即失败而非运行。
+    - 如果您显式设置了 `job-schedule-strategy: WAIT`，该配置现在会真正生效（作业进入队列并每 3 秒重试），而不再被静默覆盖为 `REJECT`（只要 `dynamic-slot: true` 就会发生此覆盖）。对于从未意识到 `WAIT` 一直被忽略的用户，这是一次集群级的提交行为变更。
+    - 滚动重启期间，动态/静态混部的 Worker 可能在心跳中上报不一致的 `dynamicSlot`，建议采用协调式（非滚动）重启。
+  - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请根据峰值并行度评估 `slot-num`（N = 2 + Σ 作业并行度），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**

@@ -385,13 +385,13 @@ public void memberRemoved(MembershipEvent event) {
 
 ### 8.1 Slot Configuration
 
-Example (`config/seatunnel.yaml`, SeaTunnel Engine / Zeta):
+Example (`config/seatunnel.yaml`, SeaTunnel Engine / Zeta). By default, the engine uses static slots:
 
 ```yaml
 seatunnel:
   engine:
     slot-service:
-      dynamic-slot: true
+      dynamic-slot: false
       slot-num: 16
       slot-allocate-strategy: RANDOM # RANDOM / SLOT_RATIO / SYSTEM_LOAD
 ```

@@ -5,6 +5,17 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Engine / Zeta
+
+- **Breaking Change: Default slot mode changed from dynamic to static**
+  - **Affected component**: Zeta engine slot service (`seatunnel-engine`, `ServerConfigOptions.DYNAMIC_SLOT`, shipped `seatunnel.yaml` templates)
+  - **Description**: The default value of `dynamic-slot` has changed from `true` to `false`. Zeta now defaults to static slots: each worker pre-creates a fixed number of slots at startup (defaulting to `2 × availableProcessors()` when `slot-num` is not set), instead of minting slots on demand. The shipped `seatunnel.yaml` templates (`seatunnel-engine-common`, `config/`, `deploy/kubernetes/`) have been flipped to `dynamic-slot: false` to match.
+  - **Impact**:
+    - Jobs that previously fit via on-demand slot minting may now fail at submit with `NoEnoughResourceException` once the fixed slot cap is reached. Under the default `job-schedule-strategy: REJECT`, such jobs fail immediately instead of running.
+    - If you explicitly set `job-schedule-strategy: WAIT`, it now takes effect (the job queues and retries every 3s) instead of being silently overridden to `REJECT` (which happened whenever `dynamic-slot: true`). This is a cluster-wide submit-time behavior change for users who never realized `WAIT` was being ignored.
+    - During a rolling restart, mixed dynamic/static workers may advertise inconsistent `dynamicSlot` in heartbeats; prefer a coordinated (non-rolling) restart.
+  - **Migration Guide**: To preserve the previous behavior, set `seatunnel.engine.slot-service.dynamic-slot: true` in your `seatunnel.yaml`. If you keep static slots, size `slot-num` to your peak parallelism (N = 2 + Σ job parallelism) and size the worker JVM heap (`-Xmx`) to hold that many concurrent task-group working sets. Also audit any packaged/helm/docker `seatunnel.yaml` that may hardcode `dynamic-slot: true`.
+
 ### JDBC Connector
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
