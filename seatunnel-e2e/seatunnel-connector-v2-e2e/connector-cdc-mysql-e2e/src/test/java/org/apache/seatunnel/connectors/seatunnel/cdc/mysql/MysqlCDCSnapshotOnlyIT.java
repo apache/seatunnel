@@ -46,7 +46,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.await;
 
 /**
  * E2E for the MySQL-CDC {@code startup.mode = "snapshot"} bounded bootstrap mode.
@@ -54,9 +58,9 @@ import java.util.stream.Stream;
  * <p>The job runs in BATCH mode, so {@link TestContainer#executeJob} blocks until the job
  * terminates. This is the core assertion: a snapshot-only job must finish on its own after the
  * snapshot phase. If it wrongly transitioned into (or waited for) binlog streaming, the job would
- * never complete and this test would time out. After completion we additionally verify that binlog
- * changes produced <em>after</em> the snapshot are NOT captured, proving no binlog reader was
- * started.
+ * never complete and this test would time out. The test also changes rows from completed snapshot
+ * splits while many other snapshot splits are still running, then verifies that the bounded job
+ * does not transition into continuous binlog streaming.
  */
 @Slf4j
 @DisabledOnContainer(
@@ -72,6 +76,7 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
 
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
+    private static final int ADDITIONAL_SNAPSHOT_ROWS = 100;
 
     // Query only the primary key so the assertion does not depend on the full wide-row schema.
     private static final String ID_QUERY_TEMPLATE = "select id from %s.%s order by id";
@@ -95,21 +100,9 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
 
     @BeforeAll
     @Override
@@ -131,36 +124,63 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
         insertRow(2);
         insertRow(3);
         insertRow(5);
+        for (int id = 10; id < 10 + ADDITIONAL_SNAPSHOT_ROWS; id++) {
+            insertRow(id);
+        }
         List<List<Object>> snapshotIds = query(idQuery(MYSQL_DATABASE, SOURCE_TABLE));
-        Assertions.assertEquals(3, snapshotIds.size(), "precondition: three snapshot rows seeded");
+        Assertions.assertEquals(
+                3 + ADDITIONAL_SNAPSHOT_ROWS,
+                snapshotIds.size(),
+                "precondition: all snapshot rows seeded");
+        List<List<Object>> firstCompletedSplitIds = snapshotIds.subList(0, 3);
 
-        // The config uses parallel snapshot readers with checkpointing disabled. executeJob blocks
-        // until the bounded job terminates, so this also covers completion without a checkpoint.
-        Container.ExecResult execResult = container.executeJob("/mysqlcdc_snapshot_only.conf");
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob("/mysqlcdc_snapshot_only.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        // Wait until the first snapshot splits are visible while many later splits are still
+        // outstanding. Mutating only these completed ranges avoids racing with snapshot reads and
+        // leaves a stable window to detect an accidental transition into incremental streaming.
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFuture.isDone(),
+                                    "snapshot-only job finished before the runtime mutation check");
+                            List<List<Object>> sinkIds = query(idQuery(MYSQL_DATABASE, SINK_TABLE));
+                            Assertions.assertTrue(sinkIds.containsAll(firstCompletedSplitIds));
+                            Assertions.assertTrue(
+                                    sinkIds.size() < snapshotIds.size(),
+                                    "runtime mutation must happen before all snapshot splits finish");
+                        });
+
+        // Produce binlog changes for already emitted snapshot ranges while other snapshot splits
+        // are still running. A snapshot-only job must not start an incremental reader afterward.
+        executeSql("UPDATE " + MYSQL_DATABASE + "." + SOURCE_TABLE + " SET id = 6 WHERE id = 5");
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 2");
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait snapshot-only job exit failed", e);
+        }
         Assertions.assertEquals(
                 0,
                 execResult.getExitCode(),
                 "snapshot-only job must finish cleanly: " + execResult.getStderr());
 
-        // The snapshot data must have been written to the sink.
+        // The sink must remain unchanged by the binlog activity performed during the job.
         Assertions.assertIterableEquals(
                 snapshotIds,
                 query(idQuery(MYSQL_DATABASE, SINK_TABLE)),
-                "sink must contain exactly the snapshot rows after a snapshot-only job");
-
-        // Produce binlog changes AFTER the job finished. A snapshot-only job never starts a binlog
-        // reader, so these changes must not appear in the sink.
-        insertRow(100);
-        executeSql("UPDATE " + MYSQL_DATABASE + "." + SOURCE_TABLE + " SET id = 6 WHERE id = 5");
-        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 2");
-
-        // Re-run the bounded job would re-read the snapshot; instead we assert the sink is
-        // unchanged
-        // by the post-snapshot binlog activity, confirming no streaming path consumed them.
-        Assertions.assertIterableEquals(
-                snapshotIds,
-                query(idQuery(MYSQL_DATABASE, SINK_TABLE)),
-                "snapshot-only must not consume binlog changes made after the snapshot phase");
+                "snapshot-only must not consume binlog changes while the snapshot job is running");
     }
 
     private Connection getJdbcConnection() throws SQLException {

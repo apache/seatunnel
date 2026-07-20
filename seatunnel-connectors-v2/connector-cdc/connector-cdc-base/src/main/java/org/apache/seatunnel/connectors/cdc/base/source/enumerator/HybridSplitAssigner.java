@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -63,6 +64,25 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
             DataSourceDialect<C> dialect,
+            OffsetFactory offsetFactory) {
+        this(
+                context,
+                currentParallelism,
+                incrementalParallelism,
+                remainingTables,
+                isTableIdCaseSensitive,
+                dialect,
+                offsetFactory,
+                false);
+    }
+
+    public HybridSplitAssigner(
+            SplitAssigner.Context<C> context,
+            int currentParallelism,
+            int incrementalParallelism,
+            List<TableId> remainingTables,
+            boolean isTableIdCaseSensitive,
+            DataSourceDialect<C> dialect,
             OffsetFactory offsetFactory,
             boolean snapshotOnly) {
         this(
@@ -82,13 +102,50 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             int incrementalParallelism,
             HybridPendingSplitsState checkpoint,
             DataSourceDialect<C> dialect,
+            OffsetFactory offsetFactory) {
+        this(
+                context,
+                currentParallelism,
+                incrementalParallelism,
+                checkpoint,
+                dialect,
+                offsetFactory,
+                false);
+    }
+
+    public HybridSplitAssigner(
+            SplitAssigner.Context<C> context,
+            int currentParallelism,
+            int incrementalParallelism,
+            HybridPendingSplitsState checkpoint,
+            DataSourceDialect<C> dialect,
             OffsetFactory offsetFactory,
             boolean snapshotOnly) {
         this(
                 new SnapshotSplitAssigner<>(
-                        context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
+                        context,
+                        currentParallelism,
+                        snapshotPhaseStateForRestore(checkpoint, snapshotOnly),
+                        dialect),
                 new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory),
                 snapshotOnly);
+    }
+
+    private static SnapshotPhaseState snapshotPhaseStateForRestore(
+            HybridPendingSplitsState checkpoint, boolean snapshotOnly) {
+        SnapshotPhaseState snapshotState = checkpoint.getSnapshotPhaseState();
+        if (!snapshotOnly || snapshotState.isRemainingTablesCheckpointed()) {
+            return snapshotState;
+        }
+        return new SnapshotPhaseState(
+                snapshotState.getAlreadyProcessedTables(),
+                snapshotState.getRemainingSplits(),
+                snapshotState.getAssignedSplits(),
+                snapshotState.getSplitCompletedOffsets(),
+                snapshotState.isAssignerCompleted(),
+                snapshotState.getRemainingTables(),
+                snapshotState.isTableIdCaseSensitive(),
+                true);
     }
 
     private HybridSplitAssigner(

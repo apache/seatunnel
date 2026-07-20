@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
@@ -60,7 +62,7 @@ public class HybridSplitAssignerTest {
                         checkpointState.getSnapshotPhaseState().getAssignedSplits(),
                         checkpointState.getSnapshotPhaseState().getSplitCompletedOffsets());
         HybridSplitAssigner splitAssigner =
-                new HybridSplitAssigner<>(context, 1, 1, checkpointState, null, null, false);
+                new HybridSplitAssigner<>(context, 1, 1, checkpointState, null, null);
         splitAssigner.getIncrementalSplitAssigner().setSplitAssigned(true);
 
         Assertions.assertFalse(
@@ -123,6 +125,42 @@ public class HybridSplitAssignerTest {
         Assertions.assertTrue(
                 hybridAssigner.waitingForCompletedSplits(),
                 "default hybrid assigner should still transition into the incremental phase");
+    }
+
+    @Test
+    public void testSnapshotOnlyRestoreDoesNotDiscoverTablesForLegacyState() {
+        TableId checkpointTable = TableId.parse("db.checkpoint_table");
+        HybridPendingSplitsState legacyCheckpointState =
+                new HybridPendingSplitsState(
+                        new SnapshotPhaseState(
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyMap(),
+                                Collections.emptyMap(),
+                                false,
+                                Collections.singletonList(checkpointTable),
+                                false,
+                                false),
+                        null);
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        SplitAssigner.Context<SourceConfig> context =
+                new SplitAssigner.Context<>(
+                        null,
+                        Collections.singleton(checkpointTable),
+                        new HashMap<>(),
+                        new HashMap<>());
+
+        HybridSplitAssigner<SourceConfig> assigner =
+                new HybridSplitAssigner<>(
+                        context, 2, 1, legacyCheckpointState, dialect, null, true);
+        assigner.open();
+
+        Mockito.verify(dialect, Mockito.never()).discoverDataCollections(Mockito.any());
+        SnapshotPhaseState restoredState =
+                ((HybridPendingSplitsState) assigner.snapshotState(1L)).getSnapshotPhaseState();
+        Assertions.assertTrue(restoredState.isRemainingTablesCheckpointed());
+        Assertions.assertEquals(
+                Collections.singletonList(checkpointTable), restoredState.getRemainingTables());
     }
 
     private static SplitAssigner.Context<SourceConfig> newCompletedContext() {

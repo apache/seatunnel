@@ -83,7 +83,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @NoArgsConstructor
 @Slf4j
@@ -118,23 +117,23 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         this.readonlyConfig = options;
-        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
+        validateSnapshotOnlyConfig(readonlyConfig);
+        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
-        validateSnapshotOnlyConfig(readonlyConfig);
     }
 
     /**
      * Fail fast when snapshot-only startup mode is combined with options that only make sense for
      * incremental/binlog streaming. Snapshot-only is a bounded bootstrap job: it reads the snapshot
-     * and finishes without consuming binlog, so stop-mode, exactly-once and binlog-oriented startup
-     * offsets are contradictory and are rejected rather than silently ignored.
+     * and may perform bounded backfill, but it never enters continuous binlog streaming. Stop-mode
+     * and user-supplied binlog startup offsets are therefore rejected rather than silently ignored.
      */
     private void validateSnapshotOnlyConfig(ReadonlyConfig config) {
         if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT) {
@@ -146,20 +145,12 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         mode -> {
                             throw new IllegalArgumentException(
                                     String.format(
-                                            "'%s' startup mode is a bounded snapshot-only job and does not consume binlog, "
+                                            "'%s' startup mode is a bounded snapshot-only job and does not enter continuous binlog streaming, "
                                                     + "so it is incompatible with '%s = %s'. Remove the stop mode option.",
                                             StartupMode.SNAPSHOT.name().toLowerCase(),
                                             SourceOptions.STOP_MODE_KEY,
                                             mode.name().toLowerCase()));
                         });
-        if (Boolean.TRUE.equals(config.get(SourceOptions.EXACTLY_ONCE))) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "'%s' startup mode does not consume binlog, so exactly-once semantics ('%s') is not applicable. "
-                                    + "Remove the exactly_once option.",
-                            StartupMode.SNAPSHOT.name().toLowerCase(),
-                            SourceOptions.EXACTLY_ONCE.key()));
-        }
         boolean specificOffsetPresent =
                 config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
                         || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
@@ -167,11 +158,19 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         if (specificOffsetPresent) {
             throw new IllegalArgumentException(
                     String.format(
-                            "'%s' startup mode reads the snapshot only and ignores binlog offsets, "
+                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
                                     + "so binlog-oriented startup offset options ('%s', '%s') are not allowed.",
                             StartupMode.SNAPSHOT.name().toLowerCase(),
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
+        }
+        if (config.getOptional(SourceOptions.STARTUP_TIMESTAMP).isPresent()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
+                                    + "so binlog-oriented startup offset option '%s' is not allowed.",
+                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                            SourceOptions.STARTUP_TIMESTAMP.key()));
         }
     }
 
@@ -420,14 +419,25 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             }
         }
         C sourceConfig = configFactory.create(0);
-        Set<TableId> capturedTables =
-                new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
 
         final SplitAssigner splitAssigner;
         if (checkpointState instanceof HybridPendingSplitsState) {
-            checkpointState = restore(capturedTables, (HybridPendingSplitsState) checkpointState);
+            HybridPendingSplitsState hybridCheckpointState =
+                    (HybridPendingSplitsState) checkpointState;
+            Set<TableId> discoveredTables =
+                    startupMode == StartupMode.SNAPSHOT
+                            ? Collections.emptySet()
+                            : new HashSet<>(
+                                    dataSourceDialect.discoverDataCollections(sourceConfig));
+            Set<TableId> capturedTables =
+                    getCapturedTablesForRestore(
+                            startupMode, discoveredTables, hybridCheckpointState);
+            if (startupMode != StartupMode.SNAPSHOT) {
+                hybridCheckpointState = restore(capturedTables, hybridCheckpointState);
+            }
             SnapshotPhaseState checkpointSnapshotState =
-                    ((HybridPendingSplitsState) checkpointState).getSnapshotPhaseState();
+                    hybridCheckpointState.getSnapshotPhaseState();
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig,
@@ -439,12 +449,13 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             assignerContext,
                             enumeratorContext.currentParallelism(),
                             incrementalParallelism,
-                            (HybridPendingSplitsState) checkpointState,
+                            hybridCheckpointState,
                             dataSourceDialect,
                             offsetFactory,
-                            sourceConfig.getStartupConfig().getStartupMode()
-                                    == StartupMode.SNAPSHOT);
+                            startupMode == StartupMode.SNAPSHOT);
         } else if (checkpointState instanceof IncrementalPhaseState) {
+            Set<TableId> capturedTables =
+                    new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig, capturedTables, new HashMap<>(), new HashMap<>());
@@ -461,14 +472,34 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
+    static Set<TableId> getCapturedTablesForRestore(
+            StartupMode startupMode,
+            Set<TableId> discoveredTables,
+            HybridPendingSplitsState checkpointState) {
+        if (startupMode != StartupMode.SNAPSHOT) {
+            return discoveredTables;
+        }
+        return getCheckpointCapturedTables(checkpointState);
+    }
+
+    private static Set<TableId> getCheckpointCapturedTables(
+            HybridPendingSplitsState checkpointState) {
+        SnapshotPhaseState snapshotState = checkpointState.getSnapshotPhaseState();
+        Set<TableId> checkpointTables = new HashSet<>(snapshotState.getAlreadyProcessedTables());
+        checkpointTables.addAll(snapshotState.getRemainingTables());
+        snapshotState.getRemainingSplits().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        snapshotState.getAssignedSplits().values().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        return checkpointTables;
+    }
+
     private HybridPendingSplitsState restore(
             Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
-        Set<TableId> checkpointCapturedTables =
-                Stream.concat(
-                                checkpointSnapshotState.getAlreadyProcessedTables().stream(),
-                                checkpointSnapshotState.getRemainingTables().stream())
-                        .collect(Collectors.toSet());
+        Set<TableId> checkpointCapturedTables = getCheckpointCapturedTables(checkpointState);
         Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 
