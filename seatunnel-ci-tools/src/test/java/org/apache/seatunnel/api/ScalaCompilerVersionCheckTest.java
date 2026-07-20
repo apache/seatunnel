@@ -27,23 +27,31 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.File;
 
+/**
+ * Verifies that {@code seatunnel.shade.scala-compiler.version} stays in sync with {@code
+ * scala.version} in the root pom.xml. When the root scala version is bumped, the shade
+ * scala-compiler version must be updated to match, since both must use the same Scala compiler.
+ */
 public class ScalaCompilerVersionCheckTest {
 
     @Test
-    public void testScalaCompilerModuleUsesRootScalaVersion() throws Exception {
-        File scalaCompilerPom = new File("../seatunnel-shade/seatunnel-scala-compiler/pom.xml");
-        Document pom = parsePom(scalaCompilerPom);
+    public void testScalaCompilerShadeVersionMatchesRootScalaVersion() throws Exception {
+        File rootPom = new File("../pom.xml");
+        Document pom = parsePom(rootPom);
 
-        Assertions.assertFalse(
-                hasDirectProperty(pom, "scala.version"),
-                "seatunnel-scala-compiler must inherit scala.version from root pom.xml");
-        Assertions.assertFalse(
-                hasDirectProperty(pom, "scala.binary.version"),
-                "seatunnel-scala-compiler must inherit scala.binary.version from root pom.xml");
+        String scalaVersion = getPropertyValue(pom, "scala.version");
+        String shadeScalaCompilerVersion =
+                getPropertyValue(pom, "seatunnel.shade.scala-compiler.version");
+
+        Assertions.assertNotNull(scalaVersion, "scala.version property not found in root pom.xml");
+        Assertions.assertNotNull(
+                shadeScalaCompilerVersion,
+                "seatunnel.shade.scala-compiler.version property not found in root pom.xml");
         Assertions.assertEquals(
-                "${scala.version}",
-                findDependencyVersion(pom, "org.scala-lang", "scala-compiler"),
-                "scala-compiler dependency must track the root scala.version property");
+                scalaVersion,
+                shadeScalaCompilerVersion,
+                "seatunnel.shade.scala-compiler.version must equal scala.version. "
+                        + "If you bumped scala.version, update seatunnel.shade.scala-compiler.version to match.");
     }
 
     private Document parsePom(File pomFile) throws Exception {
@@ -55,7 +63,7 @@ public class ScalaCompilerVersionCheckTest {
         return factory.newDocumentBuilder().parse(pomFile);
     }
 
-    private boolean hasDirectProperty(Document pom, String propertyName) {
+    private String getPropertyValue(Document pom, String propertyName) {
         NodeList properties = pom.getDocumentElement().getChildNodes();
         for (int i = 0; i < properties.getLength(); i++) {
             Node node = properties.item(i);
@@ -63,33 +71,9 @@ public class ScalaCompilerVersionCheckTest {
                 NodeList children = node.getChildNodes();
                 for (int j = 0; j < children.getLength(); j++) {
                     if (propertyName.equals(children.item(j).getNodeName())) {
-                        return true;
+                        return children.item(j).getTextContent().trim();
                     }
                 }
-            }
-        }
-        return false;
-    }
-
-    private String findDependencyVersion(Document pom, String groupId, String artifactId) {
-        NodeList dependencies = pom.getElementsByTagName("dependency");
-        for (int i = 0; i < dependencies.getLength(); i++) {
-            Node dependency = dependencies.item(i);
-            if (groupId.equals(childText(dependency, "groupId"))
-                    && artifactId.equals(childText(dependency, "artifactId"))) {
-                return childText(dependency, "version");
-            }
-        }
-        Assertions.fail("Dependency not found: " + groupId + ":" + artifactId);
-        return null;
-    }
-
-    private String childText(Node node, String childName) {
-        NodeList children = node.getChildNodes();
-        for (int i = 0; i < children.getLength(); i++) {
-            Node child = children.item(i);
-            if (childName.equals(child.getNodeName())) {
-                return child.getTextContent().trim();
             }
         }
         return null;

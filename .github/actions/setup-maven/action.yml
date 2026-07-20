@@ -1,0 +1,72 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Setup Maven with Apache repository
+description: Configure Maven to use Apache Public repository as the single dependency source
+
+runs:
+  using: composite
+  steps:
+    - name: Configure Maven with Apache Public repository
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <settings>
+          <profiles>
+            <profile>
+              <id>apache-repo</id>
+              <!--
+                Use Apache Public repository as the single source for all dependencies.
+
+                Why Apache Public alone is sufficient:
+                  1. Apache Public is a superset of Maven Central — it mirrors Central content
+                     AND includes Apache-specific artifacts (snapshots, staging, third-party
+                     dependencies used by Apache projects).
+                  2. After voting and clicking "Release" in Nexus, new versions typically appear
+                     in Maven Central within hours, but global CDN propagation may take up to
+                     24 hours. Apache Public mirrors Central and has similar propagation delay,
+                     so using it as the single source is consistent.
+                  3. Apache Public is hosted on Apache's CDN, which typically responds faster
+                     than Maven Central, resulting in faster dependency resolution in CI.
+                  4. When seatunnel-shade project are updated and released, Apache Public
+                     receives them more promptly than Maven Central, making it the better
+                     choice for CI builds that depend on the latest shade artifacts.
+              -->
+              <repositories>
+                <repository>
+                  <id>apache-public</id>
+                  <url>https://repository.apache.org/content/groups/public/</url>
+                  <releases><enabled>true</enabled></releases>
+                  <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+              </repositories>
+              <pluginRepositories>
+                <pluginRepository>
+                  <id>apache-public-plugins</id>
+                  <url>https://repository.apache.org/content/groups/public/</url>
+                  <releases><enabled>true</enabled></releases>
+                  <snapshots><enabled>false</enabled></snapshots>
+                </pluginRepository>
+              </pluginRepositories>
+            </profile>
+          </profiles>
+          <activeProfiles>
+            <activeProfile>apache-repo</activeProfile>
+          </activeProfiles>
+        </settings>
+        EOF
