@@ -45,7 +45,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Writes {@link SeaTunnelRow} records to a Couchbase collection.
@@ -60,8 +59,9 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * <p>Each record is converted to a {@link JsonObject}. The document key is derived from the
- * configured {@code primary-key} fields (joined with {@code _}); when no primary key is set a
- * random UUID is used. Upsert mode is enabled via {@code upsert-enable}.
+ * configured {@code primary-key} fields using a length-prefixed canonical encoding ({@code
+ * <len>:<value>} components separated by {@code #}); when no primary key is set a random UUID is
+ * used. Upsert mode is enabled via {@code upsert-enable}.
  *
  * <p>Supported row kinds: {@code INSERT}, {@code UPDATE_AFTER}. {@code UPDATE_BEFORE} is silently
  * skipped. {@code DELETE} is explicitly rejected with an exception — CDC delete support is out of
@@ -111,16 +111,30 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         validatePrimaryKeyFields(options.getPrimaryKey(), this.rowType);
 
         // Connect to the cluster and obtain the target collection.
-        this.cluster =
+        // If any post-connect step fails we must disconnect to avoid leaking SDK threads/resources.
+        Cluster connectedCluster =
                 Cluster.connect(
                         options.getConnectionString(),
                         options.getUsername(),
                         options.getPassword());
-        cluster.bucket(options.getBucket()).waitUntilReady(Duration.ofSeconds(30));
-        this.collection =
-                cluster.bucket(options.getBucket())
-                        .scope(options.getScope())
-                        .collection(options.getCollection());
+        Collection resolvedCollection;
+        try {
+            connectedCluster.bucket(options.getBucket()).waitUntilReady(Duration.ofSeconds(30));
+            resolvedCollection =
+                    connectedCluster
+                            .bucket(options.getBucket())
+                            .scope(options.getScope())
+                            .collection(options.getCollection());
+        } catch (Exception e) {
+            try {
+                connectedCluster.disconnect();
+            } catch (Exception disconnectEx) {
+                e.addSuppressed(disconnectEx);
+            }
+            throw e;
+        }
+        this.cluster = connectedCluster;
+        this.collection = resolvedCollection;
 
         // Start a periodic background flush so that buffer-flush.interval is a true max-latency
         // guarantee, even when no rows arrive (idle or low-throughput streaming jobs).
@@ -316,34 +330,45 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     /**
-     * Assembles a Couchbase document key from {@code primaryKey} field values in {@code doc}.
-     * Returns a random UUID when {@code primaryKey} is null or empty.
+     * Assembles a Couchbase document key from {@code primaryKey} field values in {@code doc} using
+     * a <em>length-prefixed canonical encoding</em> that is guaranteed collision-free.
+     *
+     * <p>Each component is encoded as {@code <len>:<value>} and components are separated by {@code
+     * #}. The length prefix makes boundaries unambiguous regardless of the character content of the
+     * values, so key pairs like {@code ("a_b","c")} and {@code ("a","b_c")} produce distinct
+     * document IDs ({@code "3:a_b#1:c"} vs {@code "1:a#3:b_c"}).
+     *
+     * <p>Returns a random UUID when {@code primaryKey} is null or empty.
      *
      * <p>Package-visible so that unit tests can exercise the null-value guard directly without
      * needing a live Couchbase cluster.
      *
      * @throws CouchbaseConnectorException if any primary-key field value is null in {@code doc},
-     *     which would produce an ambiguous {@code "null"} document key and cause silent data loss
-     *     in upsert mode or hard-to-diagnose duplicate-key errors in insert mode
+     *     which would produce an ambiguous document key and cause silent data loss in upsert mode
+     *     or hard-to-diagnose duplicate-key errors in insert mode
      */
     static String buildDocumentKeyFrom(String[] primaryKey, JsonObject doc) {
         if (primaryKey != null && primaryKey.length > 0) {
-            return Arrays.stream(primaryKey)
-                    .map(
-                            field -> {
-                                Object value = doc.get(field);
-                                if (value == null) {
-                                    throw new CouchbaseConnectorException(
-                                            CouchbaseConnectorErrorCode.INVALID_PRIMARY_KEY,
-                                            "Primary-key field '"
-                                                    + field
-                                                    + "' is null for the current row. "
-                                                    + "Null primary-key values produce ambiguous"
-                                                    + " document keys and must be rejected.");
-                                }
-                                return String.valueOf(value);
-                            })
-                    .collect(Collectors.joining("_"));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < primaryKey.length; i++) {
+                String field = primaryKey[i];
+                Object value = doc.get(field);
+                if (value == null) {
+                    throw new CouchbaseConnectorException(
+                            CouchbaseConnectorErrorCode.INVALID_PRIMARY_KEY,
+                            "Primary-key field '"
+                                    + field
+                                    + "' is null for the current row. "
+                                    + "Null primary-key values produce ambiguous"
+                                    + " document keys and must be rejected.");
+                }
+                String part = String.valueOf(value);
+                if (i > 0) {
+                    sb.append('#');
+                }
+                sb.append(part.length()).append(':').append(part);
+            }
+            return sb.toString();
         }
         return UUID.randomUUID().toString();
     }
