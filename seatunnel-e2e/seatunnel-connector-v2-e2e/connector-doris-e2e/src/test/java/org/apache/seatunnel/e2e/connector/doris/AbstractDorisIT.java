@@ -25,14 +25,20 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.ResultSet;
@@ -70,8 +76,6 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     private static final String DROP_BE = "ALTER SYSTEM DROPP BACKEND \"127.0.0.1:9050\"";
     private static final String ADD_BE = "ALTER SYSTEM ADD BACKEND \"%s:9050\"";
     protected static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    protected static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     @BeforeAll
     @Override
@@ -100,7 +104,9 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                     InstantiationException, IllegalAccessException {
         log.info("doris initializing ...");
         URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                new URLClassLoader(
+                        new URL[] {mysqlDriverJarPath().toUri().toURL()},
+                        DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();
@@ -119,6 +125,35 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 resultSet = statement.executeQuery(SHOW_BE);
             } while (!isBeReady(resultSet, Duration.ofSeconds(1L)));
         }
+    }
+
+    protected Path mysqlDriverJarPath() {
+        try {
+            return Paths.get(
+                    com.mysql.cj.jdbc.Driver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
+
+    protected void copyMySQLDriverToContainer(GenericContainer<?> container, String pluginLibDir)
+            throws IOException, InterruptedException {
+        Path driverJarPath = mysqlDriverJarPath();
+        Assertions.assertTrue(
+                Files.isRegularFile(driverJarPath),
+                "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                        + driverJarPath);
+        Container.ExecResult extraCommands =
+                container.execInContainer("bash", "-c", "mkdir -p " + pluginLibDir);
+        Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+        container.copyFileToContainer(
+                MountableFile.forHostPath(driverJarPath),
+                pluginLibDir + "/" + driverJarPath.getFileName());
     }
 
     // The Host of the official image [apache/doris:doris-all-in-one-2.1.0] BE is 127.0.0.1, causing
