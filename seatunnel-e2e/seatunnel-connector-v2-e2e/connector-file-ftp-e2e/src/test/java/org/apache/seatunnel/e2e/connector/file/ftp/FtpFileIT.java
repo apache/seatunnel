@@ -33,6 +33,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -76,6 +77,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "pass";
+
+    private static final String CONTINUOUS_DISCOVERY_RESOURCE = "ftp-continuous-discovery";
 
     private GenericContainer<?> ftpContainer;
 
@@ -262,6 +265,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
@@ -325,6 +329,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
@@ -377,6 +382,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
@@ -440,6 +446,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
@@ -486,6 +493,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},

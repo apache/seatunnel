@@ -583,7 +583,16 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 if (entry.getValue() == null || entry.getValue().isEmpty()) {
                     continue;
                 }
-                pendingOpsByCheckpoint.put(entry.getKey(), copyOperationStates(entry.getValue()));
+                List<FileSourceOperationState> restoredOperations =
+                        copyOperationStates(entry.getValue());
+                pendingOpsByCheckpoint.put(entry.getKey(), restoredOperations);
+                for (FileSourceOperationState operation : restoredOperations) {
+                    knownSplitVersions.put(
+                            operation.getSplitId(),
+                            new SplitVersion(
+                                    operation.getSourceLength(),
+                                    operation.getSourceModificationTime()));
+                }
             }
         }
     }
@@ -1268,8 +1277,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         String sourceFsIdentity = resolveFsIdentity(sourcePath, defaultFsIdentity);
         String backupFsIdentity = resolveFsIdentity(backupPath, defaultFsIdentity);
         if (Objects.equals(sourceFsIdentity, backupFsIdentity)) {
-            try {
-                HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf);
+            try (HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf)) {
                 String qualifiedSource = fs.makeQualifiedPath(sourcePath);
                 String qualifiedBackup = fs.makeQualifiedPath(backupPath);
                 if (isPathOverlappedQualified(qualifiedSource, qualifiedBackup)) {
@@ -1364,8 +1372,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "post_sync_action=delete|backup requires a non-empty path.");
         }
-        try {
-            HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf);
+        try (HadoopFileSystemProxy fs = new HadoopFileSystemProxy(hadoopConf)) {
             String qualified = fs.makeQualifiedPath(path);
             String pathComponent = new Path(qualified).toUri().getPath();
             if ("/".equals(pathComponent) || pathComponent.isEmpty()) {

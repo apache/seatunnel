@@ -23,6 +23,8 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -81,6 +83,9 @@ class HadoopFileSystemProxyTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason = "Hadoop local filesystem rename requires native Windows support")
     void testRenameMovesExistingSource() throws Exception {
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
         java.nio.file.Path source = tempDir.resolve("source.bin");

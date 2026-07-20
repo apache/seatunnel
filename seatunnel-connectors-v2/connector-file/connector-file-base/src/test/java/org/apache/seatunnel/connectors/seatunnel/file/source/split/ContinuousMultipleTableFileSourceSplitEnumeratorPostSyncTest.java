@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf.L
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
@@ -45,6 +47,9 @@ import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@DisabledOnOs(
+        value = OS.WINDOWS,
+        disabledReason = "Hadoop local filesystem path handling is not supported on Windows")
 class ContinuousMultipleTableFileSourceSplitEnumeratorPostSyncTest {
 
     private static final String TABLE_ID =

@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -613,6 +615,74 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             }
         } finally {
             enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testRestorePendingPostSyncOperationSuppressesRediscovery() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src13_restore_pending_operation"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst13_restore_pending_operation"));
+        Files.write(srcDir.resolve("test.bin"), "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext first =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            stageSinglePostSyncOperation(first, 1L);
+            FileSourceState checkpointState = first.enumerator.snapshotState(2L);
+
+            EnumeratorWithContext restored =
+                    createEnumerator(srcDir, dstDir, "earliest", checkpointState, extraConfig);
+            try {
+                restored.enumerator.scanOnceForTest();
+                Assertions.assertEquals(
+                        0,
+                        restored.enumerator.currentUnassignedSplitSize(),
+                        "restored post-sync operations must suppress re-discovery of the same source version");
+            } finally {
+                restored.enumerator.close();
+            }
+        } finally {
+            first.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncValidationClosesTemporaryFileSystems() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src13_validation_close"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst13_validation_close"));
+        Path backupDir = tempDir.resolve("backup13_validation_close");
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+
+        try (MockedConstruction<HadoopFileSystemProxy> mockedFileSystems =
+                Mockito.mockConstruction(
+                        HadoopFileSystemProxy.class,
+                        (mock, context) ->
+                                Mockito.when(mock.makeQualifiedPath(Mockito.anyString()))
+                                        .thenAnswer(invocation -> invocation.getArgument(0)))) {
+            EnumeratorWithContext enumeratorWithContext =
+                    createEnumerator(
+                            srcDir,
+                            dstDir,
+                            "earliest",
+                            new FileSourceState(Collections.emptySet()),
+                            extraConfig);
+            try {
+                List<HadoopFileSystemProxy> constructed = mockedFileSystems.constructed();
+                Assertions.assertTrue(constructed.size() >= 2);
+                Mockito.verify(constructed.get(0)).close();
+                Mockito.verify(constructed.get(1)).close();
+            } finally {
+                enumeratorWithContext.enumerator.close();
+            }
         }
     }
 

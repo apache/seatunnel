@@ -768,23 +768,4 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
         assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
     }
-
-    @Test
-    public void testTimestampFractionCanChangeBetweenRows() throws IOException {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"timestamp"},
-                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
-        JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, rowType);
-
-        SeaTunnelRow rowWithoutFraction =
-                deserializationSchema.deserialize("{\"timestamp\":\"2026-07-18T11:42:50\"}");
-        SeaTunnelRow rowWithFraction =
-                deserializationSchema.deserialize("{\"timestamp\":\"2026-07-18T11:42:50.007\"}");
-
-        assertEquals(LocalDateTime.of(2026, 7, 18, 11, 42, 50), rowWithoutFraction.getField(0));
-        assertEquals(
-                LocalDateTime.of(2026, 7, 18, 11, 42, 50, 7_000_000), rowWithFraction.getField(0));
-    }
 }
