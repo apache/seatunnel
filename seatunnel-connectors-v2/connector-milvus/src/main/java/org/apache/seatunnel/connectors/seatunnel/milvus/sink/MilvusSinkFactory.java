@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -52,12 +53,14 @@ public class MilvusSinkFactory implements TableSinkFactory {
                         MilvusSinkOptions.ENABLE_DYNAMIC_FIELD,
                         MilvusSinkOptions.ENABLE_NULLABLE_FIELD,
                         MilvusSinkOptions.ENABLE_AUTO_ID,
-                        MilvusSinkOptions.BATCH_SIZE,
                         MilvusSinkOptions.RATE_LIMIT,
                         MilvusSinkOptions.LOAD_COLLECTION,
                         MilvusSinkOptions.CREATE_INDEX,
                         MilvusSinkOptions.SCHEMA_SAVE_MODE,
                         MilvusSinkOptions.DATA_SAVE_MODE)
+                .optional(
+                        MilvusSinkOptions.BATCH_SIZE,
+                        Conditions.greaterThan(MilvusSinkOptions.BATCH_SIZE, 0))
                 .build();
     }
 
