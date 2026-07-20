@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -146,5 +147,20 @@ public class TableRenameTransformTest {
                 outputCatalogTable.get(0).getTableId().toTablePath().getFullName());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputRow.getTableId());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputEvent.tablePath().getFullName());
+    }
+
+    @Test
+    void testRestoreEventUsesRenamedTable() {
+        TableRenameConfig config = new TableRenameConfig().setPrefix("restored-");
+        TableRenameTransform transform = new TableRenameTransform(config, DEFAULT_TABLE);
+        CatalogTable producedTable = transform.getProducedCatalogTable();
+
+        RestoreTableSchemaEvent outputEvent =
+                (RestoreTableSchemaEvent)
+                        transform.mapSchemaChangeEvent(new RestoreTableSchemaEvent(DEFAULT_TABLE));
+
+        Assertions.assertEquals(
+                "Database-x.Schema-x.restored-Table-x", outputEvent.tablePath().getFullName());
+        Assertions.assertEquals(producedTable, outputEvent.getChangeAfter());
     }
 }

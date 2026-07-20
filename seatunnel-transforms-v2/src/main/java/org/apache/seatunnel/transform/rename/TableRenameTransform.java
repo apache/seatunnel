@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
@@ -118,6 +119,16 @@ public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
         }
         if (outputTablePath.equals(inputTablePath)) {
             return event;
+        }
+
+        if (event instanceof RestoreTableSchemaEvent) {
+            RestoreTableSchemaEvent sourceEvent = (RestoreTableSchemaEvent) event;
+            RestoreTableSchemaEvent restoreEvent =
+                    new RestoreTableSchemaEvent(getProducedCatalogTable());
+            restoreEvent.setJobId(sourceEvent.getJobId());
+            restoreEvent.setStatement(sourceEvent.getStatement());
+            restoreEvent.setSourceDialectName(sourceEvent.getSourceDialectName());
+            return restoreEvent;
         }
 
         if (event instanceof AlterTableColumnsEvent) {
