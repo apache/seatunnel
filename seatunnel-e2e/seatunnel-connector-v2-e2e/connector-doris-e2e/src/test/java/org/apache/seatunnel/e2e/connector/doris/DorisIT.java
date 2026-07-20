@@ -22,9 +22,12 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -53,6 +56,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -61,6 +67,7 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
+    private static final String TIMER_FLUSH_TABLE = "doris_timer_flush";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
     private Connection conn;
@@ -192,6 +199,47 @@ public class DorisIT extends AbstractDorisIT {
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
+    public void testDorisTimerFlush(TestContainer testContainer) {
+        initializeJdbcTable();
+        initializeTimerFlushTable();
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return testContainer.executeJob("/doris_timer_flush.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                jobFinished.set(true);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "The timer flush must be observed before the writer closes");
+                            Assertions.assertTrue(
+                                    tableCount(sinkDB, TIMER_FLUSH_TABLE) > 0,
+                                    "Timer flush should publish records before doris.batch.size is reached");
+                        });
+
+        Container.ExecResult result = jobFuture.join();
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        Assertions.assertEquals(20, tableCount(sinkDB, TIMER_FLUSH_TABLE));
     }
 
     @TestTemplate
@@ -377,6 +425,22 @@ public class DorisIT extends AbstractDorisIT {
             throw new RuntimeException("Failed to check data in Doris server", e);
         }
         return -1;
+    }
+
+    private void initializeTimerFlushTable() {
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS `%s`.`%s` ("
+                                + "id BIGINT NOT NULL, name STRING NULL) "
+                                + "DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                                + "PROPERTIES ('replication_num' = '1')",
+                        sinkDB, TIMER_FLUSH_TABLE);
+        try (Statement statement = conn.createStatement()) {
+            statement.execute(createTableSql);
+            statement.execute(String.format("TRUNCATE TABLE `%s`.`%s`", sinkDB, TIMER_FLUSH_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to initialize Doris timer flush table", e);
+        }
     }
 
     private void assertHasData(String db, String table) {
