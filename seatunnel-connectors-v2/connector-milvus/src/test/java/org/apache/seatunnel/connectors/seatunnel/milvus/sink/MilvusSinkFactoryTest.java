@@ -112,15 +112,13 @@ public class MilvusSinkFactoryTest {
     }
 
     @Test
-    void testPositiveBatchSizePassesOptionValidation() {
+    void testNonNegativeBatchSizePassesOptionValidation() {
         assertDoesNotThrow(() -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), 1)));
+        assertDoesNotThrow(() -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), 0)));
     }
 
     @Test
-    void testNonPositiveBatchSizeFailsOptionValidation() {
-        assertThrows(
-                OptionValidationException.class,
-                () -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), 0)));
+    void testNegativeBatchSizeFailsOptionValidation() {
         assertThrows(
                 OptionValidationException.class,
                 () -> validate(config(MilvusSinkOptions.BATCH_SIZE.key(), -1)));

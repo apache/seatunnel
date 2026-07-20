@@ -60,7 +60,7 @@ public class MilvusSinkFactory implements TableSinkFactory {
                         MilvusSinkOptions.DATA_SAVE_MODE)
                 .optional(
                         MilvusSinkOptions.BATCH_SIZE,
-                        Conditions.greaterThan(MilvusSinkOptions.BATCH_SIZE, 0))
+                        Conditions.greaterOrEqual(MilvusSinkOptions.BATCH_SIZE, 0))
                 .build();
     }
 
