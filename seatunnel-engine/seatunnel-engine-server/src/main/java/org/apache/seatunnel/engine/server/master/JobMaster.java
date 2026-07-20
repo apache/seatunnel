@@ -1276,7 +1276,8 @@ public class JobMaster {
                     try {
                         physicalPlan.savepointJob();
                         PassiveCompletableFuture<CheckpointCoordinatorState>[]
-                                passiveCompletableFutures = checkpointManager.triggerSavePoints();
+                                passiveCompletableFutures =
+                                        checkpointManager.triggerSavePointsAndWaitComplete();
                         savepointCompleted = waitSavepointCompleted(passiveCompletableFutures);
                         return savepointCompleted;
                     } finally {
