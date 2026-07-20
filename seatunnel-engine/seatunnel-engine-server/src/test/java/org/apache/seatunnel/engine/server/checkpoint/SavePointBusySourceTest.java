@@ -45,6 +45,10 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
     public static final String BUSY_STREAM_CONF_PATH =
             "stream_fakesource_busy_to_console_savepoint.conf";
 
+    /** A large user-configured FakeSource rows list that requires multiple pollNext calls. */
+    public static final String BUSY_CUSTOM_ROWS_STREAM_CONF_PATH =
+            "stream_fakesource_custom_rows_busy_to_console_savepoint.conf";
+
     /** A job whose savepoint deterministically times out at the sink. */
     public static final String SAVEPOINT_TIMEOUT_CONF_PATH =
             "stream_fake_to_inmemory_savepoint_timeout.conf";
@@ -93,6 +97,42 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
         savepointFuture.get(120, TimeUnit.SECONDS);
 
         // 4. all slots occupied by the job are released
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    @Test
+    public void testStopWithSavepointCompletesWhileSourceEmitsLargeCustomRows() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BUSY_CUSTOM_ROWS_STREAM_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        // This config exercises the user-provided `rows` branch of FakeSourceReader.
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.SAVEPOINT_DONE,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        savepointFuture.get(120, TimeUnit.SECONDS);
+
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->

@@ -116,11 +116,42 @@ public class FakeDataGenerator {
 
     /**
      * Whether this generator emits the user-configured rows ({@code rows} option) instead of
-     * randomly generated rows. When custom rows are configured, {@link #generateFakedRows(int,
-     * Consumer)} ignores the requested row count and emits all configured rows.
+     * randomly generated rows.
      */
     public boolean hasCustomRowData() {
         return fakeConfig.getFakeRows() != null;
+    }
+
+    public int getCustomRowCount() {
+        return fakeConfig.getFakeRows() == null ? 0 : fakeConfig.getFakeRows().size();
+    }
+
+    /**
+     * Generate a bounded slice of user-configured rows.
+     *
+     * @param startIndex first custom row index to emit
+     * @param rowNum maximum number of custom rows to emit
+     * @param consumer The generated data is sent to consumer
+     * @return The number of generated data row count
+     */
+    public long generateCustomRows(int startIndex, int rowNum, Consumer<SeaTunnelRow> consumer) {
+        if (fakeConfig.getFakeRows() == null) {
+            return 0;
+        }
+
+        SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
+        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        long rowCount = 0;
+        int safeStartIndex = Math.max(startIndex, 0);
+        int endIndex =
+                Math.min(fakeConfig.getFakeRows().size(), safeStartIndex + Math.max(rowNum, 0));
+        for (int i = safeStartIndex; i < endIndex; i++) {
+            FakeConfig.RowData rowData = fakeConfig.getFakeRows().get(i);
+            customField(rowData, fieldTypes, fieldNames);
+            consumer.accept(convertRow(rowData));
+            rowCount++;
+        }
+        return rowCount;
     }
 
     /**
@@ -132,13 +163,7 @@ public class FakeDataGenerator {
         // Use manual configuration data preferentially
         long rowCount = 0;
         if (fakeConfig.getFakeRows() != null) {
-            SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
-            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
-            for (FakeConfig.RowData rowData : fakeConfig.getFakeRows()) {
-                customField(rowData, fieldTypes, fieldNames);
-                consumer.accept(convertRow(rowData));
-                rowCount++;
-            }
+            rowCount = generateCustomRows(0, fakeConfig.getFakeRows().size(), consumer);
         } else {
             for (int i = 0; i < rowNum; i++) {
                 consumer.accept(randomRow());

@@ -38,11 +38,11 @@ import java.util.stream.Collectors;
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
     /**
-     * Upper bound on the number of randomly generated rows emitted per {@link #pollNext(Collector)}
-     * call. Rows are emitted while holding the checkpoint lock, so emitting an entire split in a
-     * single call keeps the lock held for the whole split. For large splits that starves
-     * checkpoint/savepoint barrier injection, which needs the same lock, and makes
-     * stop-with-savepoint hang in DOING_SAVEPOINT until the checkpoint times out.
+     * Upper bound on the number of rows emitted per {@link #pollNext(Collector)} call. Rows are
+     * emitted while holding the checkpoint lock, so emitting an entire split in a single call keeps
+     * the lock held for the whole split. For large splits that starves checkpoint/savepoint barrier
+     * injection, which needs the same lock, and makes stop-with-savepoint hang in DOING_SAVEPOINT
+     * until the checkpoint times out.
      */
     private static final int MAX_ROWS_PER_POLL = 4096;
 
@@ -103,15 +103,33 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             if (null != split) {
                 FakeDataGenerator fakeDataGenerator = fakeDataGeneratorMap.get(split.getTableId());
                 if (fakeDataGenerator.hasCustomRowData()) {
-                    // User-configured rows ignore the requested row count, emit in one batch
+                    int customRowStartIndex = decodeCustomRowStartIndex(split.getRowNum());
+                    int customRowCount = fakeDataGenerator.getCustomRowCount();
+                    int batchRowNum =
+                            Math.min(
+                                    Math.max(customRowCount - customRowStartIndex, 0),
+                                    MAX_ROWS_PER_POLL);
                     long rowCount =
-                            fakeDataGenerator.generateFakedRows(split.getRowNum(), output::collect);
-                    log.info(
-                            "{} rows of data have been generated in split({}) for table {}. Generation time: {}",
-                            rowCount,
-                            split.splitId(),
-                            split.getTableId(),
-                            latestTimestamp);
+                            fakeDataGenerator.generateCustomRows(
+                                    customRowStartIndex, batchRowNum, output::collect);
+                    int nextCustomRowStartIndex = customRowStartIndex + batchRowNum;
+                    if (nextCustomRowStartIndex < customRowCount) {
+                        // Store custom-row progress in the requeued split so a checkpoint or
+                        // savepoint taken between batches snapshots the not-yet-emitted rows.
+                        splits.addFirst(
+                                new FakeSourceSplit(
+                                        split.getTableId(),
+                                        split.getSplitId(),
+                                        encodeCustomRowStartIndex(nextCustomRowStartIndex)));
+                        splitInProgress = true;
+                    } else {
+                        log.info(
+                                "{} rows of custom data have been generated in the last batch of split({}) for table {}. Generation time: {}",
+                                rowCount,
+                                split.splitId(),
+                                split.getTableId(),
+                                latestTimestamp);
+                    }
                 } else {
                     // Randomly generated data are sent directly to the downstream operator.
                     // Emit at most MAX_ROWS_PER_POLL rows per call and requeue the remainder of
@@ -154,6 +172,14 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         if (!splitInProgress) {
             Thread.sleep(1000L);
         }
+    }
+
+    private static int encodeCustomRowStartIndex(int startIndex) {
+        return -startIndex - 1;
+    }
+
+    private static int decodeCustomRowStartIndex(int rowNum) {
+        return rowNum < 0 ? -rowNum - 1 : 0;
     }
 
     @Override
