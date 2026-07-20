@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.config;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -54,5 +55,15 @@ public final class ReservedColumns {
      */
     public static boolean isRawIdPassthrough(List<String> idFields) {
         return idFields != null && idFields.size() == 1 && isReserved(idFields.get(0));
+    }
+
+    /**
+     * Removes reserved column names from the collection in-place, so callers that build a property
+     * set from all row fields (e.g. mappers and validators) can strip the non-property passthrough
+     * columns with one call. Returns {@code fields} for fluent use.
+     */
+    public static <T extends Collection<String>> T stripReserved(T fields) {
+        fields.removeIf(ReservedColumns::isReserved);
+        return fields;
     }
 }

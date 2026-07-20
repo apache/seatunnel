@@ -17,18 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.mapper.GraphDataMapper;
 
 import org.apache.hugegraph.structure.GraphElement;
+import org.apache.hugegraph.structure.constant.Cardinality;
+import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
+import org.apache.hugegraph.structure.schema.PropertyKey;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -36,6 +46,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins the critical UPDATE invariant: buildUpdatePlan MUST NOT emit any Superseded (i.e. cause any
@@ -325,6 +338,87 @@ class HugeGraphSinkWriterUpdateTest {
     private static SeaTunnelRow row(String marker) {
         SeaTunnelRow r = new SeaTunnelRow(new Object[] {marker});
         return r;
+    }
+
+    // --- Checkpoint safety ---
+
+    @Test
+    void prepareCommitThrowsWhenUpdateBeforePending() throws IOException {
+        // If UPDATE_BEFORE arrived but its paired UPDATE_AFTER has not yet been processed,
+        // prepareCommit() must fail fast. Checkpointing mid-pair would lose the pending state
+        // (SinkWriter has no snapshotState()), corrupting the mutation on recovery.
+        HugeGraphSinkConfig config = singleMappingConfig();
+        HugeGraphClient client = stubbedClient();
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        HugeGraphSinkWriter writer = new HugeGraphSinkWriter(config, rowType, client, 0);
+
+        SeaTunnelRow before = new SeaTunnelRow(new Object[] {"old-name"});
+        before.setRowKind(RowKind.UPDATE_BEFORE);
+        writer.write(before);
+
+        HugeGraphConnectorException ex =
+                assertThrows(HugeGraphConnectorException.class, writer::prepareCommit);
+        assertTrue(
+                ex.getMessage().contains("UPDATE_BEFORE"),
+                "Error must mention UPDATE_BEFORE: " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("UPDATE_AFTER"),
+                "Error must mention UPDATE_AFTER: " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("checkpoint"),
+                "Error must reference checkpoint: " + ex.getMessage());
+    }
+
+    @Test
+    void prepareCommitSucceedsWhenUpdateBeforeIsConsumed() throws IOException {
+        // After UPDATE_AFTER arrives and handleUpdate consumes the pending UPDATE_BEFORE,
+        // prepareCommit() must succeed (no pending state).
+        HugeGraphSinkConfig config = singleMappingConfig();
+        HugeGraphClient client = stubbedClient();
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        HugeGraphSinkWriter writer = new HugeGraphSinkWriter(config, rowType, client, 0);
+
+        SeaTunnelRow before = new SeaTunnelRow(new Object[] {"old-name"});
+        before.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow after = new SeaTunnelRow(new Object[] {"new-name"});
+        after.setRowKind(RowKind.UPDATE_AFTER);
+        writer.write(before);
+        writer.write(after);
+
+        // After UPDATE_AFTER, pendingUpdateBefore is null. prepareCommit() should flush and
+        // succeed (buffer.flush() calls the mock client, which is stubbed for writes).
+        writer.prepareCommit();
+    }
+
+    // --- Helpers ---
+
+    private static HugeGraphSinkConfig singleMappingConfig() {
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel("person");
+        m.setIdStrategy(IdStrategy.PRIMARY_KEY);
+        m.setIdFields(Collections.singletonList("name"));
+        HugeGraphSinkConfig config = new HugeGraphSinkConfig();
+        config.setMappings(Collections.singletonList(m));
+        config.setBatchSize(100);
+        config.setBatchIntervalMs(0);
+        return config;
+    }
+
+    private static HugeGraphClient stubbedClient() {
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        when(client.getVertexLabelId(anyString())).thenReturn("1");
+        PropertyKey pk = mock(PropertyKey.class);
+        when(pk.dataType()).thenReturn(DataType.TEXT);
+        when(pk.cardinality()).thenReturn(Cardinality.SINGLE);
+        when(client.getPropertyKey(anyString())).thenReturn(pk);
+        return client;
     }
 
     private static class FakeMapper implements GraphDataMapper {

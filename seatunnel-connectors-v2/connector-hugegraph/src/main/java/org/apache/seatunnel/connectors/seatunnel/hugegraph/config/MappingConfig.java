@@ -37,6 +37,14 @@ public class MappingConfig implements Serializable {
     private LabelType type;
     private String label;
 
+    // Optional: binds this mapping to a specific input CatalogTable.
+    // When set, the mapping only activates in a writer whose tablePath.toString()
+    // matches (multi-table sink). When absent / empty, the mapping activates in
+    // every writer — backward compatible with single-table jobs where there is
+    // only one writer. The value should be the table path string as it appears
+    // in the source's produced CatalogTable (e.g. "hugegraph.person").
+    private String sourceTable;
+
     // Vertex-specific
     private IdStrategy idStrategy;
     private List<String> idFields;
@@ -143,6 +151,22 @@ public class MappingConfig implements Serializable {
 
     public Map<String, UpdateStrategy> getUpdateStrategies() {
         return updateStrategies == null ? Collections.emptyMap() : updateStrategies;
+    }
+
+    public String getSourceTable() {
+        return sourceTable == null ? "" : sourceTable;
+    }
+
+    /**
+     * Whether this mapping is applicable to a writer serving the given table path. A mapping
+     * without {@code sourceTable} applies to every writer (backward compatible); a mapping with
+     * {@code sourceTable} only applies when the table path matches.
+     */
+    public boolean appliesTo(String tablePath) {
+        if (sourceTable == null || sourceTable.isEmpty()) {
+            return true;
+        }
+        return sourceTable.equals(tablePath);
     }
 
     /** Converts a legacy SchemaConfig to the new unified MappingConfig. */

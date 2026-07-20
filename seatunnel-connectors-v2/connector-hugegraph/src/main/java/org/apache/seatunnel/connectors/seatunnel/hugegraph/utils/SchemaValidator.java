@@ -410,7 +410,9 @@ public final class SchemaValidator {
 
     /**
      * Resolves the set of target property names for validation. Only includes fields listed in
-     * mapping.properties (after fieldMapping transformation).
+     * mapping.properties (after fieldMapping transformation). Reserved columns (~id, ~label, ...)
+     * emitted by the HugeGraph Source are excluded — they are not HugeGraph property keys and must
+     * not be validated as such.
      */
     private Set<String> resolveTargetProperties(MappingConfig mapping) {
         Set<String> result = new HashSet<>();
@@ -426,6 +428,11 @@ public final class SchemaValidator {
                 removeIdFields(sourceFields, mapping.getTargetConfig());
             }
             sourceFields.removeAll(mapping.getIgnored());
+            // Reserved columns (~id, ~label, ~source_id, ~target_id, ~source_label, ~target_label)
+            // are emitted by the HugeGraph Source as routing/passthrough columns, not as
+            // HugeGraph property keys. VertexMapper.applyProperties skips them; the validator
+            // must do the same or it will fail trying to getPropertyKey("~id") from the server.
+            ReservedColumns.stripReserved(sourceFields);
         } else {
             sourceFields.addAll(mapping.getProperties());
         }

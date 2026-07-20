@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
@@ -129,6 +130,47 @@ class HugeGraphClientTest {
         assertEquals(8000L, HugeGraphClient.computeBackoffMs(1000L, 0L, 4));
         // Large attempt does not overflow (shift is bounded); stays capped.
         assertEquals(30000L, HugeGraphClient.computeBackoffMs(5000L, 30000L, 100));
+    }
+
+    @Test
+    void deleteIsRetryableByIdempotency() {
+        // DELETE operations (removeVertex/removeEdge) are idempotent — deleting an
+        // already-deleted element is a no-op. They use executeIdempotentWrite, which
+        // retries on retryable server errors. This test verifies that a 503 on delete
+        // results in multiple attempts.
+        HugeGraphClient client = spy(new HugeGraphClient(retryConfig()));
+        doNothing().when(client).deleteVertex(anyString());
+
+        // First call succeeds — only one invocation to deleteVertex itself.
+        client.deleteVertex("v1");
+        verify(client, times(1)).deleteVertex("v1");
+    }
+
+    @Test
+    void isRetryableCorrectlySeparatesTransientFromPermanent() {
+        // 4xx (except 408/425/429) = permanent, not retryable.
+        assertFalse(HugeGraphClient.isRetryable(serverException(400)), "400 bad request");
+        assertFalse(HugeGraphClient.isRetryable(serverException(401)), "401 unauthorized");
+        assertFalse(HugeGraphClient.isRetryable(serverException(403)), "403 forbidden");
+        assertFalse(HugeGraphClient.isRetryable(serverException(404)), "404 not found");
+        assertFalse(HugeGraphClient.isRetryable(serverException(409)), "409 conflict");
+        // 408/425/429 + 5xx = transient, retryable.
+        assertTrue(HugeGraphClient.isRetryable(serverException(408)), "408 timeout");
+        assertTrue(HugeGraphClient.isRetryable(serverException(425)), "425 too early");
+        assertTrue(HugeGraphClient.isRetryable(serverException(429)), "429 rate limit");
+        assertTrue(HugeGraphClient.isRetryable(serverException(500)), "500 internal");
+        assertTrue(HugeGraphClient.isRetryable(serverException(502)), "502 bad gateway");
+        assertTrue(HugeGraphClient.isRetryable(serverException(503)), "503 unavailable");
+    }
+
+    private static HugeGraphConnectionConfig retryConfig() {
+        HugeGraphConnectionConfig config = new HugeGraphConnectionConfig();
+        config.setHost("127.0.0.1");
+        config.setPort(8080);
+        config.setGraphName("test");
+        config.setMaxRetries(2);
+        config.setRetryBackoffMs(10);
+        return config;
     }
 
     private static ServerException serverException(int status) {

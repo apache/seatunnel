@@ -60,6 +60,16 @@ public class HugeGraphSinkOptions {
                             "When true, DELETE rows for vertices will cascade-delete associated edges. "
                                     + "Default false: only the vertex itself is deleted.");
 
+    public static final Option<Boolean> ALLOW_CASCADE_DELETE_UNMAPPED_EDGES =
+            Options.key("allow_cascade_delete_unmapped_edges")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "When data_save_mode is DROP_DATA, deleting vertices cascades to their "
+                                    + "incident edges — including edge labels not listed in this job's "
+                                    + "mappings. Default false: the job fails fast and lists the unmapped "
+                                    + "edge labels. Set to true to accept the destructive cascade.");
+
     // --- Legacy options (deprecated, kept for backward compatibility) ---
 
     public static final Option<SchemaConfig> SCHEMA_CONFIG =

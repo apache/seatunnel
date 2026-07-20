@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -352,5 +353,76 @@ class HugeGraphSinkConfigTest {
 
         assertEquals(1, sinkConfig.getMappings().size());
         assertEquals("new_label", sinkConfig.getMappings().get(0).getLabel());
+    }
+
+    // --- source_table ALL-or-NOTHING validation ---
+
+    @Test
+    void validateSourceTableConsistencyAllSetIsOk() {
+        assertDoesNotThrow(
+                () ->
+                        HugeGraphSinkConfig.validateSourceTableConsistency(
+                                Arrays.asList(
+                                        mappingWithSourceTable("person", "hugegraph.person"),
+                                        mappingWithSourceTable("company", "hugegraph.company"))));
+    }
+
+    @Test
+    void validateSourceTableConsistencyNoneSetIsOk() {
+        assertDoesNotThrow(
+                () ->
+                        HugeGraphSinkConfig.validateSourceTableConsistency(
+                                Arrays.asList(
+                                        mappingWithSourceTable("person", null),
+                                        mappingWithSourceTable("company", null))));
+    }
+
+    @Test
+    void validateSourceTableConsistencyMixedThrows() {
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSinkConfig.validateSourceTableConsistency(
+                                        Arrays.asList(
+                                                mappingWithSourceTable(
+                                                        "person", "hugegraph.person"),
+                                                mappingWithSourceTable("company", null))));
+        assertTrue(
+                ex.getMessage().contains("ALL-or-NOTHING"),
+                "Error must explain the ALL-or-NOTHING contract");
+        assertTrue(
+                ex.getMessage().contains("person"),
+                "Error must name the mapping(s) that set source_table");
+        assertTrue(
+                ex.getMessage().contains("company"),
+                "Error must name the mapping(s) missing source_table");
+    }
+
+    @Test
+    void validateSourceTableConsistencyEmptySourceTableTreatedAsUnset() {
+        // An empty string source_table is equivalent to unset — it must trigger the mixed error.
+        HugeGraphConnectorException ex =
+                assertThrows(
+                        HugeGraphConnectorException.class,
+                        () ->
+                                HugeGraphSinkConfig.validateSourceTableConsistency(
+                                        Arrays.asList(
+                                                mappingWithSourceTable(
+                                                        "person", "hugegraph.person"),
+                                                mappingWithSourceTable("company", ""))));
+        assertTrue(ex.getMessage().contains("ALL-or-NOTHING"));
+    }
+
+    private static MappingConfig mappingWithSourceTable(String label, String sourceTable) {
+        MappingConfig m = new MappingConfig();
+        m.setType(MappingConfig.LabelType.VERTEX);
+        m.setLabel(label);
+        m.setIdStrategy(org.apache.hugegraph.structure.constant.IdStrategy.PRIMARY_KEY);
+        m.setIdFields(Collections.singletonList("id"));
+        if (sourceTable != null) {
+            m.setSourceTable(sourceTable);
+        }
+        return m;
     }
 }

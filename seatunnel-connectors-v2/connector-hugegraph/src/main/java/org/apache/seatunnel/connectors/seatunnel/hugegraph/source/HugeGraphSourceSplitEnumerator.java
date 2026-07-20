@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -131,6 +132,25 @@ public class HugeGraphSourceSplitEnumerator
             return;
         }
         int parallelism = context.currentParallelism();
+
+        // Runtime guard: the factory-level checkFilterParallelism() reads the per-source
+        // 'parallelism' option, which does not see env { parallelism = N }. This runtime check
+        // catches the combination at the last safe point — before any shard splits are created
+        // — so filter + parallelism > 1 is guaranteed to fail fast.
+        Map<String, Object> filter = sourceConfig.getFilter();
+        boolean hasFilter = filter != null && !filter.isEmpty();
+        if (parallelism > 1 && hasFilter) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "HugeGraph source 'filter' cannot be combined with parallelism > 1 "
+                                    + "(runtime parallelism is %d): parallel reads use shard "
+                                    + "key-range scans that do not support server-side property "
+                                    + "filtering. Either set parallelism to 1 to keep the filter, "
+                                    + "or remove the filter to read in parallel.",
+                            parallelism));
+        }
+
         if (parallelism <= 1) {
             allSplits.add(
                     HugeGraphSourceSplit.labelListSplit("label-list", sourceConfig.getLabel()));

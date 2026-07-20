@@ -28,13 +28,17 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphDataS
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -49,6 +53,12 @@ class HugeGraphSaveModeHandlerTest {
     @Test
     void dropDataDeletesOnlyTargetLabelsEdgesBeforeVertices() {
         HugeGraphClient client = mock(HugeGraphClient.class);
+        // DROP_DATA pre-flight: for each vertex label, discover connected edge labels. Return only
+        // the edge labels already in the mappings so the check passes — the job explicitly targets
+        // everything that would be cascade-deleted.
+        doReturn(Collections.singletonList("knows")).when(client).getConnectedEdgeLabels("person");
+        doReturn(Collections.emptyList()).when(client).getConnectedEdgeLabels("company");
+
         HugeGraphSinkConfig config =
                 config(
                         HugeGraphDataSaveMode.DROP_DATA,
@@ -98,6 +108,61 @@ class HugeGraphSaveModeHandlerTest {
         verify(handler).handleSchemaSaveMode();
         verify(client, never()).deleteVerticesByLabel(anyString());
         verify(client, never()).deleteEdgesByLabel(anyString());
+    }
+
+    @Test
+    void dropDataRejectsUnmappedEdgeLabels() {
+        // Vertex 'person' has an incident edge 'employs' that is NOT in the mappings. DROP_DATA
+        // must fail fast rather than silently cascade-deleting it.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doReturn(Arrays.asList("knows", "employs")).when(client).getConnectedEdgeLabels("person");
+
+        HugeGraphSinkConfig config =
+                config(HugeGraphDataSaveMode.DROP_DATA, vertex("person"), edge("knows"));
+        HugeGraphSaveModeHandler handler = handler(config, client);
+
+        HugeGraphConnectorException ex =
+                assertThrows(HugeGraphConnectorException.class, handler::handleDataSaveMode);
+        assertTrue(
+                ex.getMessage().contains("employs"),
+                "Error must name the unmapped edge label: " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("allow_cascade_delete_unmapped_edges"),
+                "Error must mention the opt-in option: " + ex.getMessage());
+    }
+
+    @Test
+    void dropDataAllowsCascadeWhenOptedIn() {
+        // With allow_cascade_delete_unmapped_edges=true, the pre-flight check is skipped
+        // and DROP_DATA proceeds with the destructive cascade.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doReturn(Arrays.asList("knows", "employs")).when(client).getConnectedEdgeLabels("person");
+
+        HugeGraphSinkConfig config =
+                config(HugeGraphDataSaveMode.DROP_DATA, vertex("person"), edge("knows"));
+        config.setAllowCascadeDeleteUnmappedEdges(true);
+        HugeGraphSaveModeHandler handler = handler(config, client);
+
+        // Must not throw — the opt-in suppresses the pre-flight check.
+        handler.handleDataSaveMode();
+
+        verify(client).deleteEdgesByLabel("knows");
+        verify(client).deleteVerticesByLabel("person");
+    }
+
+    @Test
+    void dropDataVertexWithNoConnectedEdgesSucceeds() {
+        // A vertex label with no incident edges passes the pre-flight check trivially.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doReturn(Collections.emptyList()).when(client).getConnectedEdgeLabels("person");
+
+        HugeGraphSinkConfig config = config(HugeGraphDataSaveMode.DROP_DATA, vertex("person"));
+        HugeGraphSaveModeHandler handler = handler(config, client);
+
+        // Must not throw.
+        handler.handleDataSaveMode();
+
+        verify(client).deleteVerticesByLabel("person");
     }
 
     @Test

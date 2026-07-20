@@ -188,19 +188,60 @@ public final class HugeGraphClient implements HugeGraphOperations {
         return String.format("%s://%s:%d", protocol, config.getHost(), config.getPort());
     }
 
-    private void executeGraphOperation(GraphOperation operation) {
-        int totalAttempts = this.maxRetries + 1;
+    /**
+     * Executes a write operation that is safe to retry: UPSERT (updateVertices/updateEdges with
+     * createIfNotExist=true) and DELETE (removeVertex/removeEdge). Idempotent operations are
+     * retried on retryable errors because a second attempt cannot create duplicates.
+     */
+    private void executeIdempotentWrite(GraphOperation operation) {
+        executeGraphOperation(operation, true);
+    }
+
+    /**
+     * Executes a write operation that is NOT safe to retry: plain INSERT (addVertex/addVertices/
+     * addEdge/addEdges). A retry after a server-committed-but-client-timed-out response would
+     * create a duplicate element. Non-idempotent writes fail fast — the caller's single-record
+     * fallback handles them individually instead.
+     */
+    private void executeNonIdempotentWrite(GraphOperation operation) {
+        try {
+            ensureClientInitialized();
+            operation.execute(this.client.graph());
+        } catch (ServerException | ClientException e) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    "Non-idempotent write failed (not retried to avoid duplicates): "
+                            + e.getMessage(),
+                    e);
+        }
+    }
+
+    /**
+     * Executes a graph write with optional retry. When {@code idempotent} is true, retryable server
+     * errors (status &ge; 500, 408, 425, 429) are retried up to {@code maxRetries} times with
+     * exponential backoff. When false, the operation is attempted once — if it fails the exception
+     * propagates immediately so the caller can route through the single-record fallback or skip the
+     * record.
+     */
+    private void executeGraphOperation(GraphOperation operation, boolean idempotent) {
+        int totalAttempts = idempotent ? this.maxRetries + 1 : 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
                 ensureClientInitialized();
                 operation.execute(this.client.graph());
                 return;
             } catch (ServerException | ClientException e) {
-                if (!isRetryable(e)) {
-                    LOG.error("Server rejected the request (non-retryable): {}", e.getMessage());
+                if (!isRetryable(e) || !idempotent) {
+                    LOG.error(
+                            "Server rejected the request ({}): {}",
+                            idempotent ? "non-retryable" : "non-idempotent, not retrying",
+                            e.getMessage());
                     throw new HugeGraphConnectorException(
                             HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                            "Server rejected the request (non-retryable): " + e.getMessage(),
+                            "Server rejected the request"
+                                    + (idempotent ? " (non-retryable)" : " (non-idempotent)")
+                                    + ": "
+                                    + e.getMessage(),
                             e);
                 }
                 LOG.warn(
@@ -226,6 +267,9 @@ public final class HugeGraphClient implements HugeGraphOperations {
                 if (!HugeGraphConnectorErrorCode.BUILD_CLIENT_FAILED
                         .getCode()
                         .equals(e.getSeaTunnelErrorCode().getCode())) {
+                    throw e;
+                }
+                if (!idempotent) {
                     throw e;
                 }
                 reconnect();
@@ -628,23 +672,29 @@ public final class HugeGraphClient implements HugeGraphOperations {
 
     // --- Graph write operations ---
 
+    /**
+     * Plain vertex insert — NOT idempotent. A retry after a server-committed-but-client-timed-out
+     * response would create a duplicate. Fails fast on the first error; the caller's single-record
+     * fallback handles the record individually instead.
+     */
     public void writeVertex(Vertex vertex) {
-        executeGraphOperation(graph -> graph.addVertex(vertex));
+        executeNonIdempotentWrite(graph -> graph.addVertex(vertex));
     }
 
+    /** Plain edge insert — NOT idempotent. See {@link #writeVertex}. */
     public void writeEdge(Edge edge, boolean checkVertex) {
         // Route through addEdges so the single-insert path honors checkVertex the same way the
         // batch path does (GraphManager.addEdge has no checkVertex overload).
-        executeGraphOperation(
+        executeNonIdempotentWrite(
                 graph -> graph.addEdges(Collections.singletonList(edge), checkVertex));
     }
 
-    /** Single-vertex property-merge upsert; see {@link #batchUpdateVertices}. */
+    /** Single-vertex property-merge upsert; idempotent — see {@link #batchUpdateVertices}. */
     public void updateVertex(Vertex vertex, Map<String, UpdateStrategy> updateStrategies) {
         batchUpdateVertices(Collections.singletonList(vertex), updateStrategies);
     }
 
-    /** Single-edge property-merge upsert; see {@link #batchUpdateEdges}. */
+    /** Single-edge property-merge upsert; idempotent — see {@link #batchUpdateEdges}. */
     public void updateEdge(
             Edge edge, Map<String, UpdateStrategy> updateStrategies, boolean checkVertex) {
         batchUpdateEdges(Collections.singletonList(edge), updateStrategies, checkVertex);
@@ -653,7 +703,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
     /**
      * Upserts vertices with per-property merge strategies (OVERRIDE / APPEND / SUM / UNION / ...)
      * instead of overwriting. Existing vertices are merged; missing ones are created
-     * (createIfNotExist). Chunked like {@link #batchWriteVertices}.
+     * (createIfNotExist). Idempotent — safe to retry. Chunked like {@link #batchWriteVertices}.
      */
     public void batchUpdateVertices(
             List<Vertex> buffer, Map<String, UpdateStrategy> updateStrategies) {
@@ -667,11 +717,14 @@ public final class HugeGraphClient implements HugeGraphOperations {
                             .updatingStrategies(updateStrategies)
                             .createIfNotExist(true)
                             .build();
-            executeGraphOperation(graph -> graph.updateVertices(request));
+            executeIdempotentWrite(graph -> graph.updateVertices(request));
         }
     }
 
-    /** Upserts edges with per-property merge strategies. See {@link #batchUpdateVertices}. */
+    /**
+     * Upserts edges with per-property merge strategies. Idempotent. See {@link
+     * #batchUpdateVertices}.
+     */
     public void batchUpdateEdges(
             List<Edge> buffer, Map<String, UpdateStrategy> updateStrategies, boolean checkVertex) {
         for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
@@ -685,7 +738,7 @@ public final class HugeGraphClient implements HugeGraphOperations {
                             .checkVertex(checkVertex)
                             .createIfNotExist(true)
                             .build();
-            executeGraphOperation(graph -> graph.updateEdges(request));
+            executeIdempotentWrite(graph -> graph.updateEdges(request));
         }
     }
 
@@ -694,27 +747,31 @@ public final class HugeGraphClient implements HugeGraphOperations {
      * server rejects batch requests above its per-request cap (default 500, see server option
      * batch.max_vertices_per_batch), so a user-configured batch_size larger than the cap is split
      * client-side instead of failing wholesale.
+     *
+     * <p>NOT idempotent — a retry after a server-committed-but-client-timed-out response would
+     * create duplicates. Fails fast; the caller's single-record fallback handles each record.
      */
     public void batchWriteVertices(List<Vertex> buffer) {
         for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
             List<Vertex> chunk =
                     buffer.subList(
                             start, Math.min(start + MAX_RECORDS_PER_BATCH_REQUEST, buffer.size()));
-            executeGraphOperation(graph -> graph.addVertices(chunk));
+            executeNonIdempotentWrite(graph -> graph.addVertices(chunk));
         }
     }
 
     /**
-     * Writes edges in server-cap-sized chunks. See {@link #batchWriteVertices}. When {@code
-     * checkVertex} is true the server verifies that each edge's source/target vertices exist,
-     * rejecting orphan edges instead of silently writing them or auto-creating phantom vertices.
+     * Writes edges in server-cap-sized chunks. NOT idempotent. See {@link #batchWriteVertices} and
+     * {@link #batchWriteEdges}. When {@code checkVertex} is true the server verifies that each
+     * edge's source/target vertices exist, rejecting orphan edges instead of silently writing them
+     * or auto-creating phantom vertices.
      */
     public void batchWriteEdges(List<Edge> buffer, boolean checkVertex) {
         for (int start = 0; start < buffer.size(); start += MAX_RECORDS_PER_BATCH_REQUEST) {
             List<Edge> chunk =
                     buffer.subList(
                             start, Math.min(start + MAX_RECORDS_PER_BATCH_REQUEST, buffer.size()));
-            executeGraphOperation(graph -> graph.addEdges(chunk, checkVertex));
+            executeNonIdempotentWrite(graph -> graph.addEdges(chunk, checkVertex));
         }
     }
 
@@ -824,22 +881,44 @@ public final class HugeGraphClient implements HugeGraphOperations {
 
     // --- Graph delete operations ---
 
+    /** Delete vertex by id — idempotent (removing an already-deleted vertex is a no-op). */
     public void deleteVertex(Object vertexId) {
-        executeGraphOperation(graph -> graph.removeVertex(vertexId));
+        executeIdempotentWrite(graph -> graph.removeVertex(vertexId));
     }
 
+    /** Delete edge by id — idempotent. */
     public void deleteEdge(String edgeId) {
-        executeGraphOperation(graph -> graph.removeEdge(edgeId));
+        executeIdempotentWrite(graph -> graph.removeEdge(edgeId));
     }
 
+    /** Delete vertex with its incident edges — idempotent. */
     public void deleteVertexWithEdges(Object vertexId) {
-        executeGraphOperation(
+        executeIdempotentWrite(
                 graph -> {
                     List<Edge> edges = graph.getEdges(vertexId);
                     for (Edge edge : edges) {
                         graph.removeEdge(edge.id());
                     }
                     graph.removeVertex(vertexId);
+                });
+    }
+
+    /**
+     * Returns the names of every edge label whose source or target endpoint is {@code vertexLabel}.
+     * These are the edge labels that would be cascade-deleted if every vertex of {@code
+     * vertexLabel} is removed — used by the DROP_DATA pre-flight safety check.
+     */
+    public List<String> getConnectedEdgeLabels(String vertexLabel) {
+        return executeReadOperation(
+                () -> {
+                    List<String> connected = new ArrayList<>();
+                    for (EdgeLabel edgeLabel : getSchema().getEdgeLabels()) {
+                        if (vertexLabel.equals(edgeLabel.sourceLabel())
+                                || vertexLabel.equals(edgeLabel.targetLabel())) {
+                            connected.add(edgeLabel.name());
+                        }
+                    }
+                    return connected;
                 });
     }
 

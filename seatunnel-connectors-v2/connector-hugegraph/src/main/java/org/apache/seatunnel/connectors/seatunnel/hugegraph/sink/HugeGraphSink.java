@@ -37,11 +37,13 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final HugeGraphSinkConfig config;
     private final CatalogTable catalogTable;
     private final SeaTunnelRowType rowType;
+    private final String tablePath;
 
     public HugeGraphSink(HugeGraphSinkConfig config, CatalogTable catalogTable) {
         this.config = config;
         this.catalogTable = catalogTable;
         this.rowType = catalogTable.getSeaTunnelRowType();
+        this.tablePath = catalogTable.getTablePath().toString();
 
         this.config.applyLegacyFieldSelection(rowType);
     }
@@ -66,7 +68,7 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public HugeGraphSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HugeGraphSinkWriter(config, rowType, context.getIndexOfSubtask());
+        return new HugeGraphSinkWriter(config, rowType, tablePath, context.getIndexOfSubtask());
     }
 
     @Override

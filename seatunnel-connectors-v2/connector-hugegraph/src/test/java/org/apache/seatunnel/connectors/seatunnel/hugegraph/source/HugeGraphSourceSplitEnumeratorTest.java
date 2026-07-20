@@ -194,6 +194,66 @@ class HugeGraphSourceSplitEnumeratorTest {
         };
     }
 
+    @Test
+    void filterWithRuntimeParallelismGreaterThanOneFailsFast() {
+        // The factory-level checkFilterParallelism() reads only the per-source 'parallelism'
+        // option. The real runtime parallelism comes from env { parallelism = N } and is only
+        // visible to the enumerator via context.currentParallelism(). This test pins the
+        // runtime guard: when the enumerator sees parallelism > 1 AND a filter is configured,
+        // it must throw before creating any shard splits — otherwise shard scans silently
+        // ignore the filter.
+        HugeGraphSourceConfig filterConfig = configWithFilter();
+        CapturingContext context = new CapturingContext(2); // runtime parallelism=2
+
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(context, filterConfig, 1024L, null, () -> null);
+
+        HugeGraphConnectorException ex =
+                assertThrows(HugeGraphConnectorException.class, enumerator::open);
+        assertTrue(
+                ex.getMessage().contains("filter"),
+                "Error must mention 'filter': " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("parallelism"),
+                "Error must mention 'parallelism': " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("2"),
+                "Error must include the actual runtime parallelism: " + ex.getMessage());
+    }
+
+    @Test
+    void filterWithRuntimeParallelismOneIsAllowed() {
+        // Runtime parallelism 1 + filter is the supported label-list path with server-side
+        // filtering. The enumerator must NOT throw.
+        HugeGraphSourceConfig filterConfig = configWithFilter();
+        CapturingContext context = new CapturingContext(1);
+
+        HugeGraphSourceSplitEnumerator enumerator =
+                new HugeGraphSourceSplitEnumerator(
+                        context, filterConfig, 1024L, null, () -> new FakeClient());
+
+        // Must not throw — filter + parallelism=1 is valid.
+        enumerator.open();
+        enumerator.run();
+
+        List<HugeGraphSourceSplit> assigned = context.assignedTo(0);
+        assertEquals(1, assigned.size());
+        assertFalse(assigned.get(0).isShardMode(), "parallelism=1 should create label-list split");
+    }
+
+    private HugeGraphSourceConfig configWithFilter() {
+        HugeGraphSourceConfig config = new HugeGraphSourceConfig();
+        config.setLabel("person");
+        config.setLabelType(MappingConfig.LabelType.VERTEX);
+        config.setSchema(
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE}));
+        config.setPageSize(100);
+        config.setSplitSize(1024L);
+        config.setFilter(Collections.singletonMap("status", "active"));
+        return config;
+    }
+
     private HugeGraphSourceConfig config() {
         HugeGraphSourceConfig config = new HugeGraphSourceConfig();
         config.setLabel("person");

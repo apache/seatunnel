@@ -76,7 +76,7 @@ public class VertexMapper implements GraphDataMapper {
             // Drop reserved columns emitted by HugeGraph Source (~id, ~label, ...) — they are not
             // valid HugeGraph property key names, so an implicit Source→Sink round-trip would
             // otherwise attempt to create them on the server.
-            fields.removeIf(f -> f != null && f.startsWith("~"));
+            ReservedColumns.stripReserved(fields);
             // `ignored` blacklist only applies in implicit mode (an explicit `properties`
             // whitelist already lists exactly what to keep).
             fields.removeAll(mappingConfig.getIgnored());

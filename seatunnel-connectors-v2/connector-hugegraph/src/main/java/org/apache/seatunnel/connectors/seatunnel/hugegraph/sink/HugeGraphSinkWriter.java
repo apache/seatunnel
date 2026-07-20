@@ -60,28 +60,39 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final List<MappingEntry> mappingEntries;
     private final HugeGraphClient client;
     private final BatchBuffer buffer;
+    private final String tablePath;
 
-    // Holds the UPDATE_BEFORE row until its paired UPDATE_AFTER arrives (changelog delivers them
-    // consecutively). Not checkpointed: on restart the source replays both rows, so at-least-once
-    // is preserved.
+    // Holds the UPDATE_BEFORE row until its paired UPDATE_AFTER arrives (changelog streams
+    // deliver them consecutively). This field is NOT checkpointable — the SeaTunnel SinkWriter
+    // interface has no snapshotState(). If a checkpoint fires between UPDATE_BEFORE and
+    // UPDATE_AFTER, prepareCommit() fails fast rather than risking a partially-applied mutation.
     private SeaTunnelRow pendingUpdateBefore;
 
     public HugeGraphSinkWriter(HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType) {
-        this(sinkConfig, rowType, 0);
+        this(sinkConfig, rowType, "", 0);
     }
 
     public HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, int subtaskIndex) {
+        this(sinkConfig, rowType, "", subtaskIndex);
+    }
+
+    public HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            String tablePath,
+            int subtaskIndex) {
         this(
                 sinkConfig,
                 rowType,
+                tablePath,
                 new HugeGraphClient(sinkConfig.getConnectionConfig()),
                 subtaskIndex);
     }
 
     HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, HugeGraphClient client) {
-        this(sinkConfig, rowType, client, 0);
+        this(sinkConfig, rowType, "", client, 0);
     }
 
     HugeGraphSinkWriter(
@@ -89,7 +100,17 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType rowType,
             HugeGraphClient client,
             int subtaskIndex) {
+        this(sinkConfig, rowType, "", client, subtaskIndex);
+    }
+
+    HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            String tablePath,
+            HugeGraphClient client,
+            int subtaskIndex) {
         this.sinkConfig = sinkConfig;
+        this.tablePath = tablePath;
         this.sinkConfig.applyLegacyFieldSelection(rowType);
         this.client = client;
         try {
@@ -130,6 +151,19 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
         List<MappingEntry> entries = new ArrayList<>();
         for (MappingConfig mapping : sinkConfig.getMappings()) {
+            // Multi-table binding: when a mapping declares source_table, only activate it in the
+            // writer whose tablePath matches. A mapping without source_table activates in every
+            // writer — the single-table backward-compatible default.
+            if (!mapping.appliesTo(tablePath)) {
+                LOG.info(
+                        "Mapping[{}/{}] source_table '{}' does not match writer table '{}'; "
+                                + "skipping in this writer.",
+                        mapping.getType(),
+                        mapping.getLabel(),
+                        mapping.getSourceTable(),
+                        tablePath);
+                continue;
+            }
             Map<String, Integer> fieldsIndex = resolveFieldsIndex(mapping, availableFieldsIndex);
             GraphDataMapper mapper;
             if (mapping.getType() == LabelType.VERTEX) {
@@ -151,6 +185,45 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 mapper = new EdgeMapper(mapping, fieldsIndex, client);
             }
             entries.add(new MappingEntry(mapping, mapper));
+        }
+
+        if (entries.isEmpty()) {
+            // Multi-table mode: at least one mapping has source_table, but none matched this
+            // writer's tablePath. This is a configuration error — the user intended multi-table
+            // but the table path strings don't align. Fail fast with a diagnostic that shows
+            // both sides so the user can reconcile them.
+            boolean multiTable =
+                    sinkConfig.getMappings().stream()
+                            .anyMatch(
+                                    m ->
+                                            m.getSourceTable() != null
+                                                    && !m.getSourceTable().isEmpty());
+            if (multiTable) {
+                List<String> configuredTables =
+                        sinkConfig.getMappings().stream()
+                                .map(MappingConfig::getSourceTable)
+                                .filter(t -> t != null && !t.isEmpty())
+                                .distinct()
+                                .collect(Collectors.toList());
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        String.format(
+                                "No mapping matched writer table '%s'. The configured "
+                                        + "source_table value(s) are %s. Verify that each "
+                                        + "source_table matches the CatalogTable.getTablePath() "
+                                        + "produced by the upstream Source (in read-all mode this "
+                                        + "is the HugeGraph label name).",
+                                tablePath, configuredTables));
+            }
+
+            // Single-table mode (no source_table set on any mapping): no entries means the
+            // row type carries no fields the mappings can use. This is unusual but not
+            // necessarily a config error — a downstream project may legitimately sink only a
+            // subset of fields. Log and continue as a no-op.
+            LOG.warn(
+                    "No mappings matched table '{}' in this writer. The writer will be a no-op: "
+                            + "rows are acknowledged without writing to HugeGraph.",
+                    tablePath);
         }
         return entries;
     }
@@ -442,6 +515,12 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
         // Persist the new elements before issuing deletes. If flush fails, no delete happens, so
         // pre-update elements stay intact and the source will replay the row.
+        // NOTE: HugeGraph server DDL is non-transactional across a flush+delete pair, so a crash
+        // between the two leaves partial state; this is an inherent limitation of the REST API
+        // and is handled by at-least-once replay from the upstream source. The SinkWriter
+        // interface has no snapshotState(), so the connector cannot checkpoint the in-flight
+        // mutation. prepareCommit() guards against a pending UPDATE_BEFORE crossing a checkpoint
+        // boundary by failing fast.
         try {
             buffer.flush();
         } catch (IOException e) {
@@ -585,6 +664,14 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private void handleDelete(SeaTunnelRow row) {
         rejectUnfoldForChangelog("DELETE");
         rejectAutomaticVertexDelete(mappingEntries);
+
+        // Phase 1: build deletion plan — validate ALL mappings before touching the server.
+        // Any failure here (null id, missing field) aborts with zero side effects.
+        DeletePlan deletePlan = buildDeletePlan(row);
+
+        // Phase 2: execute the plan atomically — flush pending inserts first, then execute all
+        // deletions. The flush ensures earlier INSERT/UPSERT rows are persisted before their
+        // elements are deleted (a DELETE arriving immediately after its own INSERT).
         try {
             buffer.flush();
         } catch (IOException e) {
@@ -594,68 +681,109 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                     e);
         }
 
-        List<MappingEntry> edgeEntries = new ArrayList<>();
-        List<MappingEntry> vertexEntries = new ArrayList<>();
+        executeDeletePlan(deletePlan);
+    }
+
+    /**
+     * Validates every mapping's ability to extract a delete ID from the row WITHOUT issuing any
+     * remote operation. Returns the validated plan — if this method returns, every ID is valid and
+     * the caller can safely execute them.
+     */
+    static DeletePlan buildDeletePlan(
+            List<MappingEntry> mappingEntries, SeaTunnelRow row, HugeGraphSinkConfig sinkConfig) {
+        List<DeleteTarget> edgeTargets = new ArrayList<>();
+        List<DeleteTarget> vertexTargets = new ArrayList<>();
+
         for (MappingEntry entry : mappingEntries) {
+            Object id = entry.mapper.extractId(row);
+            if (id == null) {
+                throw new HugeGraphConnectorException(
+                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                        String.format(
+                                "Mapping[%s/%s]: Cannot delete because a required ID field is null "
+                                        + "or matches nullValues",
+                                entry.config.getType(), entry.config.getLabel()));
+            }
             if (entry.config.getType() == LabelType.VERTEX) {
-                vertexEntries.add(entry);
+                vertexTargets.add(
+                        new DeleteTarget(entry, id, sinkConfig.isDeleteVertexWithEdges()));
             } else {
-                edgeEntries.add(entry);
+                edgeTargets.add(new DeleteTarget(entry, id, false));
             }
         }
 
-        for (MappingEntry entry : edgeEntries) {
-            try {
-                Object id = entry.mapper.extractId(row);
-                if (id == null) {
-                    throw new HugeGraphConnectorException(
-                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                            String.format(
-                                    "Mapping[%s/%s]: Cannot delete because a required ID field is null or matches nullValues",
-                                    entry.config.getType(), entry.config.getLabel()));
-                }
-                client.deleteEdge((String) id);
-            } catch (Exception e) {
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                        String.format(
-                                "Mapping[%s/%s]: Failed to delete graph element",
-                                entry.config.getType(), entry.config.getLabel()),
-                        e);
+        return new DeletePlan(edgeTargets, vertexTargets);
+    }
+
+    private DeletePlan buildDeletePlan(SeaTunnelRow row) {
+        return buildDeletePlan(mappingEntries, row, sinkConfig);
+    }
+
+    private void executeDeletePlan(DeletePlan plan) {
+        // Edges before vertices for topology safety.
+        for (DeleteTarget target : plan.edgeTargets) {
+            client.deleteEdge((String) target.id);
+        }
+        for (DeleteTarget target : plan.vertexTargets) {
+            if (target.deleteWithEdges) {
+                client.deleteVertexWithEdges(target.id);
+            } else {
+                client.deleteVertex(target.id);
             }
         }
+    }
 
-        for (MappingEntry entry : vertexEntries) {
-            try {
-                Object id = entry.mapper.extractId(row);
-                if (id == null) {
-                    throw new HugeGraphConnectorException(
-                            HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                            String.format(
-                                    "Mapping[%s/%s]: Cannot delete because a required ID field is null or matches nullValues",
-                                    entry.config.getType(), entry.config.getLabel()));
-                }
-                if (sinkConfig.isDeleteVertexWithEdges()) {
-                    client.deleteVertexWithEdges(id);
-                } else {
-                    client.deleteVertex(id);
-                }
-            } catch (Exception e) {
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
-                        String.format(
-                                "Mapping[%s/%s]: Failed to delete graph element",
-                                entry.config.getType(), entry.config.getLabel()),
-                        e);
-            }
+    static final class DeletePlan {
+        final List<DeleteTarget> edgeTargets;
+        final List<DeleteTarget> vertexTargets;
+
+        DeletePlan(List<DeleteTarget> edgeTargets, List<DeleteTarget> vertexTargets) {
+            this.edgeTargets = edgeTargets;
+            this.vertexTargets = vertexTargets;
+        }
+    }
+
+    static final class DeleteTarget {
+        final MappingEntry entry;
+        final Object id;
+        final boolean deleteWithEdges;
+
+        DeleteTarget(MappingEntry entry, Object id, boolean deleteWithEdges) {
+            this.entry = entry;
+            this.id = id;
+            this.deleteWithEdges = deleteWithEdges;
         }
     }
 
     @Override
     public Optional<Void> prepareCommit() {
+        // The SeaTunnel SinkWriter interface has no snapshotState() — the framework
+        // provides no mechanism for a sink writer to persist in-flight state across a
+        // checkpoint. A pending UPDATE_BEFORE means an update was split across the
+        // checkpoint boundary: UPDATE_BEFORE arrived but its paired UPDATE_AFTER has
+        // not yet been processed. On recovery the source replays from its own
+        // checkpoint, which may or may not include both rows, so the mutation could be
+        // partially applied (UPDATE_BEFORE replayed without its AFTER, or vice versa).
+        //
+        // Refuse to checkpoint in this state. Check BEFORE the flush try-catch so the
+        // exception propagates directly rather than being wrapped as a flush failure.
+        if (pendingUpdateBefore != null) {
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.GRAPH_OPERATION_FAILED,
+                    "Checkpoint requested between UPDATE_BEFORE and UPDATE_AFTER: "
+                            + "UPDATE_BEFORE received but its paired UPDATE_AFTER has "
+                            + "not yet arrived. The SeaTunnel SinkWriter interface does "
+                            + "not support persisting in-flight mutation state across "
+                            + "checkpoints. UPDATE_BEFORE and UPDATE_AFTER must arrive "
+                            + "within the same checkpoint interval. "
+                            + "Mitigations: (1) increase the checkpoint interval, "
+                            + "(2) use INSERT-only mode if the source does not emit "
+                            + "changelog events.");
+        }
+
         try {
             buffer.flush();
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.error("Failed to flush data during prepareCommit, failing checkpoint.", e);
             throw new RuntimeException("Failed to flush data during prepareCommit()", e);
         }
@@ -693,6 +821,11 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (failure != null) {
             throw new IOException("Failed to close HugeGraph sink writer", failure);
         }
+    }
+
+    /** Package-private test accessor. */
+    List<MappingEntry> mappingEntries() {
+        return mappingEntries;
     }
 
     static class MappingEntry {

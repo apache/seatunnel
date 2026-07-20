@@ -61,7 +61,8 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                 .optional(
                         HugeGraphSinkOptions.SCHEMA_SAVE_MODE,
                         HugeGraphSinkOptions.DATA_SAVE_MODE,
-                        HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES)
+                        HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES,
+                        HugeGraphSinkOptions.ALLOW_CASCADE_DELETE_UNMAPPED_EDGES)
                 // batch config
                 .optional(
                         HugeGraphOptions.BATCH_SIZE,

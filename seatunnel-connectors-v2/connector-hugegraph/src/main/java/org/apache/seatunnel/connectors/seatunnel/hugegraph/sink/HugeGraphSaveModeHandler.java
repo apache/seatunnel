@@ -29,10 +29,14 @@ import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphDataS
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.SchemaManager;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.utils.SchemaValidator;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Handles HugeGraph schema and data save modes on the coordinator, once per job, via the engine's
@@ -110,6 +114,11 @@ public class HugeGraphSaveModeHandler implements SaveModeHandler {
      * edge-only mappings are handled even when their endpoints are out of scope), then vertices
      * (removing a vertex also removes its remaining incident edges). Schema is preserved.
      * APPEND_DATA is a no-op.
+     *
+     * <p>Before deleting vertices, a pre-flight check discovers every edge label that references a
+     * target vertex label. If any of those edge labels are NOT in this job's mappings, the job
+     * fails fast — deleting the vertices would cascade-delete those edges silently. Set {@code
+     * allow_cascade_delete_unmapped_edges=true} to opt into the destructive cascade.
      */
     @Override
     public void handleDataSaveMode() {
@@ -117,6 +126,41 @@ public class HugeGraphSaveModeHandler implements SaveModeHandler {
             return;
         }
         List<MappingConfig> mappings = config.getMappings();
+
+        // Collect the set of edge labels this job explicitly targets.
+        Set<String> mappedEdgeLabels = new HashSet<>();
+        Set<String> mappedVertexLabels = new HashSet<>();
+        for (MappingConfig mapping : mappings) {
+            if (mapping.getType() == MappingConfig.LabelType.EDGE) {
+                mappedEdgeLabels.add(mapping.getLabel());
+            } else {
+                mappedVertexLabels.add(mapping.getLabel());
+            }
+        }
+
+        // Pre-flight: for each vertex label being dropped, discover edge labels that would be
+        // cascade-deleted. If any are not in this job's mappings, fail fast — unless the user
+        // has explicitly opted into the destructive cascade.
+        if (!config.isAllowCascadeDeleteUnmappedEdges()) {
+            for (String vertexLabel : mappedVertexLabels) {
+                List<String> connected = client.getConnectedEdgeLabels(vertexLabel);
+                for (String edgeLabel : connected) {
+                    if (!mappedEdgeLabels.contains(edgeLabel)) {
+                        throw new HugeGraphConnectorException(
+                                HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                                String.format(
+                                        "DROP_DATA would cascade-delete edge label '%s' (connected to "
+                                                + "vertex label '%s'), which is not in this job's "
+                                                + "mappings. Add '%s' to your mappings to delete it "
+                                                + "explicitly, or set "
+                                                + "allow_cascade_delete_unmapped_edges=true to accept "
+                                                + "the destructive cascade.",
+                                        edgeLabel, vertexLabel, edgeLabel));
+                    }
+                }
+            }
+        }
+
         for (MappingConfig mapping : mappings) {
             if (mapping.getType() == MappingConfig.LabelType.EDGE) {
                 client.deleteEdgesByLabel(mapping.getLabel());
