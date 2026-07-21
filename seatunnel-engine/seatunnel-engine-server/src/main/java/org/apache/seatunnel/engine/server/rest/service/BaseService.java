@@ -1175,7 +1175,7 @@ public abstract class BaseService {
                                                         .sum()));
     }
 
-    private JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
+    public JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
