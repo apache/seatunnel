@@ -65,13 +65,7 @@ public class DorisTimerFlushIT extends AbstractDorisIT {
     private static final String SINK_TABLE = "doris_timer_flush";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
-    private final UniqueDatabase inventoryDatabase =
-            new UniqueDatabase(
-                    MYSQL_CONTAINER,
-                    MYSQL_DATABASE,
-                    MYSQL_USER_NAME,
-                    MYSQL_USER_PASSWORD,
-                    MYSQL_DATABASE);
+    private final UniqueDatabase inventoryDatabase = new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE);
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
