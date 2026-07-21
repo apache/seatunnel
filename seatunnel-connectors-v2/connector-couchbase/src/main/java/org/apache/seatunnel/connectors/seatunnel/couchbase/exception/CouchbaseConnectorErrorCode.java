@@ -24,7 +24,8 @@ public enum CouchbaseConnectorErrorCode implements SeaTunnelErrorCode {
     WRITE_RECORDS_FAILED("COUCHBASE-01", "Failed to write records to Couchbase"),
     CLOSE_CLIENT_FAILED("COUCHBASE-02", "Failed to close Couchbase cluster connection"),
     UNSUPPORTED_ROW_KIND("COUCHBASE-03", "Unsupported row kind received by Couchbase sink"),
-    INVALID_PRIMARY_KEY("COUCHBASE-04", "Invalid primary-key configuration for Couchbase sink");
+    INVALID_PRIMARY_KEY("COUCHBASE-04", "Invalid primary-key configuration for Couchbase sink"),
+    UNSUPPORTED_TYPE("COUCHBASE-05", "Unsupported SeaTunnel data type in Couchbase sink");
 
     private final String code;
     private final String description;

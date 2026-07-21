@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,14 +32,17 @@ import com.couchbase.client.core.error.AmbiguousTimeoutException;
 import com.couchbase.client.core.error.DocumentExistsException;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -45,6 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Writes {@link SeaTunnelRow} records to a Couchbase collection.
@@ -66,6 +72,11 @@ import java.util.concurrent.TimeUnit;
  * <p>Supported row kinds: {@code INSERT}, {@code UPDATE_AFTER}. {@code UPDATE_BEFORE} is silently
  * skipped. {@code DELETE} is explicitly rejected with an exception — CDC delete support is out of
  * scope for this initial implementation.
+ *
+ * <p><b>Async-error propagation:</b> when the background timer flush fails the first exception is
+ * latched in {@link #asyncFlushError}. Subsequent calls to {@link #write}, {@link #prepareCommit},
+ * and {@link #close} check the latch and rethrow the failure so the task cannot continue silently
+ * after a broken flush cycle.
  */
 @Slf4j
 public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
@@ -89,6 +100,13 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final ScheduledExecutorService flushScheduler;
 
     private final ScheduledFuture<?> flushFuture;
+
+    /**
+     * Latches the first exception thrown by the background timer flush. Checked and rethrown by
+     * {@link #write}, {@link #prepareCommit}, and {@link #close} so that the task lifecycle methods
+     * surface the failure instead of silently continuing after a broken flush.
+     */
+    private final AtomicReference<Throwable> asyncFlushError = new AtomicReference<>();
 
     // TODO: Reserve context for future parallelism/metrics use.
     @SuppressWarnings("unused")
@@ -153,7 +171,14 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                                 try {
                                     doFlush();
                                 } catch (Exception e) {
-                                    log.warn("Periodic flush failed", e);
+                                    // Latch only the first failure; subsequent timer ticks will
+                                    // observe the latch and skip attempting further flushes.
+                                    if (asyncFlushError.compareAndSet(null, e)) {
+                                        log.error(
+                                                "Periodic Couchbase flush failed — task will abort"
+                                                        + " on the next write or checkpoint",
+                                                e);
+                                    }
                                 }
                             },
                             batchIntervalMs,
@@ -170,11 +195,16 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * only the final value matters for document stores. {@code DELETE} rows are explicitly rejected
      * because CDC delete support is out of scope for this initial implementation.
      *
+     * <p>Checks {@link #asyncFlushError} before buffering and rethrows any latched background
+     * failure so the task cannot continue after a broken periodic flush.
+     *
      * @param row the incoming row
-     * @throws CouchbaseConnectorException if the row kind is {@code DELETE}
+     * @throws CouchbaseConnectorException if the row kind is {@code DELETE} or a prior async flush
+     *     failed
      */
     @Override
     public void write(SeaTunnelRow row) {
+        checkAsyncFlushError();
         if (row.getRowKind() == RowKind.UPDATE_BEFORE) {
             return;
         }
@@ -194,6 +224,7 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public Optional<Void> prepareCommit() {
+        checkAsyncFlushError();
         doFlush();
         return Optional.empty();
     }
@@ -214,6 +245,9 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             // synchronized guard on doFlush() itself.
             flushScheduler.shutdownNow();
         }
+        // Check and rethrow any async error before performing the final flush so that
+        // the task fails loudly instead of disconnecting and swallowing the root cause.
+        checkAsyncFlushError();
         try {
             doFlush();
         } finally {
@@ -232,6 +266,20 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     // Internal helpers
     // ---------------------------------------------------------------------------
 
+    /**
+     * Throws a {@link CouchbaseConnectorException} wrapping the latched async error if one has been
+     * recorded by the background flush timer, then clears the latch.
+     */
+    private void checkAsyncFlushError() {
+        Throwable error = asyncFlushError.getAndSet(null);
+        if (error != null) {
+            throw new CouchbaseConnectorException(
+                    CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                    "A background Couchbase flush failed; task cannot continue safely",
+                    error);
+        }
+    }
+
     /** Converts a {@link SeaTunnelRow} to a {@link JsonObject} using the schema field names. */
     private JsonObject toJsonObject(SeaTunnelRow row) {
         JsonObject doc = JsonObject.create();
@@ -248,7 +296,25 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         return doc;
     }
 
-    /** Puts a typed field value into the JSON object. */
+    /**
+     * Puts a typed field value into the JSON object.
+     *
+     * <p>Supported types and their JSON representations:
+     *
+     * <ul>
+     *   <li>BOOLEAN → Boolean
+     *   <li>TINYINT / SMALLINT / INT → Integer
+     *   <li>BIGINT → Long
+     *   <li>FLOAT → Float
+     *   <li>DOUBLE → Double
+     *   <li>DECIMAL → String (exact decimal representation, e.g. {@code "123.456"})
+     *   <li>STRING / DATE / TIME / TIMESTAMP → String
+     *   <li>BYTES → String (Base64-encoded)
+     *   <li>ARRAY → {@link JsonArray} (elements recursively converted)
+     *   <li>MAP → {@link JsonObject} (keys coerced to String, values recursively converted)
+     *   <li>ROW → nested {@link JsonObject}
+     * </ul>
+     */
     private void putValue(JsonObject doc, String key, Object value, SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
@@ -272,6 +338,11 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             case DOUBLE:
                 doc.put(key, (Double) value);
                 break;
+            case DECIMAL:
+                // Store as an exact string to preserve precision; Couchbase JSON numbers are
+                // IEEE-754 doubles which would silently lose scale for large DECIMAL values.
+                doc.put(key, ((BigDecimal) value).toPlainString());
+                break;
             case STRING:
             case DATE:
             case TIME:
@@ -282,9 +353,119 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                 // Couchbase JSON does not natively encode byte arrays; store as Base64 string.
                 doc.put(key, java.util.Base64.getEncoder().encodeToString((byte[]) value));
                 break;
-            default:
-                doc.put(key, value.toString());
+            case ARRAY:
+                doc.put(key, toJsonArray((Object[]) value, (ArrayType<?, ?>) dataType));
                 break;
+            case MAP:
+                doc.put(key, toJsonObjectFromMap((Map<?, ?>) value, (MapType<?, ?>) dataType));
+                break;
+            case ROW:
+                doc.put(key, toJsonObject((SeaTunnelRow) value, (SeaTunnelRowType) dataType));
+                break;
+            default:
+                throw new CouchbaseConnectorException(
+                        CouchbaseConnectorErrorCode.UNSUPPORTED_TYPE,
+                        "Unsupported SeaTunnel type for Couchbase sink: "
+                                + dataType.getSqlType()
+                                + ". Field: "
+                                + key);
+        }
+    }
+
+    /**
+     * Converts an array value to a {@link JsonArray}, recursively converting each element according
+     * to the declared element type.
+     */
+    private JsonArray toJsonArray(Object[] elements, ArrayType<?, ?> arrayType) {
+        SeaTunnelDataType<?> elementType = arrayType.getElementType();
+        JsonArray arr = JsonArray.create();
+        for (Object element : elements) {
+            if (element == null) {
+                arr.add((Object) null);
+            } else {
+                arr.add(scalarToJsonValue(element, elementType));
+            }
+        }
+        return arr;
+    }
+
+    /**
+     * Converts a {@link Map} value to a {@link JsonObject}, coercing keys to String and recursively
+     * converting values according to the declared value type.
+     */
+    private JsonObject toJsonObjectFromMap(Map<?, ?> map, MapType<?, ?> mapType) {
+        SeaTunnelDataType<?> valueType = mapType.getValueType();
+        JsonObject obj = JsonObject.create();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String mapKey = String.valueOf(entry.getKey());
+            Object mapValue = entry.getValue();
+            if (mapValue == null) {
+                obj.putNull(mapKey);
+            } else {
+                obj.put(mapKey, scalarToJsonValue(mapValue, valueType));
+            }
+        }
+        return obj;
+    }
+
+    /**
+     * Converts a nested {@link SeaTunnelRow} to a {@link JsonObject} using an explicit {@link
+     * SeaTunnelRowType} descriptor (used for ROW fields).
+     */
+    private JsonObject toJsonObject(SeaTunnelRow row, SeaTunnelRowType rowType) {
+        JsonObject doc = JsonObject.create();
+        String[] fieldNames = rowType.getFieldNames();
+        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
+        for (int i = 0; i < fieldNames.length; i++) {
+            Object value = row.getField(i);
+            if (value == null) {
+                doc.putNull(fieldNames[i]);
+            } else {
+                putValue(doc, fieldNames[i], value, fieldTypes[i]);
+            }
+        }
+        return doc;
+    }
+
+    /**
+     * Returns the JSON-compatible boxed representation of a scalar value so it can be inserted into
+     * a {@link JsonArray} or nested {@link JsonObject}. This mirrors {@link #putValue} but returns
+     * the value instead of calling {@code doc.put}.
+     */
+    private Object scalarToJsonValue(Object value, SeaTunnelDataType<?> dataType) {
+        switch (dataType.getSqlType()) {
+            case BOOLEAN:
+                return (Boolean) value;
+            case TINYINT:
+            case SMALLINT:
+                return ((Number) value).intValue();
+            case INT:
+                return (Integer) value;
+            case BIGINT:
+                return (Long) value;
+            case FLOAT:
+                return (Float) value;
+            case DOUBLE:
+                return (Double) value;
+            case DECIMAL:
+                return ((BigDecimal) value).toPlainString();
+            case STRING:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+                return value.toString();
+            case BYTES:
+                return java.util.Base64.getEncoder().encodeToString((byte[]) value);
+            case ARRAY:
+                return toJsonArray((Object[]) value, (ArrayType<?, ?>) dataType);
+            case MAP:
+                return toJsonObjectFromMap((Map<?, ?>) value, (MapType<?, ?>) dataType);
+            case ROW:
+                return toJsonObject((SeaTunnelRow) value, (SeaTunnelRowType) dataType);
+            default:
+                throw new CouchbaseConnectorException(
+                        CouchbaseConnectorErrorCode.UNSUPPORTED_TYPE,
+                        "Unsupported SeaTunnel type for Couchbase sink: " + dataType.getSqlType());
         }
     }
 
@@ -388,10 +569,12 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * Writes all buffered documents to Couchbase with retry logic, then clears the buffer.
      *
      * <p>Document ids are assigned <em>once</em> before the retry loop starts so that every retry
-     * attempt replays the exact same {@code (docId, doc)} pairs. A {@code startFrom} cursor
-     * advances past rows that were already durably written in a previous (partial) attempt, which
-     * prevents silent duplicate documents in the random-UUID insert path and avoids spurious
-     * duplicate-key failures in the stable-key insert path.
+     * attempt reuses the same key — no new UUIDs are generated on re-attempts, so partial-success
+     * retries cannot produce duplicate documents.
+     *
+     * <p>A {@code startFrom} cursor advances past rows that were already durably written in a
+     * previous (partial) attempt, which prevents silent duplicate documents in the random-UUID
+     * insert path and avoids spurious duplicate-key failures in the stable-key insert path.
      *
      * <p>Ambiguous-exception safety on the insert path: the Couchbase SDK can throw {@link
      * AmbiguousTimeoutException} when a write request times out before the client can determine
@@ -409,6 +592,9 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * a genuine key collision and is therefore re-thrown immediately.
      *
      * <p>Synchronised to prevent concurrent flushes from overlapping.
+     *
+     * <p>The retry delay is <em>linear</em>: attempt {@code n} sleeps {@code retryIntervalMs * n}
+     * milliseconds.
      */
     synchronized void doFlush() {
         if (buffer.isEmpty()) {

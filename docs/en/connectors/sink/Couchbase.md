@@ -20,13 +20,17 @@ import ChangeLog from '../changelog/connector-couchbase.md';
 
 Writes data to a [Couchbase](https://www.couchbase.com/) collection.
 Each incoming row is stored as a JSON document. The document key is built from the
-`primary-key` fields (joined with `_`); when no primary key is configured a random UUID is used.
+`primary-key` fields using a **length-prefixed canonical encoding** (`<len>:<value>` components
+separated by `#`, e.g. `3:foo#3:bar`). This encoding is collision-free: values that contain
+separators (`#`) or other special characters cannot produce the same key as distinct tuples.
+When no primary key is configured a random UUID is used.
 
 The connector supports:
 
 - **Upsert mode** — insert or replace existing documents.
 - **Batch flushing** — buffer rows in memory and flush on size or time threshold.
-- **Retry** — transient write failures are retried with exponential backoff.
+- **Retry** — transient write failures are retried with **linear backoff** (attempt n waits
+  `retry.interval × n` milliseconds).
 
 ## Supported DataSource Info
 
@@ -55,9 +59,13 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | TINYINT / SMALLINT / INT | Number (integer) |
 | BIGINT              | Number (long)        |
 | FLOAT / DOUBLE      | Number (floating point) |
+| DECIMAL             | String (exact decimal, e.g. `"123.456"`) |
 | STRING              | String               |
 | DATE / TIME / TIMESTAMP | String (ISO-8601) |
 | BYTES               | String (Base64-encoded) |
+| ARRAY               | Array (elements recursively converted) |
+| MAP                 | Object (keys coerced to String, values recursively converted) |
+| ROW                 | Object (nested JSON document) |
 | NULL                | null                 |
 
 ## Sink Options
@@ -70,12 +78,12 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | bucket                | String        | Yes      | -          | Target bucket name. |
 | scope                 | String        | No       | `_default` | Target scope name within the bucket. |
 | collection            | String        | Yes      | -          | Target collection name. |
-| primary-key           | `List<String>` | No       | -          | Field names used to build the document key (joined with `_`). A random UUID is used when not set. |
+| primary-key           | `List<String>` | No       | -          | Field names used to build the document key (length-prefixed encoding: `<len>:<value>` components separated by `#`). A random UUID is used when not set. |
 | upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. |
 | buffer-flush.max-rows | Integer       | No       | `1000`     | Maximum rows to buffer before a batch write is triggered. Use `-1` to disable. |
 | buffer-flush.interval | Long          | No       | `30000`    | Maximum milliseconds between batch writes. Use `-1` to disable. |
 | retry.max             | Integer       | No       | `3`        | Maximum retry attempts on transient write failure. |
-| retry.interval        | Long          | No       | `1000`     | Milliseconds to wait between retries (multiplied by attempt number). |
+| retry.interval        | Long          | No       | `1000`     | Base milliseconds for linear retry delay. Attempt `n` waits `retry.interval × n` ms. |
 
 ## Task Example
 

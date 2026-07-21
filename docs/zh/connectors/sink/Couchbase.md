@@ -19,14 +19,16 @@ import ChangeLog from '../changelog/connector-couchbase.md';
 ## 描述
 
 将数据写入 [Couchbase](https://www.couchbase.com/) 集合。
-每行数据以 JSON 文档形式存储。文档键由 `primary-key` 字段的值拼接（以 `_` 连接）；
+每行数据以 JSON 文档形式存储。文档键由 `primary-key` 字段的值使用**长度前缀规范编码**构建
+（格式为 `<长度>:<值>`，各分量以 `#` 分隔，例如 `3:foo#3:bar`）。
+此编码不会产生碰撞：包含分隔符或特殊字符的值不会与其他不同的元组生成相同的键。
 未配置时使用随机 UUID 作为文档键。
 
 连接器支持：
 
 - **Upsert 模式** — 插入或替换已有文档。
 - **批量刷写** — 在内存中缓冲数据，按行数或时间阈值刷写。
-- **重试机制** — 写入失败时按指数退避进行重试。
+- **重试机制** — 写入失败时采用**线性退避**重试（第 n 次重试等待 `retry.interval × n` 毫秒）。
 
 ## 支持的数据源信息
 
@@ -52,9 +54,13 @@ sh bin/install-plugin.sh ${version}
 | TINYINT / SMALLINT / INT      | Number (整数)             |
 | BIGINT                        | Number (长整数)           |
 | FLOAT / DOUBLE                | Number (浮点数)           |
+| DECIMAL                       | String (精确小数，如 `"123.456"`) |
 | STRING                        | String                    |
 | DATE / TIME / TIMESTAMP       | String (ISO-8601)         |
 | BYTES                         | String (Base64 编码)      |
+| ARRAY                         | Array（元素递归转换）     |
+| MAP                           | Object（键强制转为 String，值递归转换）|
+| ROW                           | Object（嵌套 JSON 文档）  |
 | NULL                          | null                      |
 
 ## 接收器选项
@@ -67,12 +73,12 @@ sh bin/install-plugin.sh ${version}
 | bucket                 | String         | 是       | -          | 目标 Bucket 名称。 |
 | scope                  | String         | 否       | `_default` | Bucket 中的目标 Scope 名称。 |
 | collection             | String         | 是       | -          | 目标 Collection 名称。 |
-| primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（以 `_` 连接）。未设置时使用随机 UUID。 |
+| primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（长度前缀编码：`<长度>:<值>` 分量以 `#` 分隔）。未设置时使用随机 UUID。 |
 | upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。 |
 | buffer-flush.max-rows  | Integer        | 否       | `1000`     | 触发批量写入的最大缓冲行数。设为 `-1` 禁用。 |
 | buffer-flush.interval  | Long           | 否       | `30000`    | 批量写入之间的最大间隔（毫秒）。设为 `-1` 禁用。 |
 | retry.max              | Integer        | 否       | `3`        | 写入失败时的最大重试次数。 |
-| retry.interval         | Long           | 否       | `1000`     | 重试间隔（毫秒，乘以重试次数）。 |
+| retry.interval         | Long           | 否       | `1000`     | 线性退避基础间隔（毫秒）。第 n 次重试等待 `retry.interval × n` 毫秒。 |
 
 ## 任务示例
 
