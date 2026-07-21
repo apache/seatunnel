@@ -45,6 +45,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
@@ -214,7 +215,14 @@ public class CsvSerializationSchema implements SerializationSchema {
             case TIMESTAMP_TZ:
                 OffsetDateTime odt = (OffsetDateTime) field;
                 if (wallClockTimestampTz) {
-                    return DateTimeUtils.toString(odt.toLocalDateTime(), dateTimeFormatter);
+                    // Preserve the instant and convert to the session (JVM) timezone.
+                    // A plain toLocalDateTime() would emit the wall-clock of the
+                    // value's own offset (e.g. UTC), which shifts TIMESTAMP_TZ
+                    // columns by the timezone delta once a sink such as Doris parses
+                    // the wall-clock in its session timezone (issue #10795).
+                    return DateTimeUtils.toString(
+                            odt.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime(),
+                            dateTimeFormatter);
                 }
                 return odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             case NULL:

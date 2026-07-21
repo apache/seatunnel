@@ -50,10 +50,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 
 import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
@@ -73,6 +75,42 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonRowDataSerDeSchemaTest {
+
+    @Test
+    public void testTimestampTzSerializedAsSessionWallClock() {
+        // Issue #10795: with serializeTimestampTzAsLocal=true (used by the Doris
+        // JSON sink), the instant must be converted to the session (JVM) timezone
+        // instead of stripping the value's own offset.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        JsonSerializationSchema serializationSchema = new JsonSerializationSchema(rowType, true);
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            // 2024-01-01T10:00:00Z == 2024-01-01T18:00:00 in Asia/Shanghai.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            String json = new String(serializationSchema.serialize(utcRow), StandardCharsets.UTF_8);
+            Assertions.assertTrue(json.contains("2024-01-01T18:00:00"), json);
+
+            // A value already carrying the session offset keeps its wall-clock.
+            SeaTunnelRow localRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 18, 0, 0, 0, ZoneOffset.ofHours(8))
+                            });
+            json = new String(serializationSchema.serialize(localRow), StandardCharsets.UTF_8);
+            Assertions.assertTrue(json.contains("2024-01-01T18:00:00"), json);
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
 
     @Test
     public void testSerDe() throws Exception {

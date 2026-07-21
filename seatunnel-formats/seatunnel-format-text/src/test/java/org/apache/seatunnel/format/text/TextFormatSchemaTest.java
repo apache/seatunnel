@@ -38,6 +38,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.TimeZone;
 
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
@@ -285,6 +286,44 @@ public class TextFormatSchemaTest {
                     original.toInstant(), result.toInstant(), "Epoch mismatch for " + original);
             Assertions.assertEquals(
                     original.getOffset(), result.getOffset(), "Offset mismatch for " + original);
+        }
+    }
+
+    @Test
+    void testTimestampTzWallClockUsesSessionTimezone() {
+        // Issue #10795: wall-clock serialization must convert the instant to the
+        // session (JVM) timezone, not strip the value's own offset.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        TextSerializationSchema ser =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .wallClockTimestampTz(true)
+                        .build();
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            // 2024-01-01T10:00:00Z == 2024-01-01 18:00:00 in Asia/Shanghai.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(utcRow)));
+
+            // A value already carrying the session offset keeps its wall-clock.
+            SeaTunnelRow localRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 18, 0, 0, 0, ZoneOffset.ofHours(8))
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(localRow)));
+        } finally {
+            TimeZone.setDefault(original);
         }
     }
 

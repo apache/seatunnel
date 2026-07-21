@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -200,10 +201,19 @@ public class RowToJsonConverters implements Serializable {
                     return new RowToJsonConverter() {
                         @Override
                         public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                            // Preserve the instant and convert to the session (JVM)
+                            // timezone. A plain toLocalDateTime() would emit the
+                            // wall-clock of the value's own offset (e.g. UTC), which
+                            // shifts TIMESTAMP_TZ columns by the timezone delta once
+                            // a sink such as Doris parses the wall-clock in its
+                            // session timezone (issue #10795).
                             return mapper.getNodeFactory()
                                     .textNode(
                                             ISO_LOCAL_DATE_TIME.format(
-                                                    ((OffsetDateTime) value).toLocalDateTime()));
+                                                    ((OffsetDateTime) value)
+                                                            .atZoneSameInstant(
+                                                                    ZoneId.systemDefault())
+                                                            .toLocalDateTime()));
                         }
                     };
                 }
