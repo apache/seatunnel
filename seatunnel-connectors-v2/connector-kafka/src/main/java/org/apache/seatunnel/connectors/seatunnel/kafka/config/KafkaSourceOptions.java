@@ -55,7 +55,7 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription(
-                            "If true the consumer's offset will be periodically committed in the background.");
+                            "If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.");
 
     public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
             Options.key("debezium_record_include_schema")

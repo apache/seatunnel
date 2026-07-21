@@ -2,41 +2,158 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # JDBC
 
-> JDBC sink connector
-
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+The JDBC Sink connector writes SeaTunnel rows to databases through a JDBC driver. It supports batch and streaming jobs, parallel writers, generated or custom SQL, multi-table writes, CDC events, and optional exactly-once delivery through XA transactions.
+
+If this is your first JDBC Sink job, start with [Choose a write mode](#choose-a-write-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
 ## Using Dependency
 
-### For Spark/Flink Engine
+Install the `connector-jdbc` plugin first:
 
-> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+```plugin_config
+--seatunnel-connectors--
+connector-jdbc
+--end--
+```
 
-### For SeaTunnel Zeta Engine
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+```
 
-> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+JDBC driver licenses and redistribution terms vary by database vendor, and the driver version must also be compatible with your database and Java runtime. SeaTunnel therefore does not bundle every JDBC driver. Download the appropriate driver yourself and place its JAR in the engine-specific directory below before starting the job.
+
+### Spark and Flink engines
+
+Place the JDBC driver in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every node that runs SeaTunnel.
+
+### Zeta engine
+
+Place the JDBC driver in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node, then restart the affected SeaTunnel processes so the driver is loaded.
+
+See the [driver reference](#driver-reference) for common driver class names and download locations.
+
+## Choose a write mode
+
+JDBC Sink has two mutually exclusive write modes. Choose one before configuring the remaining options.
+
+| Use case | Required configuration | Behavior |
+|----------|------------------------|----------|
+| SeaTunnel generates SQL | `generate_sink_sql = true`, `database`, and normally `table` | Recommended for most jobs. SeaTunnel can generate INSERT, database-native UPSERT, UPDATE, and DELETE statements from the upstream schema and row kind. Save modes and automatic table creation are available. |
+| You provide SQL | `query = "INSERT ... VALUES (?, ...)"` | Use when the target statement must be fully controlled. The `?` parameters are bound in upstream field order. Save mode options are not executed in this mode. |
+
+Do not configure both modes. `generate_sink_sql` defaults to `false`, so a job without `generate_sink_sql = true` must provide `query`.
+
+For generated SQL, configure `primary_keys` when the target needs upsert, update, or delete behavior. If it is omitted, SeaTunnel tries to inherit a primary key, then the first unique key, from upstream catalog metadata. Without any usable key, generated SQL falls back to plain INSERT.
+
+## Quick start: PostgreSQL
+
+This beginner example uses generated SQL and a pre-created target table. The configuration and expected result below have been verified against PostgreSQL 14, including the inserted rows and their final database values.
+
+1. Put a compatible PostgreSQL JDBC driver in the directory described in [Using Dependency](#using-dependency).
+
+2. Create the target table:
+
+```sql
+CREATE TABLE public.orders (
+  id BIGINT PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL
+);
+```
+
+3. Save the following job as `${SEATUNNEL_HOME}/config/jdbc-sink-quick-start.conf`. Replace the host, credentials, and database name for your environment.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 3
+    schema = {
+      fields {
+        id = bigint
+        customer_name = string
+        amount = "decimal(10, 2)"
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice", 120.50] }
+      { kind = INSERT, fields = [2, "Bob", 80.00] }
+      { kind = INSERT, fields = [3, "Carol", 42.00] }
+    ]
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
+    primary_keys = ["id"]
+    schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+4. Run the job:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/jdbc-sink-quick-start.conf -m local
+```
+
+5. Verify the result:
+
+```sql
+SELECT id, customer_name, amount
+FROM public.orders
+ORDER BY id;
+```
+
+Expected rows:
+
+| id | customer_name | amount |
+|----|---------------|-------:|
+| 1 | Alice | 120.50 |
+| 2 | Bob | 80.00 |
+| 3 | Carol | 42.00 |
+
+If the job fails before writing, check [Troubleshooting](#troubleshooting) first.
 
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+Exactly-once delivery uses XA transactions and therefore requires XA support from both the database and its JDBC driver. See [Exactly-once prerequisites](#exactly-once-prerequisites).
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md) (Zeta engine only)
 
 ## Options
+
+`url`, `driver`, `schema_save_mode`, and `data_save_mode` are always required by the connector option rule. The two save mode options have defaults, so they can normally be omitted from job files. Other options become required according to the selected write mode:
+
+- Generated SQL: set `generate_sink_sql = true` and configure `database`; configure `table` unless upstream metadata supplies the target table dynamically.
+- Custom SQL: leave `generate_sink_sql = false` and configure `query`.
+- Exactly-once: set `is_exactly_once = true`, `xa_data_source_class_name`, and `max_retries = 0`.
 
 | Name                                      | Type    | Required | Default                      |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
-| username                                      | String  | No       | -                            |
+| username                                  | String  | No       | -                            |
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
@@ -83,9 +200,9 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
 
-### user [string]
+### username [string]
 
-userName
+The database login name. `username` is the canonical option. The legacy key `user` is still accepted as a fallback when `username` is not set.
 
 ### password [string]
 
@@ -97,7 +214,7 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 ### query [string]
 
-Use this sql write upstream input datas to database. e.g `INSERT ...`
+The parameterized SQL statement used to write each upstream row, for example `INSERT INTO target(id, name) VALUES (?, ?)`. SeaTunnel binds the `?` parameters in upstream field order. Use this option only in custom SQL mode; do not combine it with `generate_sink_sql = true`.
 
 Current limitation: when sink `query` is configured (custom write SQL), JDBC sink does not apply save mode handling. `schema_save_mode`, `data_save_mode`, and `custom_sql` are not executed in this mode. If you need save mode handling, use `generate_sink_sql = true` with `database` and `table`.
 
@@ -131,15 +248,11 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | YashanDB  |              |          |
 ### database [string]
 
-Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
-
-This option is mutually exclusive with `query` and has a higher priority.
+The target database or catalog used in generated SQL mode. This option is required when `generate_sink_sql = true` and must not be combined with `query`.
 
 ### table [string]
 
-Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
-
-This option is mutually exclusive with `query` and has a higher priority.
+The target table used in generated SQL mode. Do not combine it with `query`.
 
 The table parameter can fill in the target table name, which will eventually be used as the created or written table name, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the table name passed to the target side.
 
@@ -167,7 +280,7 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 ### primary_keys [array]
 
-This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
+The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
 ### connection_check_timeout_sec [int]
 
@@ -183,12 +296,11 @@ Socket read timeout in milliseconds after the JDBC connection is established. Th
 
 ### max_retries [int]
 
-The number of retries to submit failed (executeBatch)
+The number of retries after a failed JDBC `executeBatch`. Exactly-once mode requires this option to be `0`; retrying a failed XA batch can violate transaction guarantees.
 
 ### batch_size [int]
 
-For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
-, the data will be flushed into the database
+The maximum number of buffered rows per batch. The sink flushes when the buffer reaches `batch_size`, when a checkpoint prepares a commit, or when the writer closes. A larger value can improve throughput but uses more memory and increases the amount of work retried after a failure.
 
 ### batch_interval_ms [long]
 
@@ -196,12 +308,11 @@ The flush interval in milliseconds. When set to a value greater than 0, if the e
 
 ### is_exactly_once [boolean]
 
-Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
-set `xa_data_source_class_name`.
+Enables exactly-once delivery through XA transactions. This requires `xa_data_source_class_name`, `max_retries = 0`, and XA support from the database and driver. Timer flush is not supported in this mode.
 
 ### generate_sink_sql [boolean]
 
-Generate sql statements based on the database table you want to write to
+When `true`, SeaTunnel generates write statements from the upstream schema and row kind. Configure `database` and normally `table`; do not configure `query`. The default is `false`, which means `query` is required.
 
 ### xa_data_source_class_name [string]
 
@@ -272,6 +383,7 @@ Current support:
 | OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
 | PostgreSQL | Yes | `tablespace`, `fillfactor` |
 | Dameng | Yes | `tablespace`, `fillfactor` |
+| Kingbase | Yes | `tablespace`, `fillfactor` |
 | Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
 
 Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
@@ -283,8 +395,9 @@ Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rul
 - **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission. OceanBase **Oracle-compatible mode** does not support `table_options`; a non-empty map fails at job submission.
 - **PostgreSQL**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH` parameters are not supported). OpenGauss and HighGo inherit the same validation and DDL path via Postgres catalog/dialect.
 - **Dameng**: `fillfactor` and `tablespace` are emitted as a Dameng `STORAGE (...)` clause (`FILLFACTOR <n>`, `ON "<tablespace>"`). `fillfactor` must be an integer in `[0, 100]`; `tablespace` uses the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary nested `STORAGE` parameters such as `INITIAL` / `NEXT` are not supported). The tablespace must already exist on the target.
+- **Kingbase**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]` (PostgreSQL-compatible); `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH (...)` parameters are not supported). The tablespace must already exist on the target.
 
-SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), and Dameng, it also validates blank values and the `fillfactor` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
+SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), Dameng, and Kingbase, it also validates blank values and the `fillfactor` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
 
 Example (MySQL auto-create with engine and charset):
 
@@ -357,6 +470,30 @@ sink {
 
 The generated `CREATE TABLE` statement appends `STORAGE (FILLFACTOR 80, ON "MAIN")`.
 
+Example (Kingbase auto-create with tablespace and fillfactor):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:kingbase8://localhost:54321/test"
+    driver = "com.kingbase8.Driver"
+    username = "SYSTEM"
+    password = "123456"
+    database = "test"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `WITH (fillfactor=70)` and `TABLESPACE "pg_default"`.
+
 ### enable_upsert [boolean]
 
 Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
@@ -406,16 +543,20 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
 
-## tips
+## Exactly-once prerequisites
 
-In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
-1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
-2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
-3 mysql can try to add `rewriteBatchedStatements=true` parameter in url for better performance.
+When `is_exactly_once = true`, JDBC Sink uses XA transactions. Before enabling it:
 
-## appendix
+- Set `max_retries = 0` and configure the correct `xa_data_source_class_name` for the installed driver.
+- PostgreSQL must allow prepared transactions. Set `max_prepared_transactions` to a positive value large enough for the expected concurrent transactions, then restart PostgreSQL if the server requires it.
+- MySQL requires a server and Connector/J combination that supports the XA operations used by the sink. Accounts that perform XA recovery may also require the `XA_RECOVER_ADMIN` privilege; check the requirements for your MySQL version.
+- Do not configure `sink.flush.interval`; XA transaction boundaries are controlled by checkpoints.
 
-there are some reference value for params above.
+For MySQL non-XA batch jobs, adding `rewriteBatchedStatements=true` to the JDBC URL can improve throughput. Validate the effect with your driver version and workload.
+
+## Driver reference
+
+The following values are starting points. Confirm the driver artifact and version against the database vendor's compatibility matrix.
 
 | datasource        |                    driver                    | url                                                                 | xa_data_source_class_name                          | maven                                                                                                                         |
 |-------------------|----------------------------------------------|---------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
@@ -426,7 +567,7 @@ there are some reference value for params above.
 | SQL Server        | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                     | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
 | Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
 | sqlite            | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                 | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
-| GBase8a           | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                                | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
+| GBase8a           | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                    | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
 | StarRocks         | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | db2               | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                   | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                                             |
 | saphana           | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                          | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                                                |
@@ -444,45 +585,45 @@ there are some reference value for params above.
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 | YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
-## Example
+## Common patterns
 
-Simple
+### Custom SQL
 
-```
+```hocon
 jdbc {
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 }
 
 ```
 
-Exactly-once
+### Exactly-once with custom SQL
 
 Turn on exact one-time semantics by setting `is_exactly_once`
 
-```
+```hocon
 jdbc {
 
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 
-    is_exactly_once = "true"
+    is_exactly_once = true
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
 }
 ```
 
-Timer flush
+### Timer flush on Zeta
 
-Enable timer-based flush by configuring `sink.flush.interval` in the `env` block. The JDBC sink automatically supports timer flush — when `sink.flush.interval` is set, the engine periodically injects a `FlushSignal` into the record stream, and the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
+This engine-level feature is supported only by Zeta. Spark and Flink do not inject `FlushSignal` records, so `sink.flush.interval` does not enable timer flush on those engines. On Zeta, configure `sink.flush.interval` in the `env` block. The engine periodically injects a `FlushSignal` into the record stream, and JDBC Sink flushes all buffered records immediately, regardless of whether `batch_size` has been reached.
 
 :::tip
 
@@ -501,80 +642,82 @@ sink {
   jdbc {
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     database = "sink_database"
     table = "sink_table"
+    generate_sink_sql = true
     primary_keys = ["id"]
     batch_size = 10000
   }
 }
 ```
 
-CDC(Change data capture) event
+### Change data capture events
 
 jdbc receive CDC example
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         
         database = "sink_database"
         table = "sink_table"
-        primary_keys = ["key1", "key2", ...]
+        generate_sink_sql = true
+        primary_keys = ["key1", "key2"]
     }
 }
 ```
 
-Add saveMode function
+### Create a missing target table
 
 To facilitate the creation of tables when they do not already exist, set the `schema_save_mode`  to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
-        generate_sink_sql = "true"
+        generate_sink_sql = true
         database = "sink_database"
         table = "sink_table"
-        primary_keys = ["key1", "key2", ...]
+        primary_keys = ["key1", "key2"]
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-        data_save_mode="APPEND_DATA"
+        data_save_mode = "APPEND_DATA"
     }
 }
 ```
 
-Postgresql 9.5 version below support CDC(Change data capture) event
+### PostgreSQL 9.5 and earlier CDC compatibility
 
 For PostgreSQL versions 9.5 and below, setting `compatible_mode` to `postgresLow` to enable support for PostgreSQL Change Data Capture (CDC) operations.
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:postgresql://localhost:5432"
         driver = "org.postgresql.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
-        compatible_mode="postgresLow"
+        compatible_mode = "postgresLow"
         database = "sink_database"
         table = "sink_table"
         generate_sink_sql = true
-        primary_keys = ["key1", "key2", ...]
+        primary_keys = ["key1", "key2"]
     }
 }
 
 ```
 
-### Multiple table
+### Multiple tables
 
-#### example1
+#### MySQL CDC source
 
 ```hocon
 env {
@@ -600,7 +743,7 @@ sink {
   jdbc {
     url = "jdbc:mysql://localhost:3306"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     generate_sink_sql = true
     
@@ -611,7 +754,7 @@ sink {
 }
 ```
 
-#### example2
+#### JDBC source
 
 ```hocon
 env {
@@ -623,7 +766,7 @@ source {
   Jdbc {
     driver = oracle.jdbc.driver.OracleDriver
     url = "jdbc:oracle:thin:@localhost:1521/XE"
-    user = testUser
+    username = testUser
     password = testPassword
 
     table_list = [
@@ -644,7 +787,7 @@ sink {
   jdbc {
     url = "jdbc:mysql://localhost:3306"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     generate_sink_sql = true
 
@@ -655,7 +798,7 @@ sink {
 }
 ```
 
-#### Dsql example
+#### Amazon Aurora DSQL
 
 ```hocon
 env {
@@ -667,7 +810,7 @@ source {
   Jdbc {
     driver = oracle.jdbc.driver.OracleDriver
     url = "jdbc:oracle:thin:@localhost:1521/XE"
-    user = testUser
+    username = testUser
     password = testPassword
 
     table_list = [
@@ -703,7 +846,7 @@ sink {
 }
 ```
 
-## FAQ
+## Troubleshooting
 
 ### Does JDBC Sink support automatic table creation?
 
@@ -725,10 +868,13 @@ sink {
   jdbc {
     url = "jdbc:mysql://localhost:3306/mydb"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "password"
+    max_retries = 0
     is_exactly_once = true
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    generate_sink_sql = true
+    database = "mydb"
     table = "target_table"
     primary_keys = ["id"]
   }
@@ -746,9 +892,13 @@ When a final key set exists and `enable_upsert = true`, SeaTunnel prefers the da
 ```hocon
 sink {
   jdbc {
-    url = "jdbc:mysql://localhost:3306/mydb"
-    driver = "com.mysql.cj.jdbc.Driver"
-    ...
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
     primary_keys = ["id"]
   }
 }
@@ -784,7 +934,7 @@ Use `table = "${table_name}"` and `database = "${schema_name}"` as placeholders.
 
 ### Why is my JDBC driver not found?
 
-SeaTunnel does not bundle all JDBC drivers due to licensing restrictions. Place the JDBC driver JAR in `$SEATUNNEL_HOME/lib/` manually before starting the job. Common drivers:
+SeaTunnel does not bundle all JDBC drivers. For Spark and Flink, place the JAR in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every execution node. For Zeta, place it in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node and restart the affected processes. Common driver file names include:
 
 - MySQL: `mysql-connector-j-8.x.x.jar`
 - PostgreSQL: `postgresql-42.x.x.jar`

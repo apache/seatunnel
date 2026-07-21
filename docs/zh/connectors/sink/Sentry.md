@@ -4,7 +4,7 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 ## 描述
 
-给哨兵写入消息.
+将 SeaTunnel 行数据作为消息写入 Sentry。每一行会通过 Sentry SDK 以 `Sentry.captureMessage(row.toString())` 的方式发送。
 
 ## 关键特性
 
@@ -12,17 +12,17 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 ## 选项
 
-|            名称                 |  类型   | 必需 | 默认值 |
-|-----------------------------|---------|----|---------------|
-| dsn                         | string  | 是  | -             |
-| env                         | string  | 否  | -             |
-| release                     | string  | 否 | -             |
-| cacheDirPath                | string  | 否 | -             |
-| enableExternalConfiguration | boolean | 否 | -             |
-| maxCacheItems               | number  | 否 | -             |
-| flushTimeoutMills           | number  | 否 | -             |
-| maxQueueSize                | number  | 否 | -             |
-| common-options              |         | 否 | -             |
+| 名称                        | 类型    | 必需 | 默认值 | 描述 |
+|-----------------------------|---------|------|--------|------|
+| dsn                         | string  | 是   | -      | Sentry SDK 使用的 DSN。 |
+| env                         | string  | 否   | -      | Sentry 环境名称。 |
+| release                     | string  | 否   | -      | Sentry release 值。 |
+| cacheDirPath                | string  | 否   | -      | 离线事件缓存目录。 |
+| enableExternalConfiguration | boolean | 否   | -      | 是否允许 Sentry SDK 加载外部配置。 |
+| maxCacheItems               | int     | 否   | -      | 最大缓存事件数量。 |
+| flushTimeoutMillis          | long    | 否   | -      | 刷新待发送事件时的等待时间，单位毫秒。 |
+| maxQueueSize                | int     | 否   | -      | 事件刷新到磁盘前的最大队列大小。 |
+| common-options              |         | 否   | -      | 接收器插件通用参数。 |
 
 ### dsn [string]
 
@@ -48,9 +48,9 @@ DSN告诉SDK将事件发送到何处.
 
 用于限制事件数量的最大缓存项默认值为30
 
-### flushTimeoutMillis [number]
+### flushTimeoutMillis [long]
 
-控制冲洗前等待的秒数。Sentry SDK缓存来自后台队列的事件，并为该队列提供一定数量的待处理事件。默认值为15000=15s
+刷新待发送事件时的等待时间，单位毫秒。
 
 ### maxQueueSize [number]
 
@@ -62,14 +62,16 @@ DSN告诉SDK将事件发送到何处.
 
 ## 示例
 
-```
+```hocon
+sink {
   Sentry {
     dsn = "https://xxx@sentry.xxx.com:9999/6"
     enableExternalConfiguration = true
     maxCacheItems = 1000
-    env = prod
+    flushTimeoutMillis = 15000
+    env = "prod"
   }
-
+}
 ```
 
 ## 变更日志
