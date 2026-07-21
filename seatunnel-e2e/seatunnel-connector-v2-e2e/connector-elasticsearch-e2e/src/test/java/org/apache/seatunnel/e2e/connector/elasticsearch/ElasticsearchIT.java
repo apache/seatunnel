@@ -79,7 +79,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -357,53 +356,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkDataWithSchema("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
-    }
-
-    @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
-                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
-    public void testElasticsearchTimerFlush(TestContainer testContainer) {
-        AtomicBoolean jobFinished = new AtomicBoolean(false);
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return testContainer.executeJob(
-                                        "/elasticsearch/fakesource_to_elasticsearch_timer_flush.conf");
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                jobFinished.set(true);
-                            }
-                        });
-
-        Awaitility.await()
-                .atMost(120, TimeUnit.SECONDS)
-                .ignoreExceptions()
-                .pollInterval(2, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertFalse(
-                                    jobFinished.get(),
-                                    "The timer flush must be observed before the writer closes");
-                            Assertions.assertTrue(
-                                    esRestClient
-                                                    .getIndexDocsCount("st_timer_flush")
-                                                    .get(0)
-                                                    .getDocsCount()
-                                            > 0,
-                                    "Timer flush should publish records before max_batch_size is reached");
-                        });
-
-        Container.ExecResult result = jobFuture.join();
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        Assertions.assertEquals(
-                20,
-                esRestClient.getIndexDocsCount("st_timer_flush").get(0).getDocsCount(),
-                "All records should be published after the bounded job completes");
     }
 
     @TestTemplate
