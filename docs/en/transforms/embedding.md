@@ -149,13 +149,13 @@ vectorization_fields {
 }
 ```
 
-**Multi-field Mixing Multimodal Vectorization:**
+**Multi-field Mixing Multimodal Vectorization:**  
 > Note: Currently, only the `DOUBAO` provider supports multimodal data processing.
 ```hocon
 vectorization_fields {
     # Multi-field text
     multi_field_text_vector = [product_name, description]
-
+    
     # Multi-field image
     multi_field_image_vector = [
       {

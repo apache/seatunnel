@@ -54,7 +54,11 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     private static final String NETWORK_ALIASES1 = "flink_e2e_tdengine_src";
     private static final String NETWORK_ALIASES2 = "flink_e2e_tdengine_sink";
     private static final int PORT = 6041;
-    /** Keep the test database within the vnode budget that small CI machines can provide. */
+    /**
+     * Keeps the test database within the vnode budget that small CI machines can provide.
+     *
+     * <p>A single vgroup is sufficient for connector assertions and avoids CI startup failures.
+     */
     private static final String SINGLE_VGROUP_DATABASE_OPTIONS = " KEEP 3650 VGROUPS 1";
 
     private GenericContainer<?> tdengineServer1;
@@ -199,7 +203,11 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         return conn;
     }
 
-    /** Wait until TDengine accepts JDBC traffic and can allocate vgroups for new databases. */
+    /**
+     * Waits until TDengine accepts JDBC traffic and can allocate vgroups for new databases.
+     *
+     * <p>Port readiness alone does not prove that TDengine can create the test databases.
+     */
     private void waitForTDengineReady() {
         given().ignoreExceptions()
                 .await()

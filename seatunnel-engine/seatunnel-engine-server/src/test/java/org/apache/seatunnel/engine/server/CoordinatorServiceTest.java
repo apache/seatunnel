@@ -71,6 +71,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
@@ -596,26 +597,45 @@ public class CoordinatorServiceTest {
     @Test
     public void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
 
-        HazelcastInstanceImpl instance =
-                SeaTunnelServerStarter.createHazelcastInstance(
+        int maxRetryCount = 3;
+        ReturnRetryTimesOperation.resetRetryTimes();
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(
                         TestUtils.getClusterName(
                                 "CoordinatorServiceTest_testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast"));
+        // Keep the production retry contract intact while using a small test-only budget so CI
+        // can still verify terminal exception propagation without waiting for 250 retries.
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setProperty(
+                        ClusterProperty.INVOCATION_MAX_RETRY_COUNT.getName(),
+                        String.valueOf(maxRetryCount));
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setProperty(ClusterProperty.INVOCATION_RETRY_PAUSE.getName(), "1");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         try {
             CompletionException exception =
                     Assertions.assertThrows(
                             CompletionException.class,
-                            () -> {
-                                NodeEngineUtil.sendOperationToMemberNode(
-                                                instance.node.getNodeEngine(),
-                                                new ReturnRetryTimesOperation(),
-                                                instance.getCluster().getLocalMember().getAddress())
-                                        .join();
-                            });
+                            () ->
+                                    NodeEngineUtil.sendOperationToMemberNode(
+                                                    instance.node.getNodeEngine(),
+                                                    new ReturnRetryTimesOperation(),
+                                                    instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress())
+                                            .join());
             Assertions.assertTrue(
                     exception
                             .getCause()
                             .getMessage()
-                            .contains("Retryable exception occurred, retry times: 250"));
+                            .contains(
+                                    "Retryable exception occurred, retry times: " + maxRetryCount));
+            Assertions.assertEquals(maxRetryCount, ReturnRetryTimesOperation.getRetryTimes());
         } finally {
             instance.shutdown();
         }

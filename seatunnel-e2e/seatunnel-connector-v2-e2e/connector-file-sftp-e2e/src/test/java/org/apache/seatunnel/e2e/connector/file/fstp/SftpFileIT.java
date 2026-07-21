@@ -264,24 +264,23 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testSftpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
-            throws IOException, InterruptedException {
+            throws Throwable {
         resetContinuousTestPath();
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/text/sftp_binary_update_distcp_continuous.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Throwable testFailure = null;
         try {
-            putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test1.bin", "abc");
-
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                try {
-                                    return container.executeJob(
-                                            "/text/sftp_binary_update_distcp_continuous.conf",
-                                            jobId);
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-
             Awaitility.await()
                     .atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -292,17 +291,20 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                                                     SFTP_CONTAINER_HOME
                                                             + "/tmp/seatunnel/continuous/dst/test1.bin")));
 
-            long firstMtimeSeconds =
-                    getSftpFileMtimeSeconds(
-                            SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
-            Thread.sleep(2500);
-            long secondMtimeSeconds =
-                    getSftpFileMtimeSeconds(
-                            SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin");
-            Assertions.assertEquals(
-                    firstMtimeSeconds,
-                    secondMtimeSeconds,
-                    "Continuous discovery should skip unchanged files in update mode.");
+            String mtimePath = SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/dst/test1.bin";
+            long firstMtimeSeconds = getSftpFileMtimeSeconds(mtimePath);
+            Awaitility.await()
+                    .during(6, TimeUnit.SECONDS)
+                    .atMost(15, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                long currentMtime = getSftpFileMtimeSeconds(mtimePath);
+                                Assertions.assertEquals(
+                                        firstMtimeSeconds,
+                                        currentMtime,
+                                        "Continuous discovery should skip unchanged files in update mode.");
+                            });
 
             putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/test2.bin", "def");
             Awaitility.await()
@@ -314,10 +316,16 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                                             readSftpFile(
                                                     SFTP_CONTAINER_HOME
                                                             + "/tmp/seatunnel/continuous/dst/test2.bin")));
-
-            assertContinuousJobStopsAfterCancel(container, jobId, jobFuture);
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
         } finally {
-            deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+            cleanupContinuousJob(
+                    container,
+                    jobId,
+                    jobFuture,
+                    SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous",
+                    testFailure);
         }
     }
 
@@ -332,22 +340,22 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testSftpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
-            TestContainer container) throws IOException, InterruptedException {
+            TestContainer container) throws Throwable {
         resetContinuousTestPath();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/text/sftp_binary_update_distcp_continuous_non_recursive.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Throwable testFailure = null;
         try {
-            String jobId = String.valueOf(JobIdGenerator.newJobId());
-            CompletableFuture<Container.ExecResult> jobFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                try {
-                                    return container.executeJob(
-                                            "/text/sftp_binary_update_distcp_continuous_non_recursive.conf",
-                                            jobId);
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-
             putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/root.bin", "root");
             putSftpFile(
                     SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous/src/subdir/nested.bin",
@@ -364,15 +372,26 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                                                     SFTP_CONTAINER_HOME
                                                             + "/tmp/seatunnel/continuous/dst/root.bin")));
 
-            Thread.sleep(3000);
-            Assertions.assertFalse(
-                    isSftpFileExists(
-                            SFTP_CONTAINER_HOME
-                                    + "/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
-
-            assertContinuousJobStopsAfterCancel(container, jobId, jobFuture);
+            Awaitility.await()
+                    .during(3, TimeUnit.SECONDS)
+                    .atMost(5, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isSftpFileExists(
+                                                    SFTP_CONTAINER_HOME
+                                                            + "/tmp/seatunnel/continuous/dst/subdir/nested.bin")));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
         } finally {
-            deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous");
+            cleanupContinuousJob(
+                    container,
+                    jobId,
+                    jobFuture,
+                    SFTP_CONTAINER_HOME + "/tmp/seatunnel/continuous",
+                    testFailure);
         }
     }
 
@@ -453,8 +472,14 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             String jobId,
             CompletableFuture<Container.ExecResult> jobFuture)
             throws IOException, InterruptedException {
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult cancelResult = container.cancelJob(jobId);
+                            Assertions.assertEquals(
+                                    0, cancelResult.getExitCode(), cancelResult.getStderr());
+                        });
 
         Awaitility.await()
                 .atMost(30, TimeUnit.SECONDS)
@@ -475,6 +500,42 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         } catch (Exception e) {
             throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+    }
+
+    /**
+     * Stops a continuous job before deleting its shared test path, without hiding the original test
+     * failure when cleanup also fails.
+     */
+    private void cleanupContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture,
+            String cleanupPath,
+            Throwable testFailure)
+            throws Throwable {
+        Throwable cleanupFailure = null;
+        try {
+            assertContinuousJobStopsAfterCancel(container, jobId, jobFuture);
+        } catch (Throwable failure) {
+            cleanupFailure = failure;
+        }
+
+        if (cleanupFailure == null) {
+            try {
+                deleteFileFromContainer(cleanupPath);
+            } catch (Throwable failure) {
+                cleanupFailure = failure;
+            }
+        }
+
+        if (cleanupFailure == null) {
+            return;
+        }
+        if (testFailure != null) {
+            testFailure.addSuppressed(cleanupFailure);
+        } else {
+            throw cleanupFailure;
         }
     }
 

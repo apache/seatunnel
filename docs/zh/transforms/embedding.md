@@ -134,7 +134,7 @@ vectorization_fields {
 }
 ```
 
-**多字段混合多模态向量化：**
+**多字段混合多模态向量化：**  
 > 注意: 目前，仅 `DOUBAO` 提供商支持多模态数据处理
 ```hocon
 vectorization_fields {
