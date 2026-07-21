@@ -34,6 +34,8 @@ import org.json.JSONObject;
 import com.google.protobuf.ByteString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -119,11 +121,15 @@ public class BigQuerySerializer {
                 || value instanceof Short
                 || value instanceof Integer
                 || value instanceof Long) {
-            long number = ((Number) value).longValue();
-            if (number < 0) {
-                throw invalidSequenceNumber("must not be negative");
+            return encodeIntegralSequenceNumber(BigInteger.valueOf(((Number) value).longValue()));
+        }
+
+        if (value instanceof BigDecimal) {
+            try {
+                return encodeIntegralSequenceNumber(((BigDecimal) value).toBigIntegerExact());
+            } catch (ArithmeticException e) {
+                throw invalidSequenceNumber("must not contain a fractional value");
             }
-            return Long.toUnsignedString(number, 16).toUpperCase(Locale.ROOT);
         }
 
         if (value instanceof String) {
@@ -146,6 +152,16 @@ public class BigQuerySerializer {
                 String.format(
                         "must be an integer or an encoded hexadecimal string, but was %s",
                         value.getClass().getSimpleName()));
+    }
+
+    private String encodeIntegralSequenceNumber(BigInteger number) {
+        if (number.signum() < 0) {
+            throw invalidSequenceNumber("must not be negative");
+        }
+        if (number.bitLength() > 64) {
+            throw invalidSequenceNumber("must not exceed the unsigned 64-bit range");
+        }
+        return number.toString(16).toUpperCase(Locale.ROOT);
     }
 
     private void validateSequenceSection(String section) {

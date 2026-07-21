@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -188,6 +190,19 @@ class BigQuerySerializerTest {
     }
 
     @Test
+    void testConvertIntegralBigDecimalSequenceNumberToHex() {
+        DecimalType unsignedBigIntType = new DecimalType(20, 0);
+
+        assertEquals("1", convertSequenceNumber(new BigDecimal("1"), unsignedBigIntType));
+        assertEquals(
+                "8000000000000000",
+                convertSequenceNumber(new BigDecimal("9223372036854775808"), unsignedBigIntType));
+        assertEquals(
+                "FFFFFFFFFFFFFFFF",
+                convertSequenceNumber(new BigDecimal("18446744073709551615"), unsignedBigIntType));
+    }
+
+    @Test
     void testPreserveEncodedStringSequenceNumber() {
         assertEquals("123", convertSequenceNumber("123", BasicType.STRING_TYPE));
     }
@@ -205,6 +220,28 @@ class BigQuerySerializerTest {
     @Test
     void testRejectNegativeSequenceNumber() {
         assertInvalidSequenceNumber(-1L, BasicType.LONG_TYPE, "must not be negative");
+    }
+
+    @Test
+    void testRejectNegativeBigDecimalSequenceNumber() {
+        assertInvalidSequenceNumber(
+                new BigDecimal("-1"), new DecimalType(20, 0), "must not be negative");
+    }
+
+    @Test
+    void testRejectFractionalBigDecimalSequenceNumber() {
+        assertInvalidSequenceNumber(
+                new BigDecimal("1.5"),
+                new DecimalType(20, 1),
+                "must not contain a fractional value");
+    }
+
+    @Test
+    void testRejectBigDecimalSequenceNumberAboveUnsigned64BitRange() {
+        assertInvalidSequenceNumber(
+                new BigDecimal("18446744073709551616"),
+                new DecimalType(20, 0),
+                "must not exceed the unsigned 64-bit range");
     }
 
     @Test
