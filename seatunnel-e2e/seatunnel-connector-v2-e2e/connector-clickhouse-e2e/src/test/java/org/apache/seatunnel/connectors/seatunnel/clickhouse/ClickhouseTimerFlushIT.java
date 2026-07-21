@@ -68,7 +68,7 @@ import static org.awaitility.Awaitility.await;
 public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResource {
 
     private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
-    private static final String CLICKHOUSE_HOST = "clickhouse_timer_flush_e2e";
+    private static final String CLICKHOUSE_HOST = "clickhouse-timer-flush-e2e";
     private static final String CLICKHOUSE_DATABASE = "default";
     private static final String CLICKHOUSE_TABLE = "clickhouse_timer_flush";
     private static final String CLICKHOUSE_DRIVER = "com.clickhouse.jdbc.ClickHouseDriver";
@@ -93,6 +93,8 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
                 new ClickHouseContainer(CLICKHOUSE_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CLICKHOUSE_HOST)
+                        .withCreateContainerCmdModifier(
+                                command -> command.withHostName(CLICKHOUSE_HOST))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CLICKHOUSE_IMAGE)));
@@ -124,8 +126,8 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
                     .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertFalse(
-                                        jobFuture.isDone(),
+                                assertJobStillRunning(
+                                        jobFuture,
                                         "The streaming job terminated before reaching RUNNING");
                                 Assertions.assertEquals(
                                         "RUNNING", testContainer.getJobStatus(jobId));
@@ -136,9 +138,9 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
                     .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertFalse(
-                                        jobFuture.isDone(),
-                                        "The streaming job must still be running when timer flush publishes the snapshot");
+                                assertJobStillRunning(
+                                        jobFuture,
+                                        "The streaming job terminated before timer flush published the snapshot");
                                 Assertions.assertEquals(9, tableCount());
                             });
 
@@ -154,9 +156,9 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
                     .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertFalse(
-                                        jobFuture.isDone(),
-                                        "The streaming job must still be running when timer flush publishes the binlog event");
+                                assertJobStillRunning(
+                                        jobFuture,
+                                        "The streaming job terminated before timer flush published the binlog event");
                                 Assertions.assertEquals(10, tableCount());
                             });
         } finally {
@@ -168,6 +170,14 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
 
         Container.ExecResult jobResult = jobFuture.get(120, TimeUnit.SECONDS);
         Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+    }
+
+    private void assertJobStillRunning(
+            CompletableFuture<Container.ExecResult> jobFuture, String message) throws Exception {
+        if (jobFuture.isDone()) {
+            Container.ExecResult jobResult = jobFuture.get();
+            Assertions.fail(message + ":\n" + jobResult.getStderr());
+        }
     }
 
     private void initializeClickhouseConnection() throws Exception {
