@@ -100,6 +100,28 @@ public class ParquetReadStrategyTest {
     }
 
     @Test
+    public void testParquetReadPreservesTableId() throws Exception {
+        // Regression for https://github.com/apache/seatunnel/issues/11499
+        // ParquetReadStrategy previously dropped the tableId when building the split, which
+        // surfaced as an NPE in the Spark translation layer (UTF8String.fromString(null)).
+        URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
+        Assertions.assertNotNull(resource);
+        String path = Paths.get(resource.toURI()).toString();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        String tableId = "my_db.my_table";
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, tableId, testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertFalse(rows.isEmpty());
+        rows.forEach(row -> Assertions.assertEquals(tableId, row.getTableId()));
+    }
+
+    @Test
     public void testParquetRead2() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/hive.parquet");
         Assertions.assertNotNull(resource);
