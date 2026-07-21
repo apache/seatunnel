@@ -27,14 +27,20 @@ import org.apache.logging.log4j.core.config.properties.PropertiesConfiguration;
 import org.apache.logging.log4j.core.lookup.StrSubstitutor;
 
 import java.lang.reflect.Field;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class LogUtil {
 
     /** Get configuration log path by log4j */
     public static String getLogPath() throws NoSuchFieldException, IllegalAccessException {
+        return getLogPath(getLogConfiguration());
+    }
+
+    static String getLogPath(PropertiesConfiguration config)
+            throws NoSuchFieldException, IllegalAccessException {
         String routingAppender = "routingAppender";
         String fileAppender = "fileAppender";
-        PropertiesConfiguration config = getLogConfiguration();
         // Get routingAppender log file path
         String routingLogFilePath = getRoutingLogFilePath(config);
 
@@ -47,13 +53,22 @@ public class LogUtil {
                         .findFirst()
                         .orElse(StringUtils.EMPTY);
         if (logRef.equals(routingAppender)) {
-            return routingLogFilePath.substring(0, routingLogFilePath.lastIndexOf("/"));
+            return getParentLogPath(routingLogFilePath, routingAppender);
         } else if (logRef.equals(fileAppender)) {
-            return fileLogPath.substring(0, fileLogPath.lastIndexOf("/"));
+            return getParentLogPath(fileLogPath, fileAppender);
         } else {
             throw new IllegalArgumentException(
                     String.format("Log file path is empty, get logRef : %s", logRef));
         }
+    }
+
+    static String getParentLogPath(String logFilePath, String appenderName) {
+        if (StringUtils.isBlank(logFilePath)) {
+            throw new IllegalArgumentException(
+                    String.format("Log file path is empty for appender: %s", appenderName));
+        }
+        Path parent = Paths.get(logFilePath).getParent();
+        return parent == null ? "." : parent.toString();
     }
 
     private static PropertiesConfiguration getLogConfiguration() {

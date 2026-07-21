@@ -17,31 +17,58 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.properties.PropertiesConfiguration;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import java.nio.file.Paths;
 
 public class LogUtilTest {
 
     @Test
     void shouldGetLogPathFromFileAppender() throws Exception {
-        LoggerContext context = (LoggerContext) LogManager.getContext(false);
-        Configuration originalConfiguration = context.getConfiguration();
-        URL configuration = getClass().getClassLoader().getResource("log4j2-file-only.properties");
-        assertNotNull(configuration);
+        String expected =
+                Paths.get(System.getProperty("java.io.tmpdir"), "seatunnel-logutil-test")
+                        .toString();
+        assertLogPath("log4j2-file-only.properties", expected);
+    }
+
+    @Test
+    void shouldGetLogPathFromRoutingAppender() throws Exception {
+        assertLogPath("log4j2-routing-only.properties", "target/routing-logs");
+    }
+
+    @Test
+    void shouldUseCurrentDirectoryForPathlessFileAppender() {
+        Assertions.assertEquals(".", LogUtil.getParentLogPath("seatunnel.log", "fileAppender"));
+    }
+
+    @Test
+    void shouldRejectEmptyLogPath() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> LogUtil.getParentLogPath(null, "fileAppender"));
+        Assertions.assertEquals(
+                "Log file path is empty for appender: fileAppender", exception.getMessage());
+    }
+
+    private void assertLogPath(String resource, String expected) throws Exception {
+        URL configuration = getClass().getClassLoader().getResource(resource);
+        Assertions.assertNotNull(configuration);
+        LoggerContext context = new LoggerContext("LogUtilTest-" + resource);
 
         try {
             context.setConfigLocation(configuration.toURI());
-            assertEquals("target/logs", LogUtil.getLogPath());
+            Assertions.assertInstanceOf(PropertiesConfiguration.class, context.getConfiguration());
+            Assertions.assertEquals(
+                    expected,
+                    LogUtil.getLogPath((PropertiesConfiguration) context.getConfiguration()));
         } finally {
-            context.setConfiguration(originalConfiguration);
+            context.stop();
         }
     }
 }
