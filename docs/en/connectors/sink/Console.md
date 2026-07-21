@@ -35,7 +35,7 @@ Console can receive rows from multiple upstream tables and can apply schema chan
 |--------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------|
 | common-options           |         | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md) for details. |
 | log.print.data           | boolean | No       | true    | Whether to print row data to the task log. Set it to `false` when you only want to keep the sink in the job graph without printing every row. |
-| log.print.delay.ms       | int     | No       | 0       | Delay in milliseconds after each row is processed. It can slow down printing during debugging.                |
+| log.print.delay.ms       | int     | No       | 0       | Non-negative delay in milliseconds after each row is processed. It can slow down printing during debugging.   |
 | multi_table_sink_replica | int     | No       | 1       | Writer replica count for each table in a multi-table sink job.                                                |
 
 ## Output Format

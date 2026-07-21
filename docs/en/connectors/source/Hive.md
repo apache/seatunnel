@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 Read data from Hive.
 
-When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each element is converted to a row with the following schema:
+When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
