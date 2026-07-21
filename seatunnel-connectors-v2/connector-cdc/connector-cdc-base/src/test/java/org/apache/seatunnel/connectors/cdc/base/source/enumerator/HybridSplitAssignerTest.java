@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.junit.jupiter.api.Assertions;
@@ -161,6 +162,48 @@ public class HybridSplitAssignerTest {
         Assertions.assertTrue(restoredState.isRemainingTablesCheckpointed());
         Assertions.assertEquals(
                 Collections.singletonList(checkpointTable), restoredState.getRemainingTables());
+    }
+
+    @Test
+    public void testSnapshotOnlyRejectsRestoredIncrementalSplit() {
+        // A snapshot-only assigner can only be handed an incremental split if the restored
+        // checkpoint had already entered the binlog phase (startup.mode was changed to snapshot
+        // across a restore). It must reject the split rather than silently streaming binlog.
+        HybridPendingSplitsState checkpointState =
+                new HybridPendingSplitsState(
+                        new SnapshotPhaseState(
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyMap(),
+                                Collections.emptyMap(),
+                                true,
+                                Collections.emptyList(),
+                                false,
+                                true),
+                        null);
+        HybridSplitAssigner<SourceConfig> snapshotOnlyAssigner =
+                new HybridSplitAssigner<>(
+                        newCompletedContext(), 2, 1, checkpointState, null, null, true);
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "db1.table1.stream",
+                        Collections.singletonList(TableId.parse("db1.table1")),
+                        null,
+                        null,
+                        Collections.emptyList());
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> snapshotOnlyAssigner.addSplits(Collections.singletonList(incrementalSplit)),
+                "snapshot-only assigner must reject a restored incremental split");
+
+        // control: the default hybrid assigner accepts the incremental split as usual.
+        HybridSplitAssigner<SourceConfig> hybridAssigner =
+                new HybridSplitAssigner<>(
+                        newCompletedContext(), 2, 1, checkpointState, null, null, false);
+        Assertions.assertDoesNotThrow(
+                () -> hybridAssigner.addSplits(Collections.singletonList(incrementalSplit)),
+                "default hybrid assigner should still accept incremental splits");
     }
 
     private static SplitAssigner.Context<SourceConfig> newCompletedContext() {

@@ -454,6 +454,17 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             offsetFactory,
                             startupMode == StartupMode.SNAPSHOT);
         } else if (checkpointState instanceof IncrementalPhaseState) {
+            if (startupMode == StartupMode.SNAPSHOT) {
+                // The checkpoint was taken while the job was already in the incremental/binlog
+                // phase. Restoring it as a bounded snapshot-only job would either stream binlog
+                // forever or drop committed progress, so reject the incompatible startup-mode
+                // change instead of silently violating the bounded contract.
+                throw new IllegalStateException(
+                        "Cannot restore a snapshot-only job (startup.mode=snapshot) from a checkpoint "
+                                + "that had already entered binlog/incremental streaming. Changing "
+                                + "startup.mode to snapshot across a restore is not supported; submit a "
+                                + "new job instead.");
+            }
             Set<TableId> capturedTables =
                     new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
             SplitAssigner.Context<C> assignerContext =

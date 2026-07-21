@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
@@ -147,6 +148,26 @@ class IncrementalSourceTest {
         Assertions.assertEquals(
                 Collections.singletonList(checkpointTable),
                 restoredState.getSnapshotPhaseState().getRemainingTables());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testSnapshotOnlyRestoreRejectsIncrementalCheckpoint() {
+        // A job that already entered the binlog phase checkpoints an IncrementalPhaseState.
+        // Restoring it with startup.mode changed to snapshot must fail fast rather than resume
+        // binlog streaming, which would break the bounded snapshot-only contract.
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot")),
+                        Collections.emptyList());
+        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> source.restoreEnumerator(enumeratorContext, new IncrementalPhaseState()),
+                "snapshot-only restore must reject an incremental (binlog) checkpoint");
     }
 
     private static class TestIncrementalSource extends IncrementalSource<Object, SourceConfig> {

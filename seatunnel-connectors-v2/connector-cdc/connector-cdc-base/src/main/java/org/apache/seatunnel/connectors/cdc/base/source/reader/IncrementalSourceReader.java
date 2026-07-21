@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -146,6 +147,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
+                if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT) {
+                    // Snapshot-only is a bounded startup mode that never streams binlog. A reader
+                    // can only be handed an incremental split if the restored checkpoint had
+                    // already entered the binlog phase (startup.mode was changed to snapshot across
+                    // a restore). Fail fast instead of streaming binlog forever, which would break
+                    // the bounded contract and leave the job running indefinitely.
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Snapshot-only startup mode received an incremental (binlog) split '%s' on subtask %d. "
+                                            + "Changing startup.mode to snapshot across a restore is not supported.",
+                                    split.splitId(), subtaskId));
+                }
                 unfinishedSplits.add(split.asIncrementalSplit());
             }
         }

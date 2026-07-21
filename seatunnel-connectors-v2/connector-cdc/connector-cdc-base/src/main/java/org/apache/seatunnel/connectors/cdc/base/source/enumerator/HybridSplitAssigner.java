@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /** Assigner for Hybrid split which contains snapshot splits and incremental splits. */
 public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigner {
@@ -218,6 +219,18 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             } else {
                 incrementalSplits.add(split);
             }
+        }
+        if (snapshotOnly && !incrementalSplits.isEmpty()) {
+            // Snapshot-only jobs are bounded and never enter binlog streaming. An incremental
+            // split can only be handed back here if the checkpoint being restored had already
+            // started the incremental phase (i.e. startup.mode was changed to snapshot across a
+            // restore). Reject it rather than silently streaming binlog forever.
+            throw new IllegalStateException(
+                    "Snapshot-only startup mode received an incremental (binlog) split: "
+                            + incrementalSplits.stream()
+                                    .map(SourceSplitBase::splitId)
+                                    .collect(Collectors.joining(", "))
+                            + ". Changing startup.mode to snapshot across a restore is not supported.");
         }
         snapshotSplitAssigner.addSplits(snapshotSplits);
         incrementalSplitAssigner.addSplits(incrementalSplits);

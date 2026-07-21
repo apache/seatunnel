@@ -215,7 +215,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | inverse-sampling.rate                     | Integer  | 否    | 1000    | 采样分片策略中使用的采样率的倒数. 例如, 如果该值设置为 1000, 则表示在采样过程中应用了 1/1000 的采样率. 此选项在控制采样的粒度方面提供了灵活性, 从而影响最终的分片数量. 在处理非常大的数据集时非常有用, 因为此时更倾向于使用较低的采样率. 默认值为 1000.                                                                                                |
 | split.allow-sampling                      | Boolean  | 否    | true    | 是否允许基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
 | enable_concurrent_read                    | Boolean  | 否    | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
-| exactly_once                              | Boolean  | 否    | false   | 在快照阶段启用精确一次语义和有界 binlog 回填。`startup.mode` 为 `initial` 或 `snapshot` 时支持此选项.                                                                                                                                                                                  |
+| exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义。当 `startup.mode` 为 `initial` 或 `snapshot` 时，还会在快照阶段额外启用有界的 low-to-high-watermark binlog 回填。                                                                                                                                                                                  |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
 | schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
@@ -435,12 +435,12 @@ source {
 
 当只需要做一次性全量引导（backfill）而不希望任务持续消费 binlog 时，使用 `startup.mode = "snapshot"`。任务会读取配置表的快照数据，读取完成后自然结束（有界任务），不会进入增量/binlog 阶段。
 
-该模式不会进入持续 binlog 流式读取，因此与除 `never` 外的 `stop.mode` 以及 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 选项互斥；同时配置这些选项会在启动时报错。`exactly_once` 仍可用于快照阶段的有界回填，但不会启动持续 binlog 流式读取。
+该模式不会进入持续 binlog 流式读取，因此与除 `never` 外的 `stop.mode` 以及 binlog 相关的 `startup.specific-offset.*`、`startup.timestamp` 选项互斥；同时配置这些选项会在启动时报错。`exactly_once` 仍可用于快照阶段的有界回填，但不会启动持续 binlog 流式读取。当 `exactly_once = true` 且任务并行度大于 1 时，快照阶段的有界回填会为每个 reader 打开独立的复制连接，因此需要将 `server-id` 配置为覆盖任务并行度的范围（例如 `5656-5657`），否则重复的 `server-id` 会被 MySQL 断开连接。
 
 ```hocon
 source {
   MySQL-CDC {
-    server-id = 5656
+    server-id = "5656-5657"
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
