@@ -292,6 +292,29 @@ public class MultiTableManagerTest {
         }
     }
 
+    @Test
+    public void testConvertRowWithNullTableIdDoesNotThrow() throws IOException {
+        // Regression for https://github.com/apache/seatunnel/issues/11499
+        // A misbehaving source (e.g. the pre-fix ParquetReadStrategy) may leave tableId null.
+        // The Spark translation reserves an internal field for the table id, so a null value
+        // used to reach UTF8String.fromString(null) and throw NPE in the generated writer.
+        // The converter must normalize null to "" and keep the internal table-id field non-null.
+        initSchema();
+        initData();
+        MultiTableManager multiTableManager =
+                new MultiTableManager(new CatalogTable[] {catalogTable1});
+        InternalRowConverter rowSerialization =
+                multiTableManager.getInternalRowCollector(null, null, null).getRowSerialization();
+
+        seaTunnelRow1.setTableId(null);
+
+        InternalRow internalRow =
+                Assertions.assertDoesNotThrow(() -> rowSerialization.convert(seaTunnelRow1));
+        // index 1 is the reserved table-id field (index 0 is row kind)
+        Assertions.assertFalse(internalRow.isNullAt(1));
+        Assertions.assertEquals("", internalRow.getString(1));
+    }
+
     public void initSchema() {
         this.rowType1 =
                 new SeaTunnelRowType(
