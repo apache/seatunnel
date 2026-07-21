@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -237,6 +238,15 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     incrementalSplit.splitId(),
                     checkpointTables);
             debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
+        } else if (incrementalSplit.getCheckpointDataType() != null) {
+            // Keep reading checkpoints written before checkpoint tables were introduced.
+            List<CatalogTable> legacyCheckpointTables =
+                    CatalogTableUtil.convertDataTypeToCatalogTables(
+                            incrementalSplit.getCheckpointDataType(), "default.default");
+            log.info(
+                    "The incremental split[{}] has a legacy checkpoint data type for restore.",
+                    incrementalSplit.splitId());
+            debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
         }
 
         Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();

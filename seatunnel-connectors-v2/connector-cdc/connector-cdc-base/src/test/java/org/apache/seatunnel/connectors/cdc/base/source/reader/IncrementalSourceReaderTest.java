@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
@@ -30,6 +33,9 @@ import io.debezium.relational.TableId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class IncrementalSourceReaderTest {
 
@@ -75,5 +81,37 @@ class IncrementalSourceReaderTest {
         IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema);
 
         Mockito.verifyNoInteractions(schema);
+    }
+
+    @Test
+    void restoreCheckpointStateRestoresLegacyCheckpointDataType() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        SeaTunnelRowType checkpointRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        IncrementalSourceReader.restoreCheckpointState(split, schema);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(schema).restoreCheckpointProducedType(captor.capture());
+        List<CatalogTable> restoredTables = captor.getValue();
+        assertEquals(1, restoredTables.size());
+        assertArrayEquals(
+                checkpointRowType.getFieldNames(),
+                restoredTables.get(0).getSeaTunnelRowType().getFieldNames());
     }
 }
