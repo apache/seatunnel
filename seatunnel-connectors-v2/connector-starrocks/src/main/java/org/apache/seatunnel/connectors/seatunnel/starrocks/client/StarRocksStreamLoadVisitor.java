@@ -61,9 +61,15 @@ public class StarRocksStreamLoadVisitor {
     private final TableSchema tableSchema;
 
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, TableSchema tableSchema) {
+        this(sinkConfig, tableSchema, new HttpHelper(sinkConfig));
+    }
+
+    /** Creates a visitor with an explicit HTTP boundary for deterministic response-state tests. */
+    StarRocksStreamLoadVisitor(
+            SinkConfig sinkConfig, TableSchema tableSchema, HttpHelper httpHelper) {
         this.sinkConfig = sinkConfig;
         this.tableSchema = tableSchema;
-        this.httpHelper = new HttpHelper(sinkConfig);
+        this.httpHelper = httpHelper;
         checkBatchMaxBytes(sinkConfig.getBatchMaxBytes(), sinkConfig.getBatchMaxSize());
     }
 
@@ -129,12 +135,24 @@ public class StarRocksStreamLoadVisitor {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
+            String message =
+                    loadResult.containsKey("Message")
+                            ? String.valueOf(loadResult.get("Message"))
+                            : "";
+            boolean labelAlreadyUsed = message.contains("has already been used");
+            if (labelAlreadyUsed) {
+                // A reused label can belong to a committed transaction. Check its state before
+                // deciding whether the batch is complete or needs a new label.
+                checkLabelState(host, flushData.getLabel());
+                return true;
+            }
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
+            return true;
         }
         return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
     }
@@ -196,7 +214,11 @@ public class StarRocksStreamLoadVisitor {
             try {
                 TimeUnit.SECONDS.sleep(Math.min(++idx, MAX_SLEEP_TIME));
             } catch (InterruptedException ex) {
-                break;
+                Thread.currentThread().interrupt();
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                        String.format("Interrupted while checking the state of label[%s].", label),
+                        ex);
             }
             try {
                 String queryLoadStateUrl =

@@ -18,12 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
@@ -47,27 +51,98 @@ public class StarRocksSinkManagerTest {
         when(mockSinkConfig.getMaxRetries()).thenReturn(3);
         when(mockSinkConfig.getRetryBackoffMultiplierMs()).thenReturn(100);
         when(mockSinkConfig.getMaxRetryBackoffMs()).thenReturn(1000);
+        AtomicInteger labelSequence = new AtomicInteger();
         this.sinkManager =
                 new StarRocksSinkManager(mockSinkConfig, null, mockStreamLoadVisitor) {
                     public String createBatchLabel() {
-                        return "test-label";
+                        return "test-label-" + labelSequence.incrementAndGet();
                     }
                 };
     }
 
     @Test
-    void testLabelAlreadyMessageHandledCorrectly() throws Exception {
-        // Mock behavior for label already used
-        doThrow(new RuntimeException("Label [test-label] has already been used"))
-                .when(mockStreamLoadVisitor)
-                .doStreamLoad(any());
+    void testUnclassifiedLabelMessageDoesNotChangeLabel() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        when(mockStreamLoadVisitor.doStreamLoad(any()))
+                .thenAnswer(
+                        invocation -> {
+                            StarRocksFlushTuple tuple = invocation.getArgument(0);
+                            if (attempts.incrementAndGet() == 1) {
+                                assertEquals("test-label-1", tuple.getLabel());
+                                throw new RuntimeException(
+                                        "Label [test-label-1] has already been used");
+                            }
+                            assertEquals("test-label-1", tuple.getLabel());
+                            return true;
+                        });
 
-        // Add a record to trigger flush
         sinkManager.write("test-record");
 
-        // Verify that the exception is caught and the batch is skipped
+        assertDoesNotThrow(() -> sinkManager.flush());
+        verify(mockStreamLoadVisitor, times(2)).doStreamLoad(any());
+    }
+
+    @Test
+    void testLabelAlreadyUsedExhaustionPreservesBatchForNextFlush() throws Exception {
+        when(mockStreamLoadVisitor.doStreamLoad(any()))
+                .thenAnswer(
+                        invocation -> {
+                            StarRocksFlushTuple tuple = invocation.getArgument(0);
+                            throw new RuntimeException(
+                                    "Label [" + tuple.getLabel() + "] has already been used");
+                        });
+
+        sinkManager.write("test-record");
+
+        assertThrows(StarRocksConnectorException.class, () -> sinkManager.flush());
+        verify(mockStreamLoadVisitor, times(4)).doStreamLoad(any());
+
+        org.mockito.Mockito.reset(mockStreamLoadVisitor);
+        when(mockStreamLoadVisitor.doStreamLoad(any())).thenReturn(true);
+
         assertDoesNotThrow(() -> sinkManager.flush());
         verify(mockStreamLoadVisitor, times(1)).doStreamLoad(any());
+    }
+
+    @Test
+    void testLabelAlreadyUsedWithNoRetriesFailsWithoutDroppingBatch() throws Exception {
+        when(mockSinkConfig.getMaxRetries()).thenReturn(0);
+        when(mockStreamLoadVisitor.doStreamLoad(any()))
+                .thenAnswer(
+                        invocation -> {
+                            StarRocksFlushTuple tuple = invocation.getArgument(0);
+                            throw new RuntimeException(
+                                    "Label [" + tuple.getLabel() + "] has already been used");
+                        });
+
+        sinkManager.write("test-record");
+
+        assertThrows(StarRocksConnectorException.class, () -> sinkManager.flush());
+        verify(mockStreamLoadVisitor, times(1)).doStreamLoad(any());
+    }
+
+    @Test
+    void testReCreateLabelExceptionRetriesWithNewLabel() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        when(mockStreamLoadVisitor.doStreamLoad(any()))
+                .thenAnswer(
+                        invocation -> {
+                            StarRocksFlushTuple tuple = invocation.getArgument(0);
+                            if (attempts.incrementAndGet() == 1) {
+                                assertEquals("test-label-1", tuple.getLabel());
+                                throw new StarRocksConnectorException(
+                                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                                        "The previous label cannot be reused",
+                                        true);
+                            }
+                            assertEquals("test-label-2", tuple.getLabel());
+                            return true;
+                        });
+
+        sinkManager.write("test-record");
+
+        assertDoesNotThrow(() -> sinkManager.flush());
+        verify(mockStreamLoadVisitor, times(2)).doStreamLoad(any());
     }
 
     @Test
