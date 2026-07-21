@@ -108,7 +108,8 @@ public class IncrementalSourceRecordEmitter<T>
             processElement(next, collector, splitState);
             markEnterPureIncrementPhase(next, splitState);
             if (cdcProgressTracker != null) {
-                cdcProgressTracker.recordEmission(splitState, getMessageTimestamp(next));
+                cdcProgressTracker.recordEmission(
+                        splitState, getMessageTimestamp(next), System.currentTimeMillis());
             }
         }
     }

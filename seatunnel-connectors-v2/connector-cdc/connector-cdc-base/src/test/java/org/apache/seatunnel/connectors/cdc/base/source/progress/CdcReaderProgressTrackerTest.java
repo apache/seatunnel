@@ -33,18 +33,19 @@ import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicLong;
 
 class CdcReaderProgressTrackerTest {
 
     @Test
     void testTracksCurrentOffsetWithoutClaimingCheckpointOrRestoreProgress() {
-        AtomicLong clock = new AtomicLong(100L);
         CdcReaderProgressTracker tracker =
-                new CdcReaderProgressTracker("MySQL-CDC", "MYSQL_BINLOG", clock::get);
+                new CdcReaderProgressTracker("MySQL-CDC", "MYSQL_BINLOG");
         IncrementalSplitState splitState = createIncrementalSplitState(new TestOffset(10L));
 
-        tracker.recordEmission(splitState, 90L);
+        tracker.recordSplitState(splitState);
+        Assertions.assertEquals(0L, tracker.current().getLastPositionChangeAt());
+
+        tracker.recordEmission(splitState, 90L, 100L);
         CdcReaderProgressReport first = tracker.current();
 
         Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, first.getLifecycle());
@@ -59,14 +60,13 @@ class CdcReaderProgressTrackerTest {
         Assertions.assertEquals(
                 CdcProgressAccuracy.UNSUPPORTED, first.getRestoredPosition().getAccuracy());
 
-        clock.set(200L);
-        tracker.recordEmission(splitState, null);
+        tracker.recordEmission(splitState, null, 200L);
         Assertions.assertEquals(100L, tracker.current().getLastPositionChangeAt());
         Assertions.assertEquals(90L, tracker.current().getLastSourceEventAt());
 
         splitState.setStartupOffset(new TestOffset(11L));
-        tracker.recordEmission(splitState, 190L);
-        Assertions.assertEquals(200L, tracker.current().getLastPositionChangeAt());
+        tracker.recordEmission(splitState, 190L, 300L);
+        Assertions.assertEquals(300L, tracker.current().getLastPositionChangeAt());
         Assertions.assertEquals(
                 "11",
                 tracker.current().getCurrentConsumedPosition().getValue().getValues().get("pos"));
@@ -100,7 +100,7 @@ class CdcReaderProgressTrackerTest {
 
         Assertions.assertTrue(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(15L)));
         splitState.setStartupOffset(new TestOffset(15L));
-        tracker.recordEmission(splitState, null);
+        tracker.recordEmission(splitState, null, 100L);
 
         Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, tracker.current().getLifecycle());
     }

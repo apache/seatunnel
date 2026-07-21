@@ -75,15 +75,16 @@ class CdcProgressServiceTest {
 
         service.updateEnumeratorReports(
                 Arrays.asList(
-                        enumeratorEnvelope(taskLocation, 10L, 100L, 2_000L),
-                        enumeratorEnvelope(taskLocation, 10L, 100L, 1_000L)));
+                        enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L),
+                        enumeratorEnvelope(taskLocation, 10L, 100L, 1L, 2_000L)));
         service.updateEnumeratorReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1_000L)));
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
         service.updateEnumeratorReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3_000L)));
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
 
         CdcEnumeratorProgressEnvelope stored = service.getEnumeratorReport(1L, 2, 10L);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals(1_000L, stored.getObservedAt());
     }
 
@@ -96,8 +97,8 @@ class CdcProgressServiceTest {
                         readerEnvelope(taskLocation(1L, 3, 0), 10L, 100L, 1L, "retained")));
         service.updateEnumeratorReports(
                 Arrays.asList(
-                        enumeratorEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1_000L),
-                        enumeratorEnvelope(taskLocation(1L, 3, 0), 10L, 100L, 1_000L)));
+                        enumeratorEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, 1_000L),
+                        enumeratorEnvelope(taskLocation(1L, 3, 0), 10L, 100L, 1L, 1_000L)));
 
         service.removePipeline(new PipelineLocation(1L, 2));
 
@@ -131,6 +132,7 @@ class CdcProgressServiceTest {
             TaskLocation taskLocation,
             long sourceVertexId,
             long executionAttemptId,
+            long sequence,
             long observedAt) {
         CdcEnumeratorProgressReport report =
                 new CdcEnumeratorProgressReport(
@@ -143,7 +145,7 @@ class CdcProgressServiceTest {
                         CdcProgressValue.exact(0),
                         Collections.emptyList());
         return new CdcEnumeratorProgressEnvelope(
-                taskLocation, sourceVertexId, executionAttemptId, observedAt, report);
+                taskLocation, sourceVertexId, executionAttemptId, sequence, observedAt, report);
     }
 
     private TaskLocation taskLocation(long jobId, int pipelineId, int taskIndex) {

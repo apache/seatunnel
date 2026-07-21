@@ -31,6 +31,7 @@ public final class CdcEnumeratorProgressEnvelope implements Serializable {
     private final TaskLocation taskLocation;
     private final long sourceVertexId;
     private final long executionAttemptId;
+    private final long reportSequence;
     private final long observedAt;
     private final CdcEnumeratorProgressReport report;
 
@@ -38,11 +39,13 @@ public final class CdcEnumeratorProgressEnvelope implements Serializable {
             TaskLocation taskLocation,
             long sourceVertexId,
             long executionAttemptId,
+            long reportSequence,
             long observedAt,
             CdcEnumeratorProgressReport report) {
         this.taskLocation = Objects.requireNonNull(taskLocation, "taskLocation must not be null");
         this.sourceVertexId = sourceVertexId;
         this.executionAttemptId = executionAttemptId;
+        this.reportSequence = reportSequence;
         this.observedAt = observedAt;
         this.report = Objects.requireNonNull(report, "report must not be null");
     }
@@ -57,6 +60,10 @@ public final class CdcEnumeratorProgressEnvelope implements Serializable {
 
     public long getExecutionAttemptId() {
         return executionAttemptId;
+    }
+
+    public long getReportSequence() {
+        return reportSequence;
     }
 
     public long getObservedAt() {

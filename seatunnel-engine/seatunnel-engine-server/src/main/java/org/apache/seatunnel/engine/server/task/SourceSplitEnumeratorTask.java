@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -97,11 +98,14 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private volatile boolean prepareCloseTriggered;
 
+    private transient AtomicLong cdcProgressSequence;
+
     @Override
     public void init() throws Exception {
         currState = SeaTunnelTaskState.INIT;
         super.init();
         readerRegisterComplete = false;
+        cdcProgressSequence = new AtomicLong();
         log.info(
                 "starting seatunnel source split enumerator task, source name: "
                         + source.getName());
@@ -222,6 +226,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             }
             return null;
         }
+    }
+
+    public long nextCdcProgressSequence() {
+        return cdcProgressSequence.incrementAndGet();
     }
 
     public long getCdcProgressSourceVertexId() {

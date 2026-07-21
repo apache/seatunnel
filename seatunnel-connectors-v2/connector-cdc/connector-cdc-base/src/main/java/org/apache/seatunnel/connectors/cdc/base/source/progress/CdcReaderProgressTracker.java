@@ -27,116 +27,143 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitSt
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.LongSupplier;
 
 /** Maintains the latest immutable report without performing I/O from the record-emission path. */
 public final class CdcReaderProgressTracker {
 
     private final String connectorType;
     private final String positionType;
-    private final LongSupplier clock;
-    private final AtomicReference<CdcReaderProgressReport> report;
-    private volatile ReaderState latestState;
-    private volatile Long latestSourceEventAt;
+    private final CdcReaderProgressReport initialReport;
+    private final AtomicReference<ReaderState> latestState = new AtomicReference<>();
 
     public CdcReaderProgressTracker(String connectorType, String positionType) {
-        this(connectorType, positionType, System::currentTimeMillis);
-    }
-
-    CdcReaderProgressTracker(String connectorType, String positionType, LongSupplier clock) {
         this.connectorType = connectorType;
         this.positionType = positionType;
-        this.clock = clock;
-        this.report =
-                new AtomicReference<>(
-                        new CdcReaderProgressReport(
-                                connectorType,
-                                CdcProgressLifecycle.UNKNOWN,
-                                null,
-                                CdcProgressValue.unavailable(),
-                                CdcProgressValue.unsupported(),
-                                CdcProgressValue.unsupported(),
-                                0L,
-                                null));
+        this.initialReport =
+                new CdcReaderProgressReport(
+                        connectorType,
+                        CdcProgressLifecycle.UNKNOWN,
+                        null,
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unsupported(),
+                        CdcProgressValue.unsupported(),
+                        0L,
+                        null);
     }
 
     public void recordSplitState(SourceSplitStateBase splitState) {
-        recordState(splitState);
+        recordState(splitState, null, false, 0L);
     }
 
-    public void recordEmission(SourceSplitStateBase splitState, Long sourceEventTime) {
-        if (sourceEventTime != null && sourceEventTime > 0) {
-            latestSourceEventAt = sourceEventTime;
-        }
-        recordState(splitState);
+    public void recordEmission(
+            SourceSplitStateBase splitState, Long sourceEventTime, long observedAt) {
+        recordState(splitState, sourceEventTime, true, observedAt);
     }
 
     public CdcReaderProgressReport current() {
-        ReaderState state = latestState;
+        ReaderState state = latestState.get();
         if (state == null) {
-            return report.get();
+            return initialReport;
         }
-        CdcReaderProgressReport previous = report.get();
         CdcProgressPosition position = CdcProgressPositions.fromOffset(positionType, state.offset);
         CdcProgressValue<CdcProgressPosition> consumedPosition =
                 position == null
                         ? CdcProgressValue.unavailable()
                         : CdcProgressValue.exact(position);
-        long now = clock.getAsLong();
-        long lastPositionChangeAt =
-                positionChanged(previous.getCurrentConsumedPosition(), position)
-                        ? now
-                        : previous.getLastPositionChangeAt();
-        CdcReaderProgressReport current =
-                new CdcReaderProgressReport(
-                        connectorType,
-                        state.lifecycle,
-                        state.splitId,
-                        consumedPosition,
-                        CdcProgressValue.unsupported(),
-                        CdcProgressValue.unsupported(),
-                        lastPositionChangeAt,
-                        latestSourceEventAt);
-        report.set(current);
-        return current;
+        return new CdcReaderProgressReport(
+                connectorType,
+                state.lifecycle,
+                state.splitId,
+                consumedPosition,
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                state.lastPositionChangeAt,
+                state.latestSourceEventAt);
     }
 
-    private void recordState(SourceSplitStateBase splitState) {
+    private void recordState(
+            SourceSplitStateBase splitState,
+            Long sourceEventTime,
+            boolean emissionObserved,
+            long observedAt) {
+        String splitId = splitState.splitId();
+        CdcProgressLifecycle lifecycle;
+        Offset offset = null;
         if (splitState.isSnapshotSplitState()) {
-            latestState =
-                    new ReaderState(splitState.splitId(), CdcProgressLifecycle.SNAPSHOT, null);
-            return;
+            lifecycle = CdcProgressLifecycle.SNAPSHOT;
+        } else {
+            IncrementalSplitState incrementalState = splitState.asIncrementalSplitState();
+            lifecycle =
+                    incrementalState.isEnterPureIncrementPhase()
+                            ? CdcProgressLifecycle.INCREMENTAL
+                            : CdcProgressLifecycle.CATCH_UP;
+            offset = incrementalState.getStartupOffset();
         }
-        IncrementalSplitState incrementalState = splitState.asIncrementalSplitState();
-        latestState =
-                new ReaderState(
-                        splitState.splitId(),
-                        incrementalState.isEnterPureIncrementPhase()
-                                ? CdcProgressLifecycle.INCREMENTAL
-                                : CdcProgressLifecycle.CATCH_UP,
-                        incrementalState.getStartupOffset());
+        Offset currentOffset = offset;
+        latestState.updateAndGet(
+                previous ->
+                        nextState(
+                                previous,
+                                splitId,
+                                lifecycle,
+                                currentOffset,
+                                sourceEventTime,
+                                emissionObserved,
+                                observedAt));
     }
 
-    private boolean positionChanged(
-            CdcProgressValue<CdcProgressPosition> previous, CdcProgressPosition currentPosition) {
-        CdcProgressPosition previousPosition = previous.getValue();
-        if (previousPosition == null || currentPosition == null) {
-            return previousPosition != currentPosition;
-        }
-        return !Objects.equals(previousPosition.getType(), currentPosition.getType())
-                || previousPosition.getSchemaVersion() != currentPosition.getSchemaVersion()
-                || !previousPosition.getValues().equals(currentPosition.getValues());
+    private ReaderState nextState(
+            ReaderState previous,
+            String splitId,
+            CdcProgressLifecycle lifecycle,
+            Offset offset,
+            Long sourceEventTime,
+            boolean emissionObserved,
+            long observedAt) {
+        boolean emittedPositionChanged =
+                emissionObserved
+                        && offset != null
+                        && (previous == null
+                                || !previous.emissionObserved
+                                || !Objects.equals(previous.offset, offset));
+        long lastPositionChangeAt =
+                emittedPositionChanged
+                        ? observedAt
+                        : previous == null ? 0L : previous.lastPositionChangeAt;
+        Long latestSourceEventAt =
+                sourceEventTime != null && sourceEventTime > 0
+                        ? sourceEventTime
+                        : previous == null ? null : previous.latestSourceEventAt;
+        return new ReaderState(
+                splitId,
+                lifecycle,
+                offset,
+                lastPositionChangeAt,
+                latestSourceEventAt,
+                emissionObserved || (previous != null && previous.emissionObserved));
     }
 
     private static final class ReaderState {
         private final String splitId;
         private final CdcProgressLifecycle lifecycle;
         private final Offset offset;
+        private final long lastPositionChangeAt;
+        private final Long latestSourceEventAt;
+        private final boolean emissionObserved;
 
-        private ReaderState(String splitId, CdcProgressLifecycle lifecycle, Offset offset) {
+        private ReaderState(
+                String splitId,
+                CdcProgressLifecycle lifecycle,
+                Offset offset,
+                long lastPositionChangeAt,
+                Long latestSourceEventAt,
+                boolean emissionObserved) {
             this.splitId = splitId;
             this.lifecycle = lifecycle;
             this.offset = offset;
+            this.lastPositionChangeAt = lastPositionChangeAt;
+            this.latestSourceEventAt = latestSourceEventAt;
+            this.emissionObserved = emissionObserved;
         }
     }
 }

@@ -72,6 +72,7 @@ class ReportCdcProgressOperationSerializationTest {
                         location,
                         5L,
                         6L,
+                        7L,
                         8L,
                         new CdcEnumeratorProgressReport(
                                 "MySQL-CDC",
@@ -97,6 +98,8 @@ class ReportCdcProgressOperationSerializationTest {
         Assertions.assertEquals(1, enumeratorReports.size());
         Assertions.assertEquals(
                 5L, ((CdcEnumeratorProgressEnvelope) enumeratorReports.get(0)).getSourceVertexId());
+        Assertions.assertEquals(
+                7L, ((CdcEnumeratorProgressEnvelope) enumeratorReports.get(0)).getReportSequence());
     }
 
     @SuppressWarnings("unchecked")

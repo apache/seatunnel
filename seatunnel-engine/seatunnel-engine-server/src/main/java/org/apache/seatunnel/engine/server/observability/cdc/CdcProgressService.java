@@ -99,7 +99,7 @@ public class CdcProgressService {
         if (current == null
                 || candidate.getExecutionAttemptId() > current.getExecutionAttemptId()
                 || (candidate.getExecutionAttemptId() == current.getExecutionAttemptId()
-                        && candidate.getObservedAt() > current.getObservedAt())) {
+                        && candidate.getReportSequence() > current.getReportSequence())) {
             return candidate;
         }
         return current;

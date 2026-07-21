@@ -916,6 +916,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     enumeratorTask.getTaskLocation(),
                                     enumeratorTask.getCdcProgressSourceVertexId(),
                                     context.getExecutionId(),
+                                    enumeratorTask.nextCdcProgressSequence(),
                                     observedAt,
                                     report));
                 }
