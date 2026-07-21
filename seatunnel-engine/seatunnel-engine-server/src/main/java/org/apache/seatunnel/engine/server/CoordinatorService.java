@@ -1166,6 +1166,19 @@ public class CoordinatorService {
         return resourceManager;
     }
 
+    /**
+     * Returns the resource manager only when it has already been initialized.
+     *
+     * <p>Unlike {@link #getResourceManager()}, this method never creates or initializes runtime
+     * state. Read-only paths such as telemetry collection should use this method to avoid
+     * triggering cluster RPCs.
+     *
+     * @return the initialized resource manager, or {@code null} when it has not been initialized
+     */
+    public ResourceManager getInitializedResourceManager() {
+        return resourceManager;
+    }
+
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
