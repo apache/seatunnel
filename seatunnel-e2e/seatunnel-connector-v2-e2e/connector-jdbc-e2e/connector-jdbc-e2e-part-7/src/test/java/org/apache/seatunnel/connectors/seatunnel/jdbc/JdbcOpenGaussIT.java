@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -49,10 +50,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcOpenGaussIT extends AbstractJdbcIT {
@@ -69,6 +72,13 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "gs_e2e_source_table";
     private static final String SINK_TABLE = "gs_e2e_sink_table";
     private static final String CATALOG_TABLE = "e2e_table_catalog";
+
+    /**
+     * OpenGauss table used to verify that catalog discovery never exposes dropped-column metadata
+     * placeholders as physical fields.
+     */
+    private static final String DROPPED_COLUMN_TABLE = "gs_catalog_dropped_column_test";
+
     private static final Integer GEN_ROWS = 100;
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_opengauss_source_and_sink.conf");
@@ -152,6 +162,39 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
 
         catalog.dropTable(targetTablePath, false);
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
+    }
+
+    /**
+     * Verifies catalog discovery excludes OpenGauss metadata placeholders while preserving the
+     * physical order of all remaining columns.
+     */
+    @Test
+    public void testCatalogExcludesDroppedColumns() {
+        OpenGaussCatalog openGaussCatalog = (OpenGaussCatalog) catalog;
+        TablePath tablePath = TablePath.of(DATABASE, SCHEMA, DROPPED_COLUMN_TABLE);
+        openGaussCatalog.dropTable(tablePath, true);
+        try {
+            openGaussCatalog.executeSql(
+                    tablePath,
+                    "CREATE TABLE "
+                            + SCHEMA
+                            + "."
+                            + DROPPED_COLUMN_TABLE
+                            + " (c1 INT, c2 VARCHAR(50), c3 INT, c4 TEXT)");
+            openGaussCatalog.executeSql(
+                    tablePath,
+                    "ALTER TABLE " + SCHEMA + "." + DROPPED_COLUMN_TABLE + " DROP COLUMN c2");
+
+            CatalogTable table = openGaussCatalog.getTable(tablePath);
+            List<String> actualColumns =
+                    table.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toList());
+
+            Assertions.assertEquals(Arrays.asList("c1", "c3", "c4"), actualColumns);
+        } finally {
+            openGaussCatalog.dropTable(tablePath, true);
+        }
     }
 
     @Test

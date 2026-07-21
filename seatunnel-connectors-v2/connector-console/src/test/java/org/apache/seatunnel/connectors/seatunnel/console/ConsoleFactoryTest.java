@@ -17,14 +17,53 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.Map;
+
 public class ConsoleFactoryTest {
+
+    private OptionRule sinkRule;
+
+    @BeforeEach
+    void setUp() {
+        sinkRule = new ConsoleSinkFactory().optionRule();
+    }
+
     @Test
     public void testOptionRule() {
-        Assertions.assertNotNull((new ConsoleSinkFactory()).optionRule());
+        Assertions.assertNotNull(sinkRule);
+    }
+
+    @Test
+    void testNonNegativeLogPrintDelay() {
+        Assertions.assertDoesNotThrow(() -> validateLogPrintDelay(0));
+        Assertions.assertDoesNotThrow(() -> validateLogPrintDelay(100));
+    }
+
+    @Test
+    void testNegativeLogPrintDelayFails() {
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateLogPrintDelay(-1));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains(ConsoleSinkOptions.LOG_PRINT_DELAY.key()));
+    }
+
+    private void validateLogPrintDelay(int delayMs) {
+        Map<String, Object> config =
+                Collections.singletonMap(ConsoleSinkOptions.LOG_PRINT_DELAY.key(), delayMs);
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sinkRule);
     }
 }

@@ -15,6 +15,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -53,6 +54,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | http_socket_timeout_ms      | int     | no       | 180000                       | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
+| table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
 
 ### save_mode_create_template
@@ -138,6 +140,35 @@ Option introduction：
 ### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
+
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode auto-creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect Stream Load writes at runtime and do **not** run `ALTER TABLE` on existing tables.
+
+When used with the default `save_mode_create_template` (option omitted, or configured with the same content as the built-in default), `table_options` are merged into the template `PROPERTIES` clause. **Duplicate keys are overridden by `table_options`.** Use property names from the [StarRocks CREATE TABLE documentation](https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket_part_index/CREATE_TABLE/#properties); SeaTunnel does not maintain an allowlist—invalid properties fail when StarRocks executes the CREATE TABLE statement.
+
+If you configure a `save_mode_create_template` that **differs from the built-in default**, `table_options` cannot be used together (validation fails at job submission). Put properties directly in the template instead.
+
+Invalid combinations are validated early via `StarRocksSinkFactory` option rules (`--check` and job submission), not only when StarRocks executes CREATE TABLE.
+
+Example:
+
+```hocon
+sink {
+  StarRocks {
+    base-url = "jdbc:mysql://127.0.0.1:9030"
+    nodeUrls = ["127.0.0.1:8030"]
+    username = "root"
+    password = ""
+    database = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      replication_num = "3"
+      storage_format = "V2"
+    }
+  }
+}
+```
 
 ## Data Type Mapping
 

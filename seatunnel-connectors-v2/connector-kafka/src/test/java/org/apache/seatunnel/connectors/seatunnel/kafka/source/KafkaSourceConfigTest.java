@@ -107,4 +107,28 @@ public class KafkaSourceConfigTest {
 
         Assertions.assertNotNull(deserializationSchema);
     }
+
+    @Test
+    void testSchemaTableWithMultipleDotsCanBeUsedAsOpaqueTablePath() {
+        String table = "reg.country.user_activity.activity";
+
+        Map<String, Object> schemaFields = new HashMap<>();
+        schemaFields.put("id", "int");
+        schemaFields.put("name", "string");
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", schemaFields);
+        schema.put(TABLE.key(), table);
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("bootstrap.servers", "localhost:9092");
+        configMap.put("group.id", "test");
+        configMap.put("topic", "test");
+        configMap.put("schema", schema);
+        configMap.put("format", "json");
+
+        KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+
+        Assertions.assertNotNull(sourceConfig.getMapMetadata().get(TablePath.of(null, table)));
+    }
 }

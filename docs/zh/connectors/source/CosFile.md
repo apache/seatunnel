@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
   在pollNext调用中读取拆分的所有数据。读取的拆分内容将保存在快照中。
 
-- [x] [列映射](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
@@ -35,18 +35,19 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 描述
 
-从阿里云Cos文件系统读取数据。
+从腾讯云 COS 文件系统读取数据。
 
 :::提示
 
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flilk集群已经集成了hadoop。测试的hadoop版本是2.x
+如果你使用 Spark/Flink，为了使用这个连接器，你必须确保 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本是 2.x。
 
-如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点.
+如果你使用 SeaTunnel Engine，当你下载并安装 SeaTunnel Engine 时，它会自动集成 Hadoop jar。你可以在 `${SEATUNNEL_HOME}/lib` 下检查 jar 包以确认这一点。
 
-要使用此连接器，您需要将hadoop-cos-{hadoop.version}-{version}.jar和cos_api-bundle-{version}.jar位于${SEATUNNEL_HOME}/lib目录中，下载：[Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). 它只支持hadoop 2.6.5+和8.0.2版本+.
+要使用此连接器，你需要将 `hadoop-cos-{hadoop.version}-{version}.jar` 和 `cos_api-bundle-{version}.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录中，下载地址：[Hadoop COS release](https://github.com/tencentyun/hadoop-cos/releases)。它仅支持 Hadoop 2.6.5+ 和 hadoop-cos 8.0.2+。
 
 :::
 
@@ -60,7 +61,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | secret_id                  | string  | 是  | -                   |
 | secret_key                 | string  | 是  | -                   |
 | region                     | string  | 是  | -                   |
-| read_columns               | list    | 是  | -                   |
+| read_columns               | list    | 否  | -                   |
 | delimiter/field_delimiter  | string  | 否  | \001                |
 | row_delimiter              | string  | 否  | \n                  |
 | parse_partition_from_path  | boolean | 否  | true                |
@@ -95,7 +96,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型设置为“json”，您还应该分配模式选项，告诉连接器如何将数据解析到所需的行。
 
@@ -184,7 +185,7 @@ schema {
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -204,6 +205,18 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
 根据此要求，您需要确保源端和目标端使用“二进制”格式进行文件同步同时。您可以在下面的示例中找到具体用法。
 
 ### bucket [string]
@@ -446,7 +459,7 @@ abc.*
 
 ### common options
 
-源插件常用参数，详见[源端通用选项]（../common-options/source-common-options.md）。
+源插件常用参数，详见[源端通用选项](../common-options/source-common-options.md)。
 
 ## 例如
 

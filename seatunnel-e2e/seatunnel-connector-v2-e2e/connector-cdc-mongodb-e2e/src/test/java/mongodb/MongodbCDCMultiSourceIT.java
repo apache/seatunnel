@@ -32,7 +32,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -77,9 +76,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
     private static final String MYSQL_USER_NAME = "st_user";
     private static final String MYSQL_USER_PASSWORD = "seatunnel";
     private static final String MYSQL_DATABASE = "mongodb_cdc";
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
     private final UniqueDatabase database = new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE);
 
@@ -98,15 +94,7 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
 
     @BeforeAll
     @Override
