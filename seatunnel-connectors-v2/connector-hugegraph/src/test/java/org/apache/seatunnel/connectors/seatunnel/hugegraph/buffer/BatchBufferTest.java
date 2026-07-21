@@ -263,4 +263,22 @@ class BatchBufferTest {
         assertTrue(lines.get(0).contains("id=bad"), "sample should contain the failed element id");
         assertTrue(lines.get(0).contains("poison-error"), "sample should contain the server error");
     }
+
+    @Test
+    void backwardCompatibleThreeArgConstructorDefaultsCorrectly() throws Exception {
+        // The legacy 3-arg constructor must behave identically to the 5-arg constructor
+        // with batchFailureFallback=false and checkVertex=false.
+        HugeGraphClient client = mock(HugeGraphClient.class);
+        doThrow(new RuntimeException("batch boom")).when(client).batchWriteVertices(anyList());
+
+        // 3-arg constructor: equivalent to (client, 10, 0, false, false)
+        try (BatchBuffer buffer = new BatchBuffer(client, 10, 0)) {
+            buffer.add(envelope(vertex("g1")));
+            // batchFailureFallback defaults to false -> batch failure throws immediately
+            assertThrows(HugeGraphConnectorException.class, buffer::flush);
+        }
+
+        // Confirm no per-record fallback was attempted (batchFailureFallback=false).
+        verify(client, never()).writeVertex(any(Vertex.class));
+    }
 }

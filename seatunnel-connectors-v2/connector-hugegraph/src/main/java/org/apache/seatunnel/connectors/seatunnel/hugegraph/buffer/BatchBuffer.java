@@ -85,6 +85,19 @@ public class BatchBuffer implements AutoCloseable {
     private BufferedWriter failureWriter;
     private boolean failureWriterDisabled;
 
+    /**
+     * Backward-compatible constructor that retains the original 3-argument signature. Defaults
+     * {@code batchFailureFallback} and {@code checkVertex} to {@code false}, matching the pre-2.x
+     * behaviour where neither feature existed.
+     *
+     * @deprecated Use {@link #BatchBuffer(HugeGraphClient, int, long, boolean, boolean)} instead so
+     *     callers explicitly opt into failure-fallback and vertex-checking semantics.
+     */
+    @Deprecated
+    public BatchBuffer(HugeGraphClient client, int batchSize, long batchIntervalMs) {
+        this(client, batchSize, batchIntervalMs, false, false);
+    }
+
     public BatchBuffer(
             HugeGraphClient client,
             int batchSize,
