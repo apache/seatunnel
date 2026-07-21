@@ -159,6 +159,31 @@ class JdbcTableOptionsConditionExtensionTest {
         Assertions.assertTrue(exception.getMessage().contains("Oracle"));
     }
 
+    @Test
+    void testKingbaseTableOptionsPassViaOptionRule() {
+        Map<String, Object> config = kingbaseSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("tablespace", "pg_default");
+        tableOptions.put("fillfactor", "70");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        Assertions.assertDoesNotThrow(() -> validateSinkOptionRule(config));
+    }
+
+    @Test
+    void testKingbaseRejectsUnknownTableOptionsViaOptionRule() {
+        Map<String, Object> config = kingbaseSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("engine", "InnoDB");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSinkOptionRule(config));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+        Assertions.assertTrue(exception.getMessage().contains("KingBase"));
+    }
+
     private static void validateSinkOptionRule(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config))
                 .validate(new JdbcSinkFactory().optionRule());
@@ -209,6 +234,14 @@ class JdbcTableOptionsConditionExtensionTest {
         config.put("url", "jdbc:oceanbase://127.0.0.1:2881/test");
         config.put("driver", "com.oceanbase.jdbc.Driver");
         config.put("compatible_mode", "oracle");
+        config.put("query", "INSERT INTO test_table VALUES (?)");
+        return config;
+    }
+
+    private static Map<String, Object> kingbaseSinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", "jdbc:kingbase8://127.0.0.1:54321/test");
+        config.put("driver", "com.kingbase8.Driver");
         config.put("query", "INSERT INTO test_table VALUES (?)");
         return config;
     }
