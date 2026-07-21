@@ -70,7 +70,17 @@ sink {
 
 公共参数可以直接配置；引擎专属参数则按前缀区分。Flink 和 Spark 的具体写法请参考 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 
-<!-- TODO add supported env parameters -->
+`env` 里最常用的参数包括：
+
+- `job.mode`：指定任务运行在 `BATCH` 或 `STREAMING` 模式
+- `job.name`：设置任务名称，方便在引擎和界面里识别
+- `parallelism`：控制 SeaTunnel 读取和写入时使用的并行度
+- `checkpoint.interval`：为流式任务开启周期性 checkpoint
+- `checkpoint.timeout`：限制单次 checkpoint 最长允许执行多久
+- `jars`：加载任务依赖的额外第三方 JAR 包
+- `shade.identifier`：指定配置加密或解密所使用的方式
+
+如果您想查看完整参数列表、引擎专属前缀和更多示例，请继续阅读 [JobEnvConfig](../configuration/JobEnvConfig.md)。
 
 ### `source`：数据读取入口
 
