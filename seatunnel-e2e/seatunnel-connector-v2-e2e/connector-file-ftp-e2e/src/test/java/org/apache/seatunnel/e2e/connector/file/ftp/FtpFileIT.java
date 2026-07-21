@@ -33,7 +33,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -78,7 +77,16 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final String PASSWORD = "pass";
 
-    private static final String CONTINUOUS_DISCOVERY_RESOURCE = "ftp-continuous-discovery";
+    private static final String CONTINUOUS_DISTCP_PATH = "/tmp/seatunnel/continuous/distcp";
+
+    private static final String CONTINUOUS_DELETE_PATH = "/tmp/seatunnel/continuous/delete";
+
+    private static final String CONTINUOUS_BACKUP_PATH = "/tmp/seatunnel/continuous/backup";
+
+    private static final String CONTINUOUS_RETENTION_PATH = "/tmp/seatunnel/continuous/retention";
+
+    private static final String CONTINUOUS_NON_RECURSIVE_PATH =
+            "/tmp/seatunnel/continuous/non-recursive";
 
     private GenericContainer<?> ftpContainer;
 
@@ -265,18 +273,17 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
             throws IOException, InterruptedException {
-        resetContinuousTestPath();
+        resetContinuousTestPath(CONTINUOUS_DISTCP_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            putFtpFile("/tmp/seatunnel/continuous/src/test1.bin", "abc");
+            putFtpFile(CONTINUOUS_DISTCP_PATH + "/src/test1.bin", "abc");
 
             jobFuture =
                     CompletableFuture.supplyAsync(
@@ -297,19 +304,19 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "abc",
                                             readFtpFile(
-                                                    "/tmp/seatunnel/continuous/dst/test1.bin")));
+                                                    CONTINUOUS_DISTCP_PATH + "/dst/test1.bin")));
 
             long firstMtimeSeconds =
-                    getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+                    getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
             Thread.sleep(2500);
             long secondMtimeSeconds =
-                    getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+                    getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
             Assertions.assertEquals(
                     firstMtimeSeconds,
                     secondMtimeSeconds,
                     "Continuous discovery should skip unchanged files in update mode.");
 
-            putFtpFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
+            putFtpFile(CONTINUOUS_DISTCP_PATH + "/src/test2.bin", "def");
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -317,30 +324,29 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "def",
                                             readFtpFile(
-                                                    "/tmp/seatunnel/continuous/dst/test2.bin")));
+                                                    CONTINUOUS_DISTCP_PATH + "/dst/test2.bin")));
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             cancelContinuousJobQuietly(container, jobId, jobFuture);
-            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            deleteFileFromContainer(ftpHomeDir + CONTINUOUS_DISTCP_PATH);
         }
     }
 
     @TestTemplate
-    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpBinaryUpdateModeContinuousDiscoveryPostSyncDelete(TestContainer container)
             throws IOException, InterruptedException {
-        resetContinuousTestPath();
+        resetContinuousTestPath(CONTINUOUS_DELETE_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            putFtpFile("/tmp/seatunnel/continuous/src/delete-test.bin", "abc");
+            putFtpFile(CONTINUOUS_DELETE_PATH + "/src/delete-test.bin", "abc");
 
             jobFuture =
                     CompletableFuture.supplyAsync(
@@ -361,7 +367,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "abc",
                                             readFtpFile(
-                                                    "/tmp/seatunnel/continuous/dst/delete-test.bin")));
+                                                    CONTINUOUS_DELETE_PATH
+                                                            + "/dst/delete-test.bin")));
 
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
@@ -369,7 +376,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                             () ->
                                     Assertions.assertFalse(
                                             isFtpFileExists(
-                                                    "/tmp/seatunnel/continuous/src/delete-test.bin"),
+                                                    CONTINUOUS_DELETE_PATH
+                                                            + "/src/delete-test.bin"),
                                             "source file should be deleted after checkpoint-gated post-sync commit"));
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
@@ -377,23 +385,22 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             cancelContinuousJobQuietly(container, jobId, jobFuture);
-            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            deleteFileFromContainer(ftpHomeDir + CONTINUOUS_DELETE_PATH);
         }
     }
 
     @TestTemplate
-    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpBinaryUpdateModeContinuousDiscoveryPostSyncBackup(TestContainer container)
             throws IOException, InterruptedException {
-        resetContinuousTestPath();
+        resetContinuousTestPath(CONTINUOUS_BACKUP_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            putFtpFile("/tmp/seatunnel/continuous/src/backup-test.bin", "abc");
+            putFtpFile(CONTINUOUS_BACKUP_PATH + "/src/backup-test.bin", "abc");
 
             jobFuture =
                     CompletableFuture.supplyAsync(
@@ -414,7 +421,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             "abc",
                                             readFtpFile(
-                                                    "/tmp/seatunnel/continuous/dst/backup-test.bin")));
+                                                    CONTINUOUS_BACKUP_PATH
+                                                            + "/dst/backup-test.bin")));
 
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
@@ -422,7 +430,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                             () ->
                                     Assertions.assertFalse(
                                             isFtpFileExists(
-                                                    "/tmp/seatunnel/continuous/src/backup-test.bin"),
+                                                    CONTINUOUS_BACKUP_PATH
+                                                            + "/src/backup-test.bin"),
                                             "source file should be moved from source path after backup commit"));
 
             Awaitility.await()
@@ -431,7 +440,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                             () ->
                                     Assertions.assertTrue(
                                             countFtpFilesByNamePattern(
-                                                            "/tmp/seatunnel/continuous/backup",
+                                                            CONTINUOUS_BACKUP_PATH + "/backup",
                                                             "backup-test.bin.v*")
                                                     > 0,
                                             "backup target should contain version-suffixed file"));
@@ -441,24 +450,25 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             cancelContinuousJobQuietly(container, jobId, jobFuture);
-            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            deleteFileFromContainer(ftpHomeDir + CONTINUOUS_BACKUP_PATH);
         }
     }
 
     @TestTemplate
-    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpContinuousBackupRetentionCleanup(TestContainer container)
             throws IOException, InterruptedException {
-        resetContinuousTestPath();
+        resetContinuousTestPath(CONTINUOUS_RETENTION_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
-            putFtpFile("/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456", "abc");
-            setFtpFileMtimeToPast("/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456");
+            putFtpFile(CONTINUOUS_RETENTION_PATH + "/src/retention-input.bin", "input");
+            putFtpFile(CONTINUOUS_RETENTION_PATH + "/backup/retention-old.bin.v3_123456", "abc");
+            setFtpFileMtimeToPast(
+                    CONTINUOUS_RETENTION_PATH + "/backup/retention-old.bin.v3_123456");
 
             jobFuture =
                     CompletableFuture.supplyAsync(
@@ -479,7 +489,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     Assertions.assertEquals(
                                             0L,
                                             countFtpFilesByNamePattern(
-                                                    "/tmp/seatunnel/continuous/backup",
+                                                    CONTINUOUS_RETENTION_PATH + "/backup",
                                                     "retention-old.bin.v*"),
                                             "retention should remove expired SeaTunnel backup files"));
 
@@ -488,23 +498,25 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             cancelContinuousJobQuietly(container, jobId, jobFuture);
-            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            deleteFileFromContainer(ftpHomeDir + CONTINUOUS_RETENTION_PATH);
         }
     }
 
     @TestTemplate
-    @ResourceLock(CONTINUOUS_DISCOVERY_RESOURCE)
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
             TestContainer container) throws IOException, InterruptedException {
-        resetContinuousTestPath();
+        resetContinuousTestPath(CONTINUOUS_NON_RECURSIVE_PATH);
 
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture = null;
         try {
+            putFtpFile(CONTINUOUS_NON_RECURSIVE_PATH + "/src/root.bin", "root");
+            putFtpFile(CONTINUOUS_NON_RECURSIVE_PATH + "/src/subdir/nested.bin", "nested");
+
             jobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
@@ -517,27 +529,26 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                 }
                             });
 
-            putFtpFile("/tmp/seatunnel/continuous/src/root.bin", "root");
-            putFtpFile("/tmp/seatunnel/continuous/src/subdir/nested.bin", "nested");
-
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
                                             "root",
-                                            readFtpFile("/tmp/seatunnel/continuous/dst/root.bin")));
+                                            readFtpFile(
+                                                    CONTINUOUS_NON_RECURSIVE_PATH
+                                                            + "/dst/root.bin")));
 
             Thread.sleep(3000);
             Assertions.assertFalse(
-                    isFtpFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+                    isFtpFileExists(CONTINUOUS_NON_RECURSIVE_PATH + "/dst/subdir/nested.bin"));
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
             waitContinuousJobExit(container, jobId, jobFuture);
         } finally {
             cancelContinuousJobQuietly(container, jobId, jobFuture);
-            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            deleteFileFromContainer(ftpHomeDir + CONTINUOUS_NON_RECURSIVE_PATH);
         }
     }
 
@@ -778,24 +789,28 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/update || true");
     }
 
-    private void resetContinuousTestPath() throws IOException, InterruptedException {
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+    private void resetContinuousTestPath(String continuousPath)
+            throws IOException, InterruptedException {
+        deleteFileFromContainer(ftpHomeDir + continuousPath);
         Container.ExecResult mkdirResult =
                 ftpContainer.execInContainer(
                         "sh",
                         "-c",
                         "mkdir -p "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/src "
+                                + continuousPath
+                                + "/src "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/dst "
+                                + continuousPath
+                                + "/dst "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/tmp");
+                                + continuousPath
+                                + "/tmp");
         Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
         ftpContainer.execInContainer(
-                "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+                "sh", "-c", "chmod -R 777 " + ftpHomeDir + continuousPath + " || true");
         ftpContainer.execInContainer(
-                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + continuousPath + " || true");
     }
 
     private void putFtpFile(String ftpPath, String content)
@@ -864,8 +879,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     /**
-     * Best-effort cleanup for assertion failures so one continuous test cannot leak into the next
-     * test's shared FTP directories.
+     * Best-effort cleanup for assertion failures so a continuous test cannot leak a running job.
      */
     private void cancelContinuousJobQuietly(
             TestContainer container,

@@ -53,6 +53,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -562,6 +567,124 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Assertions.assertTrue(
                 exception.getMessage().contains("retention_check_interval must be greater than 0"),
                 "retention_check_interval should be positive when retention is enabled");
+    }
+
+    @Test
+    void testContinuousDiscoveryNoneIgnoresStalePostSyncOptions() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src_none_stale_options"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst_none_stale_options"));
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "none");
+        extraConfig.put(
+                FileBaseSourceOptions.BACKUP_PATH.key(),
+                tempDir.resolve("unused_backup_path").toString());
+        extraConfig.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "7D");
+        extraConfig.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "1H");
+
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        enumeratorWithContext.enumerator.close();
+    }
+
+    @Test
+    void testSnapshotKeepsInFlightSplitWhilePostSyncOperationIsBuilt() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src_atomic_completion"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst_atomic_completion"));
+        Files.write(srcDir.resolve("test.bin"), "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        ExecutorService completionExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch statusReadStarted = new CountDownLatch(1);
+        CountDownLatch allowStatusRead = new CountDownLatch(1);
+        Future<?> completionFuture = null;
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+
+            Field inFlightContextsField =
+                    ContinuousMultipleTableFileSourceSplitEnumerator.class.getDeclaredField(
+                            "inFlightSplitContexts");
+            inFlightContextsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> inFlightContexts =
+                    (Map<String, Object>)
+                            inFlightContextsField.get(enumeratorWithContext.enumerator);
+            Object inFlightContext = inFlightContexts.get(assigned.splitId());
+            Field splitVersionField = inFlightContext.getClass().getDeclaredField("splitVersion");
+            splitVersionField.setAccessible(true);
+            splitVersionField.set(inFlightContext, null);
+
+            Field tableScanContextsField =
+                    ContinuousMultipleTableFileSourceSplitEnumerator.class.getDeclaredField(
+                            "tableScanContexts");
+            tableScanContextsField.setAccessible(true);
+            List<?> tableScanContexts =
+                    (List<?>) tableScanContextsField.get(enumeratorWithContext.enumerator);
+            Object tableScanContext = tableScanContexts.get(0);
+            Field sourceFsField = tableScanContext.getClass().getDeclaredField("sourceFs");
+            sourceFsField.setAccessible(true);
+            HadoopFileSystemProxy sourceFs =
+                    (HadoopFileSystemProxy) sourceFsField.get(tableScanContext);
+            HadoopFileSystemProxy blockingSourceFs = Mockito.spy(sourceFs);
+            Mockito.doAnswer(
+                            invocation -> {
+                                statusReadStarted.countDown();
+                                if (!allowStatusRead.await(30, TimeUnit.SECONDS)) {
+                                    throw new AssertionError(
+                                            "timed out waiting to resume split version lookup");
+                                }
+                                return invocation.callRealMethod();
+                            })
+                    .when(blockingSourceFs)
+                    .getFileStatus(Mockito.anyString());
+            sourceFsField.set(tableScanContext, blockingSourceFs);
+
+            completionFuture =
+                    completionExecutor.submit(
+                            () ->
+                                    enumeratorWithContext.enumerator.handleSourceEvent(
+                                            0, new FileSplitFinishedEvent(assigned.splitId())));
+
+            Assertions.assertTrue(
+                    statusReadStarted.await(30, TimeUnit.SECONDS),
+                    "split completion should reach the blocked version lookup");
+            FileSourceState transitionSnapshot = enumeratorWithContext.enumerator.snapshotState(1L);
+
+            Assertions.assertTrue(
+                    transitionSnapshot.getAssignedSplit().contains(assigned),
+                    "a snapshot taken while the operation is built must retain the in-flight split");
+            Assertions.assertTrue(
+                    transitionSnapshot.getPendingOpsByCheckpoint().isEmpty(),
+                    "the operation must not be checkpointed before it is fully built");
+        } finally {
+            allowStatusRead.countDown();
+            if (completionFuture != null) {
+                completionFuture.get(30, TimeUnit.SECONDS);
+            }
+            completionExecutor.shutdownNow();
+            enumeratorWithContext.enumerator.close();
+        }
     }
 
     @Test

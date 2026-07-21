@@ -328,8 +328,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         String splitId = ((FileSplitFinishedEvent) sourceEvent).getSplitId();
         InFlightSplitContext finishedContext;
         synchronized (lock) {
-            finishedContext = inFlightSplitContexts.remove(splitId);
-            inFlightSplits.removeIf(s -> Objects.equals(s.splitId(), splitId));
+            finishedContext = inFlightSplitContexts.get(splitId);
         }
         if (finishedContext == null) {
             return;
@@ -341,10 +340,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     "Skip post-sync staging because table context is not found. splitId={}, tableId={}",
                     splitId,
                     finishedContext.split.getTableId());
+            completeInFlightSplit(splitId, finishedContext, null);
             return;
         }
         TableScanContext tableScanContext = tableCtxOpt.get();
         if (tableScanContext.postSyncAction == FilePostSyncAction.NONE) {
+            completeInFlightSplit(splitId, finishedContext, null);
             return;
         }
         FileSourceOperationState opState =
@@ -352,8 +353,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         if (opState == null) {
             return;
         }
-        synchronized (lock) {
-            finishedAwaitingCheckpoint.add(opState);
+        if (!completeInFlightSplit(splitId, finishedContext, opState)) {
+            return;
         }
         incCounter(postSyncSubmittedCounter);
         if (log.isDebugEnabled()) {
@@ -362,6 +363,27 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     opState.getAction(),
                     opState.getSplitId(),
                     maskUriUserInfo(opState.getSourcePath()));
+        }
+    }
+
+    /**
+     * Removes a completed split and stages its post-sync operation in one critical section, so a
+     * concurrent checkpoint observes either the in-flight split or the fully built operation.
+     */
+    private boolean completeInFlightSplit(
+            String splitId,
+            InFlightSplitContext expectedContext,
+            FileSourceOperationState operationState) {
+        synchronized (lock) {
+            if (inFlightSplitContexts.get(splitId) != expectedContext) {
+                return false;
+            }
+            inFlightSplitContexts.remove(splitId);
+            inFlightSplits.removeIf(s -> Objects.equals(s.splitId(), splitId));
+            if (operationState != null) {
+                finishedAwaitingCheckpoint.add(operationState);
+            }
+            return true;
         }
     }
 
@@ -1218,6 +1240,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private static void validatePostSyncConfig(BaseFileSourceConfig baseFileSourceConfig) {
         ReadonlyConfig config = baseFileSourceConfig.getBaseFileSourceConfig();
         FilePostSyncAction action = config.get(FileBaseSourceOptions.POST_SYNC_ACTION);
+        if (action == FilePostSyncAction.NONE) {
+            return;
+        }
         Optional<String> backupPath = config.getOptional(FileBaseSourceOptions.BACKUP_PATH);
         Optional<Duration> retentionMaxAge =
                 config.getOptional(FileBaseSourceOptions.RETENTION_MAX_AGE);
@@ -1525,14 +1550,21 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             this.updateStrategy = config.get(FileBaseSourceOptions.UPDATE_STRATEGY);
             this.compareMode = config.get(FileBaseSourceOptions.COMPARE_MODE);
             this.postSyncAction = config.get(FileBaseSourceOptions.POST_SYNC_ACTION);
-            this.backupPath =
-                    config.getOptional(FileBaseSourceOptions.BACKUP_PATH)
-                            .map(sourceFs::makeQualifiedPath)
-                            .orElse(null);
-            this.retentionMaxAge =
-                    config.getOptional(FileBaseSourceOptions.RETENTION_MAX_AGE).orElse(null);
-            this.retentionCheckInterval =
-                    config.get(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL);
+            if (postSyncAction == FilePostSyncAction.BACKUP) {
+                this.backupPath =
+                        config.getOptional(FileBaseSourceOptions.BACKUP_PATH)
+                                .map(sourceFs::makeQualifiedPath)
+                                .orElse(null);
+                this.retentionMaxAge =
+                        config.getOptional(FileBaseSourceOptions.RETENTION_MAX_AGE).orElse(null);
+                this.retentionCheckInterval =
+                        config.get(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL);
+            } else {
+                this.backupPath = null;
+                this.retentionMaxAge = null;
+                this.retentionCheckInterval =
+                        FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.defaultValue();
+            }
             this.recursiveFileScan = config.get(FileBaseSourceOptions.RECURSIVE_FILE_SCAN);
 
             String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);

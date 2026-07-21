@@ -25,9 +25,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf.LocalConf;
+
+import org.apache.hadoop.fs.FileStatus;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -108,13 +111,18 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorPostSyncTest {
         Path backupTargetPath = tempDir.resolve("backup/source.bin.v3_1");
         Files.createDirectories(sourceDir);
         Files.write(sourcePath, "abc".getBytes(StandardCharsets.UTF_8));
+        FileStatus sourceStatus;
+        try (HadoopFileSystemProxy sourceFs =
+                new HadoopFileSystemProxy(new LocalConf(FS_DEFAULT_NAME_DEFAULT))) {
+            sourceStatus = sourceFs.getFileStatus(sourcePath.toString());
+        }
         FileSourceOperationState operation =
                 new FileSourceOperationState(
                         TABLE_ID,
                         "source",
                         sourcePath.toString(),
-                        Files.size(sourcePath),
-                        Files.getLastModifiedTime(sourcePath).toMillis(),
+                        sourceStatus.getLen(),
+                        sourceStatus.getModificationTime(),
                         FilePostSyncAction.BACKUP,
                         backupTargetPath.toString());
         Map<Long, List<FileSourceOperationState>> pendingOperations = new HashMap<>();
