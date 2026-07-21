@@ -601,6 +601,18 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                 });
     }
 
+    private List<List<Object>> querySql(String sql, String username, String password) {
+        return JdbcUtil.querySql(
+                sql,
+                () -> {
+                    try {
+                        return getJdbcConnection(ORACLE_CONTAINER, username, password);
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection(ORACLE_CONTAINER);
                 Statement statement = connection.createStatement()) {
@@ -683,8 +695,80 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                         });
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        clearTable(SCEHMA_NAME, SINK_TABLE1);
+        clearTable(SCEHMA_NAME, SOURCE_TABLE1);
+        long beforeScn = currentOracleScn();
+        insertRow(1, SCEHMA_NAME, SOURCE_TABLE1);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(currentOracleScn() > beforeScn));
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/oraclecdc_to_oracle_latest.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertRow(2, SCEHMA_NAME, SOURCE_TABLE1);
+
+            await().atMost(300000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                updateLatestStartupRow(
+                                        SCEHMA_NAME, SOURCE_TABLE1, System.nanoTime());
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT ID FROM "
+                                                        + SCEHMA_NAME
+                                                        + "."
+                                                        + SINK_TABLE1
+                                                        + " ORDER BY ID ASC");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("2")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(SCEHMA_NAME, SOURCE_TABLE1);
+            clearTable(SCEHMA_NAME, SINK_TABLE1);
+        }
+    }
+
     private void insertSourceTable(String database, String tableName) {
         insertRow(1, database, tableName);
+    }
+
+    private long currentOracleScn() {
+        return ((Number)
+                        querySql("SELECT CURRENT_SCN FROM V$DATABASE", ADMIN_USER, ADMIN_PWD)
+                                .get(0)
+                                .get(0))
+                .longValue();
     }
 
     private void insertRow(int id, String database, String tableName) {
@@ -696,6 +780,17 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                         + " VALUES ("
                         + id
                         + ", 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 1001, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
+    }
+
+    private void updateLatestStartupRow(String database, String tableName, long value) {
+        executeSql(
+                "UPDATE "
+                        + database
+                        + "."
+                        + tableName
+                        + " SET VAL_VARCHAR = 'latest-vc2-"
+                        + value
+                        + "' where ID = 2");
     }
 
     private void updateSourceTable(String database, String tableName) {

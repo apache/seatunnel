@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -63,45 +66,67 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.TABLE_NAMES,
                         MySqlIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
+                        MySqlIncrementalSourceOptions.TABLE_NAMES,
+                        Conditions.notEmpty(MySqlIncrementalSourceOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                MySqlIncrementalSourceOptions.TABLE_NAMES,
+                                                new MysqlTableNameValidator())))
+                .optional(
                         MySqlIncrementalSourceOptions.DATABASE_NAMES,
-                        MySqlIncrementalSourceOptions.SERVER_ID,
                         MySqlIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         MySqlIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         MySqlIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         MySqlIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
-                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
                 .optional(
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.INCLUDE))
+                .optional(
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.EXCLUDE))
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
+                .optional(
+                        MySqlIncrementalSourceOptions.SERVER_ID,
+                        Conditions.matches(
+                                MySqlIncrementalSourceOptions.SERVER_ID, "^\\d+(-\\d+)?$"))
+                .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        MySqlIncrementalSourceOptions.STOP_MODE)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        SourceOptions.EXACTLY_ONCE)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STARTUP_MODE,
+                                new MySqlStartModeValidator()))
+                .optional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
+                        Conditions.extension(
+                                MySqlIncrementalSourceOptions.STOP_MODE,
+                                new MySqlStopModeValidator()))
                 .build();
     }
 
@@ -161,5 +186,122 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MySqlIncrementalSource<>(config, catalogTables);
         };
+    }
+
+    /**
+     * MySQL-specific table name validator that only accepts the two-segment {@code database.table}
+     * format. MySQL does not have a separate schema namespace, so three-segment identifiers are
+     * invalid.
+     */
+    static class MysqlTableNameValidator implements ConditionExtension<List<String>> {
+
+        @Override
+        public String description() {
+            return "each table name must be in 'database.table' format (exactly two segments)";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            return value.stream().allMatch(MysqlTableNameValidator::isTwoSegmentName);
+        }
+
+        private static boolean isTwoSegmentName(String name) {
+            if (name == null || name.isEmpty()) {
+                return false;
+            }
+            String[] segments = name.split("\\.", -1);
+            if (segments.length != 2) {
+                return false;
+            }
+            for (String seg : segments) {
+                if (seg.trim().isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    static class MySqlStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0; "
+                    + "SPECIFIC requires startup.specific-offset.file non-blank and startup.specific-offset.pos >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+                case SPECIFIC:
+                    String startupSpecificOffsetFile =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+                    Long startupSpecificOffsetPos =
+                            config.get(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_POS);
+
+                    if (startupSpecificOffsetFile == null
+                            || startupSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific-offset.file must be configured and not blank.");
+                    }
+
+                    if (startupSpecificOffsetPos == null || startupSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is SPECIFIC, startup.specific-offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupSpecificOffsetPos);
+                    }
+                    break;
+            }
+
+            return true;
+        }
+    }
+
+    static class MySqlStopModeValidator implements ConditionExtension<StopMode> {
+        @Override
+        public String description() {
+            return "stop.mode=SPECIFIC requires stop.specific-offset.file != null && !blank and stop.specific-offset.pos >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StopMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case SPECIFIC:
+                    String stopSpecificOffsetFile =
+                            config.get(MySqlIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_FILE);
+                    Long stopSpecificOffsetPos =
+                            config.get(MySqlIncrementalSourceOptions.STOP_SPECIFIC_OFFSET_POS);
+
+                    if (stopSpecificOffsetFile == null || stopSpecificOffsetFile.trim().isEmpty()) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific-offset.file must be configured and not blank.");
+                    }
+
+                    if (stopSpecificOffsetPos == null || stopSpecificOffsetPos < 0) {
+                        throw new OptionValidationException(
+                                "When stop.mode is SPECIFIC, stop.specific-offset.pos must be configured and >= 0, "
+                                        + "but was: "
+                                        + stopSpecificOffsetPos);
+                    }
+                    break;
+            }
+
+            return true;
+        }
     }
 }

@@ -209,6 +209,90 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                 true);
     }
 
+    @Order(3)
+    @TestTemplate
+    public void testOracleCdcSchemaChangeExcludeDropColumn(TestContainer container)
+            throws Exception {
+        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME, SOURCE_TABLE1);
+        dropTable(ORACLE_CONTAINER.getJdbcUrl(), SCEHMA_NAME, SOURCE_TABLE1 + "_SINK");
+        createAndInitialize("full_types", ADMIN_USER, ADMIN_PWD);
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/oraclecdc_to_oracle_with_schema_change_exclude.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            given().pollDelay(10, TimeUnit.SECONDS)
+                    .await()
+                    .pollInterval(5000L, TimeUnit.MILLISECONDS)
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            });
+
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    checkData(
+                                            QUERY,
+                                            ORACLE_CONTAINER.getJdbcUrl(),
+                                            ORACLE_CONTAINER.getJdbcUrl(),
+                                            SCEHMA_NAME,
+                                            SOURCE_TABLE1 + "_SINK",
+                                            false));
+
+            createAndInitialize("add_nullable_column", CONNECTOR_USER, CONNECTOR_PWD);
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        oracleColumnExists(
+                                                ORACLE_CONTAINER.getJdbcUrl(),
+                                                SCEHMA_NAME,
+                                                SOURCE_TABLE1 + "_SINK",
+                                                "ADD_COLUMN_FILTER"));
+                                checkData(
+                                        PROJECTION_QUERY,
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        SCEHMA_NAME,
+                                        SOURCE_TABLE1 + "_SINK",
+                                        false);
+                            });
+
+            createAndInitialize("drop_nullable_column", CONNECTOR_USER, CONNECTOR_PWD);
+            await().atMost(300, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        oracleColumnExists(
+                                                ORACLE_CONTAINER.getJdbcUrl(),
+                                                SCEHMA_NAME,
+                                                SOURCE_TABLE1 + "_SINK",
+                                                "ADD_COLUMN_FILTER"));
+                                checkData(
+                                        PROJECTION_QUERY,
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        ORACLE_CONTAINER.getJdbcUrl(),
+                                        SCEHMA_NAME,
+                                        SOURCE_TABLE1 + "_SINK",
+                                        false);
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        }
+    }
+
     private void assertSchemaEvolution(
             String sourceJdbcUrl,
             String sinkJdbcUrl,
@@ -507,5 +591,20 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                         String.format(querySql, sinkSchemaName, sinkTableName),
                         CONNECTOR_USER,
                         CONNECTOR_PWD));
+    }
+
+    private boolean oracleColumnExists(
+            String jdbcUrl, String schemaName, String tableName, String columnName) {
+        List<List<String>> rows =
+                query(
+                        jdbcUrl,
+                        String.format(
+                                "SELECT COUNT(1) FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s' AND column_name = '%s'",
+                                schemaName.toUpperCase(),
+                                tableName.toUpperCase(),
+                                columnName.toUpperCase()),
+                        CONNECTOR_USER,
+                        CONNECTOR_PWD);
+        return !rows.isEmpty() && Integer.parseInt(rows.get(0).get(0)) > 0;
     }
 }

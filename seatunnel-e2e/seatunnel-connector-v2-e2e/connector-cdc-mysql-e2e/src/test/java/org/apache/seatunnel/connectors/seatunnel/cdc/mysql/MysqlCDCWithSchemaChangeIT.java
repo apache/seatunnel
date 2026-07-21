@@ -82,6 +82,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String SINK_TABLE2 =
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+    private static final String SINK_TABLE_INCLUDE =
+            "mysql_cdc_e2e_sink_table_schema_change_include";
     private static final String STABLE_QUERY =
             "select id,name,description,weight from %s.%s order by id";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -299,6 +301,79 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         Assertions.assertTrue(
                 columnExists(MYSQL_DATABASE, SINK_TABLE_FILTER, "add_column1"),
                 "drop.column was excluded, so the sink must keep the column the source dropped");
+    }
+
+    /**
+     * Covers {@code schema-changes.include}: add.column is included and propagates, while
+     * drop.column is not included and is therefore filtered.
+     */
+    @Order(4)
+    @TestTemplate
+    public void testMysqlCdcSchemaChangeEventTypeInclude(TestContainer container) {
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_schema_change_include.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_INCLUDE))));
+
+        shopDatabase.setTemplateName("add_columns_filter").createAndInitialize();
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        columnExists(
+                                                MYSQL_DATABASE, SINK_TABLE_INCLUDE, "add_column1"),
+                                        "add.column is included, so it should propagate to the sink"));
+
+        shopDatabase.setTemplateName("drop_columns_filter").createAndInitialize();
+
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        STABLE_QUERY,
+                                                        MYSQL_DATABASE,
+                                                        SINK_TABLE_INCLUDE))));
+
+        List<List<Object>> sinkRows =
+                query(String.format(STABLE_QUERY, MYSQL_DATABASE, SINK_TABLE_INCLUDE));
+        Assertions.assertTrue(
+                sinkRows.stream().noneMatch(row -> ((Number) row.get(0)).intValue() == 102),
+                "rows deleted at the source must also be deleted in the sink");
+        Assertions.assertTrue(
+                sinkRows.stream().anyMatch(row -> ((Number) row.get(0)).intValue() == 110),
+                "rows inserted at the source must appear in the sink");
+        assertSinkNameEquals(sinkRows, 101, "dailai");
+        Assertions.assertTrue(
+                columnExists(MYSQL_DATABASE, SINK_TABLE_INCLUDE, "add_column1"),
+                "drop.column is not included, so the sink must keep the column the source dropped");
     }
 
     /** Asserts the sink row with the given id exists and its {@code name} matches expectedName. */

@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
+import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterAll;
@@ -331,6 +332,64 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        cleanSourceTable();
+        long beforeOperationTime = currentMongoOperationTime();
+        upsertDeleteSourceTable();
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        currentMongoOperationTime() > beforeOperationTime));
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mongodbcdc_latest_to_mysql.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertLatestStartupProduct();
+
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                updateLatestStartupProduct();
+                                List<List<Object>> sinkRows = querySql(SINK_SQL_PRODUCTS);
+                                Assertions.assertEquals(1, sinkRows.size());
+                                Assertions.assertEquals("latest-product", sinkRows.get(0).get(0));
+                                Assertions.assertTrue(
+                                        sinkRows.get(0)
+                                                .get(1)
+                                                .toString()
+                                                .startsWith("captured after latest startup"));
+                                Assertions.assertEquals("88", sinkRows.get(0).get(2));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            cleanSourceTable();
         }
     }
 
@@ -685,6 +744,33 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         order.put("quantity", 7);
         order.put("product_id", productId);
         orders.insertOne(order);
+    }
+
+    private void insertLatestStartupProduct() {
+        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
+        MongoCollection<Document> products = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
+
+        Document product = new Document();
+        product.put("_id", new ObjectId("100000000000000000000122"));
+        product.put("name", "latest-product");
+        product.put("description", "waiting for latest startup");
+        product.put("weight", "88");
+        products.insertOne(product);
+    }
+
+    private void updateLatestStartupProduct() {
+        MongoDatabase mongoDatabase = client.getDatabase(MONGODB_DATABASE);
+        MongoCollection<Document> products = mongoDatabase.getCollection(MONGODB_COLLECTION_1);
+        products.updateOne(
+                Filters.eq("_id", new ObjectId("100000000000000000000122")),
+                Updates.set("description", "captured after latest startup " + System.nanoTime()));
+    }
+
+    private long currentMongoOperationTime() {
+        Document result = client.getDatabase("admin").runCommand(new Document("ping", 1));
+        Document clusterTime = result.get("$clusterTime", Document.class);
+        BsonTimestamp timestamp = clusterTime.get("clusterTime", BsonTimestamp.class);
+        return (((long) timestamp.getTime()) << 32) + timestamp.getInc();
     }
 
     private void cleanSourceTable() {

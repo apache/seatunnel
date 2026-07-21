@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,7 +34,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
@@ -40,11 +43,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @AutoService(Factory.class)
 @Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
+
     @Override
     public String factoryIdentifier() {
         return OracleIncrementalSource.IDENTIFIER;
@@ -55,55 +60,76 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
         return OracleIncrementalSourceOptions.getBaseRule()
                 .required(
                         OracleIncrementalSourceOptions.USERNAME,
-                        OracleIncrementalSourceOptions.PASSWORD)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.USERNAME, new EndpointValidator()))
+                .required(OracleIncrementalSourceOptions.PASSWORD)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
+                .optional(
+                        ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
                 .bundled(
                         OracleIncrementalSourceOptions.HOSTNAME,
                         OracleIncrementalSourceOptions.PORT)
+                .required(
+                        OracleIncrementalSourceOptions.DATABASE_NAMES,
+                        Conditions.notEmpty(OracleIncrementalSourceOptions.DATABASE_NAMES))
                 .optional(
                         OracleIncrementalSourceOptions.URL,
-                        OracleIncrementalSourceOptions.DATABASE_NAMES,
                         OracleIncrementalSourceOptions.SCHEMA_NAMES,
                         OracleIncrementalSourceOptions.USE_SELECT_COUNT,
                         OracleIncrementalSourceOptions.SKIP_ANALYZE,
                         OracleIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         OracleIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         OracleIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         OracleIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
-                        OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG,
+                        OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .optional(
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                                new SchemaChangeLogMiningValidator()))
+                .optional(
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.INCLUDE))
+                .optional(
+                        OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.EXCLUDE))
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                OracleIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         OracleIncrementalSourceOptions.STARTUP_MODE,
-                        OracleIncrementalSourceOptions.STOP_MODE)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        OracleIncrementalSourceOptions.STOP_MODE,
-                        StopMode.TIMESTAMP,
-                        SourceOptions.STOP_TIMESTAMP)
-                .conditional(
-                        OracleIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        SourceOptions.EXACTLY_ONCE)
+                        Conditions.extension(
+                                OracleIncrementalSourceOptions.STARTUP_MODE,
+                                new OracleStartModeValidator()))
+                .optional(OracleIncrementalSourceOptions.STOP_MODE)
                 .build();
     }
 
@@ -161,5 +187,72 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             }
             return new OracleIncrementalSource(context.getOptions(), catalogTables);
         };
+    }
+
+    static class EndpointValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "either 'url' or 'hostname'+'port' must be provided as the connection endpoint";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            boolean hasUrl = config.getOptional(OracleIncrementalSourceOptions.URL).isPresent();
+            boolean hasHostname =
+                    config.getOptional(OracleIncrementalSourceOptions.HOSTNAME).isPresent();
+            return hasUrl || hasHostname;
+        }
+    }
+
+    static class SchemaChangeLogMiningValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "when schema changes are enabled, debezium log mining strategy cannot be online_catalog";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value) {
+            Map<String, String> dbzProps = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+            boolean schemaChangeEnabled = Boolean.TRUE.equals(value);
+            if (!schemaChangeEnabled && dbzProps != null) {
+                schemaChangeEnabled =
+                        Boolean.parseBoolean(
+                                dbzProps.get(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY));
+            }
+            if (!schemaChangeEnabled) {
+                return true;
+            }
+            if (dbzProps == null) {
+                return true;
+            }
+            String strategy = dbzProps.get(OracleSourceConfigFactory.LOG_MINING_STRATEGY_KEY);
+            return !OracleSourceConfigFactory.LOG_MINING_STRATEGY_DEFAULT.equals(strategy);
+        }
+    }
+
+    static class OracleStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(OracleIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+            }
+
+            return true;
+        }
     }
 }

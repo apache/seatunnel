@@ -433,6 +433,75 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        Long jobId = JobIdGenerator.newJobId();
+        String slotName = createSlotName();
+        String slotVariable = toSlotVariable(slotName);
+        clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+        clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        String beforeLsn = currentPostgresWalLsn();
+        insertPostgresSourceTable1Row(10);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertTrue(currentPostgresWalLsnDiff(beforeLsn) > 0));
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/postgrescdc_latest_to_postgres.conf",
+                                String.valueOf(jobId),
+                                slotVariable);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            waitForReplicationSlotActive(slotName);
+
+            insertPostgresSourceTable1Row(11);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("11")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMPostgresCdcCheckDataE2eWithHeartbeat(TestContainer container) {
         String slotVariable = toSlotVariable(createSlotName());
@@ -1194,6 +1263,21 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1');");
     }
 
+    private void insertPostgresSourceTable1Row(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + POSTGRESQL_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1',\n"
+                        + "        ST_GeomFromText('POINT(-122.3452 47.5925)', 4326),\n"
+                        + "        ST_GeographyFromText('POINT(-122.3452 47.5925)'));");
+    }
+
     /** Delete one row after its insert event is already visible in Kafka. */
     private void deleteSourceTableRow(String database, String tableName, int id) {
         executeSql("DELETE FROM " + database + "." + tableName + " where id = " + id + ";");
@@ -1240,6 +1324,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String currentPostgresWalLsn() {
+        return query("SELECT pg_current_wal_lsn()").get(0).get(0).toString();
+    }
+
+    private double currentPostgresWalLsnDiff(String lsn) {
+        String sql = "SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '" + lsn + "')";
+        return ((Number) query(sql).get(0).get(0)).doubleValue();
     }
 
     @Override

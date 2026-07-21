@@ -26,8 +26,6 @@ import io.debezium.connector.mysql.MySqlConnectorConfig;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final long serialVersionUID = -6578851046816898665L;
@@ -60,9 +58,9 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // Kafka topic names emanating from this connector.
         // Only alphanumeric characters and underscores should be used.
         props.setProperty("database.server.name", "mysql_binlog_source");
-        props.setProperty("database.hostname", checkNotNull(hostname));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
+        props.setProperty("database.hostname", hostname);
+        props.setProperty("database.user", username);
+        props.setProperty("database.password", password);
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.fetchSize", String.valueOf(fetchSize));
         props.setProperty("database.responseBuffering", "adaptive");

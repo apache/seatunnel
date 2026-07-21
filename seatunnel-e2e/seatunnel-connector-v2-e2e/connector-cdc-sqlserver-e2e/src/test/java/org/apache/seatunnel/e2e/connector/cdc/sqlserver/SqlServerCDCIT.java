@@ -638,6 +638,15 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                                         sinkTable))));
     }
 
+    private boolean columnExists(String databaseName, String tableName, String columnName) {
+        return querySql(
+                        String.format(
+                                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '%s' AND TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                                databaseName, SCHEMA_NAME, tableName))
+                .stream()
+                .anyMatch(row -> columnName.equalsIgnoreCase(String.valueOf(row.get(0))));
+    }
+
     private void executeSqlFile(String sqlFile) {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
@@ -1048,5 +1057,104 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     sinkRows.stream()
                                             .anyMatch(row -> row.get(0).toString().equals("1")));
                         });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        initializeSqlServerTable(DATABASE_NAME);
+        executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
+        String beforeLsn = currentSqlServerMaxLsn();
+        updateSqlServerFullTypesVarchar(1, "latest-before-" + System.nanoTime());
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            String currentLsn = currentSqlServerMaxLsn();
+                            Assertions.assertNotNull(currentLsn);
+                            if (beforeLsn != null) {
+                                Assertions.assertNotEquals(beforeLsn, currentLsn);
+                            }
+                        });
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_latest_to_sqlserver.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertSqlServerFullTypesRow(100);
+
+            await().atMost(300000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                updateSqlServerFullTypesVarchar(
+                                        100, "latest-vc-" + System.nanoTime());
+                                List<List<Object>> sinkRows =
+                                        querySql(
+                                                "SELECT id FROM "
+                                                        + DATABASE_NAME
+                                                        + "."
+                                                        + SCHEMA_NAME
+                                                        + ".full_types_sink ORDER BY id ASC");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row ->
+                                                                row.get(0)
+                                                                        .toString()
+                                                                        .equals("100")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("1")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        }
+    }
+
+    private void insertSqlServerFullTypesRow(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + SOURCE_TABLE
+                        + " VALUES ("
+                        + id
+                        + ", 'cč', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>', SYSDATETIMEOFFSET(), CAST('test_varbinary' AS varbinary(100)), 5.32)");
+    }
+
+    private void updateSqlServerFullTypesVarchar(int id, String value) {
+        executeSql(
+                "UPDATE " + SOURCE_TABLE + " SET val_varchar = '" + value + "' where id = " + id);
+    }
+
+    private String currentSqlServerMaxLsn() {
+        List<List<Object>> rows =
+                querySql(
+                        String.format(
+                                "SELECT CONVERT(VARCHAR(100), [%s].sys.fn_cdc_get_max_lsn(), 1)",
+                                DATABASE_NAME));
+        if (rows.isEmpty() || rows.get(0) == null || rows.get(0).isEmpty()) {
+            return null;
+        }
+        Object maxLsn = rows.get(0).get(0);
+        return maxLsn == null ? null : maxLsn.toString();
     }
 }

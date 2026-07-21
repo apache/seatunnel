@@ -72,32 +72,6 @@ public final class SchemaChangeEventFilter implements Serializable {
                 SchemaChangeEventType.fromCanonicalNames(exclude));
     }
 
-    /**
-     * Validates the {@code schema-changes.include} / {@code schema-changes.exclude} option values.
-     *
-     * <p>Invoked at job submission time (from the source factory) so an unknown canonical name —
-     * e.g. a typo such as {@code rename.tabble} — fails fast during submission with a message
-     * listing the valid names, instead of bypassing submission-time option validation and failing
-     * later during source initialization.
-     */
-    public static void validateOptions(ReadonlyConfig config) {
-        validateNames(
-                SourceOptions.SCHEMA_CHANGES_INCLUDE.key(),
-                config.get(SourceOptions.SCHEMA_CHANGES_INCLUDE));
-        validateNames(
-                SourceOptions.SCHEMA_CHANGES_EXCLUDE.key(),
-                config.get(SourceOptions.SCHEMA_CHANGES_EXCLUDE));
-    }
-
-    private static void validateNames(String optionKey, List<String> names) {
-        try {
-            SchemaChangeEventType.fromCanonicalNames(names);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "Invalid value for option '" + optionKey + "'. " + e.getMessage(), e);
-        }
-    }
-
     public boolean isNoOp() {
         return includeTypes.isEmpty() && excludeTypes.isEmpty();
     }

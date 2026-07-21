@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,7 +33,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
@@ -47,6 +49,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.IL
 
 @AutoService(Factory.class)
 public class MongodbIncrementalSourceFactory implements TableSourceFactory {
+
     @Override
     public String factoryIdentifier() {
         return MongodbIncrementalSource.IDENTIFIER;
@@ -55,29 +58,57 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return MongodbIncrementalSourceOptions.getBaseRule()
+                .required(MongodbIncrementalSourceOptions.HOSTS)
                 .required(
-                        MongodbIncrementalSourceOptions.HOSTS,
                         MongodbIncrementalSourceOptions.DATABASE,
-                        MongodbIncrementalSourceOptions.COLLECTION)
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.DATABASE))
+                .required(
+                        MongodbIncrementalSourceOptions.COLLECTION,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.COLLECTION)
+                                .and(
+                                        Conditions.extension(
+                                                MongodbIncrementalSourceOptions.COLLECTION,
+                                                new CollectionCountConsistencyValidator())))
                 .exclusive(
                         MongodbIncrementalSourceOptions.SCHEMA,
                         MongodbIncrementalSourceOptions.TABLE_CONFIGS)
                 .optional(
+                        MongodbIncrementalSourceOptions.SCHEMA,
+                        Conditions.mapNotEmpty(MongodbIncrementalSourceOptions.SCHEMA))
+                .optional(
+                        MongodbIncrementalSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(MongodbIncrementalSourceOptions.TABLE_CONFIGS))
+                .optional(
                         MongodbIncrementalSourceOptions.USERNAME,
                         MongodbIncrementalSourceOptions.PASSWORD,
                         MongodbIncrementalSourceOptions.CONNECTION_OPTIONS,
-                        MongodbIncrementalSourceOptions.BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
-                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
-                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
-                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
-                        MongodbIncrementalSourceOptions.STARTUP_MODE,
-                        MongodbIncrementalSourceOptions.STOP_MODE,
                         MongodbIncrementalSourceOptions.DEBEZIUM_PROPERTIES)
-                .conditional(
+                .optional(
+                        MongodbIncrementalSourceOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MongodbIncrementalSourceOptions.BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_AWAIT_TIME_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.POLL_MAX_BATCH_SIZE, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
+                        Conditions.greaterOrEqual(
+                                MongodbIncrementalSourceOptions.HEARTBEAT_INTERVAL_MILLIS, 0))
+                .optional(
+                        MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                        Conditions.greaterThan(
+                                MongodbIncrementalSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
+                                0))
+                .optional(
                         MongodbIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP)
+                        Conditions.extension(
+                                MongodbIncrementalSourceOptions.STARTUP_MODE,
+                                new MongoStartModeValidator()))
+                .optional(MongodbIncrementalSourceOptions.STOP_MODE)
                 .build();
     }
 
@@ -94,11 +125,60 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
             List<CatalogTable> catalogTables = buildWithConfig(context.getOptions());
             List<String> collections =
                     context.getOptions().get(MongodbIncrementalSourceOptions.COLLECTION);
-            validateCatalogTablesAndCollections(catalogTables, collections);
             catalogTables = updateAndValidateCatalogTableId(catalogTables, collections);
             return (SeaTunnelSource<T, SplitT, StateT>)
                     new MongodbIncrementalSource<>(context.getOptions(), catalogTables);
         };
+    }
+
+    static class CollectionCountConsistencyValidator implements ConditionExtension<List<String>> {
+        @Override
+        public String description() {
+            return "collection count must align with schema/table_configs definition";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            List<Map<String, Object>> tableConfigs =
+                    config.get(MongodbIncrementalSourceOptions.TABLE_CONFIGS);
+            if (tableConfigs != null) {
+                return value.size() == tableConfigs.size();
+            }
+            Map<String, Object> schema = config.get(MongodbIncrementalSourceOptions.SCHEMA);
+            if (schema != null) {
+                return value.size() == 1;
+            }
+            return true;
+        }
+    }
+
+    static class MongoStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(MongodbIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+            }
+
+            return true;
+        }
     }
 
     private List<CatalogTable> updateAndValidateCatalogTableId(
@@ -114,42 +194,28 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                                     catalogTable.getCatalogName(), TablePath.of(collectionName));
                     return Collections.singletonList(
                             CatalogTable.of(updatedIdentifier, catalogTable));
-                } else if (!fullName.equals(collectionName)) {
-                    throw new MongodbConnectorException(
-                            ILLEGAL_ARGUMENT,
-                            String.format(
-                                    "Inconsistent naming found at index %d: The collection name '%s' must match the schema table name '%s'.",
-                                    i, collectionName, fullName));
                 }
+            } else if (!fullName.equals(collectionName)) {
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT,
+                        String.format(
+                                "Inconsistent naming found at index %d: "
+                                        + "The collection name '%s' must match the schema table name '%s'.",
+                                i, collectionName, fullName));
             }
         }
         return catalogTables;
-    }
-
-    private void validateCatalogTablesAndCollections(
-            List<CatalogTable> catalogTables, List<String> collections) {
-        if (catalogTables.size() != collections.size()) {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT,
-                    "The number of collections must be equal to the number of schema tables");
-        }
     }
 
     private List<CatalogTable> buildWithConfig(ReadonlyConfig config) {
         String factoryId = config.get(ConnectorCommonOptions.PLUGIN_NAME).replace("-CDC", "");
         Map<String, Object> schemaMap = config.get(ConnectorCommonOptions.SCHEMA);
         if (schemaMap != null) {
-            if (schemaMap.isEmpty()) {
-                throw new SeaTunnelException("Schema config can not be empty");
-            }
             CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(factoryId, config);
             return Collections.singletonList(catalogTable);
         }
         List<Map<String, Object>> schemaMaps = config.get(ConnectorCommonOptions.TABLE_CONFIGS);
         if (schemaMaps != null) {
-            if (schemaMaps.isEmpty()) {
-                throw new SeaTunnelException("tables_configs can not be empty");
-            }
             return schemaMaps.stream()
                     .map(
                             map ->

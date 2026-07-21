@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -31,7 +35,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import com.google.auto.service.AutoService;
@@ -59,45 +62,60 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
+                        ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
+                .required(
                         SqlServerIncrementalSourceOptions.DATABASE_NAMES,
+                        Conditions.notEmpty(SqlServerIncrementalSourceOptions.DATABASE_NAMES))
+                .optional(
                         SqlServerIncrementalSourceOptions.SERVER_TIME_ZONE,
-                        SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
-                        SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES,
-                        SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE,
                         SqlServerIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         SqlServerIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         SqlServerIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
+                .optional(
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                        Conditions.extension(
+                                SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.INCLUDE))
+                .optional(
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        Conditions.extension(
+                                SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                                SourceOptions.SchemaChangeNameValidator.EXCLUDE))
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(
+                                SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(
+                                SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(
+                                SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        SqlServerIncrementalSourceOptions.STOP_MODE)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STOP_MODE,
-                        StopMode.SPECIFIC,
-                        SourceOptions.STOP_SPECIFIC_OFFSET_POS)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.TIMESTAMP,
-                        SourceOptions.STARTUP_TIMESTAMP)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STOP_MODE,
-                        StopMode.TIMESTAMP,
-                        SourceOptions.STOP_TIMESTAMP)
-                .conditional(
-                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.INITIAL,
-                        SourceOptions.EXACTLY_ONCE)
+                        Conditions.extension(
+                                SqlServerIncrementalSourceOptions.STARTUP_MODE,
+                                new SqlServerStartModeValidator()))
+                .optional(SqlServerIncrementalSourceOptions.STOP_MODE)
                 .build();
     }
 
@@ -134,5 +152,31 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
             }
             return new SqlServerIncrementalSource(context.getOptions(), catalogTables);
         };
+    }
+
+    static class SqlServerStartModeValidator implements ConditionExtension<StartupMode> {
+        @Override
+        public String description() {
+            return "startup.mode rules: TIMESTAMP requires startup.timestamp >= 0";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, StartupMode value)
+                throws OptionValidationException {
+            switch (value) {
+                case TIMESTAMP:
+                    Long startupTimestamp =
+                            config.get(SqlServerIncrementalSourceOptions.STARTUP_TIMESTAMP);
+                    if (startupTimestamp == null || startupTimestamp < 0) {
+                        throw new OptionValidationException(
+                                "When startup.mode is TIMESTAMP, startup.timestamp must be configured and >= 0, "
+                                        + "but was: "
+                                        + startupTimestamp);
+                    }
+                    break;
+            }
+
+            return true;
+        }
     }
 }

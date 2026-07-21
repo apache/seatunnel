@@ -19,7 +19,11 @@ package org.apache.seatunnel.connectors.cdc.base.option;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
@@ -149,8 +153,86 @@ public class SourceOptions {
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()
                 .optional(FORMAT)
-                .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
-                .optional(INCREMENTAL_PARALLELISM)
+                .optional(SNAPSHOT_SPLIT_SIZE, Conditions.greaterThan(SNAPSHOT_SPLIT_SIZE, 0))
+                .optional(SNAPSHOT_FETCH_SIZE, Conditions.greaterThan(SNAPSHOT_FETCH_SIZE, 0))
+                .optional(
+                        INCREMENTAL_PARALLELISM, Conditions.greaterThan(INCREMENTAL_PARALLELISM, 0))
                 .optional(DEBEZIUM_PROPERTIES);
+    }
+
+    /**
+     * Validates that every entry in {@code schema-changes.include} or {@code
+     * schema-changes.exclude} is a recognized canonical event name.
+     */
+    public static class SchemaChangeNameValidator implements ConditionExtension<List<String>> {
+
+        public static final SchemaChangeNameValidator INCLUDE =
+                new SchemaChangeNameValidator(SCHEMA_CHANGES_INCLUDE.key());
+
+        public static final SchemaChangeNameValidator EXCLUDE =
+                new SchemaChangeNameValidator(SCHEMA_CHANGES_EXCLUDE.key());
+
+        private final String optionKey;
+
+        private SchemaChangeNameValidator(String optionKey) {
+            this.optionKey = optionKey;
+        }
+
+        @Override
+        public String description() {
+            return "each value must be a valid schema change event name: "
+                    + SchemaChangeEventType.validNames();
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            try {
+                if (value != null && !value.isEmpty()) {
+                    SchemaChangeEventType.fromCanonicalNames(value);
+                }
+            } catch (IllegalArgumentException e) {
+                throw new OptionValidationException(
+                        "Invalid value for option '" + optionKey + "'. " + e.getMessage());
+            }
+
+            return true;
+        }
+    }
+
+    /**
+     * Validates that every table name follows the qualified format: {@code schema.table} or {@code
+     * db.schema.table}. Used by connectors that accept both two-segment and three-segment
+     * identifiers (e.g. Oracle, SQLServer).
+     */
+    public static class QualifiedTableNameValidator implements ConditionExtension<List<String>> {
+
+        @Override
+        public String description() {
+            return "each table name must be in 'schema.table' or 'db.schema.table' format";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<String> value) {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
+            return value.stream().allMatch(QualifiedTableNameValidator::isQualifiedName);
+        }
+
+        private static boolean isQualifiedName(String name) {
+            if (name == null || name.isEmpty()) {
+                return false;
+            }
+            String[] segments = name.split("\\.", -1);
+            if (segments.length < 2 || segments.length > 3) {
+                return false;
+            }
+            for (String seg : segments) {
+                if (seg.trim().isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

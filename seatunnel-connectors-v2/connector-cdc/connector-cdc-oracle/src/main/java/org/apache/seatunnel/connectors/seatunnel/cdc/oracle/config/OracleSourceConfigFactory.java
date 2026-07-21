@@ -28,8 +28,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 /** A factory to initialize {@link OracleSourceConfig}. */
 @Slf4j
 public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -87,10 +85,9 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         // and
         // underscores should be used.
         props.setProperty("database.server.name", DATABASE_SERVER_NAME);
-        props.setProperty("database.url", checkNotNull(originUrl));
-        props.setProperty("database.user", checkNotNull(username));
-        props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        props.setProperty("database.user", username);
+        props.setProperty("database.password", password);
+        props.setProperty("database.dbname", databaseList.get(0));
 
         // database history
         props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
@@ -112,9 +109,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         if (originUrl != null) {
             props.setProperty("database.url", originUrl);
         } else {
-            checkNotNull(hostname, "hostname is required when url is not configured");
             props.setProperty("database.hostname", hostname);
-            checkNotNull(port, "port is required when url is not configured");
             props.setProperty("database.port", String.valueOf(port));
         }
 
@@ -129,29 +124,16 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                             .map(
                                     tableStr -> {
                                         String[] splits = tableStr.split("\\.");
-                                        if (splits.length == 2) {
-                                            return tableStr;
-                                        }
                                         if (splits.length == 3) {
                                             return String.join(".", splits[1], splits[2]);
                                         }
-                                        throw new IllegalArgumentException(
-                                                "Invalid table name: " + tableStr);
+                                        return tableStr;
                                     })
                             .collect(Collectors.joining(",")));
         }
 
         // override the user-defined debezium properties
         if (dbzProperties != null) {
-            String debeziumSchemaChanges =
-                    dbzProperties.getProperty(
-                            SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
-            String debeziumLogMiningStrategy = dbzProperties.getProperty(LOG_MINING_STRATEGY_KEY);
-            if (Boolean.parseBoolean(debeziumSchemaChanges)
-                    && LOG_MINING_STRATEGY_DEFAULT.equals(debeziumLogMiningStrategy)) {
-                throw new IllegalArgumentException(
-                        "Debezium log mining strategy must be set to redo_log_catalog when schema changes are enabled");
-            }
             props.putAll(dbzProperties);
         }
 
@@ -182,35 +164,5 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                 connectMaxRetries,
                 connectionPoolSize,
                 exactlyOnce);
-    }
-
-    private void validateConfig() throws IllegalArgumentException {
-        if (databaseList.size() != 1) {
-            throw new IllegalArgumentException(
-                    "Oracle only supports single database, databaseList: " + databaseList);
-        }
-        for (String database : databaseList) {
-            for (int i = 0; i < database.length(); i++) {
-                if (Character.isLetter(database.charAt(i))
-                        && !Character.isUpperCase(database.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle database name must be in all uppercase, database: " + database);
-                }
-            }
-        }
-        for (String table : tableList) {
-            if (table.split("\\.").length != 3 && table.split("\\.").length != 2) {
-                throw new IllegalArgumentException(
-                        "Oracle table name format must be is: ${database}.${schema}.${table} or ${schema}.${table}, table: "
-                                + table);
-            }
-            for (int i = 0; i < table.length(); i++) {
-                if (Character.isLetter(table.charAt(i))
-                        && !Character.isUpperCase(table.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle table name must be in all uppercase, table: " + table);
-                }
-            }
-        }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
@@ -62,19 +64,40 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         JdbcCommonOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
+                        ConnectorCommonOptions.TABLE_NAMES,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_NAMES)
+                                .and(
+                                        Conditions.extension(
+                                                ConnectorCommonOptions.TABLE_NAMES,
+                                                new SourceOptions.QualifiedTableNameValidator())))
+                .required(
                         JdbcSourceOptions.DATABASE_NAMES,
+                        Conditions.notEmpty(JdbcSourceOptions.DATABASE_NAMES))
+                .optional(
                         JdbcSourceOptions.SERVER_TIME_ZONE,
-                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
                         PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
                         PostgresIncrementalSourceOptions.SLOT_NAME,
+                        PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL,
+                        PostgresIncrementalSourceOptions.SCHEMA_NAME,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        JdbcSourceOptions.INVERSE_SAMPLING_RATE,
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.TABLE_NAMES_CONFIG)
+                .optional(
+                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterOrEqual(JdbcSourceOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
+                        Conditions.greaterOrEqual(JdbcSourceOptions.CONNECT_MAX_RETRIES, 0))
+                .optional(
+                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
+                        Conditions.greaterThan(JdbcSourceOptions.CONNECTION_POOL_SIZE, 0))
+                .optional(
+                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Conditions.greaterOrEqual(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD, 0))
+                .optional(
+                        JdbcSourceOptions.INVERSE_SAMPLING_RATE,
+                        Conditions.greaterThan(JdbcSourceOptions.INVERSE_SAMPLING_RATE, 0))
                 .optional(PostgresSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
                 .conditional(
                         PostgresSourceOptions.STARTUP_MODE,

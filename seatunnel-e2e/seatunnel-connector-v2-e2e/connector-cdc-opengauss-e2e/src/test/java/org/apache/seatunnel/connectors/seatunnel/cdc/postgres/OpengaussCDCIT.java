@@ -223,6 +223,72 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case needs the Zeta job status gate before emitting latest-mode changes.")
+    public void testLatestStartupMode(TestContainer container) throws Exception {
+        Long jobId = JobIdGenerator.newJobId();
+        clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
+        clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_1);
+        String beforeXlogLocation = currentOpengaussXlogLocation();
+        insertOpengaussSourceTable1Row(10);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        currentOpengaussXlogDiff(beforeXlogLocation) > 0));
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/opengausscdc_latest_to_opengauss.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        try {
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
+
+            insertOpengaussSourceTable1Row(11);
+
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                updateOpengaussSourceTable1BigField(11, System.currentTimeMillis());
+                                List<List<Object>> sinkRows =
+                                        query(
+                                                "SELECT id FROM "
+                                                        + OPENGAUSS_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1
+                                                        + " ORDER BY id");
+                                Assertions.assertTrue(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("11")));
+                                Assertions.assertFalse(
+                                        sinkRows.stream()
+                                                .anyMatch(
+                                                        row -> row.get(0).toString().equals("10")));
+                            });
+        } finally {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
+            clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testOpengaussCdcMeatadataTrans(TestContainer container)
             throws InterruptedException, IOException {
@@ -632,6 +698,32 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                         + " VALUES (2, '2', 32767, 65535, 2147483647);");
     }
 
+    private void insertOpengaussSourceTable1Row(int id) {
+        executeSql(
+                "INSERT INTO "
+                        + OPENGAUSS_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
+                        + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
+                        + "        '2020-07-17', '18:00:22', 500);");
+    }
+
+    private void updateOpengaussSourceTable1BigField(int id, long value) {
+        executeSql(
+                "UPDATE "
+                        + OPENGAUSS_SCHEMA
+                        + "."
+                        + SOURCE_TABLE_1
+                        + " SET f_big = "
+                        + value
+                        + " where id = "
+                        + id
+                        + ";");
+    }
+
     private void clearTable(String database, String tableName) {
         executeSql("truncate table " + database + "." + tableName);
     }
@@ -673,6 +765,16 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String currentOpengaussXlogLocation() {
+        return query("SELECT pg_current_xlog_location()").get(0).get(0).toString();
+    }
+
+    private double currentOpengaussXlogDiff(String xlogLocation) {
+        String sql =
+                "SELECT pg_xlog_location_diff(pg_current_xlog_location(), '" + xlogLocation + "')";
+        return ((Number) query(sql).get(0).get(0)).doubleValue();
     }
 
     private List<List<Object>> query(String sql) {

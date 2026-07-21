@@ -203,48 +203,6 @@ class SchemaChangeEventFilterTest {
     }
 
     @Test
-    void validateOptionsAcceptsValidNames() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("schema-changes.include", Arrays.asList("add.column"));
-        map.put("schema-changes.exclude", Arrays.asList("drop.column"));
-        Assertions.assertDoesNotThrow(
-                () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
-    }
-
-    @Test
-    void validateOptionsAcceptsEmptyConfig() {
-        Assertions.assertDoesNotThrow(
-                () ->
-                        SchemaChangeEventFilter.validateOptions(
-                                ReadonlyConfig.fromMap(new HashMap<>())));
-    }
-
-    @Test
-    void validateOptionsFailsFastOnUnknownIncludeName() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("schema-changes.include", Arrays.asList("rename.tabble"));
-        IllegalArgumentException ex =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
-        Assertions.assertTrue(ex.getMessage().contains("schema-changes.include"));
-        Assertions.assertTrue(ex.getMessage().contains("rename.tabble"));
-        Assertions.assertTrue(ex.getMessage().contains("add.column"));
-    }
-
-    @Test
-    void validateOptionsFailsFastOnUnknownExcludeName() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("schema-changes.exclude", Arrays.asList("drop.colum"));
-        IllegalArgumentException ex =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> SchemaChangeEventFilter.validateOptions(ReadonlyConfig.fromMap(map)));
-        Assertions.assertTrue(ex.getMessage().contains("schema-changes.exclude"));
-        Assertions.assertTrue(ex.getMessage().contains("drop.colum"));
-    }
-
-    @Test
     void namesAreNormalizedAndDeduplicated() {
         SchemaChangeEventFilter f =
                 filter(Arrays.asList("  ADD.COLUMN  ", "add.column"), Collections.emptyList());
