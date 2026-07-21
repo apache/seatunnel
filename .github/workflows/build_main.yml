@@ -31,3 +31,162 @@ jobs:
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
+
+  ci-summary:
+    name: CI summary
+    needs: [ call-build-and-test ]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Collect attempt-aware CI metrics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const runId = context.runId
+
+            const run = (await github.rest.actions.getWorkflowRun({
+              owner,
+              repo,
+              run_id: runId
+            })).data
+
+            const allJobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id: runId,
+                filter: 'latest',
+                per_page: 100
+              }
+            )
+
+            // Exclude this collector from the Build workload that it summarizes.
+            const jobs = allJobs.filter(job => job.name != 'CI summary')
+            const skipped = jobs.filter(job => job.conclusion == 'skipped').length
+            const runnable = jobs.length - skipped
+            const runStartedAt = run.run_started_at ? Date.parse(run.run_started_at) : null
+
+            const countBy = (values, keyFn) => values.reduce((counts, value) => {
+              const key = keyFn(value) || 'none'
+              counts[key] = (counts[key] || 0) + 1
+              return counts
+            }, {})
+
+            const intervals = jobs.map(job => {
+              const startedAt = job.started_at ? Date.parse(job.started_at) : null
+              const completedAt = job.completed_at ? Date.parse(job.completed_at) : null
+              const validDuration = startedAt != null && completedAt != null && completedAt >= startedAt
+              const validStartOffset = runStartedAt != null && startedAt != null && startedAt >= runStartedAt
+              return {
+                name: job.name,
+                status: job.status,
+                conclusion: job.conclusion,
+                duration_minutes: validDuration ? (completedAt - startedAt) / 60000 : null,
+                start_offset_minutes: validStartOffset ? (startedAt - runStartedAt) / 60000 : null,
+                completed_at_ms: completedAt
+              }
+            })
+
+            const validDurations = intervals.filter(item =>
+              item.conclusion != 'skipped' && item.duration_minutes != null
+            )
+            const invalidIntervals = intervals.filter(item =>
+              item.conclusion != 'skipped' && item.duration_minutes == null
+            ).length
+            const completedOffsets = intervals
+              .filter(item =>
+                item.conclusion != 'skipped' &&
+                runStartedAt != null &&
+                item.completed_at_ms != null &&
+                item.completed_at_ms >= runStartedAt
+              )
+              .map(item => (item.completed_at_ms - runStartedAt) / 60000)
+            const firstResultMinutes = completedOffsets.length > 0 ? Math.min(...completedOffsets) : null
+            const attemptDurationMinutes = completedOffsets.length > 0 ? Math.max(...completedOffsets) : null
+            const validRunnerMinutes = validDurations.reduce(
+              (total, item) => total + item.duration_minutes,
+              0
+            )
+            const longestJobs = validDurations
+              .sort((left, right) => right.duration_minutes - left.duration_minutes)
+              .slice(0, 10)
+              .map(item => ({
+                name: item.name,
+                conclusion: item.conclusion,
+                duration_minutes: Number(item.duration_minutes.toFixed(1)),
+                start_offset_minutes: item.start_offset_minutes == null
+                  ? null
+                  : Number(item.start_offset_minutes.toFixed(1))
+              }))
+
+            const summary = {
+              schema_version: 1,
+              repository: `${owner}/${repo}`,
+              run_id: runId,
+              run_url: run.html_url,
+              head_sha: run.head_sha,
+              head_branch: run.head_branch,
+              run_attempt: run.run_attempt,
+              is_rerun: run.run_attempt > 1,
+              caller_result: '${{ needs.call-build-and-test.result }}',
+              run_started_at: run.run_started_at,
+              expanded_jobs: jobs.length,
+              runnable_jobs: runnable,
+              skipped_jobs: skipped,
+              status_counts: countBy(jobs, job => job.status),
+              conclusion_counts: countBy(jobs, job => job.conclusion),
+              first_result_minutes: firstResultMinutes == null
+                ? null
+                : Number(firstResultMinutes.toFixed(1)),
+              attempt_duration_minutes: attemptDurationMinutes == null
+                ? null
+                : Number(attemptDurationMinutes.toFixed(1)),
+              valid_runner_minutes: Number(validRunnerMinutes.toFixed(1)),
+              invalid_or_incomplete_intervals: invalidIntervals,
+              longest_jobs: longestJobs
+            }
+
+            fs.writeFileSync('ci-summary.json', JSON.stringify(summary, null, 2) + '\n')
+
+            const formatMinutes = value => value == null ? 'n/a' : value.toFixed(1)
+            const escapeCell = value => String(value).replaceAll('|', '\\|')
+            const longestRows = longestJobs.map(job =>
+              `| ${escapeCell(job.name)} | ${job.conclusion || 'none'} | ${formatMinutes(job.duration_minutes)} | ${formatMinutes(job.start_offset_minutes)} |`
+            ).join('\n')
+            const markdown = [
+              '## Attempt-aware CI summary',
+              '',
+              '| Metric | Value |',
+              '| --- | ---: |',
+              `| Run attempt | ${summary.run_attempt}${summary.is_rerun ? ' (rerun)' : ' (first attempt)'} |`,
+              `| Caller result | ${summary.caller_result} |`,
+              `| Expanded / runnable / skipped jobs | ${summary.expanded_jobs} / ${summary.runnable_jobs} / ${summary.skipped_jobs} |`,
+              `| First result | ${formatMinutes(summary.first_result_minutes)} min |`,
+              `| Attempt duration | ${formatMinutes(summary.attempt_duration_minutes)} min |`,
+              `| Valid runner-time lower bound | ${formatMinutes(summary.valid_runner_minutes)} min |`,
+              `| Invalid or incomplete intervals | ${summary.invalid_or_incomplete_intervals} |`,
+              '',
+              '### Longest jobs',
+              '',
+              '| Job | Conclusion | Duration (min) | Start offset (min) |',
+              '| --- | --- | ---: | ---: |',
+              longestRows || '| n/a | n/a | n/a | n/a |',
+              '',
+              '_Start offset includes dependency waiting and runner queueing; it is not runner queue time alone._',
+              ''
+            ].join('\n')
+            await core.summary.addRaw(markdown).write()
+
+      - name: Upload CI summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-summary-attempt-${{ github.run_attempt }}
+          path: ci-summary.json
+          retention-days: 30

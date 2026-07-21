@@ -32,7 +32,7 @@ jobs:
       checks: write
     steps:
       - name: "Update build status"
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -83,6 +83,47 @@ jobs:
               return sameStatus && sameConclusion && sameDetailsUrl;
             }
 
+            async function getEffectiveWorkflowRun(workflowRunParams, workflowRun) {
+              const effectiveWorkflowRun = {
+                status: workflowRun.status,
+                conclusion: workflowRun.conclusion,
+                details_url: workflowRun.html_url || workflowRun.details_url
+              };
+              const waitingStatuses = ['queued', 'requested', 'pending', 'waiting'];
+
+              if (!waitingStatuses.includes(effectiveWorkflowRun.status)) {
+                return effectiveWorkflowRun;
+              }
+
+              try {
+                const jobs = await github.paginate(
+                  'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs',
+                  {
+                    ...workflowRunParams,
+                    filter: 'latest',
+                    per_page: 100
+                  }
+                );
+                const childWorkStarted = jobs.some(
+                  (job) =>
+                    job.status === 'in_progress' ||
+                    (job.status === 'completed' && job.conclusion !== 'skipped')
+                );
+
+                if (childWorkStarted) {
+                  effectiveWorkflowRun.status = 'in_progress';
+                  effectiveWorkflowRun.conclusion = null;
+                }
+              } catch (error) {
+                console.error(
+                  `Unable to inspect child jobs for run ${workflowRunParams.run_id}`,
+                  error
+                );
+              }
+
+              return effectiveWorkflowRun;
+            }
+
             async function processPullRequest(searchItem) {
               const prNumber = searchItem.number;
 
@@ -103,7 +144,8 @@ jobs:
                   {
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    ref: pr.head.sha
+                    ref: pr.head.sha,
+                    per_page: 100
                   }
                 );
 
@@ -143,9 +185,14 @@ jobs:
                   return;
                 }
 
-                if (shouldSkipPatch(buildCheckRun, workflowRun)) {
+                const effectiveWorkflowRun = await getEffectiveWorkflowRun(
+                  workflowRunParams,
+                  workflowRun
+                );
+
+                if (shouldSkipPatch(buildCheckRun, effectiveWorkflowRun)) {
                   console.log(
-                    `  Skip PR #${pr.number}: Build check run ${buildCheckRun.id} already matches ${workflowRun.status}/${workflowRun.conclusion}`
+                    `  Skip PR #${pr.number}: Build check run ${buildCheckRun.id} already matches ${effectiveWorkflowRun.status}/${effectiveWorkflowRun.conclusion}`
                   );
                   return;
                 }
@@ -155,18 +202,18 @@ jobs:
                   repo: context.repo.repo,
                   check_run_id: buildCheckRun.id,
                   output: buildCheckRun.output,
-                  status: workflowRun.status,
-                  details_url: workflowRun.details_url
+                  status: effectiveWorkflowRun.status,
+                  details_url: effectiveWorkflowRun.details_url
                 };
 
-                if (workflowRun.status === 'completed') {
-                  patchParams.conclusion = workflowRun.conclusion;
+                if (effectiveWorkflowRun.status === 'completed') {
+                  patchParams.conclusion = effectiveWorkflowRun.conclusion;
                   console.log(
-                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status}/${buildCheckRun.conclusion} -> ${workflowRun.status}/${workflowRun.conclusion}`
+                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status}/${buildCheckRun.conclusion} -> ${effectiveWorkflowRun.status}/${effectiveWorkflowRun.conclusion}`
                   );
                 } else {
                   console.log(
-                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status} -> ${workflowRun.status}`
+                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status} -> ${effectiveWorkflowRun.status}`
                   );
                 }
 
