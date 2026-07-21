@@ -34,6 +34,7 @@ import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.FeedResponse;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
@@ -52,6 +53,7 @@ public class AzureCosmosDBSourceReader
 
     private CosmosClient client;
     private CosmosContainer container;
+    private AzureCosmosDBSourceSplit currentSplit;
 
     private volatile boolean noMoreSplit;
     private volatile boolean finished;
@@ -93,29 +95,45 @@ public class AzureCosmosDBSourceReader
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
+        AzureCosmosDBSourceSplit activeSplit;
+        String continuationToken;
+
         synchronized (output.getCheckpointLock()) {
             if (finished) {
                 return;
             }
 
-            AzureCosmosDBSourceSplit split = pendingSplits.poll();
-            if (split == null) {
+            if (currentSplit == null) {
+                currentSplit = pendingSplits.poll();
+            }
+            if (currentSplit == null) {
                 if (noMoreSplit) {
-                    context.signalNoMoreElement();
-                    finished = true;
+                    finishReader();
                 }
                 return;
             }
 
-            readSplit(output);
-            context.signalNoMoreElement();
-            finished = true;
+            activeSplit = currentSplit;
+            continuationToken = activeSplit.getContinuationToken();
+        }
+
+        FeedResponse<Object> page = fetchPage(continuationToken);
+        List<SeaTunnelRow> rows = deserializePage(page);
+
+        synchronized (output.getCheckpointLock()) {
+            applyPage(activeSplit, page, rows, output);
+            finishReaderIfNoMoreWork();
         }
     }
 
     @Override
     public List<AzureCosmosDBSourceSplit> snapshotState(long checkpointId) {
-        return new ArrayList<>(pendingSplits);
+        List<AzureCosmosDBSourceSplit> state = new ArrayList<>();
+        pendingSplits.forEach(split -> state.add(split.copy()));
+        if (currentSplit != null) {
+            state.add(currentSplit.copy());
+        }
+        return state;
     }
 
     @Override
@@ -133,20 +151,62 @@ public class AzureCosmosDBSourceReader
         // no-op
     }
 
-    private void readSplit(Collector<SeaTunnelRow> output) {
+    private List<SeaTunnelRow> deserializePage(FeedResponse<Object> page) {
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        if (page == null) {
+            return rows;
+        }
+
+        for (Object item : page.getResults()) {
+            if (Objects.nonNull(item)) {
+                rows.add(deserializer.deserialize(item));
+            }
+        }
+        return rows;
+    }
+
+    private void applyPage(
+            AzureCosmosDBSourceSplit activeSplit,
+            FeedResponse<Object> page,
+            List<SeaTunnelRow> rows,
+            Collector<SeaTunnelRow> output) {
+        if (finished || currentSplit != activeSplit) {
+            return;
+        }
+
+        if (page == null) {
+            finishCurrentSplit();
+            return;
+        }
+
+        rows.forEach(output::collect);
+
+        String continuationToken = page.getContinuationToken();
+        currentSplit.setContinuationToken(continuationToken);
+        if (isLastPage(continuationToken)) {
+            finishCurrentSplit();
+        }
+    }
+
+    FeedResponse<Object> fetchPage(String continuationToken) {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         try {
-            for (FeedResponse<Object> page :
-                    container
-                            .<Object>queryItems(config.getQuery(), queryOptions, Object.class)
-                            .iterableByPage(config.getMaxItemCount())) {
-                for (Object item : page.getResults()) {
-                    if (Objects.nonNull(item)) {
-                        output.collect(deserializer.deserialize(item));
-                    }
-                }
+            Iterator<FeedResponse<Object>> pageIterator;
+            if (isLastPage(continuationToken)) {
+                pageIterator =
+                        container
+                                .<Object>queryItems(config.getQuery(), queryOptions, Object.class)
+                                .iterableByPage(config.getMaxItemCount())
+                                .iterator();
+            } else {
+                pageIterator =
+                        container
+                                .<Object>queryItems(config.getQuery(), queryOptions, Object.class)
+                                .iterableByPage(continuationToken, config.getMaxItemCount())
+                                .iterator();
             }
+            return pageIterator.hasNext() ? pageIterator.next() : null;
         } catch (Exception e) {
             throw new IllegalStateException(
                     String.format(
@@ -154,7 +214,26 @@ public class AzureCosmosDBSourceReader
                             config.getDatabase(), config.getContainer(), config.getQuery()),
                     e);
         }
+    }
+
+    private static boolean isLastPage(String continuationToken) {
+        return continuationToken == null || continuationToken.isEmpty();
+    }
+
+    private void finishReader() {
+        context.signalNoMoreElement();
+        finished = true;
+    }
+
+    private void finishReaderIfNoMoreWork() {
+        if (currentSplit == null && pendingSplits.isEmpty() && noMoreSplit) {
+            finishReader();
+        }
+    }
+
+    private void finishCurrentSplit() {
         LOG.info("AzureCosmosDB reader [{}] finished source scan", context.getIndexOfSubtask());
+        currentSplit = null;
     }
 
     int getQueryPageSize() {

@@ -34,7 +34,7 @@ import ChangeLog from '../changelog/connector-azurecosmosdb.md';
 - 必须显式配置 schema（不支持 schema 推断）
 - 不支持 catalog 发现
 - 单分片读取；物理分区/范围并行读取暂不支持
-- continuation token、change feed、托管身份认证、容器创建均不在 V1 范围内
+- change feed、托管身份认证、容器创建均不在 V1 范围内
 
 ## 支持的数据源信息
 
@@ -149,7 +149,7 @@ schema = {
 
 ### max_item_count [int]
 
-SDK 迭代查询结果时的首选分页大小。该参数仅控制内部分页；V1 不支持基于 continuation token 的断点续读。
+SDK 迭代查询结果时的首选分页大小。执行 checkpoint 恢复时，连接器会持久化当前分页查询的 SDK continuation token，并从上一个完成的分页继续读取。
 
 ### common-options
 
@@ -161,6 +161,7 @@ SDK 迭代查询结果时的首选分页大小。该参数仅控制内部分页�
 > 2. V1 仅使用单个 split。提高 source 并行度不会按物理分区并行读取 Cosmos 数据。<br/>
 > 3. 可在 `query` 中使用 Cosmos SQL 做过滤和投影。连接器不提供单独的列投影特性。<br/>
 > 4. 连接器只读取已有容器，不会创建数据库、容器或索引。
+> 5. Checkpoint 恢复基于 Cosmos 查询分页边界，而不是单行边界。Change feed 读取仍不在范围内。
 
 ## 如何创建 Azure Cosmos DB 数据同步作业
 

@@ -34,7 +34,7 @@ V1 scope for this connector:
 - schema required (no schema inference)
 - catalog discovery out of scope
 - single split reading; physical partition/range parallel reads are out of scope
-- continuation tokens, change feed, managed identity, and container creation are out of scope
+- change feed, managed identity, and container creation are out of scope
 
 ## Supported DataSource Info
 
@@ -149,7 +149,7 @@ Cosmos SQL query used for bounded batch reads. Use this for filtering and field 
 
 ### max_item_count [int]
 
-Preferred page size when the SDK iterates query results. This controls internal paging only; continuation-token based resume is not supported in V1.
+Preferred page size when the SDK iterates query results. During checkpoint restore, the connector persists the SDK continuation token for the in-flight paginated query and resumes from the last completed page.
 
 ### common-options
 
@@ -161,6 +161,7 @@ Source plugin common parameters, refer to [Source Common Options](../common-opti
 > 2. V1 uses a single split. Increasing source parallelism does not parallelize Cosmos reads across physical partitions.<br/>
 > 3. Use Cosmos SQL in `query` for filtering and projection. Connector-level column projection is not supported as a separate feature.<br/>
 > 4. The connector reads from an existing container only. It does not create databases, containers, or indexes.
+> 5. Checkpoint resume is based on Cosmos query page boundaries, not individual rows. Change feed reading is still out of scope.
 
 ## How to Create an Azure Cosmos DB Data Synchronization Job
 

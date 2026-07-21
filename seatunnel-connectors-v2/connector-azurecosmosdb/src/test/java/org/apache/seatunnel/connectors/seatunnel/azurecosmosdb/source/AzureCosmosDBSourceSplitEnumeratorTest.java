@@ -42,13 +42,34 @@ public class AzureCosmosDBSourceSplitEnumeratorTest {
         AzureCosmosDBSourceSplitEnumerator enumerator =
                 new AzureCosmosDBSourceSplitEnumerator(context, null);
 
-        enumerator.run();
+        try {
+            enumerator.run();
+        } finally {
+            enumerator.close();
+        }
 
         Assertions.assertEquals(1, context.assignedSplits.get(0).size());
         Assertions.assertEquals("0", context.assignedSplits.get(0).get(0).splitId());
         Assertions.assertTrue(
                 context.assignedSplits.getOrDefault(1, Collections.emptyList()).isEmpty());
         Assertions.assertEquals(readers, context.noMoreSplitReaders);
+    }
+
+    @Test
+    public void testAddSplitsBackPreservesContinuationToken() throws Exception {
+        RecordingContext context = new RecordingContext(1, Collections.singleton(0));
+        AzureCosmosDBSourceSplitEnumerator enumerator =
+                new AzureCosmosDBSourceSplitEnumerator(context, null);
+        AzureCosmosDBSourceSplit restoredSplit = new AzureCosmosDBSourceSplit(0, "token-1");
+
+        try {
+            enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+        } finally {
+            enumerator.close();
+        }
+
+        Assertions.assertEquals(
+                "token-1", context.assignedSplits.get(0).get(0).getContinuationToken());
     }
 
     private static class RecordingContext

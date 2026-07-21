@@ -118,10 +118,15 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
                         context, createConfig(container, query, maxItemCount), rowType());
 
         reader.open();
-        reader.addSplits(Collections.singletonList(new AzureCosmosDBSourceSplit(0)));
-        reader.handleNoMoreSplits();
-        reader.pollNext(collector);
-        reader.close();
+        try {
+            reader.addSplits(Collections.singletonList(new AzureCosmosDBSourceSplit(0)));
+            reader.handleNoMoreSplits();
+            while (!context.isNoMoreElement()) {
+                reader.pollNext(collector);
+            }
+        } finally {
+            reader.close();
+        }
         return collector.rows;
     }
 
@@ -161,9 +166,15 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
         public Object getCheckpointLock() {
             return checkpointLock;
         }
+
+        public List<SeaTunnelRow> getRows() {
+            return rows;
+        }
     }
 
     protected static class RecordingReaderContext implements SourceReader.Context {
+        private volatile boolean noMoreElement;
+
         @Override
         public int getIndexOfSubtask() {
             return 0;
@@ -175,7 +186,13 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
         }
 
         @Override
-        public void signalNoMoreElement() {}
+        public void signalNoMoreElement() {
+            noMoreElement = true;
+        }
+
+        public boolean isNoMoreElement() {
+            return noMoreElement;
+        }
 
         @Override
         public void sendSplitRequest() {}
@@ -204,7 +221,8 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
         System.setProperty("javax.net.ssl.trustStorePassword", TRUST_STORE_PASSWORD);
     }
 
-    private void seedContainer(String containerName, Map<String, Object>... items) {
+    @SafeVarargs
+    private final void seedContainer(String containerName, Map<String, Object>... items) {
         client.createDatabaseIfNotExists(DATABASE);
         CosmosDatabase database = client.getDatabase(DATABASE);
         try {

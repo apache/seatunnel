@@ -24,17 +24,35 @@ public class AzureCosmosDBSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 2485413678354889739L;
 
     private final Integer splitId;
+    private String continuationToken;
 
     public AzureCosmosDBSourceSplit(Integer splitId) {
+        this(splitId, null);
+    }
+
+    public AzureCosmosDBSourceSplit(Integer splitId, String continuationToken) {
         this.splitId = splitId;
+        this.continuationToken = continuationToken;
     }
 
     public Integer getSplitId() {
         return splitId;
     }
 
+    public String getContinuationToken() {
+        return continuationToken;
+    }
+
+    public void setContinuationToken(String continuationToken) {
+        this.continuationToken = continuationToken;
+    }
+
     @Override
     public String splitId() {
         return splitId.toString();
+    }
+
+    public AzureCosmosDBSourceSplit copy() {
+        return new AzureCosmosDBSourceSplit(splitId, continuationToken);
     }
 }

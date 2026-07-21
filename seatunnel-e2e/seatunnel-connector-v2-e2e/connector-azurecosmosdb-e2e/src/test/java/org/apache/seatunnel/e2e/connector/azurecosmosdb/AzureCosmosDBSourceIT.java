@@ -18,12 +18,17 @@
 package org.apache.seatunnel.e2e.connector.azurecosmosdb;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.azurecosmosdb.source.AzureCosmosDBSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.azurecosmosdb.source.AzureCosmosDBSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class AzureCosmosDBSourceIT extends AbstractAzureCosmosDBIT {
 
@@ -64,9 +69,70 @@ public class AzureCosmosDBSourceIT extends AbstractAzureCosmosDBIT {
         assertRow(rows.get(2), "3", "page-three", 30);
     }
 
+    @Test
+    public void testCheckpointRestoreResumesFromContinuationToken() throws Exception {
+        String query = "SELECT c.id, c.name, c.score FROM c";
+        RecordingCollector firstCollector = new RecordingCollector();
+        RecordingReaderContext firstContext = new RecordingReaderContext();
+        AzureCosmosDBSourceReader firstReader =
+                new AzureCosmosDBSourceReader(
+                        firstContext, createConfig(PAGINATION_CONTAINER, query, 1), rowType());
+        List<AzureCosmosDBSourceSplit> checkpoint;
+
+        firstReader.open();
+        try {
+            firstReader.addSplits(Collections.singletonList(new AzureCosmosDBSourceSplit(0)));
+            firstReader.handleNoMoreSplits();
+            firstReader.pollNext(firstCollector);
+            checkpoint = firstReader.snapshotState(1L);
+        } finally {
+            firstReader.close();
+        }
+
+        Assertions.assertEquals(1, firstCollector.getRows().size());
+        Assertions.assertEquals(1, checkpoint.size());
+        Assertions.assertNotNull(checkpoint.get(0).getContinuationToken());
+
+        RecordingCollector restoredCollector = new RecordingCollector();
+        RecordingReaderContext restoredContext = new RecordingReaderContext();
+        AzureCosmosDBSourceReader restoredReader =
+                new AzureCosmosDBSourceReader(
+                        restoredContext, createConfig(PAGINATION_CONTAINER, query, 1), rowType());
+
+        restoredReader.open();
+        try {
+            restoredReader.addSplits(checkpoint);
+            restoredReader.handleNoMoreSplits();
+            while (!restoredContext.isNoMoreElement()) {
+                restoredReader.pollNext(restoredCollector);
+            }
+        } finally {
+            restoredReader.close();
+        }
+
+        Set<String> firstReadIds = rowIds(firstCollector.getRows());
+        Set<String> restoredReadIds = rowIds(restoredCollector.getRows());
+        Set<String> allReadIds = new HashSet<>(firstReadIds);
+        allReadIds.addAll(restoredReadIds);
+
+        Assertions.assertEquals(2, restoredCollector.getRows().size());
+        for (String firstReadId : firstReadIds) {
+            Assertions.assertFalse(restoredReadIds.contains(firstReadId));
+        }
+        Assertions.assertEquals(3, allReadIds.size());
+    }
+
     private void assertRow(SeaTunnelRow row, String id, String name, int score) {
         Assertions.assertEquals(id, row.getField(0));
         Assertions.assertEquals(name, row.getField(1));
         Assertions.assertEquals(score, row.getField(2));
+    }
+
+    private Set<String> rowIds(List<SeaTunnelRow> rows) {
+        Set<String> ids = new HashSet<>();
+        for (SeaTunnelRow row : rows) {
+            ids.add(String.valueOf(row.getField(0)));
+        }
+        return ids;
     }
 }
