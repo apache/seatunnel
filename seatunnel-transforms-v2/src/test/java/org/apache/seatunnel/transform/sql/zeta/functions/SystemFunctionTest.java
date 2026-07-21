@@ -213,6 +213,45 @@ public class SystemFunctionTest {
     }
 
     @Test
+    public void testCastAsDecimalKeepsExactBinaryValueOfFloats() {
+        // The binary value of 126.752251f is 126.75225067138671875. Going through
+        // Float.toString() first would lose the hidden binary digits ("126.75225")
+        // and yield 126.7522500000, while MySQL's CAST(float AS DECIMAL(20,10))
+        // converts the exact binary value and yields 126.7522506714 (issue #10198).
+        List<Object> args = new ArrayList<>();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+
+        // Scaling to the 6 digits of a numeric(10,6) sink column must round the
+        // exact binary value to 126.752251 instead of 126.752250.
+        args.clear();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(6);
+        Assertions.assertEquals(new BigDecimal("126.752251"), SystemFunction.castAs(args));
+
+        // Double inputs must not be stringified either.
+        args.clear();
+        args.add(44.916103d);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("44.9161030000"), SystemFunction.castAs(args));
+
+        // BigDecimal inputs are passed through without re-parsing.
+        args.clear();
+        args.add(new BigDecimal("126.7522506714"));
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+    }
+
+    @Test
     public void testCoalesceRespectsTargetType() {
         SeaTunnelDataType<?> targetType = BasicType.INT_TYPE;
         Object result = SystemFunction.coalesce(Arrays.asList(null, "123"), targetType);

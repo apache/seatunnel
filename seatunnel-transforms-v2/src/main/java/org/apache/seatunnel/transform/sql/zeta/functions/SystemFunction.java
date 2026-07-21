@@ -233,7 +233,23 @@ public class SystemFunction {
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
             case "DECIMAL":
-                BigDecimal bigDecimal = new BigDecimal(v1.toString());
+                BigDecimal bigDecimal;
+                if (v1 instanceof BigDecimal) {
+                    bigDecimal = (BigDecimal) v1;
+                } else if (v1 instanceof Float) {
+                    // Translate the exact binary value, mirroring CAST semantics in
+                    // databases (e.g. MySQL). Float.toString() returns the shortest
+                    // round-trip representation and drops the hidden binary digits
+                    // (126.752251f -> "126.75225"), which would turn CAST(... AS
+                    // DECIMAL(20,10)) into 126.7522500000 instead of the exact
+                    // 126.7522506714 (issue #10198).
+                    bigDecimal = new BigDecimal((Float) v1);
+                } else if (v1 instanceof Double) {
+                    // Same reasoning as for Float above.
+                    bigDecimal = new BigDecimal((Double) v1);
+                } else {
+                    bigDecimal = new BigDecimal(v1.toString());
+                }
                 Integer scale = (Integer) args.get(3);
                 return bigDecimal.setScale(scale, RoundingMode.CEILING);
             case "BOOLEAN":
