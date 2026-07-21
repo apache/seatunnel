@@ -160,15 +160,7 @@ public class DorisIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container -> copyMySQLDriverToContainer(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
@@ -419,7 +411,8 @@ public class DorisIT extends AbstractDorisIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+                            new URL[] {mysqlDriverJarPath().toUri().toURL()},
+                            DorisIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
             Properties props = new Properties();
