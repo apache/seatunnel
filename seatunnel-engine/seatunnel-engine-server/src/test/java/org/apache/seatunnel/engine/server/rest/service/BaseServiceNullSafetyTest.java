@@ -108,4 +108,43 @@ public class BaseServiceNullSafetyTest {
         Assertions.assertEquals("", result.getString(RestConstant.START_TIME, null));
         Assertions.assertEquals("", result.getString(RestConstant.FINISH_TIME, null));
     }
+
+    @Test
+    public void testMetricsToJsonObjectWithNonFiniteFloats() {
+        // 1. We create an anonymous subclass of BaseService if it's abstract,
+        // or just instantiate it if it's concrete.
+        // Passing null for dependencies since metricsToJsonObject doesn't rely on them.
+        BaseService baseService = new BaseService(null) {
+            // Dummy anonymous class in case BaseService is abstract in the codebase
+        };
+
+        // 2. Prepare the boundary condition metrics
+        Map<String, Object> jobMetrics = new HashMap<>();
+        jobMetrics.put("normal_double", 123.456d);
+        jobMetrics.put("normal_float", 78.9f);
+        jobMetrics.put("nan_double", Double.NaN);
+        jobMetrics.put("nan_float", Float.NaN);
+        jobMetrics.put("positive_infinity", Double.POSITIVE_INFINITY);
+        jobMetrics.put("negative_infinity", Double.NEGATIVE_INFINITY);
+
+        // 3. Nested map to test the recursive loop in your fix
+        Map<String, Object> nestedMetrics = new HashMap<>();
+        nestedMetrics.put("nested_nan", Double.NaN);
+        jobMetrics.put("nested_map", nestedMetrics);
+
+        // 4. Execute your fixed method
+        JsonObject result = baseService.metricsToJsonObject(jobMetrics);
+
+        // 5. Assert the values were parsed to strings safely without throwing an exception
+        Assertions.assertEquals("123.456", result.getString("normal_double", ""));
+        Assertions.assertEquals("78.9", result.getString("normal_float", ""));
+        Assertions.assertEquals("NaN", result.getString("nan_double", ""));
+        Assertions.assertEquals("NaN", result.getString("nan_float", ""));
+        Assertions.assertEquals("Infinity", result.getString("positive_infinity", ""));
+        Assertions.assertEquals("-Infinity", result.getString("negative_infinity", ""));
+
+        // Check the nested map
+        JsonObject nestedResult = result.get("nested_map").asObject();
+        Assertions.assertEquals("NaN", nestedResult.get("nested_nan").asString());
+    }
 }
