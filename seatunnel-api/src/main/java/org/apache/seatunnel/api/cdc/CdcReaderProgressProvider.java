@@ -15,30 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.api.cdc;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.net.URL;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+/** Non-blocking capability for reading the latest immutable CDC reader report. */
+@Experimental
+public interface CdcReaderProgressProvider {
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
-
-    private long executionId;
-
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
-
-    public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
-        } else {
-            return null;
-        }
-    }
+    /** Returns the latest local reader report without performing source or network I/O. */
+    CdcReaderProgressReport getCdcReaderProgress();
 }

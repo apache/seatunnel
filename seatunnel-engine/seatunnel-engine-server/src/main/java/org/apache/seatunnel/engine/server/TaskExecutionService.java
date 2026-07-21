@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
@@ -51,10 +53,15 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupUtils;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcEnumeratorProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcReaderProgressEnvelope;
 import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportCdcProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 
@@ -514,7 +521,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     }
                     return TaskDeployState.success();
                 }
-                deployLocalTask(taskGroup, classLoaders, taskJars);
+                deployLocalTask(
+                        taskGroup, classLoaders, taskJars, taskImmutableInfo.getExecutionId());
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
@@ -542,6 +550,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars) {
+        return deployLocalTask(taskGroup, classLoaders, jars, 0L);
+    }
+
+    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            @NonNull TaskGroup taskGroup,
+            @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
+            ConcurrentHashMap<Long, Collection<URL>> jars,
+            long executionId) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
@@ -586,7 +602,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             }));
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+                    new TaskGroupContext(taskGroup, executionId, classLoaders, jars));
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
@@ -834,7 +850,77 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             payloadTaskCount, elapsedMillis),
                     e);
         }
+        reportCdcProgress();
         this.printTaskExecutionRuntimeInfo();
+    }
+
+    private void reportCdcProgress() {
+        try {
+            List<CdcReaderProgressEnvelope> readerReports = new ArrayList<>();
+            List<CdcEnumeratorProgressEnvelope> enumeratorReports = new ArrayList<>();
+            long observedAt = System.currentTimeMillis();
+
+            executionContexts
+                    .values()
+                    .forEach(
+                            context ->
+                                    collectCdcProgress(
+                                            context, observedAt, readerReports, enumeratorReports));
+
+            if (readerReports.isEmpty() && enumeratorReports.isEmpty()) {
+                return;
+            }
+
+            nodeEngine
+                    .getOperationService()
+                    .createInvocationBuilder(
+                            SeaTunnelServer.SERVICE_NAME,
+                            new ReportCdcProgressOperation(readerReports, enumeratorReports),
+                            nodeEngine.getMasterAddress())
+                    .invoke()
+                    .get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warning("CDC progress reporting interrupted", e);
+        } catch (Exception e) {
+            logger.warning("CDC progress reporting failed", e);
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private void collectCdcProgress(
+            TaskGroupContext context,
+            long observedAt,
+            List<CdcReaderProgressEnvelope> readerReports,
+            List<CdcEnumeratorProgressEnvelope> enumeratorReports) {
+        for (Task task : context.getTaskGroup().getTasks()) {
+            if (task instanceof SourceSeaTunnelTask) {
+                SourceSeaTunnelTask sourceTask = (SourceSeaTunnelTask) task;
+                CdcReaderProgressReport report = sourceTask.getCdcReaderProgress();
+                if (report != null) {
+                    readerReports.add(
+                            new CdcReaderProgressEnvelope(
+                                    sourceTask.getTaskLocation(),
+                                    sourceTask.getCdcProgressSourceVertexId(),
+                                    context.getExecutionId(),
+                                    sourceTask.nextCdcProgressSequence(),
+                                    observedAt,
+                                    report));
+                }
+            } else if (task instanceof SourceSplitEnumeratorTask) {
+                SourceSplitEnumeratorTask enumeratorTask = (SourceSplitEnumeratorTask) task;
+                CdcEnumeratorProgressReport report = enumeratorTask.getCdcEnumeratorProgress();
+                if (report != null) {
+                    enumeratorReports.add(
+                            new CdcEnumeratorProgressEnvelope(
+                                    enumeratorTask.getTaskLocation(),
+                                    enumeratorTask.getCdcProgressSourceVertexId(),
+                                    context.getExecutionId(),
+                                    observedAt,
+                                    report));
+                }
+            }
+        }
     }
 
     private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {

@@ -19,11 +19,18 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressPosition;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcProgressPositions;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -50,7 +57,8 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** Assigner for snapshot split. */
-public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssigner {
+public class SnapshotSplitAssigner<C extends SourceConfig>
+        implements SplitAssigner, CdcEnumeratorProgressSource {
     private static final Logger LOG = LoggerFactory.getLogger(SnapshotSplitAssigner.class);
 
     private final SplitAssigner.Context<C> context;
@@ -278,6 +286,42 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     public boolean isCompleted() {
         return assignerCompleted;
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
+            String connectorType, String positionType) {
+        List<CdcSnapshotSplitProgress> activeSplits =
+                assignedSplits.entrySet().stream()
+                        .filter(entry -> !splitCompletedOffsets.containsKey(entry.getKey()))
+                        .sorted(Map.Entry.comparingByKey())
+                        .map(entry -> activeSplitProgress(entry.getValue(), positionType))
+                        .collect(Collectors.toList());
+        return new CdcEnumeratorProgressReport(
+                connectorType,
+                assignerCompleted ? CdcProgressLifecycle.CATCH_UP : CdcProgressLifecycle.SNAPSHOT,
+                CdcProgressValue.exact(assignedSplits.size()),
+                CdcProgressValue.exact(splitCompletedOffsets.size()),
+                CdcProgressValue.exact(activeSplits.size()),
+                CdcProgressValue.exact(remainingSplits.size()),
+                CdcProgressValue.exact(remainingTables.size()),
+                activeSplits);
+    }
+
+    private CdcSnapshotSplitProgress activeSplitProgress(SnapshotSplit split, String positionType) {
+        CdcProgressPosition lowWatermark =
+                CdcProgressPositions.fromOffset(positionType, split.getLowWatermark());
+        CdcProgressPosition highWatermark =
+                CdcProgressPositions.fromOffset(positionType, split.getHighWatermark());
+        return new CdcSnapshotSplitProgress(
+                split.splitId(),
+                split.getTableId().toString(),
+                lowWatermark == null
+                        ? CdcProgressValue.unavailable()
+                        : CdcProgressValue.exact(lowWatermark),
+                highWatermark == null
+                        ? CdcProgressValue.unavailable()
+                        : CdcProgressValue.exact(highWatermark));
     }
 
     // -------------------------------------------------------------------------------------------

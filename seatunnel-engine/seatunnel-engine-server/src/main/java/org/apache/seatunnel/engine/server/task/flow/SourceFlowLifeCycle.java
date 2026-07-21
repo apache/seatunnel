@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.cdc.CdcReaderProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
@@ -124,6 +126,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private final long flushIntervalMs;
 
     private transient volatile ScheduledFuture<?> flushFuture;
+
+    public CdcReaderProgressReport getCdcReaderProgress() {
+        if (reader instanceof CdcReaderProgressProvider) {
+            return ((CdcReaderProgressProvider) reader).getCdcReaderProgress();
+        }
+        return null;
+    }
+
+    public long getSourceVertexId() {
+        return sourceAction.getId();
+    }
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,

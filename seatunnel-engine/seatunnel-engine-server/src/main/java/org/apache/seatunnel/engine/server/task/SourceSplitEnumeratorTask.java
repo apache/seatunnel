@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -211,6 +213,19 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         // the Enumerator to finish initializing.
         getEnumerator();
         return splitSerializer;
+    }
+
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress() {
+        synchronized (enumeratorContext) {
+            if (enumerator instanceof CdcEnumeratorProgressProvider) {
+                return ((CdcEnumeratorProgressProvider) enumerator).getCdcEnumeratorProgress();
+            }
+            return null;
+        }
+    }
+
+    public long getCdcProgressSourceVertexId() {
+        return source.getId();
     }
 
     public synchronized void addSplitsBack(List<SplitT> splits, int subtaskId)

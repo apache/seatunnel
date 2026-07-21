@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -45,6 +46,7 @@ import lombok.NonNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
@@ -56,6 +58,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     private transient SeaTunnelSourceCollector<T> collector;
 
     private transient Object checkpointLock;
+    private transient AtomicLong cdcProgressSequence;
     @Getter private transient Serializer<SplitT> splitSerializer;
     private final Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
@@ -75,6 +78,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     public void init() throws Exception {
         super.init();
         this.checkpointLock = new Object();
+        this.cdcProgressSequence = new AtomicLong();
         this.splitSerializer = sourceFlow.getAction().getSource().getSplitSerializer();
 
         LOGGER.info("starting seatunnel source task, index " + indexID);
@@ -164,5 +168,17 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
+    }
+
+    public CdcReaderProgressReport getCdcReaderProgress() {
+        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getCdcReaderProgress();
+    }
+
+    public long getCdcProgressSourceVertexId() {
+        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getSourceVertexId();
+    }
+
+    public long nextCdcProgressSequence() {
+        return cdcProgressSequence.incrementAndGet();
     }
 }

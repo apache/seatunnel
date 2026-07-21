@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -114,6 +117,52 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertFalse(restoredAssigner.waitingForCompletedSplits());
     }
 
+    @Test
+    public void testProgressUsesWatermarksFromTheSameActiveSplit() {
+        SnapshotSplit completedSplit = createFinishedSnapshotSplit("db1.table1.1", 1L, 2L);
+        SnapshotSplit activeSplit = createFinishedSnapshotSplit("db1.table1.2", 10L, 20L);
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(activeSplit.splitId(), activeSplit);
+        assignedSplits.put(completedSplit.splitId(), completedSplit);
+        Map<String, SnapshotSplitWatermark> completedOffsets = new HashMap<>();
+        completedOffsets.put(completedSplit.splitId(), createWatermark(completedSplit));
+        SnapshotPhaseState checkpointState =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.singletonList(
+                                createFinishedSnapshotSplit("db1.table1.3", 30L, 40L)),
+                        assignedSplits,
+                        completedOffsets,
+                        false,
+                        Arrays.asList(TableId.parse("db1.table2"), TableId.parse("db1.table3")),
+                        false,
+                        true);
+        SplitAssigner.Context<?> context =
+                new SplitAssigner.Context<>(
+                        null,
+                        Collections.singleton(TableId.parse("db1.table1")),
+                        checkpointState.getAssignedSplits(),
+                        checkpointState.getSplitCompletedOffsets());
+        SnapshotSplitAssigner<?> splitAssigner =
+                new SnapshotSplitAssigner<>(context, 10, checkpointState, null);
+
+        CdcEnumeratorProgressReport report =
+                splitAssigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+
+        Assertions.assertEquals(2, report.getAssignedSplitCount().getValue());
+        Assertions.assertEquals(1, report.getCompletedSplitCount().getValue());
+        Assertions.assertEquals(1, report.getRunningSplitCount().getValue());
+        Assertions.assertEquals(1, report.getPreparedRemainingSplitCount().getValue());
+        Assertions.assertEquals(2, report.getRemainingUnchunkedTableCount().getValue());
+        Assertions.assertEquals(1, report.getActiveSplits().size());
+        CdcSnapshotSplitProgress activeProgress = report.getActiveSplits().get(0);
+        Assertions.assertEquals(activeSplit.splitId(), activeProgress.getSplitId());
+        Assertions.assertEquals(
+                "10", activeProgress.getLowWatermark().getValue().getValues().get("pos"));
+        Assertions.assertEquals(
+                "20", activeProgress.getHighWatermark().getValue().getValues().get("pos"));
+    }
+
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
             Map<String, SnapshotSplit> assignedSplits,
             Map<String, SnapshotSplitWatermark> completedOffsets) {
@@ -137,14 +186,19 @@ public class SnapshotSplitAssignerTest {
     }
 
     private SnapshotSplit createFinishedSnapshotSplit(String splitId) {
+        return createFinishedSnapshotSplit(splitId, 1L, 2L);
+    }
+
+    private SnapshotSplit createFinishedSnapshotSplit(
+            String splitId, long lowWatermark, long highWatermark) {
         return new SnapshotSplit(
                 splitId,
                 TableId.parse("db1.table1"),
                 null,
                 null,
                 null,
-                new TestOffset(1L),
-                new TestOffset(2L));
+                new TestOffset(lowWatermark),
+                new TestOffset(highWatermark));
     }
 
     private SnapshotSplitWatermark createWatermark(SnapshotSplit finishedSplit) {

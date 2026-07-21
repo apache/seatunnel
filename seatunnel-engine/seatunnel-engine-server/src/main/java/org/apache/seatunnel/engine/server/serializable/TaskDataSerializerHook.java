@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportCdcProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
@@ -110,6 +111,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int REPORT_METRICS_OPERATION = 28;
 
+    public static final int REPORT_CDC_PROGRESS_OPERATION = 29;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -186,6 +189,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanLogOperation();
                 case REPORT_METRICS_OPERATION:
                     return new ReportMetricsOperation();
+                case REPORT_CDC_PROGRESS_OPERATION:
+                    return new ReportCdcProgressOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

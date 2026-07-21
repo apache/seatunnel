@@ -50,6 +50,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.Incremen
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcReaderProgressTracker;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceReader;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceSplitReader;
@@ -279,20 +280,33 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                                 dataSourceDialect,
                                 sourceConfig,
                                 schemaChangeResolver);
+        CdcReaderProgressTracker cdcProgressTracker =
+                new CdcReaderProgressTracker(getPluginName(), cdcProgressPositionType());
+        RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter =
+                createRecordEmitter(sourceConfig, readerContext);
+        if (recordEmitter instanceof IncrementalSourceRecordEmitter) {
+            ((IncrementalSourceRecordEmitter<?>) recordEmitter)
+                    .setCdcProgressTracker(cdcProgressTracker);
+        }
         return new IncrementalSourceReader<>(
                 dataSourceDialect,
                 elementsQueue,
                 splitReaderSupplier,
-                createRecordEmitter(sourceConfig, readerContext),
+                recordEmitter,
                 new SourceReaderOptions(readonlyConfig),
                 readerContext,
                 sourceConfig,
-                deserializationSchema);
+                deserializationSchema,
+                cdcProgressTracker);
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
             SourceConfig sourceConfig, SourceReader.Context context) {
         return new IncrementalSourceRecordEmitter<>(deserializationSchema, offsetFactory, context);
+    }
+
+    protected String cdcProgressPositionType() {
+        return getPluginName();
     }
 
     @Override
@@ -339,7 +353,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             assignerContext, incrementalParallelism, offsetFactory);
         }
 
-        return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
+        return new IncrementalSourceEnumerator(
+                enumeratorContext, splitAssigner, getPluginName(), cdcProgressPositionType());
     }
 
     @Override
@@ -389,7 +404,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             throw new UnsupportedOperationException(
                     "Unsupported restored PendingSplitsState: " + checkpointState);
         }
-        return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
+        return new IncrementalSourceEnumerator(
+                enumeratorContext, splitAssigner, getPluginName(), cdcProgressPositionType());
     }
 
     private HybridPendingSplitsState restore(

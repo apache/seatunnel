@@ -15,30 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.api.cdc;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.net.URL;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+/** Describes the availability and precision of one CDC progress value. */
+@Experimental
+public enum CdcProgressAccuracy {
+    /** The value comes directly from connector runtime state without approximation. */
+    EXACT,
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
+    /** The value is useful for diagnostics, but the connector cannot guarantee exact precision. */
+    BEST_EFFORT,
 
-    private long executionId;
+    /** The connector or current implementation cannot provide this value. */
+    UNSUPPORTED,
 
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
-
-    public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
-        } else {
-            return null;
-        }
-    }
+    /** The value is supported, but is not available at the time of observation. */
+    UNAVAILABLE
 }
