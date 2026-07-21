@@ -31,26 +31,6 @@
         <couchbase.java.client.version>3.5.1</couchbase.java.client.version>
     </properties>
 
-    <build>
-        <plugins>
-            <!--
-                Mockito's inline-mock-maker uses Byte Buddy to instrument classes. Byte Buddy
-                prior to 1.14 does not declare support for Java 21 bytecode (class-file version 65)
-                and requires the experimental flag to proceed. Pass the flag as a Surefire
-                system property so the forked test JVM has it from the start.
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <systemPropertyVariables>
-                        <net.bytebuddy.experimental>true</net.bytebuddy.experimental>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -77,4 +57,24 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Mockito's inline-mock-maker uses Byte Buddy to instrument classes. Byte Buddy
+                prior to 1.14 does not declare support for Java 21 bytecode (class-file version 65)
+                and requires the experimental flag to proceed. Pass the flag as a Surefire
+                system property so the forked test JVM has it from the start.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <net.bytebuddy.experimental>true</net.bytebuddy.experimental>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
