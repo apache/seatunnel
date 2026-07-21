@@ -115,8 +115,8 @@ public class BaseServiceNullSafetyTest {
         // or just instantiate it if it's concrete.
         // Passing null for dependencies since metricsToJsonObject doesn't rely on them.
         BaseService baseService = new BaseService(null) {
-            // Dummy anonymous class in case BaseService is abstract in the codebase
-        };
+                    // Dummy anonymous class in case BaseService is abstract in the codebase
+                };
 
         // 2. Prepare the boundary condition metrics
         Map<String, Object> jobMetrics = new HashMap<>();
