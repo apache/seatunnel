@@ -88,6 +88,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
@@ -452,9 +453,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     private Map<String, RocketMqConsumerMessage> getRocketMqConsumerData(String topicName) {
         Map<String, RocketMqConsumerMessage> data = new HashMap<>();
+        Map<MessageQueue, Long> consumedOffsets = new HashMap<>();
+        DefaultLitePullConsumer consumer = null;
         try {
-            DefaultLitePullConsumer consumer =
-                    RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
+            consumer = RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
             consumer.start();
             // assign
             Map<MessageQueue, TopicOffset> queueOffsets =
@@ -489,33 +491,66 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     break;
                 }
                 for (MessageExt message : messages) {
+                    MessageQueue messageQueue =
+                            new MessageQueue(
+                                    message.getTopic(),
+                                    message.getBrokerName(),
+                                    message.getQueueId());
                     RocketMqConsumerMessage consumerMessage =
                             new RocketMqConsumerMessage(
                                     new String(message.getBody(), StandardCharsets.UTF_8),
                                     message.getTags());
                     data.put(message.getKeys(), consumerMessage);
+                    consumedOffsets.merge(messageQueue, message.getQueueOffset(), Math::max);
                     consumer.getOffsetStore()
                             .updateConsumeOffsetToBroker(
-                                    new MessageQueue(
-                                            message.getTopic(),
-                                            message.getBrokerName(),
-                                            message.getQueueId()),
-                                    message.getQueueOffset(),
-                                    false);
+                                    messageQueue, message.getQueueOffset(), false);
                 }
                 consumer.commitSync();
             }
+            log.info("Consumer {} data total {}", topicName, data.size());
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        } finally {
             if (consumer != null) {
                 consumer.shutdown();
             }
-            log.info("Consumer {} data total {}", topicName, data.size());
-            // consumer.commitSync() only submits the offset to the broker, and NameServer scans the
-            // broker to update the offset every 10 seconds
-            Thread.sleep(20 * 1000);
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
         }
+        waitConsumedOffsetsSynced(topicName, consumedOffsets);
         return data;
+    }
+
+    private void waitConsumedOffsetsSynced(
+            String topicName, Map<MessageQueue, Long> consumedOffsets) {
+        if (consumedOffsets.isEmpty()) {
+            return;
+        }
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Map<MessageQueue, Long> currentOffsets =
+                                    RocketMqAdminUtil.currentOffsets(
+                                            newConfiguration(),
+                                            Lists.newArrayList(topicName),
+                                            consumedOffsets.keySet());
+                            for (Map.Entry<MessageQueue, Long> consumedOffset :
+                                    consumedOffsets.entrySet()) {
+                                Long currentOffset = currentOffsets.get(consumedOffset.getKey());
+                                Assertions.assertNotNull(
+                                        currentOffset,
+                                        "Consume offset should be visible for "
+                                                + consumedOffset.getKey());
+                                Assertions.assertTrue(
+                                        currentOffset >= consumedOffset.getValue(),
+                                        "Consume offset should be synced to broker, currentOffset="
+                                                + currentOffset
+                                                + ", consumedOffset="
+                                                + consumedOffset.getValue());
+                            }
+                        });
     }
 
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {
@@ -653,9 +688,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .atMost(5, TimeUnit.MINUTES)
                 .until(() -> getTopicMaxOffset(sinkTopic) >= expectedSinkAfterFirstRun + 15);
 
-        Thread.sleep(5000);
-        long finalSinkOffset = getTopicMaxOffset(sinkTopic);
         long expectedTotal = expectedSinkAfterFirstRun + 15;
+        long finalSinkOffset = awaitTopicMaxOffset(sinkTopic, expectedTotal, Duration.ofMinutes(1));
         Assertions.assertEquals(
                 expectedTotal,
                 finalSinkOffset,
@@ -722,11 +756,41 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         return result;
     }
 
+    /**
+     * Waits for RocketMQ admin offset visibility and returns the successful observed offset.
+     *
+     * <p>This keeps the final restore assertion from depending on a single broker metadata read.
+     */
+    private long awaitTopicMaxOffset(String topicName, long expectedOffset, Duration timeout) {
+        AtomicLong observedOffset = new AtomicLong();
+        Awaitility.await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(timeout)
+                .until(
+                        () -> {
+                            long current = getTopicMaxOffset(topicName);
+                            observedOffset.set(current);
+                            return current >= expectedOffset;
+                        });
+        return observedOffset.get();
+    }
+
+    /**
+     * Reads topic max offsets with retries because RocketMQ admin queries can temporarily fail
+     * during restore and broker channel transitions.
+     */
     private long getTopicMaxOffset(String topicName) {
         try {
             List<Map<MessageQueue, TopicOffset>> offsetTopics =
-                    RocketMqAdminUtil.offsetTopics(
-                            newConfiguration(), Lists.newArrayList(topicName));
+                    RetryUtils.retryWithException(
+                            () ->
+                                    RocketMqAdminUtil.offsetTopics(
+                                            newConfiguration(), Lists.newArrayList(topicName)),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception -> true,
+                                    Constant.OPERATION_RETRY_SLEEP));
             if (offsetTopics.isEmpty()) {
                 return 0;
             }

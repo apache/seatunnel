@@ -343,7 +343,8 @@ public class XuguTypeConverterTest {
                         .build();
         column = XuguTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // DATETIME WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -379,7 +380,8 @@ public class XuguTypeConverterTest {
                         .build();
         column = XuguTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // TIMESTAMP WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(3, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -392,7 +394,8 @@ public class XuguTypeConverterTest {
                         .build();
         column = XuguTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // TIMESTAMP(n) WITH TIME ZONE is LTZ → maps to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }

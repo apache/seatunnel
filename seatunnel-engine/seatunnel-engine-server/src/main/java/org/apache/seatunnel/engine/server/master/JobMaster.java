@@ -339,6 +339,7 @@ public class JobMaster {
                         checkpointStorage,
                         executorService,
                         runningJobStateIMap,
+                        seaTunnelServer.getEngineContext(),
                         seaTunnelServer.getCheckpointMonitorService());
     }
 
@@ -1172,8 +1173,11 @@ public class JobMaster {
                 PipelineStatus.FINISHED.equals(pipelineStatus)
                         && checkpointManager != null
                         && checkpointManager.isPipelineSavePointEnd(pipelineLocation);
+        // Failed pipelines also need cleanup so their distributed metrics do not leak into later
+        // task recovery or re-submission flows.
         boolean shouldCleanup =
-                PipelineStatus.CANCELED.equals(pipelineStatus)
+                PipelineStatus.FAILED.equals(pipelineStatus)
+                        || PipelineStatus.CANCELED.equals(pipelineStatus)
                         || (PipelineStatus.FINISHED.equals(pipelineStatus) && !savepointEnd);
         if (!shouldCleanup) {
             return;
@@ -1230,7 +1234,8 @@ public class JobMaster {
 
     public void removeMetricsContext(
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
-        if ((pipelineStatus.equals(PipelineStatus.FINISHED)
+        if (pipelineStatus.equals(PipelineStatus.FAILED)
+                || (pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 

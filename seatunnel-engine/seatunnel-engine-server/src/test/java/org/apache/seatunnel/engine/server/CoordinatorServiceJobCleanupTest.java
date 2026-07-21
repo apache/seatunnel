@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -73,6 +75,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     @AfterEach
     void clearPendingCleanupRecords() {
         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP).clear();
+        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP).clear();
     }
 
     @Test
@@ -386,6 +389,20 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineCleanupRecord pipelineCleanupRecord =
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        PipelineStatus.FINISHED,
+                        false,
+                        Collections.emptyMap(),
+                        Collections.emptySet(),
+                        false,
+                        System.currentTimeMillis(),
+                        0L,
+                        0);
 
         runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
         runningJobStateIMap.put(jobId, JobStatus.FINISHED);
@@ -397,6 +414,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         stateKeys(jobId),
                         stateKeys(jobId),
                         System.currentTimeMillis()));
+        pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
 
         CompletionException exception =
                 Assertions.assertThrows(
@@ -411,6 +429,10 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
         Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
         Assertions.assertTrue(pendingJobCleanupIMap.containsKey(jobId));
+        Assertions.assertEquals(
+                pipelineCleanupRecord,
+                pendingPipelineCleanupIMap.get(pipelineLocation),
+                "failed submit must retain cleanup for the previous pipeline generation");
     }
 
     @Test
@@ -427,6 +449,20 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineCleanupRecord pipelineCleanupRecord =
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        PipelineStatus.FINISHED,
+                        false,
+                        Collections.emptyMap(),
+                        Collections.emptySet(),
+                        false,
+                        System.currentTimeMillis(),
+                        0L,
+                        0);
 
         runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
         runningJobStateIMap.put(jobId, JobStatus.SAVEPOINT_DONE);
@@ -439,6 +475,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         stateKeys(jobId),
                         stateKeys(jobId),
                         System.currentTimeMillis()));
+        pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
 
         CompletionException exception =
                 Assertions.assertThrows(
@@ -453,6 +490,10 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                         .join());
         Assertions.assertInstanceOf(JobException.class, exception.getCause());
         Assertions.assertEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+        Assertions.assertEquals(
+                pipelineCleanupRecord,
+                pendingPipelineCleanupIMap.get(pipelineLocation),
+                "blocked restore must not invalidate cleanup for the previous pipeline generation");
 
         coordinatorService.runPendingJobCleanupOnce();
         Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
@@ -468,6 +509,9 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                 .join());
 
         Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+        Assertions.assertFalse(
+                pendingPipelineCleanupIMap.containsKey(pipelineLocation),
+                "successful restore must invalidate cleanup for the previous pipeline generation");
     }
 
     @Test
