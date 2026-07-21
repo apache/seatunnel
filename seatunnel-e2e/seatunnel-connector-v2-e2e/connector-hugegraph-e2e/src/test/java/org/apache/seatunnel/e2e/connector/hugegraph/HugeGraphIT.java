@@ -637,6 +637,7 @@ public class HugeGraphIT {
         config.setMappings(mappings);
         config.setDataSaveMode(dataSaveMode);
         config.setSchemaSaveMode(HugeGraphSchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        config.setAllowCascadeDeleteUnmappedEdges(true);
         return new HugeGraphSaveModeHandler(config, rowType, TablePath.of(GRAPH_NAME));
     }
 }
