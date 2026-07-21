@@ -6,7 +6,7 @@ slug: /getting-started/recipes
 
 These recipes are best read after your first local job succeeds. Instead of reading every example in order, start with the pipeline shape that is closest to your real source and sink.
 
-The recipes in this section include concrete prerequisites, complete configurations, and expected results so that you can validate each pipeline in your own environment.
+The MySQL CDC to Kafka recipe in this section was cross-checked against a Docker E2E run on July 16, 2026. Its config, observed results, and prerequisites were all aligned with that verified path before this page was updated.
 
 ## Choose A Recipe By Pipeline Goal
 
