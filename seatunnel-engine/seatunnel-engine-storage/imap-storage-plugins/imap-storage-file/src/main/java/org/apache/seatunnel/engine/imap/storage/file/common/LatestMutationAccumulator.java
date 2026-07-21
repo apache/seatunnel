@@ -49,7 +49,7 @@ class LatestMutationAccumulator {
             latestMutations.put(serializedKey, mutation);
             return;
         }
-        if (mutation.getTimestamp() > current.getTimestamp()) {
+        if (mutation.compareTo(current) < 0) {
             latestMutations.put(serializedKey, mutation);
         }
     }
