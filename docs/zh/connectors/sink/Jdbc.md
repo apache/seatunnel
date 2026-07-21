@@ -2,38 +2,157 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # JDBC
 
-> JDBC 数据接收器
-
 ## 描述
 
-通过jdbc写入数据。支持批处理模式和流处理模式，支持并发写入，支持精确一次语义(使用XA事务保证)
+JDBC Sink 通过数据库厂商提供的 JDBC 驱动写入数据。它支持批处理和流处理、并行写入、自动生成 SQL 或自定义 SQL、多表写入、CDC 事件，以及基于 XA 事务的可选精确一次语义。
+
+第一次配置 JDBC Sink 时，请先阅读[选择写入模式](#选择写入模式)和[快速入门](#快速入门postgresql)，再按需查阅后面的完整参数说明。
 
 ## 使用依赖
 
-### 用于Spark/Flink引擎
+先安装 `connector-jdbc` 插件：
 
-> 1. 需要确保jdbc驱动jar包已经放在目录`${SEATUNNEL_HOME}/plugins/`下。
+```plugin_config
+--seatunnel-connectors--
+connector-jdbc
+--end--
+```
 
-### 适用于 SeaTunnel Zeta 引擎
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+```
 
-> 1. 需要确保jdbc驱动jar包已经放到`${SEATUNNEL_HOME}/lib/`目录下。
+不同数据库厂商的 JDBC 驱动具有不同的许可证和再分发条款，而且驱动版本还必须同时兼容目标数据库和 Java 运行时，因此 SeaTunnel 不会统一内置所有 JDBC 驱动。请自行下载合适的驱动，并在启动任务前把 JAR 放入对应引擎的目录。
+
+### Spark 和 Flink 引擎
+
+把 JDBC 驱动放到每个 SeaTunnel 执行节点的 `${SEATUNNEL_HOME}/plugins/Jdbc/lib/`。
+
+### Zeta 引擎
+
+把 JDBC 驱动放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的 SeaTunnel 进程，让驱动进入类路径。
+
+常用驱动类名和下载地址见[驱动参考](#驱动参考)。
+
+## 选择写入模式
+
+JDBC Sink 有两种互斥的写入模式。请先确定模式，再配置其余参数。
+
+| 使用场景 | 必需配置 | 行为 |
+|----------|----------|------|
+| 由 SeaTunnel 生成 SQL | `generate_sink_sql = true`、`database`，通常还要配置 `table` | 推荐大多数任务使用。SeaTunnel 可以根据上游 schema 和 RowKind 生成 INSERT、数据库原生 UPSERT、UPDATE 和 DELETE；可以使用 SaveMode 和自动建表。 |
+| 用户提供 SQL | `query = "INSERT ... VALUES (?, ...)"` | 适合必须完全控制目标 SQL 的场景。`?` 参数按照上游字段顺序绑定；此模式不会执行 SaveMode 相关配置。 |
+
+不要同时配置两种模式。`generate_sink_sql` 默认是 `false`，因此没有显式设置 `generate_sink_sql = true` 的任务必须提供 `query`。
+
+使用自动生成 SQL 时，如果目标端需要 Upsert、Update 或 Delete，请配置 `primary_keys`。未配置时，SeaTunnel 会尝试从上游 Catalog 元数据继承主键，再尝试第一个唯一键；仍然没有可用键时，会退化为普通 INSERT。
+
+## 快速入门：PostgreSQL
+
+下面使用自动生成 SQL 写入一张已经创建的 PostgreSQL 表。这份配置和预期结果已经在 PostgreSQL 14 中验证，包括示例数据写入和最终数据库值。
+
+1. 按照[使用依赖](#使用依赖)的说明放置兼容版本的 PostgreSQL JDBC 驱动。
+
+2. 创建目标表：
+
+```sql
+CREATE TABLE public.orders (
+  id BIGINT PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL
+);
+```
+
+3. 把下面的任务保存为 `${SEATUNNEL_HOME}/config/jdbc-sink-quick-start.conf`，并按实际环境替换主机、账号和数据库名。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 3
+    schema = {
+      fields {
+        id = bigint
+        customer_name = string
+        amount = "decimal(10, 2)"
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice", 120.50] }
+      { kind = INSERT, fields = [2, "Bob", 80.00] }
+      { kind = INSERT, fields = [3, "Carol", 42.00] }
+    ]
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
+    primary_keys = ["id"]
+    schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+4. 运行任务：
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/jdbc-sink-quick-start.conf -m local
+```
+
+5. 验证结果：
+
+```sql
+SELECT id, customer_name, amount
+FROM public.orders
+ORDER BY id;
+```
+
+预期结果：
+
+| id | customer_name | amount |
+|----|---------------|-------:|
+| 1 | Alice | 120.50 |
+| 2 | Bob | 80.00 |
+| 3 | Carol | 42.00 |
+
+如果任务在写入前失败，请先检查[故障排查](#故障排查)。
 
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
-使用 `Xa transactions` 来确保 `exactly-once`。所以仅对于支持 `Xa transactions` 的数据库支持 `exactly-once`
-。你可以设置 `is_exactly_once=true` 来启用它。
+Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA。具体要求见 [Exactly-once 前置条件](#exactly-once-前置条件)。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)（仅 Zeta 引擎）
 
 ## Options
+
+连接器的 OptionRule 始终要求提供 `url`、`driver`、`schema_save_mode` 和 `data_save_mode`。两个 SaveMode 参数有默认值，任务配置通常可以省略。其他参数会随写入模式变为必填：
+
+- 自动生成 SQL：设置 `generate_sink_sql = true` 并配置 `database`；除非目标表由上游元数据动态提供，否则还要配置 `table`。
+- 自定义 SQL：保持 `generate_sink_sql = false` 并配置 `query`。
+- Exactly-once：设置 `is_exactly_once = true`、`xa_data_source_class_name` 和 `max_retries = 0`。
 
 | 名称                                        | 类型      | 是否必须 | 默认值                          |
 |-------------------------------------------|---------|------|------------------------------|
 | url                                       | String  | 是    | -                            |
 | driver                                    | String  | 是    | -                            |
-| user                                      | String  | 否    | -                            |
+| username                                  | String  | 否    | -                            |
 | password                                  | String  | 否    | -                            |
 | query                                     | String  | 否    | -                            |
 | compatible_mode                           | String  | 否    | -                            |
@@ -75,14 +194,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
-
 ### driver [string]
 
 用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
 
-### user [string]
+### username [string]
 
-用户名
+数据库登录用户名。`username` 是规范参数名；未设置 `username` 时，仍兼容旧参数 `user`。
 
 ### password [string]
 
@@ -94,7 +212,7 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 ### query [string]
 
-使用 sql 语句将上游输入数据写入到数据库。如 `INSERT ...`
+用于写入每条上游数据的参数化 SQL，例如 `INSERT INTO target(id, name) VALUES (?, ?)`。SeaTunnel 按上游字段顺序绑定 `?` 参数。该参数只用于自定义 SQL 模式，不能与 `generate_sink_sql = true` 同时使用。
 
 当前限制：当 sink 配置了 `query`（自定义写入 SQL）时，JDBC sink 不会执行 save mode 处理。此模式下 `schema_save_mode`、`data_save_mode`、`custom_sql` 不生效。如需使用 save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。
 
@@ -129,15 +247,11 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### database [string]
 
-使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
-
-此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
+自动生成 SQL 模式下的目标 database 或 catalog。`generate_sink_sql = true` 时必填，不能与 `query` 同时使用。
 
 ### table [string]
 
-使用 `database` 和此 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
-
-此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
+自动生成 SQL 模式下的目标表，不能与 `query` 同时使用。
 
 table 参数可以填入目标表名，这个名字最终会被用作创建或写入的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
@@ -166,7 +280,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### primary_keys [array]
 
-该选项用于辅助生成 insert、delete、update 等 sql 语句。设置了该选项，将会根据该选项生成对应的 sql 语句
+生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
 ### connection_check_timeout_sec [int]
 
@@ -182,11 +296,11 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 ### max_retries [int]
 
-重试提交失败的最大次数（executeBatch）
+JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置为 `0`，重试失败的 XA batch 可能破坏事务保证。
 
 ### batch_size [int]
 
-对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
+每个 batch 最多缓存的行数。达到 `batch_size`、checkpoint 准备提交或 writer 关闭时会执行 flush。增大该值可能提高吞吐，但会占用更多内存，并增加故障后需要重试的数据量。
 
 ### batch_interval_ms [long]
 
@@ -194,11 +308,11 @@ JDBC 连接建立后的 socket 读取超时时间，单位毫秒。默认值为 
 
 ### is_exactly_once [boolean]
 
-是否启用通过XA事务实现的精确一次语义。开启，你还需要设置 `xa_data_source_class_name`
+是否通过 XA 事务启用 exactly-once。开启时必须配置 `xa_data_source_class_name`、`max_retries = 0`，且数据库和驱动都要支持 XA；该模式不支持定时 flush。
 
 ### generate_sink_sql [boolean]
 
-根据要写入的数据库表结构生成 sql 语句
+为 `true` 时，根据上游 schema 和 RowKind 自动生成写入语句。需要配置 `database`，通常还要配置 `table`，并且不能配置 `query`。默认值为 `false`，此时必须配置 `query`。
 
 ### xa_data_source_class_name [string]
 
@@ -256,9 +370,23 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 | 方言 | 是否支持 | 可用 key |
 |------|----------|----------|
 | MySQL | 是 | `engine`、`charset`、`collate` |
+| TiDB | 是 | `engine`、`charset`、`collate`（通过 MySQL JDBC 协议与 `jdbc:mysql://` 连接） |
+| OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
+| PostgreSQL | 是 | `tablespace`、`fillfactor` |
+| Kingbase | 是 | `tablespace`、`fillfactor` |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
 
 非法或不支持的 key 会在 `JdbcSinkFactory` 的 option 规则阶段提前校验（`--check` 与作业提交），而非仅在运行时 DDL 阶段失败。
+
+**方言说明：**
+
+- **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
+- **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
+- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。
+- **Kingbase**：`fillfactor` 会写入 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数（PostgreSQL 兼容）；`tablespace` 会写入 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持透传任意 `WITH (...)` 参数）。表空间须已在目标库存在。
+
+SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径）与 Kingbase，还会校验空白值与 `fillfactor` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
 
 示例（MySQL 自动建表时指定存储引擎与字符集）：
 
@@ -284,6 +412,52 @@ sink {
 ```
 
 生成的 DDL 会追加 `ENGINE`、`DEFAULT CHARSET`、`COLLATE` 子句。未在白名单内的 key（如 `bucket_num`）会在作业提交阶段报错。
+
+示例（PostgreSQL 自动建表时指定 tablespace 与 fillfactor）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/mydb"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    database = "mydb"
+    table = "public.orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
+
+示例（Kingbase 自动建表时指定表空间与 fillfactor）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:kingbase8://localhost:54321/test"
+    driver = "com.kingbase8.Driver"
+    username = "SYSTEM"
+    password = "123456"
+    database = "test"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
+
+生成的 DDL 会追加 `WITH (fillfactor=70)` 与 `TABLESPACE "pg_default"`。
 
 ### custom_sql [String]
 
@@ -339,17 +513,20 @@ AWS IAM 认证中所需要的secret_access_key。 该参考仅适用于 dialect=
 ### region [String]
 Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 
-## tips
+## Exactly-once 前置条件
 
-在 is_exactly_once = "true" 的情况下，使用 XA 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
-1 postgres 需要设置 `max_prepared_transactions > 1` 例如 `ALTER SYSTEM set max_prepared_transactions to 10` <br/>
-2 mysql 版本需要 >= `8.0.29` 并且非 root 用户需要授予 `XA_RECOVER_ADMIN` 权限。例如:将 test_db.* 上的 XA_RECOVER_ADMIN
-授予 `'user1'@'%'`<br/>
-3 mysql可以尝试在url中添加 `rewriteBatchedStatements=true` 参数以获得更好的性能<br/>
+`is_exactly_once = true` 时，JDBC Sink 使用 XA 事务。启用前请确认：
 
-## 附录
+- 设置 `max_retries = 0`，并为已安装的驱动配置正确的 `xa_data_source_class_name`。
+- PostgreSQL 必须允许 prepared transaction。把 `max_prepared_transactions` 设置为能够容纳预期并发事务的正数；如果数据库要求，修改后需重启 PostgreSQL。
+- MySQL Server 和 Connector/J 的组合必须支持 Sink 使用的 XA 操作。执行 XA recovery 的账号还可能需要 `XA_RECOVER_ADMIN` 权限，请按所用 MySQL 版本的要求配置。
+- 不要配置 `sink.flush.interval`，XA 事务边界由 checkpoint 控制。
 
-附录参数仅提供参考
+对于非 XA 的 MySQL 批量任务，可以尝试在 JDBC URL 中加入 `rewriteBatchedStatements=true` 提升吞吐；实际效果应结合驱动版本和业务负载验证。
+
+## 驱动参考
+
+下表仅作为起点；驱动制品和版本应以数据库厂商的兼容矩阵为准。
 
 | 数据源        | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                              |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|----------------------------------------------------------------------------------------------------|
@@ -360,7 +537,7 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                              |
 | Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                 |
 | sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                          |
-| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
+| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://localhost:5258/test                                   | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
 | StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |
 | db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                  |
 | saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                     |
@@ -376,105 +553,175 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 | YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
 
-## 示例
+## 常用模式
 
-简单示例
+### 自定义 SQL
 
-```
+```hocon
 jdbc {
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 }
 
 ```
 
-精确一次 (Exactly-once)
+### 自定义 SQL 的 Exactly-once
 
 通过设置 `is_exactly_once` 开启精确一次语义
 
-```
+```hocon
 jdbc {
 
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 
-    is_exactly_once = "true"
+    is_exactly_once = true
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
 }
 ```
 
-变更数据捕获 (Change data capture) 事件
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持。Spark 和 Flink 不会注入 `FlushSignal`，因此在这两个引擎中配置 `sink.flush.interval` 不能启用定时刷新。在 Zeta 中，可以在 `env` 块配置 `sink.flush.interval`；引擎会定期向记录流注入 `FlushSignal`，JDBC Sink 收到后会立即刷出全部缓冲数据，无论是否达到 `batch_size`。
+
+:::tip
+
+当 `is_exactly_once = true` 时不支持定时刷新。精确一次模式下 sink 使用 XA 事务，其事务边界由 checkpoint 管理；定时触发的 flush 会破坏事务一致性保证。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    generate_sink_sql = true
+    primary_keys = ["id"]
+    batch_size = 10000
+  }
+}
+```
+
+### 变更数据捕获事件
 
 jdbc 接收 CDC 示例
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
-        
+        generate_sink_sql = true
         database = "sink_database"
         table = "sink_table"
-        primary_keys = ["key1", "key2", ...]
+        primary_keys = ["key1", "key2"]
     }
 }
 ```
 
-配置表生成策略
+### 自动创建不存在的目标表
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306"
         driver = "com.mysql.cj.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
-        
+        generate_sink_sql = true
         database = "sink_database"
         table = "sink_table"
-        primary_keys = ["key1", "key2", ...]
+        primary_keys = ["key1", "key2"]
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-        data_save_mode="APPEND_DATA"
+        data_save_mode = "APPEND_DATA"
     }
 }
 ```
 
-支持Postgres 9.5及以下版本的 CDC 示例
+### PostgreSQL 9.5 及以下版本 CDC 兼容模式
 
 Postgres 9.5及以下版本，通过设置 `compatible_mode` 配置为 `postgresLow` 来支持 Postgres CDC 操作
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:postgresql://localhost:5432"
         driver = "org.postgresql.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
-        compatible_mode="postgresLow"
+        compatible_mode = "postgresLow"
         database = "sink_database"
         table = "sink_table"
         generate_sink_sql = true
-        primary_keys = ["key1", "key2", ...]
+        primary_keys = ["key1", "key2"]
     }
 }
 
 ```
 
+### 多表写入
 
-#### Dsql 示例
+#### MySQL CDC Source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+
+    table-names = ["seatunnel.role", "seatunnel.user", "galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### JDBC Source
 
 ```hocon
 env {
@@ -486,7 +733,51 @@ source {
   Jdbc {
     driver = oracle.jdbc.driver.OracleDriver
     url = "jdbc:oracle:thin:@localhost:1521/XE"
-    user = testUser
+    username = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### Amazon Aurora DSQL
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    username = testUser
     password = testPassword
 
     table_list = [
@@ -522,7 +813,7 @@ sink {
 }
 ```
 
-## 常见问题
+## 故障排查
 
 ### JDBC Sink 支持自动建表吗？
 
@@ -544,10 +835,13 @@ sink {
   jdbc {
     url = "jdbc:mysql://localhost:3306/mydb"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "password"
+    max_retries = 0
     is_exactly_once = true
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+    generate_sink_sql = true
+    database = "mydb"
     table = "target_table"
     primary_keys = ["id"]
   }
@@ -565,9 +859,13 @@ SeaTunnel 只有在最终拿到了主键/唯一键信息时，才会进入 upser
 ```hocon
 sink {
   jdbc {
-    url = "jdbc:mysql://localhost:3306/mydb"
-    driver = "com.mysql.cj.jdbc.Driver"
-    ...
+    url = "jdbc:postgresql://localhost:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "password"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.orders"
     primary_keys = ["id"]
   }
 }
@@ -603,7 +901,7 @@ sink {
 
 ### 为什么提示 JDBC 驱动未找到？
 
-SeaTunnel 出于许可证原因不内置所有 JDBC 驱动，需手动将驱动 JAR 放入 `$SEATUNNEL_HOME/lib/`。常用驱动：
+SeaTunnel 不内置所有 JDBC 驱动。Spark 和 Flink 需要把 JAR 放到每个执行节点的 `${SEATUNNEL_HOME}/plugins/Jdbc/lib/`；Zeta 需要放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的进程。常见驱动文件名包括：
 
 - MySQL：`mysql-connector-j-8.x.x.jar`
 - PostgreSQL：`postgresql-42.x.x.jar`

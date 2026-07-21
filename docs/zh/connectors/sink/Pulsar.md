@@ -35,7 +35,7 @@ Pulsar Sink 用于将 SeaTunnel 数据写入 Apache Pulsar topic。它既可以�
 | admin.service-url        | String | 是       | -                   | Pulsar 管理端 HTTP 地址，例如 `http://localhost:8080`。               |
 | auth.plugin-class        | String | 否       | -                   | Pulsar 认证插件类名。                                                |
 | auth.params              | String | 否       | -                   | 认证插件参数。需要和 `auth.plugin-class` 一起配置。                   |
-| format                   | String | 否       | json                | 数据格式。支持 `json` 和 `text`。                                     |
+| format                   | String | 否       | json                | 数据格式。默认格式为 json。可选 text 和 avro 格式。                                    |
 | field_delimiter          | String | 否       | ,                   | 当 `format = "text"` 时使用的字段分隔符。                             |
 | semantics                | Enum   | 否       | AT_LEAST_ONCE       | 写入一致性语义。可选值：`NON`、`AT_LEAST_ONCE`、`EXACTLY_ONCE`。       |
 | transaction_timeout      | Int    | 否       | 600                 | Pulsar 事务超时时间，单位为秒。用于 `EXACTLY_ONCE`。                  |
@@ -77,7 +77,7 @@ Pulsar 管理端 HTTP 地址。
 
 ### format [String]
 
-数据格式。默认值为 `json`，也可以使用 `text`。使用 `text` 时，如果默认逗号分隔符不合适，请配置 `field_delimiter`。
+数据格式。默认格式为 json。可选 text 和 avro 格式。默认字段分隔符为","。如果自定义分隔符，请添加"field_delimiter"选项。使用 avro 格式时，Avro schema 会从上游数据的 row type 自动推导，无需在 sink 侧单独配置 `schema`。
 
 ### field_delimiter [String]
 
