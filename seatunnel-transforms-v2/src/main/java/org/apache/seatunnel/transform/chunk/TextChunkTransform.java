@@ -24,6 +24,9 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -50,7 +53,7 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
     private static final double OVERLAP_WARN_RATIO = 0.5;
 
     private final TextChunkTransformConfig config;
-    private final int textFieldIndex;
+    private int textFieldIndex;
 
     private int outputFieldCount;
     private int chunkFieldIndex;
@@ -60,13 +63,7 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
             @NonNull TextChunkTransformConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
         this.config = config;
-        SeaTunnelRowType rowType = inputCatalogTable.getTableSchema().toPhysicalRowDataType();
-        try {
-            this.textFieldIndex = rowType.indexOf(config.getTextField());
-        } catch (IllegalArgumentException e) {
-            throw TransformCommonError.cannotFindInputFieldError(
-                    getPluginName(), config.getTextField());
-        }
+        this.textFieldIndex = resolveTextFieldIndex();
         if (config.getOverlapSize() >= config.getChunkSize() * OVERLAP_WARN_RATIO) {
             log.warn(
                     "Configured overlap_size={} exceeds {}% of chunk_size={}, which may cause "
@@ -75,12 +72,50 @@ public class TextChunkTransform extends AbstractCatalogSupportFlatMapTransform {
                     (int) (OVERLAP_WARN_RATIO * 100),
                     config.getChunkSize());
         }
-        this.outputCatalogTable = getProducedCatalogTable();
+        getProducedCatalogTable();
     }
 
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
+    }
+
+    @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof AlterTableEvent) {
+            TableSchema newSchema =
+                    new AlterTableSchemaEventHandler()
+                            .reset(inputCatalogTable.getTableSchema())
+                            .apply(event);
+            CatalogTable newInputCatalogTable =
+                    CatalogTable.of(
+                            inputCatalogTable.getTableId(),
+                            newSchema,
+                            inputCatalogTable.getOptions(),
+                            inputCatalogTable.getPartitionKeys(),
+                            inputCatalogTable.getComment(),
+                            inputCatalogTable.getTableId().getCatalogName(),
+                            inputCatalogTable.getMetadataSchema());
+            setInputCatalogTable(newInputCatalogTable);
+        }
+        return event;
+    }
+
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        this.textFieldIndex = resolveTextFieldIndex();
+        getProducedCatalogTable();
+    }
+
+    private int resolveTextFieldIndex() {
+        SeaTunnelRowType rowType = inputCatalogTable.getTableSchema().toPhysicalRowDataType();
+        try {
+            return rowType.indexOf(config.getTextField());
+        } catch (IllegalArgumentException e) {
+            throw TransformCommonError.cannotFindInputFieldError(
+                    getPluginName(), config.getTextField());
+        }
     }
 
     @Override

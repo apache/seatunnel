@@ -19,11 +19,15 @@ package org.apache.seatunnel.transform.chunk;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -406,9 +410,165 @@ class TextChunkTransformTest {
     }
 
     @Test
-    void multiCatalogPerTableDispatchChunksRows() {
-        // exercises TextChunkMultiCatalogTransform.buildTransform -> per-table dispatch actually
-        // chunking rows for a table matched by a table_transform entry
+    void setInputCatalogTableRefreshesTextFieldIndexAfterSchemaChange() {
+        // Original schema: [id, content] -> text_field "content" is at index 1.
+        TextChunkTransform transform = newTransform();
+
+        // A schema-change event inserts a "created_at" column before "content", shifting the text
+        CatalogTable evolved =
+                CatalogTable.of(
+                        TableIdentifier.of("default", "default", "default", "docs"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 0L, true, "", ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "created_at",
+                                                BasicType.LONG_TYPE,
+                                                0L,
+                                                true,
+                                                "",
+                                                ""))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "content",
+                                                BasicType.STRING_TYPE,
+                                                1000L,
+                                                true,
+                                                "",
+                                                ""))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+        transform.setInputCatalogTable(evolved);
+
+        SeaTunnelRowType outputType =
+                transform.getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
+        int chunkIdx = outputType.indexOf("chunk");
+        int chunkSeqIdx = outputType.indexOf("chunk_index");
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {7, 123456789L, "abcdefghij"});
+        input.setTableId("docs");
+
+        List<SeaTunnelRow> out = transform.flatMap(input);
+
+        Assertions.assertEquals(3, out.size());
+        String[] expectedChunks = {"abcd", "efgh", "ij"};
+        for (int i = 0; i < out.size(); i++) {
+            SeaTunnelRow row = out.get(i);
+            Assertions.assertEquals(7, row.getField(0));
+            Assertions.assertEquals(123456789L, row.getField(1));
+            Assertions.assertEquals("abcdefghij", row.getField(2));
+            Assertions.assertEquals(expectedChunks[i], row.getField(chunkIdx));
+            Assertions.assertEquals(i, row.getField(chunkSeqIdx));
+        }
+    }
+
+    @Test
+    void mapSchemaChangeEventRefreshesTextFieldIndexOnDirectAlter() {
+        // Original schema: [id, content] -> text_field "content" is at index 1.
+        TextChunkTransform transform = newTransform();
+
+        // TextChunk sitting first after the source receives the ALTER directly via
+        // mapSchemaChangeEvent (not setInputCatalogTable). Dropping "id" shifts "content" to index
+        // 0.
+        AlterTableDropColumnEvent dropId =
+                new AlterTableDropColumnEvent(catalogTable.getTableId(), "id");
+        transform.mapSchemaChangeEvent(dropId);
+
+        SeaTunnelRowType outputType =
+                transform.getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
+        Assertions.assertEquals(3, outputType.getTotalFields());
+        int chunkIdx = outputType.indexOf("chunk");
+        int chunkSeqIdx = outputType.indexOf("chunk_index");
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {"abcdefghij"});
+        input.setTableId("docs");
+
+        List<SeaTunnelRow> out = transform.flatMap(input);
+
+        Assertions.assertEquals(3, out.size());
+        String[] expectedChunks = {"abcd", "efgh", "ij"};
+        for (int i = 0; i < out.size(); i++) {
+            SeaTunnelRow row = out.get(i);
+            Assertions.assertEquals("abcdefghij", row.getField(0));
+            Assertions.assertEquals(expectedChunks[i], row.getField(chunkIdx));
+            Assertions.assertEquals(i, row.getField(chunkSeqIdx));
+        }
+    }
+
+    @Test
+    void mapSchemaChangeEventAddColumnFirstShiftsTextFieldAndKeepsProducedOrdering() {
+        // Original schema: [id, content] -> text_field "content" is at index 1.
+        TextChunkTransform transform = newTransform();
+
+        // An ADD COLUMN ALTER inserts "created_at" at the FRONT, shifting "content" to index 2.
+        // This is the ordering-sensitive case: chunk/chunk_index are always appended, so the
+        // produced schema must stay [<input cols in new order>, chunk, chunk_index] and every
+        // emitted row must line up with it.
+        Column createdAt = PhysicalColumn.of("created_at", BasicType.LONG_TYPE, 0L, true, "", "");
+        AlterTableAddColumnEvent addFirst =
+                AlterTableAddColumnEvent.addFirst(catalogTable.getTableId(), createdAt);
+        transform.mapSchemaChangeEvent(addFirst);
+
+        // produced column ordering: added input column, then the originals, then the appended chunk
+        // columns -- nothing reordered.
+        List<String> producedColumns =
+                transform.getProducedCatalogTable().getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(
+                Arrays.asList("created_at", "id", "content", "chunk", "chunk_index"),
+                producedColumns);
+
+        SeaTunnelRowType outputType =
+                transform.getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
+        int chunkIdx = outputType.indexOf("chunk");
+        int chunkSeqIdx = outputType.indexOf("chunk_index");
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {123456789L, 7, "abcdefghij"});
+        input.setTableId("docs");
+
+        List<SeaTunnelRow> out = transform.flatMap(input);
+
+        // text is now read from index 2; source fields (including the newly added one) survive on
+        // every chunk row in their new order.
+        Assertions.assertEquals(3, out.size());
+        String[] expectedChunks = {"abcd", "efgh", "ij"};
+        for (int i = 0; i < out.size(); i++) {
+            SeaTunnelRow row = out.get(i);
+            Assertions.assertEquals(123456789L, row.getField(0));
+            Assertions.assertEquals(7, row.getField(1));
+            Assertions.assertEquals("abcdefghij", row.getField(2));
+            Assertions.assertEquals(expectedChunks[i], row.getField(chunkIdx));
+            Assertions.assertEquals(i, row.getField(chunkSeqIdx));
+        }
+    }
+
+    @Test
+    void setInputCatalogTableRejectsSchemaThatDropsTextField() {
+        TextChunkTransform transform = newTransform();
+
+        CatalogTable withoutText =
+                CatalogTable.of(
+                        TableIdentifier.of("default", "default", "default", "docs"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 0L, true, "", ""))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "");
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class, () -> transform.setInputCatalogTable(withoutText));
+    }
+
+    @Test
+    void multiCatalogMapSchemaChangeEventAddColumnPropagatesToInnerAndSetsChangeAfter() {
         String tablePath = catalogTable.getTableId().toTablePath().toString();
 
         Map<String, Object> tableTransform = new HashMap<>();
@@ -427,12 +587,50 @@ class TextChunkTransformTest {
                 new TextChunkMultiCatalogTransform(
                         Collections.singletonList(catalogTable), ReadonlyConfig.fromMap(configMap));
 
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {7, "abcdefghij"});
+        // ADD COLUMN "created_at" at the FRONT, shifting text_field "content" from index 1 to 2.
+        Column createdAt = PhysicalColumn.of("created_at", BasicType.LONG_TYPE, 0L, true, "", "");
+        AlterTableAddColumnEvent addFirst =
+                AlterTableAddColumnEvent.addFirst(catalogTable.getTableId(), createdAt);
+        SchemaChangeEvent mapped = multi.mapSchemaChangeEvent(addFirst);
+
+        // (3) the wrapper stamps its actual produced layout onto changeAfter for downstream/sink.
+        List<String> expectedProduced =
+                Arrays.asList("created_at", "id", "content", "chunk", "chunk_index");
+        Assertions.assertNotNull(mapped.getChangeAfter());
+        Assertions.assertEquals(
+                expectedProduced,
+                mapped.getChangeAfter().getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList()));
+
+        // (2) the wrapper's own produced schema reflects the new column order too.
+        Assertions.assertEquals(
+                expectedProduced,
+                multi.getProducedCatalogTable().getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList()));
+
+        // (1) rows in the new layout chunk correctly: text is read from its shifted index and every
+        // source field (including the newly added one) survives on each chunk row.
+        SeaTunnelRowType outputType =
+                multi.getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
+        int chunkIdx = outputType.indexOf("chunk");
+        int chunkSeqIdx = outputType.indexOf("chunk_index");
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {123456789L, 7, "abcdefghij"});
         input.setTableId(tablePath);
 
         List<SeaTunnelRow> out = multi.flatMap(input);
 
-        // "abcdefghij" (10 chars) with chunk_size=4 -> ["abcd","efgh","ij"] = 3 rows
         Assertions.assertEquals(3, out.size());
+        String[] expectedChunks = {"abcd", "efgh", "ij"};
+        for (int i = 0; i < out.size(); i++) {
+            SeaTunnelRow row = out.get(i);
+            Assertions.assertEquals(123456789L, row.getField(0));
+            Assertions.assertEquals(7, row.getField(1));
+            Assertions.assertEquals("abcdefghij", row.getField(2));
+            Assertions.assertEquals(expectedChunks[i], row.getField(chunkIdx));
+            Assertions.assertEquals(i, row.getField(chunkSeqIdx));
+        }
     }
 }
