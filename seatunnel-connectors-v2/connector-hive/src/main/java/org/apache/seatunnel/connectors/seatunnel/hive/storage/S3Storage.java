@@ -38,10 +38,11 @@ public class S3Storage extends AbstractStorage {
         Config config = fillBucket(readonlyConfig, configuration);
         config =
                 config.withValue(
-                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS.key(),
                         ConfigValueFactory.fromAnyRef(
                                 configuration.get(
-                                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key())));
+                                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS
+                                                .key())));
         config =
                 config.withValue(
                         S3FileBaseOptions.FS_S3A_ENDPOINT.key(),

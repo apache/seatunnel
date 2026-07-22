@@ -385,6 +385,7 @@ Current support:
 | TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
 | OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
 | PostgreSQL | Yes | `tablespace`, `fillfactor` |
+| Kingbase | Yes | `tablespace`, `fillfactor` |
 | Other JDBC dialects | No | Non-empty `table_options` fails validation at job submission |
 
 Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rules (`--check` and job submission), not only at runtime DDL.
@@ -395,8 +396,9 @@ Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rul
 - **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
 - **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission. OceanBase **Oracle-compatible mode** does not support `table_options`; a non-empty map fails at job submission.
 - **PostgreSQL**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH` parameters are not supported). OpenGauss and HighGo inherit the same validation and DDL path via Postgres catalog/dialect.
+- **Kingbase**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]` (PostgreSQL-compatible); `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH (...)` parameters are not supported). The tablespace must already exist on the target.
 
-SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), it also validates blank values and the `fillfactor` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
+SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), and Kingbase, it also validates blank values and the `fillfactor` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
 
 Example (MySQL auto-create with engine and charset):
 
@@ -444,6 +446,30 @@ sink {
   }
 }
 ```
+
+Example (Kingbase auto-create with tablespace and fillfactor):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:kingbase8://localhost:54321/test"
+    driver = "com.kingbase8.Driver"
+    username = "SYSTEM"
+    password = "123456"
+    database = "test"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "pg_default"
+      "fillfactor" = "70"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `WITH (fillfactor=70)` and `TABLESPACE "pg_default"`.
 
 ### enable_upsert [boolean]
 
@@ -534,7 +560,7 @@ The following values are starting points. Confirm the driver artifact and versio
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
-| YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                     | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
 
 ## Common patterns
 

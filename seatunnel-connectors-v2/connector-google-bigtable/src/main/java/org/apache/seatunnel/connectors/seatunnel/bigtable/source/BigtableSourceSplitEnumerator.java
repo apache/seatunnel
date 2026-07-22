@@ -47,31 +47,43 @@ public class BigtableSourceSplitEnumerator
     private Set<BigtableSourceSplit> pendingSplits;
     private boolean initialized = false;
 
+    /**
+     * Guards the shared assignment state ({@code assignedSplits}, {@code pendingSplits}, {@code
+     * initialized}) against concurrent enumerator callbacks. {@link #initializePendingSplits()} and
+     * {@link #assignSplit(int)} must only run while this lock is held.
+     */
+    private final Object stateLock = new Object();
+
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context, BigtableParameters parameters) {
-        this(context, parameters, new HashSet<>());
+        this(context, parameters, null);
     }
 
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context,
             BigtableParameters parameters,
             BigtableSourceState sourceState) {
-        this(context, parameters, sourceState.getAssignedSplits());
-    }
-
-    private BigtableSourceSplitEnumerator(
-            Context<BigtableSourceSplit> context,
-            BigtableParameters parameters,
-            Set<BigtableSourceSplit> assignedSplits) {
         this.context = context;
         this.parameters = parameters;
-        this.assignedSplits = new HashSet<>(assignedSplits);
+        if (sourceState == null) {
+            this.assignedSplits = new HashSet<>();
+            this.pendingSplits = new HashSet<>();
+            this.initialized = false;
+        } else {
+            this.assignedSplits = new HashSet<>(sourceState.getAssignedSplits());
+            // Restore pending splits first so a returned-but-not-yet-reassigned split survives
+            // recovery even when its ID is already present in assignedSplits.
+            this.pendingSplits = new HashSet<>(sourceState.getPendingSplits());
+            // Only skip table-split discovery when the checkpoint captured real enumerator
+            // progress.
+            // An empty-empty checkpoint (before any reader registered) must still discover splits.
+            this.initialized = !this.assignedSplits.isEmpty() || !this.pendingSplits.isEmpty();
+        }
     }
 
     @Override
     public void open() {
-        this.pendingSplits = new HashSet<>();
-        this.initialized = false;
+        // State is fully initialized in the constructor; nothing to reset on open().
     }
 
     @Override
@@ -87,9 +99,11 @@ public class BigtableSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<BigtableSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplits.addAll(splits);
-            if (context.registeredReaders().contains(subtaskId)) {
-                assignSplit(subtaskId);
+            synchronized (stateLock) {
+                pendingSplits.addAll(splits);
+                if (context.registeredReaders().contains(subtaskId)) {
+                    assignSplit(subtaskId);
+                }
             }
         }
     }
@@ -101,13 +115,17 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        initializePendingSplits();
-        assignSplit(subtaskId);
+        synchronized (stateLock) {
+            initializePendingSplits();
+            assignSplit(subtaskId);
+        }
     }
 
     @Override
     public BigtableSourceState snapshotState(long checkpointId) throws Exception {
-        return new BigtableSourceState(assignedSplits);
+        synchronized (stateLock) {
+            return new BigtableSourceState(assignedSplits, pendingSplits);
+        }
     }
 
     @Override
