@@ -38,7 +38,6 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 
@@ -51,7 +50,8 @@ public class SourceRecordUtils {
     public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
             Arrays.asList(
                     "io.debezium.connector.mysql.SchemaChangeKey",
-                    "io.debezium.connector.oracle.SchemaChangeKey");
+                    "io.debezium.connector.oracle.SchemaChangeKey",
+                    "io.debezium.connector.sqlserver.SchemaChangeKey");
 
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
             "io.debezium.connector.common.Heartbeat";
@@ -79,7 +79,7 @@ public class SourceRecordUtils {
         }
 
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
-        if (source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
+        if (source == null || source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
             return null;
         }
 
@@ -122,7 +122,7 @@ public class SourceRecordUtils {
     public static TableId getTableId(SourceRecord dataRecord) {
         Struct value = (Struct) dataRecord.value();
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
-        String dbName = source.getString(DATABASE_NAME_KEY);
+        String dbName = resolveDatabaseName(source);
         // Oracle need schemaName
         String schemaName = getSchemaName(source);
         String tableName = source.getString(TABLE_NAME_KEY);
@@ -213,7 +213,7 @@ public class SourceRecordUtils {
     public static TablePath getTablePath(SourceRecord record) {
         Struct messageStruct = (Struct) record.value();
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
-        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        String databaseName = resolveDatabaseName(sourceStruct);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
         String schemaName = null;
         if (sourceStruct.schema().field(AbstractSourceInfo.SCHEMA_NAME_KEY) != null) {
@@ -222,8 +222,97 @@ public class SourceRecordUtils {
         return TablePath.of(databaseName, schemaName, tableName);
     }
 
+    /**
+     * Resolves the logical database name from Debezium source metadata.
+     *
+     * <p>Vitess writes an empty string into the generic database field and stores the real logical
+     * database in {@code keyspace}, so blank values must also trigger the fallback.
+     */
+    private static String resolveDatabaseName(Struct sourceStruct) {
+        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        if ((databaseName == null || databaseName.isEmpty())
+                && sourceStruct.schema().field("keyspace") != null) {
+            return sourceStruct.getString("keyspace");
+        }
+        return databaseName;
+    }
+
     public static String getDdl(SourceRecord record) {
         Struct schemaChangeStruct = (Struct) record.value();
         return schemaChangeStruct.getString(HistoryRecord.Fields.DDL_STATEMENTS);
+    }
+
+    /**
+     * Returns the binlog filename from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC; other connectors (PostgreSQL, Oracle) use different offset keys.
+     * Returns null for snapshot rows where Debezium sets file to an empty string.
+     */
+    public static String getBinlogFile(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("file") == null) {
+            return null;
+        }
+        String file = source.getString("file");
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        return file;
+    }
+
+    /**
+     * Returns the binlog position from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC.
+     */
+    public static Long getBinlogPos(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("pos") == null) {
+            return null;
+        }
+        return source.getInt64("pos");
+    }
+
+    /**
+     * Returns the row index within the binlog event from the Debezium source struct, or null if not
+     * available. Only present for MySQL-CDC.
+     */
+    public static Integer getBinlogRow(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("row") == null) {
+            return null;
+        }
+        return source.getInt32("row");
+    }
+
+    /**
+     * Returns the GTID from the Debezium source struct, or null if not available. Only present for
+     * MySQL-CDC when GTID mode is enabled on the server. Null for snapshot rows and when GTID is
+     * disabled.
+     */
+    public static String getGtid(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("gtid") == null) {
+            return null;
+        }
+        String gtid = source.getString("gtid");
+        if (gtid == null || gtid.isEmpty()) {
+            return null;
+        }
+        return gtid;
     }
 }

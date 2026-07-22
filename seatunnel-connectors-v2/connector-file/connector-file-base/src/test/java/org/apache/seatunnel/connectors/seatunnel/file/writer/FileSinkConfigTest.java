@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -46,7 +47,8 @@ public class FileSinkConfigTest {
                 new SeaTunnelRowType(
                         new String[] {"data", "ts"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
-        Assertions.assertDoesNotThrow(() -> new FileSinkConfig(config, rowType));
+        Assertions.assertDoesNotThrow(
+                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), rowType));
     }
 
     @Test
@@ -60,7 +62,8 @@ public class FileSinkConfigTest {
                 new SeaTunnelRowType(
                         new String[] {"data", "ts"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
-        Assertions.assertDoesNotThrow(() -> new FileSinkConfig(config, rowType));
+        Assertions.assertDoesNotThrow(
+                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), rowType));
     }
 
     @Test
@@ -76,7 +79,8 @@ public class FileSinkConfigTest {
                         new SeaTunnelDataType[] {
                             BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
                         });
-        FileSinkConfig fileSinkConfig = new FileSinkConfig(config, seaTunnelRowTypeInfo);
+        FileSinkConfig fileSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromConfig(config), seaTunnelRowTypeInfo);
         List<Integer> sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
         Assertions.assertEquals(
                 sinkColumnsIndexInRow.size(), seaTunnelRowTypeInfo.getFieldNames().length);

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,11 +26,11 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -58,7 +57,7 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class ParquetWriteStrategyTest extends BaseTest {
+public class ParquetWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/parquet/int96/test";
 
     @DisabledOnOs(OS.WINDOWS)
@@ -80,9 +79,10 @@ public class ParquetWriteStrategyTest extends BaseTest {
                             PrimitiveByteArrayType.INSTANCE
                         });
         FileSinkConfig writeSinkConfig =
-                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
-        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
@@ -147,6 +147,50 @@ public class ParquetWriteStrategyTest extends BaseTest {
                 };
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(1, readRows.size());
+        readStrategy.close();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteInt96WithMixedCaseTimestampColumn() throws Exception {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH + "-mixed-case");
+        writeConfig.put("path", "file:///tmp/seatunnel/parquet/int96-mixed-case");
+        writeConfig.put("file_format_type", FileFormat.PARQUET.name());
+        writeConfig.put("parquet_avro_write_timestamp_as_int96", "true");
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"createTime"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {LocalDateTime.now()}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        ParquetReadStrategy readStrategy = new ParquetReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(TMP_PATH + "-mixed-case");
+        Assertions.assertEquals(1, readFiles.size());
+        try (ParquetFileReader reader =
+                ParquetFileReader.open(
+                        HadoopInputFile.fromPath(
+                                new org.apache.hadoop.fs.Path(readFiles.get(0)),
+                                new Configuration()))) {
+            FileMetaData metadata = reader.getFooter().getFileMetaData();
+            Type createTimeType = metadata.getSchema().getType("createtime");
+            Assertions.assertEquals(
+                    PrimitiveType.PrimitiveTypeName.INT96,
+                    createTimeType.asPrimitiveType().getPrimitiveTypeName());
+        }
         readStrategy.close();
     }
 }

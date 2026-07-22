@@ -24,8 +24,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.transform.nlpmodel.CustomConfigPlaceholder;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationContext;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.ProviderAdapter;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -57,7 +63,34 @@ public class CustomModel extends AbstractModel {
             Map<String, Object> body,
             String parse,
             Integer vectorizedNumber) {
-        this(model, apiPath, header, body, parse, vectorizedNumber, HttpClients.createDefault());
+        this(
+                model,
+                apiPath,
+                header,
+                body,
+                parse,
+                vectorizedNumber,
+                ModelInvocationOptions.defaults(),
+                HttpClients.createDefault());
+    }
+
+    public CustomModel(
+            String model,
+            String apiPath,
+            Map<String, String> header,
+            Map<String, Object> body,
+            String parse,
+            Integer vectorizedNumber,
+            ModelInvocationOptions invocationOptions) {
+        this(
+                model,
+                apiPath,
+                header,
+                body,
+                parse,
+                vectorizedNumber,
+                invocationOptions,
+                HttpClients.createDefault());
     }
 
     public CustomModel(
@@ -68,7 +101,27 @@ public class CustomModel extends AbstractModel {
             String parse,
             Integer vectorizedNumber,
             CloseableHttpClient client) {
-        super(vectorizedNumber);
+        this(
+                model,
+                apiPath,
+                header,
+                body,
+                parse,
+                vectorizedNumber,
+                ModelInvocationOptions.defaults(),
+                client);
+    }
+
+    public CustomModel(
+            String model,
+            String apiPath,
+            Map<String, String> header,
+            Map<String, Object> body,
+            String parse,
+            Integer vectorizedNumber,
+            ModelInvocationOptions invocationOptions,
+            CloseableHttpClient client) {
+        super(vectorizedNumber, invocationOptions);
         this.apiPath = apiPath;
         this.model = model;
         this.header = header;
@@ -79,35 +132,84 @@ public class CustomModel extends AbstractModel {
 
     @Override
     protected List<List<Float>> vector(Object[] fields) throws IOException {
-        return vectorGeneration(fields);
+        return invocationRuntime.invoke(fields, vectorAdapter(true));
     }
 
     @Override
     public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
+        return invocationRuntime
+                .invoke(new Object[] {DIMENSION_EXAMPLE}, vectorAdapter(false))
+                .get(0)
+                .size();
     }
 
-    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
+    private ProviderAdapter<List<List<Float>>> vectorAdapter(boolean validateOutputCount) {
+        return new ProviderAdapter<List<List<Float>>>() {
+            @Override
+            public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                    throws IOException {
+                return vectorGeneration(inputs, context.getRequestTimeoutMs());
+            }
+
+            @Override
+            public int getOutputCount(List<List<Float>> output) {
+                return output == null ? 0 : output.size();
+            }
+
+            @Override
+            public String getProvider() {
+                return "CUSTOM";
+            }
+
+            @Override
+            public String getModel() {
+                return model;
+            }
+
+            @Override
+            public boolean validateOutputCount() {
+                return validateOutputCount;
+            }
+        };
+    }
+
+    private List<List<Float>> vectorGeneration(Object[] fields, int requestTimeoutMs)
+            throws IOException {
         HttpPost post = new HttpPost(apiPath);
         // Construct a request with custom parameters
         for (Map.Entry<String, String> entry : header.entrySet()) {
             post.setHeader(entry.getKey(), entry.getValue());
         }
+        post.setConfig(
+                RequestConfig.custom()
+                        .setConnectTimeout(requestTimeoutMs)
+                        .setSocketTimeout(requestTimeoutMs)
+                        .build());
 
         post.setEntity(
                 new StringEntity(
                         OBJECT_MAPPER.writeValueAsString(createJsonNodeFromData(fields)), "UTF-8"));
 
-        CloseableHttpResponse response = client.execute(post);
+        try (CloseableHttpResponse response = client.execute(post)) {
+            String responseStr = EntityUtils.toString(response.getEntity());
 
-        String responseStr = EntityUtils.toString(response.getEntity());
+            if (response.getStatusLine().getStatusCode() != 200) {
+                throw ModelInvocationException.fromHttpStatus(
+                        "CUSTOM", model, response.getStatusLine().getStatusCode(), responseStr);
+            }
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from custom, response: " + responseStr);
+            try {
+                return OBJECT_MAPPER.convertValue(
+                        parseResponse(responseStr), new TypeReference<List<List<Float>>>() {});
+            } catch (RuntimeException e) {
+                throw ModelInvocationException.nonRetryable(
+                        ModelInvocationErrorType.RESPONSE_PARSE_ERROR,
+                        "CUSTOM",
+                        model,
+                        "Failed to parse Custom embedding response",
+                        e);
+            }
         }
-
-        return OBJECT_MAPPER.convertValue(
-                parseResponse(responseStr), new TypeReference<List<List<Float>>>() {});
     }
 
     @VisibleForTesting

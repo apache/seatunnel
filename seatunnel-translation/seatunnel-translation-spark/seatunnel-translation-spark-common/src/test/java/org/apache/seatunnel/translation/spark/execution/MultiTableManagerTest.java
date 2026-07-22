@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.execution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.spark.serialization.InternalMultiRowCollector;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
+import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -63,6 +65,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.ROW_KIND_FIELD;
+import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.ROW_OPTIONS;
 import static org.apache.seatunnel.translation.spark.utils.TypeConverterUtils.TABLE_ID;
 import static org.apache.spark.sql.types.DataTypes.BooleanType;
 import static org.apache.spark.sql.types.DataTypes.ByteType;
@@ -247,6 +250,34 @@ public class MultiTableManagerTest {
 
         GenericRow genericRow3 = multiTableManager.convert(seaTunnelRow3);
         Assertions.assertEquals(seaTunnelRow3, multiTableManager.reconvert(genericRow3));
+    }
+
+    @Test
+    void testConvertersPreserveOptions() throws IOException {
+        initSchema();
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[rowType1.getTotalFields()]);
+        row.setTableId("test.test.test1");
+        row.getOptions().put(CommonOptions.FILE_PATH.getName(), "/tmp/test.csv");
+        row.getOptions().put(CommonOptions.FILE_SIZE.getName(), 123L);
+
+        InternalRowConverter internalRowConverter = new InternalRowConverter(rowType1);
+        SeaTunnelRow internalRoundTrip = internalRowConverter.reconvert(internalRowConverter.convert(row));
+        Assertions.assertNotNull(internalRoundTrip.getOptionsOrNull());
+        Assertions.assertEquals(
+                "/tmp/test.csv",
+                internalRoundTrip.getOptionsOrNull().get(CommonOptions.FILE_PATH.getName()));
+        Assertions.assertEquals(
+                123L, internalRoundTrip.getOptionsOrNull().get(CommonOptions.FILE_SIZE.getName()));
+
+        SeaTunnelRowConverter seaTunnelRowConverter = new SeaTunnelRowConverter(rowType1);
+        SeaTunnelRow genericRoundTrip = seaTunnelRowConverter.reconvert(seaTunnelRowConverter.convert(row));
+        Assertions.assertNotNull(genericRoundTrip.getOptionsOrNull());
+        Assertions.assertEquals(
+                "/tmp/test.csv",
+                genericRoundTrip.getOptionsOrNull().get(CommonOptions.FILE_PATH.getName()));
+        Assertions.assertEquals(
+                123L, genericRoundTrip.getOptionsOrNull().get(CommonOptions.FILE_SIZE.getName()));
     }
 
     @Test
@@ -599,7 +630,8 @@ public class MultiTableManagerTest {
                         .add("column18", new ArrayType(FloatType, true))
                         .add("column19", new ArrayType(DoubleType, true))
                         .add("column20", new MapType(StringType, StringType, true))
-                        .add("column21", structType);
+                        .add("column21", structType)
+                        .add(ROW_OPTIONS, DataTypes.BinaryType);
 
         structType2 =
                 new StructType()
@@ -629,7 +661,8 @@ public class MultiTableManagerTest {
                         .add("column21", structType)
                         .add("column22", FloatType)
                         .add("column23", BooleanType)
-                        .add("column24", ByteType);
+                        .add("column24", ByteType)
+                        .add(ROW_OPTIONS, DataTypes.BinaryType);
 
         structType3 =
                 new StructType()
@@ -656,7 +689,8 @@ public class MultiTableManagerTest {
                         .add("array_float", new ArrayType(FloatType, true))
                         .add("array_double", new ArrayType(DoubleType, true))
                         .add("map", new MapType(StringType, StringType, true))
-                        .add("row", structType);
+                        .add("row", structType)
+                        .add(ROW_OPTIONS, DataTypes.BinaryType);
     }
 
     public void initData() {
@@ -801,7 +835,7 @@ public class MultiTableManagerTest {
 
         SpecificInternalRow specificInternalRow = new SpecificInternalRow(mutableValues);
 
-        MutableValue[] mutableValues1 = new MutableValue[24];
+        MutableValue[] mutableValues1 = new MutableValue[25];
 
         mutableValues1[0] = new MutableByte();
         mutableValues1[0].update(RowKind.INSERT.toByteValue());
@@ -879,17 +913,18 @@ public class MultiTableManagerTest {
 
         mutableValues1[23] = new MutableAny();
         mutableValues1[23].update(specificInternalRow);
+        mutableValues1[24] = new MutableAny();
 
         specificInternalRow1 = new SpecificInternalRow(mutableValues1);
 
-        MutableValue[] mutableValues2 = new MutableValue[27];
+        MutableValue[] mutableValues2 = new MutableValue[28];
 
         for (int i = 0; i < mutableValues1.length; i++) {
             mutableValues2[i] = mutableValues1[i].copy();
         }
-        mutableValues2[24] = new MutableAny();
         mutableValues2[25] = new MutableAny();
         mutableValues2[26] = new MutableAny();
+        mutableValues2[27] = new MutableAny();
 
         specificInternalRow2 = new SpecificInternalRow(mutableValues2);
 
@@ -916,7 +951,7 @@ public class MultiTableManagerTest {
         seaTunnelRow3.setTableId("test.test.test3");
 
         // [0, 1, 3, 22, 2, 23, 4, 5, 24, 7, 6, 8, 10, 9, 11]
-        MutableValue[] mutableValues3 = new MutableValue[27];
+        MutableValue[] mutableValues3 = new MutableValue[28];
         mutableValues3[0] = new MutableByte();
         mutableValues3[0].update(RowKind.INSERT.toByteValue());
         mutableValues3[1] = new MutableAny();

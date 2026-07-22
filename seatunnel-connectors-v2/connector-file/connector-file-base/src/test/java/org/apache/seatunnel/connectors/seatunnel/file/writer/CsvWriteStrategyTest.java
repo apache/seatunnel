@@ -19,17 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class CsvWriteStrategyTest extends BaseTest {
+public class CsvWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/csv/test";
 
     @DisabledOnOs(OS.WINDOWS)
@@ -64,9 +65,10 @@ public class CsvWriteStrategyTest extends BaseTest {
                             BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
                         });
         FileSinkConfig writeSinkConfig =
-                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
-        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
@@ -126,9 +128,10 @@ public class CsvWriteStrategyTest extends BaseTest {
                             BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
                         });
         FileSinkConfig writeSinkConfig =
-                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
-        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);

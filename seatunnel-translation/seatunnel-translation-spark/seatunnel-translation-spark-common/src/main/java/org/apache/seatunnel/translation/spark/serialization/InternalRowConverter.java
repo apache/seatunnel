@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
 import org.apache.seatunnel.translation.spark.utils.OffsetDateTimeUtils;
@@ -165,9 +166,9 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private InternalRow parcel(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
-        // 0 -> row kind, 1 -> table id
+        // 0 -> row kind, 1 -> table id, last -> row options
         int arity = rowType.getTotalFields();
-        MutableValue[] values = new MutableValue[arity + 2];
+        MutableValue[] values = new MutableValue[arity + 3];
         for (int i = 0; i < indexes.length; i++) {
             values[indexes[i] + 2] = createMutableValue(rowType.getFieldType(indexes[i]));
             Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(indexes[i]));
@@ -179,6 +180,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         values[0].update(seaTunnelRow.getRowKind().toByteValue());
         values[1] = new MutableAny();
         values[1].update(UTF8String.fromString(seaTunnelRow.getTableId()));
+        values[values.length - 1] = new MutableAny();
+        values[values.length - 1].update(serializeOptions(seaTunnelRow));
         // Fill any remaining null values with MutableAny
         for (int i = 0; i < values.length; i++) {
             if (values[i] == null) {
@@ -280,6 +283,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
         seaTunnelRow.setTableId(tableId);
+        Map<String, Object> options =
+                deserializeOptions(engineRow.getBinary(rowType.getTotalFields() + 2));
+        if (options != null && !options.isEmpty()) {
+            seaTunnelRow.setOptions(options);
+        }
         return seaTunnelRow;
     }
 
@@ -453,5 +461,21 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             return new WrappedArray.ofRef<>(values);
         }
         return internalRowField;
+    }
+
+    private static byte[] serializeOptions(SeaTunnelRow row) {
+        Map<String, Object> options = row.getOptionsOrNull();
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        return SerializationUtils.serialize((java.io.Serializable) options);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> deserializeOptions(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        return SerializationUtils.deserialize(bytes);
     }
 }

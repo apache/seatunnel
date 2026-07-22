@@ -27,9 +27,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -376,6 +378,129 @@ public class BaseServiceTableMetricsTest {
         Assertions.assertNotNull(tableSinkCount);
         Assertions.assertEquals(1L, tableSinkCount.get("Sink[0].fake.user_table"));
         Assertions.assertEquals(2L, tableSinkCount.get("Sink[1].fake.user_table"));
+    }
+
+    @Test
+    public void testMetricsToJsonObjectConvertsLargeNumbersToPlainString() throws Exception {
+        Double doubleValue = 85210718.2630262;
+        Assertions.assertTrue(doubleValue.toString().contains("E"));
+
+        Method metricsToJsonObjectMethod =
+                BaseService.class.getDeclaredMethod("metricsToJsonObject", Map.class);
+        metricsToJsonObjectMethod.setAccessible(true);
+
+        Map<String, Object> metricsMap = new HashMap<>();
+        metricsMap.put("SourceReceivedQPS", 85210718.2630262);
+        metricsMap.put("SinkWriteQPS", 99999999.999);
+        metricsMap.put("FloatValue", 85210718.263026f);
+        metricsMap.put("LongValue", 123456789L);
+        metricsMap.put("BigDecimalValue", new BigDecimal("6.752132322232343E7"));
+
+        JsonObject result =
+                (JsonObject) metricsToJsonObjectMethod.invoke(jobInfoService, metricsMap);
+        String jsonString = result.toString();
+        Assertions.assertFalse(jsonString.contains("E"));
+    }
+
+    @Test
+    public void testPerVertexMetricsSingleSourceSinkFallbackToDAGInfo() throws Exception {
+        String jobMetrics =
+                "{"
+                        + "\"FlushSignalTotal\": ["
+                        + "  {\"value\": 100, \"tags\": {\"taskName\": \"SeaTunnelTask\"}},"
+                        + "  {\"value\": 200, \"tags\": {\"taskName\": \"SeaTunnelTask\"}},"
+                        + "  {\"value\": 300, \"tags\": {\"taskName\": \"SeaTunnelTask\"}}"
+                        + "],"
+                        + "\"FlushSignalQPS\": ["
+                        + "  {\"value\": 10.5, \"tags\": {\"taskName\": \"SeaTunnelTask\"}},"
+                        + "  {\"value\": 9.5, \"tags\": {\"taskName\": \"SeaTunnelTask\"}}"
+                        + "],"
+                        + "\"FlushSignalSinkSuccessTotal\": ["
+                        + "  {\"value\": 50, \"tags\": {\"taskName\": \"SeaTunnelTask\"}}"
+                        + "],"
+                        + "\"FlushSignalSinkQPS\": ["
+                        + "  {\"value\": 5.0, \"tags\": {\"taskName\": \"SeaTunnelTask\"}}"
+                        + "]"
+                        + "}";
+
+        JobDAGInfo dagInfo = createDAGInfoWithMultipleSinks();
+
+        Map<String, Object> result =
+                (Map<String, Object>)
+                        getJobMetricsMethod.invoke(jobInfoService, jobMetrics, dagInfo);
+
+        Map<String, Object> flushTotalPerVertex =
+                (Map<String, Object>) result.get("FlushSignalTotalPerVertex");
+        Assertions.assertNotNull(flushTotalPerVertex, "FlushSignalTotalPerVertex should exist");
+        Assertions.assertEquals(600L, flushTotalPerVertex.get("Source[0]"));
+
+        Map<String, Object> flushQpsPerVertex =
+                (Map<String, Object>) result.get("FlushSignalQPSPerVertex");
+        Assertions.assertNotNull(flushQpsPerVertex, "FlushSignalQPSPerVertex should exist");
+        Assertions.assertEquals(20.0, (Double) flushQpsPerVertex.get("Source[0]"), 0.01);
+
+        Map<String, Object> sinkSuccessPerVertex =
+                (Map<String, Object>) result.get("FlushSignalSinkSuccessTotalPerVertex");
+        Assertions.assertNotNull(sinkSuccessPerVertex);
+        Assertions.assertTrue(
+                sinkSuccessPerVertex.containsKey("Sink[0]")
+                        || sinkSuccessPerVertex.containsKey("Sink[1]"));
+
+        Map<String, Object> sinkQpsPerVertex =
+                (Map<String, Object>) result.get("FlushSignalSinkQPSPerVertex");
+        Assertions.assertNotNull(sinkQpsPerVertex);
+    }
+
+    @Test
+    public void testPerVertexMetricsTagExtractionTakesPriority() throws Exception {
+        String jobMetrics =
+                "{"
+                        + "\"FlushSignalTotal\": ["
+                        + "  {\"value\": 100, \"tags\": {\"taskName\": \"pipeline-1 [Source[0]-FakeSource]\"}},"
+                        + "  {\"value\": 200, \"tags\": {\"taskName\": \"pipeline-1 [Source[0]-FakeSource]\"}}"
+                        + "]"
+                        + "}";
+
+        JobDAGInfo dagInfo = createDAGInfoWithMultipleSinks();
+
+        Map<String, Object> result =
+                (Map<String, Object>)
+                        getJobMetricsMethod.invoke(jobInfoService, jobMetrics, dagInfo);
+
+        Map<String, Object> flushTotalPerVertex =
+                (Map<String, Object>) result.get("FlushSignalTotalPerVertex");
+        Assertions.assertNotNull(flushTotalPerVertex);
+        Assertions.assertEquals(300L, flushTotalPerVertex.get("Source[0]"));
+    }
+
+    @Test
+    public void testPerVertexMetricsNullDAGInfoNoPerVertexFields() throws Exception {
+        String jobMetrics =
+                "{"
+                        + "\"FlushSignalTotal\": ["
+                        + "  {\"value\": 100, \"tags\": {\"taskName\": \"SeaTunnelTask\"}}"
+                        + "]"
+                        + "}";
+
+        Map<String, Object> result =
+                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics, null);
+
+        Assertions.assertNull(
+                result.get("FlushSignalTotalPerVertex"),
+                "Without DAG info and valid tags, PerVertex should not exist");
+    }
+
+    @Test
+    public void testPerVertexMetricsEmptyMetricArrayNoPerVertexFields() throws Exception {
+        String jobMetrics = "{\"FlushSignalTotal\": []}";
+
+        JobDAGInfo dagInfo = createDAGInfoWithMultipleSinks();
+
+        Map<String, Object> result =
+                (Map<String, Object>)
+                        getJobMetricsMethod.invoke(jobInfoService, jobMetrics, dagInfo);
+
+        Assertions.assertNull(result.get("FlushSignalTotalPerVertex"));
     }
 
     private JobDAGInfo createDAGInfoWithMultipleSinks() {

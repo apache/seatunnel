@@ -39,7 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -98,6 +97,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         InputStream actualInputStream;
         switch (compressFormat) {
             case LZO:
@@ -116,11 +116,9 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         }
         // rebuild inputStream
         if (enableSplitFile && split.getLength() > -1) {
-            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+            actualInputStream = safeSlice(actualInputStream, split.getStart(), split.getLength());
         }
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
-            Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
+        try (BufferedReader reader = createBomAwareBufferedReader(actualInputStream, encoding)) {
             reader.lines()
                     .forEach(
                             line -> {

@@ -24,7 +24,10 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.operation.GetNodeHttpPortOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -60,50 +63,58 @@ public class LogService extends BaseLogService {
         HttpConfig httpConfig =
                 seaTunnelServer.getSeaTunnelConfig().getEngineConfig().getHttpConfig();
         String contextPath = httpConfig.getContextPath();
-        int port = httpConfig.getPort();
 
         List<Tuple3<String, String, String>> allLogNameList = new ArrayList<>();
 
-        JsonArray systemMonitoringInformationJsonValues =
-                getSystemMonitoringInformationJsonValues();
-        systemMonitoringInformationJsonValues.forEach(
-                systemMonitoringInformation -> {
-                    String host = systemMonitoringInformation.asObject().get("host").asString();
-                    String url = "http://" + host + ":" + port + contextPath;
-                    String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
+        for (Member member : nodeEngine.getClusterService().getMembers()) {
+            String host = member.getAddress().getHost();
+            int nodeHttpPort;
+            try {
+                nodeHttpPort =
+                        (int)
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                                nodeEngine,
+                                                new GetNodeHttpPortOperation(),
+                                                member.getAddress())
+                                        .get();
+            } catch (Exception e) {
+                log.warn("Failed to get HTTP port from member {}, skip.", member.getAddress(), e);
+                continue;
+            }
 
-                    String allName =
-                            httpConfig.isEnableBasicAuth()
-                                    ? sendGet(
-                                            logUrl,
-                                            httpConfig.getBasicAuthUsername(),
-                                            httpConfig.getBasicAuthPassword())
-                                    : sendGet(logUrl);
+            String url = "http://" + host + ":" + nodeHttpPort + contextPath;
+            String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
 
-                    if (StringUtils.isBlank(allName)) {
-                        log.warn(
-                                "GET {} returned empty body (null/empty). Skip this node.", logUrl);
-                        return;
-                    }
+            String allName =
+                    httpConfig.isEnableBasicAuth()
+                            ? sendGet(
+                                    logUrl,
+                                    httpConfig.getBasicAuthUsername(),
+                                    httpConfig.getBasicAuthPassword())
+                            : sendGet(logUrl);
 
-                    if (log.isDebugEnabled()) {
-                        log.debug("Request: {} , Result: {}", url, allName);
-                    }
-                    ArrayNode jsonNodes = JsonUtils.parseArray(allName);
+            if (StringUtils.isBlank(allName)) {
+                log.warn("GET {} returned empty body (null/empty). Skip this node.", logUrl);
+                continue;
+            }
 
-                    jsonNodes.forEach(
-                            jsonNode -> {
-                                String fileName = jsonNode.asText();
-                                if (StringUtils.isNotBlank(jobId) && !fileName.contains(jobId)) {
-                                    return;
-                                }
-                                allLogNameList.add(
-                                        new Tuple3<>(
-                                                host + ":" + port,
-                                                url + REST_URL_LOGS + "/" + fileName,
-                                                fileName));
-                            });
-                });
+            if (log.isDebugEnabled()) {
+                log.debug("Request: {} , Result: {}", url, allName);
+            }
+            ArrayNode jsonNodes = JsonUtils.parseArray(allName);
+
+            final String nodeId = host + ":" + nodeHttpPort;
+            jsonNodes.forEach(
+                    jsonNode -> {
+                        String fileName = jsonNode.asText();
+                        if (StringUtils.isNotBlank(jobId) && !fileName.contains(jobId)) {
+                            return;
+                        }
+                        allLogNameList.add(
+                                new Tuple3<>(
+                                        nodeId, url + REST_URL_LOGS + "/" + fileName, fileName));
+                    });
+        }
 
         return allLogNameList;
     }

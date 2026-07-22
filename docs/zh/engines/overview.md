@@ -6,6 +6,22 @@ sidebar_position: 1
 
 SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适的引擎。本文档提供全面的对比分析，帮助您做出正确的选择。
 
+## 先看选择建议
+
+如果你是第一次评估 SeaTunnel，建议先用下面这条规则做初选，再看后面的完整对比：
+
+- 如果你没有现成的 Flink 或 Spark 运维体系，优先从 **SeaTunnel Engine (Zeta)** 开始。
+- 如果团队已经稳定运行 Flink 集群，并且希望复用现有体系，选择 **Flink**。
+- 如果团队已经稳定运行 Spark，并且任务以批处理为主，选择 **Spark**。
+
+对大多数新部署来说，SeaTunnel Engine 是默认推荐项，因为它的上手路径最短、运维负担更低，并且对 CDC、多表同步、数据库迁移这类数据同步场景支持更完整。
+
+## 推荐阅读路径
+
+- 我只想尽快跑通第一个任务：[快速入门总览](../getting-started/overview.md) -> [SeaTunnel Engine 简介](zeta/about.md) -> [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
+- 我想先理解整体架构再选引擎：[关于 SeaTunnel](../introduction/about.md) -> [工作原理](../introduction/how-it-works.md) -> [架构概览](../architecture/overview.md)
+- 我已经确定要复用现有平台：直接进入 [SeaTunnel Engine](zeta/about.md)、[Flink 引擎指南](flink.md) 或 [Spark 引擎指南](spark.md)
+
 ## 支持的引擎
 
 | 引擎 | 描述 | 推荐场景 |
@@ -111,21 +127,30 @@ SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适�
 
 ## 决策流程图
 
-```
-开始
-  │
-  ▼
-是否有现有的 Flink/Spark 基础设施？
-  │
-  ├─ 是 ──► 是否想要复用？
-  │          │
-  │          ├─ 是 (Flink) ──► 使用 Flink 引擎
-  │          │
-  │          ├─ 是 (Spark) ──► 使用 Spark 引擎
-  │          │
-  │          └─ 否 ──► 使用 SeaTunnel Engine
-  │
-  └─ 否 ──► 使用 SeaTunnel Engine（推荐）
+```mermaid
+flowchart TD
+    start["开始"]
+    infra{"是否已经有<br/>Flink 或 Spark 基础设施？"}
+    reuse{"是否希望继续复用？"}
+    flink["使用 Flink 引擎"]
+    spark["使用 Spark 引擎"]
+    zeta["使用 SeaTunnel Engine<br/>（默认更推荐）"]
+
+    start --> infra
+    infra -- "是" --> reuse
+    infra -- "否" --> zeta
+    reuse -- "是，Flink" --> flink
+    reuse -- "是，Spark" --> spark
+    reuse -- "否" --> zeta
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class start,infra,reuse layerBlue;
+    class flink,spark layerCyan;
+    class zeta layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 配置示例
@@ -202,6 +227,8 @@ env {
 
 ## 下一步
 
-- [SeaTunnel Engine 快速开始](zeta/about.md)
+- [SeaTunnel Engine 简介](zeta/about.md)
+- [快速入门总览](../getting-started/overview.md)
+- [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
 - [Flink 引擎指南](flink.md)
 - [Spark 引擎指南](spark.md)

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -27,7 +28,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileDiscoveryMode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MultipleTableFileSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.ContinuousMultipleTableFileSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
@@ -79,7 +84,9 @@ public abstract class BaseMultipleTableFileSource
 
     @Override
     public Boundedness getBoundedness() {
-        return Boundedness.BOUNDED;
+        return resolveDiscoveryMode() == FileDiscoveryMode.CONTINUOUS
+                ? Boundedness.UNBOUNDED
+                : Boundedness.BOUNDED;
     }
 
     @Override
@@ -101,6 +108,10 @@ public abstract class BaseMultipleTableFileSource
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
+        if (resolveDiscoveryMode() == FileDiscoveryMode.CONTINUOUS) {
+            return new ContinuousMultipleTableFileSourceSplitEnumerator(
+                    enumeratorContext, baseMultipleTableFileSourceConfig, fileSplitStrategy);
+        }
         return new MultipleTableFileSourceSplitEnumerator(
                 enumeratorContext, baseMultipleTableFileSourceConfig, fileSplitStrategy);
     }
@@ -109,10 +120,39 @@ public abstract class BaseMultipleTableFileSource
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState) {
+        if (resolveDiscoveryMode() == FileDiscoveryMode.CONTINUOUS) {
+            return new ContinuousMultipleTableFileSourceSplitEnumerator(
+                    enumeratorContext,
+                    baseMultipleTableFileSourceConfig,
+                    fileSplitStrategy,
+                    checkpointState);
+        }
         return new MultipleTableFileSourceSplitEnumerator(
                 enumeratorContext,
                 baseMultipleTableFileSourceConfig,
                 fileSplitStrategy,
                 checkpointState);
+    }
+
+    private FileDiscoveryMode resolveDiscoveryMode() {
+        List<BaseFileSourceConfig> configs =
+                baseMultipleTableFileSourceConfig.getFileSourceConfigs();
+        if (configs == null || configs.isEmpty()) {
+            return FileDiscoveryMode.ONCE;
+        }
+        FileDiscoveryMode mode =
+                configs.get(0).getBaseFileSourceConfig().get(FileBaseSourceOptions.DISCOVERY_MODE);
+        for (BaseFileSourceConfig config : configs) {
+            FileDiscoveryMode currentMode =
+                    config.getBaseFileSourceConfig().get(FileBaseSourceOptions.DISCOVERY_MODE);
+            if (currentMode != mode) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "In multi-table mode, option '"
+                                + FileBaseSourceOptions.DISCOVERY_MODE.key()
+                                + "' must be consistent across tables.");
+            }
+        }
+        return mode;
     }
 }

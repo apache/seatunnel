@@ -2,63 +2,71 @@ import ChangeLog from '../changelog/connector-sls.md';
 
 # Sls
 
-> Sls source connector
+> Sls 源连接器
 
 ## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-从阿里云Sls日志服务中读取数据。
+Sls source 连接器用于从阿里云日志服务 SLS 读取日志。它支持批处理和流处理任务，并且可以按
+SLS shard 并行读取。流处理模式下，SeaTunnel 会在 checkpoint 完成时提交 SLS 游标，任务重启后
+可以从已经提交的位置继续读取。
+
+可以用两种方式读取日志：
+
+- 配置 `schema`，把指定的 SLS 日志字段解析成 SeaTunnel 字段。
+- 不配置 `schema`，把每条 SLS 日志作为 JSON 字符串写入单个 `content` 字段。
 
 ## 支持的数据源信息
 
-为了使用Sls连接器，需要以下依赖关系。
-它们可以通过install-plugin.sh或Maven中央存储库下载。
+使用 Sls 连接器前，需要通过 `install-plugin.sh` 或 Maven 中央仓库获取以下依赖。
 
-| 数据源 | 支持的版本     | Maven                                                                             |
-|-----|-----------|-----------------------------------------------------------------------------------|
-| Sls | Universal | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-sls) |
+| 数据源 | 支持版本      | Maven                                                                             |
+|--------|---------------|-----------------------------------------------------------------------------------|
+| Sls    | Universal     | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-sls) |
 
-## Source Options
+## Source 选项
 
-|                Name                 |                    Type                     | Required |         Default          |                                                            Description                                                             |
-|-------------------------------------|---------------------------------------------|----------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| project                             | String                                      | Yes      | -                        | [阿里云 Sls 项目](https://help.aliyun.com/zh/sls/user-guide/manage-a-project?spm=a2c4g.11186623.0.0.6f9755ebyfaYSl)                     |
-| logstore                            | String                                      | Yes      | -                        | [阿里云 Sls 日志库](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore?spm=a2c4g.11186623.0.0.13137c08nfuiBC)                   |
-| endpoint                            | String                                      | Yes      | -                        | [阿里云访问服务点](https://help.aliyun.com/zh/sls/developer-reference/api-sls-2020-12-30-endpoint?spm=a2c4g.11186623.0.0.548945a8UyJULa)   |
-| access_key_id                       | String                                      | Yes      | -                        | [阿里云访问用户ID](https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#task-2245479) |
-| access_key_secret                   | String                                      | Yes      | -                        | [阿里云访问用户密码](https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#task-2245479) |
-| start_mode                          | StartMode[earliest],[group_cursor],[latest] | No       | group_cursor             | 消费者的初始消费模式                                                                                                                         |
-| consumer_group                      | String                                      | No       | SeaTunnel-Consumer-Group | Sls消费者组id，用于区分不同的消费者组                                                                                                              |
-| auto_cursor_reset                   | CursorMode[begin],[end]                     | No       | end                      | 当消费者组中没有记录读取游标时，初始化读取游标                                                                                                            |
-| batch_size                          | Int                                         | No       | 1000                     | 每次从SLS中读取的数据量                                                                                                                      |
-| partition-discovery.interval-millis | Long                                        | No       | -1                       | 动态发现主题和分区的间隔                                                                                                                       |
+| 名称                                | 类型                                      | 是否必填 | 默认值                     | 描述                                                                                                           |
+|-------------------------------------|-------------------------------------------|----------|----------------------------|----------------------------------------------------------------------------------------------------------------|
+| endpoint                            | String                                    | 是       | -                          | 阿里云 SLS 访问地址，例如 `cn-hangzhou.log.aliyuncs.com` 或内网访问地址。                                      |
+| project                             | String                                    | 是       | -                          | [阿里云 SLS Project](https://help.aliyun.com/zh/sls/user-guide/manage-a-project)。                              |
+| logstore                            | String                                    | 是       | -                          | [阿里云 SLS Logstore](https://help.aliyun.com/zh/sls/user-guide/manage-a-logstore)。                            |
+| access_key_id                       | String                                    | 是       | -                          | 阿里云 AccessKey ID。                                                                                          |
+| access_key_secret                   | String                                    | 是       | -                          | 阿里云 AccessKey Secret。                                                                                      |
+| start_mode                          | `earliest`, `group_cursor`, `latest`      | 否       | `group_cursor`             | 初始读取位置。`earliest` 从最早位置读取，`latest` 从最新位置读取，`group_cursor` 使用消费者组已提交的游标。     |
+| consumer_group                      | String                                    | 否       | `SeaTunnel-Consumer-Group` | SLS 消费者组名称。不同任务如果需要独立保存读取位置，应该使用不同的消费者组。                                   |
+| auto_cursor_reset                   | `begin`, `end`                            | 否       | `end`                      | 当 `start_mode = group_cursor` 但消费者组还没有已提交游标时，使用的初始化位置。                                |
+| batch_size                          | Int                                       | 否       | 1000                       | 每次从每个 shard 拉取的最大日志条数。                                                                          |
+| partition-discovery.interval-millis | Long                                      | 否       | -1                         | 动态发现 SLS shard 变化的间隔。小于或等于 0 表示不定时发现。                                                   |
+| schema                              | Config                                    | 否       | -                          | 用于解析 SLS 日志字段的 SeaTunnel 表结构。不配置时输出单个 `content` 字符串字段，字段值是整条日志的 JSON 内容。 |
+
+## 注意事项
+
+- 配置的 RAM 用户需要有读取目标 project、logstore、shard、消费者组、checkpoint 和日志数据的权限。
+- 批处理模式会读取当前分配的 shard 后结束；持续消费日志请使用流处理模式。
+- 不要在日志或任务说明里打印 `access_key_secret`。
 
 ## 任务示例
 
-### 简单示例
-
-> 此示例读取sls的logstore1的数据并将其打印到客户端。如果您尚未安装和部署SeaTunnel，则需要按照安装SeaTunnel中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../Start-v2/locale/Quick-Start SeaTunnel Engine.md)中的说明运行此作业。
-
-[创建RAM用户及授权](https://help.aliyun.com/zh/sls/create-a-ram-user-and-authorize-the-ram-user-to-access-log-service?spm=a2c4g.11186623.0.i4), 请确认RAM用户有足够的权限来读取及管理数据，参考：[RAM自定义授权示例](https://help.aliyun.com/zh/sls/use-custom-policies-to-grant-permissions-to-a-ram-user?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#reference-s3z-m1l-z2b)
+### 配置 Schema 读取日志
 
 ```hocon
-# Defining the runtime environment
 env {
-  parallelism = 2
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 30000
 }
@@ -70,20 +78,48 @@ source {
     logstore = "logstore1"
     access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
     access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    consumer_group = "seatunnel-sls-demo"
+    start_mode = "group_cursor"
+    auto_cursor_reset = "begin"
+    batch_size = 1000
     schema = {
       fields = {
-            id = "int"
-            name = "string"
-            description = "string"
-            weight = "string"
+        id = "int"
+        name = "string"
+        description = "string"
+        weight = "string"
       }
     }
   }
 }
 
 sink {
-  Console {
+  Console {}
+}
+```
+
+### 不配置 Schema 读取日志
+
+不配置 `schema` 时，输出结果只有一个 `content` 字段，字段值是由 SLS 日志内容组成的 JSON 字符串。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Sls {
+    endpoint = "cn-hangzhou-intranet.log.aliyuncs.com"
+    project = "project1"
+    logstore = "logstore1"
+    access_key_id = "xxxxxxxxxxxxxxxxxxxxxxxx"
+    access_key_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   }
+}
+
+sink {
+  Console {}
 }
 ```
 

@@ -55,6 +55,12 @@ public class IcebergTypeMapper {
             case TIME:
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case TIMESTAMP:
+                Types.TimestampType timestampType = (Types.TimestampType) icebergType;
+                if (timestampType.shouldAdjustToUTC()) {
+                    // withZone() → LTZ → TIMESTAMP_TZ
+                    return LocalTimeType.OFFSET_DATE_TIME_TYPE;
+                }
+                // withoutZone() → NTZ → TIMESTAMP
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case STRING:
                 return BasicType.STRING_TYPE;
@@ -173,6 +179,10 @@ public class IcebergTypeMapper {
             case TIME:
                 return Types.TimeType.get();
             case TIMESTAMP:
+                // NTZ → Iceberg withoutZone()
+                return Types.TimestampType.withoutZone();
+            case TIMESTAMP_TZ:
+                // LTZ → Iceberg withZone()
                 return Types.TimestampType.withZone();
             case STRING:
             default:

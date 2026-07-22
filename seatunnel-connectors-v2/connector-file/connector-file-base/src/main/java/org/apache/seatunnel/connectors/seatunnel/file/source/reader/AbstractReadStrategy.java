@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressForm
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileCompareMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileUpdateStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -47,6 +48,8 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
@@ -55,12 +58,15 @@ import org.apache.hadoop.fs.Seekable;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -71,6 +77,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,6 +85,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -128,6 +136,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected transient HadoopFileSystemProxy targetHadoopFileSystemProxy;
     protected transient boolean shareTargetFileSystemProxy;
     protected transient boolean checksumUnavailableWarned;
+    protected boolean recursiveFileScan = true;
+    protected boolean sortFilesByModTime =
+            FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.defaultValue();
 
     private static final class UpdateModeStats {
         private long scanned;
@@ -156,9 +167,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
-        ArrayList<String> fileNames = new ArrayList<>();
+        List<FileInfo> fileInfoList = new ArrayList<>();
         UpdateModeStats updateModeStats = enableUpdateSync ? new UpdateModeStats() : null;
-        collectFileNamesByPath(path, fileNames, updateModeStats);
+        collectFileInfoByPath(path, fileInfoList, updateModeStats);
+
+        // Sort by modification time in descending order if enabled
+        if (sortFilesByModTime) {
+            fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
+        }
+
         if (updateModeStats != null) {
             log.info(
                     "Update sync mode statistics: scanned={}, skipped={}, to_sync={}",
@@ -166,19 +183,24 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     updateModeStats.skipped,
                     updateModeStats.scanned - updateModeStats.skipped);
         }
-        return fileNames;
+
+        for (FileInfo fileInfo : fileInfoList) {
+            this.fileNames.add(fileInfo.getFileName());
+        }
+
+        return fileInfoList.stream().map(FileInfo::getFileName).collect(Collectors.toList());
     }
 
-    private void collectFileNamesByPath(
-            String path, List<String> fileNames, UpdateModeStats updateModeStats)
+    private void collectFileInfoByPath(
+            String path, List<FileInfo> fileInfoList, UpdateModeStats updateModeStats)
             throws IOException {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
-            if (fileStatus.isDirectory()) {
+            if (fileStatus.isDirectory() && recursiveFileScan) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    collectFileNamesByPath(
-                            fileStatus.getPath().toString(), fileNames, updateModeStats);
+                    collectFileInfoByPath(
+                            fileStatus.getPath().toString(), fileInfoList, updateModeStats);
                 }
                 continue;
             }
@@ -219,8 +241,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 updateModeStats.scanned++;
             }
             if (shouldSyncFileInUpdateMode(fileStatus)) {
-                fileNames.add(filePath);
-                this.fileNames.add(filePath);
+                FileInfo fileInfo = new FileInfo(filePath, fileStatus.getModificationTime());
+                fileInfoList.add(fileInfo);
             } else if (updateModeStats != null) {
                 updateModeStats.skipped++;
             }
@@ -324,6 +346,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             enableSplitFile =
                     pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
         }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key())) {
+            sortFilesByModTime =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key());
+        }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
                 && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
@@ -339,6 +365,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(FileBaseSourceOptions.SYNC_MODE.key()),
                             FileBaseSourceOptions.SYNC_MODE.key());
         }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key())) {
+            recursiveFileScan =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key());
+        }
+
         enableUpdateSync = syncMode == FileSyncMode.UPDATE;
         if (enableUpdateSync) {
             validateUpdateSyncConfig(pluginConfig);
@@ -587,11 +619,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new BoundedInputStream(in, length);
     }
 
+    protected static BufferedReader createBomAwareBufferedReader(
+            InputStream inputStream, String encoding) throws IOException {
+        BOMInputStream bomInputStream =
+                new BOMInputStream(
+                        inputStream,
+                        ByteOrderMark.UTF_8,
+                        ByteOrderMark.UTF_16BE,
+                        ByteOrderMark.UTF_16LE,
+                        ByteOrderMark.UTF_32BE,
+                        ByteOrderMark.UTF_32LE);
+        ByteOrderMark bom = bomInputStream.getBOM();
+        Charset charset =
+                bom == null ? Charset.forName(encoding) : Charset.forName(bom.getCharsetName());
+        return new BufferedReader(new InputStreamReader(bomInputStream, charset));
+    }
+
     protected Map<String, Object> buildFileMetadata(FileSourceSplit split, String currentFileName)
             throws IOException {
-        FileStatus fileStatus = hadoopFileSystemProxy.getFileStatus(split.getFilePath());
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put(CommonOptions.FILE_PATH.getName(), currentFileName);
+        metadata.put(CommonOptions.FILE_TYPE.getName(), getFileType(currentFileName));
+        if (hadoopFileSystemProxy == null) {
+            metadata.put(CommonOptions.FILE_CREATE_TIME.getName(), null);
+            metadata.put(CommonOptions.FILE_UPDATE_TIME.getName(), null);
+            metadata.put(CommonOptions.FILE_SIZE.getName(), null);
+            return metadata;
+        }
+
+        FileStatus fileStatus = hadoopFileSystemProxy.getFileStatus(split.getFilePath());
         metadata.put(
                 CommonOptions.FILE_CREATE_TIME.getName(),
                 resolveFileCreateTime(fileStatus, split.getFilePath()));
@@ -599,16 +655,23 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 CommonOptions.FILE_UPDATE_TIME.getName(),
                 fileStatus.getModificationTime() > 0 ? fileStatus.getModificationTime() : null);
         metadata.put(CommonOptions.FILE_SIZE.getName(), fileStatus.getLen());
-        metadata.put(CommonOptions.FILE_TYPE.getName(), getFileType(currentFileName));
         return metadata;
     }
 
+    protected void applyRowMetadata(
+            SeaTunnelRow row, String tableId, Map<String, Object> metadata) {
+        row.setTableId(tableId);
+        if (metadata != null && !metadata.isEmpty()) {
+            row.getOptions().putAll(metadata);
+        }
+    }
+
     private Long resolveFileCreateTime(FileStatus fileStatus, String filePath) {
-        // Prefer real creation time when the underlying filesystem exposes it.
         String scheme = null;
         try {
             scheme = hadoopFileSystemProxy.getFileSystem().getScheme();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.debug("Failed to get filesystem scheme for {}", filePath, e);
         }
         if (StringUtils.isBlank(scheme)) {
             scheme = new Path(filePath).toUri().getScheme();
@@ -622,18 +685,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 if (created > 0) {
                     return created;
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("Failed to get file creation time for {}", filePath, e);
             }
         }
-        // Fallback to modification time for filesystems without creation time.
         long modificationTime = fileStatus.getModificationTime();
         return modificationTime > 0 ? modificationTime : null;
-    }
-
-    protected void applyRowMetadata(
-            SeaTunnelRow row, String tableId, Map<String, Object> metadata) {
-        row.setTableId(tableId);
-        row.getOptions().putAll(metadata);
     }
 
     private String getFileType(String fileName) {
@@ -641,7 +698,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return "";
         }
         int index = fileName.lastIndexOf('.');
-        if (index == -1 || index == fileName.length() - 1) {
+        if (index < 0 || index == fileName.length() - 1) {
             return "";
         }
         return fileName.substring(index + 1);

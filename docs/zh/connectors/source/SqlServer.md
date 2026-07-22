@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户定义分割](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 > 支持查询 SQL 并可以实现投影效果。
 
@@ -75,7 +76,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver                                     | String  | 是       | -               | 用于连接远程数据源的 jdbc 类名，<br/>如果使用 SQLserver，值为 `com.microsoft.sqlserver.jdbc.SQLServerDriver`。                                                                                                                                                                                                      |
 | username                                   | String  | 否       | -               | 连接实例的用户名                                                                                                                                                                                                                                                                                                    |
 | password                                   | String  | 否       | -               | 连接实例的密码                                                                                                                                                                                                                                                                                                      |
-| query                                      | String  | 是       | -               | 查询语句                                                                                                                                                                                                                                                                                                            |
+| query                                      | String  | 否       | -               | 查询语句。当未配置 `table_path` 和 `table_list` 时必填。                                                                                                                                                                                                                                                            |
 | connection_check_timeout_sec               | Int     | 否       | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                                                                                                                                                                                        |
 | partition_column                           | String  | 否       | -               | 用于并行度分区的列名，仅支持数值类型。                                                                                                                                                                                                                                                                              |
 | partition_lower_bound                      | Long    | 否       | -               | partition_column 扫描的最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                                                                                                                                                       |
@@ -85,12 +86,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | properties                                 | Map     | 否       | -               | 额外的连接配置参数，当 properties 和 URL 具有相同参数时，优先级由<br/>驱动的具体实现决定。例如，在 MySQL 中，properties 优先于 URL。                                                                                                                                                                                |
 | use_regex                                  | Boolean | 否       | false           | 控制 table_path 的正则表达式匹配。当设置为 `true` 时，table_path 将被视为正则表达式模式。当设置为 `false` 或未指定时，table_path 将被视为精确路径（不进行正则匹配）。                                                                                                                                               |
 | table_path                                 | String  | 否       | -               | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>"testdb.test_schema.table1"                                                                                                          |
-| table_list                                 | Array   | 否       | -               | 要读取的表列表，您可以使用此配置代替 `table_path`。示例：```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                    |
+| table_list                                 | Array   | 否       | -               | 要读取的表列表，您可以使用此配置代替 `table_path`。示例：```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select id, name from testdb.table2"}]```                                                                                                                                      |
 | where_condition                            | String  | 否       | -               | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`                                                                                                                                                                                                                                             |
 | split.size                                 | Int     | 否       | 8096            | 表的分割大小（行数），读取表时，捕获的表会被分割为多个分割。                                                                                                                                                                                                                                                        |
 | split.even-distribution.factor.lower-bound | Double  | 否       | 0.05            | 分块键分布因子的下界。此因子用于确定表数据是否均匀分布。如果计算的分布因子大于或等于此下界（即，(MAX(id) - MIN(id) + 1) / 行数），表分块将被优化以实现均匀分布。否则，如果分布因子较小，如果估计的分片数超过 `sample-sharding.threshold` 指定的值，表将被视为不均匀分布并使用基于采样的分片策略。默认值为 0.05。    |
 | split.even-distribution.factor.upper-bound | Double  | 否       | 100             | 分块键分布因子的上界。此因子用于确定表数据是否均匀分布。如果计算的分布因子小于或等于此上界（即，(MAX(id) - MIN(id) + 1) / 行数），表分块将被优化以实现均匀分布。否则，如果分布因子较大，如果估计的分片数超过 `sample-sharding.threshold` 指定的值，表将被视为不均匀分布并使用基于采样的分片策略。默认值为 100.0。   |
-| split.sample-sharding.threshold            | Int     | 否       | 10000           | 此配置指定了触发采样分片策略的估计分片数阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估计的分片数（计算为近似行数 / 分块大小）超过此阈值时，将使用采样分片策略。这可以帮助更有效地处理大型数据集。默认值为 1000 分片。 |
+| split.sample-sharding.threshold            | Int     | 否       | 1000            | 此配置指定了触发采样分片策略的估计分片数阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且估计的分片数（计算为近似行数 / 分块大小）超过此阈值时，将使用采样分片策略。这可以帮助更有效地处理大型数据集。默认值为 1000 分片。 |
+| split.allow-sampling                       | Boolean | 否       | true            | 是否允许对分布不均匀的分片键使用采样分片策略。设置为 `false` 时，SeaTunnel 会退回到迭代式不均匀分片。                                                                                                                                    |
+| use_select_count                           | Boolean | 否       | false           | 是否使用 `select count(*)` 在分片前估算表行数。                                                                                                                                                            |
+| skip_analyze                               | Boolean | 否       | false           | 是否跳过分片前的表行数分析。                                                                                                                                                                             |
 | split.inverse-sampling.rate                | Int     | 否       | 1000            | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则意味着在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。对于非常大的数据集，首选较低的采样率时，此选项特别有用。默认值为 1000。                                                                            |
 | common-options                             |         | 否       | -               | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 获取详细信息                                                                                                                                                                                                                                       |
 
@@ -182,7 +186,7 @@ source{
 
 transform {
     # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看转换插件的完整列表，
-    # 请前往 https://seatunnel.apache.org/docs/transform-v2/sql
+    # 请前往 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -217,7 +221,7 @@ source {
 
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+    # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -251,19 +255,19 @@ source {
 
   }
   # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看源插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # 请前往 https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 
 transform {
   # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看转换插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/transform-v2/sql
+  # 请前往 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
   Console {}
-  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看 Sink 插件的完整列表，
-  # 请前往 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看汇插件的完整列表，
+  # 请前往 https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 

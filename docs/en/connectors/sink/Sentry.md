@@ -4,7 +4,8 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 ## Description
 
-Write message to Sentry.
+Write SeaTunnel rows to Sentry as messages. Each row is sent through the Sentry SDK by calling
+`Sentry.captureMessage(row.toString())`.
 
 ## Key features
 
@@ -12,17 +13,17 @@ Write message to Sentry.
 
 ## Options
 
-|            name             |  type   | required | default value |
-|-----------------------------|---------|----------|---------------|
-| dsn                         | string  | yes      | -             |
-| env                         | string  | no       | -             |
-| release                     | string  | no       | -             |
-| cacheDirPath                | string  | no       | -             |
-| enableExternalConfiguration | boolean | no       | -             |
-| maxCacheItems               | number  | no       | -             |
-| flushTimeoutMills           | number  | no       | -             |
-| maxQueueSize                | number  | no       | -             |
-| common-options              |         | no       | -             |
+|            name             |  type   | required | default value | description |
+|-----------------------------|---------|----------|---------------|-------------|
+| dsn                         | string  | yes      | -             | Sentry DSN used by the SDK. |
+| env                         | string  | no       | -             | Sentry environment name. |
+| release                     | string  | no       | -             | Sentry release value. |
+| cacheDirPath                | string  | no       | -             | Cache directory for offline Sentry events. |
+| enableExternalConfiguration | boolean | no       | -             | Whether the Sentry SDK can load external configuration. |
+| maxCacheItems               | int     | no       | -             | Maximum number of cached events. |
+| flushTimeoutMillis          | long    | no       | -             | Time in milliseconds to wait while flushing pending events. |
+| maxQueueSize                | int     | no       | -             | Maximum queue size before events are flushed to disk. |
+| common-options              |         | no       | -             | Sink plugin common parameters. |
 
 ### dsn [string]
 
@@ -48,9 +49,9 @@ if loading properties from external sources is enabled.
 
 The max cache items for capping the number of events Default is 30
 
-### flushTimeoutMillis [number]
+### flushTimeoutMillis [long]
 
-Controls how many seconds to wait before flushing down. Sentry SDKs cache events from a background queue and this queue is given a certain amount to drain pending events Default is 15000 = 15s
+Controls how many milliseconds to wait while flushing pending events.
 
 ### maxQueueSize [number]
 
@@ -62,17 +63,18 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ## Example
 
-```
+```hocon
+sink {
   Sentry {
     dsn = "https://xxx@sentry.xxx.com:9999/6"
     enableExternalConfiguration = true
     maxCacheItems = 1000
-    env = prod
+    flushTimeoutMillis = 15000
+    env = "prod"
   }
-
+}
 ```
 
 ## Changelog
 
 <ChangeLog />
-
