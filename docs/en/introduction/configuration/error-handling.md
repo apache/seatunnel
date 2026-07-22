@@ -1,3 +1,7 @@
+---
+title: Error Handling
+---
+
 # Error Handling (Experimental)
 
 In SeaTunnel, the default behavior is: if any Connector or Transform throws an exception, **the entire job fails**.
