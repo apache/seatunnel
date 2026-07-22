@@ -332,6 +332,7 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 对于 Oracle JDBC Sink，即使配置 `auto_commit = true`，SeaTunnel 写入时也会在内部使用手动提交。
 这样可以保证失败批次的原子性，避免原始数据错误被后续的主键重复错误掩盖。
+关闭 checkpoint 时，每次由 `batch_size` / `batch_interval_ms` 触发并成功的批量写入会立即提交事务，避免已刷出的数据一直停留在同一个未结束的事务中直到 writer 关闭；开启 checkpoint 时，提交边界仍然是 checkpoint。
 
 ### field_ide [String]
 

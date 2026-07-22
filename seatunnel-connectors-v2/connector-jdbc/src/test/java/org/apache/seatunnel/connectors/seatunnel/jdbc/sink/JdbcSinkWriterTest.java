@@ -117,7 +117,8 @@ class JdbcSinkWriterTest {
                         jdbcSinkConfig,
                         tableSchema,
                         tableSchema,
-                        null);
+                        null,
+                        true);
 
         MultiTableResourceManager<ConnectionPoolManager> resourceManager =
                 writer.initMultiTableResourceManager(1, 1);
@@ -159,7 +160,8 @@ class JdbcSinkWriterTest {
                 jdbcSinkConfig,
                 tableSchema,
                 tableSchema,
-                null);
+                null,
+                true);
 
         Assertions.assertTrue(jdbcConnectionConfig.isAutoCommit());
         Assertions.assertFalse(configCaptor.getValue().isAutoCommit());
@@ -191,7 +193,8 @@ class JdbcSinkWriterTest {
                                         .build()),
                         buildTableSchema(),
                         buildTableSchema(),
-                        null);
+                        null,
+                        true);
         JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat =
                 Mockito.mock(JdbcOutputFormat.class);
         writer.outputFormat = outputFormat;
@@ -208,6 +211,104 @@ class JdbcSinkWriterTest {
         Mockito.verify(outputFormat).close();
     }
 
+    /**
+     * A batch_size-triggered flush must carry its own commit when checkpointing (and the engine
+     * timer flush) is disabled, or a manual-commit connection such as Oracle would keep every
+     * flushed batch in one unbounded transaction until close.
+     */
+    @Test
+    void testBatchSizeFlushCommitsWhenCheckpointDisabled() throws Exception {
+        JdbcDialect dialect = Mockito.mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(dialect.dialectName()).thenReturn(DatabaseIdentifier.ORACLE);
+        Mockito.when(dialect.getJdbcConnectionProvider(Mockito.any()))
+                .thenReturn(connectionProvider);
+        Mockito.when(dialect.getRowConverter()).thenReturn(Mockito.mock(JdbcRowConverter.class));
+        Mockito.when(connectionProvider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName(DummyDriver.class.getName())
+                        .url("jdbc:dummy:batch-flush-commit")
+                        .autoCommit(true)
+                        .batchSize(2)
+                        .batchIntervalMs(0)
+                        .build();
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        null,
+                        Mockito.mock(SinkWriter.Context.class),
+                        dialect,
+                        buildJdbcSinkConfig(connectionConfig),
+                        buildTableSchema(),
+                        buildTableSchema(),
+                        null,
+                        false);
+        Assertions.assertTrue(writer.commitOnFlush);
+
+        CountingExecutor executor = new CountingExecutor();
+        writer.outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, connectionConfig, () -> executor, true);
+
+        // First record stays buffered: no flush and no commit yet.
+        writer.write(new SeaTunnelRow(new Object[] {1}));
+        Assertions.assertEquals(0, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.never()).commit();
+
+        // Second record hits batch_size: the internal flush must commit without any
+        // prepareCommit, timer flush or close call.
+        writer.write(new SeaTunnelRow(new Object[] {2}));
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.times(1)).commit();
+        Mockito.verify(connection, Mockito.never()).rollback();
+    }
+
+    /** With checkpointing enabled the commit boundary stays at prepareCommit. */
+    @Test
+    void testBatchSizeFlushDoesNotCommitWhenCheckpointEnabled() throws Exception {
+        JdbcDialect dialect = Mockito.mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(dialect.dialectName()).thenReturn(DatabaseIdentifier.ORACLE);
+        Mockito.when(dialect.getJdbcConnectionProvider(Mockito.any()))
+                .thenReturn(connectionProvider);
+        Mockito.when(dialect.getRowConverter()).thenReturn(Mockito.mock(JdbcRowConverter.class));
+        Mockito.when(connectionProvider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder()
+                        .driverName(DummyDriver.class.getName())
+                        .url("jdbc:dummy:batch-flush-no-commit")
+                        .autoCommit(true)
+                        .batchSize(2)
+                        .batchIntervalMs(0)
+                        .build();
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        null,
+                        Mockito.mock(SinkWriter.Context.class),
+                        dialect,
+                        buildJdbcSinkConfig(connectionConfig),
+                        buildTableSchema(),
+                        buildTableSchema(),
+                        null,
+                        true);
+        Assertions.assertFalse(writer.commitOnFlush);
+
+        CountingExecutor executor = new CountingExecutor();
+        writer.outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, connectionConfig, () -> executor, false);
+
+        writer.write(new SeaTunnelRow(new Object[] {1}));
+        writer.write(new SeaTunnelRow(new Object[] {2}));
+
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.never()).commit();
+    }
+
     private static JdbcSinkConfig buildJdbcSinkConfig(JdbcConnectionConfig jdbcConnectionConfig) {
         return JdbcSinkConfig.builder()
                 .jdbcConnectionConfig(jdbcConnectionConfig)
@@ -219,6 +320,24 @@ class JdbcSinkWriterTest {
         return TableSchema.builder()
                 .column(PhysicalColumn.of("ID", BasicType.INT_TYPE, 22L, false, null, "ID"))
                 .build();
+    }
+
+    private static class CountingExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+        private int executeBatchCalls;
+
+        @Override
+        public void prepareStatements(Connection connection) {}
+
+        @Override
+        public void addToBatch(SeaTunnelRow record) {}
+
+        @Override
+        public void executeBatch() {
+            executeBatchCalls++;
+        }
+
+        @Override
+        public void closeStatements() {}
     }
 
     public static class DummyDriver implements Driver {

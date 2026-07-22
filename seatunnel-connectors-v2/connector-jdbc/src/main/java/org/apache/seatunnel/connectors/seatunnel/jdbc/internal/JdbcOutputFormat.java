@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
@@ -51,6 +52,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
+    private final boolean commitOnFlush;
 
     private transient E jdbcStatementExecutor;
     private transient int batchCount = 0;
@@ -63,9 +65,18 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
             StatementExecutorFactory<E> statementExecutorFactory) {
+        this(connectionProvider, jdbcConnectionConfig, statementExecutorFactory, false);
+    }
+
+    public JdbcOutputFormat(
+            JdbcConnectionProvider connectionProvider,
+            JdbcConnectionConfig jdbcConnectionConfig,
+            StatementExecutorFactory<E> statementExecutorFactory,
+            boolean commitOnFlush) {
         this.connectionProvider = checkNotNull(connectionProvider);
         this.jdbcConnectionConfig = checkNotNull(jdbcConnectionConfig);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
+        this.commitOnFlush = commitOnFlush;
     }
 
     /** Connects to the target database and initializes the prepared statement. */
@@ -143,6 +154,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         for (int i = 0; i <= jdbcConnectionConfig.getMaxRetries(); i++) {
             try {
                 attemptFlush();
+                commitAfterFlushIfNeeded();
                 batchCount = 0;
                 flushFailed = false;
                 flushException = null;
@@ -212,6 +224,26 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     protected void attemptFlush() throws SQLException {
         jdbcStatementExecutor.executeBatch();
+    }
+
+    /**
+     * Commits the transaction after a successful batch flush when the connection uses manual
+     * commit.
+     *
+     * <p>This is only enabled for the non-XA writer when checkpointing is disabled, so each
+     * batch-size / batch-interval triggered flush carries its own commit boundary instead of
+     * accumulating every flushed batch in one unbounded transaction until close. When checkpointing
+     * is enabled the commit boundary stays at prepareCommit, keeping the existing checkpoint
+     * semantics unchanged.
+     */
+    private void commitAfterFlushIfNeeded() throws SQLException {
+        if (!commitOnFlush) {
+            return;
+        }
+        Connection connection = connectionProvider.getConnection();
+        if (connection != null && !connection.getAutoCommit()) {
+            connection.commit();
+        }
     }
 
     /** Executes prepared statement and closes all resources of this instance. */

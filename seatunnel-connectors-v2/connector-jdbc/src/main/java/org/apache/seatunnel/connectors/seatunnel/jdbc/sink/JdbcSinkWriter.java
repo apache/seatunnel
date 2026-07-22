@@ -58,13 +58,20 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
-            Integer primaryKeyIndex) {
+            Integer primaryKeyIndex,
+            boolean checkpointEnabled) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
+        // Without checkpointing there is no prepareCommit boundary to commit manual-commit
+        // connections (for example Oracle, which is forced to manual commit above), so every
+        // successful batch flush must carry its own commit or flushed rows stay in one unbounded
+        // transaction until close. With checkpointing enabled the commit boundary stays at
+        // prepareCommit to keep the existing checkpoint semantics.
+        this.commitOnFlush = !checkpointEnabled;
         this.connectionProvider = dialect.getJdbcConnectionProvider(resolveSinkConnectionConfig());
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
@@ -73,6 +80,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
         context.registerFlushAction(this::timerFlush);
     }
@@ -195,6 +203,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
     }
 

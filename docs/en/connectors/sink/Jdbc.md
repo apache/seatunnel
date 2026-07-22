@@ -334,6 +334,7 @@ Automatic transaction commit is enabled by default
 
 For Oracle JDBC sink, SeaTunnel uses manual commit internally even when `auto_commit = true`.
 This keeps a failed batch atomic and avoids masking the original data error with a later duplicate-key error.
+When checkpointing is disabled, the transaction is committed after every successful `batch_size` / `batch_interval_ms` triggered flush, so flushed rows are not held in one unbounded transaction until the writer closes. When checkpointing is enabled, the commit boundary remains the checkpoint.
 
 ### field_ide [String]
 
