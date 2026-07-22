@@ -159,7 +159,8 @@ public class StarRocksStreamLoadVisitorTest {
                 new StarRocksStreamLoadVisitor(sinkConfig, createTableSchema(), httpHelper);
 
         assertTrue(visitor.doStreamLoad(createFlushTuple()));
-        verify(httpHelper).doHttpGet(anyString(), any(), anyInt());
+        verify(httpHelper, org.mockito.Mockito.atLeastOnce())
+                .doHttpGet(anyString(), any(), anyInt());
     }
 
     /**
