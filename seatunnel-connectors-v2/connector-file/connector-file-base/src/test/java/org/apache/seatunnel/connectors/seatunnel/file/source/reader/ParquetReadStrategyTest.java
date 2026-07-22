@@ -101,9 +101,6 @@ public class ParquetReadStrategyTest {
 
     @Test
     public void testParquetReadPreservesTableId() throws Exception {
-        // Regression for https://github.com/apache/seatunnel/issues/11499
-        // ParquetReadStrategy previously dropped the tableId when building the split, which
-        // surfaced as an NPE in the Spark translation layer (UTF8String.fromString(null)).
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
