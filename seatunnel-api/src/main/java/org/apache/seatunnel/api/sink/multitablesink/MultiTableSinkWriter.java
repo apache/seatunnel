@@ -725,7 +725,33 @@ public class MultiTableSinkWriter
                 for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
                     SinkContextProxy proxy = proxyContexts.get(id);
                     if (proxy != null && proxy.getFlushAction() != null) {
-                        proxy.getFlushAction().run();
+                        try {
+                            executeWithTableRetry(
+                                    id.getTableIdentifier(),
+                                    MultiTableFailurePhase.RUNTIME_WRITE,
+                                    () -> {
+                                        proxy.getFlushAction().run();
+                                        return null;
+                                    });
+                        } catch (InterruptedException error) {
+                            Thread.currentThread().interrupt();
+                            throw error;
+                        } catch (Throwable error) {
+                            if (failurePolicy.continueOtherTables()) {
+                                handleTableFailure(
+                                        id.getTableIdentifier(),
+                                        MultiTableFailurePhase.RUNTIME_WRITE,
+                                        error);
+                                continue;
+                            }
+                            if (error instanceof Exception) {
+                                throw (Exception) error;
+                            }
+                            if (error instanceof Error) {
+                                throw (Error) error;
+                            }
+                            throw new RuntimeException(error);
+                        }
                     }
                 }
             }
