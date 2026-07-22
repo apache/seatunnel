@@ -17,24 +17,15 @@
  * under the License.
  *
  */
-package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
-import org.apache.seatunnel.engine.serializer.api.Serializer;
+package org.apache.seatunnel.engine.imap.storage.file.wal;
 
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 
 import java.io.IOException;
 
-public interface IFileWriter<T> extends AutoCloseable {
-    String FILE_NAME = "wal.txt";
-    Long DEFAULT_BLOCK_SIZE = 1024 * 1024L;
+public interface IMapFileIterator extends AutoCloseable {
+    boolean hasNext() throws IOException;
 
-    String identifier();
-
-    void initialize(FileSystem fs, Path parentPath, Serializer serializer) throws IOException;
-
-    default void setBlockSize(Long blockSize) {}
-
-    void write(T data, boolean flush) throws IOException;
+    IMapFileData next() throws IOException;
 }

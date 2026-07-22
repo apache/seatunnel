@@ -64,5 +64,29 @@ public class FileConstants {
 
         /** The maximum waiting time of write operations */
         String WRITE_DATA_TIMEOUT_MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
+
+        /** Compaction related configuration */
+        String COMPACTION_ENABLED = "compactionEnabled";
+
+        String COMPACTION_THRESHOLD = "compactionThreshold";
+
+        String MAX_SINGLE_FILE_SIZE = "maxSingleFileSize";
+
+        String COMPACTION_BATCH_SIZE = "compactionBatchSize";
+
+        String COMPACTION_INTERVAL = "compactionInterval";
+    }
+
+    public static long asLong(Object v, long defaultValue) {
+        if (v == null) return defaultValue;
+        if (v instanceof Number) return ((Number) v).longValue();
+        if (v instanceof String) return Long.parseLong(((String) v).trim());
+        throw new IllegalArgumentException("Expect number or string, but got: " + v.getClass());
+    }
+
+    public static void checkLongPositive(String name, long value) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive, but got: " + value);
+        }
     }
 }

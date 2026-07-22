@@ -26,8 +26,14 @@ import org.apache.seatunnel.engine.imap.storage.file.wal.writer.HdfsWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.OssWriter;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.S3Writer;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.lsm.HdfsLSMWriter;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.lsm.OssLSMWriter;
+import org.apache.seatunnel.engine.imap.storage.file.wal.writer.lsm.S3LSMWriter;
+
+import java.util.Map;
 
 public class DiscoveryWalFileFactory {
+    private DiscoveryWalFileFactory() {}
 
     public static IFileReader getReader(String type) {
         FileConfiguration configuration = FileConfiguration.valueOf(type.toUpperCase());
@@ -40,7 +46,10 @@ public class DiscoveryWalFileFactory {
         throw new UnsupportedOperationException("Unsupported type " + type);
     }
 
-    public static IFileWriter getWriter(String type) {
+    public static IFileWriter getWriter(String type, Map<String, Object> config) {
+        if (config != null && !config.isEmpty()) {
+            return getLSMWriter(type, config);
+        }
         FileConfiguration configuration = FileConfiguration.valueOf(type.toUpperCase());
         switch (configuration) {
             case HDFS:
@@ -49,6 +58,19 @@ public class DiscoveryWalFileFactory {
                 return new S3Writer();
             case OSS:
                 return new OssWriter();
+        }
+        throw new UnsupportedOperationException("Unsupported type " + type);
+    }
+
+    public static IFileWriter getLSMWriter(String type, Map<String, Object> config) {
+        FileConfiguration configuration = FileConfiguration.valueOf(type.toUpperCase());
+        switch (configuration) {
+            case HDFS:
+                return new HdfsLSMWriter(config);
+            case S3:
+                return new S3LSMWriter(config);
+            case OSS:
+                return new OssLSMWriter(config);
         }
         throw new UnsupportedOperationException("Unsupported type " + type);
     }

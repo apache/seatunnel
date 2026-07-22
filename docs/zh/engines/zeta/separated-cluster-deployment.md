@@ -322,6 +322,80 @@ netty-common-4.1.89.Final.jar
 seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
+### 4.6.1 合并配置 (Compaction Configuration) (可选)
+
+当启用 IMap 持久化时，SeaTunnel 会持续将 WAL 文件写入外部存储。随着时间的推移，这可能会产生许多小文件，并针对同一个 Key 出现多条重复记录。
+
+为了优化存储空间和读取性能，SeaTunnel 提供了一种基于 LSM 的合并 (Compaction) 机制，该机制会定期将多个 WAL 文件合并为较大的有序文件，并仅保留每个 Key 的最新记录。
+
+合并机制**默认禁用**，可以针对每个 IMap 单独启用。
+
+### 配置选项 (Configuration Options)
+
+您可以在 `map-store.properties` 中配置合并行为：
+
+```
+map:
+    engine*:
+        map-store:
+            enabled: true
+            initial-mode: EAGER
+            factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+            properties:
+                type: hdfs
+                namespace: /tmp/seatunnel/imap
+                clusterName: seatunnel-cluster
+                storage.type: hdfs
+                fs.defaultFS: hdfs://localhost:9000
+                
+                # 为此 IMap 启用压缩
+                compactionEnabled: true
+                # 当 WAL 总大小超过此阈值时触发合并 (单位：字节)
+                compactionThreshold: 541065216
+                # 单个合并文件的最大大小 (单位：字节)
+                maxSingleFileSize: 16777216
+                # 单次合并批处理中处理的最大总大小 (单位：字节)
+                compactionBatchSize: 16777216
+                # 合并批次之间的休眠间隔 (单位：毫秒)
+                compactionInterval: 60000
+```
+
+### 参数说明 (Parameters)
+
+**compactionEnabled [boolean]**
+
+是否为该 IMap 启用压缩。
+启用后，SeaTunnel 将定期合并 WAL 文件，以优化存储空间占用和读取性能。
+
+默认值：false
+
+**compactionThreshold [long]**
+
+触发合并所需的 WAL 文件总大小（单位：字节）。
+
+默认值：536870912 (512 MB)
+
+**maxSingleFileSize [long]**
+
+合并生成的单个输出文件的最大大小（单位：字节）。
+
+默认值：16777216 (16 MB)
+
+**compactionBatchSize [long]**
+
+单轮合并过程中处理的最大输入数据总大小。
+如果超过此值，合并将暂停一段 `compactionInterval` 时间。
+
+默认值：16777216 (16 MB)
+
+注意：此值必须大于或等于 `maxSingleFileSize`。
+
+**compactionInterval [long]**
+
+合并批次之间的休眠时间（单位：毫秒），用于限制 IO 压力。
+
+默认值：60000 (60 秒)
+
 ### 4.7 作业调度策略
 
 当资源不足时，作业调度策略可以配置为以下两种模式：

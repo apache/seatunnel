@@ -53,7 +53,7 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
     }
 
     @Override
-    public void write(IMapFileData data) throws IOException {
+    public void write(IMapFileData data, boolean flush) throws IOException {
         byte[] bytes = serializer.serialize(data);
         this.write(bytes);
     }

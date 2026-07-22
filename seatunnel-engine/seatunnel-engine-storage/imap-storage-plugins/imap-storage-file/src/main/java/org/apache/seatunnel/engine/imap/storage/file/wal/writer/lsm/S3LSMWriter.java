@@ -18,41 +18,17 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.file.bean;
+package org.apache.seatunnel.engine.imap.storage.file.wal.writer.lsm;
 
-import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
+import java.util.Map;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class IMapFileData implements Serializable, Comparable<IMapFileData> {
-    private boolean deleted;
-
-    private byte[] key;
-
-    private String keyClassName;
-
-    private byte[] value;
-
-    private String valueClassName;
-
-    private long timestamp;
+public class S3LSMWriter extends CloudLSMWriter {
+    public S3LSMWriter(Map<String, Object> config) {
+        super(config);
+    }
 
     @Override
-    public int compareTo(IMapFileData o) {
-        int keyCompare = WALDataUtils.compare(this.key, o.key);
-        if (keyCompare != 0) {
-            return keyCompare;
-        }
-
-        return Long.compare(o.timestamp, this.timestamp);
+    public String identifier() {
+        return "s3-lsm";
     }
 }

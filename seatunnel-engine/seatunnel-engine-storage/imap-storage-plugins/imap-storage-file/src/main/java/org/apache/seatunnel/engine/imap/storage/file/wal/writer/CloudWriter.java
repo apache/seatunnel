@@ -46,8 +46,7 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
 
     private ByteBuf bf = Unpooled.buffer(1024);
 
-    // block size,  default 1024*1024
-    private long blockSize = 1024 * 1024;
+    private long blockSize = 1L * 1024 * 1024;
 
     private AtomicLong index = new AtomicLong(0);
 
@@ -66,16 +65,9 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
         }
     }
 
-    @Override
-    public void setBlockSize(Long blockSize) {
-        if (blockSize != null && blockSize > DEFAULT_BLOCK_SIZE) {
-            this.blockSize = blockSize;
-        }
-    }
-
     // TODO Synchronous write, asynchronous write can be added in the future
     @Override
-    public void write(IMapFileData data) throws IOException {
+    public void write(IMapFileData data, boolean flush) throws IOException {
         byte[] bytes = serializer.serialize(data);
         this.write(bytes);
     }

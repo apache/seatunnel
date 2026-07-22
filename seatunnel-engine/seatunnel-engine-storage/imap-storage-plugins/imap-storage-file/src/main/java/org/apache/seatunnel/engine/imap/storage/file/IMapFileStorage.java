@@ -20,6 +20,8 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
@@ -39,6 +41,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
+import shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -55,6 +58,7 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_ENABLED;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 
@@ -71,6 +75,8 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 public class IMapFileStorage implements IMapStorage {
 
     private static final String STORAGE_TYPE_KEY = "storage.type";
+
+    public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public FileSystem fs;
 
@@ -105,7 +111,7 @@ public class IMapFileStorage implements IMapStorage {
 
     public static final int DEFAULT_QUERY_LIST_SIZE = 256;
 
-    public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60;
+    public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60L;
 
     private Configuration conf;
 
@@ -159,12 +165,22 @@ public class IMapFileStorage implements IMapStorage {
             throw new IMapStorageException("Failed to get file system", e);
         }
         this.serializer = new ProtoStuffSerializer();
-        this.walDisruptor =
-                new WALDisruptor(
-                        fs,
-                        FileConfiguration.valueOf(storageType.toUpperCase()),
-                        businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
-                        serializer);
+
+        boolean isCompactionEnabled = false;
+        String compactionConfig = (String) configuration.get(COMPACTION_ENABLED);
+        if (!StringUtils.isBlank(compactionConfig)) {
+            isCompactionEnabled = Boolean.parseBoolean(compactionConfig);
+        }
+
+        String storagePath = businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT;
+        FileConfiguration fileConfig = FileConfiguration.valueOf(storageType.toUpperCase());
+
+        if (isCompactionEnabled) {
+            this.walDisruptor =
+                    new WALDisruptor(fs, fileConfig, storagePath, serializer, configuration);
+        } else {
+            this.walDisruptor = new WALDisruptor(fs, fileConfig, storagePath, serializer, null);
+        }
     }
 
     @Override

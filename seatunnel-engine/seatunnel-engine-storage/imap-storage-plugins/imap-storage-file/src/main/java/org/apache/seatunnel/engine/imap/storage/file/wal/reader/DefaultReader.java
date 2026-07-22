@@ -86,7 +86,7 @@ public class DefaultReader implements IFileReader<IMapFileData> {
         }
     }
 
-    private List<IMapFileData> readData(Path path) throws IOException {
+    public List<IMapFileData> readData(Path path) throws IOException {
         List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
         long length = fs.getFileStatus(path).getLen();
         try (FSDataInputStream in = fs.open(path)) {
@@ -94,7 +94,6 @@ public class DefaultReader implements IFileReader<IMapFileData> {
             in.readFully(datas);
             int startIndex = 0;
             while (startIndex + WAL_DATA_METADATA_LENGTH < datas.length) {
-
                 byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
                 System.arraycopy(datas, startIndex, metadata, 0, WAL_DATA_METADATA_LENGTH);
                 int dataLength = WALDataUtils.byteArrayToInt(metadata);

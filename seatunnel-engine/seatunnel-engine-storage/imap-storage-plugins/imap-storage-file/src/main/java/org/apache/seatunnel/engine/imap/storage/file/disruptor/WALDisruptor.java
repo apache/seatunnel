@@ -37,19 +37,19 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class WALDisruptor implements Closeable {
-
-    private volatile Disruptor<FileWALEvent> disruptor;
-
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
     private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
 
-    private boolean isClosed = false;
+    private Disruptor<FileWALEvent> disruptor;
+
+    private volatile boolean isClosed = false;
 
     private static final EventTranslatorThreeArg<FileWALEvent, IMapFileData, WALEventType, Long>
             TRANSLATOR =
@@ -63,7 +63,8 @@ public class WALDisruptor implements Closeable {
             FileSystem fs,
             FileConfiguration fileConfiguration,
             String parentPath,
-            Serializer serializer) {
+            Serializer serializer,
+            Map<String, Object> config) {
         // todo should support multi thread producer
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
@@ -75,12 +76,15 @@ public class WALDisruptor implements Closeable {
                         new BlockingWaitStrategy());
 
         disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
-
+                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer, config));
         disruptor.start();
     }
 
-    public boolean tryPublish(IMapFileData message, WALEventType status, Long requestId) {
+    public boolean isClosed() {
+        return isClosed;
+    }
+
+    public boolean tryPublish(IMapFileData message, WALEventType status, long requestId) {
         if (isClosed()) {
             return false;
         }
@@ -90,10 +94,6 @@ public class WALDisruptor implements Closeable {
 
     public boolean tryAppendPublish(IMapFileData message, long requestId) {
         return this.tryPublish(message, WALEventType.APPEND, requestId);
-    }
-
-    public boolean isClosed() {
-        return isClosed;
     }
 
     @Override

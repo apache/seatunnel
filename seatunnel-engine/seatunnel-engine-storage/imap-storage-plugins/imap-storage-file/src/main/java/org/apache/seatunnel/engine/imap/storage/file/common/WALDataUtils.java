@@ -21,7 +21,9 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 public class WALDataUtils {
+    private WALDataUtils() {}
 
+    public static final byte[] EMPTY_BYTES = new byte[0];
     public static final int WAL_DATA_METADATA_LENGTH = 12;
 
     public static byte[] wrapperBytes(byte[] bytes) {
@@ -49,5 +51,20 @@ public class WALDataUtils {
         encodedValue[1] = (byte) (value >> Byte.SIZE);
         encodedValue[0] = (byte) value;
         return encodedValue;
+    }
+
+    public static int compare(byte[] a, byte[] b) {
+        if (a == b) return 0;
+        if (a == null) a = EMPTY_BYTES;
+        if (b == null) b = EMPTY_BYTES;
+
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int diff = (a[i] & 0xff) - (b[i] & 0xff);
+            if (diff != 0) {
+                return diff;
+            }
+        }
+        return a.length - b.length;
     }
 }

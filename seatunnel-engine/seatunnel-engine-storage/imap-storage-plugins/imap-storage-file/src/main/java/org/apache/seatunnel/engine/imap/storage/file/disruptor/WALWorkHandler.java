@@ -34,20 +34,22 @@ import com.lmax.disruptor.WorkHandler;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Map;
 
 /** NOTICE: Single thread to write data to orc file. */
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
-    private WALWriter writer;
+    private final WALWriter writer;
 
     public WALWorkHandler(
             FileSystem fs,
             FileConfiguration fileConfiguration,
             String parentPath,
-            Serializer serializer) {
+            Serializer serializer,
+            Map<String, Object> config) {
         try {
-            writer = new WALWriter(fs, fileConfiguration, new Path(parentPath), serializer);
+            writer = new WALWriter(fs, fileConfiguration, new Path(parentPath), serializer, config);
         } catch (IOException e) {
             throw new IMapStorageException(
                     e, "create new current writer failed, parent path is %s", parentPath);

@@ -60,7 +60,7 @@ public class WALReaderAndWriterTest {
 
     @Test
     public void testWriterAndReader() throws Exception {
-        WALWriter writer = new WALWriter(FS, FileConfiguration.HDFS, PARENT_PATH, SERIALIZER);
+        WALWriter writer = new WALWriter(FS, FileConfiguration.HDFS, PARENT_PATH, SERIALIZER, null);
         IMapFileData data;
         boolean isDelete;
         for (int i = 0; i < 1024; i++) {

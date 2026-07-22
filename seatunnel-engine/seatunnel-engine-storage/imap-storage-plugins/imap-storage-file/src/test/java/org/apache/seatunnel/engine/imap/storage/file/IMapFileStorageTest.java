@@ -39,13 +39,14 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_ENABLED;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
-public class IMapFileStorageTest {
+class IMapFileStorageTest {
 
     private static final Configuration CONF;
 
@@ -64,13 +65,13 @@ public class IMapFileStorageTest {
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
+        properties.put(COMPACTION_ENABLED, "true");
 
         STORAGE.initialize(properties);
     }
 
     @Test
     void testAll() {
-
         List<Object> keys = new ArrayList<>();
         String key1Index = "key1";
         String key2Index = "key2";
@@ -114,7 +115,7 @@ public class IMapFileStorageTest {
         data[6] = 111111111L;
         STORAGE.store("array", data);
         Long[] array = (Long[]) STORAGE.loadAll().get("array");
-        Assertions.assertEquals(array[6], 111111111L);
+        Assertions.assertEquals(111111111L, array[6]);
     }
 
     @AfterAll
