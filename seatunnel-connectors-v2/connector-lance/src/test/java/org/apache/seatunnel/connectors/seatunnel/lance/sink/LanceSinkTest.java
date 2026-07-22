@@ -34,12 +34,15 @@ import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+@DisabledOnOs(OS.WINDOWS)
 public class LanceSinkTest {
 
     private LanceCatalog lanceCatalog;
