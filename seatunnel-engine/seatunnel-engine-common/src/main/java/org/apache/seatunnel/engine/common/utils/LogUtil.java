@@ -27,8 +27,6 @@ import org.apache.logging.log4j.core.config.properties.PropertiesConfiguration;
 import org.apache.logging.log4j.core.lookup.StrSubstitutor;
 
 import java.lang.reflect.Field;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 public class LogUtil {
 
@@ -67,8 +65,36 @@ public class LogUtil {
             throw new IllegalArgumentException(
                     String.format("Log file path is empty for appender: %s", appenderName));
         }
-        Path parent = Paths.get(logFilePath).getParent();
-        return parent == null ? "." : parent.toString();
+        int separatorIndex = Math.max(logFilePath.lastIndexOf('/'), logFilePath.lastIndexOf('\\'));
+        if (separatorIndex < 0) {
+            return ".";
+        }
+        if (separatorIndex == 0) {
+            return logFilePath.substring(0, 1);
+        }
+        if (separatorIndex == 2
+                && logFilePath.length() > 2
+                && Character.isLetter(logFilePath.charAt(0))
+                && logFilePath.charAt(1) == ':') {
+            return logFilePath.substring(0, 3);
+        }
+        return normalizeParentSeparators(logFilePath.substring(0, separatorIndex));
+    }
+
+    private static String normalizeParentSeparators(String path) {
+        StringBuilder normalized = new StringBuilder(path.length());
+        for (int index = 0; index < path.length(); index++) {
+            char current = path.charAt(index);
+            boolean duplicateSeparator =
+                    index > 0
+                            && current == path.charAt(index - 1)
+                            && (current == '/' || current == '\\');
+            if (duplicateSeparator && index != 1) {
+                continue;
+            }
+            normalized.append(current);
+        }
+        return normalized.toString();
     }
 
     private static PropertiesConfiguration getLogConfiguration() {

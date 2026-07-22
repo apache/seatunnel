@@ -47,6 +47,14 @@ public class LogUtilTest {
     }
 
     @Test
+    void shouldResolveWindowsStyleLogPath() {
+        Assertions.assertEquals(
+                "C:\\seatunnel\\logs",
+                LogUtil.getParentLogPath(
+                        "C:\\seatunnel\\logs\\job-${ctx:ST-JID}.log", "routingAppender"));
+    }
+
+    @Test
     void shouldRejectEmptyLogPath() {
         IllegalArgumentException exception =
                 Assertions.assertThrows(
