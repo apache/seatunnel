@@ -87,11 +87,25 @@ public class LsnOffset extends Offset {
         if (comparison != 0) {
             return comparison;
         }
+        // A commit-only offset carries no in-commit position. It can represent the latest
+        // startup boundary, a timestamp-derived boundary, a legacy coarse checkpoint or a
+        // snapshot watermark, all of which address a whole commit. Comparing its missing
+        // detail fields against a complete event position would order in-commit events after
+        // that boundary, so startup.mode=latest would replay records already committed before
+        // startup. Only compare change LSN and event serial number when both operands carry
+        // complete event positions.
+        if (!hasCompletePosition() || !that.hasCompletePosition()) {
+            return 0;
+        }
         final int changeLsnComparison = getChangeLsn().compareTo(that.getChangeLsn());
         if (changeLsnComparison != 0) {
             return changeLsnComparison;
         }
         return Long.compare(eventSerialNo(), that.eventSerialNo());
+    }
+
+    private boolean hasCompletePosition() {
+        return getChangeLsn().isAvailable() && getEventSerialNo() != null;
     }
 
     private long eventSerialNo() {
