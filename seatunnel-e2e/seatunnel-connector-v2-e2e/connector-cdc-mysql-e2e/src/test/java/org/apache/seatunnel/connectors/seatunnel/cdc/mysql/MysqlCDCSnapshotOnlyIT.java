@@ -58,9 +58,9 @@ import static org.awaitility.Awaitility.await;
  * <p>The job runs in BATCH mode, so {@link TestContainer#executeJob} blocks until the job
  * terminates. This is the core assertion: a snapshot-only job must finish on its own after the
  * snapshot phase. If it wrongly transitioned into (or waited for) binlog streaming, the job would
- * never complete and this test would time out. The test also changes rows from completed snapshot
- * splits while many other snapshot splits are still running, then verifies that the bounded job
- * does not transition into continuous binlog streaming.
+ * never complete and this test would time out. The test also deletes a row from a completed
+ * snapshot split while many other snapshot splits are still running, then verifies that the bounded
+ * job does not transition into continuous binlog streaming.
  */
 @Slf4j
 @DisabledOnContainer(
@@ -160,9 +160,10 @@ public class MysqlCDCSnapshotOnlyIT extends TestSuiteBase implements TestResourc
                                     "runtime mutation must happen before all snapshot splits finish");
                         });
 
-        // Produce binlog changes for already emitted snapshot ranges while other snapshot splits
-        // are still running. A snapshot-only job must not start an incremental reader afterward.
-        executeSql("UPDATE " + MYSQL_DATABASE + "." + SOURCE_TABLE + " SET id = 6 WHERE id = 5");
+        // Produce a binlog change for an already emitted snapshot range while other snapshot
+        // splits are still running. A snapshot-only job must not start an incremental reader
+        // afterward. Do not change the primary key here because moving a row into a pending split
+        // would make it part of that split's later snapshot read.
         executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE + " WHERE id = 2");
 
         Container.ExecResult execResult;
