@@ -132,7 +132,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         specificOffset.put(RedoLogOffset.SCN_KEY, String.valueOf(scn));
         specificOffset.put(RedoLogOffset.COMMIT_SCN_KEY, "0");
         specificOffset.put(RedoLogOffset.LCR_POSITION_KEY, null);
-        return StartupConfig.specificOffset(specificOffset);
+        return new StartupConfig(StartupMode.SPECIFIC, specificOffset);
     }
 
     @Override

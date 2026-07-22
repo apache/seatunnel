@@ -25,44 +25,41 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 
 @EqualsAndHashCode
 public final class StartupConfig implements Serializable {
     private static final long serialVersionUID = 1L;
-
     @Getter private final StartupMode startupMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
-    private final Map<String, String> specificOffset;
     @Getter private final Long timestamp;
+    private final Map<String, String> specificOffset;
 
     public StartupConfig(
             StartupMode startupMode,
             String specificOffsetFile,
             Long specificOffsetPos,
             Long timestamp) {
-        this(startupMode, specificOffsetFile, specificOffsetPos, null, timestamp);
+        this(startupMode, specificOffsetFile, specificOffsetPos, timestamp, null);
     }
 
-    public static StartupConfig specificOffset(Map<String, String> specificOffset) {
-        return new StartupConfig(
-                StartupMode.SPECIFIC, null, null, Objects.requireNonNull(specificOffset), null);
+    public StartupConfig(StartupMode startupMode, Map<String, String> specificOffset) {
+        this(startupMode, null, null, null, specificOffset);
     }
 
-    private StartupConfig(
+    public StartupConfig(
             StartupMode startupMode,
             String specificOffsetFile,
             Long specificOffsetPos,
-            Map<String, String> specificOffset,
-            Long timestamp) {
+            Long timestamp,
+            Map<String, String> specificOffset) {
         this.startupMode = startupMode;
         this.specificOffsetFile = specificOffsetFile;
         this.specificOffsetPos = specificOffsetPos;
-        this.specificOffset = specificOffset == null ? null : new HashMap<>(specificOffset);
         this.timestamp = timestamp;
+        this.specificOffset = specificOffset == null ? null : new LinkedHashMap<>(specificOffset);
     }
 
     public Offset getStartupOffset(OffsetFactory offsetFactory) {
@@ -75,7 +72,7 @@ public final class StartupConfig implements Serializable {
                 return null;
             case SPECIFIC:
                 if (specificOffset != null) {
-                    return offsetFactory.specific(new HashMap<>(specificOffset));
+                    return offsetFactory.specific(specificOffset);
                 }
                 return offsetFactory.specific(specificOffsetFile, specificOffsetPos);
             case TIMESTAMP:

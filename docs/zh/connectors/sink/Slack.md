@@ -17,22 +17,23 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## 描述
 
-用于将数据发送到Slack Channel.两者都支持流媒体和批处理模式.
+用于将 SeaTunnel 行数据发送到 Slack 频道。流处理和批处理作业都支持。
 
-> 例如，如果来自上游的数据是 [`age: 12, name: huan`], 则发送到套接字服务器的内容如下: `{"name":"huan","age":17}`
+> 连接器会把一行中的字段值拼成一条用逗号分隔的 Slack 消息。例如，字段值为 `huan` 和 `17` 时，
+> 发送内容为 `huan,17`。
 
 ## 数据类型映射
 
-所有数据类型都映射到字符串.
+所有字段值在发送到 Slack 前都会转换为字符串。
 
 ## 选项
 
-|      名称                 |  类型   | 必需 | 默认值 | 描述                                                             |
-|----------------|--------|----------|---------|----------------------------------------------------------------|
-| webhooks_url   | String | Yes      | -       | Slack webhook 的 url                                            |
-| oauth_token    | String | Yes      | -       | 用于实际身份验证的Slack oauth令牌                                         |
-| slack_channel  | String | Yes      | -       | 用于数据写入的slack channel                                           |
-| common-options |        | no       | -       | 接收器插件常用参数, 详见 [Sink 常见选项](../common-options/sink-common-options.md) |
+| 名称           | 类型   | 必需 | 默认值 | 描述 |
+|----------------|--------|------|--------|------|
+| webhooks_url   | String | 是   | -      | Slack webhook URL。 |
+| oauth_token    | String | 是   | -      | 用于列出频道并发送消息的 Slack OAuth 令牌。 |
+| slack_channel  | String | 是   | -      | 写入数据的 Slack 频道名称。 |
+| common-options |        | 否   | -      | 接收器插件通用参数，详见 [Sink 常见选项](../common-options/sink-common-options.md)。 |
 
 ## 任务示例
 
@@ -40,10 +41,10 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ```hocon
 sink {
- SlackSink {
+ Slack {
   webhooks_url = "https://hooks.slack.com/services/xxxxxxxxxxxx/xxxxxxxxxxxx/xxxxxxxxxxxxxxxx"
   oauth_token = "xoxp-xxxxxxxxxx-xxxxxxxx-xxxxxxxxx-xxxxxxxxxxx"
-  slack_channel = "channel name"
+  slack_channel = "seatunnel-alerts"
  }
 }
 ```
