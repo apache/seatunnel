@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -38,7 +39,8 @@ public class StarRocksCatalogFactory implements CatalogFactory {
                 options.get(StarRocksSourceOptions.USERNAME),
                 options.get(StarRocksSourceOptions.PASSWORD),
                 options.get(StarRocksSinkOptions.BASE_URL),
-                options.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
+                options.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE),
+                options.get(SinkConnectorCommonOptions.TABLE_OPTIONS));
     }
 
     @Override
