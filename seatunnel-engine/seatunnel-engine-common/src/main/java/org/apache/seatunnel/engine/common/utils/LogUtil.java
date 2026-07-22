@@ -76,25 +76,40 @@ public class LogUtil {
                 && logFilePath.length() > 2
                 && Character.isLetter(logFilePath.charAt(0))
                 && logFilePath.charAt(1) == ':') {
-            return logFilePath.substring(0, 3);
+            return logFilePath.substring(0, 2) + preferredSeparator(logFilePath);
         }
         return normalizeParentSeparators(logFilePath.substring(0, separatorIndex));
     }
 
     private static String normalizeParentSeparators(String path) {
+        char separator = preferredSeparator(path);
         StringBuilder normalized = new StringBuilder(path.length());
         for (int index = 0; index < path.length(); index++) {
             char current = path.charAt(index);
+            if (current == '/' || current == '\\') {
+                current = separator;
+            }
             boolean duplicateSeparator =
-                    index > 0
-                            && current == path.charAt(index - 1)
-                            && (current == '/' || current == '\\');
+                    current == separator
+                            && normalized.length() > 0
+                            && normalized.charAt(normalized.length() - 1) == separator;
             if (duplicateSeparator && index != 1) {
                 continue;
             }
             normalized.append(current);
         }
         return normalized.toString();
+    }
+
+    private static char preferredSeparator(String path) {
+        if (path.startsWith("\\\\")
+                || (path.length() > 1
+                        && Character.isLetter(path.charAt(0))
+                        && path.charAt(1) == ':')
+                || path.indexOf('\\') >= 0) {
+            return '\\';
+        }
+        return '/';
     }
 
     private static PropertiesConfiguration getLogConfiguration() {

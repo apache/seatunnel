@@ -55,6 +55,14 @@ public class LogUtilTest {
     }
 
     @Test
+    void shouldNormalizeMixedWindowsSeparators() {
+        Assertions.assertEquals(
+                "C:\\seatunnel\\logs",
+                LogUtil.getParentLogPath(
+                        "C:\\seatunnel\\logs/job-${ctx:ST-JID}.log", "fileAppender"));
+    }
+
+    @Test
     void shouldRejectEmptyLogPath() {
         IllegalArgumentException exception =
                 Assertions.assertThrows(
