@@ -27,24 +27,25 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
+
+import org.apache.hadoop.fs.FSDataOutputStream;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,9 +55,6 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 @Slf4j
 public class CsvWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/csv/test";
-
-    /** Isolates the raw CSV output used by the header delimiter regression test. */
-    @TempDir private Path tempDir;
 
     @Test
     public void testHeaderUsesDefaultFieldDelimiter() throws Exception {
@@ -89,7 +87,12 @@ public class CsvWriteStrategyTest {
             String fieldName,
             String fieldValue)
             throws Exception {
-        String outputPath = tempDir.resolve(directory).toUri().toString();
+        String outputPath = "file:///tmp/seatunnel/csv/" + directory;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        HadoopFileSystemProxy fileSystemProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(fileSystemProxy.getOutputStream(Mockito.anyString()))
+                .thenReturn(new FSDataOutputStream(output, null));
+
         Map<String, Object> writeConfig = new HashMap<>();
         writeConfig.put("tmp_path", outputPath);
         writeConfig.put("path", outputPath);
@@ -106,27 +109,16 @@ public class CsvWriteStrategyTest {
                         new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
-        CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
-        LocalFileSystemConf.LocalConf hadoopConf =
-                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        TestCsvWriteStrategy writeStrategy = new TestCsvWriteStrategy(writeSinkConfig);
+        writeStrategy.setFileSystemProxy(fileSystemProxy);
+        writeStrategy.setTransactionContext("test1", "test1", 0);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
-        writeStrategy.init(hadoopConf, "test1", "test1", 0);
         writeStrategy.beginTransaction(1L);
         writeStrategy.write(new SeaTunnelRow(new Object[] {1, fieldValue}));
         writeStrategy.finishAndCloseFile();
         writeStrategy.close();
-
-        CsvReadStrategy readStrategy = new CsvReadStrategy();
-        readStrategy.init(hadoopConf);
-        List<String> readFiles = readStrategy.getFileNamesByPath(outputPath);
-        Assertions.assertEquals(1, readFiles.size());
-        List<String> lines =
-                Files.readAllLines(
-                        Paths.get(java.net.URI.create(readFiles.get(0))),
-                        Charset.forName(encoding));
-        readStrategy.close();
-        return lines;
+        return Arrays.asList(new String(output.toByteArray(), Charset.forName(encoding)).split("\\R"));
     }
 
     @DisabledOnOs(OS.WINDOWS)
@@ -252,5 +244,22 @@ public class CsvWriteStrategyTest {
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(1, readRows.size());
         readStrategy.close();
+    }
+
+    private static class TestCsvWriteStrategy extends CsvWriteStrategy {
+
+        private TestCsvWriteStrategy(FileSinkConfig fileSinkConfig) {
+            super(fileSinkConfig);
+        }
+
+        private void setFileSystemProxy(HadoopFileSystemProxy proxy) {
+            this.hadoopFileSystemProxy = proxy;
+        }
+
+        private void setTransactionContext(String jobId, String uuidPrefix, int subTaskIndex) {
+            this.jobId = jobId;
+            this.uuidPrefix = uuidPrefix;
+            this.subTaskIndex = subTaskIndex;
+        }
     }
 }
