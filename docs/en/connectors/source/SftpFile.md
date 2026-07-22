@@ -30,6 +30,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -86,7 +87,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | password                   | String  | No       | -                             | The target sftp password. Required when `keyfile` is not set.                                                                                                                                                                                                                                                                                                                   |
 | keyfile                    | String  | No       | -                             | The private key file path used for SFTP public key authentication.                                                                                                                                                                                                                                                                                                              |
 | path                       | String  | Yes      | -                             | The source file path.                                                                                                                                                                                                                                                                                                                                                           |
-| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                            |
+| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below. Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
 | filename_extension         | string  | no       | -                             | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                         |
 | delimiter/field_delimiter  | String  | No       | \001 for text and ',' for csv | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                              |
@@ -185,7 +186,7 @@ The result of this example matching is:
 ### file_format_type [string]
 
 File type, supported as the following file types:
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 For example:
 upstream data is the following:
@@ -255,7 +256,7 @@ at the same time.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -275,6 +276,17 @@ When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the fol
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 ### compress_codec [string]
 

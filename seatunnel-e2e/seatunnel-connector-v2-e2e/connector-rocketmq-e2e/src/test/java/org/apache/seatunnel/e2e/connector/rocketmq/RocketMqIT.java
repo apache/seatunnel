@@ -453,9 +453,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     private Map<String, RocketMqConsumerMessage> getRocketMqConsumerData(String topicName) {
         Map<String, RocketMqConsumerMessage> data = new HashMap<>();
+        Map<MessageQueue, Long> consumedOffsets = new HashMap<>();
+        DefaultLitePullConsumer consumer = null;
         try {
-            DefaultLitePullConsumer consumer =
-                    RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
+            consumer = RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
             consumer.start();
             // assign
             Map<MessageQueue, TopicOffset> queueOffsets =
@@ -490,33 +491,66 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     break;
                 }
                 for (MessageExt message : messages) {
+                    MessageQueue messageQueue =
+                            new MessageQueue(
+                                    message.getTopic(),
+                                    message.getBrokerName(),
+                                    message.getQueueId());
                     RocketMqConsumerMessage consumerMessage =
                             new RocketMqConsumerMessage(
                                     new String(message.getBody(), StandardCharsets.UTF_8),
                                     message.getTags());
                     data.put(message.getKeys(), consumerMessage);
+                    consumedOffsets.merge(messageQueue, message.getQueueOffset(), Math::max);
                     consumer.getOffsetStore()
                             .updateConsumeOffsetToBroker(
-                                    new MessageQueue(
-                                            message.getTopic(),
-                                            message.getBrokerName(),
-                                            message.getQueueId()),
-                                    message.getQueueOffset(),
-                                    false);
+                                    messageQueue, message.getQueueOffset(), false);
                 }
                 consumer.commitSync();
             }
+            log.info("Consumer {} data total {}", topicName, data.size());
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        } finally {
             if (consumer != null) {
                 consumer.shutdown();
             }
-            log.info("Consumer {} data total {}", topicName, data.size());
-            // consumer.commitSync() only submits the offset to the broker, and NameServer scans the
-            // broker to update the offset every 10 seconds
-            Thread.sleep(20 * 1000);
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
         }
+        waitConsumedOffsetsSynced(topicName, consumedOffsets);
         return data;
+    }
+
+    private void waitConsumedOffsetsSynced(
+            String topicName, Map<MessageQueue, Long> consumedOffsets) {
+        if (consumedOffsets.isEmpty()) {
+            return;
+        }
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Map<MessageQueue, Long> currentOffsets =
+                                    RocketMqAdminUtil.currentOffsets(
+                                            newConfiguration(),
+                                            Lists.newArrayList(topicName),
+                                            consumedOffsets.keySet());
+                            for (Map.Entry<MessageQueue, Long> consumedOffset :
+                                    consumedOffsets.entrySet()) {
+                                Long currentOffset = currentOffsets.get(consumedOffset.getKey());
+                                Assertions.assertNotNull(
+                                        currentOffset,
+                                        "Consume offset should be visible for "
+                                                + consumedOffset.getKey());
+                                Assertions.assertTrue(
+                                        currentOffset >= consumedOffset.getValue(),
+                                        "Consume offset should be synced to broker, currentOffset="
+                                                + currentOffset
+                                                + ", consumedOffset="
+                                                + consumedOffset.getValue());
+                            }
+                        });
     }
 
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {

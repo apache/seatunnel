@@ -26,6 +26,7 @@ import lombok.Getter;
 public class EngineStateStoreNames {
     private EngineStateStoreNames() {}
 
+    public static final String CHECKPOINT_ID = "engine_checkpoint-id-map";
     public static final String RUNNING_JOB_METRICS = "engine_runningJobMetrics";
     public static final String CHECKPOINT_MONITOR = "engine_checkpoint_monitor";
 }
