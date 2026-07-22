@@ -35,7 +35,8 @@ done
 PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
-APP_JAR=${APP_DIR}/starter/seatunnel-spark-3.5-starter.jar
+APP_JAR_NAME=seatunnel-spark-3.5-starter.jar
+APP_JAR=${APP_DIR}/starter/${APP_JAR_NAME}
 APP_MAIN="org.apache.seatunnel.core.starter.spark.SparkStarter"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
@@ -50,6 +51,7 @@ else
 fi
 
 set +u
+JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.spark.starter.jar.name=${APP_JAR_NAME}"
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"

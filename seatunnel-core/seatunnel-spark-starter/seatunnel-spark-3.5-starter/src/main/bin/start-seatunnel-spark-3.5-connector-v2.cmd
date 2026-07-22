@@ -25,7 +25,8 @@ cd /d "%PRG_DIR%" || (
 
 set "APP_DIR=%~dp0"
 set "CONF_DIR=%APP_DIR%\config"
-set "APP_JAR=%APP_DIR%\starter\seatunnel-spark-3.5-starter.jar"
+set "APP_JAR_NAME=seatunnel-spark-3.5-starter.jar"
+set "APP_JAR=%APP_DIR%\starter\%APP_JAR_NAME%"
 set "APP_MAIN=org.apache.seatunnel.core.starter.spark.SparkStarter"
 
 if exist "%CONF_DIR%\seatunnel-env.cmd" (
@@ -38,7 +39,7 @@ if "%~1"=="" (
   set "args=%*"
 )
 
-set "JAVA_OPTS="
+set "JAVA_OPTS=-Dseatunnel.spark.starter.jar.name=%APP_JAR_NAME%"
 if exist "%CONF_DIR%\log4j2.properties" (
   set "JAVA_OPTS=!JAVA_OPTS! -Dlog4j2.configurationFile=%CONF_DIR%\log4j2.properties"
   set "JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.logs.path=%APP_DIR%\logs"

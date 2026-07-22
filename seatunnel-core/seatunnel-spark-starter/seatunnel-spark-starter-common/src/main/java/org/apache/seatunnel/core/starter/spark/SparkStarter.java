@@ -57,6 +57,8 @@ import java.util.stream.Stream;
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
 
+    static final String STARTER_JAR_NAME_PROPERTY = "seatunnel.spark.starter.jar.name";
+
     /** original commandline args */
     protected String[] args;
 
@@ -233,8 +235,11 @@ public class SparkStarter implements Starter {
 
     /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
-        commands.add(
-                Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
+        commands.add(Common.appStarterDir().resolve(getStarterJarName()).toString());
+    }
+
+    static String getStarterJarName() {
+        return System.getProperty(STARTER_JAR_NAME_PROPERTY, EngineType.SPARK3.getStarterJarName());
     }
 
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
