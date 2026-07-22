@@ -39,7 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <ul>
  *   <li>{@code isSystemThread()} must return {@code false} for all four Couchbase thread names.
- *   <li>{@code isIssueWeAlreadyKnow()} must return {@code true} for those same names.
+ *   <li>The three uniquely-named threads are exempt via {@code isIssueWeAlreadyKnow()}.
+ *   <li>{@code parallel-N} is exempt via {@code isIssueWeAlreadyKnow()} only when the Couchbase SDK
+ *       has been loaded into the JVM, preventing false exemptions from other Reactor connectors.
  * </ul>
  *
  * <p>Both methods are accessed via reflection so the test does not depend on a live container,
@@ -151,7 +153,7 @@ class SeaTunnelContainerThreadExemptionTest {
      * caught in any E2E run where the Couchbase SDK was never loaded.
      *
      * <p>In this module ({@code seatunnel-e2e-common}) the Couchbase SDK is not a dependency, so
-     * {@code Class.forName("com.couchbase.client.java.Cluster", false, ...) } throws {@code
+     * {@code Class.forName("com.couchbase.client.java.Cluster", false, ...)} throws {@code
      * ClassNotFoundException} and the guard returns {@code false}.
      */
     @Test
@@ -188,6 +190,22 @@ class SeaTunnelContainerThreadExemptionTest {
         try {
             Class.forName(
                     "com.couchbase.client.java.Cluster", false, ClassLoader.getSystemClassLoader());
+            sdkPresent = true;
+        } catch (ClassNotFoundException e) {
+            sdkPresent = false;
+        }
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                sdkPresent,
+                "Couchbase SDK not on test classpath — skipping SDK-loaded branch test");
+
+        assertTrue(
+                isIssueWeAlreadyKnow("parallel-0"),
+                "parallel-0 must be exempted when the Couchbase SDK is loaded in the JVM");
+        assertTrue(
+                isIssueWeAlreadyKnow("parallel-42"),
+                "parallel-42 must be exempted when the Couchbase SDK is loaded in the JVM");
+    }
+
     // -------------------------------------------------------------------------
     // Sanity — non-numeric parallel thread names are never exempt
     // -------------------------------------------------------------------------
