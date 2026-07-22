@@ -60,30 +60,28 @@ public class PathResolver {
      *     SEATUNNEL_HOME
      */
     public static URL replacePathWithEnv(URL url) {
-        String path = url.getPath();
         String home = Common.getSeaTunnelHome();
-        if (StringUtils.isBlank(home)) {
+        if (StringUtils.isBlank(home) || !"file".equalsIgnoreCase(url.getProtocol())) {
             return url;
         }
-        // Normalize paths for comparison (handle Windows backslashes)
-        String normalizedPath = new File(path).getAbsolutePath();
-        String normalizedHome = new File(home).getAbsolutePath();
 
-        if (normalizedPath.startsWith(normalizedHome)) {
-            String relativePath = normalizedPath.substring(normalizedHome.length());
-            // Ensure leading slash for URL construction
-            String newPath =
-                    "/" + SEATUNNEL_HOME_VAR + relativePath.replace(File.separatorChar, '/');
-            // Remove double slashes if any (e.g. if relativePath started with /)
-            newPath = newPath.replace("//", "/");
-            try {
-                // Use URI constructor to build URL, ensure format consistency
-                return new URI(url.getProtocol(), url.getHost(), newPath, null).toURL();
-            } catch (MalformedURLException | URISyntaxException e) {
-                throw new RuntimeException("Failed to create logical URL for: " + url, e);
+        try {
+            Path homePath = new File(home).toPath().toAbsolutePath().normalize();
+            Path candidatePath = Paths.get(url.toURI()).toAbsolutePath().normalize();
+            if (!candidatePath.startsWith(homePath)) {
+                return url;
             }
+
+            String relativePath = homePath.relativize(candidatePath).toString();
+            String normalizedRelativePath = relativePath.replace(File.separatorChar, '/');
+            String newPath = "/" + SEATUNNEL_HOME_VAR;
+            if (StringUtils.isNotEmpty(normalizedRelativePath)) {
+                newPath = newPath + "/" + normalizedRelativePath;
+            }
+            return new URI(url.getProtocol(), url.getHost(), newPath, null).toURL();
+        } catch (MalformedURLException | URISyntaxException | IllegalArgumentException e) {
+            throw new RuntimeException("Failed to create logical URL for: " + url, e);
         }
-        return url;
     }
 
     /**

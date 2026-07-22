@@ -94,6 +94,41 @@ public class PathResolverTest {
     }
 
     @Test
+    public void testReplacePathWithEnvDoesNotRewriteSiblingPrefixPath()
+            throws MalformedURLException {
+        String clientHome = "/opt/seatunnel";
+        String siblingPath = "/opt/seatunnel-backup/connectors/seatunnel/connector-kafka.jar";
+        if (File.separatorChar == '\\') {
+            clientHome = "C:\\opt\\seatunnel";
+            siblingPath = "C:\\opt\\seatunnel-backup\\connectors\\seatunnel\\connector-kafka.jar";
+        }
+
+        System.setProperty("SEATUNNEL_HOME", clientHome);
+        Common.setSeaTunnelHome(clientHome);
+
+        URL siblingUrl = new File(siblingPath).toURI().toURL();
+        URL resultUrl = PathResolver.replacePathWithEnv(siblingUrl);
+
+        Assertions.assertEquals(siblingUrl, resultUrl);
+    }
+
+    @Test
+    public void testReplacePathWithEnvIgnoresNonFileUrl() throws MalformedURLException {
+        String clientHome = "/opt/seatunnel-client";
+        if (File.separatorChar == '\\') {
+            clientHome = "C:\\opt\\seatunnel-client";
+        }
+
+        System.setProperty("SEATUNNEL_HOME", clientHome);
+        Common.setSeaTunnelHome(clientHome);
+
+        URL remoteUrl = new URL("https://example.com/opt/seatunnel-client/lib/test.jar");
+        URL resultUrl = PathResolver.replacePathWithEnv(remoteUrl);
+
+        Assertions.assertEquals(remoteUrl, resultUrl);
+    }
+
+    @Test
     public void testResolvePathEnv() throws MalformedURLException {
         // Simulate Server Side
         String serverHome = "/opt/seatunnel-server";
