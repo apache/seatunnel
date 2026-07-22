@@ -245,10 +245,10 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             // synchronized guard on doFlush() itself.
             flushScheduler.shutdownNow();
         }
-        // Check and rethrow any async error before performing the final flush so that
-        // the task fails loudly instead of disconnecting and swallowing the root cause.
-        checkAsyncFlushError();
+        // checkAsyncFlushError() and doFlush() are both inside the try so that the finally
+        // block always disconnects the cluster even when a latched background failure exists.
         try {
+            checkAsyncFlushError();
             doFlush();
         } finally {
             try {
@@ -268,10 +268,15 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     /**
      * Throws a {@link CouchbaseConnectorException} wrapping the latched async error if one has been
-     * recorded by the background flush timer, then clears the latch.
+     * recorded by the background flush timer.
+     *
+     * <p>The latch is intentionally <em>sticky</em>: it is read with {@link AtomicReference#get()}
+     * rather than {@code getAndSet(null)} so that a fatal background failure remains visible to
+     * every subsequent caller ({@link #write}, {@link #prepareCommit}, {@link #close}) and cannot
+     * be silently consumed and lost.
      */
     private void checkAsyncFlushError() {
-        Throwable error = asyncFlushError.getAndSet(null);
+        Throwable error = asyncFlushError.get();
         if (error != null) {
             throw new CouchbaseConnectorException(
                     CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,

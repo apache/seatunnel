@@ -435,17 +435,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("commons-pool-evictor")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
                 // it may outlive the job and cause the E2E thread-leak check to fail.
-                || s.startsWith("qtp")
-                // Couchbase SDK JVM-global static singleton threads.
-                // These are owned by SDK-internal singletons (latency detector, DNS client,
-                // cleaner, and shaded Reactor parallel scheduler); they are not disposed by
-                // Cluster.disconnect() and are not connector-specific leak candidates.
-                // Pattern is intentionally narrow: "parallel-<digits>" matches only the
-                // Couchbase SDK's shaded reactor-core pool, not other Reactor-based connectors.
-                || s.startsWith("SimplePauseDetectorThread")
-                || s.startsWith("dnsjava NIO selector")
-                || s.startsWith("cb-cleaner")
-                || s.matches("parallel-\\d+");
+                || s.startsWith("qtp");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -493,6 +483,36 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
+        // Couchbase SDK JVM-global static singleton threads.
+        //
+        // SimplePauseDetectorThread  – GC-pause latency detector (cb-core)
+        // dnsjava NIO selector       – DNS resolution I/O loop   (cb-core)
+        // cb-cleaner                 – SDK internal cleaner       (cb-core)
+        //
+        // These three names are unique to the Couchbase SDK; no other connector produces them.
+        // They are owned by SDK-internal static singletons, survive Cluster.disconnect(), and
+        // are not connector-specific leak candidates.
+        if (threadName.startsWith("SimplePauseDetectorThread")
+                || threadName.startsWith("dnsjava NIO selector")
+                || threadName.startsWith("cb-cleaner")) {
+            return true;
+        }
+        // parallel-<N> – Reactor parallel scheduler thread.
+        //
+        // The Couchbase SDK depends on reactor-core but does NOT shade it, so the thread name
+        // "parallel-<N>" is identical to the thread name produced by any other connector that
+        // also uses reactor-core.  Exempting it by name alone would silently hide leaks from
+        // those connectors.
+        //
+        // Guard: only exempt "parallel-<N>" when the Couchbase SDK has actually been initialised
+        // in this JVM.  Class.forName with initialize=false succeeds if and only if the class
+        // was already loaded; it throws ClassNotFoundException otherwise.  A thread named
+        // "parallel-<N>" that appears while the SDK is present is owned by the SDK's Schedulers
+        // static pool and is not a leak.  The same name appearing when the SDK is absent is a
+        // genuine unknown thread and must be reported.
+        if (threadName.matches("parallel-\\d+") && isCouchbaseSdkLoaded()) {
+            return true;
+        }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
@@ -529,6 +549,31 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Paimon
                 || threadName.startsWith("AsyncOutputStream")
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
+    }
+
+    /**
+     * Returns {@code true} if the Couchbase Java SDK ({@code com.couchbase.client.java.Cluster})
+     * has been loaded into the current JVM.
+     *
+     * <p>Used by {@link #isIssueWeAlreadyKnow} to guard the {@code parallel-\d+} thread-name
+     * exemption: because the Couchbase SDK uses the unshaded {@code reactor-core} library, the
+     * thread name {@code "parallel-N"} is indistinguishable by name alone from threads started by
+     * any other Reactor-based connector. Checking for SDK presence ensures the exemption only fires
+     * in a JVM that has actually initialised the Couchbase SDK, making it impossible for a
+     * non-Couchbase connector leak to be silently swallowed.
+     *
+     * <p>{@code Class.forName(name, false, loader)} with {@code initialize=false} never triggers
+     * class initialisation; it returns successfully if (and only if) the class was already loaded,
+     * and throws {@link ClassNotFoundException} otherwise.
+     */
+    private static boolean isCouchbaseSdkLoaded() {
+        try {
+            Class.forName(
+                    "com.couchbase.client.java.Cluster", false, ClassLoader.getSystemClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     @Override
