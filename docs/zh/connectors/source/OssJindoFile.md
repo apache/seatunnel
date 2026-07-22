@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 描述
 
@@ -59,7 +60,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | 参数名                       | 类型      | 必须 | 默认值                         | 描述                                                                            |
 |---------------------------|---------|----|-----------------------------|-------------------------------------------------------------------------------|
 | path                      | string  | 是  | -                           | 目标目录路径                                                                        |
-| file_format_type          | string  | 是  | -                           | 文件类型                                                                          |
+| file_format_type          | string  | 是  | -                           | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                          |
 | bucket                    | string  | 是  | -                           | OSS 文件系统的桶地址                                                                  |
 | access_key                | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
 | access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
@@ -118,6 +119,18 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
 
 ## 变更日志
 

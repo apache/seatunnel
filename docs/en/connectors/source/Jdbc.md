@@ -2,29 +2,123 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # JDBC
 
-> JDBC source connector
-
 ## Description
 
-Read external data source data through JDBC.
+The JDBC Source connector reads tables or custom query results from databases through a JDBC driver. It supports column projection, row filtering, parallel snapshot reads, and reading multiple tables in one source configuration.
 
-:::tip
+JDBC Source is a bounded source: it reads the rows visible to the database query and then finishes. Use a CDC connector instead when the job must continue capturing later inserts, updates, and deletes.
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATUNNEL_HOME/lib/` directory in order to make them work.
-
-e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATUNNEL_HOME/lib/`. For Spark/Flink, you should also copy it to `$SPARK_HOME/jars/` or `$FLINK_HOME/lib/`.
-
-:::
+If this is your first JDBC Source job, start with [Choose a read mode](#choose-a-read-mode) and the [Quick start](#quick-start-postgresql). The complete option reference follows those sections.
 
 ## Using Dependency
 
-### For Spark/Flink Engine
+Install the `connector-jdbc` plugin first:
 
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+```plugin_config
+--seatunnel-connectors--
+connector-jdbc
+--end--
+```
 
-### For SeaTunnel Zeta Engine
+```bash
+cd "${SEATUNNEL_HOME}"
+sh bin/install-plugin.sh
+```
 
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+JDBC driver licenses and redistribution terms vary by database vendor, and the driver version must be compatible with both the database and the Java runtime. SeaTunnel therefore does not bundle every JDBC driver. Download the appropriate driver yourself and place its JAR in the engine-specific directory below before starting the job.
+
+### Spark and Flink engines
+
+Place the JDBC driver in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every node that runs SeaTunnel.
+
+### Zeta engine
+
+Place the JDBC driver in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node, then restart the affected SeaTunnel processes so the driver is loaded.
+
+See the [driver reference](#driver-reference) for common driver class names and download locations.
+
+## Choose a read mode
+
+Choose a single-table or multi-table layout before configuring parallelism. In the single-table layout, `table_path` and `query` can be used separately or together. The multi-table `table_list` layout is mutually exclusive with top-level `table_path` and `query`.
+
+| Use case | Configuration | Behavior |
+|----------|---------------|----------|
+| Read one table with automatic schema discovery and dynamic splitting | `table_path` | Recommended for a full-table snapshot. SeaTunnel reads table metadata and uses `split.size` when the table has a usable split key. |
+| Control selected columns, joins, or database-side expressions | `query`, optionally with `table_path` | SeaTunnel executes the SQL you provide. Add `table_path` when explicit table identity and metadata are also needed. Query key inference is unsafe for some joins; see [Query and primary-key caution](#query-and-primary-key-caution). |
+| Read multiple tables or table-name patterns | `table_list` | Each entry can define `table_path`, an optional `query`, and split settings. Top-level `table_path` and `query` cannot be used together with `table_list`. |
+
+Use `where_condition` only for a common filter that should be added to every selected table or query. Its value must start with `where`, for example `where updated_at >= '2026-01-01'`.
+
+## Quick start: PostgreSQL
+
+This example reads three rows from PostgreSQL and prints them to the SeaTunnel log.
+
+1. Put a compatible PostgreSQL JDBC driver in the directory described in [Using Dependency](#using-dependency).
+
+2. As a PostgreSQL administrator, connect to an existing `sales` database, create a dedicated tutorial table, and grant a read-only account access. If `seatunnel_reader` already exists, omit the `CREATE ROLE` statement and reuse the account:
+
+```sql
+CREATE ROLE seatunnel_reader WITH LOGIN PASSWORD 'change_me';
+
+DROP TABLE IF EXISTS public.seatunnel_jdbc_source_quick_start;
+
+CREATE TABLE public.seatunnel_jdbc_source_quick_start (
+  id BIGINT PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL
+);
+
+INSERT INTO public.seatunnel_jdbc_source_quick_start VALUES
+  (1, 'Alice', 120.50),
+  (2, 'Bob', 80.00),
+  (3, 'Carol', 42.00);
+
+GRANT CONNECT ON DATABASE sales TO seatunnel_reader;
+GRANT USAGE ON SCHEMA public TO seatunnel_reader;
+GRANT SELECT ON TABLE public.seatunnel_jdbc_source_quick_start TO seatunnel_reader;
+```
+
+The `DROP TABLE` makes the tutorial data repeatable. Do not use that statement with a business table.
+
+3. Save the following job as `${SEATUNNEL_HOME}/config/jdbc-source-quick-start.conf`. Replace the host, credentials, and database name for your environment.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = "SELECT id, customer_name, amount FROM public.seatunnel_jdbc_source_quick_start ORDER BY id"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+4. Run the job:
+
+```bash
+cd "${SEATUNNEL_HOME}"
+./bin/seatunnel.sh --config ./config/jdbc-source-quick-start.conf -m local
+```
+
+5. Confirm that the Console sink prints rows with the following values:
+
+| id | customer_name | amount |
+|----|---------------|-------:|
+| 1 | Alice | 120.50 |
+| 2 | Bob | 80.00 |
+| 3 | Carol | 42.00 |
+
+If the job fails before reading rows, check [Troubleshooting](#troubleshooting) first.
 
 ## Key features
 
@@ -33,7 +127,7 @@ e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` t
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
-supports query SQL and can achieve projection effect.
+Use `query` to select only the required columns.
 
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -41,22 +135,24 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
+`url` and `driver` are always required. Authentication is optional because some databases allow unauthenticated connections. Use either the top-level single-table layout or `table_list`; top-level `table_path` and `query` may be combined. `username` is the preferred account key, while legacy configurations using `user` remain supported as a fallback.
+
 | name                                       | type    | required  | default value   | description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |--------------------------------------------|---------|-----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String  | Yes       | -               | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | driver                                     | String  | Yes       | -               | The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| username                                   | String  | No        | -               | userName                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| password                                   | String  | No        | -               | password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| query                                      | String  | No        | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| username                                   | String  | No        | -               | Database account name. The legacy key `user` is still accepted as a fallback.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| password                                   | String  | No        | -               | Password for the database account.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| query                                      | String  | No        | -               | SQL query to execute. It can be combined with `table_path` when explicit table identity and metadata are also needed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | compatible_mode                            | String  | No        | -               | The compatible mode of database, required when the database supports multiple compatible modes.<br/> For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. <br/> when using starrocks, you need set it to `starrocks`                                                                                                                                                                                                                                                                                                                                                                                             |
 | dialect                                    | String  | No        | -               | The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. <br/> For example,when using starrocks, you need set it to `starrocks`                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | connection_check_timeout_sec               | Int     | No        | 30              | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | connect_timeout_ms                         | Int     | No        | 86400000        | Connection timeout in milliseconds when establishing the JDBC connection. `0` means no timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | socket_timeout_ms                          | Int     | No        | 86400000        | Socket read timeout in milliseconds after the JDBC connection is established. `0` means no timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | partition_column                           | String  | No        | -               | The column name for split data.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| partition_upper_bound                      | Long    | No        | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| partition_lower_bound                      | Long    | No        | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| partition_num                              | Int     | No        | job parallelism | Not recommended for use, The correct approach is to control the number of split through `split.size`<br/> **Note:** This parameter takes effect only when using the `query` parameter. It does not take effect when using the `table_path` parameter.                                                                                                                                                                                                                                                                                                                                                                                              |
+| partition_upper_bound                      | String  | No        | -               | Inclusive upper value used for query-based partitioning. When omitted, SeaTunnel queries the source for the maximum value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| partition_lower_bound                      | String  | No        | -               | Inclusive lower value used for query-based partitioning. When omitted, SeaTunnel queries the source for the minimum value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| partition_num                              | Int     | No        | 10              | Number of splits when top-level `query` and `partition_column` select the fixed splitter, whether or not `table_path` is also present. Dynamic `table_path` and `table_list` layouts use `split.size` instead.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | decimal_type_narrowing                     | Boolean | No        | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | int_type_narrowing                         | Boolean | No        | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | handle_blob_as_string                      | Boolean | No        | false           | If true, BLOB type will be converted to STRING type. **Only supported for Oracle database**. This is useful for handling large BLOB fields in Oracle that exceed the default size limit. When transmitting Oracle's BLOB fields to systems like Doris, setting this to true can make the data transfer more efficient.                                                                                                                                                                                                                                                                                                                             |
@@ -69,15 +165,16 @@ supports query SQL and can achieve projection effect.
 | use_regex                                  | Boolean | No        | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching). |
 | fetch_size                                 | Int     | No        | 0               | For queries that return a large number of objects, you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                                                               |
 | properties                                 | Map     | No        | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| table_path                                 | String  | No        | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>`- mysql: "testdb.table1" `<br/>`- oracle: "test_schema.table1" `<br/>`- sqlserver: "testdb.test_schema.table1"` <br/>`- postgresql: "testdb.test_schema.table1"`  <br/>`- iris: "test_schema.table1"`                                                                                                                                                                                                                                                                                                                                  |
+| table_path                                 | String  | No        | -               | Full table path. It can be used alone or together with `query` in the single-table layout. <br/>Examples: <br/>`- mysql: "testdb.table1" `<br/>`- oracle: "test_schema.table1" `<br/>`- sqlserver: "testdb.test_schema.table1"` <br/>`- postgresql: "testdb.test_schema.table1"`  <br/>`- iris: "test_schema.table1"`                                                                                                                                                                                                                                                               |
 | table_list                                 | Array   | No        | -               | The list of tables to be read, you can use this configuration instead of `table_path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | where_condition                            | String  | No        | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| split.size                                 | Int     | No        | 8096            | How many rows in one split, captured tables are split into multiple splits when read of table. **Note**: This parameter takes effect only when using the `table_path` parameter. It does not take effect when using the `query` parameter.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| split.size                                 | Int     | No        | 8096            | Target rows per split when the dynamic splitter is used, including `table_path` and `table_list` layouts. It does not control the top-level fixed `query` plus `partition_column` mode.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | split.even-distribution.factor.lower-bound | Double  | No        | 0.05            | Not recommended for use.<br/> The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | split.even-distribution.factor.upper-bound | Double  | No        | 100             | Not recommended for use.<br/> The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | split.sample-sharding.threshold            | Int     | No        | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                                                 |
 | split.inverse-sampling.rate                | Int     | No        | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                                                            |
 | split.allow-sampling                       | Boolean | No        | true            | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count.                                                                                                                                                              |
+| enable_concurrent_read                     | Boolean | No        | true            | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source skips split analysis and reads the table as a single split, which is useful for tables without indexes.                                                                                                                                           |
 | common-options                             |         | No        | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | split.string_split_mode                    | String  | No        | sample          | Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.                                                                                                                                                                                                                                                    |
 | split.string-strategy                      | String  | No        | -               | Controls how String partition columns are split. Available values are `none`, `hash`, `range`, and `auto`. `range` and `auto` currently require MySQL binary collation and fixed-length printable ASCII key values. Other JDBC dialects reject `range` and `auto` until their range split support is explicitly validated. `auto` tries range splitting first and falls back to hash splitting when range splitting is unsafe. When this option is not set, SeaTunnel keeps the existing `split.string_split_mode` behavior.                                                                                                                                                                                                                                           |
@@ -85,99 +182,24 @@ supports query SQL and can achieve projection effect.
 
 ### Table Matching
 
-The JDBC Source connector supports two ways to specify tables:
+Use the full table path expected by the database dialect:
 
-#### Notes
+| Database family | Example |
+|-----------------|---------|
+| MySQL | `sales.orders` |
+| PostgreSQL and SQL Server | `sales.public.orders` |
+| Oracle | `SALES.ORDERS` |
 
-- Many JDBC drivers treat `DatabaseMetaData.getColumns(..., schemaPattern, tableNamePattern, ...)` as SQL LIKE patterns.
-  If your schema/table names contain `_` or `%`, column discovery may return rows from other tables. SeaTunnel filters the
-  returned metadata rows by exact schema/table identifier to avoid mixing columns.
-- For case-sensitive databases, make sure the configured schema/table names use the exact identifier case.
+`use_regex = false` performs exact matching and is the safest default. Set `use_regex = true` only when the table part of `table_path` is intentionally a regular expression:
 
-1. **Exact Table Path**: Use `table_path` to specify a single table with its full path.
-   ```hocon
-   table_path = "testdb.table1"
-   ```
-
-2. **Regular Expression**: Use `table_path` with a regex pattern to match multiple tables.
-   ```hocon
-   table_path = "testdb.table\\d+"  # Matches table1, table2, table3, etc.
-   use_regex = true
-   ```
-
-#### Regular Expression Support for Table Names
-
-The JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
-
-#### Configuration
-
-To use regular expression matching for table paths:
-
-1. Set `use_regex = true` to enable regex matching
-2. If `use_regex` is not set or set to `false`, the connector will treat the table_path as an exact path (no regex matching)
-
-#### Regular Expression Syntax Notes
-
-- **Path Separator**: The dot (`.`) is treated as a separator between database, schema, and table names.
-- **Escaped Dots**: If you need to use a dot (`.`) as a wildcard character in your regular expression to match any character, you must escape it with a backslash (`\.`).
-- **Path Format**: For paths like `database.table` or `database.schema.table`, the last unescaped dot separates the table pattern from the database/schema pattern.
-- **Pattern Examples**:
-  - `test.table\\d+` - Matches tables like `table1`, `table2`, etc. in the `test` database
-  - `test.*` - Matches all tables in the `test` database (for whole database synchronization)
-  - `postgres.public.test_db_\.*` - Matches all tables that start with `test_db_` in the `public` schema of the `postgres` database
-
-#### Example
-
-```hocon
-source {
-  Jdbc {
-    url = "jdbc:mysql://localhost:3306/test"
-    driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "password"
-    
-    table_list = [
-      {
-        # Regex matching - match any table in test database
-        table_path = "test.*"
-        use_regex = true
-      },
-      {
-        # Regex matching - match tables with "user" followed by digits
-        table_path = "test.user\\d+"
-        use_regex = true
-      },
-      {
-        # Exact matching - simple table name
-        table_path = "test.config"
-        # use_regex not specified, defaults to false
-      },
-    ]
-  }
-}
+```text
+table_path = "sales.orders_\\d+"
+use_regex = true
 ```
 
-#### Multi-table Synchronization
+In HOCON strings, a regular-expression backslash must be escaped, so `\d+` is written as `\\d+` in the file. The final unescaped dot separates the database/schema path from the table pattern.
 
-When using either regular expressions, the connector will read data from all matching tables. Each table will be processed independently, and the data will be combined in the output.
-
-Example configuration for multi-table synchronization:
-```hocon
-Jdbc {
-    url = "jdbc:mysql://localhost/test"
-    driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "123456"
-
-    # Using regular expression with explicit configuration
-    table_list = [
-      {
-        table_path = "testdb.table\\d+"
-        use_regex = true
-      }
-    ]
-}
-```
+Many JDBC drivers treat schema and table arguments passed to `DatabaseMetaData` as SQL `LIKE` patterns. SeaTunnel performs an exact identifier check after metadata discovery, but you should still use the exact case for case-sensitive database identifiers.
 
 ### decimal_type_narrowing
 
@@ -242,29 +264,27 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 
 ## Parallel Reader
 
-The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.
+Parallelism determines how many readers can run at the same time; the split configuration determines how many independent splits are available.
 
-**Split Key Rules:**
+### Recommended: `table_path` with dynamic splitting
 
-1. If `partition_column` is not null, It will be used to calculate split. The column must in **Supported split data type**.
-2. If `partition_column` is null, seatunnel will read the schema from table and get the Primary Key and Unique Index. If there are more than one column in Primary Key and Unique Index, The first column which in the **supported split data type** will be used to split data. For example, the table have Primary Key(nn guid, name varchar), because `guid` id not in **supported split data type**, so the column `name` will be used to split data.
+For a full-table snapshot, configure `table_path` and normally leave split-key discovery to SeaTunnel. The connector uses `partition_column` when provided. Otherwise it searches the primary key and then unique indexes for the first supported column. String, numeric, and date columns are supported split-key types.
 
-**Supported split data type:**
-* String
-* Number(int, bigint, decimal, ...)
-* Date
+`split.size` is the target row count per split. It is not a hard row limit: actual split sizes depend on key distribution and database statistics. If no supported primary key, unique index, or explicit `partition_column` exists, the table is read by one split even when job parallelism is greater than one.
 
-## tips
+### Top-level `query` with fixed partitions
 
-> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
->
-> Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
->
-> When inferring a primary key based on a `query`, the key is inherited from the underlying table where the first column in the result set is located, and its strictness for the overall join result set is not guaranteed (for example, when the query contains joins or reads from multiple tables).
+Only the top-level combination of `query` and `partition_column` selects the legacy fixed splitter; `partition_num` then controls the number of splits. The partition column must be present in the query result. Optional lower and upper bounds avoid extra `MIN`/`MAX` queries, but incorrect bounds can omit source rows, so use them only when the full data range is known.
 
-## appendix
+Entries inside `table_list` continue to use dynamic splitting even when they include `query` or partition settings. Do not expect `split.size` to affect the top-level fixed partition mode.
 
-there are some reference value for params above.
+### Query and primary-key caution
+
+When SeaTunnel infers a key for `query`, it inherits metadata from the underlying table of the first result column. For joins or multi-table queries, that key is not guaranteed to be unique across the complete result set. Prefer a single-reader query or explicitly choose a partition column whose values divide the result safely.
+
+## Driver reference
+
+The following values are starting points. Confirm the driver artifact, license, database compatibility, and Java compatibility with the database vendor before deployment.
 
 | datasource        | driver                                              | url                                                                    | maven                                                                                                                         |
 |-------------------|-----------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
@@ -275,14 +295,14 @@ there are some reference value for params above.
 | sqlserver         | com.microsoft.sqlserver.jdbc.SQLServerDriver        | jdbc:sqlserver://localhost:1433                                        | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
 | oracle            | oracle.jdbc.OracleDriver                            | jdbc:oracle:thin:@localhost:1521/xepdb1                                | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
 | sqlite            | org.sqlite.JDBC                                     | jdbc:sqlite:test.db                                                    | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
-| gbase8a           | com.gbase.jdbc.Driver                               | jdbc:gbase://e2e_gbase8aDb:5258/test                                   | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
+| gbase8a           | com.gbase.jdbc.Driver                               | jdbc:gbase://localhost:5258/test                                        | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                           |
 | starrocks         | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | db2               | com.ibm.db2.jcc.DB2Driver                           | jdbc:db2://localhost:50000/testdb                                      | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                                             |
-| tablestore        | com.alicloud.openservices.tablestore.jdbc.OTSDriver | "jdbc:ots:http s://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance" | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                                    |
+| tablestore        | com.alicloud.openservices.tablestore.jdbc.OTSDriver | `jdbc:ots:https://<instance_name>.<region_id>.ots.aliyuncs.com/<instance_name>` | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                           |
 | saphana           | com.sap.db.jdbc.Driver                              | jdbc:sap://localhost:39015                                             | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                                                |
 | doris             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | teradata          | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                                                 |
-| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com             | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                               |
+| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc&#58;snowflake://&lt;account_name&gt;.snowflakecomputing.com        | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                              |
 | Redshift          | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                                        |
 | Vertica           | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar                               |
 | Kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
@@ -294,58 +314,38 @@ there are some reference value for params above.
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
 | Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
-| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
 
-## Example
+## Common patterns
 
-### simple
+### Custom query
 
-#### Case 1
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
-```
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+source {
+  Jdbc {
+    url = "jdbc:mysql://mysql.example.com:3306/sales"
     driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    query = "select * from type_bin"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = "SELECT id, customer_name, amount FROM orders WHERE status = 'PAID'"
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 
-#### Case 2 Use the select count(*) instead of analysis table for count table rows in dynamic chunk split stage
+### Oracle BLOB as STRING
 
-```
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    use_select_count = true 
-    query = "select * from type_bin"
-}
-```
+Set `handle_blob_as_string = true` when Oracle BLOB values should be exposed as SeaTunnel STRING values, for example before writing them to Doris.
 
-#### Case 3 Use the select NUM_ROWS from all_tables for the table rows but skip the analyze table.
-
-```
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-    skip_analyze = true 
-    query = "select * from type_bin"
-}
-```
-
-#### Case 4 Oracle Source with BLOB as string to Doris Sink
-
-This example demonstrates how to handle Oracle's BLOB data as strings when transferring to Doris. This is useful for large BLOB fields.
-
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -354,36 +354,36 @@ env {
 source {
   Jdbc {
     driver = oracle.jdbc.driver.OracleDriver
-    url = "jdbc:oracle:thin:@oracle_host:1521/SERVICE_NAME"
-    user = "username"
-    password = "password"
+    url = "jdbc:oracle:thin:@oracle.example.com:1521/SERVICE_NAME"
+    username = "seatunnel_reader"
+    password = "change_me"
     query = "SELECT ID, NAME, CONTENT_BLOB FROM MY_TABLE"
     handle_blob_as_string = true  # Enable BLOB to String conversion for Oracle
   }
 }
+
+sink {
+  Console {}
+}
 ```
 
-### parallel by partition_column
+### Custom query partitioned by a column
 
-```
+```hocon
 env {
   parallelism = 10
   job.mode = "BATCH"
 }
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://mysql.example.com:3306/sales?serverTimezone=UTC"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
-        password = "123456"
-        query = "select * from type_bin"
+        username = "seatunnel_reader"
+        password = "change_me"
+        query = "SELECT id, customer_name, amount FROM orders"
         partition_column = "id"
-        partition_num = 10 # Replace split.size with partition_num
-        # Read start boundary
-        #partition_lower_bound = ...
-        # Read end boundary
-        #partition_upper_bound = ...
+        partition_num = 10
     }
 }
 
@@ -392,51 +392,53 @@ sink {
 }
 ```
 
-### Parallel Boundary
+### Explicit partition boundaries
 
-> It is more efficient to specify the data within the upper and lower bounds of the query. It is more efficient to read your data source according to the upper and lower boundaries you configured.
+Specify bounds only when they cover the complete source range. SeaTunnel does not read values outside the configured interval.
 
-```
+```hocon
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
+
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+        url = "jdbc:mysql://mysql.example.com:3306/sales?serverTimezone=UTC"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
-        password = "123456"
-        # Define query logic as required
-        query = "select * from type_bin"
+        username = "seatunnel_reader"
+        password = "change_me"
+        query = "SELECT id, customer_name, amount FROM orders"
         partition_column = "id"
-        # Read start boundary
         partition_lower_bound = 1
-        # Read end boundary
         partition_upper_bound = 500
         partition_num = 10
-        properties {
-         useSSL=false
-        }
     }
+}
+
+sink {
+  Console {}
 }
 ```
 
-### parallel by Primary Key or Unique Index
+### Dynamic splitting by primary key or unique index
 
-> Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
+This example uses `table_path` without the top-level `query` plus `partition_column` combination, so it uses dynamic splitting. Start with the default split settings, then tune `split.size` only after measuring the source database load and job throughput.
 
-```
+```hocon
 env {
   parallelism = 10
   job.mode = "BATCH"
 }
 source {
     Jdbc {
-        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        url = "jdbc:mysql://mysql.example.com:3306/sales?serverTimezone=UTC"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
-        password = "123456"
-        table_path = "testdb.table1"
-        query = "select * from testdb.table1"
+        username = "seatunnel_reader"
+        password = "change_me"
+        table_path = "sales.orders"
         split.size = 10000
     }
 }
@@ -446,42 +448,66 @@ sink {
 }
 ```
 
-### multiple table read
+### Multiple tables
 
-***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+Use `table_list` when different tables need different queries or matching rules.
 
 ```hocon
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:mysql://mysql.example.com:3306/sales?serverTimezone=UTC"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
+    username = "seatunnel_reader"
+    password = "change_me"
 
     table_list = [
         {
-          # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
-          table_path = "testdb.table1"
+          table_path = "sales.orders"
         },
         {
-          table_path = "testdb.table2"
-          # Use query filter rows & columns
-          query = "select id, name from testdb.table2 where id > 100"
+          table_path = "sales.customers"
+          query = "SELECT id, name FROM customers WHERE id > 100"
         },
         {
-          # Using regex to match multiple tables
-          table_path = "testdb.user_table\\d+"
+          table_path = "sales.archive_\\d+"
           use_regex = true
         }
     ]
-    #where_condition= "where id > 100"
-    #split.size = 10000
-    #split.even-distribution.factor.upper-bound = 100
-    #split.even-distribution.factor.lower-bound = 0.05
-    #split.sample-sharding.threshold = 1000
-    #split.inverse-sampling.rate = 1000
+  }
+}
+
+sink {
+  Console {}
 }
 ```
+
+## Troubleshooting
+
+### JDBC driver class cannot be found
+
+Confirm that the driver JAR is in the engine-specific directory on every execution node, that the configured `driver` class exists in that JAR, and that the affected process was restarted after the JAR was added.
+
+### Connection succeeds in a SQL client but fails in SeaTunnel
+
+The hostname must be reachable from the SeaTunnel process, not only from your laptop. Check network routing, firewall rules, TLS settings, credentials, database name, and `connection_check_timeout_sec`. Do not copy an example hostname without replacing it.
+
+### Table or columns cannot be discovered
+
+Check the database-specific `table_path` format, identifier case, and the account's metadata and `SELECT` privileges. For a custom query, first execute the exact SQL with the same account in a database client.
+
+### Parallelism does not increase the number of readers
+
+For dynamic splitting, verify that the table has a supported primary key or unique index, or configure `partition_column`. To select the legacy fixed splitter for a top-level `query`, configure both `partition_column` and a suitable `partition_num`. A table without a safe split key is intentionally read by one split.
+
+### Rows are missing after setting partition bounds
+
+`partition_lower_bound` and `partition_upper_bound` define the range SeaTunnel reads; they are not only performance hints. Remove them to let SeaTunnel discover the bounds, or correct them so they include every required row.
 
 ## Changelog
 

@@ -72,6 +72,9 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         configurePendingLifecycleTest(masterNode2Config);
         configurePendingLifecycleTest(workerNode1Config);
         configurePendingLifecycleTest(workerNode2Config);
+        // Both jobs enter the restore queue after master failover. Provide enough capacity for
+        // their resource pre-allocation regardless of the restore queue order.
+        workerNode2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(8);
 
         try {
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
