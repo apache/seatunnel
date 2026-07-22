@@ -21,6 +21,45 @@
 - 对“所有合法数据必须严格写入”具有较强 at-least-once 或 exactly-once 语义要求；
 - 使用复杂的多表 Sink 并希望在多个表之间保持严格一致性语义的场景。
 
+## 快速上手
+
+对大多数用户来说，最简单的试用方式是：只在 JDBC Sink 上开启该能力，并把失败的数据写入一张单独的 JDBC 错误表。
+
+1. 准备正常业务表和单独的错误表。错误表字段可参考[错误表结构](#错误表结构)。
+2. 保持原有正常 Sink 配置不变。
+3. 增加 `env.sink_error_handler`，并设置 `mode = "ROUTE"`。
+4. 在 `env.sink_error_handler.sink` 下配置错误 Sink。
+5. 使用 Zeta Engine 提交作业，作业运行后查看错误表。
+
+最小示例：
+
+```hocon
+env {
+  sink_error_handler {
+    mode = "ROUTE"
+    max_error_records = 10
+
+    sink {
+      plugin_name = "Jdbc"
+      url = "jdbc:mysql://localhost:3306/test"
+      driver = "com.mysql.cj.jdbc.Driver"
+      user = "root"
+      password = "******"
+      error_table = "orders_error"
+    }
+  }
+}
+```
+
+实际效果可以理解为：
+
+- 正常数据继续写入原来的 Sink。
+- 被判断为行级错误的数据会写入 `orders_error`。
+- 同一个 task attempt、同一个 subtask 中处理的行级错误超过 10 条时，作业失败。
+- 连接失败等系统级错误仍然会导致作业失败。
+
+如果您只是想先观察行级错误，可以把 `mode = "ROUTE"` 改成 `mode = "LOG"`。`LOG` 模式只会把错误信息写入日志，不会写入错误表。
+
 ## 整体思路
 
 启用错误处理后，Zeta 引擎对于每条记录的处理逻辑可概括为：

@@ -21,6 +21,45 @@ Scenarios where error handling is not recommended or should be used with caution
 - Strong at-least-once or exactly-once semantic requirements for "all valid data must be strictly written";
 - Scenarios using complex multi-table sinks and wishing to maintain strict consistency semantics across multiple tables.
 
+## Quick Start
+
+For most users, the simplest way to try this feature is to enable it only for a JDBC Sink and route failed rows to a separate JDBC error table.
+
+1. Prepare the normal business table and a separate error table. The error table should use the fields listed in [Error Table Structure](#error-table-structure).
+2. Keep the normal Sink configuration unchanged.
+3. Add `env.sink_error_handler` and set `mode = "ROUTE"`.
+4. Configure the error Sink under `env.sink_error_handler.sink`.
+5. Submit the job with Zeta Engine and check the error table after the job runs.
+
+Minimal example:
+
+```hocon
+env {
+  sink_error_handler {
+    mode = "ROUTE"
+    max_error_records = 10
+
+    sink {
+      plugin_name = "Jdbc"
+      url = "jdbc:mysql://localhost:3306/test"
+      driver = "com.mysql.cj.jdbc.Driver"
+      user = "root"
+      password = "******"
+      error_table = "orders_error"
+    }
+  }
+}
+```
+
+What this means in practice:
+
+- Valid rows continue to flow to the normal Sink.
+- Rows classified as row-level errors are written to `orders_error`.
+- If more than 10 row-level errors are handled by the same task attempt and subtask, the job fails.
+- System-level errors, such as connection failures, still fail the job.
+
+If you only want to observe row-level errors first, use `mode = "LOG"` instead of `mode = "ROUTE"`. In `LOG` mode, SeaTunnel records the error information in logs but does not write an error table.
+
 ## Overall Approach
 
 After enabling error handling, the Zeta engine's processing logic for each record can be summarized as:
