@@ -125,6 +125,18 @@ public class HttpClientProvider implements AutoCloseable {
             String body,
             boolean keepParamsAsForm)
             throws Exception {
+        // convert method option to uppercase
+        method = method.toUpperCase(Locale.ROOT);
+
+        // Preserve a configured POST body verbatim. Parsing it as HOCON and serializing the
+        // resulting map again flattens nested JSON keys (for example, data.type becomes
+        // data->type) before the request is sent.
+        if (HttpPost.METHOD_NAME.equals(method)
+                && !keepParamsAsForm
+                && !Strings.isNullOrEmpty(body)) {
+            return doPost(url, headers, params, body);
+        }
+
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
@@ -137,8 +149,6 @@ public class HttpClientProvider implements AutoCloseable {
                                             (v1, v2) -> v2));
         }
 
-        // convert method option to uppercase
-        method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
         if (HttpPost.METHOD_NAME.equals(method) && keepParamsAsForm) {
             // Compatible with old versions
@@ -481,6 +491,14 @@ public class HttpClientProvider implements AutoCloseable {
         addBody(httpPost, body);
         // return http response
         return getResponse(httpPost);
+    }
+
+    private HttpResponse doPost(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        return doPost(uriBuilder.build().toString(), headers, body);
     }
 
     /**
