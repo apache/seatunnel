@@ -162,6 +162,7 @@ const sidebars = {
                     "items": [
                         "getting-started/recipes/mysql-cdc-to-doris",
                         "getting-started/recipes/mysql-cdc-to-kafka",
+                        "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
@@ -261,6 +262,7 @@ const sidebars = {
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
                         "engines/zeta/telemetry",
+                        "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/web-ui",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/tuning-guide"
