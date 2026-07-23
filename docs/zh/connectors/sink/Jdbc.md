@@ -374,6 +374,8 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 | OceanBase（MySQL 模式） | 是 | `engine`、`charset`、`collate` |
 | PostgreSQL | 是 | `tablespace`、`fillfactor` |
 | 达梦 Dameng | 是 | `tablespace`、`fillfactor` |
+| Oracle | 是 | `tablespace`、`pctfree` |
+| OceanBase（Oracle 模式） | 是 | `tablespace`、`pctfree`（`compatible_mode=oracle` 时走 Oracle 方言 / DDL 路径） |
 | Kingbase | 是 | `tablespace`、`fillfactor` |
 | 其他 JDBC 方言 | 否 | 配置非空 `table_options` 时任务启动即校验失败 |
 
@@ -383,12 +385,13 @@ Sink 在自动建表（SaveMode DDL）时附加的表级选项。仅在 `schema_
 
 - **MySQL**：`engine`、`charset`、`collate` 均会写入 `CREATE TABLE` 并生效。
 - **TiDB**：通过 `jdbc:mysql://` 与 MySQL JDBC 驱动连接时，与 MySQL 使用相同的 key 白名单与 DDL 拼接方式。`charset`、`collate` 会生效；`engine` 仅为 MySQL 兼容语法，TiDB 会解析但**忽略**存储引擎设置。
-- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。OceanBase **Oracle 兼容模式**不支持 `table_options`，配置非空时任务启动即失败。
+- **OceanBase（MySQL 模式）**：`jdbc:oceanbase://` 且非 Oracle 兼容模式时支持上述三个 key。`charset`、`collate` 须为 OceanBase 当前版本支持的字符集与排序规则（通常为 MySQL 兼容子集，请以目标库 `SHOW CHARSET` / `SHOW COLLATION` 为准）；不支持的取值会在执行 `CREATE TABLE` 时报错，而非在作业提交阶段校验。
 - **PostgreSQL**：`fillfactor` 会生成 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持任意 `WITH` 参数）。OpenGauss、HighGo 通过 Postgres catalog/dialect 继承同一套校验与 DDL。
 - **达梦 Dameng**：`fillfactor` 与 `tablespace` 会写入达梦 `STORAGE (...)` 子句（`FILLFACTOR <n>`、`ON "<表空间>"`）。`fillfactor` 取值须为 `[0, 100]` 的整数；`tablespace` 按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持透传任意 `STORAGE` 参数如 `INITIAL` / `NEXT`）。表空间须已在目标库存在。
+- **Oracle / OceanBase（Oracle 模式）**：`pctfree` 会生成 `PCTFREE <n>`，取值须为 `[0, 99]` 的整数；`tablespace` 会生成 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持嵌套 `STORAGE (...)`、LOB/分区子句）。目标库中 tablespace 须事先存在。
 - **Kingbase**：`fillfactor` 会写入 `WITH (fillfactor=<n>)`，取值须为 `[10, 100]` 的整数（PostgreSQL 兼容）；`tablespace` 会写入 `TABLESPACE "..."`，按配置字面量引用（**不受** `fieldIde` 大小写改写）。空白值，以及 `tablespace` 中的非法字符（例如 `"`）会在作业提交阶段被拒绝。仅接受上述 curated key（不支持透传任意 `WITH (...)` 参数）。表空间须已在目标库存在。
 
-SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径）、达梦与 Kingbase，还会校验空白值与 `fillfactor` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
+SeaTunnel 在提交时会对所有支持 `table_options` 的方言校验 **key 白名单**。对 PostgreSQL（以及 OpenGauss / HighGo 同源路径）、达梦与 Kingbase，还会校验空白值与 `fillfactor` 数值区间。对 Oracle / OceanBase（Oracle 模式），还会校验空白值与 `pctfree` 数值区间。其他方言（例如 MySQL）在白名单之外不额外校验具体取值是否被目标库支持。
 
 示例（MySQL 自动建表时指定存储引擎与字符集）：
 
@@ -460,6 +463,28 @@ sink {
 ```
 
 生成的 DDL 会追加 `STORAGE (FILLFACTOR 80, ON "MAIN")`。
+
+示例（Oracle 自动建表时指定 tablespace 与 pctfree）：
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@localhost:1521/ORCLPDB1"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "scott"
+    password = "tiger"
+    database = "SCOTT"
+    table = "ORDERS"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "USERS"
+      "pctfree" = "10"
+    }
+  }
+}
+```
 
 示例（Kingbase 自动建表时指定表空间与 fillfactor）：
 
@@ -576,8 +601,8 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar   |
 | opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
-| Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
-| YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                       |
+| YashanDB   | com.yashandb.jdbc.Driver                     | jdbc:yasdb://localhost:1688/SYS                                    | /                                                  | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar          |
 
 ## 常用模式
 
