@@ -105,6 +105,12 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 The Bedrock provider preserves Claude `reasoningContent` blocks in streamed
 Converse responses when Bedrock returns them.
 
+> **Note:** Some newer Claude models on Bedrock reject the `temperature`
+> inference parameter. When a model returns this rejection, the provider
+> automatically retries the request without `temperature` and remembers the
+> model for the rest of the session, so subsequent calls skip the parameter.
+> For these models any configured temperature value is not applied.
+
 #### Option B: Anthropic API
 
 ```bash
@@ -394,6 +400,19 @@ Memory is stored locally at `.data/memory.json` (co-located with the CLI package
 | **Phase 3** | REST API | Optional validation via running SeaTunnel cluster |
 | **Auto-fix** | LLM-powered | Up to 3 rounds of automatic error correction during generation |
 | **Auto-repair** | LLM-powered | Automatic diagnosis and config patching on `/check` or `/run` failure |
+
+Local validation flags unresolved `${VAR}` placeholders as missing environment
+variables, with a field-aware exemption for SeaTunnel's engine-resolved file
+sink template placeholders (see the
+[LocalFile sink docs](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)):
+
+| Field | Engine placeholders allowed |
+|-------|-----------------------------|
+| `file_name_expression` | `${now}`, `${uuid}`, `${transactionId}` |
+| `partition_dir_expression` | `${k0}`, `${v0}`, `${k1}`, `${v1}`, ... |
+
+The same names used in any other field (URLs, credentials, paths) are treated
+as regular environment variables and reported if unset.
 
 ## Connector Metadata
 
