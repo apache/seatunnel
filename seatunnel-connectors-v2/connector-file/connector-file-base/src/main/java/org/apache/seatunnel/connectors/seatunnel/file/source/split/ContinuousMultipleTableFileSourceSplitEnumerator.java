@@ -908,6 +908,16 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.STALE_SKIPPED;
         }
 
+        if (!isVersionMatched(sourceStatus, op)) {
+            log.warn(
+                    "Post-sync backup skipped due to stale source version before rename: splitId={}, "
+                            + "source={}, checkpointId={}",
+                    op.getSplitId(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    checkpointId);
+            return OpCommitResult.STALE_SKIPPED;
+        }
+
         if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
             return OpCommitResult.FAILED_RETRYABLE;
         }
@@ -928,14 +938,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.SUCCESS;
         }
 
-        if (!isVersionMatched(targetStatus, op)) {
-            // A late write was captured — rename back without replacing a source that another
-            // writer recreated while the file was staged under the backup path.
+        if (targetStatus.getLen() != op.getSourceLength()) {
+            // Target mtime is not stable across every supported filesystem after rename, so the
+            // stale-write guard must use the source version captured before rename. After rename,
+            // only an unexpected length mismatch remains actionable here.
             try {
                 ctx.sourceFs.renameFile(op.getBackupTargetPath(), op.getSourcePath(), false);
             } catch (Exception rollbackEx) {
                 log.error(
-                        "Post-sync backup: failed to rollback after version mismatch; operation will "
+                        "Post-sync backup: failed to rollback after length mismatch; operation will "
                                 + "be retried: source={}, target={}, checkpointId={}",
                         maskUriUserInfo(op.getSourcePath()),
                         maskUriUserInfo(op.getBackupTargetPath()),
@@ -944,9 +955,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 return OpCommitResult.FAILED_RETRYABLE;
             }
             log.warn(
-                    "Post-sync backup skipped due to stale version after rename: splitId={}, source={}",
+                    "Post-sync backup skipped due to unexpected target length after rename: "
+                            + "splitId={}, source={}, target={}, expectedLen={}, actualLen={}",
                     op.getSplitId(),
-                    maskUriUserInfo(op.getSourcePath()));
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(op.getBackupTargetPath()),
+                    op.getSourceLength(),
+                    targetStatus.getLen());
             return OpCommitResult.STALE_SKIPPED;
         }
 

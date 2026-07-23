@@ -1070,6 +1070,74 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testPostSyncBackupDoesNotRollbackWhenRenameChangesBackupMtime() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_backup_mtime"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_backup_mtime"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_backup_mtime"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+        Files.write(dstFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            HadoopFileSystemProxy sourceFs =
+                    getTableScanContextFileSystem(enumeratorWithContext.enumerator, "sourceFs");
+            HadoopFileSystemProxy mtimeMutatingSourceFs = Mockito.spy(sourceFs);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+            Mockito.doAnswer(
+                            invocation -> {
+                                invocation.callRealMethod();
+                                String newFilePath = invocation.getArgument(1);
+                                Path renamedPath =
+                                        java.nio.file.Paths.get(
+                                                new org.apache.hadoop.fs.Path(newFilePath).toUri());
+                                if (renamedPath.startsWith(backupDir)) {
+                                    Files.setLastModifiedTime(
+                                            renamedPath,
+                                            FileTime.fromMillis(
+                                                    System.currentTimeMillis() + 60_000));
+                                }
+                                return null;
+                            })
+                    .when(mtimeMutatingSourceFs)
+                    .renameFile(Mockito.anyString(), Mockito.anyString(), Mockito.anyBoolean());
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "sourceFs", mtimeMutatingSourceFs);
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "targetFs", mtimeMutatingSourceFs);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertFalse(
+                    Files.exists(srcFile),
+                    "backup commit should not restore the source file when only backup mtime changes");
+            Assertions.assertTrue(
+                    Files.exists(backupTarget),
+                    "backup target should remain in place after a successful backup commit");
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(2L);
+            Assertions.assertFalse(
+                    state.getPendingOpsByCheckpoint().containsKey(1L),
+                    "successful backup commit should clear the pending checkpoint operation");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testPostSyncBackupRetainsInconsistentRestoreForRetry() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14_inconsistent_restore_backup"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst14_inconsistent_restore_backup"));
@@ -1484,6 +1552,36 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                         "knownSplitVersions");
         field.setAccessible(true);
         return ((Map<String, Object>) field.get(enumerator)).size();
+    }
+
+    private static HadoopFileSystemProxy getTableScanContextFileSystem(
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator, String fieldName)
+            throws ReflectiveOperationException {
+        Field tableScanContextsField =
+                ContinuousMultipleTableFileSourceSplitEnumerator.class.getDeclaredField(
+                        "tableScanContexts");
+        tableScanContextsField.setAccessible(true);
+        List<?> tableScanContexts = (List<?>) tableScanContextsField.get(enumerator);
+        Object tableScanContext = tableScanContexts.get(0);
+        Field fileSystemField = tableScanContext.getClass().getDeclaredField(fieldName);
+        fileSystemField.setAccessible(true);
+        return (HadoopFileSystemProxy) fileSystemField.get(tableScanContext);
+    }
+
+    private static void setTableScanContextFileSystem(
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator,
+            String fieldName,
+            HadoopFileSystemProxy fileSystem)
+            throws ReflectiveOperationException {
+        Field tableScanContextsField =
+                ContinuousMultipleTableFileSourceSplitEnumerator.class.getDeclaredField(
+                        "tableScanContexts");
+        tableScanContextsField.setAccessible(true);
+        List<?> tableScanContexts = (List<?>) tableScanContextsField.get(enumerator);
+        Object tableScanContext = tableScanContexts.get(0);
+        Field fileSystemField = tableScanContext.getClass().getDeclaredField(fieldName);
+        fileSystemField.setAccessible(true);
+        fileSystemField.set(tableScanContext, fileSystem);
     }
 
     private static class LocalConf extends HadoopConf {
