@@ -53,7 +53,7 @@ github:
   protected_branches:
     dev:
       required_status_checks:
-        strict: true
+        strict: false
         checks:
           - context: Build
             app_id: 15368
