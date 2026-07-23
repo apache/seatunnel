@@ -376,22 +376,20 @@ public class MultiTableSinkWriterTest {
                         2,
                         sinkWritersContext,
                         MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
-                        JobMode.BATCH,
-                        1,
-                        0);
+                        JobMode.BATCH);
 
         Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
-        Assertions.assertEquals(2, failedFlushCount.get());
+        Assertions.assertEquals(1, failedFlushCount.get());
         Assertions.assertEquals(1, healthyFlushCount.get());
 
         Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
-        Assertions.assertEquals(2, failedFlushCount.get());
+        Assertions.assertEquals(1, failedFlushCount.get());
         Assertions.assertEquals(2, healthyFlushCount.get());
 
         IOException closeException =
                 Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
-        Assertions.assertTrue(closeException.getMessage().contains("phase=runtime_write"));
+        Assertions.assertTrue(closeException.getMessage().contains("phase=timer_flush"));
     }
 
     @Test
@@ -425,9 +423,7 @@ public class MultiTableSinkWriterTest {
                         2,
                         sinkWritersContext,
                         MultiTableFailurePolicy.FAIL_FAST,
-                        JobMode.BATCH,
-                        1,
-                        0);
+                        JobMode.BATCH);
 
         IOException flushException =
                 Assertions.assertThrows(
