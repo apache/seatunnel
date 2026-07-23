@@ -60,7 +60,7 @@ import java.util.stream.Stream;
 
 public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(DatabendCDCSinkIT.class);
-    private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:v1.2.71-nightly";
+    private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:nightly";
     private static final String DATABEND_CONTAINER_HOST = "databend";
     private static final int PORT = 8000;
     private static final int LOCAL_PORT = 8000;
@@ -249,7 +249,8 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                                 .withEnv("STORAGE_S3_REGION", "us-east-1")
                                 .withEnv("STORAGE_S3_ENABLE_VIRTUAL_HOST_STYLE", "false")
                                 .withEnv("STORAGE_S3_FORCE_PATH_STYLE", "true")
-                                .withUrlParam("ssl", "false");
+                                .withUrlParam("ssl", "false")
+                                .withStartupTimeout(Duration.ofSeconds(120));
 
                 this.container.setPortBindings(
                         Lists.newArrayList(
