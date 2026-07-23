@@ -60,7 +60,7 @@ import java.util.stream.Stream;
 
 public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(DatabendCDCSinkIT.class);
-    private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:nightly";
+    private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:v1.2.71-nightly";
     private static final String DATABEND_CONTAINER_HOST = "databend";
     private static final int PORT = 8000;
     private static final int LOCAL_PORT = 8000;
@@ -68,6 +68,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String DATABEND_CDC_JOB_CONFIG = "/databend/fake_to_databend_cdc.conf";
     private static final int MAX_JOB_SUBMIT_ATTEMPTS = 2;
     private static final int JOB_SUBMIT_RETRY_INTERVAL_SECONDS = 10;
+    private static final int MAX_CONTAINER_START_ATTEMPTS = 3;
     private DatabendContainer container;
     private GenericContainer<?> minioContainer;
     private Connection connection;
@@ -231,34 +232,67 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         if (!bucketCreated) {
             LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
         }
-        this.container =
-                new DatabendContainer(DATABEND_DOCKER_IMAGE)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(DATABEND_CONTAINER_HOST)
-                        .withUsername("root")
-                        .withPassword("")
-                        .withEnv("STORAGE_TYPE", "s3")
-                        .withEnv("STORAGE_S3_ENDPOINT_URL", "http://minio:9000")
-                        .withEnv("STORAGE_S3_ACCESS_KEY_ID", "minioadmin")
-                        .withEnv("STORAGE_S3_SECRET_ACCESS_KEY", "minioadmin")
-                        .withEnv("STORAGE_S3_BUCKET", "databend")
-                        .withEnv("STORAGE_S3_REGION", "us-east-1")
-                        .withEnv("STORAGE_S3_ENABLE_VIRTUAL_HOST_STYLE", "false")
-                        .withEnv("STORAGE_S3_FORCE_PATH_STYLE", "true")
-                        .withUrlParam("ssl", "false");
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= MAX_CONTAINER_START_ATTEMPTS; attempt++) {
+            try {
+                this.container =
+                        new DatabendContainer(DATABEND_DOCKER_IMAGE)
+                                .withNetwork(NETWORK)
+                                .withNetworkAliases(DATABEND_CONTAINER_HOST)
+                                .withUsername("root")
+                                .withPassword("")
+                                .withEnv("STORAGE_TYPE", "s3")
+                                .withEnv("STORAGE_S3_ENDPOINT_URL", "http://minio:9000")
+                                .withEnv("STORAGE_S3_ACCESS_KEY_ID", "minioadmin")
+                                .withEnv("STORAGE_S3_SECRET_ACCESS_KEY", "minioadmin")
+                                .withEnv("STORAGE_S3_BUCKET", "databend")
+                                .withEnv("STORAGE_S3_REGION", "us-east-1")
+                                .withEnv("STORAGE_S3_ENABLE_VIRTUAL_HOST_STYLE", "false")
+                                .withEnv("STORAGE_S3_FORCE_PATH_STYLE", "true")
+                                .withUrlParam("ssl", "false");
 
-        this.container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", LOCAL_PORT, PORT) // host 8000 map to container port 8000
-                        ));
+                this.container.setPortBindings(
+                        Lists.newArrayList(
+                                String.format(
+                                        "%s:%s",
+                                        LOCAL_PORT, PORT) // host 8000 map to container port 8000
+                                ));
 
-        Startables.deepStart(Stream.of(this.container)).join();
-        LOG.info("Databend container started");
-        Awaitility.given()
-                .ignoreExceptions()
-                .atMost(360, TimeUnit.SECONDS)
-                .untilAsserted(this::initConnection);
+                Startables.deepStart(Stream.of(this.container)).join();
+                LOG.info("Databend container started");
+                Awaitility.given()
+                        .ignoreExceptions()
+                        .atMost(360, TimeUnit.SECONDS)
+                        .untilAsserted(this::initConnection);
+                LOG.info("Databend connection initialized successfully");
+                break;
+            } catch (Exception e) {
+                lastException = e;
+                LOG.warn(
+                        "Databend container startup attempt {}/{} failed: {}",
+                        attempt,
+                        MAX_CONTAINER_START_ATTEMPTS,
+                        e.getMessage());
+                if (this.container != null) {
+                    try {
+                        this.container.stop();
+                    } catch (Exception ignored) {
+                        // Ignore cleanup errors
+                    }
+                }
+                if (attempt < MAX_CONTAINER_START_ATTEMPTS) {
+                    LOG.info("Waiting 10s before retrying Databend container startup...");
+                    TimeUnit.SECONDS.sleep(10);
+                }
+            }
+        }
+        if (this.connection == null) {
+            throw new RuntimeException(
+                    "Failed to start Databend container after "
+                            + MAX_CONTAINER_START_ATTEMPTS
+                            + " attempts",
+                    lastException);
+        }
 
         this.initializeDatabendTable();
     }
