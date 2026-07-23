@@ -1175,7 +1175,7 @@ public abstract class BaseService {
                                                         .sum()));
     }
 
-    private JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
+    public JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
@@ -1186,7 +1186,12 @@ public abstract class BaseService {
                         if (value instanceof Float
                                 || value instanceof Double
                                 || value instanceof BigDecimal) {
-                            strValue = new BigDecimal(value.toString()).toPlainString();
+                            if ((value instanceof Double && !Double.isFinite((Double) value))
+                                    || (value instanceof Float && !Float.isFinite((Float) value))) {
+                                strValue = value.toString();
+                            } else {
+                                strValue = new BigDecimal(value.toString()).toPlainString();
+                            }
                         } else {
                             strValue = value.toString();
                         }
