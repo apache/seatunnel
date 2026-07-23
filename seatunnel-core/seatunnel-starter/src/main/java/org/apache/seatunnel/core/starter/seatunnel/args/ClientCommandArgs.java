@@ -27,6 +27,7 @@ import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
@@ -45,9 +46,16 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"-d", "--dry-run"},
-            description = "Validate without running the job. Supported modes: [static, connect].",
+            description =
+                    "Validate or preview without running sinks. Supported modes: [static, connect, sample].",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
+
+    @Parameter(
+            names = {"--sample-limit"},
+            description = "Maximum rows read from each source by sample dry-run mode",
+            validateWith = PositiveIntegerValidator.class)
+    private int sampleLimit = DryRunSampleConfig.DEFAULT_LIMIT;
 
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
@@ -147,6 +155,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
+        if (dryRun == DryRun.SAMPLE) {
+            validateSampleMode();
+            return new ClientExecuteCommand(this);
+        }
         if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
@@ -178,11 +190,41 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                     || DryRun.CONNECT.name().equalsIgnoreCase(trimmed)) {
                 return DryRun.CONNECT;
             }
+            if (DryRun.SAMPLE.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.SAMPLE.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.SAMPLE;
+            }
             throw new IllegalArgumentException(
                     "Unsupported dry-run mode '"
                             + value
-                            + "'. Currently only [static, connect] are supported; sample and shadow"
-                            + " are not implemented yet.");
+                            + "'. Currently only [static, connect, sample] are supported; shadow"
+                            + " is not implemented yet.");
+        }
+    }
+
+    private void validateSampleMode() {
+        if (masterType != MasterType.LOCAL) {
+            throw new ParameterException("Sample dry-run mode requires --master local.");
+        }
+        if (async) {
+            throw new ParameterException("Sample dry-run mode does not support --async.");
+        }
+        if (restoreJobId != null || savePointJobId != null) {
+            throw new ParameterException(
+                    "Sample dry-run mode does not support restore or savepoint operations.");
+        }
+    }
+
+    public static class PositiveIntegerValidator implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            try {
+                if (Integer.parseInt(value) < 1) {
+                    throw new ParameterException(name + " must be greater than zero.");
+                }
+            } catch (NumberFormatException e) {
+                throw new ParameterException(name + " must be an integer.", e);
+            }
         }
     }
 

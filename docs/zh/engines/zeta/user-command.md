@@ -33,7 +33,7 @@ Usage: seatunnel.sh [options]
                                               --encrypt will take effect (default:
                                               false)
     -d, --dry-run                             Run the job in dry-run mode, support
-                                              [static, connect]
+                                              [static, connect, sample]
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt
@@ -49,6 +49,7 @@ Usage: seatunnel.sh [options]
     -n, --name                                SeaTunnel job name (default: SeaTunnel)
     -r, --restore, --restore-job              restore with savepoint by jobId
     -s, --savepoint, --savepoint-job          savepoint job by jobId
+    --sample-limit                            Maximum rows read from each source by sample dry-run mode (default: 10)
     -i, --variable                            Variable substitution, such as -i
                                               city=beijing, or -i date=20190318.We use
                                               ',' as separator, when inside "", ',' are
@@ -100,6 +101,14 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 
 - `VALIDATED` – 连接器执行了真实的连通性和/或 schema 校验。
 - `SKIPPED` – 连接器不支持 connect dry-run 校验。**对于 `SKIPPED` 的插件，`--dry-run connect` 成功并不代表其凭据或可达性得到了验证。** 对于不支持 dry-run 的 source，配置中显式声明的 schema 字段（`schema` / `tableConfigs` / `table_list` 中的 `fields` 或 `columns`）仍会用于下游 schema 校验；如果配置中也没有声明 schema 字段，则该管道的下游 transform/sink schema 校验同样会报告为 `SKIPPED`，而不是基于占位 schema 进行校验。
+
+### 预览样例数据
+
+```shell
+bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10
+```
+
+`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema 和每个 source 中指定数量的样例数据。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复或 savepoint 操作。
 
 ## 查看作业列表
 

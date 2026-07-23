@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
@@ -88,6 +89,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final Counter flushSignalTotal;
     private final Meter flushSignalQPS;
     private final LongSupplier currentTimeMillisSupplier;
+    private final boolean dryRunSampleEnabled;
+    private final int dryRunSampleLimit;
+    private final Runnable dryRunSampleComplete;
+    private int dryRunSampleCount;
 
     public SeaTunnelSourceCollector(
             Object checkpointLock,
@@ -107,6 +112,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 tablePaths,
                 runningTask,
                 engineConfig,
+                null,
                 null,
                 System::currentTimeMillis);
     }
@@ -130,6 +136,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 tablePaths,
                 runningTask,
                 engineConfig,
+                null,
                 null,
                 currentTimeMillisSupplier);
     }
@@ -155,6 +162,32 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 runningTask,
                 engineConfig,
                 taskEnvOption,
+                null,
+                System::currentTimeMillis);
+    }
+
+    public SeaTunnelSourceCollector(
+            Object checkpointLock,
+            List<OneInputFlowLifeCycle<Record<?>>> outputs,
+            MetricsContext metricsContext,
+            FlowControlStrategy flowControlStrategy,
+            SeaTunnelDataType rowType,
+            List<TablePath> tablePaths,
+            SeaTunnelTask runningTask,
+            EngineConfig engineConfig,
+            Map<String, Object> taskEnvOption,
+            Runnable dryRunSampleComplete) {
+        this(
+                checkpointLock,
+                outputs,
+                metricsContext,
+                flowControlStrategy,
+                rowType,
+                tablePaths,
+                runningTask,
+                engineConfig,
+                taskEnvOption,
+                dryRunSampleComplete,
                 System::currentTimeMillis);
     }
 
@@ -168,6 +201,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             SeaTunnelTask runningTask,
             EngineConfig engineConfig,
             Map<String, Object> taskEnvOption,
+            Runnable dryRunSampleComplete,
             LongSupplier currentTimeMillisSupplier) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
@@ -176,6 +210,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 currentTimeMillisSupplier != null
                         ? currentTimeMillisSupplier
                         : System::currentTimeMillis;
+        this.dryRunSampleEnabled =
+                taskEnvOption != null && DryRunSampleConfig.isEnabled(taskEnvOption);
+        this.dryRunSampleLimit =
+                this.dryRunSampleEnabled ? DryRunSampleConfig.getLimit(taskEnvOption) : 0;
+        this.dryRunSampleComplete = dryRunSampleComplete;
         if (rowType instanceof MultipleRowType) {
             ((MultipleRowType) rowType)
                     .iterator()
@@ -237,11 +276,17 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } else {
             this.stainTraceSampler = null;
         }
+        if (dryRunSampleEnabled) {
+            log.info("Dry-run sample [source] schema: {}", rowType);
+        }
     }
 
     /** Updates source-side metrics, samples new traces when enabled, and forwards the record. */
     @Override
     public void collect(T row) {
+        if (dryRunSampleEnabled && dryRunSampleCount >= dryRunSampleLimit) {
+            return;
+        }
         try {
             if (row instanceof SeaTunnelRow) {
                 String tableId = ((SeaTunnelRow) row).getTableId();
@@ -260,8 +305,17 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 connectorMetricsCalcContext.updateMetrics(row, tableId);
                 tryStainTrace((SeaTunnelRow) row);
             }
+            if (dryRunSampleEnabled) {
+                dryRunSampleCount++;
+                log.info("Dry-run sample [source] row {}: {}", dryRunSampleCount, row);
+            }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;
+            if (dryRunSampleEnabled) {
+                if (dryRunSampleCount == dryRunSampleLimit && dryRunSampleComplete != null) {
+                    dryRunSampleComplete.run();
+                }
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -113,7 +113,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             tablePaths,
                             this,
                             engineConfig,
-                            envOption);
+                            envOption,
+                            () ->
+                                    ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                                            .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

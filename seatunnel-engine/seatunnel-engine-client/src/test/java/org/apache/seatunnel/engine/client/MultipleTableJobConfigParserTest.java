@@ -42,6 +42,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
@@ -71,6 +72,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @Test
+    public void testSampleDryRunReplacesConfiguredSink() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig.getEnvOptions(), 10);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertFalse(parsed.getLeft().isEmpty());
+        parsed.getLeft()
+                .forEach(
+                        action -> {
+                            Assertions.assertInstanceOf(SinkAction.class, action);
+                            Assertions.assertEquals(
+                                    "dry-run-sample",
+                                    ((SinkAction<?, ?, ?, ?>) action).getSink().getPluginName());
+                            Assertions.assertEquals(1, action.getParallelism());
+                        });
+        Assertions.assertFalse(jobConfig.getJobContext().isEnableCheckpoint());
+    }
 
     @Test
     public void testSimpleJobParse() {

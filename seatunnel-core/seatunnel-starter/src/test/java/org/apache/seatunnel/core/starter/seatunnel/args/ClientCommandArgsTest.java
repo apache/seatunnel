@@ -21,8 +21,10 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
+import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -86,18 +88,72 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testSampleDryRunParam() {
+        String[] args = {
+            "-c", "app.conf", "--master", "local", "--dry-run", "sample", "--sample-limit", "5"
+        };
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertEquals(DryRun.SAMPLE, clientCommandArgs.getDryRun());
+        Assertions.assertEquals(5, clientCommandArgs.getSampleLimit());
+        Assertions.assertInstanceOf(ClientExecuteCommand.class, clientCommandArgs.buildCommand());
+    }
+
+    @Test
+    public void testSampleDryRunDefaultLimit() {
+        String[] args = {"-c", "app.conf", "--master", "local", "--dry-run", "sample"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertEquals(10, clientCommandArgs.getSampleLimit());
+    }
+
+    @Test
+    public void testSampleDryRunExecutesWithoutConfiguredSink() throws Exception {
+        String configFile = MultiTableSinkTest.getTestConfigFile("/config/fake_to_inmemory.json");
+        InMemorySinkWriter.getEvents().clear();
+        ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
+        clientCommandArgs.setDryRun(DryRun.SAMPLE);
+        clientCommandArgs.setSampleLimit(3);
+
+        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
+        Assertions.assertTrue(InMemorySinkWriter.getEvents().isEmpty());
+    }
+
+    @Test
+    public void testSampleDryRunRequiresLocalMaster() {
+        String[] args = {"-c", "app.conf", "--dry-run", "sample"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class, clientCommandArgs::buildCommand);
+    }
+
+    @Test
+    public void testSampleDryRunRejectsInvalidLimit() {
+        ClientCommandArgs.PositiveIntegerValidator validator =
+                new ClientCommandArgs.PositiveIntegerValidator();
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class,
+                () -> validator.validate("--sample-limit", "0"));
+    }
+
+    @Test
     public void testDryRunConverterWithValidStatic() {
         ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
         Assertions.assertEquals(DryRun.STATIC, converter.convert("static"));
         Assertions.assertEquals(DryRun.STATIC, converter.convert("STATIC"));
         Assertions.assertEquals(DryRun.CONNECT, converter.convert("connect"));
         Assertions.assertEquals(DryRun.CONNECT, converter.convert("CONNECT"));
+        Assertions.assertEquals(DryRun.SAMPLE, converter.convert("sample"));
+        Assertions.assertEquals(DryRun.SAMPLE, converter.convert("SAMPLE"));
     }
 
     @Test
     public void testDryRunConverterRejectsUnsupportedModes() {
         ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
-        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("sample"));
         Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("shadow"));
     }
 
@@ -109,7 +165,7 @@ public class ClientCommandArgsTest {
                         IllegalArgumentException.class,
                         () -> converter.convert("nonexistent_mode"));
         Assertions.assertTrue(
-                ex.getMessage().contains("Currently only [static, connect] are supported"),
+                ex.getMessage().contains("Currently only [static, connect, sample] are supported"),
                 "Actual: " + ex.getMessage());
     }
 
