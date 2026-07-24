@@ -169,7 +169,6 @@ public class SourceOptions {
                 .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
                 .optional(INCREMENTAL_PARALLELISM)
                 .optional(DEBEZIUM_PROPERTIES)
-                .optional(ENABLE_CONCURRENT_READ)
-                .optional(SCHEMA_CHANGES_BEHAVIOR);
+                .optional(ENABLE_CONCURRENT_READ);
     }
 }
