@@ -480,9 +480,11 @@ public class SeaTunnelEngineClusterRoleTest {
                                                     && jobClient
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
-            jobClient.cancelJob(jobId);
-            await().pollDelay(10000, TimeUnit.MILLISECONDS)
-                    .atMost(120000, TimeUnit.MILLISECONDS)
+            // This test verifies job queries after a master handoff, not graceful cancellation.
+            // Force cancellation avoids waiting for checkpoint teardown on the promoted master.
+            jobClient.cancelJob(jobId, true);
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .pollDelay(5, TimeUnit.SECONDS)
                     .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {

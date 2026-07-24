@@ -53,6 +53,7 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -320,9 +321,10 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
+        long jobId = jobMaster.getJobId();
         // Savepoint restore can overlap old slot release with new task scheduling for a short time.
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 4);
+                .until(() -> getAssignedSlotCount(slotService, jobId) == 4);
 
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
         SubPlan subPlan = jobMaster.getPhysicalPlan().getPipelineList().get(0);
@@ -357,7 +359,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                 checkpointCoordinator.getClosedIdleTask().size()
                                         >= expectedClosedIdleTaskSize);
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 3);
+                .until(() -> getAssignedSlotCount(slotService, jobId) == 3);
+    }
+
+    private long getAssignedSlotCount(SlotService slotService, long jobId) {
+        return Arrays.stream(slotService.getWorkerProfile().getAssignedSlots())
+                .filter(slotProfile -> slotProfile.getOwnerJobID() == jobId)
+                .count();
     }
 
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
