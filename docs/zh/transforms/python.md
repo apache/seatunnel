@@ -33,7 +33,9 @@ SeaTunnel Worker 运行节点上可见的 Python 脚本路径。`source_code` �
 
 ### python_executable [string]
 
-启动 Worker 进程时使用的 Python 可执行文件，默认值为 `python3`。当使用默认值时，SeaTunnel 还会额外尝试 `python` 作为回退。
+启动 Worker 进程时使用的 Python 可执行文件，默认值为 `python3`。当使用默认值时，SeaTunnel 会先从 `PATH` 解析 `python3`，失败后再解析 `python` 作为回退。
+
+当该 Transform 被启用后，最终实际启动的解释器必须出现在服务端系统属性 `seatunnel.transform.python.allowed-executables` 中。生产环境建议把 `python_executable` 显式设置为绝对路径，例如 `/usr/bin/python3`。
 
 ### script_config [map]
 
@@ -100,7 +102,9 @@ Python 脚本返回的输出字段名。
 
 ## 安全
 
+- 该 Transform 默认禁用。集群管理员必须在每个 Worker 节点上同时设置 `-Dseatunnel.transform.python.enabled=true` 和 `-Dseatunnel.transform.python.allowed-executables=/absolute/path/to/python3,/absolute/path/to/python`，任务才能启动 Python Worker。
 - 本 Transform 会在没有沙箱隔离的情况下运行用户配置的 `python_executable` 和 Python 代码，并继承 SeaTunnel Worker 进程的操作系统权限。由于 `python_executable` 可以指向任意可执行文件，集群管理员必须限制可提交或修改此类任务的用户范围。
+- 每次启动 Python Worker 时，SeaTunnel 都会把最终解析到的解释器绝对路径和脚本来源写入安全告警日志，便于审计。
 - 请只运行可信脚本，不要在 `source_code` 或 `script_config` 中放置密钥等敏感信息。
 - SeaTunnel 只管理直接启动的 Python Worker 进程，不会按进程树终止用户代码创建的子进程；这类进程必须由外部沙箱或进程监管器限制。
 
@@ -120,6 +124,7 @@ transform {
   Python {
     plugin_input = "fake"
     plugin_output = "python_out"
+    python_executable = "/usr/bin/python3"
     script_config = {
       prefix = "user:"
     }
@@ -151,6 +156,7 @@ transform {
   Python {
     plugin_input = "fake"
     plugin_output = "python_out"
+    python_executable = "/usr/bin/python3"
     source_code_path = "/tmp/python_transform.py"
     columns = [
       {

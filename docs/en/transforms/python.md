@@ -33,7 +33,9 @@ Absolute or runtime-visible path of the Python script on the SeaTunnel worker ho
 
 ### python_executable [string]
 
-Python executable used to start the worker process. The default value is `python3`. When the default value is used, SeaTunnel will also try `python` as a fallback.
+Python executable used to start the worker process. The default value is `python3`. When the default value is used, SeaTunnel will also try `python` as a fallback after resolving both commands from `PATH`.
+
+When the transform is enabled, the executable actually launched must be present in the server-side system property `seatunnel.transform.python.allowed-executables`. In production, prefer setting `python_executable` to an absolute path such as `/usr/bin/python3`.
 
 ### script_config [map]
 
@@ -100,7 +102,9 @@ If the return shape does not match the declared `columns`, SeaTunnel will fail t
 
 ## Security
 
+- This transform is disabled by default. Operators must set `-Dseatunnel.transform.python.enabled=true` and configure `-Dseatunnel.transform.python.allowed-executables=/absolute/path/to/python3,/absolute/path/to/python` on every worker node before any job can start a Python worker.
 - This transform runs the user-configured `python_executable` and Python code without a sandbox, using the operating-system permissions of the SeaTunnel worker process. Because `python_executable` can reference any executable, operators must restrict who can submit or modify jobs that use this transform.
+- SeaTunnel logs the resolved interpreter path and script origin every time a Python worker starts so operators can audit usage.
 - Only run trusted scripts, and do not place secrets in `source_code` or `script_config`.
 - SeaTunnel manages only the direct Python worker process. Child processes started by user code are not terminated as a process tree and must be bounded by an external sandbox or process supervisor.
 
@@ -120,6 +124,7 @@ transform {
   Python {
     plugin_input = "fake"
     plugin_output = "python_out"
+    python_executable = "/usr/bin/python3"
     script_config = {
       prefix = "user:"
     }
@@ -151,6 +156,7 @@ transform {
   Python {
     plugin_input = "fake"
     plugin_output = "python_out"
+    python_executable = "/usr/bin/python3"
     source_code_path = "/tmp/python_transform.py"
     columns = [
       {

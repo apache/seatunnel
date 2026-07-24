@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -50,18 +51,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.INIT_PYTHON_PROCESS_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.INVALID_PYTHON_RESULT_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.LOAD_WORKER_SCRIPT_ERROR;
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.PYTHON_EXECUTABLE_NOT_ALLOWED;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.PYTHON_EXECUTION_ERROR;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.PYTHON_PROCESS_TERMINATED_ERROR;
+import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.PYTHON_TRANSFORM_DISABLED;
 import static org.apache.seatunnel.transform.python.PythonTransformErrorCode.START_PYTHON_PROCESS_ERROR;
 
 /** Manages the long-lived Python subprocess used to execute row-level transform logic. */
@@ -87,6 +94,13 @@ class PythonProcessWorker {
 
     /** Default executable name used when no python runtime is configured explicitly. */
     private static final String DEFAULT_PYTHON_EXECUTABLE = "python3";
+
+    /** Server-side gate that must be enabled before any Python worker may start. */
+    static final String PYTHON_TRANSFORM_ENABLED_PROPERTY = "seatunnel.transform.python.enabled";
+
+    /** Server-side allowlist of absolute python interpreter paths accepted at runtime. */
+    static final String PYTHON_ALLOWED_EXECUTABLES_PROPERTY =
+            "seatunnel.transform.python.allowed-executables";
 
     /** Immutable transform configuration shared by all processed rows. */
     private final PythonTransformConfig transformConfig;
@@ -692,41 +706,237 @@ class PythonProcessWorker {
      * @throws IOException when all executable candidates fail
      */
     private Process startPythonProcess(Path workerPath, Path userScriptPath) throws IOException {
-        List<String> candidates = resolvePythonCandidates(transformConfig.getPythonExecutable());
-        IOException lastException = null;
-        for (String candidate : candidates) {
-            try {
-                ProcessBuilder builder =
-                        new ProcessBuilder(
-                                candidate, workerPath.toString(), userScriptPath.toString());
-                builder.redirectErrorStream(false);
-                return builder.start();
-            } catch (IOException e) {
-                lastException = e;
+        Path resolvedExecutable = resolvePythonExecutable();
+        logPythonSecurityWarning(resolvedExecutable, userScriptPath);
+        ProcessBuilder builder =
+                new ProcessBuilder(
+                        resolvedExecutable.toString(),
+                        workerPath.toString(),
+                        userScriptPath.toString());
+        builder.redirectErrorStream(false);
+        return builder.start();
+    }
+
+    /** Resolves and validates the concrete python executable allowed by the server policy. */
+    private Path resolvePythonExecutable() throws IOException {
+        ensurePythonTransformEnabled();
+        List<Path> allowedExecutables = parseAllowedExecutables();
+        String configuredExecutable = transformConfig.getPythonExecutable();
+        List<Path> candidates = resolvePythonCandidates(configuredExecutable);
+        for (Path candidate : candidates) {
+            if (isAllowedExecutable(candidate, allowedExecutables)) {
+                return candidate;
             }
         }
-        throw new IOException(
-                START_PYTHON_PROCESS_ERROR.getDescription()
-                        + ": "
-                        + Arrays.toString(candidates.toArray())
-                        + " -> "
-                        + (lastException == null ? "unknown error" : lastException.getMessage()),
-                lastException);
+        throw new TransformException(
+                PYTHON_EXECUTABLE_NOT_ALLOWED,
+                PYTHON_EXECUTABLE_NOT_ALLOWED.getDescription()
+                        + ": resolved candidates "
+                        + candidates
+                        + " from python_executable="
+                        + configuredExecutable
+                        + ", but none is listed in server property "
+                        + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
+                        + "="
+                        + allowedExecutables);
+    }
+
+    /** Enforces the operator-controlled feature switch before any external code is launched. */
+    private void ensurePythonTransformEnabled() {
+        if (Boolean.parseBoolean(
+                System.getProperty(PYTHON_TRANSFORM_ENABLED_PROPERTY, Boolean.FALSE.toString()))) {
+            return;
+        }
+        throw new TransformException(
+                PYTHON_TRANSFORM_DISABLED,
+                PYTHON_TRANSFORM_DISABLED.getDescription()
+                        + ". Set -D"
+                        + PYTHON_TRANSFORM_ENABLED_PROPERTY
+                        + "=true and configure -D"
+                        + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
+                        + " with absolute interpreter paths on every worker node.");
+    }
+
+    /** Parses the operator-configured executable allowlist and rejects relative entries. */
+    private List<Path> parseAllowedExecutables() {
+        String rawAllowlist = System.getProperty(PYTHON_ALLOWED_EXECUTABLES_PROPERTY, "");
+        if (rawAllowlist.trim().isEmpty()) {
+            throw new TransformException(
+                    PYTHON_EXECUTABLE_NOT_ALLOWED,
+                    PYTHON_EXECUTABLE_NOT_ALLOWED.getDescription()
+                            + ": server property "
+                            + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
+                            + " must contain at least one absolute path when "
+                            + PYTHON_TRANSFORM_ENABLED_PROPERTY
+                            + "=true");
+        }
+        Set<Path> normalizedAllowlist = new LinkedHashSet<>();
+        for (String rawEntry : rawAllowlist.split(",")) {
+            String trimmedEntry = rawEntry.trim();
+            if (trimmedEntry.isEmpty()) {
+                continue;
+            }
+            Path configuredPath = Paths.get(trimmedEntry);
+            if (!configuredPath.isAbsolute()) {
+                throw new TransformException(
+                        PYTHON_EXECUTABLE_NOT_ALLOWED,
+                        PYTHON_EXECUTABLE_NOT_ALLOWED.getDescription()
+                                + ": allowlist entry must be an absolute path: "
+                                + trimmedEntry);
+            }
+            normalizedAllowlist.add(normalizePath(configuredPath));
+        }
+        if (!normalizedAllowlist.isEmpty()) {
+            return new ArrayList<>(normalizedAllowlist);
+        }
+        throw new TransformException(
+                PYTHON_EXECUTABLE_NOT_ALLOWED,
+                PYTHON_EXECUTABLE_NOT_ALLOWED.getDescription()
+                        + ": server property "
+                        + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
+                        + " does not contain a usable absolute path");
     }
 
     /**
-     * Expands the configured python executable into fallback candidates.
+     * Expands the configured python executable into resolved absolute candidates.
      *
      * @param configuredExecutable user-configured python executable
      * @return ordered executable candidates
+     * @throws IOException when the default runtime cannot be resolved from PATH
      */
-    private List<String> resolvePythonCandidates(String configuredExecutable) {
-        List<String> candidates = new ArrayList<>();
-        candidates.add(configuredExecutable);
+    private List<Path> resolvePythonCandidates(String configuredExecutable) throws IOException {
         if (DEFAULT_PYTHON_EXECUTABLE.equals(configuredExecutable)) {
-            candidates.add("python");
+            List<Path> candidates = new ArrayList<>();
+            addResolvedCommandCandidate(candidates, DEFAULT_PYTHON_EXECUTABLE);
+            addResolvedCommandCandidate(candidates, "python");
+            if (!candidates.isEmpty()) {
+                return candidates;
+            }
+            throw new IOException(
+                    START_PYTHON_PROCESS_ERROR.getDescription()
+                            + ": unable to resolve 'python3' or 'python' from PATH");
         }
-        return candidates;
+
+        Path configuredPath = Paths.get(configuredExecutable);
+        if (!configuredPath.isAbsolute()) {
+            throw new TransformException(
+                    PYTHON_EXECUTABLE_NOT_ALLOWED,
+                    PYTHON_EXECUTABLE_NOT_ALLOWED.getDescription()
+                            + ": python_executable must be an absolute path unless it uses the default value '"
+                            + DEFAULT_PYTHON_EXECUTABLE
+                            + "'");
+        }
+        return Collections.singletonList(normalizePath(configuredPath));
+    }
+
+    /** Adds one resolved command candidate while preserving search order and path uniqueness. */
+    private void addResolvedCommandCandidate(List<Path> candidates, String command)
+            throws IOException {
+        Path resolvedCandidate = resolveCommandFromPath(command);
+        if (resolvedCandidate != null && !containsEquivalentPath(candidates, resolvedCandidate)) {
+            candidates.add(resolvedCandidate);
+        }
+    }
+
+    /** Resolves one bare command name against PATH, preserving Windows PATHEXT semantics. */
+    private Path resolveCommandFromPath(String command) throws IOException {
+        String pathEnv = System.getenv("PATH");
+        if (pathEnv == null || pathEnv.trim().isEmpty()) {
+            return null;
+        }
+        String[] directories = pathEnv.split(Pattern.quote(File.pathSeparator));
+        for (String directory : directories) {
+            if (directory == null || directory.trim().isEmpty()) {
+                continue;
+            }
+            for (String candidateName : expandCommandNames(command)) {
+                Path candidate = Paths.get(directory, candidateName);
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return normalizePath(candidate);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Mirrors shell command-name expansion on Windows while remaining a no-op elsewhere. */
+    private List<String> expandCommandNames(String command) {
+        Set<String> names = new LinkedHashSet<>();
+        names.add(command);
+        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows")) {
+            return new ArrayList<>(names);
+        }
+        int extensionIndex = command.lastIndexOf('.');
+        if (extensionIndex > command.lastIndexOf(File.separatorChar)) {
+            return new ArrayList<>(names);
+        }
+        String pathExt = System.getenv("PATHEXT");
+        if (pathExt == null || pathExt.trim().isEmpty()) {
+            return new ArrayList<>(names);
+        }
+        for (String rawExtension : pathExt.split(Pattern.quote(File.pathSeparator))) {
+            String trimmedExtension = rawExtension.trim();
+            if (!trimmedExtension.isEmpty()) {
+                names.add(command + trimmedExtension);
+            }
+        }
+        return new ArrayList<>(names);
+    }
+
+    /** Compares two executable paths, tolerating symlinked allowlist entries when they exist. */
+    private boolean isAllowedExecutable(Path candidate, List<Path> allowedExecutables) {
+        for (Path allowedExecutable : allowedExecutables) {
+            if (sameExecutablePath(candidate, allowedExecutable)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Detects equivalent executable paths even when PATH resolution returns a symlink target. */
+    private boolean containsEquivalentPath(List<Path> candidates, Path candidate) {
+        for (Path existing : candidates) {
+            if (sameExecutablePath(existing, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Compares normalized paths first, then falls back to same-file checks when possible. */
+    private boolean sameExecutablePath(Path left, Path right) {
+        if (normalizePath(left).equals(normalizePath(right))) {
+            return true;
+        }
+        try {
+            return Files.exists(left) && Files.exists(right) && Files.isSameFile(left, right);
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    /** Canonicalizes one path into an absolute, normalized representation for policy checks. */
+    private Path normalizePath(Path path) {
+        return path.toAbsolutePath().normalize();
+    }
+
+    /** Emits an explicit audit warning for every unsandboxed Python worker startup. */
+    private void logPythonSecurityWarning(Path executablePath, Path userScriptPath) {
+        log.warn(
+                "Python transform runs unsandboxed external code. Resolved executable='{}', scriptOrigin='{}', guarded by system properties '{}','{}'.",
+                executablePath,
+                describeScriptOrigin(userScriptPath),
+                PYTHON_TRANSFORM_ENABLED_PROPERTY,
+                PYTHON_ALLOWED_EXECUTABLES_PROPERTY);
+    }
+
+    /** Records whether the current script came from inline source or a host path. */
+    private String describeScriptOrigin(Path userScriptPath) {
+        Path normalizedScriptPath = normalizePath(userScriptPath);
+        if (transformConfig.getSourceCode() != null) {
+            return "source_code:inline->" + normalizedScriptPath;
+        }
+        return "source_code_path=" + normalizedScriptPath;
     }
 
     /**

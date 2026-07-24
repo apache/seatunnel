@@ -51,7 +51,13 @@ public enum PythonTransformErrorCode implements SeaTunnelErrorCode {
             "PythonTransform columns.dest_field values must be unique"),
     UNSUPPORTED_ERROR_HANDLE_WAY(
             "PYTHON_TRANSFORM_ERROR_CODE-11",
-            "PythonTransform only supports FAIL and SKIP row_error_handle_way values");
+            "PythonTransform only supports FAIL and SKIP row_error_handle_way values"),
+    PYTHON_TRANSFORM_DISABLED(
+            "PYTHON_TRANSFORM_ERROR_CODE-12",
+            "PythonTransform is disabled by the server-side security policy"),
+    PYTHON_EXECUTABLE_NOT_ALLOWED(
+            "PYTHON_TRANSFORM_ERROR_CODE-13",
+            "PythonTransform python_executable is rejected by the server-side allowlist");
 
     /** Stable error code exposed to users and logs. */
     private final String code;

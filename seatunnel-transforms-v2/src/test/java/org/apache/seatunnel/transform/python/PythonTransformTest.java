@@ -38,11 +38,14 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -67,6 +70,9 @@ class PythonTransformTest {
     /** Temporary directory used for path-based script tests. */
     @TempDir Path tempDir;
 
+    /** Absolute python path allowlisted for runtime-backed test cases. */
+    private String availablePythonExecutable;
+
     /** Closes subprocess-backed transforms created by the test cases. */
     @AfterEach
     void tearDown() {
@@ -74,6 +80,8 @@ class PythonTransformTest {
         openedWrappers.clear();
         openedTransforms.forEach(PythonTransform::close);
         openedTransforms.clear();
+        System.clearProperty(PythonProcessWorker.PYTHON_TRANSFORM_ENABLED_PROPERTY);
+        System.clearProperty(PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY);
     }
 
     /** Verifies inline source execution, schema expansion, and script_config propagation. */
@@ -370,6 +378,57 @@ class PythonTransformTest {
         Assertions.assertThrows(
                 TransformException.class,
                 () -> transform.map(new SeaTunnelRow(new Object[] {1, "Alice", 20})));
+    }
+
+    /** Verifies operators must opt in before the Python transform may start external code. */
+    @Test
+    void testOpenRejectedWhenPythonTransformDisabled() {
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "def process(row, context):\n    return [row['name'], row['age']]\n");
+
+        PythonTransform transform =
+                new PythonTransform(
+                        createCatalogTable(),
+                        PythonTransformConfig.of(ReadonlyConfig.fromMap(config)));
+        transform.getProducedCatalogTable();
+
+        TransformException exception =
+                Assertions.assertThrows(TransformException.class, transform::open);
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(PythonProcessWorker.PYTHON_TRANSFORM_ENABLED_PROPERTY));
+    }
+
+    /** Verifies the server-side allowlist rejects non-approved executables before launch. */
+    @Test
+    void testOpenRejectedWhenPythonExecutableNotAllowlisted() {
+        System.setProperty(PythonProcessWorker.PYTHON_TRANSFORM_ENABLED_PROPERTY, "true");
+        System.setProperty(
+                PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY, "/usr/bin/python3");
+
+        Map<String, Object> config = baseConfig();
+        config.put(
+                PythonTransformConfig.SOURCE_CODE.key(),
+                "def process(row, context):\n    return [row['name'], row['age']]\n");
+        config.put(
+                PythonTransformConfig.PYTHON_EXECUTABLE.key(),
+                Paths.get(System.getProperty("java.home"), "bin", "java").toString());
+
+        PythonTransform transform =
+                new PythonTransform(
+                        createCatalogTable(),
+                        PythonTransformConfig.of(ReadonlyConfig.fromMap(config)));
+        transform.getProducedCatalogTable();
+
+        TransformException exception =
+                Assertions.assertThrows(TransformException.class, transform::open);
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY));
     }
 
     /** Verifies stdout protocol pollution poisons the worker instead of shifting later rows. */
@@ -1021,26 +1080,48 @@ class PythonTransformTest {
 
     /** Skips runtime-dependent tests when no python executable is available locally. */
     private void assumePythonAvailable() {
+        if (availablePythonExecutable == null) {
+            availablePythonExecutable = queryPythonExecutable("python3");
+            if (availablePythonExecutable == null) {
+                availablePythonExecutable = queryPythonExecutable("python");
+            }
+        }
         Assumptions.assumeTrue(
-                isCommandAvailable("python3") || isCommandAvailable("python"),
+                availablePythonExecutable != null,
                 "python runtime is required for PythonTransform tests");
+        System.setProperty(PythonProcessWorker.PYTHON_TRANSFORM_ENABLED_PROPERTY, "true");
+        System.setProperty(
+                PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY, availablePythonExecutable);
     }
 
     /**
-     * Checks whether one python executable can be launched on the current host.
+     * Resolves one python executable into an absolute path that matches the worker allowlist.
      *
      * @param executable python binary candidate
-     * @return true when the executable starts successfully
+     * @return absolute runtime path, or null when the executable is unavailable
      */
-    private boolean isCommandAvailable(String executable) {
+    private String queryPythonExecutable(String executable) {
         try {
-            Process process = new ProcessBuilder(executable, "--version").start();
-            return process.waitFor() == 0;
+            Process process =
+                    new ProcessBuilder(
+                                    executable,
+                                    "-c",
+                                    "import pathlib, sys; print(pathlib.Path(sys.executable).resolve())")
+                            .start();
+            if (process.waitFor() != 0) {
+                return null;
+            }
+            try (BufferedReader reader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    process.getInputStream(), StandardCharsets.UTF_8))) {
+                return reader.readLine();
+            }
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            return false;
+            return null;
         }
     }
 
