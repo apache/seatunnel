@@ -56,31 +56,29 @@ public class ReportCdcProgressOperation extends TracingOperation
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        writeReports(out, readerReports);
-        writeReports(out, enumeratorReports);
-    }
-
-    private void writeReports(ObjectDataOutput out, List<?> reports) throws IOException {
-        out.writeInt(reports.size());
-        for (Object report : reports) {
-            out.writeObject(report);
+        out.writeInt(readerReports.size());
+        for (CdcReaderProgressEnvelope report : readerReports) {
+            CdcProgressReportSerializer.writeReaderEnvelope(out, report);
+        }
+        out.writeInt(enumeratorReports.size());
+        for (CdcEnumeratorProgressEnvelope report : enumeratorReports) {
+            CdcProgressReportSerializer.writeEnumeratorEnvelope(out, report);
         }
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerReports = readReports(in);
-        enumeratorReports = readReports(in);
-    }
-
-    private <T> List<T> readReports(ObjectDataInput in) throws IOException {
-        int size = in.readInt();
-        List<T> reports = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            reports.add(in.readObject());
+        int readerReportCount = CdcProgressReportSerializer.readSize(in, "reader report");
+        readerReports = new ArrayList<>(readerReportCount);
+        for (int i = 0; i < readerReportCount; i++) {
+            readerReports.add(CdcProgressReportSerializer.readReaderEnvelope(in));
         }
-        return reports;
+        int enumeratorReportCount = CdcProgressReportSerializer.readSize(in, "enumerator report");
+        enumeratorReports = new ArrayList<>(enumeratorReportCount);
+        for (int i = 0; i < enumeratorReportCount; i++) {
+            enumeratorReports.add(CdcProgressReportSerializer.readEnumeratorEnvelope(in));
+        }
     }
 
     @Override
