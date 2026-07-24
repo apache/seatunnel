@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPh
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -45,8 +46,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -129,6 +132,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        Set<TableId> capturedTables = null;
         log.info(
                 "subtask {} add splits: {}",
                 subtaskId,
@@ -146,7 +150,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                unfinishedSplits.add(split.asIncrementalSplit());
+                if (capturedTables == null) {
+                    capturedTables =
+                            new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+                }
+                IncrementalSplit incrementalSplit =
+                        pruneRemovedTables(split.asIncrementalSplit(), capturedTables);
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "Skip restored incremental split {} because none of its tables are configured.",
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -161,6 +177,33 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             // call and can lead to a deadlock.
             needSendSplitRequest.set(true);
         }
+    }
+
+    static IncrementalSplit pruneRemovedTables(
+            IncrementalSplit incrementalSplit, Set<TableId> capturedTables) {
+        List<TableId> tableIds =
+                incrementalSplit.getTableIds().stream()
+                        .filter(capturedTables::contains)
+                        .collect(Collectors.toList());
+        List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
+                incrementalSplit.getCompletedSnapshotSplitInfos().stream()
+                        .filter(info -> capturedTables.contains(info.getTableId()))
+                        .collect(Collectors.toList());
+        Map<TableId, byte[]> historyTableChanges = new HashMap<>();
+        if (incrementalSplit.getHistoryTableChanges() != null) {
+            historyTableChanges.putAll(
+                    incrementalSplit.getHistoryTableChanges().entrySet().stream()
+                            .filter(entry -> capturedTables.contains(entry.getKey()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        }
+        return new IncrementalSplit(
+                incrementalSplit.splitId(),
+                tableIds,
+                incrementalSplit.getStartupOffset(),
+                incrementalSplit.getStopOffset(),
+                completedSnapshotSplitInfos,
+                incrementalSplit.getCheckpointTables(),
+                historyTableChanges);
     }
 
     @Override
