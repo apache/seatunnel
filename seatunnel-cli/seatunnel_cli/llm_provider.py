@@ -947,6 +947,217 @@ class OpenAIProvider(LLMProvider):
         return None
 
 
+# ─── Bedrock Mantle Provider (OpenAI Responses API) ───
+
+class BedrockMantleProvider(LLMProvider):
+    """AWS Bedrock 'mantle' endpoint provider for OpenAI-family models.
+
+    Some OpenAI models on Bedrock (e.g. openai.gpt-5.6-terra) are NOT in the
+    foundation-model catalog and reject Converse/InvokeModel/ChatCompletions.
+    They are served only via the OpenAI Responses API on the bedrock-mantle
+    endpoint: https://bedrock-mantle.{region}.api.aws/openai/v1
+
+    Auth uses a short-term bearer token derived from the caller's SigV4
+    credentials (aws-bedrock-token-generator); tokens are refreshed
+    automatically. These models do not accept `temperature` — it is omitted.
+    """
+
+    TOKEN_TTL_SECONDS = 1800  # regenerate well within the 12h token validity
+
+    def __init__(self):
+        try:
+            import openai  # noqa: F401
+            from aws_bedrock_token_generator import provide_token  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "bedrock-mantle provider requires: "
+                "pip install openai aws-bedrock-token-generator"
+            ) from e
+
+        self._region = os.environ.get(
+            "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+        self._model_id = os.environ.get("OPENAI_MODEL", "openai.gpt-5.6-terra")
+        self._fast_model_id = os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id)
+        self._client = None
+        self._token_born = 0.0
+
+    def _get_client(self):
+        import time as _time
+        import openai
+        from aws_bedrock_token_generator import provide_token
+        if self._client is None or _time.monotonic() - self._token_born > self.TOKEN_TTL_SECONDS:
+            token = provide_token(region=self._region)
+            self._client = openai.OpenAI(
+                api_key=token,
+                base_url=f"https://bedrock-mantle.{self._region}.api.aws/openai/v1",
+            )
+            self._token_born = _time.monotonic()
+        return self._client
+
+    @property
+    def provider_name(self) -> str:
+        return "bedrock-mantle"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def fast_model_id(self) -> str:
+        return self._fast_model_id
+
+    # ── format conversion ──
+
+    @staticmethod
+    def _to_responses_input(messages: list[dict]) -> list[dict]:
+        """Convert internal (Converse-shaped) messages to Responses API items."""
+        items: list[dict] = []
+        for msg in messages:
+            role = msg["role"]
+            for block in msg.get("content", []):
+                if "text" in block:
+                    items.append({"role": role, "content": block["text"]})
+                elif "toolUse" in block:
+                    tu = block["toolUse"]
+                    items.append({
+                        "type": "function_call",
+                        "call_id": tu["toolUseId"],
+                        "name": tu["name"],
+                        "arguments": json.dumps(tu.get("input", {})),
+                    })
+                elif "toolResult" in block:
+                    tr = block["toolResult"]
+                    text_parts = [c["text"] for c in tr.get("content", []) if "text" in c]
+                    items.append({
+                        "type": "function_call_output",
+                        "call_id": tr["toolUseId"],
+                        "output": "\n".join(text_parts),
+                    })
+                # reasoningContent blocks are provider-internal; terra accepts
+                # replay without reasoning items, so they are dropped here.
+        return items
+
+    @staticmethod
+    def _to_responses_tools(tools: list[dict]) -> list[dict]:
+        result = []
+        for tool in tools:
+            spec = tool.get("toolSpec", {})
+            result.append({
+                "type": "function",
+                "name": spec["name"],
+                "description": spec.get("description", ""),
+                "parameters": spec.get("inputSchema", {}).get("json", {}),
+            })
+        return result
+
+    def chat(
+        self,
+        messages: list[dict],
+        system: str = "",
+        model: str | None = None,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        tools: list[dict] | None = None,
+    ) -> dict:
+        client = self._get_client()
+        kwargs = {
+            "model": model or self._model_id,
+            "input": self._to_responses_input(messages),
+            "max_output_tokens": max_tokens,
+        }
+        if system:
+            kwargs["instructions"] = system
+        if tools:
+            kwargs["tools"] = self._to_responses_tools(tools)
+
+        response = client.responses.create(**kwargs)
+
+        content: list[dict] = []
+        has_tool_use = False
+        for item in response.output:
+            itype = getattr(item, "type", "")
+            if itype == "message":
+                for part in getattr(item, "content", []) or []:
+                    text = getattr(part, "text", None)
+                    if text:
+                        content.append({"text": text})
+            elif itype == "function_call":
+                has_tool_use = True
+                try:
+                    parsed = json.loads(item.arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    parsed = {}
+                content.append({
+                    "toolUse": {
+                        "toolUseId": item.call_id,
+                        "name": item.name,
+                        "input": parsed,
+                    }
+                })
+            # reasoning items are dropped (not replayable via our history)
+
+        return {
+            "output": {"message": {"role": "assistant", "content": content}},
+            "stopReason": "tool_use" if has_tool_use else "end_turn",
+        }
+
+    def chat_stream(
+        self,
+        messages: list[dict],
+        system: str = "",
+        model: str | None = None,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+        tools: list[dict] | None = None,
+    ) -> Generator[dict, None, None]:
+        client = self._get_client()
+        kwargs = {
+            "model": model or self._model_id,
+            "input": self._to_responses_input(messages),
+            "max_output_tokens": max_tokens,
+            "stream": True,
+        }
+        if system:
+            kwargs["instructions"] = system
+        if tools:
+            kwargs["tools"] = self._to_responses_tools(tools)
+
+        stream = client.responses.create(**kwargs)
+        current_tool_id = None
+        saw_tool_use = False
+        for event in stream:
+            etype = getattr(event, "type", "")
+            if etype == "response.output_text.delta":
+                yield {"type": "text_delta", "text": getattr(event, "delta", "")}
+            elif etype == "response.output_item.added":
+                item = getattr(event, "item", None)
+                if item is not None and getattr(item, "type", "") == "function_call":
+                    saw_tool_use = True
+                    current_tool_id = getattr(item, "call_id", "") or ""
+                    yield {
+                        "type": "tool_start",
+                        "tool_use_id": current_tool_id,
+                        "name": getattr(item, "name", "") or "",
+                    }
+            elif etype == "response.function_call_arguments.delta":
+                yield {
+                    "type": "tool_input_delta",
+                    "tool_use_id": current_tool_id or "",
+                    "delta": getattr(event, "delta", ""),
+                }
+            elif etype == "response.output_item.done":
+                item = getattr(event, "item", None)
+                if item is not None and getattr(item, "type", "") == "function_call" \
+                        and current_tool_id:
+                    yield {"type": "tool_stop", "tool_use_id": current_tool_id}
+                    current_tool_id = None
+            elif etype == "response.completed":
+                yield {
+                    "type": "message_stop",
+                    "stop_reason": "tool_use" if saw_tool_use else "end_turn",
+                }
+
+
 # ─── Config file ───
 
 
@@ -1006,6 +1217,7 @@ def _auto_detect_provider() -> str | None:
 
 _PROVIDERS = {
     "bedrock": BedrockProvider,
+    "bedrock-mantle": BedrockMantleProvider,
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
 }
