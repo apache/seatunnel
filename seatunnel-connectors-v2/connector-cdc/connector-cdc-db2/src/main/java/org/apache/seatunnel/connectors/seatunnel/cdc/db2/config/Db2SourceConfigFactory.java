@@ -31,6 +31,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 /** Factory for creating {@link Db2SourceConfig}. */
 public class Db2SourceConfigFactory extends JdbcSourceConfigFactory {
 
+    private static final long serialVersionUID = 1L;
+
     private static final String DATABASE_SERVER_NAME = "db2_transaction_log_source";
     private static final String DRIVER_CLASS_NAME = "com.ibm.db2.jcc.DB2Driver";
 
