@@ -211,6 +211,24 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
                                     + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
+
+    public static final Option<Integer> UPDATE_COMPARE_PARALLELISM =
+            Options.key("update_compare_parallelism")
+                    .intType()
+                    .defaultValue(8)
+                    .withDescription(
+                            "Maximum parallelism for sparse target metadata lookups in sync_mode=update. "
+                                    + "The valid range is 1 to 64.");
+
+    public static final Option<Integer> UPDATE_COMPARE_BULK_THRESHOLD =
+            Options.key("update_compare_bulk_threshold")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Number of candidates under one target parent directory that switches "
+                                    + "sync_mode=update comparison from point lookups to one directory listing. "
+                                    + "The default 0 disables automatic bulk listing for non-FTP/SFTP targets; "
+                                    + "positive values enable it.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()
