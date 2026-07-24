@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFini
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
+import org.apache.hadoop.fs.FileStatus;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -949,6 +951,82 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 backupFileCount = stream.filter(Files::isRegularFile).count();
             }
             Assertions.assertEquals(0, backupFileCount, "stale backup operation should be skipped");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupDoesNotSkipWhenSourceMtimeDriftsButContentStillMatchesTarget()
+            throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_source_mtime_drift"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_source_mtime_drift"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_source_mtime_drift"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+        Files.write(dstFile, "abc".getBytes());
+
+        long baseTime = System.currentTimeMillis();
+        Files.setLastModifiedTime(dstFile, FileTime.fromMillis(baseTime - 5_000));
+        Files.setLastModifiedTime(srcFile, FileTime.fromMillis(baseTime));
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            HadoopFileSystemProxy sourceFs =
+                    getTableScanContextFileSystem(enumeratorWithContext.enumerator, "sourceFs");
+            HadoopFileSystemProxy sourceFsWithDriftedMtime = Mockito.spy(sourceFs);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+
+            Mockito.doAnswer(
+                            invocation -> {
+                                String filePath = invocation.getArgument(0);
+                                FileStatus status = (FileStatus) invocation.callRealMethod();
+                                if (!operation.getSourcePath().equals(filePath) || status == null) {
+                                    return status;
+                                }
+                                return new FileStatus(
+                                        status.getLen(),
+                                        status.isDirectory(),
+                                        status.getReplication(),
+                                        status.getBlockSize(),
+                                        status.getModificationTime() + 60_000,
+                                        status.getAccessTime(),
+                                        status.getPermission(),
+                                        status.getOwner(),
+                                        status.getGroup(),
+                                        status.getPath());
+                            })
+                    .when(sourceFsWithDriftedMtime)
+                    .getFileStatus(Mockito.anyString());
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "sourceFs", sourceFsWithDriftedMtime);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertFalse(
+                    Files.exists(srcFile),
+                    "backup commit should not be skipped when unchanged source content only reports a drifted mtime");
+            Assertions.assertTrue(
+                    Files.exists(backupTarget),
+                    "backup target should still be created when the current source content matches the committed target");
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(2L);
+            Assertions.assertFalse(
+                    state.getPendingOpsByCheckpoint().containsKey(1L),
+                    "successful backup commit should clear the pending checkpoint operation even when source mtime drifts");
         } finally {
             enumeratorWithContext.enumerator.close();
         }

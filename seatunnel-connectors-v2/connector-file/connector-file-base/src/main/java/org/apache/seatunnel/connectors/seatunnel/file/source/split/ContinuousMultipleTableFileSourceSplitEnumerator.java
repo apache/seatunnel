@@ -908,20 +908,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.STALE_SKIPPED;
         }
 
-        if (!isVersionMatched(sourceStatus, op)) {
-            log.warn(
-                    "Post-sync backup skipped due to stale source version before rename: splitId={}, "
-                            + "source={}, checkpointId={}",
-                    op.getSplitId(),
-                    maskUriUserInfo(op.getSourcePath()),
-                    checkpointId);
-            return OpCommitResult.STALE_SKIPPED;
-        }
-
         if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
             return OpCommitResult.FAILED_RETRYABLE;
         }
 
+        // The sink-side content check above is the authoritative safety gate here. Requiring the
+        // source mtime to match the value captured at scan time causes false stale skips on
+        // filesystems such as FTP, where repeated stat calls for unchanged files can drift.
         // Phase 1: rename source to backup target (act-then-verify)
         ctx.sourceFs.renameFile(op.getSourcePath(), op.getBackupTargetPath(), false);
 
