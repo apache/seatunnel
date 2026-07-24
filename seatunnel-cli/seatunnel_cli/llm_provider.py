@@ -29,6 +29,11 @@ Selection: set AI_PROVIDER env var, or run --init for interactive setup.
 """
 
 import abc
+
+try:
+    import botocore.exceptions
+except ImportError:  # boto3/botocore optional (bedrock extra)
+    botocore = None
 import json
 import logging
 import os
@@ -330,6 +335,43 @@ class BedrockProvider(LLMProvider):
         if endpoint_url:
             client_kwargs["endpoint_url"] = endpoint_url
         self.client = session.client(**client_kwargs)
+        # Models that rejected `temperature` (newer Claude models deprecate it).
+        # Populated on first rejection so subsequent calls skip the retry.
+        self._no_temperature_models: set[str] = set()
+
+    def _build_kwargs(self, model_id, messages, system, temperature, max_tokens, tools) -> dict:
+        inference_config = {"maxTokens": max_tokens}
+        if model_id not in self._no_temperature_models:
+            inference_config["temperature"] = temperature
+        kwargs = {
+            "modelId": model_id,
+            "messages": messages,
+            "inferenceConfig": inference_config,
+        }
+        if system:
+            kwargs["system"] = [{"text": system}]
+        if tools:
+            kwargs["toolConfig"] = {"tools": tools}
+        return kwargs
+
+    @staticmethod
+    def _is_temperature_rejection(error: Exception) -> bool:
+        """True if this is Bedrock's structured rejection of `temperature`.
+
+        Checks the botocore ClientError code (precise) and only uses the
+        message to discriminate that `temperature` is the rejected parameter
+        (tolerant to wording changes such as "deprecated" vs "not supported").
+        """
+        try:
+            from botocore.exceptions import ClientError
+        except ImportError:
+            return False
+        if not isinstance(error, ClientError):
+            return False
+        code = error.response.get("Error", {}).get("Code", "")
+        if code != "ValidationException":
+            return False
+        return "temperature" in str(error).lower()
 
     @property
     def provider_name(self) -> str:
@@ -353,18 +395,15 @@ class BedrockProvider(LLMProvider):
         tools: list[dict] | None = None,
     ) -> dict:
         model_id = model or self._model_id
-        kwargs = {
-            "modelId": model_id,
-            "messages": messages,
-            "inferenceConfig": {"temperature": temperature, "maxTokens": max_tokens},
-        }
-        if system:
-            kwargs["system"] = [{"text": system}]
-        if tools:
-            kwargs["toolConfig"] = {"tools": tools}
-
-        response = self.client.converse(**kwargs)
-        return response
+        kwargs = self._build_kwargs(model_id, messages, system, temperature, max_tokens, tools)
+        try:
+            return self.client.converse(**kwargs)
+        except botocore.exceptions.ClientError as e:
+            if self._is_temperature_rejection(e):
+                self._no_temperature_models.add(model_id)
+                kwargs["inferenceConfig"].pop("temperature", None)
+                return self.client.converse(**kwargs)
+            raise
 
     def chat_stream(
         self,
@@ -376,17 +415,16 @@ class BedrockProvider(LLMProvider):
         tools: list[dict] | None = None,
     ) -> Generator[dict, None, None]:
         model_id = model or self._model_id
-        kwargs = {
-            "modelId": model_id,
-            "messages": messages,
-            "inferenceConfig": {"temperature": temperature, "maxTokens": max_tokens},
-        }
-        if system:
-            kwargs["system"] = [{"text": system}]
-        if tools:
-            kwargs["toolConfig"] = {"tools": tools}
-
-        response = self.client.converse_stream(**kwargs)
+        kwargs = self._build_kwargs(model_id, messages, system, temperature, max_tokens, tools)
+        try:
+            response = self.client.converse_stream(**kwargs)
+        except botocore.exceptions.ClientError as e:
+            if self._is_temperature_rejection(e):
+                self._no_temperature_models.add(model_id)
+                kwargs["inferenceConfig"].pop("temperature", None)
+                response = self.client.converse_stream(**kwargs)
+            else:
+                raise
         current_tool_id = None
         for event in response.get("stream", []):
             if "contentBlockStart" in event:
