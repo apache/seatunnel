@@ -215,6 +215,7 @@ const sidebars = {
                 "transforms/table-filter",
                 "transforms/table-merge",
                 "transforms/table-rename",
+                "transforms/text-chunk",
                 "transforms/transform-multi-table",
                 "transforms/multi-table-transform-and-join-boundary"
             ]
