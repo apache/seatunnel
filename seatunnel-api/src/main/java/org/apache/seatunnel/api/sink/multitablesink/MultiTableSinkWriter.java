@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -82,6 +83,7 @@ public class MultiTableSinkWriter
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
             sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
+    private final List<SinkWriterTemplate> sinkWriterTemplates = new ArrayList<>();
     private final Random random = new Random();
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
@@ -190,6 +192,32 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                Collections.emptyList());
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            List<SinkWriterTemplate> sinkWriterTemplates) {
+        if (!sinkWriterTemplates.isEmpty() && sinkWriterTemplates.size() != queueSize) {
+            throw new IllegalArgumentException(
+                    "The runtime sink writer template count must match the queue count");
+        }
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
         this.failurePolicy = failurePolicy;
@@ -238,6 +266,21 @@ public class MultiTableSinkWriter
                             });
 
             sinkWritersWithIndex.add(sinkIdentifierMap);
+            if (sinkWriterTemplates.isEmpty()) {
+                this.sinkWriterTemplates.add(
+                        sinkIdentifierMap.entrySet().stream()
+                                .findFirst()
+                                .map(
+                                        entry ->
+                                                new SinkWriterTemplate(
+                                                        (SupportMultiTableSinkWriter<?>)
+                                                                entry.getValue(),
+                                                        sinkWritersContext.get(entry.getKey()),
+                                                        entry.getKey().getIndex()))
+                                .orElse(null));
+            } else {
+                this.sinkWriterTemplates.add(sinkWriterTemplates.get(i));
+            }
             blockingQueues.add(queue);
             MultiTableWriterRunnable r =
                     new MultiTableWriterRunnable(
@@ -267,13 +310,15 @@ public class MultiTableSinkWriter
      * @param queueSize the number of queues, passed to the resource manager for sizing
      */
     private void initResourceManager(int queueSize) {
-        for (SinkIdentifier tableIdentifier : sinkWriters.keySet()) {
-            SinkWriter<SeaTunnelRow, ?, ?> sink = sinkWriters.get(tableIdentifier);
-            resourceManager =
-                    ((SupportMultiTableSinkWriter<?>) sink)
-                            .initMultiTableResourceManager(sinkWriters.size(), queueSize);
-            break;
-        }
+        sinkWriterTemplates.stream()
+                .filter(Objects::nonNull)
+                .findFirst()
+                .ifPresent(
+                        template ->
+                                resourceManager =
+                                        template.getWriter()
+                                                .initMultiTableResourceManager(
+                                                        sinkWriters.size(), queueSize));
 
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writerMap =
@@ -571,43 +616,34 @@ public class MultiTableSinkWriter
         String tableIdentifier = event.tablePath().getFullName();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
-                Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> templateEntry =
-                        sinkWritersWithIndex.get(i).entrySet().stream().findFirst().orElse(null);
-                if (templateEntry == null) {
+                SinkWriterTemplate sinkWriterTemplate = sinkWriterTemplates.get(i);
+                if (sinkWriterTemplate == null) {
                     throw new IOException(
-                            "Cannot register newly created table because no template sink writer exists");
+                            "Cannot register newly created table because no explicit sink writer template exists");
                 }
                 SinkIdentifier sinkIdentifier =
-                        SinkIdentifier.of(tableIdentifier, templateEntry.getKey().getIndex());
+                        SinkIdentifier.of(tableIdentifier, sinkWriterTemplate.getWriterIndex());
                 if (sinkWritersWithIndex.get(i).containsKey(sinkIdentifier)) {
                     continue;
                 }
-                SinkWriter<SeaTunnelRow, ?, ?> templateWriter = templateEntry.getValue();
-                if (!(templateWriter instanceof SupportMultiTableSinkWriter)
-                        || !((SupportMultiTableSinkWriter<?>) templateWriter)
-                                .supportsNewlyCreatedTable()) {
+                SupportMultiTableSinkWriter<?> templateWriter = sinkWriterTemplate.getWriter();
+                if (!templateWriter.supportsNewlyCreatedTable()) {
                     throw new IOException(
                             String.format(
                                     "Sink writer %s does not support runtime newly created tables for %s",
                                     templateWriter.getClass().getName(), tableIdentifier));
                 }
-                SinkWriter.Context baseContext =
-                        sinkWritersContext.getOrDefault(
-                                templateEntry.getKey(),
-                                sinkWritersContext.values().stream()
-                                        .findFirst()
-                                        .orElseThrow(
-                                                () ->
-                                                        new IllegalStateException(
-                                                                "Missing sink writer context")));
+                SinkWriter.Context baseContext = sinkWriterTemplate.getContext();
+                if (baseContext == null) {
+                    throw new IOException("Missing sink writer context for runtime table template");
+                }
                 SinkWriter.Context context =
                         new SinkContextProxy(
-                                templateEntry.getKey().getIndex(),
+                                sinkWriterTemplate.getWriterIndex(),
                                 sinkWritersWithIndex.size(),
                                 baseContext);
                 SinkWriter<SeaTunnelRow, ?, ?> newWriter =
-                        ((SupportMultiTableSinkWriter<?>) templateWriter)
-                                .createSinkWriter(catalogTable, context);
+                        templateWriter.createSinkWriter(catalogTable, context);
                 if (!(newWriter instanceof SupportMultiTableSinkWriter)) {
                     throw new IOException(
                             String.format(
@@ -1240,6 +1276,34 @@ public class MultiTableSinkWriter
                     }
                 }
             }
+        }
+    }
+
+    /** Creation template retained independently from the current per-table writer registry. */
+    static class SinkWriterTemplate {
+        private final SupportMultiTableSinkWriter<?> writer;
+        private final SinkWriter.Context context;
+        private final int writerIndex;
+
+        SinkWriterTemplate(
+                SupportMultiTableSinkWriter<?> writer,
+                SinkWriter.Context context,
+                int writerIndex) {
+            this.writer = writer;
+            this.context = context;
+            this.writerIndex = writerIndex;
+        }
+
+        SupportMultiTableSinkWriter<?> getWriter() {
+            return writer;
+        }
+
+        SinkWriter.Context getContext() {
+            return context;
+        }
+
+        int getWriterIndex() {
+            return writerIndex;
         }
     }
 

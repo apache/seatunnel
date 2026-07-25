@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -127,13 +128,20 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
+        List<MultiTableSinkWriter.SinkWriterTemplate> sinkWriterTemplates = new ArrayList<>();
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
                 SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
-                writers.put(id, sink.createWriter(proxy));
+                SinkWriter<SeaTunnelRow, ?, ?> sinkWriter = sink.createWriter(proxy);
+                writers.put(id, sinkWriter);
+                if (sinkWriterTemplates.size() == i) {
+                    sinkWriterTemplates.add(
+                            new MultiTableSinkWriter.SinkWriterTemplate(
+                                    (SupportMultiTableSinkWriter<?>) sinkWriter, context, index));
+                }
                 proxyContexts.put(id, proxy);
                 sinkWritersContext.put(id, context);
             }
@@ -147,7 +155,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        sinkWriterTemplates);
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
@@ -171,6 +180,7 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
+        List<MultiTableSinkWriter.SinkWriterTemplate> sinkWriterTemplates = new ArrayList<>();
 
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
@@ -186,10 +196,15 @@ public class MultiTableSink
                                 .filter(Objects::nonNull)
                                 .flatMap(Collection::stream)
                                 .collect(Collectors.toList());
-                if (state.isEmpty()) {
-                    writers.put(sinkIdentifier, sink.createWriter(proxy));
-                } else {
-                    writers.put(sinkIdentifier, sink.restoreWriter(proxy, state));
+                SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
+                        state.isEmpty()
+                                ? sink.createWriter(proxy)
+                                : sink.restoreWriter(proxy, state);
+                writers.put(sinkIdentifier, sinkWriter);
+                if (sinkWriterTemplates.size() == i) {
+                    sinkWriterTemplates.add(
+                            new MultiTableSinkWriter.SinkWriterTemplate(
+                                    (SupportMultiTableSinkWriter<?>) sinkWriter, context, index));
                 }
                 proxyContexts.put(sinkIdentifier, proxy);
                 sinkWritersContext.put(sinkIdentifier, context);
@@ -204,7 +219,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        sinkWriterTemplates);
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;

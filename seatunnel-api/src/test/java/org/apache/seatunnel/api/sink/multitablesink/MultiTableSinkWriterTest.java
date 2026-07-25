@@ -113,6 +113,44 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRegisterFirstRuntimeWriterWithEmptyStartupWriterMap() throws Exception {
+        DynamicTestSinkWriter.WRITTEN_ROWS.clear();
+        DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.clear();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        TestSinkWriterContext context = new TestSinkWriterContext();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(
+                        new DynamicTestSinkWriter("runtime-template"), context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate));
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "first_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("db1.first_runtime_table");
+        multiTableSinkWriter.write(row);
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(
+                1, DynamicTestSinkWriter.WRITTEN_ROWS.get("db1.first_runtime_table").size());
+        Assertions.assertEquals(
+                1,
+                DynamicTestSinkWriter.APPLIED_SCHEMA_EVENTS.get("db1.first_runtime_table").size());
+    }
+
+    @Test
     public void testContinueOtherTablesKeepsHealthyTableRunning() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
