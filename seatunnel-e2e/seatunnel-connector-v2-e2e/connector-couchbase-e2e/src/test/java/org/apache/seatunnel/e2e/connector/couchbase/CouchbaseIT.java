@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.couchbase;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -70,6 +71,11 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
+        // Scope the parallel-N thread exemption to the Couchbase E2E lifecycle. The Couchbase SDK
+        // uses unshaded reactor-core, so its Reactor scheduler threads are named "parallel-<N>" —
+        // the same name as threads from any other Reactor-based connector. The exemption must only
+        // fire while this test is running to avoid masking leaks in unrelated connectors.
+        SeaTunnelContainer.enableCouchbaseParallelThreadExemption();
         couchbaseContainer =
                 new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE))
                         .withNetwork(NETWORK)
@@ -156,11 +162,17 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        if (cluster != null) {
-            cluster.disconnect();
-        }
-        if (couchbaseContainer != null) {
-            couchbaseContainer.stop();
+        try {
+            if (cluster != null) {
+                cluster.disconnect();
+            }
+            if (couchbaseContainer != null) {
+                couchbaseContainer.stop();
+            }
+        } finally {
+            // Always clear the flag so that parallel-N threads are no longer exempt after
+            // this test class finishes, regardless of whether teardown succeeded.
+            SeaTunnelContainer.disableCouchbaseParallelThreadExemption();
         }
     }
 

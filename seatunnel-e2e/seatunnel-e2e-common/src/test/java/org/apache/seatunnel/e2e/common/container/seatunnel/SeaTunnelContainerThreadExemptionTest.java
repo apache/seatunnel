@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,8 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>{@code isSystemThread()} must return {@code false} for all four Couchbase thread names.
  *   <li>The three uniquely-named threads are exempt via {@code isIssueWeAlreadyKnow()}.
- *   <li>{@code parallel-N} is exempt via {@code isIssueWeAlreadyKnow()} only when the Couchbase SDK
- *       has been loaded into the JVM, preventing false exemptions from other Reactor connectors.
+ *   <li>{@code parallel-N} is exempt via {@code isIssueWeAlreadyKnow()} only while the Couchbase
+ *       E2E lifecycle flag ({@link SeaTunnelContainer#couchbaseE2eActive}) is {@code true},
+ *       preventing false exemptions from other Reactor connectors.
  * </ul>
  *
  * <p>Both methods are accessed via reflection so the test does not depend on a live container,
@@ -61,6 +63,15 @@ class SeaTunnelContainerThreadExemptionTest {
      * the actual implementation is executed.
      */
     private static SeaTunnelContainer containerMock;
+
+    /**
+     * Resets the Couchbase lifecycle flag after every test that may have set it, so that tests
+     * remain isolated regardless of execution order.
+     */
+    @AfterEach
+    void resetCouchbaseFlag() {
+        SeaTunnelContainer.disableCouchbaseParallelThreadExemption();
+    }
 
     @BeforeAll
     static void setUpReflection() throws Exception {
@@ -120,8 +131,8 @@ class SeaTunnelContainerThreadExemptionTest {
 
     /**
      * The three names below are unique to the Couchbase SDK; no other connector produces them. They
-     * must be exempt regardless of whether the SDK jar is on the classpath — the three startsWith
-     * guards fire before the isCouchbaseSdkLoaded() gate.
+     * must be exempt regardless of whether {@link SeaTunnelContainer#couchbaseE2eActive} is set —
+     * the three {@code startsWith} guards fire unconditionally, before the lifecycle-flag check.
      */
     @ParameterizedTest(name = "isIssueWeAlreadyKnow(\"{0}\") must be true")
     @ValueSource(
@@ -143,67 +154,45 @@ class SeaTunnelContainerThreadExemptionTest {
     }
 
     // -------------------------------------------------------------------------
-    // Blocker 2c — parallel-N exemption is gated on the Couchbase SDK being loaded
+    // Blocker 2c — parallel-N exemption is scoped to the Couchbase E2E lifecycle flag
     // -------------------------------------------------------------------------
 
     /**
-     * When the Couchbase SDK is NOT on the test classpath, {@code isCouchbaseSdkLoaded()} returns
-     * {@code false} and a {@code parallel-N} thread must NOT be silently exempt. This is the core
-     * scoping guarantee: a Reactor-based connector that leaks a {@code parallel-N} thread will be
-     * caught in any E2E run where the Couchbase SDK was never loaded.
-     *
-     * <p>In this module ({@code seatunnel-e2e-common}) the Couchbase SDK is not a dependency, so
-     * {@code Class.forName("com.couchbase.client.java.Cluster", false, ...)} throws {@code
-     * ClassNotFoundException} and the guard returns {@code false}.
+     * When the Couchbase E2E lifecycle flag is {@code false} (the default), a {@code parallel-N}
+     * thread must NOT be silently exempt. This is the core scoping guarantee: a Reactor-based
+     * connector that leaks a {@code parallel-N} thread will be caught in any E2E run where the
+     * Couchbase test has not set the flag — regardless of whether the Couchbase SDK jar happens to
+     * be on the classpath.
      */
     @Test
-    void isIssueWeAlreadyKnow_parallelN_sdkNotLoaded_returnsFalse() throws Exception {
-        boolean sdkPresent;
-        try {
-            Class.forName(
-                    "com.couchbase.client.java.Cluster", false, ClassLoader.getSystemClassLoader());
-            sdkPresent = true;
-        } catch (ClassNotFoundException e) {
-            sdkPresent = false;
-        }
-        org.junit.jupiter.api.Assumptions.assumeFalse(
-                sdkPresent,
-                "Couchbase SDK is on the classpath — SDK-not-loaded branch cannot be tested here");
-
+    void isIssueWeAlreadyKnow_parallelN_flagOff_returnsFalse() throws Exception {
+        // Default state — flag is off. The @AfterEach ensures it stays off between tests.
         assertFalse(
                 isIssueWeAlreadyKnow("parallel-0"),
-                "parallel-0 must NOT be exempted when the Couchbase SDK is absent from the JVM");
+                "parallel-0 must NOT be exempted when the Couchbase E2E flag is off");
         assertFalse(
                 isIssueWeAlreadyKnow("parallel-42"),
-                "parallel-42 must NOT be exempted when the Couchbase SDK is absent from the JVM");
+                "parallel-42 must NOT be exempted when the Couchbase E2E flag is off");
     }
 
     /**
-     * When the Couchbase SDK IS on the test classpath, {@code isCouchbaseSdkLoaded()} returns
-     * {@code true} and a {@code parallel-N} thread IS correctly exempt. Skipped when the SDK is
-     * absent (the module has no Couchbase dependency; this branch runs in the Couchbase E2E module
-     * where the SDK is available).
+     * When {@link SeaTunnelContainer#enableCouchbaseParallelThreadExemption()} has been called (as
+     * {@code CouchbaseIT.startUp()} does), a {@code parallel-N} thread IS correctly exempt.
+     *
+     * <p>The {@code @AfterEach} hook calls {@link
+     * SeaTunnelContainer#disableCouchbaseParallelThreadExemption()} to reset the flag after this
+     * test completes.
      */
     @Test
-    void isIssueWeAlreadyKnow_parallelN_sdkLoaded_returnsTrue() throws Exception {
-        boolean sdkPresent;
-        try {
-            Class.forName(
-                    "com.couchbase.client.java.Cluster", false, ClassLoader.getSystemClassLoader());
-            sdkPresent = true;
-        } catch (ClassNotFoundException e) {
-            sdkPresent = false;
-        }
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-                sdkPresent,
-                "Couchbase SDK not on test classpath — skipping SDK-loaded branch test");
+    void isIssueWeAlreadyKnow_parallelN_flagOn_returnsTrue() throws Exception {
+        SeaTunnelContainer.enableCouchbaseParallelThreadExemption();
 
         assertTrue(
                 isIssueWeAlreadyKnow("parallel-0"),
-                "parallel-0 must be exempted when the Couchbase SDK is loaded in the JVM");
+                "parallel-0 must be exempted when the Couchbase E2E flag is on");
         assertTrue(
                 isIssueWeAlreadyKnow("parallel-42"),
-                "parallel-42 must be exempted when the Couchbase SDK is loaded in the JVM");
+                "parallel-42 must be exempted when the Couchbase E2E flag is on");
     }
 
     // -------------------------------------------------------------------------
@@ -211,8 +200,9 @@ class SeaTunnelContainerThreadExemptionTest {
     // -------------------------------------------------------------------------
 
     /**
-     * A non-numeric suffix must NOT match {@code parallel-\d+} regardless of whether the SDK is
-     * loaded — "parallel-scheduler-1" from a different Reactor connector must still be reported.
+     * A non-numeric suffix must NOT match {@code parallel-\d+} regardless of whether the lifecycle
+     * flag is set — "parallel-scheduler-1" from a different Reactor connector must still be
+     * reported.
      */
     @Test
     void isIssueWeAlreadyKnow_nonNumericParallelThread_returnsFalse() throws Exception {
