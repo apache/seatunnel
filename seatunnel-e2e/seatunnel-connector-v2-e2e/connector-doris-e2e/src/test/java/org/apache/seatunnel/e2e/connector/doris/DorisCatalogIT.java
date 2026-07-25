@@ -171,7 +171,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
                     "CREATE TABLE "
                             + sourcePath
                             + " (id INT, payload JSON, payloadb JSONB) "
-                            + "DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                            + "UNIQUE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 "
                             + "PROPERTIES(\"replication_num\" = \"1\")");
 
             CatalogTable sourceTable = catalog.getTable(sourcePath);

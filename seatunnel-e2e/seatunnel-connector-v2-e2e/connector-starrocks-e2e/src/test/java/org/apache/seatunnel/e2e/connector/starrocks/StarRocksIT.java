@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
@@ -373,7 +374,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     /**
      * Verifies StarRocks preserves every JSON value category through source and JSON Stream Load.
      */
-    private void assertJsonColumnCoverage() throws SQLException {
+    private void assertJsonColumnCoverage() throws SQLException, JsonProcessingException {
         String sourceSql =
                 String.format(
                         "SELECT JSON_COL FROM %s.%s ORDER BY BIGINT_COL", DATABASE, SOURCE_TABLE);
