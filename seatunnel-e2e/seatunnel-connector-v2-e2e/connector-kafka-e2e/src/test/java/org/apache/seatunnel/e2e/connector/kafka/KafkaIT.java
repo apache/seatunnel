@@ -115,7 +115,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1866,6 +1865,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String consumerGroup = "test_exactly_once_" + resourceSuffix;
         List<String> exactlyOnceVariables =
                 buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        String jobId = Long.toUnsignedString(System.nanoTime());
         createKafkaTopic(producerTopic);
         createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
@@ -1873,19 +1873,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
 
         // async execute
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
-                                        exactlyOnceVariables);
-                            } catch (Exception e) {
-                                log.error("Commit task exception :" + e.getMessage());
-                                throw new RuntimeException(e);
-                            }
-                        });
-        waitForStreamingJobStartup(jobFuture);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        awaitJobRunning(container, jobId);
         for (int i = 0; i < 10; i++) {
             sendTextRecordAndWait(producerTopic, sourceData);
         }
@@ -1957,25 +1957,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Interrupted while sending Kafka test record", e);
         } catch (ExecutionException e) {
             throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
-        }
-    }
-
-    /**
-     * Give the streaming submit command a startup grace window and fail fast when it exits before
-     * the test publishes its seed data.
-     */
-    private void waitForStreamingJobStartup(CompletableFuture<Container.ExecResult> jobFuture) {
-        try {
-            jobFuture.get(15, SECONDS);
-            throw new AssertionError("Streaming job finished before startup grace window elapsed");
-        } catch (TimeoutException expected) {
-            // Expected path: the submit command is still running, so the streaming job had time to
-            // initialize before the test publishes its first batch of records.
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError("Interrupted while waiting for streaming job startup", e);
-        } catch (ExecutionException e) {
-            throw new AssertionError("Streaming job failed before startup grace window elapsed", e);
         }
     }
 
