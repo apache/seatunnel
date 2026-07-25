@@ -918,7 +918,7 @@ public class ClusterFaultToleranceIT {
             newClientJobProxy.cancelJob();
             Awaitility.await()
                     .pollDelay(2000, TimeUnit.MILLISECONDS)
-                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {

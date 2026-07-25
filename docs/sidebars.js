@@ -162,8 +162,10 @@ const sidebars = {
                     "items": [
                         "getting-started/recipes/mysql-cdc-to-doris",
                         "getting-started/recipes/mysql-cdc-to-kafka",
+                        "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
                         "getting-started/recipes/kafka-to-iceberg",
+                        "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
                         "getting-started/recipes/file-to-starrocks",
                         "getting-started/recipes/multi-table-cdc"
@@ -213,6 +215,7 @@ const sidebars = {
                 "transforms/table-filter",
                 "transforms/table-merge",
                 "transforms/table-rename",
+                "transforms/text-chunk",
                 "transforms/transform-multi-table",
                 "transforms/multi-table-transform-and-join-boundary"
             ]
@@ -260,6 +263,7 @@ const sidebars = {
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
                         "engines/zeta/telemetry",
+                        "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/web-ui",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/tuning-guide"
