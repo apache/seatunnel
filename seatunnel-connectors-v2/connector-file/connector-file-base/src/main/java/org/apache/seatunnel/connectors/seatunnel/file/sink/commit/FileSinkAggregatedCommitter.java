@@ -38,11 +38,17 @@ public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
+    private final boolean appendData;
     private final Set<String> pendingUuidDirectories = new LinkedHashSet<>();
     private final Set<String> pendingJobDirectories = new LinkedHashSet<>();
 
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this(hadoopConf, false);
+    }
+
+    public FileSinkAggregatedCommitter(HadoopConf hadoopConf, boolean appendData) {
         this.hadoopConf = hadoopConf;
+        this.appendData = appendData;
     }
 
     @Override
@@ -61,9 +67,13 @@ public class FileSinkAggregatedCommitter
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
-                                // first rename temp file
-                                hadoopFileSystemProxy.renameFile(
-                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                if (appendData) {
+                                    hadoopFileSystemProxy.appendFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue());
+                                } else {
+                                    hadoopFileSystemProxy.renameFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                }
                             }
                             String transactionDir = entry.getKey();
                             // Data files are already committed after rename; tmp cleanup is
@@ -135,13 +145,16 @@ public class FileSinkAggregatedCommitter
                     try {
                         for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            // rollback the file
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
-                                if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
-                                        && !hadoopFileSystemProxy.fileExist(mvFileEntry.getKey())) {
-                                    hadoopFileSystemProxy.renameFile(
-                                            mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                            if (!appendData) {
+                                // rollback the file
+                                for (Map.Entry<String, String> mvFileEntry :
+                                        entry.getValue().entrySet()) {
+                                    if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
+                                            && !hadoopFileSystemProxy.fileExist(
+                                                    mvFileEntry.getKey())) {
+                                        hadoopFileSystemProxy.renameFile(
+                                                mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                                    }
                                 }
                             }
                             // delete the transaction dir

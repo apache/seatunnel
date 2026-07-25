@@ -42,6 +42,10 @@ class FileSinkAggregatedCommitterTest {
             super(new HadoopConf("hdfs://dummy"));
         }
 
+        TestableCommitter(boolean appendData) {
+            super(new HadoopConf("ftp://dummy"), appendData);
+        }
+
         void setFileSystemProxy(HadoopFileSystemProxy proxy) {
             this.hadoopFileSystemProxy = proxy;
         }
@@ -97,8 +101,39 @@ class FileSinkAggregatedCommitterTest {
         Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
     }
 
+    @Test
+    void shouldAppendTemporaryFileWhenAppendDataIsEnabled() throws Exception {
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        TestableCommitter committer = newCommitter(fs, true);
+
+        List<FileAggregatedCommitInfo> errors =
+                committer.commit(Collections.singletonList(newCommitInfo(true)));
+
+        Assertions.assertTrue(errors.isEmpty());
+        Mockito.verify(fs).appendFile(TEMP_FILE, TARGET_FILE);
+        Mockito.verify(fs, Mockito.never()).renameFile(TEMP_FILE, TARGET_FILE, true);
+    }
+
+    @Test
+    void shouldNotRollbackExistingTargetWhenAppendDataIsEnabled() throws Exception {
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        TestableCommitter committer = newCommitter(fs, true);
+
+        committer.abort(Collections.singletonList(newCommitInfo(true)));
+
+        Mockito.verify(fs, Mockito.never())
+                .renameFile(Mockito.anyString(), Mockito.anyString(), Mockito.anyBoolean());
+        Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
+    }
+
     private static TestableCommitter newCommitter(HadoopFileSystemProxy fs) {
         TestableCommitter committer = new TestableCommitter();
+        committer.setFileSystemProxy(fs);
+        return committer;
+    }
+
+    private static TestableCommitter newCommitter(HadoopFileSystemProxy fs, boolean appendData) {
+        TestableCommitter committer = new TestableCommitter(appendData);
         committer.setFileSystemProxy(fs);
         return committer;
     }

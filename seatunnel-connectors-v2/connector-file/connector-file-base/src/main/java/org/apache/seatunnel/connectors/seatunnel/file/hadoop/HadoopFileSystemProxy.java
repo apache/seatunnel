@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
@@ -154,6 +155,45 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         throw CommonError.fileOperationFailed(
                                 "SeaTunnel", "rename", oldFilePath + " -> " + newFilePath);
                     }
+                    return Void.class;
+                });
+    }
+
+    /**
+     * Appends a temporary file to an existing target file, or moves it when the target is absent.
+     *
+     * <p>The move path preserves the normal rename behavior for the first committed file. Later
+     * commits append the temporary file's bytes and remove that temporary file only after the
+     * append stream has closed successfully.
+     */
+    public void appendFile(@NonNull String sourceFilePath, @NonNull String targetFilePath)
+            throws IOException {
+        execute(
+                () -> {
+                    Path sourcePath = new Path(sourceFilePath);
+                    Path targetPath = new Path(targetFilePath);
+                    FileSystem fileSystem = getFileSystem();
+                    if (!fileSystem.exists(sourcePath)) {
+                        log.warn(
+                                "append file:[{}] to [{}] already finished in the last commit, skip.",
+                                sourcePath,
+                                targetPath);
+                        return Void.class;
+                    }
+                    if (!fileSystem.exists(targetPath)) {
+                        renameFile(sourceFilePath, targetFilePath, false);
+                        return Void.class;
+                    }
+                    try (FSDataInputStream inputStream = fileSystem.open(sourcePath);
+                            FSDataOutputStream outputStream =
+                                    fileSystem.append(targetPath, DEFAULT_BUFFER_SIZE, null)) {
+                        IOUtils.copyBytes(inputStream, outputStream, DEFAULT_BUFFER_SIZE, false);
+                    }
+                    if (!fileSystem.delete(sourcePath, false)) {
+                        throw CommonError.fileOperationFailed(
+                                "SeaTunnel", "delete", sourceFilePath);
+                    }
+                    log.info("append file:[{}] to [{}] finish", sourcePath, targetPath);
                     return Void.class;
                 });
     }
