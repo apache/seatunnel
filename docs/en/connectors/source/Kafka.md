@@ -63,6 +63,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
+| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
 
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
 > `start_mode` and consumer-group offsets are only used for the first startup or for newly
@@ -509,7 +511,34 @@ source {
 ```
 
 **Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
+
+### Reading Kafka Headers
+
+Use `kafka_headers_fields` to extract specific Kafka message headers as row fields. The header values are appended as STRING type fields after all regular schema fields.
+
+> Note: Cannot be used with `NATIVE` format, which already exposes headers as a `Map<String, String>` field.
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
 ```
+
+The output row will contain: `user_id` (int), `name` (string), `correlation-id` (string), `x-trace-id` (string).  
+If a header key is absent in a record, the corresponding field value will be `null`.
+
+This is the counterpart of `kafka_headers_fields` in the Kafka sink connector, allowing round-trip header propagation between topics.
 
 ### Ignore No Leader Partition
 

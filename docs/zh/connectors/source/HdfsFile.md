@@ -90,6 +90,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                 |
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                 |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                             |
+| update_compare_parallelism | int     | 否    | 8                   | 稀疏目标元数据点查的最大并发数，有效范围为 `1-64`。                                                                                                                                                                       |
+| update_compare_bulk_threshold | int  | 否    | 0                   | 设置正数后，同一目标父目录达到该候选数时切换为单次目录枚举；`0` 表示关闭自动批量枚举。                                                                                                                                     |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../common-options/source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
@@ -310,6 +312,14 @@ abc.*
 
 - `len_mtime`：`len` 与 `mtime` 都相同才 SKIP，否则 COPY。
 - `checksum`：要求 `len` 相同且 Hadoop `getFileChecksum` 相同才 SKIP，否则 COPY（仅在 `update_strategy=strict` 时生效）。
+
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存。
 
 ### enable_file_split [boolean]
 
