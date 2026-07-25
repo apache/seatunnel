@@ -79,7 +79,11 @@ public class HybridSplitAssigner<C extends SourceConfig>
         this(
                 new SnapshotSplitAssigner<>(
                         context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
-                new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
+                new IncrementalSplitAssigner<>(
+                        context,
+                        incrementalParallelism,
+                        offsetFactory,
+                        checkpoint.getIncrementalPhaseState()));
     }
 
     private HybridSplitAssigner(

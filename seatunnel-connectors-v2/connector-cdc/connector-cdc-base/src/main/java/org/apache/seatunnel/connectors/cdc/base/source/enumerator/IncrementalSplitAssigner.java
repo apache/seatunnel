@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -84,6 +86,13 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
     private List<CatalogTable> checkpointTables;
     private Map<TableId, byte[]> historyTableChanges;
 
+    /**
+     * The startup offset resolved on fresh enumerator creation and reused after checkpoint restore.
+     */
+    private Offset startupOffset;
+
+    private final boolean restoredFromCheckpoint;
+
     public IncrementalSplitAssigner(
             SplitAssigner.Context<C> context,
             int incrementalParallelism,
@@ -91,6 +100,25 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
         this.context = context;
         this.incrementalParallelism = incrementalParallelism;
         this.offsetFactory = offsetFactory;
+        this.restoredFromCheckpoint = false;
+        StartupConfig startupConfig =
+                context.getSourceConfig() == null
+                        ? null
+                        : context.getSourceConfig().getStartupConfig();
+        this.startupOffset =
+                startupConfig == null ? null : startupConfig.getStartupOffset(offsetFactory);
+    }
+
+    public IncrementalSplitAssigner(
+            SplitAssigner.Context<C> context,
+            int incrementalParallelism,
+            OffsetFactory offsetFactory,
+            IncrementalPhaseState checkpointState) {
+        this.context = context;
+        this.incrementalParallelism = incrementalParallelism;
+        this.offsetFactory = offsetFactory;
+        this.restoredFromCheckpoint = true;
+        this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
     }
 
     @Override
@@ -165,6 +193,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
                                 }
                                 tableWatermarks.put(tableId, startupOffset);
                             }
+                            if (this.startupOffset == null) {
+                                this.startupOffset = startupOffset;
+                            }
                             checkpointTables = incrementalSplit.getCheckpointTables();
                             historyTableChanges = incrementalSplit.getHistoryTableChanges();
                         });
@@ -175,7 +206,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState();
+        return new IncrementalPhaseState(startupOffset);
     }
 
     @Override
@@ -269,10 +300,16 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
                         tableId);
             }
         }
-        Offset incrementalSplitStartOffset =
-                minOffset != null
-                        ? minOffset
-                        : sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
+        if (minOffset == null && startupOffset == null) {
+            if (restoredFromCheckpoint
+                    && sourceConfig.getStartupConfig().getStartupMode()
+                            == StartupMode.COMMITTED_OFFSET) {
+                throw new IllegalStateException(
+                        "The restored committed-offset checkpoint does not contain its startup offset");
+            }
+            startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
+        }
+        Offset incrementalSplitStartOffset = minOffset != null ? minOffset : startupOffset;
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
