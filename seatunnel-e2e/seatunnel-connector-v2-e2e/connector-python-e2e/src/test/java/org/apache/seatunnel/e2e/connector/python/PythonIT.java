@@ -37,6 +37,15 @@ import java.io.IOException;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PythonIT extends SeaTunnelContainer {
 
+    @Override
+    protected String[] buildStartCommand() {
+        return new String[] {
+            "env",
+            "JAVA_TOOL_OPTIONS=-Dseatunnel.source.python.enabled=true -Dseatunnel.source.python.allowed-executables=/usr/bin/python3",
+            super.buildStartCommand()[0]
+        };
+    }
+
     /** Starts the SeaTunnel container and copies the Python script used by the e2e job. */
     @BeforeAll
     public void startUp() throws Exception {

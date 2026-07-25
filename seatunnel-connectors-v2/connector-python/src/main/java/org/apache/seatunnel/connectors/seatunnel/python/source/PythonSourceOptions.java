@@ -37,7 +37,8 @@ public class PythonSourceOptions {
             Options.key("python.executable")
                     .stringType()
                     .defaultValue("python3")
-                    .withDescription("Python interpreter used to launch the script");
+                    .withDescription(
+                            "Python interpreter used to launch the script. The resolved absolute path must be allowed by the server-side Python source policy");
 
     /** Script path that contains the user-defined data generation logic. */
     public static final Option<String> PYTHON_SCRIPT_PATH =

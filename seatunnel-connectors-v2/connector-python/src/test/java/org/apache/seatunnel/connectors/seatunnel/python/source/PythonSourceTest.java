@@ -25,12 +25,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -46,11 +48,18 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 /** Verifies the Python subprocess protocol, bounded completion, and cancellation boundaries. */
 class PythonSourceTest {
 
     @TempDir Path tempDir;
+
+    @AfterEach
+    void clearPythonSourcePolicy() {
+        System.clearProperty(PythonSourceExecutionPolicy.PYTHON_SOURCE_ENABLED_PROPERTY);
+        System.clearProperty(PythonSourceExecutionPolicy.PYTHON_ALLOWED_EXECUTABLES_PROPERTY);
+    }
 
     @Test
     void testSourceMetadataAndBoundedness() {
@@ -82,6 +91,48 @@ class PythonSourceTest {
         AbstractSingleSplitReader<?> reader = source.createReader(readerContext);
 
         Assertions.assertInstanceOf(PythonSourceReader.class, reader);
+    }
+
+    @Test
+    void testReaderRejectsPythonExecutionWhenServerPolicyIsDisabled() throws Exception {
+        Path scriptPath = copyResource("python/emit_rows.py");
+        String javaExecutable = javaExecutablePath();
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(javaExecutable, scriptPath.toString()))));
+
+        IllegalStateException exception =
+                Assertions.assertThrows(IllegalStateException.class, reader::open);
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(PythonSourceExecutionPolicy.PYTHON_SOURCE_ENABLED_PROPERTY));
+    }
+
+    @Test
+    void testReaderRejectsExecutableOutsideServerAllowlist() throws Exception {
+        Path scriptPath = copyResource("python/emit_rows.py");
+        String javaExecutable = javaExecutablePath();
+        System.setProperty(PythonSourceExecutionPolicy.PYTHON_SOURCE_ENABLED_PROPERTY, "true");
+        System.setProperty(
+                PythonSourceExecutionPolicy.PYTHON_ALLOWED_EXECUTABLES_PROPERTY,
+                tempDir.resolve("not-allowed-python").toAbsolutePath().toString());
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(javaExecutable, scriptPath.toString()))));
+
+        IllegalStateException exception =
+                Assertions.assertThrows(IllegalStateException.class, reader::open);
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(PythonSourceExecutionPolicy.PYTHON_ALLOWED_EXECUTABLES_PROPERTY));
     }
 
     @Test
@@ -456,23 +507,38 @@ class PythonSourceTest {
         String executable = findPythonExecutable();
         Assumptions.assumeTrue(
                 executable != null, "python interpreter not available in test environment");
+        System.setProperty(PythonSourceExecutionPolicy.PYTHON_SOURCE_ENABLED_PROPERTY, "true");
+        System.setProperty(
+                PythonSourceExecutionPolicy.PYTHON_ALLOWED_EXECUTABLES_PROPERTY, executable);
         return executable;
     }
 
     private String findPythonExecutable() {
-        String[] candidates = new String[] {"python3", "python"};
-        for (String candidate : candidates) {
-            try {
-                Process process = new ProcessBuilder(candidate, "--version").start();
-                int exitCode = process.waitFor();
-                if (exitCode == 0) {
-                    return candidate;
+        String pathValue = System.getenv("PATH");
+        if (pathValue == null || pathValue.trim().isEmpty()) {
+            return null;
+        }
+        String[] commandNames =
+                System.getProperty("os.name", "").toLowerCase().contains("windows")
+                        ? new String[] {"python3.exe", "python.exe", "python3", "python"}
+                        : new String[] {"python3", "python"};
+        for (String directory : pathValue.split(Pattern.quote(File.pathSeparator))) {
+            for (String commandName : commandNames) {
+                Path candidate = Paths.get(directory, commandName);
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return candidate.toAbsolutePath().normalize().toString();
                 }
-            } catch (Exception ignored) {
-                // Try the next common interpreter name.
             }
         }
         return null;
+    }
+
+    private String javaExecutablePath() {
+        Path javaExecutable = Paths.get(System.getProperty("java.home"), "bin", "java");
+        if (!Files.isRegularFile(javaExecutable)) {
+            javaExecutable = Paths.get(System.getProperty("java.home"), "bin", "java.exe");
+        }
+        return javaExecutable.toAbsolutePath().normalize().toString();
     }
 
     private Path copyResource(String resourceName) throws IOException {

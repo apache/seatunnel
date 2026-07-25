@@ -46,7 +46,8 @@ Row。这样 Python 侧只需要专注于取数和打印文本行，实现门槛
 
 ### python.executable [string]
 
-用于启动脚本的 Python 解释器或可执行文件。
+用于启动脚本的 Python 解释器或可执行文件。最终解析出的绝对路径必须包含在集群管理员控制的系统属性
+`seatunnel.source.python.allowed-executables` 中。
 
 示例：`python3`、`/usr/bin/python3`、`/opt/venv/bin/python`
 
@@ -88,7 +89,11 @@ stdout 解析格式。当前 Phase 1 只支持：
 
 ## 安全说明
 
+- 该连接器默认禁用。集群管理员必须在每个 Worker 节点设置
+  `-Dseatunnel.source.python.enabled=true`，并配置
+  `-Dseatunnel.source.python.allowed-executables=/absolute/path/to/python3`。任务配置不能启用该连接器，也不能扩大该白名单。
 - `python.executable` 和 `python.script.path` 会在 worker 节点上以 SeaTunnel worker 进程的权限直接执行。
+- 每次启动进程时，SeaTunnel 都会把最终解析出的可执行文件和规范化后的 `python.script.path` 作为审计告警写入日志。
 - `python.script.config` 会被序列化为 JSON 并写入子进程 stdin，因此其中的密钥或令牌会暴露给该子进程及其运行期日志或诊断信息。
 - 在共享集群中，建议限制谁可以提交使用该连接器的任务，并尽量让 worker 运行在受控或隔离的环境里。
 
@@ -105,7 +110,7 @@ env {
 source {
   Python {
     plugin_output = "python_source"
-    python.executable = "python3"
+    python.executable = "/usr/bin/python3"
     python.script.path = "/tmp/python_source.py"
     python.script.config = {
       prefix = "seatunnel"

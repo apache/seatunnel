@@ -47,7 +47,9 @@ The current MVP supports `file_format_type = text` only.
 
 ### python.executable [string]
 
-Python interpreter or executable used to start the script.
+Python interpreter or executable used to start the script. The resolved absolute executable must be
+listed in the operator-controlled system property
+`seatunnel.source.python.allowed-executables`.
 
 Examples: `python3`, `/usr/bin/python3`, `/opt/venv/bin/python`
 
@@ -92,8 +94,14 @@ Source plugin common parameters, please refer to
 
 ## Security
 
+- This connector is disabled by default. Operators must set
+  `-Dseatunnel.source.python.enabled=true` and configure
+  `-Dseatunnel.source.python.allowed-executables=/absolute/path/to/python3` on every worker node.
+  Job configuration cannot enable the connector or widen this allowlist.
 - `python.executable` and `python.script.path` run on the worker host with the privileges of the
   SeaTunnel worker process.
+- Every process start logs the resolved executable and normalized `python.script.path` as an audit
+  warning.
 - `python.script.config` is serialized to JSON and written to the child process stdin, so secrets
   placed there are exposed to that child process and its runtime logs or diagnostics.
 - Cluster operators should restrict who can submit jobs that use this connector and run workers in
@@ -112,7 +120,7 @@ env {
 source {
   Python {
     plugin_output = "python_source"
-    python.executable = "python3"
+    python.executable = "/usr/bin/python3"
     python.script.path = "/tmp/python_source.py"
     python.script.config = {
       prefix = "seatunnel"

@@ -114,10 +114,22 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void open() throws Exception {
-        Path scriptPath = validateScriptPath();
+        synchronized (lifecycleLock) {
+            if (closeRequested) {
+                throw new IOException("Python source reader has already been closed");
+            }
+        }
+        Path scriptPath = validateScriptPath().toAbsolutePath().normalize();
+        Path resolvedExecutable =
+                PythonSourceExecutionPolicy.resolveExecutable(sourceConfig.getPythonExecutable());
+        LOG.warn(
+                "Python source runs unsandboxed external code. Resolved executable='{}', scriptOrigin='python.script.path={}', guarded by system properties '{}','{}'.",
+                resolvedExecutable,
+                scriptPath,
+                PythonSourceExecutionPolicy.PYTHON_SOURCE_ENABLED_PROPERTY,
+                PythonSourceExecutionPolicy.PYTHON_ALLOWED_EXECUTABLES_PROPERTY);
         ProcessBuilder processBuilder =
-                new ProcessBuilder(
-                        sourceConfig.getPythonExecutable(), scriptPath.toAbsolutePath().toString());
+                new ProcessBuilder(resolvedExecutable.toString(), scriptPath.toString());
         configureWorkingDirectory(processBuilder, scriptPath);
 
         synchronized (lifecycleLock) {
@@ -129,7 +141,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             } catch (IOException e) {
                 throw new IOException(
                         "Failed to start python source process with executable ["
-                                + sourceConfig.getPythonExecutable()
+                                + resolvedExecutable
                                 + "] and script ["
                                 + scriptPath
                                 + "]",
