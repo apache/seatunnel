@@ -66,6 +66,67 @@ public class NodeEngineUtilTest {
                 coordinatorAddress, NodeEngineUtil.getActiveMasterAddress(nodeEngine));
     }
 
+    /**
+     * Verifies that lite-worker mastership does not masquerade as a coordinator.
+     *
+     * <p>This covers the case where no coordinator-capable member is visible.
+     */
+    @Test
+    public void testReturnNullWhenLiteMasterHasNoCoordinatorMember() throws Exception {
+        Address workerAddress = new Address("localhost", 5801);
+        MemberImpl workerMember = newMember(workerAddress, true);
+
+        NodeEngine nodeEngine = newNodeEngine(workerAddress, workerMember, workerMember);
+
+        Assertions.assertNull(NodeEngineUtil.getActiveMasterAddress(nodeEngine));
+    }
+
+    /**
+     * Verifies that stale master metadata is treated as coordinator-unavailable.
+     *
+     * <p>This covers the case where the Hazelcast master address is known but member metadata is
+     * missing from the current membership view.
+     */
+    @Test
+    public void testReturnNullWhenMasterMetadataIsUnavailable() throws Exception {
+        Address workerAddress = new Address("localhost", 5801);
+        Address coordinatorAddress = new Address("localhost", 5802);
+        MemberImpl workerMember = newMember(workerAddress, true);
+        MemberImpl coordinatorMember = newMember(coordinatorAddress, false);
+
+        NodeEngine nodeEngine = newNodeEngine(workerAddress, null, workerMember, coordinatorMember);
+
+        Assertions.assertNull(NodeEngineUtil.getActiveMasterAddress(nodeEngine));
+    }
+
+    /**
+     * Verifies that a newly visible coordinator becomes the active routing target.
+     *
+     * <p>This covers the case where a replacement coordinator rejoins after an unavailable window.
+     */
+    @Test
+    public void testChooseReplacementCoordinatorAfterCoordinatorRejoins() throws Exception {
+        Address workerAddress = new Address("localhost", 5801);
+        Address replacementCoordinatorAddress = new Address("localhost", 5803);
+        MemberImpl workerMember = newMember(workerAddress, true);
+        MemberImpl replacementCoordinatorMember = newMember(replacementCoordinatorAddress, false);
+
+        NodeEngine nodeEngine = Mockito.mock(NodeEngine.class);
+        ClusterService clusterService = Mockito.mock(ClusterService.class);
+        Mockito.when(nodeEngine.getMasterAddress()).thenReturn(workerAddress);
+        Mockito.when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        Mockito.when(clusterService.getMember(workerAddress)).thenReturn(workerMember);
+        Mockito.when(clusterService.getMembers())
+                .thenReturn(new LinkedHashSet<>(Arrays.asList(workerMember)))
+                .thenReturn(
+                        new LinkedHashSet<>(
+                                Arrays.asList(workerMember, replacementCoordinatorMember)));
+
+        Assertions.assertNull(NodeEngineUtil.getActiveMasterAddress(nodeEngine));
+        Assertions.assertEquals(
+                replacementCoordinatorAddress, NodeEngineUtil.getActiveMasterAddress(nodeEngine));
+    }
+
     private NodeEngine newNodeEngine(
             Address hazelcastMasterAddress, MemberImpl hazelcastMasterMember, Member... members) {
         NodeEngine nodeEngine = Mockito.mock(NodeEngine.class);

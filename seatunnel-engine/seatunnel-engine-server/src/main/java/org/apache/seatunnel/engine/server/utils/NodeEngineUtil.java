@@ -44,12 +44,15 @@ public class NodeEngineUtil {
     }
 
     /**
-     * Returns the active SeaTunnel coordinator address.
+     * Returns the active SeaTunnel coordinator address when the local membership view can confirm
+     * one.
      *
      * <p>In separated clusters, worker-only nodes are Hazelcast lite members. Hazelcast mastership
      * can temporarily point to a lite worker after failover, but SeaTunnel control-plane operations
      * must still be sent to a coordinator-capable member. Mixed clusters keep the old behavior
-     * because the Hazelcast master is not a lite member.
+     * because the Hazelcast master is not a lite member. When the current membership view cannot
+     * confirm any coordinator-capable member yet, this method returns {@code null} so callers can
+     * retry instead of misrouting the request to a lite worker.
      */
     public static Address getActiveMasterAddress(NodeEngine nodeEngine) {
         Address hazelcastMasterAddress = nodeEngine.getMasterAddress();
@@ -57,14 +60,17 @@ public class NodeEngineUtil {
             return null;
         }
         Member hazelcastMaster = nodeEngine.getClusterService().getMember(hazelcastMasterAddress);
-        if (hazelcastMaster == null || !hazelcastMaster.isLiteMember()) {
+        if (hazelcastMaster == null) {
+            return null;
+        }
+        if (!hazelcastMaster.isLiteMember()) {
             return hazelcastMasterAddress;
         }
         return nodeEngine.getClusterService().getMembers().stream()
                 .filter(member -> !member.isLiteMember())
                 .map(Member::getAddress)
                 .findFirst()
-                .orElse(hazelcastMasterAddress);
+                .orElse(null);
     }
 
     public static <E> InvocationFuture<E> sendOperationToMemberNode(

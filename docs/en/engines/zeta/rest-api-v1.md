@@ -526,6 +526,13 @@ When we can't get the job info, the response will be:
 ]
 ```
 
+- `isMaster`: whether this node is the current active SeaTunnel coordinator. In separated master
+  and worker deployments, this can differ from Hazelcast mastership.
+- `nodeRole`: statically configured node capability. Valid values are `MASTER`, `WORKER`, and
+  `MASTER_AND_WORKER`.
+- `coordinator`: whether this node is configured with coordinator capability.
+- `worker`: whether this node is configured with worker capability.
+
 </details>
 
 ------------------------------------------------------------------------------------------

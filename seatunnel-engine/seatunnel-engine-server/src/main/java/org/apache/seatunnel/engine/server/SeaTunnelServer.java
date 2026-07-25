@@ -384,14 +384,31 @@ public class SeaTunnelServer
         }
     }
 
+    /**
+     * Returns the statically configured node capability.
+     *
+     * <p>See {@link EngineConfig.ClusterRole} for the supported values.
+     */
     public EngineConfig.ClusterRole getClusterRole() {
         return seaTunnelConfig.getEngineConfig().getClusterRole();
     }
 
+    /**
+     * Returns whether this node is configured with coordinator capability.
+     *
+     * <p>This reflects the static cluster-role configuration, not the dynamic active coordinator
+     * state exposed by {@link #isMasterNode()}.
+     */
     public boolean isCoordinatorNode() {
         return !EngineConfig.ClusterRole.WORKER.equals(getClusterRole());
     }
 
+    /**
+     * Returns whether this node is configured with worker capability.
+     *
+     * <p>This reflects the static cluster-role configuration, not the dynamic active coordinator
+     * state exposed by {@link #isMasterNode()}.
+     */
     public boolean isWorkerNode() {
         return !EngineConfig.ClusterRole.MASTER.equals(getClusterRole());
     }

@@ -50,6 +50,9 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                          | 分区是否安全                              |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                          | 本地成员是否安全                            |
 
+`cluster_info{master=...}` 上报的是当前激活的 SeaTunnel coordinator 地址。在 master / worker
+分离部署中，这个标签可能与 Hazelcast master 身份不同。
+
 ### 引擎状态存储指标
 
 这些指标暴露 Zeta 引擎状态存储的基础大小和本地资源使用情况。当前后端是 Hazelcast IMap，因此 `backend`
@@ -153,6 +156,9 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | report_metrics_operation_last_payload_task_count  | Gauge   | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | 最近一次 `ReportMetricsOperation` payload 中包含的 task metrics 数量                    |
 | report_metrics_operation_last_invocation_latency_ms | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 侧最近一次 `ReportMetricsOperation` 上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
 | report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 启动以来观测到的 `ReportMetricsOperation` 最大上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+
+在取消流程中，SeaTunnel 不会同步等待最后一次 best-effort 的 `ReportMetricsOperation` 刷新。如果
+取消发生在最近一次周期性备份之后，最终上报的 metrics 可能会落后于任务本地最新进度。
 
 ### 作业信息详细
 

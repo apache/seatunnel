@@ -49,6 +49,9 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
 
+`cluster_info{master=...}` reports the active SeaTunnel coordinator address. In separated
+master/worker deployments, that label can differ from Hazelcast mastership.
+
 ### Engine State Store Metrics
 
 These metrics expose the basic size and local resource usage of Zeta engine state stores. The current backend is
@@ -154,6 +157,10 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | report_metrics_operation_last_payload_task_count  | Gauge   | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The number of task metrics included in the most recent `ReportMetricsOperation` payload sent by a worker        |
 | report_metrics_operation_last_invocation_latency_ms | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The most recent worker-side `ReportMetricsOperation` reporting latency in milliseconds, including local metrics collection and worker-to-master invocation |
 | report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The maximum observed worker-side `ReportMetricsOperation` reporting latency in milliseconds since the worker started, including local metrics collection and worker-to-master invocation |
+
+During cancellation, SeaTunnel does not synchronously flush a final best-effort
+`ReportMetricsOperation`. If cancellation happens after the latest periodic backup, the final
+reported metrics can lag behind the most recent task-local progress.
 
 ### Job info detail
 
