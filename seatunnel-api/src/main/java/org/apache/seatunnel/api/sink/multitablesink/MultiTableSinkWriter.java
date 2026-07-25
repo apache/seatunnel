@@ -447,6 +447,11 @@ public class MultiTableSinkWriter
                         blockingQueue,
                         MultiTableWriterRunnable.schemaChangeRequest(schemaChangeBarrier));
             }
+            // A worker can fail after applySchemaChange's last error check but before its barrier
+            // request is enqueued. In that window the worker has already drained its queue and
+            // cannot fail the newly enqueued request, so recheck only after every request is
+            // visible to close the lost-notification race.
+            subSinkErrorCheck();
         } catch (Throwable error) {
             schemaChangeBarrier.fail(error);
             throwAsIOException(error);

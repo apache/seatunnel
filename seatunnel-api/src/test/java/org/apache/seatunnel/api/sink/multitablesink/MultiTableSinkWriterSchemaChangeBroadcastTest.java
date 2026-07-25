@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -410,6 +412,56 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(coordinator::close);
     }
 
+    /**
+     * Models the worker-exit window after applySchemaChange's final pre-enqueue error check. A
+     * barrier published to an already-dead queue must observe the terminal worker failure instead
+     * of waiting forever for a notification that can no longer arrive.
+     */
+    @Test
+    void schemaChangeBarrierDetectsWorkerFailureAfterPreEnqueueCheck() throws Exception {
+        IOException rowWriteFailure = new IOException("boom-during-barrier-enqueue");
+        FailingRowSinkWriter sink = new FailingRowSinkWriter(PHYSICAL_SINK_SHARED, rowWriteFailure);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        writers.put(SinkIdentifier.of("dbA.users", 0), sink);
+
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(writers, 1, buildContextMap(writers));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("dbA.users");
+        coordinator.write(row);
+
+        MultiTableWriterRunnable queueRunnable = getRunnable(coordinator, 0);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (queueRunnable.getThrowable() == null && System.nanoTime() < deadline) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
+        assertTrue(queueRunnable.getThrowable() != null);
+
+        AtomicReference<Throwable> schemaChangeFailure = new AtomicReference<>();
+        Thread schemaChangeThread =
+                new Thread(
+                        () -> {
+                            try {
+                                invokeSchemaChangeBarrier(
+                                        coordinator,
+                                        new TestSchemaChangeEvent(
+                                                TablePath.of("dbA", null, "users")));
+                            } catch (Throwable throwable) {
+                                schemaChangeFailure.set(throwable);
+                            }
+                        });
+        schemaChangeThread.start();
+        schemaChangeThread.join(TimeUnit.SECONDS.toMillis(5));
+
+        assertFalse(
+                schemaChangeThread.isAlive(),
+                "a barrier enqueued after worker exit must not wait forever");
+        assertTrue(schemaChangeFailure.get() instanceof IOException);
+        assertEquals("boom-during-barrier-enqueue", schemaChangeFailure.get().getMessage());
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(coordinator::close);
+    }
+
     /** Builds the writer-context map required by the multi-table coordinator constructor. */
     private Map<SinkIdentifier, SinkWriter.Context> buildContextMap(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers) {
@@ -432,6 +484,20 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         List<MultiTableWriterRunnable> runnables =
                 (List<MultiTableWriterRunnable>) field.get(coordinator);
         return runnables.get(queueIndex);
+    }
+
+    private void invokeSchemaChangeBarrier(
+            MultiTableSinkWriter coordinator, SchemaChangeEvent schemaChangeEvent)
+            throws Throwable {
+        Method method =
+                MultiTableSinkWriter.class.getDeclaredMethod(
+                        "enqueueSchemaChangeBarrier", SchemaChangeEvent.class);
+        method.setAccessible(true);
+        try {
+            method.invoke(coordinator, schemaChangeEvent);
+        } catch (InvocationTargetException error) {
+            throw error.getCause();
+        }
     }
 
     /**
