@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -177,6 +178,41 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    public void testRequestSlotOperationStatsForSuccessAndNoSlot()
+            throws ExecutionException, InterruptedException {
+        FakeResourceManagerForRequestSlotRetryTest resourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1);
+
+        List<SlotProfile> slotProfiles =
+                resourceManager
+                        .applyResources(1L, Collections.singletonList(new ResourceProfile()), null)
+                        .get();
+
+        Assertions.assertEquals(1, slotProfiles.size());
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(1, stats.getSuccessCount());
+        Assertions.assertEquals(1, stats.getNoSlotCount());
+        Assertions.assertEquals(0, stats.getFailureCount());
+    }
+
+    @Test
+    public void testRequestSlotOperationStatsAggregation() {
+        FakeResourceManagerForRequestSlotRetryTest resourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 0, 0);
+
+        resourceManager.recordRequestSlotOperationSuccess(10L);
+        resourceManager.recordRequestSlotOperationNoSlot(20L);
+        resourceManager.recordRequestSlotOperationFailure(15L);
+
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(1, stats.getSuccessCount());
+        Assertions.assertEquals(1, stats.getNoSlotCount());
+        Assertions.assertEquals(1, stats.getFailureCount());
+        Assertions.assertEquals(15L, stats.getLastInvocationLatencyMs());
+        Assertions.assertEquals(20L, stats.getMaxInvocationLatencyMs());
+    }
+
+    @Test
     public void testApplyResourcesPreserveCauseForExternalException()
             throws ExecutionException, InterruptedException {
         FakeResourceManagerForExternalExceptionTest resourceManager =
@@ -191,8 +227,17 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         Assertions.assertInstanceOf(
                 IllegalStateException.class,
                 ((NoEnoughResourceException) exception.getCause()).getCause());
+
+        RequestSlotOperationStats stats = resourceManager.getRequestSlotOperationStats();
+        Assertions.assertEquals(0, stats.getSuccessCount());
+        Assertions.assertEquals(0, stats.getNoSlotCount());
+        Assertions.assertEquals(1, stats.getFailureCount());
     }
 
+    /**
+     * Verifies that local slot release stays on the local worker path instead of going through a
+     * self-targeted Hazelcast operation.
+     */
     @Test
     public void testReleaseResourceOnLocalWorkerShouldBypassOperationInvocation()
             throws ExecutionException, InterruptedException, UnknownHostException {

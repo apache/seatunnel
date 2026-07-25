@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -51,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -69,6 +71,13 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private volatile boolean isRunning = true;
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
+
+    // Track master-side slot request cost without changing allocation behavior.
+    private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationNoSlotCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationFailureCount = new AtomicLong();
+    private final AtomicLong requestSlotOperationLastInvocationLatencyMs = new AtomicLong();
+    private final AtomicLong requestSlotOperationMaxInvocationLatencyMs = new AtomicLong();
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
@@ -204,6 +213,37 @@ public abstract class AbstractResourceManager implements ResourceManager {
     protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         return new CompletableFuture<>(
                 NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, address));
+    }
+
+    void recordRequestSlotOperationSuccess(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationSuccessCount.incrementAndGet();
+    }
+
+    void recordRequestSlotOperationNoSlot(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationNoSlotCount.incrementAndGet();
+    }
+
+    void recordRequestSlotOperationFailure(long elapsedMillis) {
+        updateRequestSlotOperationLatency(elapsedMillis);
+        requestSlotOperationFailureCount.incrementAndGet();
+    }
+
+    private void updateRequestSlotOperationLatency(long elapsedMillis) {
+        requestSlotOperationLastInvocationLatencyMs.set(elapsedMillis);
+        requestSlotOperationMaxInvocationLatencyMs.accumulateAndGet(elapsedMillis, Math::max);
+    }
+
+    /** Returns the latest master-side RequestSlotOperation observability snapshot. */
+    @Override
+    public RequestSlotOperationStats getRequestSlotOperationStats() {
+        return new RequestSlotOperationStats(
+                requestSlotOperationSuccessCount.get(),
+                requestSlotOperationNoSlotCount.get(),
+                requestSlotOperationFailureCount.get(),
+                requestSlotOperationLastInvocationLatencyMs.get(),
+                requestSlotOperationMaxInvocationLatencyMs.get());
     }
 
     @Override
