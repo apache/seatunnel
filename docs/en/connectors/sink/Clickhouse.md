@@ -18,7 +18,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 > The Clickhouse sink can reduce duplicate effects through idempotent writing when the target table engine supports deduplication, such as `AggregatingMergeTree` or `ReplacingMergeTree`. It is not marked as exactly-once because the guarantee depends on the target table design.
 
 - [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -130,6 +130,35 @@ The following placeholders can be used:
 - `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
 - `comment`: Retrieves the table comment from the upstream schema.
+
+### Zeta Timer Flush
+
+This engine-level capability is available only in Zeta. Configure `sink.flush.interval` in `env` to periodically write buffered rows through ClickHouse JDBC even when `bulk_size` has not been reached. Spark and Flink do not trigger this scheduled flush.
+
+:::tip
+
+ClickHouse timer flush does not provide 2PC exactly-once semantics. The ClickHouse Sink remains at-least-once, and retries or task restarts may insert rows again. When duplicate handling is required, design the target table with a suitable deduplication engine and deterministic keys.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    bulk_size = 10000
+  }
+}
+```
 
 ## Example Configurations and Cases
 
