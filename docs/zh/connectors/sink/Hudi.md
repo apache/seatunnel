@@ -15,6 +15,12 @@ import ChangeLog from '../changelog/connector-hudi.md';
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
+:::caution Hive Metastore 同步
+
+SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不会在 Hive Metastore 中注册表或将表同步到 Hive Metastore。`hoodie.datasource.hive_sync.*` 配置不是受支持的 sink 选项，也不会传递给 Hudi 写入客户端。需要注册到 Hive Metastore 时，请单独运行 Apache Hudi `HiveSyncTool` 或其他表注册流程。
+
+:::
+
 ## 选项
 
 基础配置:

@@ -13,6 +13,7 @@ The tested email version is 1.5.6.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -29,6 +30,7 @@ The tested email version is 1.5.6.
 | email_message_content    | string  | yes      | -             |
 | email_attachment_name    | string  | no       | emailsink.csv |
 | email_field_delimiter    | string  | no       | ,             |
+| multi_table_sink_replica | int     | no       | 1             |
 | common-options           |         | no       | -             |
 
 ### email_from_address [string]
@@ -84,6 +86,16 @@ The delimiter used to separate fields in the attachment file. Default is comma `
 The attachment has no header row. Field values are written in the upstream schema order. `null`
 values are written as empty strings.
 
+### multi_table_sink_replica [int]
+
+The replica number of sink writers used for each table in a multi-table sink job. The default value
+is `1`.
+
+### Empty input behavior
+
+The sink sends an email only after at least one row is written. If the upstream table has no rows,
+the email is skipped.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -92,8 +104,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ### Send one table to multiple recipients
 
-This example uses an SMTP server without authentication and sends one email to each address in
-`email_to_address`.
+This example uses an SMTP server without authentication and sends one email whose recipient list is
+defined by `email_to_address`.
 
 ```hocon
 env {

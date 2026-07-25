@@ -64,7 +64,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 | 名称 | 类型 | 是否必须 | 默认值 | 描述 |
 |------|------|----------|--------|------|
-| url | String | 是 | - | Databend JDBC 连接 URL |
+| url | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username | String | 是 | - | Databend 数据库用户名 |
 | password | String | 是 | - | Databend 数据库密码 |
 | database | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
@@ -75,8 +75,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 | ssl | Boolean | 否 | false | 是否使用 SSL 连接 Databend |
 | jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如加载均衡策略等 |
 
-必须配置 `sql`、`query`、或同时配置 `database` 和 `table`。当前连接器不支持
-`table_list`，如果要读多张表，请为每张表分别配置一个 Databend source。
+必须配置 `sql`、`query`、或同时配置 `database` 和 `table`。如果同时配置了多个读取入口，实际读取 SQL 的优先级是：`sql`、`query`、最后是 `SELECT * FROM database.table`。当前连接器不支持 `table_list`，如果要读多张表，请为每张表分别配置一个 Databend source。
 
 ## 任务示例
 

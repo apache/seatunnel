@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) for batch mode only
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -40,6 +41,7 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
 | emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
+| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options
@@ -55,7 +57,14 @@ For production BigQuery jobs, provide **one** of the following authentication me
 The target BigQuery table must already exist.
 The connector reads the existing table schema during writer initialization and does not create the table automatically.
 
-The connector writes to one configured table: `project_id.dataset_id.table_id`. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+The connector writes to one configured table: `project_id.dataset_id.table_id`. It does not create a different BigQuery table for each upstream table. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+
+### Write Modes
+
+- `batch`: uses BigQuery buffered write streams and commits data during SeaTunnel checkpoint/commit. This is the mode covered by the exactly-once feature mark.
+- `streaming`: uses the default stream and writes CDC records with BigQuery change fields. This mode is suitable for CDC upsert/delete records, but it is not marked as exactly-once by this connector.
+
+For CDC writes in `streaming` mode, prepare the target BigQuery table with a primary key before starting the SeaTunnel job. The connector maps SeaTunnel row kinds to BigQuery change records: `INSERT` and `UPDATE_AFTER` are written as `UPSERT`, while `DELETE` and `UPDATE_BEFORE` are written as `DELETE`.
 
 #### sequence_number_column
 
@@ -65,7 +74,9 @@ When `sequence_number_column` is configured, the value from that column is sent 
 If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not sent and BigQuery will not perform sequence-number-based deduplication.
 
 > **Note**
-> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`). The column value must be of a type convertible to `long`.
+> - BigQuery requires `_CHANGE_SEQUENCE_NUMBER` to be a hexadecimal `STRING`. For integer columns and exact integral decimal values, such as MySQL `BIGINT UNSIGNED` mapped to `DECIMAL(20, 0)`, the connector converts non-negative values in the unsigned 64-bit range to hexadecimal strings. For string columns, values are treated as already-encoded hexadecimal sequence numbers and are validated without conversion.
+> - A sequence number may contain up to four sections separated by `/`, and each section may contain up to 16 hexadecimal characters. Null, negative, empty, or malformed values are rejected.
+> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`).
 > - To enable BigQuery-side deduplication in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
 
 ### emulator_host
@@ -121,6 +132,18 @@ sink {
 ```
 
 ### CDC Streaming Mode (MySQL to BigQuery)
+
+The target BigQuery table should already exist and should define the primary key used by the CDC source. For example:
+
+```sql
+CREATE TABLE `my-gcp-project.cdc_dataset.orders` (
+  uuid INT64 NOT NULL,
+  name STRING,
+  score INT64,
+  PRIMARY KEY (uuid) NOT ENFORCED
+)
+OPTIONS (max_staleness = INTERVAL 0 MINUTE);
+```
 
 ```hocon
 env {
@@ -187,7 +210,7 @@ sink {
 ### Testing
 
 This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
-For now, the connector should be tested against a real BigQuery environment.
+Use `emulator_host` only for local or CI checks that are compatible with the emulator. Production validation should be done against a real BigQuery environment.
 
 ## Changelog
 

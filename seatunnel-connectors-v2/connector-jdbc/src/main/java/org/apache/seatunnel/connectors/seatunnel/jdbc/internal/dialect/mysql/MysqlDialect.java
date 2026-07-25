@@ -19,11 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -43,14 +41,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -58,10 +53,6 @@ public class MysqlDialect implements JdbcDialect {
 
     private static final List NOT_SUPPORTED_DEFAULT_VALUES =
             Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
-    private static final Set<String> SUPPORTED_TABLE_OPTIONS =
-            Collections.unmodifiableSet(
-                    new LinkedHashSet<>(Arrays.asList("engine", "charset", "collate")));
-
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
     public MysqlDialect() {}
@@ -400,20 +391,6 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public void validateTableOptions(Map<String, String> tableOptions) {
-        if (tableOptions == null || tableOptions.isEmpty()) {
-            return;
-        }
-
-        Set<String> unsupportedOptions = new LinkedHashSet<>(tableOptions.keySet());
-        unsupportedOptions.removeAll(SUPPORTED_TABLE_OPTIONS);
-        if (!unsupportedOptions.isEmpty()) {
-            throw new JdbcConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
-                            dialectName(),
-                            String.join(", ", unsupportedOptions),
-                            String.join(", ", SUPPORTED_TABLE_OPTIONS)));
-        }
+        MysqlFamilyTableOptions.validate(dialectName(), tableOptions);
     }
 }

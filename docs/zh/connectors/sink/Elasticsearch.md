@@ -11,6 +11,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -19,7 +20,6 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 * 支持  `ElasticSearch 版本 >= 2.x 并且 <= 8.x`
 
 :::
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | 否    | -                            |
 | common-options         |         | 否    | -                            |
 | vectorization_fields   | array   | 否    | -                            |
-| vector_dimensions      | int     | 否    | -                            |
+| vector_dimensions      | int     | 否    | 0                            |
 | multi_table_sink_replica | int   | 否    | 1                            |
 
 
@@ -216,6 +216,32 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
 
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持，Spark 和 Flink 不会注入 `FlushSignal`。在 Zeta 中，可以在 `env` 块配置 `sink.flush.interval`，使未达到 `max_batch_size` 的待处理 bulk 请求也能定时写出。
+
+:::tip
+
+Elasticsearch 定时刷新不提供基于 2PC 的精确一次语义。Elasticsearch Sink 当前提供至少一次语义；如果文档 ID 不是确定性的，失败重试可能产生重复写入。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel-index"
+    max_batch_size = 10000
+  }
+}
+```
+
 ## 示例
 
 简单示例
@@ -270,7 +296,6 @@ sink {
 }
 ```
 
-```
 变更数据捕获 (Change data capture) 事件多表写入
 
 ```conf

@@ -100,6 +100,8 @@ Kerberos 的 keytab 文件路径
 
 在中止操作期间是否从 Hive Metastore 中删除分区元数据的标志。注意：这只影响元存储中的元数据，分区中的数据将始终被删除（同步过程中生成的数据）。
 
+默认值为 `false`。
+
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
 支持从时间戳写入 Parquet INT96，仅对 parquet 文件有效。
@@ -120,6 +122,8 @@ Kerberos 的 keytab 文件路径
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
 
 注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+批处理作业中，如果希望本次运行替换目标 Hive 表里的已有数据，可以使用 `overwrite = true` 或 `data_save_mode = "DROP_DATA"`。普通追加写入场景保持默认的 `data_save_mode = "APPEND_DATA"` 即可。
 
 ### schema_save_mode [枚举]
 

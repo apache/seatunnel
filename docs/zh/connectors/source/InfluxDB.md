@@ -11,15 +11,26 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ## 关键特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
 
-支持查询 SQL 并可以实现投影效果。
+## 数据类型映射
 
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
+| SeaTunnel 数据类型 | 说明 |
+|--------------------|------|
+| BOOLEAN            | 从 InfluxDB 返回值解析。 |
+| SMALLINT           | 从 InfluxDB 返回值解析。 |
+| INT                | 从 InfluxDB 返回值解析。 |
+| BIGINT             | 从 InfluxDB 返回值解析。 |
+| FLOAT              | InfluxDB 会把数字按 double 返回，连接器再转换成 FLOAT。 |
+| DOUBLE             | 使用返回的数字值。 |
+| STRING             | 使用返回值作为字符串。 |
+
+当前 InfluxDB source 转换器不支持其他 SeaTunnel 类型。
 
 ## 选项
 
@@ -35,7 +46,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | upper_bound        | int    | 否  | -     | 启用并行范围读取时，`split_column` 的上界。                                                   |
 | partition_num      | int    | 否  | 0     | 查询切分数量。`0` 表示不切分，直接执行原始 `sql`。                                              |
 | split_column       | string | 否  | -     | 分割列                                                                           |
-| where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取 `where` 关键字。                              |
+| where              | string | 否  | -     | 预留的 source 配置项。当前切分逻辑直接从 `sql` 中读取小写 `where` 关键字。                              |
 | epoch              | string | 否  | n     | 返回的时间精度，例如：`H`、`m`、`s`、`MS`、`u`、`n`。                                     |
 | connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）                                                         |
 | query_timeout_sec  | int    | 否  | 3     | 查询超时时间（秒）                                                                     |
@@ -93,6 +104,8 @@ InfluxDB 密码
 > - InfluxDB time 不支持作为分割主键，因为 time 字段无法参与数学计算
 > - 目前，`split_column` 仅支持整数数据分割，不支持 `float`、`string`、`date` 等类型。
 > - `split_column`、`lower_bound`、`upper_bound`、`partition_num` 需要一起配置。
+> - 如果切分读取的 SQL 中包含过滤条件，请在 `sql` 里使用小写 `where`，例如 `select * from test where age > 0`。当前切分解析逻辑区分大小写。
+> - `where` 是配置校验中保留的选项，但当前切分逻辑会从 `sql` 里读取过滤条件。请把过滤条件写在 `sql` 中，不要单独配置 `where`。
 
 ### upper_bound [int]
 

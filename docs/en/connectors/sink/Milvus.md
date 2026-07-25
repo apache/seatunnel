@@ -23,6 +23,7 @@ Common use cases:
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
@@ -52,14 +53,15 @@ Common use cases:
 | url                    | String              | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud, for example `http://127.0.0.1:19530`.                                                                                                                                              |
 | token                  | String              | Yes      | -                            | Milvus authentication token. For a local Milvus server this is usually `username:password`.                                                                                                                                      |
 | database               | String              | No       | -                            | Target database. If it is not set, the sink uses the upstream database when available.                                                                                                                                            |
-| collection             | String              | No       | -                            | Target collection. If it is not set, the sink uses the upstream table name. The deprecated `collection_name` key is accepted as an alias.                                                                                        |
+| collection             | String              | No       | -                            | Target collection. If it is not set, the sink uses the upstream table name. The legacy key `collection_name` is still accepted as a fallback alias.                                                                              |
 | schema_save_mode       | enum                | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Controls how SeaTunnel handles the target collection schema. The default creates the collection only when it does not already exist.                                                                                              |
 | data_save_mode         | enum                | No       | APPEND_DATA                  | Controls how SeaTunnel handles existing data. Supported values are `DROP_DATA`, `APPEND_DATA`, and `ERROR_WHEN_DATA_EXISTS`.                                                                                                    |
 | enable_auto_id         | boolean             | No       | false                        | Whether Milvus should generate primary key values automatically. If this is `true`, do not send values for the primary key field.                                                                                                 |
 | enable_upsert          | boolean             | No       | true                         | Whether to write by upsert instead of insert. Upsert needs a primary key in the collection schema.                                                                                                                               |
 | enable_dynamic_field   | boolean             | No       | true                         | Whether to enable Milvus dynamic fields when SeaTunnel creates a collection.                                                                                                                                                     |
-| batch_size             | int                 | No       | 1000                         | Number of records buffered before one write. In streaming jobs, data can also be flushed when a checkpoint is triggered.                                                                                                         |
-| rate_limit             | int                 | No       | 100000                       | Maximum write rate used by the connector retry/rate-limit control.                                                                                                                                                              |
+| enable_nullable_field  | boolean             | No       | false                        | Enable nullable fields. Requires Milvus 2.5 or later. When enabled, SeaTunnel creates the field as a Milvus nullable field and allows writing `null` values when the SeaTunnel column is nullable and the field is used as a Milvus scalar field. |
+| batch_size             | int                 | No       | 1000                         | Non-negative number of records buffered before one write. Setting it to 0 flushes every record immediately. In streaming jobs, data can also be flushed when a checkpoint is triggered.                                           |
+| rate_limit             | int                 | No       | 100000                       | Milvus collection write-rate limit in MB/s. When greater than 0, the connector sets `collection.insertRate.max.mb` and `collection.upsertRate.max.mb` while the writer is running.                                             |
 | partition_key          | String              | No       | -                            | Field name used as the Milvus partition key when SeaTunnel creates a collection.                                                                                                                                                 |
 | create_index           | boolean             | No       | false                        | Whether to create vector indexes for the target collection. When copying from Milvus source, existing vector index metadata can be used to create matching indexes on the target collection.                                     |
 | load_collection        | boolean             | No       | false                        | Whether to load the target collection into Milvus memory after the collection is created. This is useful when the data should be queried immediately after writing.                                                              |
@@ -69,8 +71,12 @@ Common use cases:
 
 - Vector dimensions come from the SeaTunnel schema. For vector fields generated by `FakeSource`, `columnScale` is used as the vector dimension.
 - If `collection` is not set, the sink uses the upstream table name as the Milvus collection name. This is useful for multi-table jobs.
+- `collection_name` is a backward-compatible alias for `collection`. Prefer `collection` in new jobs.
 - When a Milvus source reads partitions, the sink can create the same partition names on the target collection if the target collection does not use a partition key.
 - `create_index = true` only creates vector indexes when index metadata is available from the upstream catalog, such as when the source is Milvus.
+- `enable_upsert = true` writes by primary key and requires a primary key in the target collection. Use `enable_upsert = false` when writing rows that should be inserted directly.
+- `rate_limit` changes Milvus collection properties while the writer is open and resets the insert/upsert limits to `-1` when the writer closes.
+- `load_collection = true` loads the collection after creation so it can be queried immediately after the write finishes.
 
 ## Task Example
 

@@ -69,10 +69,10 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | sql            | String | 否    | -    | 用于通过Clickhouse服务搜索数据的查询sql.                                                          |
 | filter_query   | String | 否    | -    | 数据过滤条件. 格式为: "field = value", 例如 : filter_query = "id > 2 and type = 1"              |
 | partition_list | Array  | 否    | -    | 指定分区列表过滤数据. 如果是分区表，该字段可以配置为过滤指定分区的数据。. 例如: partition_list = ["20250615", "20250616"] |
-| split.size     | int    | 否    | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 ClickHouse part 数量，最小值为 `1`。值越小，拆分越多，并行读取粒度越细。 |
+| split_size     | int    | 否    | Integer.MAX_VALUE | 在 `table_list` 内配置时，每个 SeaTunnel split 包含的 ClickHouse part 数量。只有把配置展开到 source 外层时才使用 `split.size`。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。 |
 | batch_size     | int    | 否    | 1024 | 从Clickhouse读取一次可以获得的最大数据行数。                                                          |
 
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
+注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。展开到外层时，分片大小参数使用 `split.size`，而不是 `split_size`。
 
 ## 并行读取
 
@@ -87,7 +87,7 @@ Clickhouse源连接器支持并行读取数据。
 ## Tips
 当指定`table_path`参数时，如果不想读取整个表，可以指定`partition_list`或`filter_query`参数过滤指定条件或分区的数据。
 * `partition_list`: 过滤指定分区的数据
-* `filter_query`: 根据指定条件对数据进行过滤
+* `filter_query`: 根据指定条件对数据进行过滤。它也可以和 `sql` 一起使用，SeaTunnel 会把它作为额外的 ClickHouse 侧过滤条件。
 * `split.size`: 使用 `table_path` 读取时，控制每个 SeaTunnel split 包含多少个 ClickHouse part
 
 `batch_size`参数可用于控制每次查询读取的数据量，以避免在读取大量数据时出现OOM异常。适当增加这个值将有助于提高读取过程的性能。
@@ -214,6 +214,7 @@ source {
       {
         table_path = "default.table2"
         sql = "select * from default.table2 where age > 18"
+        split_size = 1
       }
     ]
     server_time_zone = "UTC"

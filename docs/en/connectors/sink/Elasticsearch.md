@@ -11,6 +11,7 @@ Output data to `Elasticsearch`.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -47,7 +48,7 @@ Engine Supported
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
 | vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | -                            |
+| vector_dimensions       | int     | no       | 0                            |
 | multi_table_sink_replica | int     | no       | 1                            |
 
 ### hosts [array]
@@ -216,6 +217,32 @@ Option introduction：
 `DROP_DATA`： Preserve database structure and delete data  
 `APPEND_DATA`：Preserve database structure, preserve data  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+### Timer flush on Zeta
+
+This engine-level feature is supported only by Zeta. Spark and Flink do not inject `FlushSignal` records. On Zeta, configure `sink.flush.interval` in the `env` block to flush pending bulk requests before `max_batch_size` is reached.
+
+:::tip
+
+Elasticsearch timer flush does not provide 2PC exactly-once semantics. The Elasticsearch Sink currently provides at-least-once delivery, and retries can produce duplicate writes when document IDs are not deterministic.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel-index"
+    max_batch_size = 10000
+  }
+}
+```
 
 ## Examples
 

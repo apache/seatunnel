@@ -6,9 +6,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ## 支持的doris版本
 
-- exactly-once & cdc 支持  `Doris version is >= 1.1.x`
-- 支持数组数据类型 `Doris version is >= 1.2.x`
-- 将支持Map数据类型 `Doris version is 2.x`
+- 精确一次与变更数据捕获支持：`Doris version is >= 1.1.x`
+- 数组类型支持：`Doris version is >= 1.2.x`
+- Map 类型支持：`Doris version is 2.x`
 
 ## 引擎支持
 
@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
 | JSON           | STRING                                  |
+| VARIANT        | STRING                                  |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |
@@ -179,6 +180,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 #### 支持的导入数据格式
 
 支持的格式包括 CSV 和 JSON。
+
+当从 SeaTunnel `STRING` 字段写入 Doris `VARIANT` 列时，字段值需要是合法的 JSON 文档。
 
 ## 调优指南
 适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。

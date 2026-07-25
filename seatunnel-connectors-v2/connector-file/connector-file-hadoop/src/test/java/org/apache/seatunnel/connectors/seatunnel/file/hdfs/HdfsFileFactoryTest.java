@@ -37,6 +37,14 @@ class HdfsFileFactoryTest {
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD));
         Assertions.assertNotNull((new HdfsFileSinkFactory()).optionRule());
     }
 }

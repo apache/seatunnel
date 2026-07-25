@@ -11,6 +11,9 @@ Used to write data to Maxcompute.
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -32,6 +35,7 @@ Used to write data to Maxcompute.
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | tunnel_endpoint           | string  | no       | -             |
 | insert_strategy           | string  | no       | upload        |
+| multi_table_sink_replica  | int     | no       | 1             |
 | common-options            | string  | no       |               |
 
 ### accessId [string]
@@ -184,6 +188,14 @@ If set to `upsert`, insert operations use an upsert session. Upsert sessions req
 Using upload sessions for insert operations alongside update or delete operations may cause insert records to appear in the table later than expected.
 When a primary key is present, it is recommended to set `insert_strategy` to `upsert` to ensure consistent upsert behavior.
 
+`UPDATE_AFTER` and `DELETE` rows are always written through a MaxCompute upsert session, so the target table must have a primary key when the job contains update or delete rows. `UPDATE_BEFORE` rows are not supported by this sink.
+
+### multi_table_sink_replica [int]
+
+The number of writer replicas in multi-table sink mode. The default value is `1`.
+
+Use this option when upstream data contains multiple table identifiers and `table_name` uses placeholders such as `${table_name}`. For example, `table_name = "${table_name}_sink"` writes upstream table `test_table` to target table `test_table_sink`.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -202,6 +214,65 @@ sink {
     table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #overwrite = false
+  }
+}
+```
+
+### Multiple Tables
+
+```hocon
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "test_table"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+          { kind = INSERT, fields = [2, "INSERT_TEST2", 30] }
+        ]
+      },
+      {
+        schema = {
+          table = "test_table_2"
+          fields {
+            ID = int
+            NAME = string
+            AGE = int
+          }
+          primaryKey {
+            name = "ID"
+            columnNames = [ID]
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "INSERT_TEST1", 20] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Maxcompute {
+    accessId = "ak"
+    accesskey = "sk"
+    endpoint = "http://maxcompute:8080"
+    tunnel_endpoint = "http://maxcompute:8080"
+    project = "mocked_mc"
+    table_name = "${table_name}_sink"
+    insert_strategy = "upsert"
+    multi_table_sink_replica = 1
   }
 }
 ```

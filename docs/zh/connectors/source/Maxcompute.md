@@ -25,7 +25,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | sts_token      | string | 否  | -             |
 | endpoint       | string | 是  | -             |
 | project        | string | 是  | -             |
-| table_name     | string | 是  | -             |
+| table_name     | string | 未配置 `table_list` 时必填 | -             |
 | schema_name    | string | 否  | -             |
 | partition_spec | string | 否  | -             |
 | split_row      | int    | 否 | 10000         |
@@ -60,7 +60,9 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ### table_name [string]
 
-`table_name` 目标 Maxcompute 表名，例如：fake。
+`table_name` 目标 Maxcompute 表名，例如：`fake`。
+
+`table_name` 和 `table_list` 不能同时配置。读取单表时使用 `table_name`，读取多表时使用 `table_list`。
 
 ### partition_spec [string]
 
@@ -87,6 +89,10 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 ### table_list [Array]
 
 要读取的表列表，您可以使用此配置代替 `table_name`。
+
+每个表配置项都必须包含 `table_name`，也可以单独覆盖 `project`、`schema_name`、`partition_spec`、`split_row` 和 `read_columns`。如果表配置项没有设置这些值，连接器会使用顶层配置。
+
+当一个任务需要用同一组账号、endpoint 和默认 project 读取多张 MaxCompute 表时，可以使用该模式。
 
 ### tunnel_endpoint [String]
 
