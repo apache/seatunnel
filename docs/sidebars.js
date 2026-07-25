@@ -350,6 +350,16 @@ const sidebars = {
         },
         {
             "type": "category",
+            "label": "AI CLI",
+            "items": [
+                "ai-cli/overview",
+                "ai-cli/quickstart",
+                "ai-cli/design",
+                "ai-cli/benchmark"
+            ]
+        },
+        {
+            "type": "category",
             "label": "Tools",
             "items": [
                 "tools/overview",
