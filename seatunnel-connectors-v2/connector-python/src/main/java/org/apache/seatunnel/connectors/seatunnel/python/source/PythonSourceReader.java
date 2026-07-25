@@ -93,6 +93,8 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     private volatile boolean stderrShutdownRequested;
     /** Prevents duplicate bounded-source completion signals across later poll calls. */
     private volatile boolean processExitVerified;
+    /** Persistent deadline for stdout EOF after the direct process exits. */
+    private volatile long stdoutCloseDeadlineNanos;
     /** Number of poll calls that must finish before close can release process resources. */
     private int activePolls;
     /** Ensures concurrent close callers share one deterministic cleanup operation. */
@@ -186,6 +188,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 checkPumpFailures();
                 return;
             }
+            stdoutCloseDeadlineNanos = 0L;
 
             synchronized (output.getCheckpointLock()) {
                 if (closeRequested) {
@@ -427,12 +430,11 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     }
 
     private void finishIfProcessCompleted() throws Exception {
-        if (closeRequested || processExitVerified || !stdoutCompleted || !stdoutLines.isEmpty()) {
+        if (closeRequested || processExitVerified || !stdoutLines.isEmpty()) {
             return;
         }
 
-        if (process.isAlive()
-                && !process.waitFor(PROCESS_EXIT_CHECK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+        if (process.isAlive()) {
             return;
         }
 
@@ -458,7 +460,9 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         if (closeRequested) {
             return false;
         }
-        finishPumpsAfterProcessExit();
+        if (!finishPumpsAfterProcessExit()) {
+            return false;
+        }
         if (closeRequested) {
             return false;
         }
@@ -472,11 +476,20 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     }
 
     /**
-     * Joins stdout after its observed EOF and gives stderr a short drain period before closing its
-     * diagnostic pipe. Stdout is never closed here because doing so could discard valid records.
+     * Waits for stdout EOF after the direct process exits. Buffered rows are returned to pollNext,
+     * while an inherited pipe that never reaches EOF fails explicitly instead of hanging forever.
+     *
+     * @return true when both output pumps are finished and no stdout rows remain buffered
      */
-    private void finishPumpsAfterProcessExit() throws IOException {
+    private boolean finishPumpsAfterProcessExit() throws IOException {
+        if (!awaitStdoutPumpAfterProcessExit()) {
+            return false;
+        }
+
         IOException joinException = joinThread(stdoutPumpThread, "stdout pump", null);
+        if (!stdoutLines.isEmpty()) {
+            return false;
+        }
         waitForPumpDrain(stderrPumpThread);
         if (isAlive(stderrPumpThread)) {
             stderrShutdownRequested = true;
@@ -487,6 +500,64 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         if (joinException != null) {
             throw joinException;
         }
+        return true;
+    }
+
+    /**
+     * Gives stdout one short drain interval per poll after the direct process exits.
+     *
+     * @return true when stdout reached EOF with no buffered rows, or false when polling must
+     *     continue or engine cancellation won the race
+     */
+    private boolean awaitStdoutPumpAfterProcessExit() throws IOException {
+        if (closeRequested || !isAlive(stdoutPumpThread)) {
+            return !closeRequested && stdoutLines.isEmpty();
+        }
+        if (!stdoutLines.isEmpty()) {
+            stdoutCloseDeadlineNanos = 0L;
+            return false;
+        }
+        if (stdoutCloseDeadlineNanos == 0L) {
+            stdoutCloseDeadlineNanos =
+                    System.nanoTime() + TimeUnit.SECONDS.toNanos(PROCESS_DESTROY_TIMEOUT_SECONDS);
+        }
+
+        long remainingNanos = stdoutCloseDeadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            throw inheritedStdoutTimeout();
+        }
+        long waitMillis =
+                Math.min(
+                        PROCESS_EXIT_CHECK_TIMEOUT_MILLIS,
+                        Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos)));
+        try {
+            stdoutPumpThread.join(waitMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(
+                    "Interrupted while draining Python source stdout after process exit", e);
+        }
+
+        if (closeRequested) {
+            return false;
+        }
+        if (!stdoutLines.isEmpty()) {
+            stdoutCloseDeadlineNanos = 0L;
+            return false;
+        }
+        if (isAlive(stdoutPumpThread)) {
+            if (System.nanoTime() >= stdoutCloseDeadlineNanos) {
+                throw inheritedStdoutTimeout();
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /** Creates the explicit protocol failure used when a child keeps the stdout pipe open. */
+    private static IOException inheritedStdoutTimeout() {
+        return new IOException(
+                "Timed out waiting for Python source stdout to close after the process exited; ensure child processes do not inherit stdout");
     }
 
     /** Gives a pump a short grace period to consume bytes already written by the direct child. */

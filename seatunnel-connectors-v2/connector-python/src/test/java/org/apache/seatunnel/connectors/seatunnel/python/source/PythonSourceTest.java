@@ -35,6 +35,7 @@ import org.mockito.Mockito;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,8 +46,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
@@ -164,6 +167,84 @@ class PythonSourceTest {
         Assertions.assertEquals("seatunnel_1", collector.rows.get(0).getField(1));
         Assertions.assertEquals(2, collector.rows.get(1).getField(0));
         Assertions.assertEquals("seatunnel_2", collector.rows.get(1).getField(1));
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    /**
+     * Ensures output larger than the bounded queue is fully drained after process exit.
+     *
+     * <p>The row count exceeds {@code STDOUT_QUEUE_CAPACITY} so completion must yield to later poll
+     * calls instead of waiting for a blocked stdout pump.
+     */
+    @Test
+    void testReaderDrainsBufferedRowsAfterProcessExit() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_rows.py");
+
+        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
+        Map<String, Object> scriptConfig = new HashMap<>();
+        scriptConfig.put("prefix", "buffered");
+        scriptConfig.put("count", 300);
+        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
+
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(new PythonSource(ReadonlyConfig.fromMap(config)), readerContext);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            waitUntilStdoutQueueIsFull(reader);
+            setStdoutCloseDeadline(reader, System.nanoTime() - 1L);
+            reader.pollNext(collector);
+            Assertions.assertEquals(
+                    0L,
+                    getStdoutCloseDeadline(reader),
+                    "queue progress must clear a stale stdout deadline");
+            pollUntilRows(reader, collector, 300);
+            pollUntilBoundedCompletion(reader, collector, readerContext);
+        } finally {
+            reader.close();
+        }
+
+        Assertions.assertEquals(300, collector.rows.size());
+        for (int index = 0; index < collector.rows.size(); index++) {
+            Assertions.assertEquals(index + 1, collector.rows.get(index).getField(0));
+            Assertions.assertEquals(
+                    "buffered_" + (index + 1), collector.rows.get(index).getField(1));
+        }
+        Mockito.verify(readerContext).signalNoMoreElement();
+    }
+
+    /**
+     * Ensures a final stdout row without a newline is emitted before bounded completion.
+     *
+     * <p>This covers the line reader returning its trailing data only at EOF.
+     */
+    @Test
+    void testReaderCollectsTrailingRowWithoutNewline() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/emit_without_newline.py");
+
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(pythonExecutable, scriptPath.toString()))),
+                        readerContext);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            pollUntilRows(reader, collector, 1);
+            pollUntilBoundedCompletion(reader, collector, readerContext);
+        } finally {
+            reader.close();
+        }
+
+        Assertions.assertEquals(1, collector.rows.size());
+        Assertions.assertEquals("python_1", collector.rows.get(0).getField(1));
         Mockito.verify(readerContext).signalNoMoreElement();
     }
 
@@ -331,6 +412,49 @@ class PythonSourceTest {
         Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
     }
 
+    /** Ensures cancellation wins promptly while inherited stdout is awaiting explicit failure. */
+    @Test
+    void testCloseInterruptsInheritedStdoutWait() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/spawn_stdout_child_then_exit.py");
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(pythonExecutable, scriptPath.toString()))),
+                        readerContext);
+        RecordingCollector collector = new RecordingCollector();
+        AtomicBoolean stopPolling = new AtomicBoolean();
+        AtomicReference<Throwable> pollFailure = new AtomicReference<>();
+
+        reader.open();
+        Thread pollThread =
+                new Thread(
+                        () -> {
+                            try {
+                                while (!stopPolling.get()) {
+                                    reader.pollNext(collector);
+                                }
+                            } catch (Throwable e) {
+                                pollFailure.set(e);
+                            }
+                        },
+                        "python-source-inherited-stdout-close-test");
+        pollThread.start();
+        waitUntilStdoutCloseDeadlineIsInitialized(reader);
+        try {
+            Assertions.assertTimeoutPreemptively(Duration.ofSeconds(2), reader::close);
+        } finally {
+            stopPolling.set(true);
+        }
+        pollThread.join(TimeUnit.SECONDS.toMillis(2));
+
+        Assertions.assertFalse(pollThread.isAlive());
+        Assertions.assertNull(pollFailure.get());
+        Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
+    }
+
     @Test
     void testConcurrentCloseStopsBufferedBatchEmission() throws Exception {
         String pythonExecutable = requirePythonExecutable();
@@ -476,6 +600,33 @@ class PythonSourceTest {
         Mockito.verify(readerContext).signalNoMoreElement();
     }
 
+    /** Ensures a child inheriting stdout fails explicitly instead of hanging or succeeding. */
+    @Test
+    void testReaderFailsWhenChildKeepsStdoutOpen() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/spawn_stdout_child_then_exit.py");
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(pythonExecutable, scriptPath.toString()))),
+                        readerContext);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            IOException exception =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(8), () -> pollUntilIOException(reader, collector));
+            Assertions.assertTrue(exception.getMessage().contains("child processes"));
+        } finally {
+            reader.close();
+        }
+
+        Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
+    }
+
     private PythonSourceReader createReader(PythonSource source) {
         return createReader(source, Mockito.mock(SingleSplitReaderContext.class));
     }
@@ -522,8 +673,8 @@ class PythonSourceTest {
                 System.getProperty("os.name", "").toLowerCase().contains("windows")
                         ? new String[] {"python3.exe", "python.exe", "python3", "python"}
                         : new String[] {"python3", "python"};
-        for (String directory : pathValue.split(Pattern.quote(File.pathSeparator))) {
-            for (String commandName : commandNames) {
+        for (String commandName : commandNames) {
+            for (String directory : pathValue.split(Pattern.quote(File.pathSeparator))) {
                 Path candidate = Paths.get(directory, commandName);
                 if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
                     return candidate.toAbsolutePath().normalize().toString();
@@ -577,6 +728,58 @@ class PythonSourceTest {
 
         Assertions.fail("Expected python source reader to fail");
         return null;
+    }
+
+    /** Polls until inherited stdout is reported as a bounded-source protocol violation. */
+    private IOException pollUntilIOException(
+            PythonSourceReader reader, RecordingCollector collector) throws Exception {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                reader.pollNext(collector);
+            } catch (IOException e) {
+                return e;
+            }
+        }
+
+        Assertions.fail("Expected python source reader to reject inherited stdout");
+        return null;
+    }
+
+    /** Waits until the producer is deterministically backpressured by the bounded stdout queue. */
+    private void waitUntilStdoutQueueIsFull(PythonSourceReader reader) throws Exception {
+        Field stdoutLinesField = PythonSourceReader.class.getDeclaredField("stdoutLines");
+        stdoutLinesField.setAccessible(true);
+        BlockingQueue<?> stdoutQueue = (BlockingQueue<?>) stdoutLinesField.get(reader);
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (stdoutQueue.remainingCapacity() > 0 && System.nanoTime() < deadlineNanos) {
+            Thread.sleep(10L);
+        }
+        Assertions.assertEquals(0, stdoutQueue.remainingCapacity(), "stdout queue did not fill");
+    }
+
+    /** Waits until polling has entered the inherited-stdout grace period. */
+    private void waitUntilStdoutCloseDeadlineIsInitialized(PythonSourceReader reader)
+            throws Exception {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (getStdoutCloseDeadline(reader) == 0L && System.nanoTime() < deadlineNanos) {
+            Thread.sleep(10L);
+        }
+        Assertions.assertNotEquals(
+                0L, getStdoutCloseDeadline(reader), "poll did not enter inherited stdout wait");
+    }
+
+    private long getStdoutCloseDeadline(PythonSourceReader reader) throws Exception {
+        Field deadlineField = PythonSourceReader.class.getDeclaredField("stdoutCloseDeadlineNanos");
+        deadlineField.setAccessible(true);
+        return deadlineField.getLong(reader);
+    }
+
+    private void setStdoutCloseDeadline(PythonSourceReader reader, long deadlineNanos)
+            throws Exception {
+        Field deadlineField = PythonSourceReader.class.getDeclaredField("stdoutCloseDeadlineNanos");
+        deadlineField.setAccessible(true);
+        deadlineField.setLong(reader, deadlineNanos);
     }
 
     private void pollUntilBoundedCompletion(
