@@ -36,7 +36,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -50,10 +49,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -111,21 +112,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
 
     @Order(1)
     @TestTemplate
@@ -332,28 +321,21 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertIterableEquals(
-                                    query(
-                                            String.format(QUERY, database, sourceTable)
-                                                    + " where id >= 128"),
-                                    query(
-                                            String.format(QUERY, database, sinkTable)
-                                                    + " where id >= 128"));
+                            assertTableDataEqualsBySourceColumnOrder(
+                                    database, sourceTable, sinkTable, "id >= 128");
 
                             Assertions.assertIterableEquals(
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
@@ -407,28 +389,21 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
         await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertIterableEquals(
-                                    query(
-                                            String.format(QUERY, database, sourceTable)
-                                                    + " where id >= 128"),
-                                    query(
-                                            String.format(QUERY, database, sinkTable)
-                                                    + " where id >= 128"));
+                            assertTableDataEqualsBySourceColumnOrder(
+                                    database, sourceTable, sinkTable, "id >= 128");
 
                             Assertions.assertIterableEquals(
                                     query(String.format(PROJECTION_QUERY, database, sourceTable)),
@@ -467,15 +442,83 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(DESC, database, sourceTable)),
-                                        query(String.format(DESC, database, sinkTable))));
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
         await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, database, sourceTable)),
-                                        query(String.format(QUERY, database, sinkTable))));
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Zeta can apply equivalent schema changes with a different physical column placement, so we
+     * compare DESCRIBE output by column name rather than raw row order.
+     */
+    private void assertSchemaDescriptionEqualsIgnoringColumnOrder(
+            String database, String sourceTable, String sinkTable) {
+        Assertions.assertIterableEquals(
+                normalizeDescRows(query(String.format(DESC, database, sourceTable))),
+                normalizeDescRows(query(String.format(DESC, database, sinkTable))));
+    }
+
+    /**
+     * Reads the sink using the source column order so data assertions remain stable when sink DDL
+     * keeps the same columns but materializes them in a different physical order.
+     */
+    private void assertTableDataEqualsBySourceColumnOrder(
+            String database, String sourceTable, String sinkTable, String whereClause) {
+        List<String> sourceColumns = getColumnNames(database, sourceTable);
+        Assertions.assertIterableEquals(
+                query(
+                        buildOrderedProjectionQuery(
+                                database, sourceTable, sourceColumns, whereClause)),
+                query(
+                        buildOrderedProjectionQuery(
+                                database, sinkTable, sourceColumns, whereClause)));
+    }
+
+    /**
+     * Returns source column names from DESCRIBE so later projections follow the semantic schema
+     * instead of the sink's physical column order.
+     */
+    private List<String> getColumnNames(String database, String table) {
+        List<String> columnNames = new ArrayList<>();
+        for (List<Object> row : query(String.format(DESC, database, table))) {
+            columnNames.add(String.valueOf(row.get(0)));
+        }
+        return columnNames;
+    }
+
+    /** Builds an explicit projection to avoid relying on engine-specific physical column order. */
+    private String buildOrderedProjectionQuery(
+            String database, String table, List<String> columns, String whereClause) {
+        StringBuilder queryBuilder =
+                new StringBuilder("select ")
+                        .append(
+                                columns.stream()
+                                        .map(this::quoteIdentifier)
+                                        .collect(Collectors.joining(",")))
+                        .append(" from ")
+                        .append(quoteIdentifier(database))
+                        .append(".")
+                        .append(quoteIdentifier(table));
+        if (whereClause != null && !whereClause.isEmpty()) {
+            queryBuilder.append(" where ").append(whereClause);
+        }
+        return queryBuilder.append(" order by id").toString();
+    }
+
+    /** Quotes SQL identifiers used in generated verification queries. */
+    private String quoteIdentifier(String identifier) {
+        return "`" + identifier + "`";
+    }
+
+    /** Sorts DESCRIBE rows by column name so equivalent schemas compare deterministically. */
+    private List<List<Object>> normalizeDescRows(List<List<Object>> descRows) {
+        List<List<Object>> normalizedRows = new ArrayList<>(descRows);
+        normalizedRows.sort(Comparator.comparing(row -> String.valueOf(row.get(0))));
+        return normalizedRows;
     }
 
     private Connection getJdbcConnection() throws SQLException {

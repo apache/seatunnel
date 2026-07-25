@@ -89,11 +89,13 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
+                // GitHub Pages serves the published IRIS driver artifact more reliably than the
+                // raw GitHub endpoint that intermittently fails TLS handshakes in CI containers.
                 Container.ExecResult extraCommands =
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -fsSL --retry 5 --retry-delay 2 -k -O "
                                         + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
@@ -433,7 +435,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     @Override
     String driverUrl() {
         // reference: https://intersystems-community.github.io/iris-driver-distribution/
-        return "https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar";
+        return "https://intersystems-community.github.io/iris-driver-distribution/JDBC/JDK18/intersystems-jdbc-3.8.4.jar";
     }
 
     @Override

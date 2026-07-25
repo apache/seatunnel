@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -54,10 +55,7 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             producer.commitTransaction();
             producer.flush();
         }
-        if (this.kafkaProducer != null) {
-            kafkaProducer.close();
-            kafkaProducer = null;
-        }
+        closeProducer();
         return commitInfos;
     }
 
@@ -70,10 +68,7 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.abortTransaction();
         }
-        if (this.kafkaProducer != null) {
-            kafkaProducer.close();
-            kafkaProducer = null;
-        }
+        closeProducer();
     }
 
     private KafkaInternalProducer<?, ?> getProducer(KafkaCommitInfo commitInfo) {
@@ -90,5 +85,12 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
         kafkaProducer.resumeTransaction(
                 commitInfo.getProducerId(), commitInfo.getEpoch(), commitInfo.isTxnStarted());
         return kafkaProducer;
+    }
+
+    private void closeProducer() {
+        if (this.kafkaProducer != null) {
+            KafkaClientUtils.runWithConnectorClassLoader(kafkaProducer::close);
+            kafkaProducer = null;
+        }
     }
 }

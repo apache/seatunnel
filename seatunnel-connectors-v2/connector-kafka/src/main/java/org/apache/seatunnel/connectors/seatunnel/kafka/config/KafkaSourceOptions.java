@@ -55,7 +55,7 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription(
-                            "If true the consumer's offset will be periodically committed in the background.");
+                            "If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.");
 
     public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
             Options.key("debezium_record_include_schema")
@@ -137,4 +137,13 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                             "Whether to strip the Confluent Schema Registry wire format header "
                                     + "(magic byte, schema id and message indexes) before "
                                     + "protobuf deserialization.");
+
+    public static final Option<String> AVRO_SCHEMA =
+            Options.key("avro_schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Effective when the format is avro. The writer Avro schema used to "
+                                    + "deserialize binary Avro messages whose record name, namespace, "
+                                    + "or union layout differs from the SeaTunnel schema.");
 }

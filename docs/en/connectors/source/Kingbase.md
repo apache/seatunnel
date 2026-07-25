@@ -61,7 +61,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:kingbase8://localhost:54321/test                                                                                                                                                                                |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.kingbase8.Driver`.                                                                                                                                                                      |
-| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| username                         | String     | No       | -               | Connection instance user name. The old key `user` is still accepted as a fallback.                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
@@ -153,6 +153,22 @@ source {
     partition_lower_bound = 1
     # Read end boundary
     partition_upper_bound = 500
+  }
+}
+```
+
+### Query With Schema Name
+
+> Kingbase table names are usually written as `schema.table`. You can use either `username` or the fallback key `user` for the connection account.
+
+```
+source {
+  Jdbc {
+    driver = "com.kingbase8.Driver"
+    url = "jdbc:kingbase8://localhost:54321/test"
+    user = "SYSTEM"
+    password = "123456"
+    query = "select * from public.e2e_table_source"
   }
 }
 ```

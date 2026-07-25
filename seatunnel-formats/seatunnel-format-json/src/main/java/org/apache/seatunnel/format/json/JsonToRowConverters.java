@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
@@ -197,6 +198,13 @@ public class JsonToRowConverters implements Serializable {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
                         return convertToBigDecimal(jsonNode);
+                    }
+                };
+            case FLOAT_VECTOR:
+                return new JsonToObjectConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode, String fieldName) {
+                        return convertToFloatVector(jsonNode, fieldName);
                     }
                 };
             case ARRAY:
@@ -366,6 +374,27 @@ public class JsonToRowConverters implements Serializable {
         }
 
         return bigDecimal;
+    }
+
+    private Object convertToFloatVector(JsonNode jsonNode, String fieldName) {
+        if (!jsonNode.isArray()) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    String.format("Field '%s' expects an array for FLOAT_VECTOR.", fieldName));
+        }
+        Float[] values = new Float[jsonNode.size()];
+        for (int i = 0; i < jsonNode.size(); i++) {
+            JsonNode element = jsonNode.get(i);
+            if (element == null || element.isNull() || !element.isNumber()) {
+                throw new SeaTunnelJsonFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "Field '%s' expects numeric values for FLOAT_VECTOR, but element at index %d is '%s'.",
+                                fieldName, i, element));
+            }
+            values[i] = convertToFloat(element);
+        }
+        return VectorUtils.toByteBuffer(values);
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {
