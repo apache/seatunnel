@@ -75,8 +75,8 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ENCODE_VALUE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getOperationType;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -110,7 +110,7 @@ public class MongoDBConnectorDeserializationSchema
         Struct value = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
 
-        OperationType op = operationTypeFor(record);
+        OperationType op = getOperationType(record);
         BsonDocument documentKey =
                 checkNotNull(
                         Objects.requireNonNull(
@@ -182,36 +182,6 @@ public class MongoDBConnectorDeserializationSchema
     @Override
     public List<CatalogTable> getProducedType() {
         return tables;
-    }
-
-    private @Nonnull OperationType operationTypeFor(@Nonnull SourceRecord record) {
-        Struct value = (Struct) record.value();
-        Schema valueSchema = record.valueSchema();
-        if (valueSchema == null || valueSchema.field(OPERATION_TYPE) == null) {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT,
-                    String.format(
-                            "MongoDB CDC record has no %s field. Topic: %s, partition: %s,"
-                                    + " offset: %s",
-                            OPERATION_TYPE,
-                            record.topic(),
-                            record.sourcePartition(),
-                            record.sourceOffset()));
-        }
-
-        String operationType = value.getString(OPERATION_TYPE);
-        if (operationType == null) {
-            throw new MongodbConnectorException(
-                    ILLEGAL_ARGUMENT,
-                    String.format(
-                            "MongoDB CDC record has null %s field. Topic: %s, partition: %s,"
-                                    + " offset: %s",
-                            OPERATION_TYPE,
-                            record.topic(),
-                            record.sourcePartition(),
-                            record.sourceOffset()));
-        }
-        return OperationType.fromString(operationType);
     }
 
     // TODO:The dynamic schema will be completed based on this method later.

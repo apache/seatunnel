@@ -24,11 +24,13 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -266,6 +268,41 @@ public class DynamicChunkSplitterTest {
                         DynamicChunkSplitter.ChunkRange.of(4, 5),
                         DynamicChunkSplitter.ChunkRange.of(5, 6),
                         DynamicChunkSplitter.ChunkRange.of(6, null)));
+    }
+
+    /**
+     * When enable_concurrent_read=false, generateSplits must return exactly one full-table split
+     * with no split key, avoiding any MIN/MAX analysis on the database.
+     */
+    @Test
+    public void testSingleSplitWhenConcurrentReadDisabled() throws Exception {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:postgresql://localhost:5432/test")
+                                        .driverName("org.postgresql.Driver")
+                                        .build())
+                        .enableConcurrentRead(false)
+                        .build();
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("db", "schema", "table")).build();
+
+        Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
+
+        assertEquals(1, splits.size());
+        JdbcSourceSplit split = splits.iterator().next();
+        assertNull(split.getSplitKeyName());
+        assertNull(split.getSplitStart());
+        assertNull(split.getSplitEnd());
+    }
+
+    /** The enable_concurrent_read option must default to true so existing jobs are unaffected. */
+    @Test
+    public void testEnableConcurrentReadOptionDefaultIsTrue() {
+        assertTrue(JdbcSourceOptions.ENABLE_CONCURRENT_READ.defaultValue());
     }
 
     private void check(
