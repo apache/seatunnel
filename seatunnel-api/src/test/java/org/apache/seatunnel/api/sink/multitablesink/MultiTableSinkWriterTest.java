@@ -120,8 +120,7 @@ public class MultiTableSinkWriterTest {
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         TestSinkWriterContext context = new TestSinkWriterContext();
         MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
-                new MultiTableSinkWriter.SinkWriterTemplate(
-                        new DynamicTestSinkWriter("runtime-template"), context, 0);
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
         MultiTableSinkWriter multiTableSinkWriter =
                 new MultiTableSinkWriter(
                         sinkWriters,
@@ -132,7 +131,10 @@ public class MultiTableSinkWriterTest {
                         Collections.emptyList(),
                         0,
                         0,
-                        Collections.singletonList(sinkWriterTemplate));
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) ->
+                                new DynamicTestSinkWriter(
+                                        runtimeCatalogTable.getTablePath().getFullName()));
 
         CatalogTable catalogTable = catalogTable(TablePath.of("db1", "first_runtime_table"));
         multiTableSinkWriter.applySchemaChange(
