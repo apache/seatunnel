@@ -8,47 +8,55 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 用于将数据写入 Hudi。
 
-## 主要特点
+## 主要特性
 
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+:::caution Hive Metastore 同步
+
+SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不会在 Hive Metastore 中注册表或将表同步到 Hive Metastore。`hoodie.datasource.hive_sync.*` 配置不是受支持的 sink 选项，也不会传递给 Hudi 写入客户端。需要注册到 Hive Metastore 时，请单独运行 Apache Hudi `HiveSyncTool` 或其他表注册流程。
+
+:::
 
 ## 选项
 
 基础配置:
 
-|             名称            |   名称  | 是否必需 |      默认值                   |
-|----------------------------|--------|------   |------------------------------|
+| 名称                       | 类型   | 是否必填 | 默认值                       |
+|----------------------------|--------|----------|------------------------------|
 | table_dfs_path             | string | 是      | -                            |
 | conf_files_path            | string | 否      | -                            |
-| table_list                 | string | 否      | -                            |
+| table_list                 | array  | 否      | -                            |
 | schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode             | enum   | 否      | APPEND_DATA                  |
 | common-options             | config | 否      | -                            |
 
 表清单配置:
 
-|       名称                  |  类型  | 是否必需   | 默认值         |
+| 名称                       | 类型    | 是否必填 | 默认值         |
 |----------------------------|--------|----------|---------------|
-| table_name                 | string | yes      | -             |
-| database                   | string | no       | default       |
-| table_type                 | enum   | no       | COPY_ON_WRITE |
-| op_type                    | enum   | no       | insert        |
-| record_key_fields          | string | no       | -             |
-| partition_fields           | string | no       | -             |
-| precombine_field           | string | no       | -             |
-| batch_interval_ms          | Int    | no       | 1000          |
-| batch_size                 | Int    | no       | 1000          |
-| insert_shuffle_parallelism | Int    | no       | 2             |
-| upsert_shuffle_parallelism | Int    | no       | 2             |
-| min_commits_to_keep        | Int    | no       | 20            |
-| max_commits_to_keep        | Int    | no       | 30            |
-| index_type                 | enum   | no       | BLOOM         |
-| index_class_name           | string | no       | -             |
-| record_byte_size           | Int    | no       | 1024          |
-| cdc_enabled                | boolean| no       | false         |
+| table_name                 | string | 是       | -             |
+| database                   | string | 否       | default       |
+| table_type                 | enum   | 否       | COPY_ON_WRITE |
+| op_type                    | enum   | 否       | INSERT        |
+| record_key_fields          | string | 否       | -             |
+| partition_fields           | string | 否       | -             |
+| precombine_field           | string | 否       | -             |
+| batch_interval_ms          | int    | 否       | 1000          |
+| batch_size                 | int    | 否       | 1000          |
+| insert_shuffle_parallelism | int    | 否       | 2             |
+| upsert_shuffle_parallelism | int    | 否       | 2             |
+| min_commits_to_keep        | int    | 否       | 20            |
+| max_commits_to_keep        | int    | 否       | 30            |
+| index_type                 | enum   | 否       | BLOOM         |
+| index_class_name           | string | 否       | -             |
+| record_byte_size           | int    | 否       | 1024          |
+| cdc_enabled                | boolean| 否       | false         |
 
-注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
+注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。
 
 ### table_name [string]
 
@@ -56,7 +64,7 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### database [string]
 
-`database` Hudi 表的database.
+`database` Hudi 表所属的数据库。
 
 ### table_dfs_path [string]
 
@@ -64,11 +72,11 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### table_type [enum]
 
-`table_type` Hudi 表的类型。
+`table_type` Hudi 表的类型，可选值为 `COPY_ON_WRITE` 和 `MERGE_ON_READ`。
 
 ### record_key_fields [string]
 
-`record_key_fields` Hudi 表的记录键字段, 当op_type是`UPSERT`类型时, 必须配置该项.
+`record_key_fields` Hudi 表的记录键字段。当 `op_type` 为 `UPSERT` 时，必须配置该项。
 
 ### partition_fields [string]
 
@@ -80,7 +88,7 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### index_type [string]
 
-`index_type` Hudi 表的索引类型. 当前只支持`BLOOM`, `SIMPLE`, `GLOBAL SIMPLE`三种类型.
+`index_type` Hudi 表的索引类型。当前支持 `BLOOM`、`SIMPLE`、`GLOBAL_BLOOM`。
 
 ### index_class_name [string]
 
@@ -100,11 +108,11 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` 批量写入 Hudi 表的时间间隔。
+`batch_interval_ms` 两次刷新到 Hudi 的最大时间间隔，单位为毫秒。
 
 ### batch_size [Int]
 
-`batch_size` 批量写入 Hudi 表的记录数大小.
+`batch_size` 单次刷新到 Hudi 前最多缓存的记录数。
 
 ### insert_shuffle_parallelism [Int]
 
@@ -135,25 +143,47 @@ import ChangeLog from '../changelog/connector-hudi.md';
 `ERROR_WHEN_SCHEMA_NOT_EXIST`：当表不存在时将抛出错误<br/>
 `IGNORE` ：忽略对表的处理<br/>
 
+### data_save_mode [Enum]
+
+在启动同步任务之前，针对目标端已有数据选择不同的处理方案：<br/>
+`DROP_DATA`：保留表结构并删除已有数据<br/>
+`APPEND_DATA`：保留表结构和已有数据<br/>
+`ERROR_WHEN_DATA_EXISTS`：当已有数据存在时报错<br/>
+
 ### 通用选项
 
 Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
 
 ## 示例
 
-### 单表
+### 单表 UPSERT
+
+当 `op_type` 为 `UPSERT` 时，必须配置 `record_key_fields`。
+
 ```hocon
 sink {
   Hudi {
-    table_dfs_path = "hdfs://nameserivce/data/"
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
     database = "st"
-    table_name = "test_table"
+    table_name = "st_test"
     table_type = "COPY_ON_WRITE"
-    conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
-    batch_size = 10000
-    use.kerberos = true
-    kerberos.principal = "test_user@xxx"
-    kerberos.principal.file = "/home/test/test_user.keytab"
+    op_type = "UPSERT"
+    record_key_fields = "c_bigint"
+    batch_size = 1000
+    batch_interval_ms = 1000
+  }
+}
+```
+
+### 最小单表配置
+
+追加写入时，通常只需要配置 `table_dfs_path` 和 `table_name`。
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    table_name = "st_test"
   }
 }
 ```
@@ -188,15 +218,14 @@ sink {
         database = "st1"
         table_name = "role"
         table_type = "COPY_ON_WRITE"
-        op_type="INSERT"
+        op_type = "INSERT"
         batch_size = 10000
       },
       {
         database = "st1"
         table_name = "user"
         table_type = "COPY_ON_WRITE"
-        op_type="UPSERT"
-        # op_type is 'UPSERT', must configured record_key_fields
+        op_type = "UPSERT"
         record_key_fields = "user_id"
         batch_size = 10000
       },
@@ -206,7 +235,24 @@ sink {
         table_type = "MERGE_ON_READ"
       }
     ]
-    ...
+  }
+}
+```
+
+### CDC 写入 Hudi
+
+当 Hudi 表需要保存 CDC 变更日志信息时，可以开启 `cdc_enabled`。
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    database = "st"
+    table_name = "st_test"
+    table_type = "COPY_ON_WRITE"
+    op_type = "UPSERT"
+    record_key_fields = "id"
+    cdc_enabled = true
   }
 }
 ```

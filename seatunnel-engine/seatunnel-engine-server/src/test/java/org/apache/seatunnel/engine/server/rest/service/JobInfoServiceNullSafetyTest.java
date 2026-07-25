@@ -29,10 +29,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.mockito.Mockito.mock;
@@ -133,5 +135,30 @@ class JobInfoServiceNullSafetyTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(jobId.toString(), result.getString(RestConstant.JOB_ID, null));
+    }
+
+    @Test
+    void shouldListFinishedJobsWhenFinishTimeMetricsOrDagAreMissing() {
+        Long jobWithFinishTime = 2L;
+        JobHistoryService.JobState missingFinishTime = buildJobState(jobId, 1000L, null);
+        JobHistoryService.JobState completed = buildJobState(jobWithFinishTime, 1000L, 2000L);
+
+        when(finishedJobStateMap.values())
+                .thenReturn((java.util.Collection) Arrays.asList(missingFinishTime, completed));
+        when(finishedJobMetricsMap.getOrDefault(jobId, JobMetrics.empty())).thenReturn(null);
+        when(finishedJobMetricsMap.getOrDefault(jobWithFinishTime, JobMetrics.empty()))
+                .thenThrow(new RuntimeException("metrics unavailable"));
+        when(finishedJobVertexInfoMap.get(jobId))
+                .thenThrow(new RuntimeException("dag unavailable"));
+        when(finishedJobVertexInfoMap.get(jobWithFinishTime)).thenReturn(null);
+
+        JsonArray result = jobInfoService.getJobsByStateJson("");
+
+        Assertions.assertEquals(2, result.size());
+        Assertions.assertEquals(
+                jobWithFinishTime.toString(),
+                result.get(0).asObject().getString(RestConstant.JOB_ID, null));
+        Assertions.assertEquals(
+                jobId.toString(), result.get(1).asObject().getString(RestConstant.JOB_ID, null));
     }
 }

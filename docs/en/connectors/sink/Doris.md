@@ -50,7 +50,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | password                       | String  | Yes      | -                            | `Doris` user password                                                                                                                                                                                                                                                                  |
 | database                       | String  | Yes      | -                            | The database name of `Doris` table, use `${database_name}` to represent the upstream table name                                                                                                                                                                                        |
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                             |
-| table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                           |
+| table.identifier               | String  | No       | -                            | Deprecated table identifier. Please use `database` and `table` instead.                                                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                             |
 | sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc).                                                              |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/) |
@@ -173,6 +173,7 @@ You can use the following placeholders
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
 | JSON            | STRING                                  |
+| VARIANT         | STRING                                  |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |
@@ -181,6 +182,9 @@ You can use the following placeholders
 #### Supported import data formats
 
 The supported formats include CSV and JSON
+
+When writing to Doris `VARIANT` columns from SeaTunnel `STRING` fields, the field value should be a
+valid JSON document.
 
 ## Tuning Guide
 Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.

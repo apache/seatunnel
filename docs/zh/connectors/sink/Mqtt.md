@@ -2,164 +2,182 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 # MQTT
 
-> MQTT sink connector
+> MQTT Sink 连接器
 
-## Description
+## 描述
 
-Used to write data to an MQTT broker. Supports MQTT 3.1.1 protocol via the Eclipse Paho client library.
+用于把数据写入 MQTT broker。该连接器基于 Eclipse Paho 客户端库，支持 MQTT 3.1.1 协议。
 
-This connector is suitable for publishing SeaTunnel pipeline data to IoT endpoints and lightweight message brokers. Messages are serialized as JSON or plain text and published to a configurable MQTT topic.
+它适合把 SeaTunnel 作业中的数据发布到物联网设备、边缘网关或轻量消息 broker。消息可以按 JSON 或纯文本格式序列化，并写入指定的 MQTT topic。
 
-## Key features
+## 主要特性
 
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-**Delivery Semantics Notice**:
-This connector provides **at-most-once** delivery when QoS=0, and **best-effort at-least-once** when QoS=1.
-Due to `clean_session=true` (the default, required for stateless operation), unacknowledged messages may be lost during
-client disconnections. For stronger guarantees, consider setting `clean_session=false` (with proper clientId management)
-or enabling source replay capabilities in SeaTunnel.
+:::caution 投递语义
 
-## Supported Engines
+当 `qos = 0` 时，该连接器提供最多一次投递；当 `qos = 1` 时，提供尽力而为的至少一次投递。
+
+默认 `clean_session = true`，连接器按无状态方式运行。客户端断开连接时，未确认的消息可能丢失。设置 `clean_session = false` 后，broker 可以在 writer 运行期间保留会话状态；但当前 Sink 会为每个 writer 自动生成唯一 client id，尚不提供 `client_id` 配置。作业重启后的恢复主要依赖上游重放能力和 MQTT QoS，而不是稳定的 Sink client id。
+
+:::
+
+## 支持引擎
 
 > SeaTunnel Zeta<br/>
 > Flink<br/>
 > Spark<br/>
 
-## Options
+## 选项
 
-|       name            |  type   | required | default value |
-|-----------------------|---------|----------|---------------|
-| url                   | string  | yes      | -             |
-| topic                 | string  | yes      | -             |
-| username              | string  | no       | -             |
-| password              | string  | no       | -             |
-| qos                   | int     | no       | 1             |
-| format                | string  | no       | json          |
-| field_delimiter       | string  | no       | ,             |
-| batch_size            | int     | no       | 1             |
-| retry_timeout         | int     | no       | 5000          |
-| connection_timeout    | int     | no       | 30            |
-| clean_session         | boolean | no       | true          |
-| common-options        |         | no       | -             |
+| 名称                 | 类型      | 是否必须 | 默认值  |
+|--------------------|---------|------|------|
+| url                | string  | 是    | -    |
+| topic              | string  | 是    | -    |
+| username           | string  | 否    | -    |
+| password           | string  | 否    | -    |
+| qos                | int     | 否    | 1    |
+| format             | string  | 否    | json |
+| field_delimiter    | string  | 否    | ,    |
+| batch_size         | int     | 否    | 1    |
+| retry_timeout      | int     | 否    | 5000 |
+| connection_timeout | int     | 否    | 30   |
+| clean_session      | boolean | 否    | true |
+| common-options     |         | 否    | -    |
 
 ### url [string]
 
-The MQTT broker connection URL. Must include protocol, host, and port.
+MQTT broker 连接地址，必须包含协议、主机和端口。
 
-Example: `tcp://broker.example.com:1883`
+示例：`tcp://broker.example.com:1883`
 
 ### topic [string]
 
-The MQTT topic to publish messages to.
+要发布消息的 MQTT topic。
 
-Example: `iot/sensors/temperature`
+示例：`iot/sensors/temperature`
 
 ### username [string]
 
-The username for MQTT broker authentication. Leave unset for anonymous access.
+MQTT broker 认证用户名。匿名访问时可以不配置。
 
 ### password [string]
 
-The password for MQTT broker authentication. Leave unset for anonymous access.
+MQTT broker 认证密码。匿名访问时可以不配置。
 
 ### qos [int]
 
-The MQTT Quality of Service level for published messages.
+发布消息时使用的 MQTT 服务质量等级。
 
-- `0` — At most once (fire and forget)
-- `1` — At least once (acknowledged delivery, default)
+- `0`：最多一次，发送后不等待确认。
+- `1`：至少一次，broker 需要确认收到消息，默认值。
 
 ### format [string]
 
-The serialization format for outgoing messages. Supported values:
+输出消息的序列化格式。支持以下值：
 
-- `json` — Serialize each row as a JSON object (default)
-- `text` — Serialize each row as delimited plain text (delimiter controlled by `field_delimiter`)
+- `json`：把每一行序列化为一个 JSON 对象，默认值。
+- `text`：把每一行序列化为按分隔符拼接的纯文本，分隔符由 `field_delimiter` 控制。
 
 ### field_delimiter [string]
 
-The field delimiter used when `format` is set to `text`. Default is `,`.
+当 `format = "text"` 时使用的字段分隔符。默认值为 `,`。
 
-Examples: `,`, `|`, `\t`
+示例：`,`, `|`, `\t`
 
 ### batch_size [int]
 
-Number of messages to buffer before sending to the broker. Default is `1` (send each message immediately).
+发送到 broker 前缓存的消息数量。默认值为 `1`，表示每条消息都会立即发送。
 
-Higher values improve throughput by reducing per-message overhead. Buffered messages are automatically flushed at each checkpoint and when the writer closes.
+调大该值可以减少逐条发送的开销，提升吞吐。缓存中的消息会在 checkpoint 和 writer 关闭时自动 flush。
 
 ### retry_timeout [int]
 
-Maximum time in milliseconds to retry publishing on transient network failures before failing the task. The writer polls the connection state with exponential backoff during this window.
+发布消息遇到临时网络故障时，最多重试多久，单位为毫秒。writer 会在这个时间窗口内等待连接恢复并重试发送。
 
 ### connection_timeout [int]
 
-The MQTT connection establishment timeout in seconds.
+建立 MQTT 连接的超时时间，单位为秒。
 
 ### clean_session [boolean]
 
-Whether to use a clean MQTT session. Default is `true`.
+是否使用 clean MQTT session。默认值为 `true`。
 
-- `true` — Broker discards any previous session state. Suitable for stateless operation (recommended for most use cases).
-- `false` — Broker retains session state (subscriptions, unacknowledged QoS 1 messages). Enables stronger at-least-once guarantees but may cause broker-side state accumulation. Requires stable, unique `clientId` per writer.
+- `true`：broker 会丢弃之前的会话状态，适合大多数无状态写入场景。
+- `false`：broker 可以在 writer 运行期间保留自动生成的 client id 对应的会话状态。它有助于处理短暂断连，但可能造成 broker 端状态堆积，也不提供跨作业重启的稳定 client id。
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。
 
-## Performance Considerations
+## 性能建议
 
-The MQTT Sink sends messages synchronously to guarantee delivery ordering. Typical throughput:
+MQTT Sink 会同步发送消息，以保持写入顺序。可以通过下面方式提升吞吐：
 
-- QoS 0: ~10,000 messages/sec (local network)
-- QoS 1: ~5,000 messages/sec (requires broker ACK)
+- 适当调大 `batch_size`，例如设置为 `100`，减少逐条发送开销。
+- 如果业务可以接受最多一次投递，把 `qos` 设置为 `0`。
+- 提高 SeaTunnel 作业并行度，让多个 MQTT client 分担写入。
+- 如果需要非常高的吞吐，可以考虑使用 Kafka Sink。
 
-To improve throughput:
+## 示例
 
-- Increase `batch_size` to reduce per-message overhead (e.g., `batch_size = 100`)
-- Reduce `qos` to `0` if at-most-once delivery is acceptable
-- Increase SeaTunnel parallelism to distribute load across multiple MQTT clients
-- For very high throughput requirements, consider using the Kafka Sink instead
-
-## Example
-
-### Simple JSON sink
+### 写入 JSON 消息到 MQTT
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
+  job.mode = "BATCH"
+  job.name = "SeaTunnel_MQTT_Sink"
 }
 
 source {
   FakeSource {
-    row.num = 100
+    row.num = 16
     schema = {
       fields {
         id = bigint
         name = string
-        temperature = double
+        age = int
       }
     }
-    plugin_output = "sensor_data"
+    plugin_output = "fake"
   }
 }
 
 sink {
   MQTT {
-    plugin_input = "sensor_data"
-    url = "tcp://broker.example.com:1883"
-    topic = "iot/sensors/readings"
+    plugin_input = "fake"
+    url = "tcp://mqtt-broker:1883"
+    topic = "test/seatunnel/sink"
     qos = 1
     format = "json"
   }
 }
 ```
 
-### Authenticated broker with text format
+该作业会向 `test/seatunnel/sink` topic 写入 16 条消息。因为 `format` 设置为 `json`，每一行都会被序列化为一条 JSON 消息。
+
+### 使用认证并写入文本格式
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = bigint
+        content = string
+      }
+    }
+  }
+}
+
 sink {
   MQTT {
     url = "tcp://secure-broker.example.com:1883"
@@ -168,12 +186,15 @@ sink {
     password = "secret"
     qos = 1
     format = "text"
+    field_delimiter = "|"
     retry_timeout = 10000
     connection_timeout = 60
   }
 }
 ```
 
-## Changelog
+当 `format = "text"` 时，每一行都会被序列化为一行分隔符文本。可以通过 `field_delimiter` 调整分隔符，以匹配下游消费端的解析方式。
+
+## 变更日志
 
 <ChangeLog />

@@ -13,6 +13,13 @@ Used to write data to Hudi.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+:::caution Hive Metastore synchronization
+
+The SeaTunnel Hudi sink writes Hudi data files and `.hoodie` metadata, but it does not register the table in or synchronize the table with Hive Metastore. Options matching `hoodie.datasource.hive_sync.*` are not supported sink options and are not passed to the Hudi write client. Run Apache Hudi's `HiveSyncTool` or another table registration process separately when Hive Metastore registration is required.
+
+:::
 
 ## Options
 
@@ -24,6 +31,7 @@ Base configuration:
 | conf_files_path            | string  | no       | -                           |
 | table_list                 | Array   | no       | -                           |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST|
+| data_save_mode             | enum    | no       | APPEND_DATA                 |
 | common-options             | Config  | no       | -                           |
 
 Table list configuration:
@@ -80,7 +88,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### index_type [string]
 
-`index_type` The index type of hudi table. Currently, `BLOOM`, `SIMPLE`, and `GLOBAL SIMPLE` are supported.
+`index_type` The index type of hudi table. Currently, `BLOOM`, `SIMPLE`, and `GLOBAL_BLOOM` are supported.
 
 ### index_class_name [string]
 
@@ -100,11 +108,11 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` The interval time of batch write to hudi table.
+`batch_interval_ms` The maximum interval, in milliseconds, between two flushes to Hudi.
 
 ### batch_size [Int]
 
-`batch_size` The size of batch write to hudi table.
+`batch_size` The maximum number of rows buffered before one flush to Hudi.
 
 ### insert_shuffle_parallelism [Int]
 
@@ -135,30 +143,58 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
+### data_save_mode [Enum]
+
+Choose how to handle existing data before the synchronization task starts.
+
+`DROP_DATA`: Keep the table structure and delete existing data.
+
+`APPEND_DATA`: Keep the table structure and existing data.
+
+`ERROR_WHEN_DATA_EXISTS`: Throw an error when data already exists.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Examples
 
-### single table
+### Single Table Upsert
+
+When `op_type` is `UPSERT`, `record_key_fields` must be configured.
+
 ```hocon
 sink {
   Hudi {
-    table_dfs_path = "hdfs://nameserivce/data/"
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
     database = "st"
-    table_name = "test_table"
+    table_name = "st_test"
     table_type = "COPY_ON_WRITE"
-    conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
-    batch_size = 10000
-    use.kerberos = true
-    kerberos.principal = "test_user@xxx"
-    kerberos.principal.file = "/home/test/test_user.keytab"
+    op_type = "UPSERT"
+    record_key_fields = "c_bigint"
+    batch_size = 1000
+    batch_interval_ms = 1000
   }
 }
 ```
 
-### Multiple table
+### Minimal Single Table
+
+For append-only writes, only `table_dfs_path` and `table_name` are required.
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    table_name = "st_test"
+  }
+}
+```
+
+### Multiple Tables
+
+Use `table_list` when the upstream source produces multiple tables.
+
 ```hocon
 env {
   parallelism = 1
@@ -188,15 +224,14 @@ sink {
         database = "st1"
         table_name = "role"
         table_type = "COPY_ON_WRITE"
-        op_type="INSERT"
+        op_type = "INSERT"
         batch_size = 10000
       },
       {
         database = "st1"
         table_name = "user"
         table_type = "COPY_ON_WRITE"
-        op_type="UPSERT"
-        # op_type is 'UPSERT', must configured record_key_fields
+        op_type = "UPSERT"
         record_key_fields = "user_id"
         batch_size = 10000
       },
@@ -206,7 +241,24 @@ sink {
         table_type = "MERGE_ON_READ"
       }
     ]
-    ...
+  }
+}
+```
+
+### CDC To Hudi
+
+Enable `cdc_enabled` when the target Hudi table needs to persist CDC changelog information.
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    database = "st"
+    table_name = "st_test"
+    table_type = "COPY_ON_WRITE"
+    op_type = "UPSERT"
+    record_key_fields = "id"
+    cdc_enabled = true
   }
 }
 ```
