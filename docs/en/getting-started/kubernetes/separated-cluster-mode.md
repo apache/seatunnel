@@ -298,7 +298,7 @@ spec:
 
 ## Create Master StatefulSet
 
-The StatefulSet examples below use a 16 GB JVM heap. Their 20 GiB memory request and 24 GiB memory limit leave additional container memory for metaspace, direct memory, thread stacks, and other native memory. For large-scale data processing, a 32 GB JVM heap is recommended; increase the memory request and limit accordingly, for example to 36 GiB and 40 GiB.
+The StatefulSet examples below use a 16 GB JVM heap, request 4 CPUs and 20 GiB of memory, and limit the container to 8 CPUs and 24 GiB of memory. The memory headroom is reserved for metaspace, direct memory, thread stacks, and other native memory, while the CPU allocation provides capacity for task execution, garbage collection, and engine coordination. For large-scale data processing, a 32 GB JVM heap is recommended; increase the CPU request and limit to 8 and 16, and the memory request and limit to 36 GiB and 40 GiB as a starting point. Adjust these values based on connector characteristics, job parallelism, and observed CPU, GC, and memory utilization.
 
 ```yaml
 apiVersion: apps/v1
@@ -343,10 +343,10 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: 500m
+              cpu: "4"
               memory: 20Gi
             limits:
-              cpu: "1"
+              cpu: "8"
               memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
@@ -416,10 +416,10 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: "1"
+              cpu: "4"
               memory: 20Gi
             limits:
-              cpu: "2"
+              cpu: "8"
               memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config

@@ -298,7 +298,7 @@ spec:
 
 ## 创建 Master StatefulSet
 
-以下 StatefulSet 示例使用 16 GB JVM 堆内存。容器内存 request 设置为 20 GiB、limit 设置为 24 GiB，为 Metaspace、直接内存、线程栈和其他本地内存预留额外空间。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存，并相应提高内存 request 和 limit，例如分别设置为 36 GiB 和 40 GiB。
+以下 StatefulSet 示例使用 16 GB JVM 堆内存，CPU request 设置为 4、limit 设置为 8，容器内存 request 设置为 20 GiB、limit 设置为 24 GiB。内存余量用于 Metaspace、直接内存、线程栈和其他本地内存，CPU 配额用于任务执行、垃圾回收和引擎协调。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存，可将 CPU request 和 limit 分别提高到 8 和 16，并将内存 request 和 limit 分别提高到 36 GiB 和 40 GiB，作为初始配置。请根据 Connector 特性、任务并行度以及实际 CPU、GC 和内存利用率继续调整。
 
 ```yaml
 apiVersion: apps/v1
@@ -343,10 +343,10 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: 500m
+              cpu: "4"
               memory: 20Gi
             limits:
-              cpu: "1"
+              cpu: "8"
               memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
@@ -416,10 +416,10 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: "1"
+              cpu: "4"
               memory: 20Gi
             limits:
-              cpu: "2"
+              cpu: "8"
               memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config
